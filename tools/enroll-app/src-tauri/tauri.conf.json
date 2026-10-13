@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "AIO Enroll",
+  "version": "0.1.0",
+  "identifier": "com.aioapp.enroll",
+  "build": { "frontendDist": "../ui" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      { "title": "AIO Enroll", "width": 900, "height": 680, "minWidth": 640, "minHeight": 480, "center": true }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": ["platform-tools/*"],
+    "icon": ["icons/icon.png"]
+  }
+}

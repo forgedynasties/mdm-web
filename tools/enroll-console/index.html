@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enroll console · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:0 0 60px;}
+.wrap{max-width:1040px;margin:0 auto;padding:0 28px;}
+.ec-topbar{display:flex;align-items:center;gap:12px;padding:18px 28px;border-bottom:1px solid var(--border-soft);margin-bottom:20px;}
+.ec-topbar .brand{font-weight:800;font-size:15px;letter-spacing:-.01em;}
+.ec-topbar .brand .sub{font-weight:500;color:var(--text-faint);font-size:12px;margin-left:8px;}
+.ec-topbar .spacer{flex:1;}
+.ec-themebar{display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;}
+.ec-themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:11.5px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer;}
+.ec-themebar button.on{background:var(--accent);color:#fff;}
+
+.cc-ch .m{font-weight:500;color:var(--text-faint);font-size:11.5px;}
+.body{padding:16px 17px;}
+
+.row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+.field{display:flex;flex-direction:column;gap:4px;}
+.field label{font-size:10.5px;font-weight:700;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;}
+.field label .hint{text-transform:none;font-weight:500;color:var(--text-faint);}
+.field select,.field input{font:inherit;font-size:13px;padding:7px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);min-width:170px;}
+.field select:focus,.field input:focus{outline:2px solid var(--accent-edge);outline-offset:1px;}
+
+/* connection state chip */
+.connchip{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:650;padding:6px 12px;border-radius:99px;background:var(--surface-3);color:var(--text-faint);}
+.connchip .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);}
+.connchip.live{background:var(--ok-bg);color:var(--ok);}.connchip.live .dot{background:var(--ok);}
+.connchip.bad{background:var(--danger-bg);color:var(--danger);}.connchip.bad .dot{background:var(--danger);}
+.connchip.busy{background:var(--warn-bg);color:var(--warn);}.connchip.busy .dot{background:var(--warn);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{text-align:left;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border);}
+td{padding:10px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+tr:last-child td{border-bottom:0;}
+tr.ready{background:color-mix(in srgb,var(--ok) 4%,transparent);}
+code{background:var(--surface-3);border-radius:4px;padding:1px 5px;font-size:11.5px;}
+.muted{color:var(--text-faint);}
+.enrollgrp{display:inline-flex;gap:6px;align-items:center;}
+.enrollgrp select{padding:5px 8px;font-size:12px;border-radius:7px;}
+
+#log{background:var(--surface-3);border-radius:10px;padding:10px 12px;font-family:var(--font-mono,monospace);font-size:11.5px;max-height:240px;overflow:auto;white-space:pre-wrap;line-height:1.6;}
+#log .ok-line{color:var(--ok);}#log .bad-line{color:var(--danger);}#log .warn-line{color:var(--warn);}
+
+.empty{padding:28px 16px;text-align:center;color:var(--text-faint);font-size:12.5px;}
+</style>
+</head>
+<body>
+<div class="ec-topbar">
+  <div class="brand">AIO MDM <span class="sub">Enroll console</span></div>
+  <div class="spacer"></div>
+  <div class="ec-themebar" role="group" aria-label="Theme">
+    <button data-t="light">Light</button><button data-t="dark">Dark</button>
+  </div>
+</div>
+<div class="wrap">
+
+  <div class="cc-card">
+    <div class="cc-ch">
+      <h3>Tailnet machine</h3>
+      <span class="m" id="machineCount"></span>
+      <span class="spacer" style="flex:1;"></span>
+      <span class="connchip" id="connChip"><span class="dot"></span><span id="connLabel">not connected</span></span>
+    </div>
+    <div class="body">
+      <div class="row">
+        <div class="field"><label>Machine</label>
+          <select id="machine"></select>
+        </div>
+        <div class="field"><label>SSH user</label><input id="user" placeholder="user"></div>
+        <div class="field"><label>SSH password <span class="hint">(first time only)</span></label><input id="pass" type="password" placeholder="leave blank after first connect"></div>
+        <button class="cc-btn primary" id="connect">Connect</button>
+        <button class="cc-btn sm" id="refreshMachines">↻ Refresh list</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cc-card" id="devicesCard" style="display:none;">
+    <div class="cc-ch">
+      <h3>adb devices</h3>
+      <span class="m" id="devCount"></span>
+      <span class="spacer" style="flex:1;"></span>
+      <label style="font-size:11.5px;color:var(--text-faint);display:flex;align-items:center;gap:5px;cursor:pointer;">
+        <input type="checkbox" id="autoRefresh" checked> auto-refresh
+      </label>
+      <button class="cc-btn sm" id="refreshDevices">↻ Refresh now</button>
+    </div>
+    <div class="body" style="padding:0;">
+      <table>
+        <thead><tr><th>Handle</th><th>Serial</th><th>Model</th><th>Android</th><th>Status</th><th>Enroll</th></tr></thead>
+        <tbody id="devRows"></tbody>
+      </table>
+      <div class="empty" id="devEmpty" style="display:none;">No devices in <code>adb devices</code> on this machine yet — plug one in via USB and tap "Allow USB debugging".</div>
+    </div>
+  </div>
+
+  <div class="cc-card">
+    <div class="cc-ch"><h3>Log</h3><span class="spacer" style="flex:1;"></span><button class="cc-btn sm" id="clearLog">Clear</button></div>
+    <div class="body"><div id="log">Pick a machine and connect.</div></div>
+  </div>
+</div>
+<script>
+var state = { machine: null, classes: [], connected: false, pollTimer: null };
+
+function setConnChip(mode, label){
+  var el = document.getElementById('connChip');
+  el.className = 'connchip' + (mode ? ' ' + mode : '');
+  document.getElementById('connLabel').textContent = label;
+}
+
+function log(line){
+  var el = document.getElementById('log');
+  if (el.textContent === 'Pick a machine and connect.') el.textContent = '';
+  var cls = line.indexOf('✓') === 0 ? 'ok-line' : line.indexOf('✗') === 0 ? 'bad-line' : line.indexOf('⚠') === 0 ? 'warn-line' : '';
+  var span = document.createElement('div');
+  if (cls) span.className = cls;
+  span.textContent = line;
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+function loadMachines(){
+  fetch('/api/machines').then(r=>r.json()).then(d=>{
+    var sel = document.getElementById('machine');
+    var prev = sel.value;
+    sel.innerHTML = '';
+    var online = (d.machines||[]).filter(m=>m.online);
+    online.forEach(function(m){
+      var o = document.createElement('option');
+      o.value = JSON.stringify({name:m.name, ip:m.ip});
+      o.textContent = m.name + ' (' + m.ip + ')';
+      sel.appendChild(o);
+    });
+    document.getElementById('machineCount').textContent = online.length + ' online';
+    if (!sel.options.length){
+      var o = document.createElement('option'); o.textContent = 'no online machines found'; sel.appendChild(o);
+    } else if (prev) {
+      sel.value = prev;
+    }
+    if (d.error) log('⚠ tailscale status error: ' + d.error);
+  });
+}
+
+function loadClasses(){
+  fetch('/api/classes').then(r=>r.json()).then(d=>{
+    state.classes = d.classes || [];
+    if (!d.admin_key_set) log('⚠ no admin key on the server side — enrollment confirmation will always fail until one is set.');
+  });
+}
+
+function statusCell(d){
+  if (d.state !== 'device') {
+    return '<span class="cc-tag">' + d.state + '</span>';
+  }
+  var det = d.details || {};
+  var blocked = [];
+  if (d.accounts > 0) blocked.push(d.accounts + ' account' + (d.accounts>1?'s':''));
+  if (d.owner && d.owner.set && !d.owner.ours) blocked.push('owned by ' + d.owner.owner);
+  if (blocked.length) return '<span class="cc-tag bad">blocked — ' + blocked.join(', ') + '</span>';
+  if (d.owner && d.owner.set && d.owner.ours) return '<span class="cc-tag ok">ready · already ours</span>';
+  return '<span class="cc-tag ok">ready</span>';
+}
+
+function renderDevices(devices){
+  document.getElementById('devicesCard').style.display = '';
+  document.getElementById('devCount').textContent = devices.length + ' found';
+  document.getElementById('devEmpty').style.display = devices.length ? 'none' : '';
+  var tb = document.getElementById('devRows');
+  var focusHandle = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.handle : null;
+  tb.innerHTML = '';
+  devices.forEach(function(d){
+    var tr = document.createElement('tr');
+    var canEnroll = d.state === 'device' && (!d.owner || !d.owner.set || d.owner.ours) && (!d.accounts || d.accounts === 0);
+    if (canEnroll) tr.className = 'ready';
+    var classOpts = state.classes.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
+    var det = d.details || {};
+    var modelTxt = [det.manufacturer, det.model].filter(Boolean).join(' ') || d.model || '—';
+    tr.innerHTML =
+      '<td><code>' + d.handle + '</code></td>' +
+      '<td><code>' + (det.serial || '—') + '</code></td>' +
+      '<td>' + modelTxt + '</td>' +
+      '<td>' + (det.android || '—') + '</td>' +
+      '<td>' + statusCell(d) + '</td>' +
+      '<td><div class="enrollgrp">' +
+        '<select class="clsSel">' + classOpts + '</select>' +
+        '<button class="cc-btn sm primary enrollBtn" ' + (canEnroll?'':'disabled') + '>Enroll</button>' +
+        '<button class="cc-btn sm rebootBtn">Reboot</button>' +
+      '</div></td>';
+    tr.querySelector('.enrollBtn').addEventListener('click', function(){
+      var cls = tr.querySelector('.clsSel').value;
+      enroll(d.handle, cls, tr.querySelector('.enrollBtn'));
+    });
+    tr.querySelector('.rebootBtn').addEventListener('click', function(){
+      log('rebooting ' + d.handle + '…');
+      fetch('/api/reboot', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({machine: state.machine, handle: d.handle})})
+        .then(r=>r.json()).then(d2=>log((d2.ok?'✓ ':'✗ ') + 'reboot ' + d.handle + (d2.ok?' sent':': '+JSON.stringify(d2))));
+    });
+    tb.appendChild(tr);
+  });
+}
+
+function refreshDevices(silent){
+  if (!state.connected) return;
+  fetch('/api/devices?machine=' + encodeURIComponent(state.machine)).then(r=>r.json()).then(d=>{
+    if (d.error){ if (!silent) log('⚠ refresh error: ' + d.error); return; }
+    renderDevices(d.devices || []);
+  }).catch(function(){});
+}
+
+function startPolling(){
+  if (state.pollTimer) clearInterval(state.pollTimer);
+  state.pollTimer = setInterval(function(){
+    if (document.getElementById('autoRefresh').checked) refreshDevices(true);
+  }, 6000);
+}
+
+function enroll(handle, cls, btn){
+  btn.disabled = true;
+  setConnChip('busy', 'enrolling ' + handle + '…');
+  log('— enrolling ' + handle + ' as ' + cls + ' —');
+  fetch('/api/enroll', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({machine: state.machine, handle: handle, class: cls})})
+    .then(r=>r.json()).then(d=>{
+      (d.log||[]).forEach(log);
+      log(d.ok ? '✓ done' : '✗ failed');
+      setConnChip('live', 'connected · ' + state.machine);
+      refreshDevices();
+    });
+}
+
+document.getElementById('refreshMachines').addEventListener('click', loadMachines);
+document.getElementById('refreshDevices').addEventListener('click', function(){ refreshDevices(); });
+document.getElementById('clearLog').addEventListener('click', function(){ document.getElementById('log').textContent = 'Pick a machine and connect.'; });
+document.getElementById('connect').addEventListener('click', function(){
+  var sel = document.getElementById('machine');
+  var v = sel.value ? JSON.parse(sel.value) : null;
+  if (!v){ log('no machine selected'); return; }
+  state.machine = v.name;
+  var user = document.getElementById('user').value;
+  var pass = document.getElementById('pass').value;
+  setConnChip('busy', 'connecting…');
+  log('connecting to ' + v.name + ' (' + v.ip + ')…');
+  fetch('/api/connect', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({machine: v.name, ip: v.ip, user: user, password: pass})})
+    .then(r=>r.json()).then(d=>{
+      if (d.error){ setConnChip('bad', 'failed'); log('✗ connect failed: ' + d.error); return; }
+      state.connected = true;
+      setConnChip('live', 'connected · ' + v.name + ' (' + d.auth_method + ')');
+      log('✓ connected via ' + d.auth_method + '.');
+      renderDevices(d.devices || []);
+      startPolling();
+    })
+    .catch(function(e){ setConnChip('bad', 'failed'); log('✗ connect failed: ' + e); });
+});
+
+loadMachines();
+loadClasses();
+setInterval(loadMachines, 15000);
+
+(function(){
+  var saved = localStorage.getItem('demo-theme');
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+  document.querySelectorAll('.ec-themebar button').forEach(function(b){
+    if(b.dataset.t === (saved||'light')) b.classList.add('on');
+    b.addEventListener('click', function(){
+      document.documentElement.setAttribute('data-theme', b.dataset.t);
+      try{ localStorage.setItem('demo-theme', b.dataset.t); }catch(e){}
+      document.querySelectorAll('.ec-themebar button').forEach(function(x){x.classList.toggle('on', x===b);});
+    });
+  });
+})();
+</script>
+</body>
+</html>

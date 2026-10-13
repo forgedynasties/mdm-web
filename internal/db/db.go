@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"mdm/internal/metrics"
+	"mdm/internal/command"
 	prod "mdm/internal/product"
 )
 
@@ -4951,7 +4952,7 @@ func (d *DB) DismissCommands(ctx context.Context, ids []uuid.UUID, by string) er
 // type. Every place that serializes a command to a device must route through this.
 func DeviceCommandType(t string) string {
 	// A query and a log bundle are shell commands whose text the server wrote.
-	if t == "query" || t == "collect_logs" {
+	if t == "query" || t == "collect_logs" || t == "canary" {
 		return "shell"
 	}
 	return t
@@ -5008,11 +5009,23 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 	if len(payload) == 0 {
 		payload = json.RawMessage("{}")
 	}
+	// Policy from the registry, stamped on the row at creation: lane, guarantee, deadline
+	// and attempt cap. Delivery and expiry then read columns instead of each re-deciding
+	// what a type means — which is how a 'query' ended up missing from one expiry list and
+	// sat pending forever. internal/command is the single table of record.
+	spec := command.For(cmdType)
+	var deadlineAt any
+	if spec.Deadline > 0 {
+		deadlineAt = time.Now().Add(spec.Deadline)
+	}
 	err = tx.QueryRow(ctx, `
-		INSERT INTO commands (type, apk_url, payload, target_type, created_by)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO commands (type, apk_url, payload, target_type, created_by,
+		                      lane, guarantee, deadline_at, max_attempts)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, type, apk_url, payload, target_type, created_by, created_at
-	`, cmdType, apkURL, payload, targetType, createdBy).Scan(&cmd.ID, &cmd.Type, &cmd.ApkURL, &cmd.Payload, &cmd.TargetType, &cmd.CreatedBy, &cmd.CreatedAt)
+	`, cmdType, apkURL, payload, targetType, createdBy,
+		spec.Lane, string(spec.Guarantee), deadlineAt, spec.MaxAttempts).
+		Scan(&cmd.ID, &cmd.Type, &cmd.ApkURL, &cmd.Payload, &cmd.TargetType, &cmd.CreatedBy, &cmd.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -5046,6 +5059,12 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 		return nil, err
 	}
 	metrics.Default.Emit("command", "warn", cmdType+" → "+targetType+" ("+strconv.Itoa(len(targetIDs))+")")
+	// First line of this command's history, written after the commit so the log never
+	// mentions a command that was rolled back.
+	d.AppendCommandEvent(ctx, cmd.ID, uuid.Nil, "created", map[string]any{
+		"type": cmdType, "lane": spec.Lane, "guarantee": string(spec.Guarantee),
+		"target_type": targetType, "targets": len(targetIDs), "by": createdBy,
+	})
 	return &cmd, nil
 }
 
@@ -5067,7 +5086,7 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 	// action, not a tracked one-off command.
 	// A shell with no author is the legacy OTA progress probe (legacy_watch.go): not
 	// an action, kept out of every history.
-	q := `SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands WHERE type != 'update_splash' AND NOT (type = 'shell' AND created_by = '')`
+	q := `SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands WHERE type != 'update_splash' AND type != 'canary' AND NOT (type = 'shell' AND created_by = '')`
 	if sinceDays > 0 {
 		q += fmt.Sprintf(" AND created_at >= NOW() - INTERVAL '%d days'", sinceDays)
 		// The day window alone doesn't bound the row count — a busy fleet issuing
@@ -5402,7 +5421,10 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		-- row by row instead ran a command_status probe per command ever created: 740 ms for
 		-- zero rows on live, on every connect, ack and minute flush — a CPU core, fleet-wide.
 		WITH live AS MATERIALIZED (
-			SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at
+			-- max_attempts rides along because the delivery filter below reads it; a CTE
+			-- column that is selected but unused costs nothing, a missing one is a runtime
+			-- error on every delivery path at once.
+			SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at, c.max_attempts, c.lane
 			FROM commands c
 			WHERE c.id IN (
 				SELECT id FROM commands WHERE created_at > NOW() - INTERVAL '1 hour'
@@ -5444,6 +5466,15 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 				-- device that stays continuously connected.)
 				OR (cs.status = 'delivered'
 					AND (cs.received_at IS NOT NULL OR c.type = 'reboot'))
+				-- Someone already holds this command and their time has not run out. A WS
+				-- push takes a short lease (command.PushLease) because a push is
+				-- unconfirmed; an HTTP hand-out takes the type's full lease because its 200
+				-- confirms it. Either way the lease expiring is what returns the command to
+				-- the queue — no sweep needed. A reconnecting device releases its own leases
+				-- (ReleaseDeviceLeases), because a fresh socket proves the old delivery dead.
+				OR (cs.lease_expires_at IS NOT NULL AND cs.lease_expires_at > NOW())
+				-- Attempts exhausted: stop pretending. 0 = unlimited (the default).
+				OR (c.max_attempts > 0 AND cs.attempts >= c.max_attempts)
 			)
 		)
 		-- Serialize the queue per device: deliver a command only if there is NO OTHER
@@ -5461,14 +5492,27 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		-- sitting there) is worse than the two racing. The client already serializes actually
 		-- applying an OTA around other work on its own.
 		AND (
-			c.type = 'ota'
+			-- OTA and the daily canary are exempt from the per-device gate in BOTH
+			-- directions (see the c2 filter below). For OTA because a download runs for
+			-- minutes and blocking everything behind it is worse than the two racing; for
+			-- the canary because it exists only to measure whether this device can be
+			-- commanded, and a measurement that delays an operator's command — on exactly
+			-- the devices we are worried about — would be worse than not measuring.
+			c.type IN ('ota', 'canary')
 			-- A blocker must itself be in live: a command past its delivery window (older than an
 			-- hour and not actively downloading/installing) never delivers, so it must not wedge
 			-- the queue behind it — otherwise stale pending commands (e.g. offline-device
 			-- screenshots that pile up) block every newer command forever.
 			OR NOT EXISTS (
 				SELECT 1 FROM live c2
-				WHERE c2.id <> c.id AND c2.created_at < c.created_at AND c2.type <> 'ota'
+				-- Same lane only. One queue per device meant a wedged install held up a
+				-- screenshot, a reboot and everything else for the rest of the hour; a
+				-- lane ("install", "shell", "firmware", "device") serializes work against
+				-- its own kind, which is the actual reason the gate exists. Rows created
+				-- before lanes existed default to 'default', so they serialize together
+				-- exactly as they did before.
+				WHERE c2.id <> c.id AND c2.created_at < c.created_at AND c2.lane = c.lane
+				  AND c2.type NOT IN ('ota', 'canary')
 				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
 					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
 			)
@@ -5712,6 +5756,22 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 			WHERE id = $1 AND EXISTS (SELECT 1 FROM commands c WHERE c.id = $3 AND c.type = 'unenroll')`,
 			deviceID, EnrollUnenrolled, commandID)
 	}
+	// The device is done with it, so it stops holding the lease — nothing is gained by
+	// making a finished command wait out a work-time budget it no longer needs.
+	if _, lerr := d.pool.Exec(ctx, `
+		UPDATE command_status SET lease_id = NULL, lease_expires_at = NULL
+		WHERE command_id = $1 AND device_id = $2`, commandID, deviceID); lerr != nil {
+		log.Printf("[command-lease] release on ack %s: %v", commandID, lerr)
+	}
+	d.AppendCommandEvent(ctx, commandID, deviceID, status, nil)
+	// A command that ran end to end is the only proof this device is controllable, as
+	// opposed to merely reporting. Everything else — a socket, a check-in, a fresh
+	// temperature — is liveness, which is what misled us about AT070AABU00077.
+	if status == "completed" || status == "installed" {
+		if rerr := d.StampCommandRoundTrip(ctx, deviceID); rerr != nil {
+			log.Printf("[command-lease] round-trip stamp %s: %v", deviceID, rerr)
+		}
+	}
 	return err
 }
 
@@ -5735,6 +5795,9 @@ func (d *DB) MarkCommandReceived(ctx context.Context, commandID, deviceID uuid.U
 			SET received_at = COALESCE(command_status.received_at, NOW())
 			WHERE command_status.received_at IS NULL
 	`, commandID, deviceID)
+	if err == nil {
+		d.AppendCommandEvent(ctx, commandID, deviceID, "received", nil)
+	}
 	return err
 }
 
@@ -5832,7 +5895,22 @@ func (d *DB) SetCommandProgressBytes(ctx context.Context, commandID, deviceID uu
 			    updated_at = NOW()
 			WHERE command_status.status NOT IN ('installed', 'failed', 'completed')
 	`, commandID, deviceID, status, progress, bytesDone, bytesTotal)
-	return err
+	if err != nil {
+		return err
+	}
+	// Progress is the lease heartbeat. Both clients already send interim
+	// 'downloading'/'installing' acks, so a long install extends its own lease with code
+	// that already exists — and an install whose device died stops extending it and
+	// returns to the queue on its own, which is what expire-stalled-installs was for.
+	if _, lerr := d.pool.Exec(ctx, `
+		UPDATE command_status cs SET lease_expires_at = GREATEST(
+			cs.lease_expires_at, NOW() + INTERVAL '30 minutes')
+		WHERE cs.command_id = $1 AND cs.device_id = $2 AND cs.lease_expires_at IS NOT NULL`,
+		commandID, deviceID); lerr != nil {
+		log.Printf("[command-lease] heartbeat %s: %v", commandID, lerr)
+	}
+	d.AppendCommandEvent(ctx, commandID, deviceID, "progress", map[string]any{"status": status, "percent": progress})
+	return nil
 }
 
 // ActiveOTAProgressRow is one device's persisted OTA progress, used to rehydrate
@@ -13720,11 +13798,49 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_security TEXT NOT NU
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_app_package   TEXT NOT NULL DEFAULT '';
 ALTER TABLE devices     ADD COLUMN IF NOT EXISTS table_label         TEXT NOT NULL DEFAULT '';
 
+-- Command leases and history (9 Oct). A lease says which device holds a command and until
+-- when, so it returns to the queue on its own instead of needing the 90s re-push sweep,
+-- the per-minute re-flush and a stalled-install job to notice. The event log is
+-- append-only and read by nobody on the delivery path: command_status stays the live
+-- state, so history can never fail a delivery. See db/command_lease.go.
 -- Percent is too coarse to watch: one percent of a two-gigabyte image is twenty
 -- megabytes, so a download that is working looks frozen for many minutes. Devices that
 -- report bytes get a real figure on the page; older clients keep the percent.
 ALTER TABLE command_status ADD COLUMN IF NOT EXISTS bytes_done  BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE command_status ADD COLUMN IF NOT EXISTS bytes_total BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS lease_id         UUID;
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS attempts         INT NOT NULL DEFAULT 0;
+
+-- Per-command policy, stamped from internal/command at creation, so delivery and expiry
+-- read a column instead of re-deciding in SQL. max_attempts 0 = unlimited, which is the
+-- behaviour that existed before this and stays the default.
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS deadline_at  TIMESTAMPTZ;
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS max_attempts INT  NOT NULL DEFAULT 0;
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS lane         TEXT NOT NULL DEFAULT 'default';
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS guarantee    TEXT NOT NULL DEFAULT 'at_least_once';
+
+CREATE TABLE IF NOT EXISTS command_events (
+  id         BIGSERIAL PRIMARY KEY,
+  command_id UUID NOT NULL,
+  device_id  UUID,
+  at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  kind       TEXT NOT NULL,
+  detail     JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS command_events_cmd_idx ON command_events (command_id, at);
+
+-- How this device can be commanded right now (ws | http | none), and the last time a
+-- command actually completed for it — proof of control rather than proof of a socket.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS command_channel       TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_round_trip_ok_at TIMESTAMPTZ;
+
+-- No command channel (9 Oct): when a device last started checking in over HTTP while
+-- holding no WebSocket. The firmware client takes commands over the socket, so a device
+-- in that state reports telemetry, looks healthy and cannot be controlled at all. NULL
+-- means it has a socket (or has never been seen without one). See db.MarkWSMissing.
+ALTER TABLE devices     ADD COLUMN IF NOT EXISTS ws_missing_since    TIMESTAMPTZ;
+
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

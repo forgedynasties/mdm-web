@@ -225,6 +225,19 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         .dd-nick>summary svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
         .dd-nick-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;box-shadow:var(--shadow-pop);white-space:nowrap}
         .ddc-hero:has(.dd-nick[open]){overflow:visible}
+        /* Reporting-but-unreachable notice. Amber when the device can still be reached over
+           its check-in, red when nothing we send can run — the difference between a note and
+           a site visit, so it must be visible without reading the sentence. */
+        .cmdch-ban{display:flex;gap:12px;align-items:flex-start;margin:14px 0 0;padding:12px 14px;
+          border-radius:11px;background:var(--warn-bg);border:1px solid var(--warn-edge)}
+        .cmdch-ban.bad{background:var(--danger-bg);border-color:var(--danger-edge)}
+        .cmdch-ban .i{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
+          background:var(--surface);color:var(--warn);flex:none}
+        .cmdch-ban.bad .i{color:var(--danger)}
+        .cmdch-ban .i svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;
+          stroke-linecap:round;stroke-linejoin:round}
+        .cmdch-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.55;color:var(--text-2)}
+        .cmdch-ban .t b{color:var(--text)}
         </style>{{end}}
         {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
         {{/* Hardware model, as reported by the agent (e.g. "samsung SM-S146VL"); legacy
@@ -252,12 +265,12 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
            without reading it the dashboard claimed a locked device that is sitting on
            the launcher. */}}
       {{/* Only meaningful while the stored config says kiosk is on: once kiosk is off
-           server-side the device is simply out of kiosk, and reporting a past PIN exit
+           server-side the device is simply unlocked, and reporting a past PIN exit
            read as a fault on an ordinary unlocked device. */}}
       {{$ksusp := and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}
-      {{/* Taken out of kiosk on site: reported (ksusp) or recorded and not yet answered. */}}
+      {{/* Unlocked on the device: reported (ksusp) or recorded and not yet answered. */}}
       {{$kout := or $ksusp .KioskExit}}
-      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if $kout}} warn{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $kout}}Taken out of kiosk on site with the exit PIN or code. It stays unlocked until someone locks it again{{else if canAdminOrOperator .Role}}Configure kiosk mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
+      {{if supports .Device "kiosk_set"}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if $kout}} warn{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $kout}}Unlocked on the device with the exit PIN or code. It stays unlocked until someone locks it again{{else if canAdminOrOperator .Role}}Configure locked mode{{else}}Requires the operator role{{end}}" data-role-need="operator">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if $kout}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
       </button>{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
@@ -373,13 +386,13 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <div class="kiosk-modal-head"><span class="kiosk-modal-title">Kiosk mode</span><button type="button" class="modal-close" onclick="kioskModalClose()" aria-label="Close">&times;</button></div>
         <div class="kiosk-modal-body">
         {{if .KioskRule}}
-        {{/* A kiosk rule on the Policies page covers this device. */}}
+        {{/* A lock rule on the Policies page covers this device. */}}
         <div class="kiosk-rule-note" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border-radius:9px;background:var(--surface-3);font-size:13px">
           {{if .KioskOverride}}
-          <span>Set by hand here. The kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
+          <span>Set by hand here. The kiosk rule <a href="/kiosk"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
           {{if canAdminOrOperator .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/kiosk/follow-rule" style="margin:0 0 0 auto"><button type="submit" class="cc-btn sm">Follow the rule again</button></form>{{end}}
           {{else}}
-          <span>Managed by the kiosk rule <a href="/manage"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
+          <span>Managed by the kiosk rule <a href="/kiosk"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
           {{end}}
         </div>
         {{end}}
@@ -413,7 +426,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
               </div>
             {{else}}
               {{/* No installed apps reported for this device. Never a free-text box:
-                   typing an arbitrary package let kiosk lock to an app that isn't on
+                   typing an arbitrary package let app lock to an app that isn't on
                    the device, which silently fails to engage lock-task. Kiosk can only
                    target an app the device actually reports. */}}
               <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
@@ -542,10 +555,32 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 })();
 </script>
 
+{{with .CommandChannel}}
+<div class="cmdch-ban{{if not .Reachable}} bad{{end}}" id="command-channel-notice" role="status">
+  <span class="i">{{if .Reachable}}<svg viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>{{end}}</span>
+  <div class="t">
+    {{if .Reachable}}
+      <b>Commands are going over its check-in</b>, not over a live connection — no WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span>. It is reachable, about a minute behind, and
+      its socket is not reconnecting on its own. Remote screen and the adb tunnel need that socket
+      and will not work until it comes back.
+    {{else}}
+      <b>Reporting, but nothing can be sent to it.</b> No WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span> while it kept checking in. This client takes
+      commands over the socket only, so anything queued for it will sit at "sent to device" and never
+      run — it is alive and cannot be controlled. Its reconnect loop is gone; a reboot is what brings
+      it back.
+    {{end}}
+    {{if .RoundTrip.IsZero}}No command has ever completed on this device.{{else}}Last command that
+    actually completed: <span data-rel="{{timeISO .RoundTrip}}">{{timeSince .RoundTrip}}</span>.{{end}}
+  </div>
+</div>
+{{end}}
+
 {{with .KioskExit}}
 <div class="kx-ban" id="kiosk-exit-notice" role="status">
   <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
-  <div class="t"><b>Taken out of kiosk on site</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/manage" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
+  <div class="t"><b>Unlocked on the device</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
   {{if canAdminOrOperator $.Role}}<div class="a">
     <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
     <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
@@ -3302,7 +3337,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{end}}
       {{else}}
       <div class="muted" style="padding:12px 14px;font-size:12.5px;border-top:1px solid var(--border-soft);">
-        Nothing recorded yet. Changes made from this page — kiosk mode, wireless charging, placement, naming — will appear here with who made them.
+        Nothing recorded yet. Changes made from this page — locked mode, wireless charging, placement, naming — will appear here with who made them.
       </div>
       {{end}}
     </div>
@@ -3349,7 +3384,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
           <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}Standard MDM{{else}}Firmware MDM{{end}}</span>
         {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
       </span></div>
-      <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
+      <div class="ddc-kv"><span class="k">Locked app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
     </div>
     {{/* Security posture as the client reports it (a dash = never reported), and the
          wireless adb switch on the row it changes. The switch is the adb_tcp command:
@@ -3662,7 +3697,7 @@ function appsAfterRefresh() {
     var n = document.querySelectorAll('#apps-table .app-row:not(.app-installing)').length;
     c.textContent = n + ' app' + (n === 1 ? '' : 's');
   }
-  // Keep the kiosk locked-app picker in sync with the drawer, so a newly installed app
+  // Keep the app locked-app picker in sync with the drawer, so a newly installed app
   // is selectable without a page reload.
   if (window.kioskPickerReload) { try { window.kioskPickerReload(); } catch (e) {} }
 }
@@ -4308,7 +4343,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // the pill/toggle optimistically. The pill flips instantly; the real device applies
   // it on its next check-in (and SSE will confirm/settle the state either way).
   var kioskBusy = false;
-  // Kiosk lock is only supported for the AIO app on our firmware: lock another app and
+  // App lock is only supported for the AIO app on our firmware: lock another app and
   // the device does go into kiosk, but it keeps reporting kiosk off, so the dashboard
   // says "Kiosk off" over a locked device (FW-2026-000025). Warn before that happens.
   // A hard restriction is available to admins as the kiosk allowlist in
@@ -4320,7 +4355,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var pkg = document.getElementById('kiosk-pkg-value');
     if (!form || !val) return;
     if (enabled && pkg && pkg.value && !window.kioskIsAioApp(pkg.value)) {
-      if (!window.confirm('Only the AIO app is fully supported in kiosk mode.\n\n'
+      if (!window.confirm('Only the AIO app is fully supported in locked mode.\n\n'
           + pkg.value + ' will be locked on the device, but the device keeps reporting kiosk as off, '
           + 'so this page will show "Kiosk off" while the device is actually locked.\n\nLock it anyway?')) {
         return;
@@ -4374,7 +4409,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // Reflect state on the footer buttons:
   //  - kiosk OFF        → [Enable kiosk] (disabled until an app is chosen)
   //  - kiosk ON, same   → [Turn off kiosk]
-  //  - kiosk ON, changed→ [Turn off kiosk] [Switch kiosk app]
+  //  - kiosk ON, changed→ [Turn off kiosk] [Switch locked app]
   // Named kioskRefreshToggle for continuity with its callers (mdmSyncKiosk, SSE).
   window.kioskRefreshToggle = function () {
     var applyBtn = document.getElementById('kiosk-apply-btn');
@@ -4399,7 +4434,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       if (offBtn) offBtn.hidden = false;
       if (changed && hasApp) {
         applyBtn.hidden = false;
-        applyBtn.textContent = orig.mode === 'app' ? 'Switch kiosk app' : 'Apply changes';
+        applyBtn.textContent = orig.mode === 'app' ? 'Switch locked app' : 'Apply changes';
         applyBtn.disabled = false;
       } else {
         applyBtn.hidden = true;
@@ -4433,7 +4468,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     window.kioskModalClose();
   };
   // Picking a different app just updates the buttons (no auto-apply); an explicit
-  // Enable / Change kiosk app press commits it.
+  // Enable / Change locked app press commits it.
   document.addEventListener('change', function (e) {
     if (!e.target) return;
     if (e.target.id === 'kiosk-pkg-value') {
@@ -4592,12 +4627,12 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
         // newer than the last point already plotted.
         //
         // Dedup off the last plotted CHECK-IN time, not the battery series: a device
-        // in kiosk mode with no battery (dedicated kiosk hardware) never populates
+        // in locked mode with no battery (dedicated kiosk hardware) never populates
         // allBattery, so keying off it left newest = -Infinity forever. Every SSE
         // frame then re-passed the guard — and frames re-fire on any device-update,
         // e.g. a command-status change re-sends the same latest check-in — so temp/RAM
         // got double-plotted while the chart's live edge never advanced cleanly. That
-        // is the "graphs not updating in kiosk mode" report. Track the check-in time
+        // is the "graphs not updating in locked mode" report. Track the check-in time
         // across all series so the guard is source-agnostic.
         var last = window.mdmChart.lastPlottedMs;
         if (last === undefined || last === null) {
@@ -4796,7 +4831,7 @@ async function saveNewApp() {
 </script>
 
 <script>
-// Kiosk locked-app picker: an always-visible, searchable grid/list of installed
+// App locked-app picker: an always-visible, searchable grid/list of installed
 // apps. Selecting one writes the package id to the hidden #kiosk-pkg-value and
 // fires 'change' (which re-applies if kiosk is on and un-gates the toggle). Apps
 // come from the server-rendered #kiosk-apps-src data island so grid and list stay

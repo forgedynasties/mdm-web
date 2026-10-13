@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rail behaviour — second round</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 28px 90px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 13.5px; max-width: 840px; margin: 0 0 24px; line-height: 1.55; }
+  .opt { margin: 0 0 34px; }
+  .opt h2 { font-size: 15px; margin: 0 0 3px; display: flex; align-items: center; gap: 9px; }
+  .opt .note { color: var(--muted); font-size: 12.5px; margin: 0 0 10px; max-width: 840px; line-height: 1.5; }
+  .opt .note b { color: var(--text); font-weight: 650; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .badge.live { background: var(--ok-bg); color: var(--ok); }
+  .badge.pick { background: var(--accent-soft); color: var(--accent-text); }
+  .hint { font-size: 11.5px; color: var(--accent-text); font-weight: 600; margin: 0 0 8px; }
+
+  .mock { position: relative; height: 330px; border: 1px solid var(--border); border-radius: var(--r-4);
+    overflow: hidden; background: var(--bg); user-select: none; box-shadow: var(--shadow-sm); }
+  .k-app { position: absolute; left: 0; top: 0; bottom: 0; width: 56px; background: var(--surface);
+    border-right: 1px solid var(--border-soft); padding: 12px 8px; z-index: 6; overflow: hidden;
+    white-space: nowrap; transition: width .2s cubic-bezier(.4,0,.2,1), transform .2s; }
+  .k-app.open { width: 196px; }
+  .k-brand { height: 26px; display: flex; align-items: center; gap: 10px; font-size: 14.5px;
+    font-weight: 600; padding: 0 4px 0 5px; margin-bottom: 10px; cursor: pointer; }
+  .k-brand .fav { width: 26px; height: 26px; border-radius: 8px; flex: none;
+    background: linear-gradient(135deg,#f0803c,#e2574c); }
+  .k-brand .wm, .k-l span { opacity: 0; transition: opacity .14s; }
+  .k-app.open .k-brand .wm, .k-app.open .k-l span { opacity: 1; }
+  .k-l { display: flex; align-items: center; gap: 11px; padding: 6px 7px; border-radius: 8px;
+    font-size: 12.5px; color: var(--muted); cursor: pointer; position: relative; }
+  .k-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; }
+  .k-l i { width: 15px; height: 15px; border-radius: 4px; background: currentColor; opacity: .42; flex: none; }
+  .k-l kbd { position: absolute; right: 8px; font-size: 9.5px; font-family: var(--mono);
+    color: var(--text-faint); opacity: 0; }
+  .k-app.open .k-l kbd { opacity: 1; }
+
+  .k-child { position: absolute; left: 56px; top: 0; bottom: 0; width: 196px; z-index: 3;
+    background: var(--surface); border-right: 1px solid var(--border-soft); padding: 14px 10px;
+    display: flex; flex-direction: column; gap: 3px; overflow: hidden;
+    transition: width .2s cubic-bezier(.4,0,.2,1), left .2s cubic-bezier(.4,0,.2,1); }
+  .k-app.open ~ .k-child { left: 196px; width: 56px; padding-left: 6px; padding-right: 6px; }
+  .k-t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 0 9px 4px; white-space: nowrap; }
+  .k-app.open ~ .k-child .k-t { visibility: hidden; height: 8px; padding: 0; }
+  .k-r { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+  .k-r.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .k-app.open ~ .k-child .k-r { justify-content: center; padding: 4px 0; }
+  .k-app.open ~ .k-child .k-r .nm { display: none; }
+  .k-app.open ~ .k-child .k-r::after { content: attr(data-n); font-family: var(--mono);
+    font-size: 12px; font-weight: 700; color: var(--text-faint); }
+  .k-app.open ~ .k-child .k-r.on::after { color: var(--accent-text); }
+  .sw { width: 18px; height: 18px; border-radius: 6px; flex: none;
+    background: linear-gradient(135deg, hsl(var(--h) 62% 58%), hsl(calc(var(--h) + 24) 58% 46%)); }
+  .k-app.open ~ .k-child .sw { display: none; }
+
+  .k-body { position: absolute; left: 252px; right: 0; top: 0; bottom: 0; padding: 18px; overflow: hidden; }
+  .k-body h3 { font-size: 16px; margin: 0 0 10px; }
+  .k-body .ln { height: 10px; border-radius: 5px; background: var(--surface2); margin-bottom: 9px; }
+  .k-body .ln.b { width: 80%; } .k-body .ln.c { width: 56%; }
+  .k-card { border: 1px solid var(--border-soft); border-radius: 10px; height: 130px; margin-top: 14px; background: var(--surface); }
+  .state { position: absolute; right: 10px; top: 10px; z-index: 8; font-family: var(--mono);
+    font-size: 10.5px; color: var(--text-faint); background: var(--surface); border: 1px solid var(--border-soft);
+    border-radius: 7px; padding: 3px 8px; }
+  .edge { position: absolute; left: 0; top: 0; bottom: 0; width: 7px; z-index: 7; }
+  .edge.lit { background: linear-gradient(90deg, var(--accent), transparent); opacity: .5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Rail behaviour — second round</h1>
+  <p class="lede">
+    All six are live: move the pointer into each mock and see what the rail does. What is on stage
+    today is <b>M</b> — hover opens, and every arrival flashes it open for a beat. The rest are
+    different opinions about <i>when a navigation rail has earned the right to move</i>.
+    The badge in the corner of each mock says what that one is thinking.
+  </p>
+
+  <div class="opt" id="m">
+    <h2>M · Hover + flash on arrival <span class="badge live">on stage now</span></h2>
+    <p class="note">Crossing the rail opens it after 120ms; leaving folds it after 220ms; every page
+      you land on flashes it open for 1.1s. <b>Bad:</b> it opens whenever the pointer so much as
+      travels past the left edge on its way somewhere else, which on a wide screen is often.</p>
+    <div class="mock" data-mode="hover"></div>
+  </div>
+
+  <div class="opt" id="n">
+    <h2>N · Intent, not proximity <span class="badge pick">my pick</span></h2>
+    <p class="note">It opens only when the pointer is <b>aiming</b> at it: moving leftward, slowly,
+      and still inside after ~90ms. A fast diagonal across the rail on the way to a table leaves it
+      shut. Same close as today. <b>Good:</b> kills the single most annoying thing about hover rails
+      — the one that opens when you did not ask — without costing a click when you did.
+      <b>Bad:</b> "sometimes it opens, sometimes it does not" if the thresholds are wrong; it needs
+      tuning against a real hand, not a spec.</p>
+    <p class="hint">↓ try swiping across quickly, then approaching slowly</p>
+    <div class="mock" data-mode="intent"></div>
+  </div>
+
+  <div class="opt" id="o">
+    <h2>O · Hot edge — a 7px strip, not the whole rail</h2>
+    <p class="note">The icons do nothing on hover; the first 7px of the screen does. Arriving from
+      the far edge is a gesture you make on purpose, and nothing else lives there. <b>Good:</b>
+      dead simple to explain and impossible to trigger by accident; the icon column stays a quiet
+      row of targets you can click straight through. <b>Bad:</b> a 7px target is small on a 4K
+      screen, and the affordance is invisible until someone finds it by accident.</p>
+    <p class="hint">↓ touch the very left edge</p>
+    <div class="mock" data-mode="edge"></div>
+  </div>
+
+  <div class="opt" id="q">
+    <h2>Q · Reading mode — it folds when you start working</h2>
+    <p class="note">The rail opens on hover as usual, but it also <b>folds itself the moment you
+      scroll the content or type</b>, and does not come back until the pointer returns to the left
+      edge. <b>Good:</b> matches intent rather than position — someone scrolling a device table has
+      finished navigating — and gives long tables their width back automatically.
+      <b>Bad:</b> state that changes from something you did <i>elsewhere</i> can feel haunted the
+      first time it happens.</p>
+    <p class="hint">↓ hover to open, then scroll inside the page area</p>
+    <div class="mock" data-mode="reading"></div>
+  </div>
+
+  <div class="opt" id="r">
+    <h2>R · Keyboard-first, mouse-second</h2>
+    <p class="note">⌘K opens the palette, <b>⌘1…⌘9 jump straight to a rail row</b>, and the rail
+      itself opens only on focus or on a click of the logo — hover does nothing. The folded numbers
+      are the shortcuts, so the rail teaches itself. <b>Good:</b> for the person who lives in this
+      dashboard all day, this is the fastest the nav can be, and nothing ever moves unasked.
+      <b>Bad:</b> discovery is a cliff; a monitoring screen that nobody types at gets a nav that
+      never opens.</p>
+    <p class="hint">↓ click inside, then press 1–5 (⌘ optional here)</p>
+    <div class="mock" data-mode="keys" tabindex="0"></div>
+  </div>
+
+  <div class="opt" id="s">
+    <h2>S · Sticky by page — it remembers per section</h2>
+    <p class="note">Open the rail on Fleet and it stays open on Fleet, for good. Fold it on Apps and
+      Apps stays folded. Each page remembers how you last left it, per browser. <b>Good:</b> the
+      pages where you navigate constantly settle open, the ones you read settle shut, and nobody has
+      to choose a global policy. <b>Bad:</b> the same rail behaving differently on two pages is hard
+      to explain, and the setting is invisible — you only find out by noticing.</p>
+    <p class="hint">↓ fold/unfold with the logo, then hop pages and come back</p>
+    <div class="mock" data-mode="sticky"></div>
+  </div>
+
+  <p class="lede"><b>Pick: N, with Q as a second layer.</b> Intent-based opening fixes the real
+    complaint about hover rails while keeping a rail you never have to click; reading mode is the
+    one rule that reliably gets the width back when you need it. R is the one to build if you want
+    the dashboard to feel like a tool rather than a site — and the ⌘1…⌘9 part is worth stealing into
+    whichever option wins.</p>
+</div>
+
+<script>
+var PAGES = {
+  fleet:  { t: 'Fleet',  rows: ['All devices', 'AIO Test Bistro', 'Harbour Grill', 'Lab bench'] },
+  apps:   { t: 'Apps',   rows: ['All apps', 'Needs attention', 'On your fleet', 'Recently added'] },
+  alerts: { t: 'Alerts', rows: ['Open', 'Acknowledged', 'Resolved', 'Alert rules'] },
+  lock:   { t: 'Lock',   rows: ['Lock rules', 'Unlocked on site', 'No rule covers', 'Venues'] }
+};
+var HUES = [18, 212, 142, 288];
+
+document.querySelectorAll('.mock').forEach(function (m) {
+  var mode = m.dataset.mode, cur = 'fleet', row = 0, open = false, t = null;
+  var sticky = {}, lastX = 999, lastT = 0, inZone = null;
+
+  m.innerHTML =
+    '<div class="k-app"><div class="k-brand"><span class="fav"></span><span class="wm">AIO MDM</span></div>' +
+    ['alerts', 'fleet', 'apps', 'lock'].map(function (p, i) {
+      return '<div class="k-l" data-p="' + p + '"><i></i><span>' + PAGES[p].t + '</span><kbd>⌘' + (i + 1) + '</kbd></div>';
+    }).join('') + '</div>' +
+    '<div class="k-child"></div><div class="k-body"></div><div class="edge"></div><div class="state"></div>';
+
+  var app = m.querySelector('.k-app'), child = m.querySelector('.k-child'),
+      body = m.querySelector('.k-body'), state = m.querySelector('.state'), edge = m.querySelector('.edge');
+
+  function paint(msg) {
+    var p = PAGES[cur];
+    child.innerHTML = '<div class="k-t">' + p.t + '</div>' + p.rows.map(function (r, i) {
+      return '<div class="k-r' + (i === row ? ' on' : '') + '" data-i="' + i + '" data-n="' + (i + 1) + '">' +
+             '<span class="sw" style="--h:' + HUES[i] + '"></span><span class="nm">' + r + '</span></div>';
+    }).join('');
+    body.innerHTML = '<h3>' + p.t + ' · ' + p.rows[row] + '</h3><div class="ln b"></div><div class="ln c"></div>' +
+      '<div class="k-card"></div><div class="ln b"></div><div class="ln c"></div><div class="k-card"></div>';
+    m.querySelectorAll('.k-l').forEach(function (l) { l.classList.toggle('on', l.dataset.p === cur); });
+    app.classList.toggle('open', open);
+    state.textContent = msg || (open ? 'open' : 'folded');
+  }
+  function set(v, msg) { open = v; if (mode === 'sticky') sticky[cur] = v; paint(msg); }
+
+  // ── per-mode opening ──────────────────────────────────────────────────────
+  if (mode === 'hover') {
+    app.addEventListener('pointerenter', function () { clearTimeout(t); t = setTimeout(function () { set(true); }, 120); });
+    app.addEventListener('pointerleave', function () { clearTimeout(t); t = setTimeout(function () { set(false); }, 220); });
+  }
+  if (mode === 'intent') {
+    m.addEventListener('pointermove', function (e) {
+      var r = m.getBoundingClientRect(), x = e.clientX - r.left, now = performance.now();
+      var vx = (x - lastX) / Math.max(1, now - lastT);      // px per ms; negative = heading left
+      lastX = x; lastT = now;
+      if (open) return;
+      if (x < 56 && vx < 0.25) {                             // inside, and not tearing past
+        if (!inZone) inZone = setTimeout(function () { set(true, 'opened on intent'); inZone = null; }, 90);
+      } else if (inZone) { clearTimeout(inZone); inZone = null; if (x < 56) state.textContent = 'ignored a fly-by'; }
+    });
+    app.addEventListener('pointerleave', function () { clearTimeout(t); t = setTimeout(function () { set(false); }, 220); });
+  }
+  if (mode === 'edge') {
+    edge.addEventListener('pointerenter', function () { edge.classList.add('lit'); clearTimeout(t); set(true, 'edge'); });
+    app.addEventListener('pointerleave', function () { edge.classList.remove('lit'); clearTimeout(t); t = setTimeout(function () { set(false); }, 220); });
+    m.addEventListener('pointermove', function (e) {
+      var x = e.clientX - m.getBoundingClientRect().left;
+      edge.classList.toggle('lit', x < 7);
+    });
+  }
+  if (mode === 'reading') {
+    app.addEventListener('pointerenter', function () { clearTimeout(t); t = setTimeout(function () { set(true); }, 120); });
+    app.addEventListener('pointerleave', function () { clearTimeout(t); t = setTimeout(function () { set(false); }, 220); });
+    body.addEventListener('wheel', function () { if (open) set(false, 'folded: you started reading'); });
+  }
+  if (mode === 'keys') {
+    m.querySelector('.k-brand').addEventListener('click', function () { set(!open, open ? 'folded' : 'opened by the logo'); });
+    m.addEventListener('keydown', function (e) {
+      var n = parseInt(e.key, 10);
+      if (n >= 1 && n <= PAGES[cur].rows.length) { row = n - 1; paint('jumped with ' + n); e.preventDefault(); }
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { set(true, 'palette'); e.preventDefault(); }
+    });
+    m.addEventListener('click', function () { m.focus(); });
+  }
+  if (mode === 'sticky') {
+    m.querySelector('.k-brand').addEventListener('click', function () { set(!open, (open ? 'folded' : 'opened') + ' — remembered for ' + PAGES[cur].t); });
+  }
+
+  // ── navigation, shared ────────────────────────────────────────────────────
+  m.addEventListener('click', function (e) {
+    var l = e.target.closest('.k-l');
+    if (l) {
+      cur = l.dataset.p; row = 0;
+      if (mode === 'sticky') { open = !!sticky[cur]; paint(open ? 'remembered open' : 'remembered folded'); return; }
+      if (mode === 'hover') { open = true; clearTimeout(t); t = setTimeout(function () { set(false); }, 1100); paint('flash on arrival'); return; }
+      paint();
+      return;
+    }
+    var r = e.target.closest('.k-r');
+    if (r) { row = +r.dataset.i; paint(); }
+  });
+  paint();
+});
+</script>
+</body>
+</html>

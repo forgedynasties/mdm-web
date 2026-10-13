@@ -1,5 +1,10 @@
 {{define "restaurant_detail.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Venues">
+  <div class="cr-t">Venues</div>
+  <a href="/devices?view=restaurants" class="cr-l on"><span>All venues</span></a>
+  <a href="/devices?view=groups" class="cr-l"><span>Groups</span></a>
+</aside>
 <style>
 /* per-day evidence strip under the Power & usage tiles */
 /* The tile grid sits inside a .card, which has no padding of its own — without this the
@@ -97,6 +102,49 @@
     fire only for deployed units during these hours.
   </p>
 </div>
+
+{{/* Device lock, where the business thinks about it. The rule has always been expressible as a
+     restaurant-scoped lock rule; it could only be reached from the fleet-wide rules
+     page, so the sentence "this venue's tablets run the ordering app" had nowhere to be
+     said. What the rule says and what the devices are actually doing are shown together,
+     because a device can be unlocked on the device and that disagreement is the thing
+     worth seeing. */}}
+{{with .Kiosk}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic mut"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+    <h2>Device lock</h2>
+    <div class="card-header-actions" style="margin-left:auto">
+      <a class="cc-btn sm" href="/kiosk">All lock rules</a>
+    </div>
+  </div>
+  <div style="padding:14px 16px">
+    {{if .Package}}
+      <div style="font-size:13.5px;line-height:1.55">These tablets lock to <b>{{.Package}}</b>.
+        <span class="muted">{{.Locked}} of {{.Total}} locked{{if .Exited}} · <span style="color:var(--danger)">{{.Exited}} taken out on site</span>{{end}}</span></div>
+      {{if .Disagree}}<div class="muted small" style="margin-top:5px">{{sub .Total .Locked}} device{{if ne (sub .Total .Locked) 1}}s are{{else}} is{{end}} not locked — either it has not checked in since the rule was set, or someone unlocked the device.</div>{{end}}
+    {{else}}
+      <div style="font-size:13.5px">No lock rule for this venue. <span class="muted">{{.Locked}} of {{.Total}} tablet{{if ne .Total 1}}s are{{else}} is{{end}} locked by another rule or by hand.</span></div>
+    {{end}}
+
+    {{if canAdminOrOperator $.Role}}
+    <form action="/restaurants/{{$.Restaurant.ID}}/kiosk" method="POST" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px">
+      <select name="kiosk_package" class="form-input" style="min-width:230px" aria-label="App these tablets lock to">
+        <option value="">Not locked</option>
+        {{$cur := .Package}}
+        {{range .Choices}}<option value="{{.Package}}"{{if eq .Package $cur}} selected{{end}}>{{.Label}}</option>{{end}}
+        {{if and $cur (not .Choices)}}<option value="{{$cur}}" selected>{{$cur}}</option>{{end}}
+      </select>
+      <label class="checkbox-label" style="font-size:12.5px"><input type="checkbox" name="offline_exit" value="1"{{if .Offline}} checked{{end}}> Allow the on-device exit code</label>
+      <button type="submit" class="cc-btn sm primary">Save</button>
+      {{/* The list offers only what these tablets actually have installed — locking to an
+           app that is not on the device is the one mistake this picker can prevent. */}}
+      <span class="muted small">Only apps installed on this venue's tablets are offered.</span>
+    </form>
+    {{end}}
+  </div>
+</div>
+{{end}}
 
 <!-- Guest Wi-Fi: shown to guests on this venue's tablets (home-screen card + QR code) -->
 {{$gw := .GuestWifi}}

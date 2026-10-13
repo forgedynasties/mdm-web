@@ -267,7 +267,7 @@
     <div class="ovd-main">
       {{/* ── Device wall: every device one square, restaurants worst first ── */}}
       <div class="cc-card ovd-o1">
-        <div class="cc-ch"><h2>Fleet</h2>{{if .Wall}}<span class="m">every square is a device · worst restaurants first</span>{{end}}<a class="r" href="/devices"{{if not .Wall}} style="margin-left:auto"{{end}}>All devices</a></div>
+        <div class="cc-ch"><h2>Fleet</h2><a class="r" href="/devices" style="margin-left:auto">All devices</a></div>
         {{if .Wall}}
         <div class="ovd-wall{{if gt .WallTotal 900}} sm{{end}}">
           {{range .Wall}}
@@ -279,19 +279,6 @@
         </div>
         <div class="ovd-wfoot">
           <span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen for 2+ weeks</span>
-        </div>
-        {{/* Shape on the tile stays just square/mains vs. circle/battery (legible at any density,
-             even the 7px "sm" wall past 900 devices) — the exact class is named here instead,
-             with its real icon, since this legend never shrinks. */}}
-        <div class="ovd-wfoot ovd-wfoot-cls">
-          <span><svg class="k"><use href="#dk-t7"/></svg>T7 <i class="shape shape-sq"></i></span>
-          <span><svg class="k"><use href="#dk-mpos"/></svg>Handheld <i class="shape shape-sq"></i></span>
-          <span><svg class="k"><use href="#dk-payment"/></svg>Payment <i class="shape shape-sq"></i></span>
-          <span><svg class="k"><use href="#dk-tablet"/></svg>Tablet <i class="shape shape-sq"></i></span>
-          <span><svg class="k"><use href="#dk-kiosk"/></svg>Kiosk <i class="shape shape-circle"></i></span>
-          <span><svg class="k"><use href="#dk-kds"/></svg>KDS <i class="shape shape-circle"></i></span>
-          <span><svg class="k"><use href="#dk-pos"/></svg>POS <i class="shape shape-circle"></i></span>
-          <span><svg class="k"><use href="#dk-dongle"/></svg>Menu board <i class="shape shape-circle"></i></span>
         </div>
         {{else}}
         <div class="ovd-empty"><b>No devices enrolled yet.</b></div>

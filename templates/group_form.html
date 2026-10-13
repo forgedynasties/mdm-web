@@ -1,5 +1,10 @@
 {{define "group_form.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Venues">
+  <div class="cr-t">Venues</div>
+  <a href="/devices?view=restaurants" class="cr-l"><span>All venues</span></a>
+  <a href="/devices?view=groups" class="cr-l on"><span>Groups</span></a>
+</aside>
 
 <div class="cc-wrap">
 <a href="/devices?view=groups" class="back-link">← Groups</a>

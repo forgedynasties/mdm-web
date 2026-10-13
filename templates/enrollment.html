@@ -6,6 +6,17 @@
    The strip sits under the title; each tab carries its count so nothing is hidden.
    The open tab rides in the URL (?tab=) so links and reloads land on it. */
 .en-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin:4px 0 16px;overflow-x:auto;scrollbar-width:none}
+@media (min-width: 1024px) {
+  .en-tabs[data-child-rail] {
+    position: fixed; left: 208px; top: 0; bottom: 0; width: 196px;
+    flex-direction: column; align-items: stretch; gap: 2px; margin: 0; padding: 16px 10px;
+    border: 0; border-right: 1px solid var(--border-soft); border-bottom: 0;
+    overflow-x: hidden; overflow-y: auto; z-index: 43;
+  }
+  .en-tabs[data-child-rail] > * { width: 100%; text-align: left; white-space: nowrap; }
+  body.has-child-rail .en-tabs[data-child-rail] { left: 56px; }
+  body.rail-open .en-tabs[data-child-rail] { width: 56px; left: 196px; }
+}
 .en-tabs::-webkit-scrollbar{display:none}
 .en-tabs button{font:inherit;font-size:13px;font-weight:700;color:var(--text-faint);background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:9px 13px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:7px}
 .en-tabs button:hover{color:var(--text)}
@@ -125,13 +136,13 @@
 
   {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
        any are ready, else profiles — whatever has work, or setup when nothing does. */}}
-  <div class="en-tabs" role="tablist" data-default="{{if gt $inboxN 0}}inbox{{else if gt .SightingsReady 0}}found{{else}}profiles{{end}}">
-    <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
-    <button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
-    <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>
-    <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span>{{if .Unenrollments}}<span class="n" title="handed back">−{{len .Unenrollments}}</span>{{end}}</button>
-    <button type="button" role="tab" data-tab="how">How devices get here</button>
-  </div>
+  <nav class="en-tabs child-rail" data-child-rail aria-label="Enrollment">
+  <div class="cr-t">Enrollment</div>
+  <button type="button" data-tab="inbox" class="cr-l on"><span>Needs assignment</span><span class="cr-ini">Ne</span>{{if gt $inboxN 0}}<span class="n">{{$inboxN}}</span>{{end}}</button>
+  <button type="button" data-tab="profiles" class="cr-l"><span>Profiles</span><span class="cr-ini">Pr</span></button>
+  <button type="button" data-tab="recent" class="cr-l"><span>Enrollments</span><span class="cr-ini">En</span></button>
+  <button type="button" data-tab="how" class="cr-l"><span>How devices get here</span><span class="cr-ini">Ho</span></button>
+</nav>
 
   <section class="en-tabpane" data-tab="found" role="tabpanel">
   {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
@@ -373,7 +384,8 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       if (push) { try { var u = new URL(location.href); u.searchParams.set('tab', t); history.replaceState(null, '', u); } catch (e) {} }
     }
     var want = new URLSearchParams(location.search).get('tab');
-    show(tabs.some(function (b) { return b.dataset.tab === want; }) ? want : strip.dataset.default, false);
+    var fallback = strip.dataset.default || (tabs[0] && tabs[0].dataset.tab);
+    show(tabs.some(function (b) { return b.dataset.tab === want; }) ? want : fallback, false);
     tabs.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.tab, true); }); });
     // One ⋯ menu open at a time; a click anywhere else closes it.
     document.addEventListener('click', function (e) {

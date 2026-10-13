@@ -813,6 +813,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return ""
 		},
+		// swatchHue is a stable colour for a user-typed name — a venue, a group. Two
+		// venues are told apart in a rail by their mark before their name is read, and
+		// the same venue keeps the same colour on every page and every session, because
+		// it is derived from the name rather than stored anywhere.
+		"swatchHue": func(name string) int {
+			var hsum uint32 = 2166136261 // FNV-1a: short, stable, and spreads short strings
+			for i := 0; i < len(name); i++ {
+				hsum ^= uint32(name[i])
+				hsum *= 16777619
+			}
+			return int(hsum % 360)
+		},
 		// pct returns done/total as an integer percentage (0-100), for progress bars.
 		"pct": func(done, total int) int {
 			if total <= 0 {
@@ -856,7 +868,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"roleLabel":      roleLabel,
 		"roleLevel":      roleLevel,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
-		// for group/restaurant creation and kiosk mode. Used to show those controls.
+		// for group/restaurant creation and locked mode. Used to show those controls.
 		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },
 		// canAct gates only the Actions dock link. Every authenticated role may
 		// open the Actions page — viewers see it read-only (the builder, recipes,
@@ -1863,6 +1875,16 @@ func parseOrigins(raw string) []string {
 // links that must work outside the current request's context (device-fetched APK
 // URLs, emailed verify/reset links). Prefers the configured PUBLIC_ORIGIN;
 // falls back to the request's own scheme+host.
+// publicBase is baseURL with no request to read: what a background job must use when it
+// puts a URL in a command. Without a configured PUBLIC_ORIGIN there is nothing truthful
+// to say, so it falls back to the loopback the box itself can always reach.
+func (h *Handler) publicBase() string {
+	if len(h.publicOrigins) > 0 {
+		return h.publicOrigins[0]
+	}
+	return "http://127.0.0.1:8080"
+}
+
 func (h *Handler) baseURL(r *http.Request) string {
 	if len(h.publicOrigins) > 0 {
 		return h.publicOrigins[0]
@@ -2171,7 +2193,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "restaurants"
 	case strings.HasPrefix(path, "/productions"):
 		data["ActivePage"] = "productions"
-	case strings.HasPrefix(path, "/manage"):
+	case strings.HasPrefix(path, "/lock"), strings.HasPrefix(path, "/kiosk"), strings.HasPrefix(path, "/manage"):
 		data["ActivePage"] = "manage"
 	case strings.HasPrefix(path, "/commands"):
 		data["ActivePage"] = "commands"
@@ -2209,6 +2231,15 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 var prefetchableTemplates = map[string]bool{
 	"overview.html": true, "devices.html": true, "health.html": true,
 	"commands.html": true, "updates.html": true,
+	// Child-rail destinations: moving within a section is the most common
+	// navigation in the dashboard, and the rail warms the next page on hover.
+	"alerts.html": true, "alert_config.html": true, "report_alerts.html": true,
+	"apps.html": true, "app_detail.html": true, "jobs.html": true,
+	"command_history.html": true, "clients.html": true, "manage.html": true,
+	"enrollment.html": true, "groups.html": true, "restaurants.html": true,
+	"settings.html": true, "updates_rollouts.html": true, "releases.html": true,
+	"packages.html": true, "users.html": true, "activity.html": true,
+	"users_access.html": true,
 }
 
 // pageViewSkip are full-page templates that are not "the user looked at
@@ -2518,7 +2549,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		}
 		if on && !d.KioskEnabled {
 			todos = append(todos, todo{Sev: "info", Kind: "kiosk", Station: st.Name, Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
-				Body: "Guests can leave the app. Ask the MDM team to turn kiosk mode back on."})
+				Body: "Guests can leave the app. Ask the MDM team to turn locked mode back on."})
 		}
 		if st.Crashes >= 3 {
 			todos = append(todos, todo{Sev: "warn", Kind: "crashes", Station: st.Name, Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
@@ -2831,7 +2862,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 				needGroups[i].Body = "The MDM team can see the details; a restart usually helps in the meantime."
 			case "kiosk":
 				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " not locked to the app"
-				needGroups[i].Body = "Guests can leave the app. Ask the MDM team to turn kiosk mode back on."
+				needGroups[i].Body = "Guests can leave the app. Ask the MDM team to turn locked mode back on."
 			}
 			if n > 6 {
 				needGroups[i].More = n - 6
@@ -3284,7 +3315,7 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 // requireAdminOrOperator extends requireAdmin (admin/dev) to also allow operators, for
 // the fleet-organisation tasks the test team owns: creating groups and restaurants
-// and setting kiosk mode. Viewers and operators still can't reach these.
+// and setting locked mode. Viewers and operators still can't reach these.
 func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -3342,13 +3373,21 @@ func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
 func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 	families, suggestions, mode := h.libraryData(r.Context())
 	apps, _ := h.db.ListApps(r.Context())
+	cov := h.appCoverage(r.Context(), apps)
 	h.render(w, r, "apps.html", map[string]any{
 		"Title":         "App library",
-		"ActivePage":    "commands",
+		"ActivePage":    "apps",
 		"Apps":          apps,
 		"Families":      families,
 		"Suggestions":   suggestions,
 		"AppFamilyMode": mode,
+		// What is actually installed out there, against what the library holds. The page
+		// listed what COULD be installed and said nothing about the fleet, so nobody could
+		// ask "is this app out there, and is it the version we think". See app_coverage.go.
+		"Coverage": cov,
+		// Shelves: what needs attention, what the fleet runs, what was uploaded and never
+		// rolled out, what arrived recently. See app_store.go.
+		"Store": h.appStore(r.Context(), families, cov, apps),
 	})
 }
 
@@ -5098,6 +5137,17 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "fleet-headline-oob", rd)
 		return
 	}
+	// The vetted checks, for the selection's "Run a check" — the catalog is the only thing
+	// multi-device query needed that the Devices page did not already have.
+	if qs, err := h.db.ListDeviceQueries(r.Context()); err == nil {
+		var enabled []db.DeviceQuery
+		for _, q := range qs {
+			if q.Enabled {
+				enabled = append(enabled, q)
+			}
+		}
+		data["Queries"] = enabled
+	}
 	h.render(w, r, "devices.html", data)
 }
 
@@ -6340,7 +6390,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		h.mapViews.Add(1)
 	}
 
-	// Kiosk locked-app choices: this device's app-drawer apps (launchable, when
+	// App locked-app choices: this device's app-drawer apps (launchable, when
 	// the client reports it) filtered by the kiosk allowlist (empty allowlist =
 	// all apps). Keeps the picker to apps a person could actually be locked into.
 	kioskApps := make([]db.DevicePackage, 0, len(installedPkgs))
@@ -6361,7 +6411,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
 	devFams, _, _ := h.libraryData(r.Context())
-	// The kiosk rule covering this device, and whether it was overridden by hand.
+	// The lock rule covering this device, and whether it was overridden by hand.
 	kioskRule := h.kioskRuleFor(r.Context(), *device)
 	_, kioskOverride := h.db.KioskRuleMark(r.Context(), device.ID)
 	if kioskRule == nil {
@@ -6438,6 +6488,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
 		"KioskExit":           h.kioskExitFor(r, device),
+		// Reporting but unreachable: fresh telemetry, no socket. The badge says Offline and
+		// cannot say why it matters, so the banner does. See command_channel.go.
+		"CommandChannel":      h.commandChannelFor(r, device),
 		"LateSpans":           h.lateSpansFor(r, device),
 		"KioskRule":           kioskRule,
 		"KioskOverride":       kioskOverride,
@@ -7338,9 +7391,14 @@ func (h *Handler) ReportAlertsByRestaurant(w http.ResponseWriter, r *http.Reques
 		more = len(shown) - 8
 		shown = shown[:8]
 	}
-	h.tmpl.ExecuteTemplate(w, "report-alerts-by-restaurant", map[string]any{
-		"Rows": shown, "Total": total, "More": more,
-	})
+	data := map[string]any{"Rows": shown, "Total": total, "More": more}
+	// The bare fragment is what the Overview card embeds; a direct visit gets the
+	// page, with the chrome and the Alerts rail around it.
+	if r.Header.Get("HX-Request") != "" && r.Header.Get("HX-Boosted") == "" {
+		h.tmpl.ExecuteTemplate(w, "report-alerts-by-restaurant", data)
+		return
+	}
+	h.render(w, r, "report_alerts.html", data)
 }
 
 // DeploymentEvents streams SSE notifications to open deployment pages so OTA
@@ -9533,6 +9591,9 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
 	data["ScopesJSON"] = h.pickerScopesJSON(r)
+	// Kiosk belongs on the venue: "the tablets at this restaurant run the ordering app"
+	// is the sentence the business says. See venue_kiosk.go.
+	data["Kiosk"] = h.venueKiosk(r, id)
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on group-updated
 		_ = h.tmpl.ExecuteTemplate(w, "group-kpis", h.withRole(r, data))
 		return
@@ -9780,11 +9841,9 @@ var restaurantTimezones = []tzOption{
 }
 
 func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
-	// The standalone list is retired — Restaurants now live in the Fleet
-	// collections rail / in-shell grid. Redirect old links/bookmarks there.
-	http.Redirect(w, r, "/devices?view=restaurants", http.StatusFound)
-	return
-
+	// Venues is a place of its own again. Sending it to the Fleet shell meant the
+	// rail's "Venues" opened a page headed "9 of 20 devices online" with a Collections
+	// rail — the nav said one thing and the page said another.
 	restaurants, err := h.db.ListRestaurants(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -11217,7 +11276,7 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"checkin_interval_seconds": interval,
 		})
 		h.hub.Push(id, msg)
-		// Enabling kiosk locks the device to one app — wake the screen too, so a device
+		// Enabling app locks the device to one app — wake the screen too, so a device
 		// that was asleep doesn't sit locked to a black screen until something else wakes
 		// it. The client already handles this frame for remote-control capture; reused
 		// as-is here, no new client support needed.
@@ -11267,7 +11326,7 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 	if enabled && pkg == "" {
-		http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+		http.Error(w, "Kiosk package is required when enabling locked mode", http.StatusBadRequest)
 		return
 	}
 	if !enabled {
@@ -15219,7 +15278,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			{Type: "collect_logs", Name: "Collect logs", Desc: "logcat, dumpsys, getprop, OTA log — a file per device", Payload: "none", Cap: "system app"},
 			{Type: "shell", Name: "Shell", Desc: "raw shell command", Payload: "shell", Cap: "system app"},
 			{Type: "reboot", Name: "Reboot", Desc: "restart devices — confirm to send", Payload: "none", Destructive: true},
-			{Type: "set_kiosk", Name: "Kiosk mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
+			{Type: "set_kiosk", Name: "Locked mode", Desc: "lock to one app, or unlock", Payload: "kiosk"},
 			{Type: "update_splash", Name: "Boot splash", Desc: "replace the boot logo from an image URL", Payload: "splash", Cap: "system app", Destructive: true},
 			{Type: "wipe", Name: "Factory wipe", Desc: "erase completely — typed confirm", Payload: "none", Cap: "DPC only", Destructive: true},
 			{Type: "unenroll", Name: "Unenroll", Desc: "stop managing it and keep its data — the device leaves the fleet", Payload: "none", Cap: "DPC only", Destructive: true},
@@ -15516,6 +15575,15 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// buckets without a reload or a flash.
 	if r.URL.Query().Get("partial") == "histlive" {
 		h.renderCachedHTML(w, r, "cmd-timeline-inner", h.withRole(r, data))
+		return
+	}
+	// /jobs is the same data without the send console: in flight, needs attention, and
+	// what has run. The console is being dismantled (its verbs are moving to the thing
+	// they act on — the app for installs, the device selection for diagnostics), and this
+	// is the half that has to survive it, because nothing else shows work in flight.
+	if r.URL.Path == "/jobs" {
+		data["JobsView"] = true
+		h.render(w, r, "jobs.html", data)
 		return
 	}
 	h.render(w, r, "commands.html", data)
@@ -16775,6 +16843,9 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		"Siblings":   siblings,
 		"Nicknames":  nick,
 		"Deliveries": deliveries,
+		// What actually happened to this command, per device, with the waits named — the
+		// difference between "we sent it" and "it ran". See command_timeline.go.
+		"Timelines":  h.commandTimelines(r.Context(), cmd.ID, deliveries),
 		"Stats":      computeDeliveryStats(deliveries),
 		"From":       from,
 		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
@@ -17532,14 +17603,14 @@ func (h *Handler) resolveScopeDeviceIDs(r *http.Request) ([]uuid.UUID, error) {
 	return ids, nil
 }
 
-// applyKioskForTargets sets (or clears) kiosk mode on the resolved target devices and
+// applyKioskForTargets sets (or clears) locked mode on the resolved target devices and
 // pushes the config so they pick it up on the next check-in. Mirrors BulkKioskUpdate,
 // but resolves its target from the Actions composer's target section.
 func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, targetType string) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 	if enabled && pkg == "" {
-		http.Error(w, "Pick an app to lock to when enabling kiosk mode.", http.StatusBadRequest)
+		http.Error(w, "Pick an app to lock to when enabling locked mode.", http.StatusBadRequest)
 		return
 	}
 	if !enabled {
@@ -17563,7 +17634,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		ids = kept
 	}
 	if len(ids) == 0 {
-		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
+		h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
 		return
 	}
 	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
@@ -17581,10 +17652,10 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		verb = "Disabled"
 	}
 	h.audit(r, "device.kiosk_bulk", verb, fmt.Sprintf("devices=%d, package=%s", len(ids), pkg))
-	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
+	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
 }
 
-// resolvePolicyTargetIDs resolves a stored kiosk policy's target to the matching
+// resolvePolicyTargetIDs resolves a stored lock rule's target to the matching
 // device IDs AT THIS MOMENT — a snapshot, not a live binding (same convention as
 // resolveTargetDeviceIDs uses for the "all" target elsewhere: a device added to a
 // target group later doesn't retroactively pick up the policy without a re-save).
@@ -18789,6 +18860,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"BaseCases":             baseCases,
 		"ExtraColumns":          h.cfg.Columns(),
 		"LegacyCheckin":         h.cfg.LegacyCheckin(),
+		"CommandCanary":         h.cfg.CommandCanary(),
 		"LegacyBuilds":          h.cfg.LegacyBuilds(),
 		"WlcProducts":           h.cfg.WlcProducts(),
 		"CheckinInterval":       h.cfg.CheckinInterval(),
@@ -19064,6 +19136,15 @@ func (h *Handler) SettingsToggleIgnoreDPC(w http.ResponseWriter, r *http.Request
 	h.settingsToggleResponse(w, r, "/settings/ignore-dpc/toggle", h.cfg.IgnoreDPCCheckins())
 }
 
+// SettingsToggleCommandCanary switches the daily control probe on and off. Off by
+// default: it is one queued command per device per day, which is cheap but is still a
+// decision about the fleet rather than a default.
+func (h *Handler) SettingsToggleCommandCanary(w http.ResponseWriter, r *http.Request) {
+	_ = h.cfg.SetCommandCanary(!h.cfg.CommandCanary())
+	h.audit(r, "settings.command_canary", "", fmt.Sprintf("%t", h.cfg.CommandCanary()))
+	h.settingsToggleResponse(w, r, "/settings/command-canary/toggle", h.cfg.CommandCanary())
+}
+
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetLegacyCheckin(!h.cfg.LegacyCheckin())
 	h.settingsToggleResponse(w, r, "/settings/legacy-checkin/toggle", h.cfg.LegacyCheckin())
@@ -19260,12 +19341,12 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// overnight digest goes out at opening; both are cheap until there is work.
 	h.alerts.DispatchResolved(ctx)
 	h.alerts.MaybeSendMorningDigest(ctx, connected)
-	// Kiosk rules are enforced, not applied once: devices that joined or left a
+	// Lock rules are enforced, not applied once: devices that joined or left a
 	// rule's target, or installed its app, are brought in line every minute.
 	h.reconcileKiosk(ctx)
 	h.checkKeyResets(ctx)
 	// A device locked again by any path (its dialog, bulk kiosk, a rule save) answers
-	// its "taken out of kiosk" alert.
+	// its "taken unlocked" alert.
 	if n, err := h.db.ResolveAnsweredKioskExitAlerts(ctx); err == nil && n > 0 {
 		h.hub.PublishAlertUpdate()
 	}
@@ -19815,7 +19896,7 @@ func (h *Handler) otaBuildRows(ctx context.Context) []otaBuildRow {
 	return rows
 }
 
-// SettingsSetKioskAllowlist replaces the kiosk locked-app allowlist from a free-form
+// SettingsSetKioskAllowlist replaces the app locked-app allowlist from a free-form
 // field (patterns separated by newlines, commas, or spaces). Empty = allow all.
 func (h *Handler) SettingsSetKioskAllowlist(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
@@ -20159,7 +20240,7 @@ func alertTypeCatalog() []alertTypeGroup {
 	add("Security", "key_not_registered", "Key not registered after a reset")
 	add("Security", "hardware_serial_changed", "Hardware serial mismatch")
 	add("Security", "key_recovered", "Key reset automatically")
-	add("Kiosk", "kiosk_exited", "Taken out of kiosk on site")
+	add("Kiosk", "kiosk_exited", "Unlocked on the device")
 	groups := make([]alertTypeGroup, 0, len(order))
 	for _, c := range order {
 		groups = append(groups, alertTypeGroup{c, byCat[c]})
@@ -21015,7 +21096,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 
-	// Kiosk mode: single app (classic), multi-app (extra packages allowed in
+	// Locked mode: single app (classic), multi-app (extra packages allowed in
 	// lock-task), or browser (locked browser on a URL). Older callers that don't
 	// send a mode keep the classic single-app behaviour.
 	mode := r.FormValue("kiosk_mode")
@@ -21024,11 +21105,11 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	case "":
 		mode = "app"
 	default:
-		http.Error(w, "Unknown kiosk mode", http.StatusBadRequest)
+		http.Error(w, "Unknown locked mode", http.StatusBadRequest)
 		return
 	}
 
-	// Browser kiosk locks to the agent's built-in browser, not an installed app.
+	// Browser app locks to the agent's built-in browser, not an installed app.
 	kioskURL := strings.TrimSpace(r.FormValue("kiosk_url"))
 	var urlAllow []string
 	var extraPkgs []string
@@ -21047,7 +21128,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	} else {
 		kioskURL = ""
 		if enabled && pkg == "" {
-			http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+			http.Error(w, "Kiosk package is required when enabling locked mode", http.StatusBadRequest)
 			return
 		}
 	}
@@ -21097,7 +21178,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Set by hand. If a kiosk rule covers this device, this is now an exception to it
+	// Set by hand. If a lock rule covers this device, this is now an exception to it
 	// that the enforcer leaves alone (the device page offers "follow the rule again").
 	rule := h.kioskRuleFor(r.Context(), *device)
 	_ = h.db.MarkKioskManual(r.Context(), device.ID, rule != nil)
@@ -22012,10 +22093,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
 	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrOperator(h.RestaurantNew))
 	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrOperator(h.RestaurantNewDevices))
+	post("POST /clients/auto-update", h.requireAdmin(h.ClientAutoUpdateSet))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
 	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDetail)))
 	mux.HandleFunc("GET /restaurants/{id}/edit", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantEdit)))
+	post("POST /restaurants/{id}/kiosk", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantKioskSave)))
 	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicesModal)))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDailyStatsJSON)))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantMembers)))
@@ -22050,8 +22133,33 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrOperator(h.fleetWide(h.ProductionExportCSV)))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
-	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
-	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
+	// The console is gone. Every verb it owned now starts from the thing it acts on — an
+	// install from the app in the library, diagnostics and the destructive pair from a
+	// device selection, kiosk from the venue — and /jobs is where the work is watched.
+	// The page itself redirects; POST /commands stays, because it is the one send path
+	// every one of those surfaces posts to, and /commands/{id} stays for deep links.
+	mux.HandleFunc("GET /commands", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/jobs", http.StatusMovedPermanently)
+	}))
+	// Work in flight and what has run — the Actions page's other half, on its own route so
+	// the console can be removed without taking it along.
+	mux.HandleFunc("GET /jobs", h.requireAuth(h.CommandList))
+	// Kiosk: the page is called Kiosk, so the URL is /kiosk. It answered to /manage for
+	// historical reasons, which made the one safety-critical feature in the product the
+	// one page whose address did not match its name. /manage still answers — bookmarks
+	// and old links are not worth breaking — and redirects.
+	// "Kiosk" is a product here — the Kiosk 18/22/27 wall panels, and device_class
+	// 'kiosk' — so the feature that locks ANY device to one app (T7s and KDS included)
+	// is called Lock in the UI. The config keys, the policy table and the device class
+	// keep their names: they are the wire protocol to clients in the field and the
+	// product's own taxonomy, neither of which is a label.
+	mux.HandleFunc("GET /lock", h.requireAuth(h.Manage))
+	mux.HandleFunc("GET /kiosk", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/lock", http.StatusMovedPermanently)
+	}))
+	mux.HandleFunc("GET /manage", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/kiosk", http.StatusMovedPermanently)
+	}))
 	// Enrollment is admin-only: the page, its QR codes and every profile mutation.
 	mux.HandleFunc("GET /enrollment", h.requireStrictAdmin(h.EnrollmentPage))
 	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireStrictAdmin(h.EnrollmentProfileQR))
@@ -22071,14 +22179,35 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
+	mux.HandleFunc("GET /kiosk/policies/new", h.requireAuth(h.ManagePolicyNew))
+	mux.HandleFunc("GET /lock/policies/new", h.requireAuth(h.ManagePolicyNew))
 	mux.HandleFunc("GET /manage/policies/preview", h.requireAuth(h.ManagePolicyPreview))
+	mux.HandleFunc("GET /kiosk/policies/preview", h.requireAuth(h.ManagePolicyPreview))
+	mux.HandleFunc("GET /lock/policies/preview", h.requireAuth(h.ManagePolicyPreview))
 	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
+	mux.HandleFunc("GET /kiosk/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
+	mux.HandleFunc("GET /lock/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	post("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
+	post("POST /kiosk/policies", h.requireAuth(h.ManagePolicySave))
+	post("POST /lock/policies", h.requireAuth(h.ManagePolicySave))
 	post("POST /manage/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
+	post("POST /kiosk/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
+	post("POST /lock/policies/{id}/move", h.requireAuth(h.ManagePolicyMove))
 	post("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
+	post("POST /kiosk/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
+	post("POST /lock/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/resolve-serials", h.requireAuth(h.CommandResolveSerials))
-	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
+	// History is a view of Jobs, so it lives under it: a child rail must only ever point
+	// at pages beneath the page it belongs to, or the rail reads as a second nav.
+	mux.HandleFunc("GET /jobs/history", h.requireAuth(h.CommandHistory))
+	mux.HandleFunc("GET /commands/history", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.RawQuery
+		if q != "" {
+			q = "?" + q
+		}
+		http.Redirect(w, r, "/jobs/history"+q, http.StatusMovedPermanently)
+	}))
 	// Static route wins over /commands/{id}, so this is the global live feed the
 	// history page subscribes to (not a per-command stream).
 	mux.HandleFunc("GET /commands/events", h.requireAuth(drainable(h.CommandsFeedEvents)))
@@ -22106,6 +22235,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	post("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
+	// Boot logo is retired from the UI (11 Oct 2026): no nav entry, no link from
+	// Settings. The route, its handlers, the update_splash command and the client
+	// support all stay, so a splash can still be pushed through the API and the page
+	// works for anyone who has the URL — it is simply not offered any more. Do not
+	// re-add it to the directory without asking.
 	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
 	mux.HandleFunc("GET /products", h.requireStrictAdmin(h.ProductsPage))
@@ -22115,6 +22249,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/legacy-builds/add", h.requireStrictAdmin(h.SettingsAddLegacyBuild))
 	post("POST /settings/legacy-builds/remove", h.requireStrictAdmin(h.SettingsRemoveLegacyBuild))
 	post("POST /settings/legacy-checkin/toggle", h.requireStrictAdmin(h.SettingsToggleLegacyCheckin))
+	post("POST /settings/command-canary/toggle", h.requireStrictAdmin(h.SettingsToggleCommandCanary))
 	post("POST /settings/ignore-dpc/toggle", h.requireStrictAdmin(h.SettingsToggleIgnoreDPC))
 	post("POST /settings/shell/toggle", h.requireStrictAdmin(h.SettingsToggleShell))
 	post("POST /settings/remote/toggle", h.requireStrictAdmin(h.SettingsToggleRemote))
@@ -22181,6 +22316,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.
 	mux.HandleFunc("GET /apps", h.requireAppLibrary(h.AppLibraryPage))
+	// The store's "Install on…" chooser: fleet-resolved scopes with real counts. Read-only;
+	// the chosen scope posts to POST /commands like every other send.
+	mux.HandleFunc("GET /apps/install-targets", h.requireAppLibrary(h.AppInstallTargets))
+	// One app: every version in service and every device that has it. The page a store is
+	// actually about — see app_detail.go.
+	mux.HandleFunc("GET /apps/{pkg}", h.requireAppLibrary(h.AppDetailPage))
 	post("POST /apps/upload-url", h.requireAppLibrary(h.AppUploadURL))
 	post("POST /apps/register", h.requireAppLibrary(h.AppRegister))
 	post("POST /apps/families", h.requireAppLibrary(h.AppFamilyCreate))
@@ -22214,7 +22355,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/hide", h.requireReleaseAdmin(h.ReleaseSetHidden))
 	post("POST /releases/{id}/delete", h.requireReleaseAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
-	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
+	// Firmware is one job — what exists, what is going out, where it got to — and it was
+	// three pages that each rendered a slice of the others: /updates drew a "Releases"
+	// section, /releases drew an "Updates in progress" section. They are now one
+	// destination with three tabs, so there is a single answer to "what is rolling out".
+	mux.HandleFunc("GET /rollouts", h.requireAdminOrOperator(h.UpdatesHub))
+	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/rollouts", http.StatusMovedPermanently)
+	}))
 	mux.HandleFunc("GET /updates/rollouts", h.requireAdminOrOperator(h.UpdatesRollouts))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
 	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.fleetWide(h.LegacyOTAPage)))

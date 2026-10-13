@@ -22,6 +22,7 @@ import (
 	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
+	"mdm/internal/command"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
@@ -236,6 +237,19 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	// device that never rebooted, and completing here is what made the dashboard claim
 	// a reboot that never ran (FW-2026-000033). The device's first telemetry frame
 	// carries uptime_seconds; settleReboots closes the command off that instead.
+
+	// A fresh socket proves anything pushed down the old one is lost, so this device stops
+	// holding its command leases and its queue is deliverable again immediately.
+	h.releaseLeasesOnConnect(r.Context(), device.ID, serial)
+
+	// A socket again: end any no-command-channel spell now rather than on the device's
+	// next check-in, which can be minutes away.
+	if cleared, err := h.db.ClearWSMissing(r.Context(), device.ID); err == nil && cleared {
+		if n, _ := h.db.ResolveOpenAlert(r.Context(), "no_command_channel", device.ID); n > 0 {
+			log.Printf("[command-channel] %s reconnected — alert resolved", serial)
+			h.hub.PublishAlertUpdate()
+		}
+	}
 
 	// Flush any commands that were queued while the device was offline.
 	h.flushPendingCommands(r.Context(), device.ID)
@@ -600,6 +614,18 @@ func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) 
 		log.Printf("[ws] GetPendingCommandsForDevice error: %v", err)
 		return
 	}
+	// A client that can fetch its own work is told there is some, and fetches it over HTTP
+	// where the hand-over is confirmed by a 200. Nothing is marked delivered here: the
+	// pull does that, so a lost wake leaves the queue honest. Clients that cannot pull —
+	// every v2.0.x device, permanently — keep the push path below unchanged.
+	if len(cmds) > 0 && h.db.DeviceReadsHTTPCommands(ctx, deviceID) {
+		if h.hub.Push(deviceID, marshalWake("commands")) {
+			return
+		}
+		// The socket went away between the flush and the push; its next poll picks the
+		// work up anyway.
+		return
+	}
 	for _, cmd := range cmds {
 		msg := marshalCommand(cmd.ID, cmd.Type, cmd.ApkURL, cmd.Payload)
 		if !h.hub.Push(deviceID, msg) {
@@ -609,6 +635,7 @@ func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) 
 		// reconnects (CompleteDeliveredReboots), which is the actual proof it rebooted
 		// (FW-2026-000033).
 		_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+		h.leaseForPush(ctx, cmd.ID, deviceID)
 		if cmd.Type == "reboot" {
 			break // stop here; remaining cmds flush after the device reboots + reconnects
 		}
@@ -654,6 +681,11 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	}
 
 	for _, deviceID := range targetIDs {
+		// Pull-capable clients get the nudge, not the payload — see marshalWake.
+		if h.db.DeviceReadsHTTPCommands(ctx, deviceID) {
+			h.hub.Push(deviceID, marshalWake("commands"))
+			continue
+		}
 		if !h.hub.Push(deviceID, msg) {
 			continue
 		}
@@ -663,6 +695,7 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 		// (FW-2026-000033). It flips to 'completed' when the device reconnects
 		// (CompleteDeliveredReboots on the WS connect / next check-in).
 		_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+		h.leaseForPush(ctx, cmd.ID, deviceID)
 	}
 	// Notify the dashboard's command detail page of the new delivery/ack state.
 	h.hub.PublishCommandUpdate(cmd.ID)
@@ -868,6 +901,123 @@ func isMDMLitePayload(extra json.RawMessage) bool {
 	return len(extra) > 0 && json.Unmarshal(extra, &ident) == nil && ident.AgentType == "mdm-lite"
 }
 
+// readsHTTPCommands reports whether this client runs commands handed back in a check-in
+// response. The firmware client dropped its HTTP command path in 56b160e and took
+// commands over the WebSocket only, so a client holding no socket could not be reached
+// at all — it kept checking in, looked healthy, and executed nothing (AT070AABU00077,
+// 2026-10-09: 15h of check-ins, not one command). Client 1.9.5+ reads them again and
+// says so with extra.http_commands, so the fallback follows what the device can actually
+// do instead of a server-wide flag that was aimed at clients which no longer exist.
+func readsHTTPCommands(extra json.RawMessage) bool {
+	var ident struct {
+		HTTPCommands bool `json:"http_commands"`
+	}
+	return len(extra) > 0 && json.Unmarshal(extra, &ident) == nil && ident.HTTPCommands
+}
+
+// A device may hold no socket for a while without anything being wrong — a reconnect,
+// a Wi-Fi blip, a server restart rolling every socket at once. These are how long that
+// is allowed to last before it counts as a device nobody can reach.
+const (
+	commandChannelGrace    = 20 * time.Minute
+	commandChannelCritical = 2 * time.Hour
+)
+
+// noteCommandChannel tracks whether this device still has a way to be told anything, and
+// alerts when it does not. Called on every HTTP check-in.
+//
+// The dashboard's Online badge is live socket presence, so a device in this state shows
+// Offline — but its telemetry is fresh, its temperatures and battery are current, and
+// "Last seen: just now" sits next to the Offline badge. That contradiction is what made
+// this take a day to find on AT070AABU00077 rather than a minute: nothing anywhere said
+// "this device is reporting and cannot be commanded". Now something does.
+func (h *Handler) noteCommandChannel(ctx context.Context, deviceID uuid.UUID, serial string, extra json.RawMessage) {
+	// MDM-lite has no socket by design — HTTP is its command channel, not a fallback.
+	if isMDMLitePayload(extra) {
+		return
+	}
+	if h.hub.IsConnected(deviceID) {
+		_ = h.db.SetCommandChannel(ctx, deviceID, "ws")
+		cleared, err := h.db.ClearWSMissing(ctx, deviceID)
+		if err != nil {
+			log.Printf("[command-channel] ClearWSMissing %s: %v", serial, err)
+			return
+		}
+		if !cleared {
+			return
+		}
+		if n, err := h.db.ResolveOpenAlert(ctx, "no_command_channel", deviceID); err == nil && n > 0 {
+			log.Printf("[command-channel] %s has a socket again — alert resolved", serial)
+			h.hub.PublishAlertUpdate()
+		}
+		return
+	}
+
+	since, err := h.db.MarkWSMissing(ctx, deviceID)
+	if err != nil {
+		log.Printf("[command-channel] MarkWSMissing %s: %v", serial, err)
+		return
+	}
+	// No socket: whether this device is reachable at all now depends on whether its client
+	// can pull. That distinction is the difference between "late" and "lost", so store it.
+	if readsHTTPCommands(extra) {
+		_ = h.db.SetCommandChannel(ctx, deviceID, "http")
+	} else {
+		_ = h.db.SetCommandChannel(ctx, deviceID, "none")
+	}
+
+	gone := time.Since(since)
+	if gone < commandChannelGrace {
+		return
+	}
+
+	// With the HTTP fallback the device is still controllable, just at check-in latency
+	// instead of instantly — worth a warning (its socket should have come back) and never
+	// worth paging at 2am, so it never escalates. Without it, every command sent to this
+	// device silently does nothing, which is as bad as the device being gone.
+	fallback := readsHTTPCommands(extra)
+	severity := "warning"
+	summary := fmt.Sprintf("No WebSocket for %s while still checking in. Commands are riding its HTTP check-in, so it is reachable but delayed — its socket is not reconnecting.", roughDuration(gone))
+	if !fallback {
+		summary = fmt.Sprintf("No WebSocket for %s while still checking in. This client takes commands over the socket only, so nothing sent to this device will run — it reports fine and cannot be controlled.", roughDuration(gone))
+		if gone >= commandChannelCritical {
+			severity = "critical"
+		}
+	}
+
+	inserted, escalated, err := h.db.CreateOrEscalateAlert(ctx, nil, "no_command_channel", deviceID, severity, summary,
+		map[string]any{
+			"since":         since.UTC(),
+			"minutes":       int(gone.Minutes()),
+			"http_commands": fallback,
+		})
+	if err != nil {
+		log.Printf("[command-channel] alert for %s: %v", serial, err)
+		return
+	}
+	if inserted || escalated {
+		log.Printf("[command-channel] %s: no socket for %s (http fallback=%v) — %s alert", serial, roughDuration(gone), fallback, severity)
+		h.alerts.Dispatch(ctx, []db.AlertNotification{{
+			Type: "no_command_channel", Severity: severity, Summary: summary,
+			Serial: serial, DeviceID: deviceID, EventAt: since.UTC(), Escalated: escalated,
+		}})
+		h.hub.PublishAlertUpdate()
+	}
+}
+
+// roughDuration is alerts.roughDuration, for alert text written on this path.
+func roughDuration(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return "under a minute"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%dh %dm", int(d.Hours()), int(d.Minutes())%60)
+	}
+	return fmt.Sprintf("%d days", int(d.Hours()/24))
+}
+
 // recordCheckinOtaProgress stores OTA progress reported in a checkin payload.
 func (h *Handler) recordCheckinOtaProgress(deviceID uuid.UUID, req *checkinRequest) {
 	if req.OtaProgress == nil || req.OtaProgress.CommandID == uuid.Nil {
@@ -1055,25 +1205,48 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d",
 			req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures)
 
-		// Pending commands ride the response for clients that poll instead of holding a
-		// WebSocket: older firmware (when legacy check-in is on) and MDM-lite, which
-		// never holds one.
-		if (h.cfg.LegacyCheckin() || isMDMLitePayload(req.Extra)) && !h.hub.IsConnected(deviceID) {
+		// Pending commands ride the response whenever this device has no socket and its
+		// client reads them: the firmware client from 1.9.5 (extra.http_commands), older
+		// firmware when legacy check-in is on, and MDM-lite, which never holds one. This
+		// is the backup command channel — the only path to a device whose WebSocket is
+		// gone, at check-in latency instead of instantly.
+		//
+		// Marking 'delivered' here is safe and deliberate: GetPendingCommandsForDevice
+		// only stops re-delivering once received_at is set (the client's 'received' ack
+		// over POST /commands/{id}/ack), so a response lost in flight comes back on the
+		// next check-in rather than wedging at 'delivered' forever.
+		if !h.hub.IsConnected(deviceID) &&
+			(readsHTTPCommands(req.Extra) || h.cfg.LegacyCheckin() || isMDMLitePayload(req.Extra)) {
 			if cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID); err == nil {
 				for _, cmd := range cmds {
 					out.Commands = append(out.Commands, map[string]any{
-						"id":      cmd.ID,
-						"type":    deviceCommandType(cmd.Type),
-						"apk_url": cmd.ApkURL,
-						"payload": cmd.Payload,
+						"id": cmd.ID,
+						// "command_type" is the WS field name, so a client can feed this
+						// straight into the same handler it uses for a pushed frame. "type"
+						// is kept because the DPC agent reads either key
+						// (CommandExecutor.kt: optString("command_type") else "type") and
+						// the old lite/legacy branches of the gate above only know "type".
+						"type":         deviceCommandType(cmd.Type),
+						"command_type": deviceCommandType(cmd.Type),
+						"apk_url":      cmd.ApkURL,
+						"payload":      cmd.Payload,
 					})
 					_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+					// Confirmed by the response the device is about to read, so it gets the
+					// type's full lease, like a pull.
+					if _, lerr := h.db.LeaseCommand(ctx, cmd.ID, deviceID, command.For(cmd.Type).Lease, "checkin"); lerr != nil {
+						log.Printf("[checkin] lease %s: %v", cmd.ID, lerr)
+					}
 					if cmd.Type == "reboot" {
 						break // reboot only 'delivered'; completes on the next check-in
 					}
 				}
 			}
 		}
+
+		// Fresh telemetry over HTTP and no socket is the failure this whole path exists
+		// for: track how long it has lasted and alert on it.
+		h.noteCommandChannel(ctx, deviceID, req.SerialNumber, req.Extra)
 
 		// Ask for a full app list when ours is unknown or stale (a build change clears
 		// it), or a re-flashed device keeps showing its old apps until its own app set
@@ -1715,11 +1888,18 @@ func (h *Handler) RedriveStuckDeliveries(ctx context.Context) {
 		if !h.hub.IsConnected(s.DeviceID) {
 			continue
 		}
+		if h.db.DeviceReadsHTTPCommands(ctx, s.DeviceID) {
+			// Re-nudge rather than re-push: the command is already in its queue, and the
+			// device decides when it has capacity to take it.
+			h.hub.Push(s.DeviceID, marshalWake("commands"))
+			continue
+		}
 		msg := marshalCommand(s.CommandID, s.Type, s.ApkURL, s.Payload)
 		if !h.hub.Push(s.DeviceID, msg) {
 			continue
 		}
 		_ = h.db.MarkCommandsDelivered(ctx, s.DeviceID, []uuid.UUID{s.CommandID})
+		h.leaseForPush(ctx, s.CommandID, s.DeviceID)
 		h.hub.PublishCommandUpdate(s.CommandID)
 		log.Printf("[delivery-sweep] re-drove stuck delivery command=%s type=%s device=%s", s.CommandID, s.Type, s.DeviceID)
 	}
@@ -2764,6 +2944,19 @@ func marshalCommand(id uuid.UUID, cmdType, apkURL string, payload json.RawMessag
 		"apk_url":      apkURL,
 		"payload":      payload,
 	})
+	return msg
+}
+
+// marshalWake is the whole frame a pull-capable client gets instead of a command: "there
+// is work, fetch it now rather than at your next poll".
+//
+// It carries no id and no payload on purpose. A command written to a half-open socket is
+// swallowed and the queue shows a delivery that never happened (AT070AABU00077); a wake
+// written to the same socket costs the device one poll interval and nothing else. The
+// client already handles a content-free nudge of exactly this shape — checkin_now — so
+// this is a pattern both clients have shipped for months, applied to the command queue.
+func marshalWake(reason string) []byte {
+	msg, _ := json.Marshal(map[string]any{"type": "wake", "reason": reason})
 	return msg
 }
 

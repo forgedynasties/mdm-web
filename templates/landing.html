@@ -354,7 +354,7 @@
     <div class="wrap rows">
       <div class="row">
         <div class="tcard"><div class="top"><h3>Take over<br>any screen</h3><a class="arrow-circle" href="/devices" aria-label="Remote control"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M8 7h9v9"/></svg></a></div>
-          <p>Live screen, taps and keys from the browser, wherever the device is. Hardware keys for Home and Back, shell, screenshot and logs when you need to dig. The device returns to kiosk mode on its own.</p></div>
+          <p>Live screen, taps and keys from the browser, wherever the device is. Hardware keys for Home and Back, shell, screenshot and logs when you need to dig. The device returns to locked mode on its own.</p></div>
         <div class="icard" style="--pos: 60% center"><img loading="lazy" decoding="async" src="/static/img/landing/pos.webp" alt="" width="915" height="588"><div class="chip"><i></i> Remote session · Harbor Grill · kiosk 2</div></div>
       </div>
       <div class="row flip">
@@ -411,8 +411,8 @@
         <div class="card"><span class="num">2</span><h3>A device shows offline</h3><ol><li>Open the device page and check <em>Last seen</em> and the Wi-Fi history.</li><li>If the venue is open, ask staff whether the unit is on its charging pad.</li><li>Send <em>Reboot</em> from Actions. The alert resolves itself when it comes back.</li></ol></div>
         <div class="card"><span class="num">3</span><h3>Push an app to a venue</h3><ol><li>Actions → <em>Install app</em> → choose the APK.</li><li>Target: pick the restaurant, a group, or paste serials.</li><li>Send. Watch acknowledgements land; verify in the device's <em>Applications</em> tab.</li></ol></div>
         <div class="card"><span class="num">4</span><h3>Roll out a firmware update</h3><ol><li>Releases → open the release → <em>Deploy</em>.</li><li>Select all eligible devices, or narrow by venue or group.</li><li>Choose the reboot policy and push. Progress is per device; failed units can be retried.</li></ol></div>
-        <div class="card"><span class="num">5</span><h3>Take over a screen</h3><ol><li>Device page → <em>Remote Control</em> (operator or admin role).</li><li>Tap and type in the browser; use the hardware keys panel for Home and Back.</li><li><em>End session</em> when done. The device returns to kiosk mode on its own.</li></ol></div>
-        <div class="card"><span class="num">6</span><h3>Onboard a new device</h3><ol><li>Power it on; it checks in and appears under <em>Fleet</em> as unassigned.</li><li>Open it and set a nickname. Placement (restaurant, group) is set at provisioning.</li><li>Confirm the kiosk rule under <em>Kiosk</em>. Done.</li></ol></div>
+        <div class="card"><span class="num">5</span><h3>Take over a screen</h3><ol><li>Device page → <em>Remote Control</em> (operator or admin role).</li><li>Tap and type in the browser; use the hardware keys panel for Home and Back.</li><li><em>End session</em> when done. The device returns to locked mode on its own.</li></ol></div>
+        <div class="card"><span class="num">6</span><h3>Onboard a new device</h3><ol><li>Power it on; it checks in and appears under <em>Fleet</em> as unassigned.</li><li>Open it and set a nickname. Placement (restaurant, group) is set at provisioning.</li><li>Confirm the lock rule under <em>Lock</em>. Done.</li></ol></div>
       </div>
     </div>
   </section>
@@ -446,7 +446,7 @@
         <details><summary>What does "online" mean?</summary><p>A live WebSocket connection from the device agent right now. It is not "checked in recently". A device that lost Wi-Fi drops to offline within about a minute and an alert fires after the configured grace period.</p></details>
         <details><summary>Where does the location come from?</summary><p>The agent reports nearby Wi-Fi networks; the server resolves them to a position. No GPS. Accuracy is roughly building level, which is enough to tell venues apart.</p></details>
         <details><summary>Why can't I remote-control a device?</summary><p>You need the operator or admin role, the device must be online, and remote control must be enabled in Settings. Only one session per device at a time; a second viewer takes over the first.</p></details>
-        <details><summary>How do I exit kiosk mode on the device itself?</summary><p>Long-press <em>Back</em> and <em>Power</em> together. This is for technicians on site; the device re-locks according to its policy.</p></details>
+        <details><summary>How do I exit locked mode on the device itself?</summary><p>Long-press <em>Back</em> and <em>Power</em> together. This is for technicians on site; the device re-locks according to its policy.</p></details>
         <details><summary>An alert fired. What now?</summary><p>Open it. The text says what happened and what to do. <em>Open device</em> jumps to the unit, <em>Acknowledge</em> tells the team you own it. Alerts resolve on their own once the condition clears.</p></details>
         <details><summary>Something looks wrong with the dashboard</summary><p>Refresh first. If it persists, note the page, the device serial and the time, and post in the ops channel. The audit log under Users records every action if you need to trace a change.</p></details>
         <details><summary>I forgot my password</summary><p>Use <a href="/forgot-password">Forgot password</a> on the sign-in page. The reset link goes to your @aioapp.com inbox.</p></details>

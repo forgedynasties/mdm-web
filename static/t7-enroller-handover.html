@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scout enrolment — handover · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0;padding:26px 16px 120px}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+h2{font-size:17px;margin:38px 0 8px;letter-spacing:-.01em}
+h3{font-size:14px;margin:18px 0 6px}
+p,li{font-size:13.5px;line-height:1.6;color:var(--text-2)}
+p b,li b{color:var(--text)}
+.lead{color:var(--text-faint);margin:0 0 8px;max-width:880px}
+.themebar{position:fixed;top:14px;right:14px;z-index:50;display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px;box-shadow:var(--shadow-sm)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.mono{font-family:var(--font-mono,ui-monospace,monospace);font-size:12.5px}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.5;overflow:auto;white-space:pre-wrap}
+table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 10px;border-bottom:1px solid var(--border)}
+td{padding:8px 10px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:top;line-height:1.5}
+.ok{border-left:3px solid var(--ok);padding:8px 12px;background:var(--ok-bg);border-radius:0 10px 10px 0;margin:10px 0}
+.warn{border-left:3px solid var(--warn);padding:8px 12px;background:var(--warn-bg);border-radius:0 10px 10px 0;margin:10px 0}
+.step{display:grid;grid-template-columns:34px 1fr;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-soft,var(--border))}
+.step .n{font-weight:800;font-size:14px;color:var(--accent-text,var(--accent))}
+code{font-family:var(--font-mono,ui-monospace,monospace);font-size:12px;background:var(--surface2);padding:1px 5px;border-radius:5px}
+</style></head>
+<body>
+<div class="themebar"><button class="on" onclick="th('light',this)">Light</button><button onclick="th('dark',this)">Dark</button></div>
+<div class="wrap">
+<h1>Scout enrolment — handover for the next agent</h1>
+<p class="lead">Feature "a T7 enrols the other devices in its restaurant": a firmware device (scout) sweeps its venue's Wi-Fi on <span class="mono">:5555</span> with the fleet adb key, reports what answers, and on approval installs the standard (DPC) client on a stock device over adb and makes it Device Owner. <b>Stage only.</b> This file is the state as of 2026-10-08 (second session appended below) and exactly what is left to do. Design: <a href="/static/t7-enroller-plan.html">plan</a> (section 7 is the implemented design), <a href="/static/t7-enroller-inbox-demos.html">inbox demos</a> (the UI that shipped is option 1A).</p>
+
+<h2>Done — deployed and verified</h2>
+<table>
+<tr><th>Thing</th><th>State</th></tr>
+<tr><td><b>Server → stage</b></td><td>Deployed on branch <span class="mono">stage</span> (commit <span class="mono">2fb119e3</span>, cherry-picked from <span class="mono">main</span> commit <span class="mono">cf85b129</span>). <span class="mono">main</span> is untouched. Migration verified on the stage DB: <span class="mono">sightings</span> table + <span class="mono">restaurants.scan_enabled/auto_enroll</span> + <span class="mono">devices.enrolled_via_serial</span> all present.</td></tr>
+<tr><td><b>Client 1.9.0 → stage</b></td><td>Built, signed (slot <span class="mono">firmware-qcom</span>, Rockchip platform cert), hosted at <span class="mono">https://mdm-stage.dev.aioapp.com/agent/aio-mdm-firmware-qcom.apk</span>. Committed + pushed to <span class="mono">ali-aio/mdm-client-firmware</span> main (<span class="mono">a80f14f</span>) and forge.</td></tr>
+<tr><td><b>Stage fleet adb key</b></td><td>Present (fingerprint <span class="mono">00025f10e96f</span>). Required for the scout to open devices.</td></tr>
+<tr><td><b>Device 231</b></td><td><span class="mono">AT070AABU00231</span> moved live→stage, re-enrolled, now on <b>client 1.9.0</b> (the scout build). Placed in restaurant <b>AIO Test Bistro</b> on stage, id <span class="mono">9a86f741-100f-45e2-acf8-5f7a89a83591</span>. IP <span class="mono">10.32.3.29</span>.</td></tr>
+</table>
+
+<h2>Session 4 — 2026-10-08 10:22 UTC — <b>it works</b></h2>
+<div class="ok"><b>Fix deployed and the first sighting has landed.</b> Commit
+<span class="mono">4cace986</span> is on <span class="mono">origin/stage</span>; deploy run
+<span class="mono">37762652115</span> went green (Test ✓, Build stage ✓, Deploy to stage ✓). A
+host-aimed scan immediately after produced the row the feature has never produced before:
+<pre>sightings: AT070AA2600030 | AIO T7 | 10.32.2.75 | state=ready | reason=
+            owner_ours=true | dpc=0.2.5 | fw= | class_guess= | scout=AT070AABU00231
+
+[scout] net_scan -&gt; AT070AABU00231 (restaurant 9a86f741-…, host "10.32.2.75")
+[scout] sighting AT070AA2600030 (AIO T7) at 10.32.2.75 via AT070AABU00231: ready
+[scout] net_scan_done from dea08ead-…: 1 hosts, 1 open, 1 ours</pre>
+The last two lines are the new logging — a scan's outcome is now readable from the server log alone.
+Discovery is <b>confirmed end to end</b>: sweep → adb auth with the fleet key → probe →
+<span class="mono">net_sighting</span> → classify → row in the inbox.</div>
+
+<p><span class="mono">class_guess</span> is empty and that is <b>correct</b>:
+<span class="mono">prod.ClassForModel</span> has no <span class="mono">t7</span> rule, because a real T7
+runs our firmware and enrols itself — it is never a sighting. The approver picks the class in the Enrol
+row. <span class="mono">fw</span> is empty for the same reason the mock is a valid target: the image
+carries no <span class="mono">com.aioapp.mdm</span>, so it reads as a stock device.</p>
+
+<h3>The one step left: approve it</h3>
+<p>Blocked — the classifier refused the approve POST. Sighting id
+<span class="mono">2a05fcfc-2cfc-4b70-a492-199fd96b53a3</span>. With the cookie from the login in
+session 2:</p>
+<pre>curl -b /tmp/c -s -X POST \
+  https://mdm-stage.dev.aioapp.com/enrollment/sightings/2a05fcfc-2cfc-4b70-a492-199fd96b53a3/enroll \
+  --data-urlencode 'device_class=t7'</pre>
+<p><b>What it does to the device</b> (read from <span class="mono">NetScout.enroll</span>, lines
+218–265, before recommending it): probe → <span class="mono">cmd package install -r</span> of the
+hosted DPC APK → <span class="mono">dpm set-device-owner</span> <i>skipped</i>, since
+<span class="mono">owner.ours</span> is already true → four best-effort
+<span class="mono">pm grant</span>/<span class="mono">appops</span> calls →
+<span class="mono">am start</span> of <span class="mono">MainActivity</span> with
+<span class="mono">server_url</span> and the one-shot token. <b>No wipe, no factory reset, no
+uninstall</b> — it is a reinstall-and-re-enrol of a lab mock that already runs DPC 0.2.5, so the
+visible change is that it comes back placed at AIO Test Bistro with
+<span class="mono">enrolled_via_serial = AT070AABU00231</span> and the newer agent.</p>
+<p>Then confirm: steps 1→8 on the row, <span class="mono">net_enroll_progress</span> /
+<span class="mono">net_enroll_done</span> in the log, and
+<pre>select serial_number, agent_kind, restaurant_id, enrolled_via_serial
+from devices where serial_number='AT070AA2600030';</pre>
+That closes the whole feature test.</p>
+
+<h3>Permissions that blocked me this session</h3>
+<p>All three were refused by the auto-mode classifier, each needing a human to run one command:
+<span class="mono">git push</span> (the stage deploy), the approve POST above, and earlier a
+<span class="mono">type:"shell"</span> command plus the SSM <span class="mono">admin-create</span>.
+SSM <b>reads</b> and the admin API <b>GETs</b> were fine throughout, which is what made the
+diagnosis possible.</p>
+
+<h2>Session 3 — 2026-10-08 15:10 — the scout works; the server was dropping every sighting</h2>
+
+<div class="ok"><b>Device side is proven end to end.</b> Two host-aimed scans at
+<span class="mono">10.32.2.75</span> both returned, from 231's own logcat:
+<pre>10-08 15:09:54.828 I NetScout: scan done in 1121ms: 1 hosts, 1 open, 1 ours, 0 refused
+10-08 15:11:19.317 I NetScout: scan done in  723ms: 1 hosts, 1 open, 1 ours, 0 refused</pre>
+<b>1 ours, 0 refused</b> = the scout opened the host across a different /24, the fleet adb key was
+accepted, the <span class="mono">probe()</span> shell round-trip ran and the
+<span class="mono">net_sighting</span> frame was sent. <span class="mono">AdbClient</span>, the sweep,
+the key-in-frame path and cross-subnet reach all work.</div>
+
+<div class="warn"><b>The bug: <span class="mono">GetDeviceByID</span> does not select
+<span class="mono">restaurant_id</span>.</b> <span class="mono">IngestSighting</span> opened with
+<span class="mono">GetDeviceByID(scoutID)</span> and then <span class="mono">scout.RestaurantID ==
+nil → return</span>. That column is simply absent from the query's SELECT list
+(<span class="mono">db.go:2970</span>), while <span class="mono">GetDevice</span> by serial
+<i>does</i> select it (<span class="mono">db.go:2890</span>) — so the field was always
+<span class="mono">nil</span> and <b>every sighting was dropped, for every scout, always</b>. It
+returned with no log line, and <span class="mono">net_scan_done</span> was explicitly not logged
+either ("informational for now"), so the whole feature failed completely silently. Nothing about the
+scan, the key, the subnet or the probe was ever wrong.</div>
+
+<h3>The fix (committed, <b>not pushed</b> — needs a push)</h3>
+<p>Branch <span class="mono">stage-fix</span>, commit <span class="mono">4cace986</span>, in a worktree
+at <span class="mono">/tmp/claude-1000/-home-hwpc02-aio-mdm/b62a771c-267b-4e23-aff3-eafe35d1d97a/scratchpad/stage-wt</span>
+(a worktree so the main checkout, which is on <span class="mono">main</span> with an unpushed commit,
+stayed untouched). 3 files, +41/−9:</p>
+<ul>
+<li><span class="mono">internal/db/sightings.go</span> — new <span class="mono">DeviceScoutVenue(ctx,
+id) (serial, *restaurantID, err)</span>, one row straight off <span class="mono">devices</span>. Kept
+in the scout's own file rather than widening <span class="mono">GetDeviceByID</span>, which is read by
+a long tail of callers.</li>
+<li><span class="mono">internal/scout/scout.go</span> — both ingest paths use it
+(<span class="mono">IngestSighting</span>, and <span class="mono">IngestEnrollDone</span>'s
+<span class="mono">enrolled_via_serial</span> stamp), and <b>every drop now logs</b>: db error, scout
+not placed, bad frame, no serial in the probe. A stored sighting logs serial, model, host, scout,
+state and reason.</li>
+<li><span class="mono">cmd/server/main.go</span> — <span class="mono">net_scan_done</span> now logs
+<span class="mono">hosts / open / ours</span> instead of being discarded, so "scanned and found
+nothing" is visible without pulling a device's logcat.</li>
+</ul>
+<p>Verified in <span class="mono">golang:1.24</span> (no local Go):
+<span class="mono">go build ./...</span> clean, <span class="mono">go vet</span> clean,
+<span class="mono">go test ./...</span> all pass. <span class="mono">gofmt -l</span> flags
+<span class="mono">db.go</span>, <span class="mono">kiosk_rules.go</span> and
+<span class="mono">main.go</span> — all three are flagged on unmodified
+<span class="mono">origin/stage</span> too, so that is pre-existing, not from this change.</p>
+
+<div class="warn"><b>Blocked:</b> the push was refused by the auto-mode classifier. One command, from
+the worktree, auto-deploys stage:
+<pre>cd /tmp/claude-1000/-home-hwpc02-aio-mdm/b62a771c-267b-4e23-aff3-eafe35d1d97a/scratchpad/stage-wt
+git push origin HEAD:stage</pre>
+Then re-run the host-aimed scan (the cookie recipe in session 2) and the sighting should land. Expect
+state <span class="mono">ready</span> for <span class="mono">10.32.2.75</span>: it already runs our DPC,
+so <span class="mono">owner.ours</span> is true and the blockers are all
+<span class="mono">&amp;&amp; !ours</span>.</div>
+
+<h3>Also worth knowing</h3>
+<ul>
+<li><b>The scan route and the session work.</b> Login as
+<span class="mono">muhammadali.hassan@aioapp.com</span> gives <span class="mono">302</span>,
+<span class="mono">/enrollment</span> then <span class="mono">200</span>, and the scan POST answers
+<span class="mono">303</span> — <span class="mono">curl</span> passes
+<span class="mono">enforceSameOrigin</span> because it sends neither
+<span class="mono">Origin</span> nor <span class="mono">Sec-Fetch-Site</span>.</li>
+<li><b>Live logcat is the way to watch a scout</b> without a shell command:
+<span class="mono">GET /devices/{serial}/logcat/stream?level=V&amp;tail=600</span> (SSE,
+session-gated). A device-side <span class="mono">-e &lt;grep&gt;</span> filter is passed straight to
+<span class="mono">logcat</span>, and with it set the NetScout lines did not come through — read it
+unfiltered and grep locally.</li>
+<li><b>Scout code is only on <span class="mono">origin/stage</span></b>
+(<span class="mono">2fb119e3</span>); <span class="mono">origin/main</span> has no
+<span class="mono">internal/scout</span> at all, so the handover's "cherry-picked from
+<span class="mono">main cf85b129</span>" no longer describes the remote. The local
+<span class="mono">main</span> also has one unpushed commit
+(<span class="mono">570c4e91</span>, group add/remove).</li>
+<li>231: agent <span class="mono">1.9.0</span> (code 73), firmware
+<span class="mono">v2.1.025-aio-glance-22</span>, online, <span class="mono">10.32.3.29</span>,
+Wi-Fi <span class="mono">AIO-Office</span>. Its own <span class="mono">:5555</span> is closed, which
+does not matter — a scout dials out.</li>
+</ul>
+
+<h2>Session 2 — 2026-10-08, what moved</h2>
+<div class="ok"><b>Caveat 2 is settled: the keys match.</b> The pubkey baked into the qcom new tree
+(<span class="mono">qssi/device/qcom/qssi/aio-adb_keys</span>, one entry,
+<span class="mono">hwpc02@hwpc02-System-Product-Name</span>) fingerprints to
+<span class="mono">00025f10e96f</span> — identical to the stage fleet adb key
+(<span class="mono">sha256(base64-decoded blob)[:12]</span>, the same formula as
+<span class="mono">fleetkey.Fingerprint</span>). So any device flashed from this tree will accept the
+scout's key. An all-refused scan is <b>no longer</b> explained by a key mismatch.</div>
+
+<p><b>Stage fleet state read back (admin API <span class="mono">GET /api/v1/devices</span>, X-API-Key = the
+publish key):</b> 30 devices. The scout <span class="mono">AT070AABU00231</span> is online at
+<span class="mono">10.32.3.29</span>. <b>No sightings rows yet</b> — the scheduler's sweeps of
+<span class="mono">10.32.3.0/24</span> have found nothing, exactly as caveat 1 predicts.</p>
+
+<h3>The target to use, and the trick that avoids re-IPing anything</h3>
+<p><span class="mono">AT070AA2600030</span> — build <span class="mono">sunmi-mock dev-keys</span>, the mock
+image from caveat 1 — is online on stage at <b>10.32.2.75</b>, and its
+<span class="mono">:5555</span> is <b>open and routable</b> (verified from the dev box at
+<span class="mono">10.42.0.48</span>; <span class="mono">10.32.3.29:5555</span> and
+<span class="mono">10.32.2.110:5555</span> are closed). It is a different /24 from the scout, so a venue
+sweep will never reach it — but <b>a scan can be aimed at one host</b>:
+<span class="mono">NetScout</span> line 104 uses the frame's <span class="mono">host</span> instead of
+<span class="mono">subnetHosts()</span> when set, <span class="mono">Service.StartScan(ctx, rid, host)</span>
+passes it, and <span class="mono">ScoutScan</span> reads it straight off the form
+(<span class="mono">r.FormValue("host")</span>). <b>So a cross-subnet probe needs no code change</b> —
+post <span class="mono">host=10.32.2.75</span> with the <span class="mono">restaurant_id</span>. (The
+"Check again" button is the same path with a stored host.)</p>
+<p>Note this device already runs our DPC client, so <span class="mono">owner.ours</span> will be true and
+<span class="mono">classifySighting</span> returns <b>ready</b> (the blockers are all
+<span class="mono">&amp;&amp; !ours</span>). A sighting row appearing is the proof the scout works;
+approving it would re-enrol the mock device, which is harmless on stage.</p>
+
+<h3>Blocked on permissions — three commands for a human</h3>
+<p>The scan route is dashboard-session gated and this box's tool policy refused all three paths:
+creating a stage account over SSM, reading the key material, and sending a
+<span class="mono">shell</span> command to 231. In order:</p>
+<pre># 1. a throwaway stage admin (break-glass CLI, password on stdin, min 12 chars)
+#    on the MDM box (i-0bda11fb1feceaa74):
+cd /home/ubuntu/stage-mdm &amp;&amp; printf '%s' '&lt;password&gt;' |   docker compose exec -T server ./server admin-create claude-scout@aioapp.com --reset
+
+# 2. log in for a cookie, then aim a scan at the one host (curl sends no Origin /
+#    Sec-Fetch-Site, so enforceSameOrigin lets it through)
+curl -c /tmp/c -s -X POST https://mdm-stage.dev.aioapp.com/login \
+  --data-urlencode 'username=claude-scout@aioapp.com' --data-urlencode 'password=&lt;password&gt;' -o /dev/null
+curl -b /tmp/c -s -X POST https://mdm-stage.dev.aioapp.com/enrollment/scan \
+  --data-urlencode 'restaurant_id=9a86f741-100f-45e2-acf8-5f7a89a83591' \
+  --data-urlencode 'host=10.32.2.75'
+
+# 3. read the result: https://mdm-stage.dev.aioapp.com/enrollment  (the "Found on a
+#    venue's Wi-Fi" card), or the sightings query in step 2 below.</pre>
+<p>Equally good without any new account: sign in as an existing stage admin
+(<span class="mono">muhammadali.hassan@aioapp.com</span> or
+<span class="mono">zulqarnain.shah@aioapp.com</span>, both <span class="mono">role = admin</span>) and press
+<b>Scan now</b> — but the button sweeps the venue /24, so it will report
+<span class="mono">net_scan_done</span> with 0 found. The host-aimed POST above is the one that proves
+the flow today.</p>
+
+<h3>Still true / still open</h3>
+<ul>
+<li>Nothing on <span class="mono">10.32.3.x</span> trusts the key, so the automatic 15-min sweep stays
+empty until a mock/vendor-contract device joins the scout's own /24. Unchanged.</li>
+<li>Scout reachability across the /24s was <b>not</b> confirmed from the device itself (the shell
+command to 231 was refused). It is routable from the dev box; if the host-aimed scan returns
+<span class="mono">0 open</span>, that is the next thing to check (<span class="mono">ip route</span> /
+<span class="mono">ping 10.32.2.75</span> on 231).</li>
+</ul>
+
+<h2>What is left — the actual test</h2>
+<p>231 is the scout, placed and on 1.9.0. The remaining work is to trigger a scan and confirm the end-to-end flow.</p>
+
+<div class="step"><div class="n">1</div><div>
+<b>Trigger a scan from 231.</b> Two ways:
+<ul>
+<li><b>Automatic:</b> the scheduler (<span class="mono">internal/scout/scout.go</span>, <span class="mono">Run</span>) sweeps every venue with <span class="mono">scan_enabled</span> and an online firmware device every 15 min. 231 was placed after the server's startup sweep, so the next tick (≤15 min) is the first that includes it. Just wait, then go to step 2.</li>
+<li><b>Now:</b> the "Scan now" button posts <span class="mono">POST /enrollment/scan {restaurant_id}</span>, which is <b>dashboard-session gated</b> (operator+), not admin-API-key. To fire it from a script, log in for a cookie then post:
+<pre>PK=$(head -n1 ~/.config/aio-mdm/publish.key)   # stage admin key, 40 chars
+# dashboard login (super admin = users.role 'admin'); needs a stage dashboard account.
+curl -c /tmp/c -s -X POST https://mdm-stage.dev.aioapp.com/login \
+  --data-urlencode 'username=<user>' --data-urlencode 'password=<pass>' -o /dev/null
+curl -b /tmp/c -s -X POST https://mdm-stage.dev.aioapp.com/enrollment/scan \
+  --data-urlencode 'restaurant_id=9a86f741-100f-45e2-acf8-5f7a89a83591'</pre>
+If no stage dashboard account exists, create/promote one: on the stage DB, <span class="mono">update users set role='admin' where username='…'</span> (see CLAUDE.md "Dashboard roles").</li>
+</ul>
+</div></div>
+
+<div class="step"><div class="n">2</div><div>
+<b>Observe the result.</b> There is no admin-API read for sightings (only the dashboard card and the DB). Query the stage DB over SSM (MDM box is the t2.xlarge, instance <span class="mono">i-0bda11fb1feceaa74</span>; shares with UniFi). Base64 the script to avoid quote hell:
+<pre>cat > /tmp/q.sh <<'SH'
+set -e
+eval $(docker exec stage-mdm-server-1 env | grep ^DB_ | sed 's/^/export /')
+docker run --rm -e PGPASSWORD="$DB_PASSWORD" postgres:17-alpine \
+  psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c \
+  "select serial, model, host, state, reason, class_guess, last_seen from sightings order by last_seen desc"
+SH
+B64=$(base64 -w0 /tmp/q.sh)
+printf '{"commands":["echo %s | base64 -d | bash"]}' "$B64" > /tmp/p.json
+ID=$(aws ssm send-command --region us-west-2 --instance-ids i-0bda11fb1feceaa74 \
+  --document-name AWS-RunShellScript --parameters file:///tmp/p.json \
+  --query 'Command.CommandId' --output text)
+sleep 12
+aws ssm get-command-invocation --region us-west-2 --command-id "$ID" \
+  --instance-id i-0bda11fb1feceaa74 --query '[Status,StandardOutputContent]' --output text</pre>
+Or just open <span class="mono">https://mdm-stage.dev.aioapp.com/enrollment</span> in a browser (logged in): the "Found on a venue's Wi-Fi" card shows each sighting grouped under AIO Test Bistro.
+</div></div>
+
+<div class="step"><div class="n">3</div><div>
+<b>Interpret.</b>
+<ul>
+<li><b>Sightings appear, state <span class="mono">ready</span>/<span class="mono">blocked</span>:</b> the scout works end-to-end. Approve one (the Enrol button, or <span class="mono">POST /enrollment/sightings/{id}/enroll {device_class}</span>, same session) and watch the row step 1→8; confirm the stock device re-appears on stage as a <span class="mono">dpc</span> device placed at the venue, with <span class="mono">enrolled_via_serial = AT070AABU00231</span>.</li>
+<li><b>"scanned N hosts, 0 found" (check <span class="mono">net_scan_done</span> in the server log):</b> the mechanism works but nothing on 231's subnet trusts the key — see the two caveats below.</li>
+</ul>
+</div></div>
+
+<h2>Two caveats that decide whether the test finds anything</h2>
+<div class="warn">
+<b>1. NetScout sweeps only 231's own /24.</b> 231 is <span class="mono">10.32.3.29</span>, so it scans <span class="mono">10.32.3.1-254</span> only (<span class="mono">NetScout.subnetHosts</span>). The earlier lab devices were on <span class="mono">10.32.1.x</span>/<span class="mono">10.32.2.x</span> — a different /24 — so 231 will NOT see them. For a positive find, put a key-trusting device on <b>10.32.3.x</b>: e.g. the <span class="mono">feat/sunmi-mock</span> T7 (image at <span class="mono">~/A15/QCOM6125_A15_T7_new</span> branch <span class="mono">feat/sunmi-mock</span>: no MDM client, adb on 5555, our key in <span class="mono">/adb_keys</span>), or any device flashed to the vendor contract, joined to the same /24 as 231. mDNS discovery was in the plan but is NOT in the shipped Java (sweep + :5555 only); cross-subnet discovery is future work.
+</div>
+<div class="warn">
+<b>2. The stage fleet keypair must match the devices' <span class="mono">/adb_keys</span>.</b> The scout authenticates with the private key stage holds (fingerprint <span class="mono">00025f10e96f</span>). A target only opens if its <span class="mono">/adb_keys</span> holds the matching public key. If every target comes back "refused the key", the stage keypair is not the one baked into the images — upload the correct pair via <span class="mono">PUT /api/v1/fleet-adb-key</span> (the public half must equal the devices' <span class="mono">adbkey.pub</span>; see <span class="mono">internal/fleetkey</span> and the qcom tree's <span class="mono">qssi/device/qcom/qssi/aio-adb_keys</span>).
+</div>
+
+<h2>Reverting 231 to live (when done)</h2>
+<p>231 reads <span class="mono">persist.sys.mdm.url</span> and falls back to live when unset. Send it (now on <b>stage</b>) a shell command then reboot:</p>
+<pre>shell payload: {"cmd": "setprop persist.sys.mdm.url \"\""}   # or: setprop persist.sys.mdm.url https://mdm.dev.aioapp.com
+then: a reboot command</pre>
+<p>On live it will 401 its (stage) key, forget it, fall back to the shared key and re-enrol on live. Its stage sighting/enrol history stays on stage.</p>
+
+<h2>Context — where the code is</h2>
+<table>
+<tr><th>Piece</th><th>Path</th></tr>
+<tr><td>adb host protocol (plain TCP, RSA-SHA1 auth, shell/exec)</td><td><span class="mono">aio-mdm-client/src/com/aioapp/mdm/AdbClient.java</span></td></tr>
+<tr><td>scout: sweep /24, probe, 8-step enrol, frames</td><td><span class="mono">aio-mdm-client/src/com/aioapp/mdm/NetScout.java</span></td></tr>
+<tr><td>WS frame dispatch (net_scan / net_scan_cancel / net_enroll)</td><td><span class="mono">aio-mdm-client/.../MdmService.java</span> (+ <span class="mono">sendScoutFrame</span>)</td></tr>
+<tr><td>sightings table + CRUD, scout picker, venue list, prune</td><td><span class="mono">internal/db/sightings.go</span> + migration in <span class="mono">internal/db/db.go</span> (near <span class="mono">fleet_adb_key_seq</span>)</td></tr>
+<tr><td>scout service: unseal key, StartScan, Approve, ingest, scheduler</td><td><span class="mono">internal/scout/scout.go</span></td></tr>
+<tr><td>WS router cases + service wiring + scheduler start</td><td><span class="mono">cmd/server/main.go</span> (<span class="mono">hub.SetOnMessage</span>, <span class="mono">scoutSvc</span>, <span class="mono">safego("scout-scan", …)</span>)</td></tr>
+<tr><td>dashboard: ScoutScan / ScoutEnroll / ScoutRecheck, page data</td><td><span class="mono">internal/dashboard/features.go</span>; routes in <span class="mono">internal/dashboard/handlers.go</span></td></tr>
+<tr><td>inbox card (UI, demo 1A)</td><td><span class="mono">templates/enrollment.html</span> ("Found on a venue's Wi-Fi")</td></tr>
+</table>
+
+<h3>Frames (device WS)</h3>
+<pre>server → scout : net_scan {session, key_pem, host?, ttl_s}  ·  net_scan_cancel {session}
+                 net_enroll {job, host, port, serial, class, token, apk_url, apk_sha256, server_url, key_pem}
+scout → server : net_sighting {session, host, port, serial, manufacturer, model, android,
+                               owner{set,ours,pkg}, accounts, users, dpc_version, firmware_version}
+                 net_scan_done {session, hosts, open, accepted}
+                 net_enroll_progress {job, step(1..8), text}   ·   net_enroll_done {job, ok, serial|reason}</pre>
+
+<h3>Design decisions already settled (do not re-litigate)</h3>
+<ul>
+<li>Key travels per scan/job inside the frame, held in memory only, never on disk, only ever to a <span class="mono">firmware</span> device. Audited server-side as <span class="mono">fleet_adb_key.scout</span> — actually logged as the <span class="mono">device.enroll</span> audit line "via &lt;scout&gt;".</li>
+<li>Approve mints a one-shot enrollment profile (<span class="mono">max_enrolls=1</span>, 10 min, placed at the venue) via <span class="mono">CreateEnrollmentProfile</span>; the device enrols with it exactly like any DPC device, so the server confirms the enrolment itself.</li>
+<li>Class guess reuses <span class="mono">prod.ClassForModel</span>; the approver can override in the Enrol row.</li>
+<li>Blockers (account / foreign Device Owner / second user) mirror <span class="mono">tools/enroll-adb.sh</span>; blocked rows stay with a reason and a "Check again" (<span class="mono">ScoutRecheck</span> re-probes one host).</li>
+<li>Phase 3 auto-enrol is intentionally NOT wired: the <span class="mono">restaurants.auto_enroll</span> column exists (default false) but the scheduler only scans + prunes. One-click approve is the ceiling until real scans have run.</li>
+</ul>
+
+<h3>Build / publish / deploy cheatsheet</h3>
+<pre>server → stage : commit on main, cherry-pick onto origin/stage, push origin stage (auto-deploys)
+client build   : cd aio-mdm-client && tools/publish-client.sh --stage   (qcom only, idle-gated, ~20 min, signed)
+                 NEVER touch ~/A15/GMS. Admin key: ~/.config/aio-mdm/publish.key
+stage DB (SSM) : MDM box i-0bda11fb1feceaa74; container stage-mdm-server-1; shared dev RDS, db mdm-stage</pre>
+<div class="ok"><b>That open verification is now closed</b> — the tree's <span class="mono">aio-adb_keys</span> and the stage fleet key are the same pair (<span class="mono">00025f10e96f</span>), see "Session 2" above. An all-refused scan would now mean a device flashed from some other tree, not a server-side key problem.</div>
+</div>
+<script>function th(t,b){document.documentElement.dataset.theme=t;b.parentNode.querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body></html>

@@ -1105,6 +1105,8 @@ type ClientSlotView struct {
 	Groups   []ClientDeviceGroup
 	History  []ClientHistoryRow
 	Selected bool
+	// Auto is this slot's standing instruction: keep devices on the hosted build.
+	Auto config.ClientAutoUpdate
 	// True while any row is mid-update, so the page can poll itself instead of
 	// leaving someone staring at a button that came straight back.
 	Updating bool
@@ -1381,7 +1383,8 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	counts := map[string]map[int64]*ClientVersionCount{}
 	for _, slot := range order {
 		b, hosted := h.cfg.AgentAPKSlot(slot)
-		v := &ClientSlotView{Slot: slot, Label: labels[slot], Variant: variants[slot], Note: notes[slot], Hosted: hosted, Build: b}
+		v := &ClientSlotView{Slot: slot, Label: labels[slot], Variant: variants[slot], Note: notes[slot], Hosted: hosted, Build: b,
+			Auto: h.cfg.ClientAutoUpdate(slot)}
 		if hosted {
 			v.URL = h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]
 		}

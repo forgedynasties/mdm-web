@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIO Enroll · next ideas</title>
+<style>
+/* AIO Enroll — macOS "System Settings" look.
+   Self-contained: no dashboard stylesheet, no web fonts. The tokens at the top also feed
+   guide.css (phone illustration, adb help, Wi-Fi panel). */
+
+:root {
+  color-scheme: light;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", "Inter", Cantarell, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --bg: #ffffff;               /* detail area */
+  --side: #ececf0;             /* sidebar (solid when the OS has no vibrancy) */
+  --side-glass: rgba(236, 236, 240, .55);
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --text-faint: #8e8e93;
+  --sep: rgba(0, 0, 0, .1);
+  --group: #f5f5f7;            /* grouped rows background */
+  --row: #ffffff;
+  --hover: rgba(0, 0, 0, .05);
+  --press: rgba(0, 0, 0, .09);
+  --accent: #f9674e;           /* AIO coral: selection + the one primary button */
+  --accent-text: #c4432a;
+  --accent-soft: rgba(249, 103, 78, .14);
+  --accent-edge: rgba(249, 103, 78, .4);
+  --sel: rgba(249, 103, 78, .16);
+  --ok: #248a3d; --ok-solid: #34c759; --ok-bg: rgba(52, 199, 89, .14); --ok-edge: rgba(52, 199, 89, .35);
+  --warn: #b25000; --warn-solid: #ff9f0a; --warn-bg: rgba(255, 159, 10, .15); --warn-edge: rgba(255, 159, 10, .4);
+  --danger: #d70015; --danger-solid: #ff3b30; --danger-bg: rgba(255, 59, 48, .12); --danger-edge: rgba(255, 59, 48, .35);
+  --link: #0a6cdf;
+  /* names guide.css uses */
+  --surface: var(--row); --surface2: var(--group); --surface-3: #e8e8ed;
+  --border: rgba(0, 0, 0, .13); --border-soft: var(--sep);
+  --shadow-pop: 0 18px 50px rgba(0, 0, 0, .22), 0 0 0 .5px rgba(0, 0, 0, .14);
+  --ease: cubic-bezier(.2, .9, .25, 1);
+  --spring: cubic-bezier(.3, 1.5, .5, 1);
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1e1e20; --side: #2a2a2d; --side-glass: rgba(40, 40, 44, .55);
+  --text: #f5f5f7; --muted: #98989d; --text-faint: #7c7c80;
+  --sep: rgba(255, 255, 255, .1); --group: #2a2a2d; --row: #323236;
+  --hover: rgba(255, 255, 255, .06); --press: rgba(255, 255, 255, .1);
+  --accent-text: #ff9a83; --accent-soft: rgba(249, 103, 78, .2); --sel: rgba(249, 103, 78, .26);
+  --ok: #30d158; --ok-solid: #30d158; --ok-bg: rgba(48, 209, 88, .16);
+  --warn: #ffb340; --warn-solid: #ff9f0a; --warn-bg: rgba(255, 159, 10, .16);
+  --danger: #ff6961; --danger-solid: #ff453a; --danger-bg: rgba(255, 69, 58, .16);
+  --link: #4ea1ff;
+  --surface-3: #3a3a3e; --border: rgba(255, 255, 255, .14);
+  --shadow-pop: 0 18px 50px rgba(0, 0, 0, .6), 0 0 0 .5px rgba(255, 255, 255, .12);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  font: 13px/1.38 var(--font); color: var(--text); background: var(--bg);
+  -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; cursor: default; overflow: hidden;
+}
+input, .mono, .selectable { -webkit-user-select: text; user-select: text; }
+.mono { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.sp { flex: 1; }
+.ic { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -.01em; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(128, 128, 128, .35); border: 3px solid transparent; background-clip: padding-box; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background-color: rgba(128, 128, 128, .55); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ── controls ───────────────────────────────────────────────────────────── */
+.cc-btn {
+  font: inherit; font-size: 13px; font-weight: 500; line-height: 18px; color: var(--text);
+  background: var(--row); border: 0; border-radius: 7px; padding: 4px 14px; min-height: 26px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: default;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .2), 0 1px 1px rgba(0, 0, 0, .06);
+  transition: transform .1s, filter .15s, background .15s;
+}
+html[data-theme="dark"] .cc-btn { background: #4a4a4e; box-shadow: 0 0 0 .5px rgba(255, 255, 255, .06); }
+html[data-theme="dark"] .cc-btn.primary { background: var(--accent); color: #fff; }
+html[data-theme="dark"] .cc-btn.primary:disabled { background: var(--surface-3); color: var(--muted); }
+.cc-btn:hover { filter: brightness(.98); }
+.cc-btn:active { transform: scale(.97); filter: brightness(.94); }
+.cc-btn.primary { background: var(--accent); color: #fff; box-shadow: 0 1px 1px rgba(0, 0, 0, .12), inset 0 .5px 0 rgba(255, 255, 255, .25); }
+.cc-btn.primary:hover { filter: brightness(1.05); }
+.cc-btn:disabled { opacity: .45; transform: none; filter: none; }
+.cc-btn.primary:disabled { background: var(--surface-3); color: var(--muted); box-shadow: none; opacity: 1; }
+.cc-btn.sm { font-size: 12px; padding: 2px 10px; min-height: 22px; border-radius: 6px; }
+.cc-btn.lg { font-size: 13px; padding: 6px 22px; min-height: 30px; }
+.lnk { font: inherit; font-size: 13px; color: var(--link); background: none; border: 0; padding: 2px 4px; border-radius: 5px; cursor: default; display: inline-flex; align-items: center; gap: 5px; }
+.lnk:hover { background: var(--hover); }
+.lnk.danger { color: var(--danger); }
+.lnk .ic { width: 13px; height: 13px; }
+.spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid color-mix(in srgb, currentColor 25%, transparent); border-top-color: currentColor; animation: rot .7s linear infinite; display: inline-block; flex: none; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.check { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.check path { stroke-dasharray: 24; stroke-dashoffset: 24; animation: draw .35s .08s ease-out forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes rowIn { from { opacity: 0; transform: translateX(-8px); max-height: 0; } to { opacity: 1; transform: none; max-height: 60px; } }
+@keyframes shake { 10%, 90% { transform: translateX(-2px); } 20%, 80% { transform: translateX(4px); } 30%, 50%, 70% { transform: translateX(-7px); } 40%, 60% { transform: translateX(7px); } }
+@keyframes pulse { 50% { opacity: .35; } }
+.err { color: var(--danger); font-size: 12px; margin: 0; min-height: 1em; }
+.wmsg { font-size: 12px; margin-top: 10px; padding: 8px 11px; border-radius: 8px; line-height: 1.45; background: var(--group); animation: fadeUp .25s var(--ease) both; -webkit-user-select: text; user-select: text; }
+.wmsg.ok { background: var(--ok-bg); color: var(--ok); }
+.wmsg.bad { background: var(--danger-bg); color: var(--danger); }
+.wdet { margin-top: 6px; font-size: 11px; opacity: .85; overflow-wrap: anywhere; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 2px 9px; border-radius: 99px; background: var(--hover); color: var(--muted); white-space: nowrap; }
+.pill .ic { width: 12px; height: 12px; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.bad { background: var(--danger-bg); color: var(--danger); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.pop { animation: pop .4s var(--spring) both; }
+.sk { background: linear-gradient(90deg, var(--hover) 25%, var(--press) 50%, var(--hover) 75%); background-size: 200% 100%; animation: shimmer 1.3s linear infinite; border-radius: 6px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* switch (Only ours) */
+.sw { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.sw i { width: 26px; height: 15px; border-radius: 9px; background: rgba(120, 120, 128, .32); position: relative; transition: background .2s; display: block; }
+.sw i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 11px; height: 11px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .22s var(--ease); }
+.sw.on i { background: var(--ok-solid); }
+.sw.on i::after { transform: translateX(11px); }
+
+/* ── sign in / account picker ───────────────────────────────────────────── */
+.gate { height: 100%; display: flex; align-items: center; justify-content: center; padding: 30px; background: var(--group); }
+html[data-theme="dark"] .gate { background: var(--bg); }
+.logo { display: block; width: 64px; height: 64px; border-radius: 14px; margin: 0 auto 14px; box-shadow: 0 6px 18px rgba(10, 95, 216, .32); }
+.gate h1 { font-size: 22px; text-align: center; }
+.gate .sub { color: var(--muted); text-align: center; margin: 4px 0 18px; font-size: 13px; }
+.narrow { width: min(360px, 100%); animation: fadeUp .4s var(--ease) both; }
+.group.form .row { min-height: 40px; }
+.group.form .k { flex: 0 0 82px; }
+.group.form input { flex: 1; min-width: 0; font: inherit; border: 0; background: transparent; color: var(--text); outline: none; padding: 6px 0; text-align: right; }
+.chk2 { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); margin: 10px 4px 4px; }
+.formacts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.formacts .cc-btn { min-width: 84px; }
+form.working input { opacity: .6; pointer-events: none; }
+.who2 { text-align: center; width: min(720px, 100%); }
+.tiles { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; margin-top: 26px; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 9px; width: 104px; position: relative; background: none; border: 0; font: inherit; color: var(--text); padding: 0; cursor: default; animation: pop .4s var(--spring) both; }
+.tile .av { width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 600; color: #fff; overflow: hidden; position: relative; box-shadow: 0 4px 14px rgba(0, 0, 0, .18); transition: transform .2s var(--ease), box-shadow .2s; }
+.tile .av img { width: 100%; height: 100%; object-fit: cover; }
+.tile:hover .av, .tile:focus-visible .av { transform: scale(1.06); box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--accent-edge), 0 6px 18px rgba(0, 0, 0, .2); }
+.tile:focus { outline: none; }
+.tile .nm { font-size: 13px; font-weight: 500; max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile .sub2 { font-size: 11px; color: var(--muted); margin-top: -6px; }
+.tile.add .av { background: var(--hover); color: var(--muted); box-shadow: none; font-weight: 300; font-size: 34px; border: 1.5px dashed var(--border); }
+.tile .rm { position: absolute; top: -2px; right: 6px; width: 20px; height: 20px; border-radius: 50%; background: var(--row); color: var(--muted); box-shadow: 0 1px 4px rgba(0, 0, 0, .25); font-size: 13px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .15s; }
+.tile:hover .rm { opacity: 1; }
+.tile.busy .av::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: rgba(0, 0, 0, .35); }
+.tile.busy .av::before { content: ""; position: absolute; width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .4); border-top-color: #fff; animation: rot .7s linear infinite; z-index: 1; }
+
+/* ── window layout ──────────────────────────────────────────────────────── */
+#app { display: grid; grid-template-columns: 250px 1fr; height: 100%; }
+.side { background: var(--side); border-right: .5px solid var(--sep); display: flex; flex-direction: column; min-height: 0; }
+html[data-os="mac"] body { background: transparent; }
+html[data-os="mac"] .side { background: var(--side-glass); }          /* the window's sidebar vibrancy shows through */
+html[data-os="mac"] .main, html[data-os="mac"] .gate { background: var(--bg); }
+.side-top { height: 14px; flex: none; }
+html[data-os="mac"] .side-top { height: 40px; }                          /* room for the traffic lights */
+.side-scroll { flex: 1; overflow: auto; padding: 0 10px 10px; min-height: 0; }
+.sec { font-size: 11px; font-weight: 600; color: var(--muted); padding: 12px 10px 4px; display: flex; align-items: center; gap: 6px; }
+.sec .count { font-weight: 500; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.sec .sw { margin-left: auto; }
+.rail { position: relative; display: flex; flex-direction: column; gap: 1px; }
+.rsel { position: absolute; left: 0; right: 0; top: 0; height: 30px; border-radius: 7px; background: var(--sel); opacity: 0; pointer-events: none; transition: transform .3s var(--ease), height .3s var(--ease), opacity .2s; }
+.sitem { position: relative; z-index: 1; display: flex; align-items: center; gap: 9px; width: 100%; min-height: 30px; padding: 4px 8px; border-radius: 7px; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--text); text-align: left; cursor: default; transition: color .2s; }
+.sitem:hover { background: var(--hover); }
+.rail .sitem.on { color: var(--accent-text); background: transparent; }
+.rail .sitem.on:hover { background: transparent; }
+.sitem.in { animation: rowIn .38s var(--ease) both; }
+.glyph { width: 22px; height: 22px; border-radius: 6px; background: var(--g, #8e8e93); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; box-shadow: inset 0 .5px 0 rgba(255, 255, 255, .25), 0 .5px 1px rgba(0, 0, 0, .15); }
+.glyph .ic { width: 13px; height: 13px; stroke-width: 1.9; }
+.sitem .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sitem .two { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.sitem .two b { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sitem .two small { font-size: 11px; color: var(--muted); font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sitem .conn { display: flex; gap: 3px; color: var(--text-faint); }
+.sitem .conn .ic { width: 12px; height: 12px; }
+.sitem.on .conn { color: var(--accent-text); }
+.sitem .stat { width: 16px; display: flex; justify-content: center; flex: none; }
+.tick { width: 15px; height: 15px; border-radius: 50%; background: var(--ok-solid); color: #fff; display: flex; align-items: center; justify-content: center; animation: pop .45s var(--spring) both; }
+.tick .check { width: 10px; height: 10px; stroke-width: 3.2; }
+.sitem i { width: 8px; height: 8px; border-radius: 50%; display: block; }
+.sitem i.bad { background: var(--danger-solid); }
+.sitem i.wait { background: var(--warn-solid); animation: pulse 1.2s infinite; }
+.sitem i.none { background: var(--text-faint); opacity: .5; }
+.sitem.skrow { pointer-events: none; }
+.sitem.other { opacity: .6; }
+.sitem .go { opacity: 0; font-size: 11.5px; color: var(--link); transition: opacity .15s; flex: none; }
+.sitem:hover .go, .sitem:focus-visible .go { opacity: 1; }
+@media (hover: none) { .sitem .go { opacity: 1; } }
+.sitem .x { opacity: 0; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--muted); transition: opacity .15s; flex: none; }
+.sitem:hover .x { opacity: 1; }
+.sitem .x:hover { background: var(--press); color: var(--text); }
+.sitem.pair { background: var(--accent-soft); }
+.sitem.pair .go { opacity: 1; color: var(--accent-text); font-weight: 500; }
+.disc { width: 12px; height: 12px; color: var(--muted); transition: transform .2s var(--ease); }
+.disc.open { transform: rotate(90deg); }
+.sec.toggle { cursor: default; border-radius: 6px; }
+.sec.toggle:hover { color: var(--text); }
+.livedot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.4s infinite; }
+.nb-chip { display: inline-block; font-size: 10.5px; font-weight: 500; padding: 0 6px; border-radius: 99px; margin-top: 2px; width: fit-content; font-family: var(--font); }
+.nb-chip .ic { display: inline-block; width: 9px; height: 9px; vertical-align: -1px; stroke-width: 2.6; }
+.nb-chip.fleet { background: var(--ok-bg); color: var(--ok); }
+.nb-chip.prod { background: var(--accent-soft); color: var(--accent-text); }
+.nb-chip.look { background: var(--warn-bg); color: var(--warn); }
+.nb-chip.oth { background: var(--hover); color: var(--muted); }
+.side-foot { flex: none; padding: 6px 10px 8px; border-top: .5px solid var(--sep); }
+.sitem.addw .nm { color: var(--text); }
+.sitem.addw.on { background: var(--sel); color: var(--accent-text); }
+.status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); padding: 6px 8px 0; }
+.status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok-solid); animation: pulse 1.6s infinite; }
+.status.bad .dot { background: var(--warn-solid); animation: none; }
+.rail > .none { font-size: 12px; color: var(--text-faint); padding: 4px 10px 6px; }
+.status #today { font-variant-numeric: tabular-nums; }
+
+/* toolbar */
+.main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); position: relative; }
+.toolbar { height: 52px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 14px 0 20px; border-bottom: .5px solid var(--sep); }
+.tt { min-width: 0; }
+.tt .title { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt .sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tbtn { width: 30px; height: 28px; border-radius: 6px; border: 0; background: transparent; color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: default; }
+.tbtn:hover { background: var(--hover); color: var(--text); }
+.tbtn .ic { width: 17px; height: 17px; }
+.helpbtn.hint { color: var(--accent); animation: bob 1.4s infinite; }
+@keyframes bob { 50% { transform: translateY(-3px); } }
+.acctwrap { position: relative; }
+.acct { display: flex; align-items: center; gap: 7px; border: 0; background: transparent; font: inherit; color: var(--text); padding: 3px 8px 3px 3px; border-radius: 99px; cursor: default; }
+.acct:hover { background: var(--hover); }
+.who { font-size: 12px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pfp { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #7a80f6, #f9674e); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; overflow: hidden; flex: none; }
+.pfp img { width: 100%; height: 100%; object-fit: cover; }
+.pfp.sk { background: linear-gradient(90deg, var(--hover) 25%, var(--press) 50%, var(--hover) 75%); background-size: 200% 100%; }
+.menu { position: absolute; right: 0; top: 34px; min-width: 210px; z-index: 50; padding: 5px; border-radius: 10px; background: color-mix(in srgb, var(--row) 88%, transparent); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%); box-shadow: var(--shadow-pop); animation: pop .16s var(--ease) both; transform-origin: top right; }
+.mhead { font-size: 11px; color: var(--muted); padding: 5px 9px 6px; border-bottom: .5px solid var(--sep); margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; }
+.mlabel { font-size: 11px; color: var(--muted); padding: 6px 9px 4px; }
+.mseg { display: flex; margin: 0 6px 6px; }
+.mseg button { flex: 1; min-width: 0; padding: 3px 8px; }
+.msep { height: .5px; background: var(--sep); margin: 4px 4px; }
+html.theming, html.theming * { transition: background-color .3s ease, color .3s ease, border-color .3s ease, box-shadow .3s ease, fill .3s, stroke .3s !important; }
+.mitem { display: block; width: 100%; text-align: left; font: inherit; font-size: 13px; color: var(--text); background: transparent; border: 0; padding: 4px 9px; border-radius: 5px; cursor: default; }
+.mitem:hover { background: var(--accent); color: #fff; }
+.pbar { height: 2px; flex: none; position: relative; overflow: hidden; }
+.pbar i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); transition: width .5s var(--ease), opacity .4s; }
+
+/* ── detail (the System Settings pane) ──────────────────────────────────── */
+.hero { flex: 1; overflow: auto; min-height: 0; padding: 24px 28px 32px; position: relative; }
+.dwrap { max-width: 640px; margin: 0 auto; }
+.hero.fade > * { animation: fadeUp .28s var(--ease) both; }
+.dhdr { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.dicon { width: 58px; height: 58px; border-radius: 14px; background: linear-gradient(180deg, color-mix(in srgb, var(--g, #8e8e93) 82%, #fff), var(--g, #8e8e93)); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; box-shadow: inset 0 .5px 0 rgba(255, 255, 255, .3), 0 2px 6px rgba(0, 0, 0, .15); }
+.dicon .ic { width: 30px; height: 30px; stroke-width: 1.5; }
+.dicon.done { background: var(--ok-solid); animation: pop .5s var(--spring) both; }
+.dicon.done .check { width: 32px; height: 32px; stroke: #fff; stroke-width: 2.6; }
+.dhdr h1 { font-size: 20px; }
+.dhdr p { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+.ghead { font-size: 11px; font-weight: 600; color: var(--muted); margin: 0 0 6px 10px; text-transform: none; }
+.group { background: var(--group); border-radius: 10px; margin-bottom: 18px; overflow: hidden; box-shadow: 0 0 0 .5px var(--sep); }
+html[data-theme="dark"] .group { background: var(--row); }
+.row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; min-height: 38px; background: var(--row); }
+html[data-theme="light"] .row { background: var(--row); }
+.row + .row { box-shadow: inset 0 .5px 0 var(--sep); }
+.row .k { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.row .k .ic { width: 14px; height: 14px; color: var(--muted); }
+.row .v { color: var(--muted); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
+.row.in { animation: fadeUp .26s var(--ease) both; }
+.gfoot { font-size: 11.5px; color: var(--muted); margin: -12px 10px 18px; line-height: 1.45; }
+.dacts { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: -4px; }
+.dacts .err { margin-right: auto; }
+/* segmented control with a sliding thumb */
+.seg { position: relative; display: inline-flex; background: var(--hover); border-radius: 7px; padding: 2px; gap: 0; }
+html[data-theme="dark"] .seg { background: rgba(255, 255, 255, .08); }
+.seg .th { position: absolute; top: 2px; bottom: 2px; left: 2px; width: 0; border-radius: 5px; background: var(--row); box-shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 0 0 .5px rgba(0, 0, 0, .06); transition: left .28s var(--ease), width .28s var(--ease); }
+html[data-theme="dark"] .seg .th { background: #636366; }
+.seg button { position: relative; z-index: 1; font: inherit; font-size: 12px; color: var(--text); background: transparent; border: 0; padding: 3px 13px; border-radius: 5px; cursor: default; min-width: 52px; }
+.seg button.on { font-weight: 500; }
+/* enrolment progress rows */
+.steprow .state { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.steprow.todo .k { color: var(--text-faint); }
+.steprow.done .state { border-radius: 50%; background: var(--ok-solid); color: #fff; animation: pop .35s var(--spring) both; }
+.steprow.done .state .check { width: 10px; height: 10px; stroke-width: 3.2; }
+.howto .n { width: 20px; height: 20px; border-radius: 50%; background: var(--hover); color: var(--muted); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: none; }
+.shake { animation: shake .45s cubic-bezier(.36, .07, .19, .97); }
+.amsg { max-width: 640px; margin: 0 auto; }
+.illus { display: flex; justify-content: center; margin: 4px 0 18px; }
+
+/* loading placeholders */
+.hero.loading .dwrap > * { animation: none; }
+
+/* empty state: checklist + phone (markup from app.js, phone from guide.js) */
+.split { display: grid; grid-template-columns: 1fr 190px; gap: 26px; align-items: center; max-width: 680px; margin: 10px auto 0; }
+.chk { display: flex; flex-direction: column; gap: 0; }
+.chk .ct { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+.chk .cs2 { color: var(--muted); margin: 3px 0 16px; }
+.chk .cs { display: flex; gap: 11px; align-items: flex-start; padding: 10px 12px; background: var(--row); border: 0; border-radius: 0; opacity: 1; box-shadow: 0 0 0 .5px var(--sep); transition: background .3s; }
+.chk .cs[data-i="0"] { border-radius: 10px 10px 0 0; }
+.chk .cs[data-i="2"] { border-radius: 0 0 10px 10px; }
+.chk .cs.on { background: var(--accent-soft); }
+.chk .cs .n { width: 22px; height: 22px; border-radius: 50%; background: var(--hover); color: var(--muted); font-size: 11.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: none; }
+.chk .cs.on .n { background: var(--accent); color: #fff; }
+.chk .cs.ok .n { background: var(--ok-solid); color: #fff; }
+.chk .cs.ok .n .check { width: 11px; height: 11px; stroke-width: 3.2; }
+.chk .cs b { display: block; font-weight: 600; }
+.chk .cs span { color: var(--muted); font-size: 12px; }
+.tip { margin: 18px auto 0; max-width: 680px; display: flex; gap: 9px; align-items: center; padding: 9px 12px; border-radius: 10px; background: var(--group); font-size: 12px; animation: fadeUp .3s both; }
+.tip a { color: var(--link); cursor: default; }
+
+/* help drawer: an inspector sliding over from the right */
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(340px, 100%); z-index: 60; background: var(--bg); border-left: .5px solid var(--sep); box-shadow: -18px 0 40px rgba(0, 0, 0, .14); transform: translateX(104%); transition: transform .32s var(--ease); display: flex; flex-direction: column; }
+.drawer:not(.open) { box-shadow: none; visibility: hidden; transition: transform .32s var(--ease), visibility 0s .32s; }
+.drawer.open { transform: none; }
+.drawer .dh { height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px 0 18px; border-bottom: .5px solid var(--sep); font-weight: 700; }
+.drawer .dt { display: flex; margin: 10px 14px 0; background: var(--hover); border-radius: 7px; padding: 2px; }
+.drawer .dt button { flex: 1; font: inherit; font-size: 12px; border: 0; background: transparent; color: var(--text); padding: 3px 0; border-radius: 5px; cursor: default; }
+.drawer .dt button.on { background: var(--row); box-shadow: 0 1px 2px rgba(0, 0, 0, .18); font-weight: 500; }
+html[data-theme="dark"] .drawer .dt button.on { background: #636366; }
+.drawer .db { flex: 1; overflow: auto; padding: 16px 18px; font-size: 12.5px; line-height: 1.55; }
+.drawer .db ol { padding-left: 18px; margin: 12px 0 0; }
+.drawer .tcard { border: 0; border-radius: 10px; background: var(--group); padding: 10px 12px; margin-bottom: 8px; }
+
+/* pairing code: a sheet that drops from the toolbar */
+.pm-back { position: absolute; inset: 0; z-index: 70; display: flex; justify-content: center; align-items: flex-start; padding-top: 52px; background: rgba(0, 0, 0, .14); animation: fade .2s both; }
+#app .pm-back { left: 250px; }
+.pm-card { width: min(380px, 92%); background: var(--bg); border-radius: 0 0 14px 14px; box-shadow: 0 20px 50px rgba(0, 0, 0, .3), 0 0 0 .5px var(--sep); padding: 22px 22px 16px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 5px; animation: drop .32s var(--ease) both; }
+@keyframes drop { from { transform: translateY(-100%); } to { transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.pm-card h2 { font-size: 15px; margin-top: 4px; }
+.pm-ic { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(180deg, #a1a1a6, #8e8e93); color: #fff; display: flex; align-items: center; justify-content: center; }
+.pm-ic .ic { width: 26px; height: 26px; }
+.pm-ic .check { width: 28px; height: 28px; stroke: #fff; }
+.pm-ic:has(.check) { background: var(--ok-solid); animation: pop .45s var(--spring) both; }
+.pm-meta { color: var(--muted); font-size: 11.5px; }
+.pm-hint { margin-top: 2px; }
+.pm-ask { margin: 6px 0 0; color: var(--muted); font-size: 12.5px; }
+.pm-code { width: 210px; font-family: var(--font-mono); font-size: 26px; font-weight: 600; letter-spacing: .38em; text-align: center; padding: 8px 4px 8px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--group); color: var(--text); margin-top: 8px; outline: none; transition: box-shadow .15s, border-color .15s; }
+.pm-code:focus { border-color: var(--accent); box-shadow: 0 0 0 3.5px var(--accent-soft); }
+.pm-code:disabled { opacity: .55; }
+.pm-msg { width: 100%; text-align: left; }
+.pm-conn { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; text-align: left; }
+.pm-conn label { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; color: var(--muted); }
+.pm-conn input { font: inherit; font-family: var(--font-mono); font-size: 14px; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--group); color: var(--text); outline: none; }
+.pm-conn input:focus { border-color: var(--accent); box-shadow: 0 0 0 3.5px var(--accent-soft); }
+.pm-btns { display: flex; gap: 8px; justify-content: flex-end; width: 100%; margin-top: 14px; }
+.pm-btns .cc-btn { min-width: 84px; }
+.pm-card .cc-btn[hidden], .pm-code[hidden] { display: none; }
+
+/* guide.css components in the new look */
+.adbcard { background: var(--group); border: 0; box-shadow: 0 0 0 .5px var(--sep); border-radius: 12px; max-width: 640px; margin: 10px auto; }
+.adbcard h3 { color: var(--warn); }
+.cmd { background: var(--row); border: 0; box-shadow: 0 0 0 .5px var(--sep); border-radius: 7px; }
+.cmd button { background: transparent; color: var(--link); font-weight: 500; }
+.ostabs button { border: 0; background: var(--hover); color: var(--text); font-weight: 500; }
+.ostabs button.on { background: var(--accent); color: #fff; }
+.hero.wifi .wh { font-size: 20px; font-weight: 700; max-width: 680px; margin: 0 auto 2px; }
+.hero.wifi .wsub { color: var(--muted); max-width: 680px; margin: 0 auto 16px; }
+.hero.wifi .wbody { max-width: 680px; margin: 0 auto; }
+.wsplit .cs { border: 0; box-shadow: 0 0 0 .5px var(--sep); background: var(--row); border-radius: 10px; opacity: 1; }
+.wsplit .cs.on { background: var(--accent-soft); }
+.wsplit .cs.ok .n { background: var(--ok-solid); color: #fff; }
+.found { border: 0; background: var(--group); box-shadow: 0 0 0 .5px var(--sep); }
+.wform input { border-radius: 7px; background: var(--group); }
+
+@media (max-width: 860px) {
+  #app { grid-template-columns: 210px 1fr; }
+  #app .pm-back { left: 210px; }
+  .hero { padding: 20px 20px 28px; }
+  .split { grid-template-columns: 1fr 170px; gap: 18px; }
+}
+@media (max-width: 760px) {
+  #app { grid-template-columns: 200px 1fr; }
+  #app .pm-back { left: 200px; }
+  .split { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* bold words inside a step's description stay inline (guide.css made every <b> a block) */
+.cs .d b, .cs span b, .wsplit .cs .d b { display: inline; font-size: inherit; }
+.waitmsg { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.pm-ask b { color: var(--text); font-weight: 600; }
+
+/* confirmation sheet + result banner */
+.cc-btn.primary.danger, html[data-theme="dark"] .cc-btn.primary.danger { background: var(--danger-solid); }
+.cf { max-width: 400px; }
+.cf-ic { background: var(--danger-bg); color: var(--danger); }
+.cf .pm-ask { text-align: left; line-height: 1.5; }
+#confirm { left: 0 !important; z-index: 90; }
+.row .lnk + .lnk { margin-left: 2px; }
+.banner { position: fixed; top: 12px; right: 14px; z-index: 95; max-width: 360px; padding: 10px 14px; border-radius: 12px; font-size: 12.5px; line-height: 1.45;
+  background: color-mix(in srgb, var(--row) 90%, transparent); backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: var(--shadow-pop); transform: translateX(120%); transition: transform .45s cubic-bezier(.2, 1.2, .3, 1); }
+.banner.show { transform: none; }
+.banner.bad { color: var(--danger); }
+
+</style>
+<style>
+/* ── demo page chrome (the mocks above use the app's real stylesheet) ── */
+html, body { height: auto; }
+body { overflow: auto; background: var(--group); -webkit-user-select: text; user-select: text; padding: 28px 16px 80px; }
+html[data-theme="dark"] body { background: #141416; }
+.page { max-width: 1060px; margin: 0 auto; }
+.page > h1 { font-size: 26px; }
+.lead { color: var(--muted); font-size: 14px; margin: 6px 0 14px; max-width: 760px; line-height: 1.5; }
+.top { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 26px; }
+.toc a { font-size: 12px; color: var(--text); text-decoration: none; background: var(--row); padding: 4px 10px; border-radius: 99px; box-shadow: 0 0 0 .5px var(--sep); }
+.toc a:hover { background: var(--accent-soft); }
+.idea { background: var(--row); border-radius: 16px; box-shadow: 0 0 0 .5px var(--sep), 0 4px 20px rgba(0,0,0,.05); padding: 20px 22px 22px; margin-bottom: 26px; }
+.idea h2 { font-size: 18px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.idea h2 .num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.tagr { font-size: 11px; font-weight: 600; color: #fff; background: #0a84ff; border-radius: 5px; padding: 1px 7px; }
+.tagw { font-size: 11px; font-weight: 500; color: var(--muted); background: var(--hover); border-radius: 5px; padding: 1px 7px; }
+.why { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 6px 0 12px; max-width: 820px; }
+.why b { color: var(--text); font-weight: 600; }
+.ctl { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.notes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; font-size: 12.5px; line-height: 1.5; }
+.notes div { background: var(--group); border-radius: 10px; padding: 9px 12px; }
+.notes b { display: block; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+@media (max-width: 720px) { .notes { grid-template-columns: 1fr; } }
+
+/* a mock app window */
+.win { height: 430px; border-radius: 12px; overflow: hidden; display: grid; grid-template-columns: 220px 1fr; box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 12px 36px rgba(0,0,0,.16); position: relative; background: var(--bg); font-size: 13px; -webkit-user-select: none; user-select: none; }
+.win .side-top { height: 34px; display: flex; gap: 7px; align-items: center; padding-left: 12px; }
+.win .side-top i { width: 11px; height: 11px; border-radius: 50%; background: #ff5f57; }
+.win .side-top i:nth-child(2) { background: #febc2e; } .win .side-top i:nth-child(3) { background: #28c840; }
+.win .hero { padding: 18px 22px 22px; }
+.win .dhdr { margin-bottom: 14px; }
+.win .rsel { opacity: 1; }
+.win .pm-back { left: 220px; }
+@media (max-width: 720px) { .win { grid-template-columns: 1fr; height: auto; } .win .side { display: none; } .win .pm-back { left: 0; } }
+
+/* idea-specific bits (would move into app.css) */
+.ring { width: 16px; height: 16px; flex: none; }
+.ring circle { fill: none; stroke-width: 2.6; }
+.ring .bg { stroke: var(--hover); }
+.ring .fg { stroke: var(--accent); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset .5s var(--ease); }
+.qstep { font-size: 10.5px; color: var(--muted); font-family: var(--font); }
+.tbpill { display: inline-flex; align-items: center; gap: 7px; border: 0; font: inherit; font-size: 12px; background: var(--hover); color: var(--text); padding: 4px 10px 4px 8px; border-radius: 7px; cursor: default; white-space: nowrap; }
+.tbpill:hover { background: var(--press); }
+.tbpill .ic { width: 14px; height: 14px; color: var(--muted); }
+.tbpill .car { width: 10px; height: 10px; color: var(--muted); }
+.cbx { width: 15px; height: 15px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border); background: var(--row); flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
+.cbx.on { background: var(--accent); box-shadow: none; }
+.cbx .check { width: 10px; height: 10px; stroke-width: 3.4; }
+.cbx .check path { animation: none; stroke-dashoffset: 0; }
+.bulk { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 7px 8px 7px 14px; border-radius: 12px; background: color-mix(in srgb, var(--row) 90%, transparent); backdrop-filter: blur(20px); box-shadow: var(--shadow-pop); font-size: 12.5px; white-space: nowrap; animation: fadeUp .3s var(--ease) both; }
+.pop2 { position: absolute; z-index: 40; width: 280px; padding: 6px; border-radius: 10px; background: color-mix(in srgb, var(--row) 94%, transparent); backdrop-filter: blur(24px); box-shadow: var(--shadow-pop); animation: pop .16s var(--ease) both; transform-origin: top; }
+.pop2 input { width: 100%; font: inherit; border: 0; border-radius: 7px; background: var(--hover); color: var(--text); padding: 6px 9px; outline: none; margin-bottom: 4px; }
+.pop2 .opt { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 12.5px; }
+.pop2 .opt small { margin-left: auto; color: var(--muted); font-size: 11px; }
+.pop2 .opt.on, .pop2 .opt:hover { background: var(--accent); color: #fff; }
+.pop2 .opt.on small, .pop2 .opt:hover small { color: rgba(255,255,255,.8); }
+.pop2 .sep { font-size: 10.5px; color: var(--muted); padding: 6px 8px 2px; font-weight: 600; }
+.notif { position: absolute; top: 10px; right: 10px; width: 300px; z-index: 50; display: flex; gap: 10px; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--row) 85%, transparent); backdrop-filter: blur(24px) saturate(180%); box-shadow: var(--shadow-pop); font-size: 12px; line-height: 1.35; transform: translateX(330px); transition: transform .5s cubic-bezier(.2,1.2,.3,1); }
+.notif.show { transform: none; }
+.notif img { width: 30px; height: 30px; border-radius: 7px; }
+.notif b { display: block; font-size: 12.5px; }
+.notif small { color: var(--muted); }
+.live { display: inline-flex; align-items: center; gap: 6px; }
+.live i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok-solid); box-shadow: 0 0 0 3px var(--ok-bg); animation: pulse 1.6s infinite; }
+.hist { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.hist th { text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); padding: 6px 10px; border-bottom: .5px solid var(--sep); }
+.hist td { padding: 7px 10px; border-bottom: .5px solid var(--sep); white-space: nowrap; }
+.hist tr:last-child td { border-bottom: 0; }
+.hist .g { display: inline-flex; vertical-align: middle; margin-right: 6px; }
+.hist .glyph { width: 18px; height: 18px; border-radius: 5px; }
+.hist .glyph .ic { width: 11px; height: 11px; }
+.fixrow .state { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; background: var(--hover); color: var(--muted); font-size: 11px; font-weight: 600; }
+.fixrow.ok .state { background: var(--ok-solid); color: #fff; animation: pop .35s var(--spring) both; }
+.fixrow.ok .state .check { width: 10px; height: 10px; stroke-width: 3.2; }
+.fixrow.bad .state { background: var(--danger-bg); color: var(--danger); }
+.fixrow .k small { display: block; color: var(--muted); font-size: 11.5px; }
+.kbd { display: inline-block; font: 11px var(--font); padding: 0 5px; border-radius: 4px; box-shadow: inset 0 0 0 .5px var(--border), 0 1px 0 var(--border); color: var(--muted); background: var(--row); line-height: 16px; }
+.search { display: flex; align-items: center; gap: 6px; margin: 0 2px 6px; padding: 4px 8px; border-radius: 7px; background: var(--hover); color: var(--muted); font-size: 12.5px; }
+.search .ic { width: 13px; height: 13px; }
+.search input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; color: var(--text); outline: none; }
+mark { background: color-mix(in srgb, var(--warn-solid) 40%, transparent); color: inherit; border-radius: 2px; }
+.row .k .glyph .ic { color: #fff; width: 13px; height: 13px; }
+.tick.still, .tick.still .check path { animation: none; stroke-dashoffset: 0; }
+.upd { display: inline-flex; gap: 6px; align-items: center; }
+.upbar { height: 4px; width: 90px; border-radius: 99px; background: var(--hover); overflow: hidden; }
+.upbar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s linear; }
+</style></head>
+<body>
+<div class="page">
+  <h1>AIO Enroll · what to build next</h1>
+  <p class="lead">Seven ideas, ordered by how much time they save at the bench. Each mock uses the app's real stylesheet, so it looks the way it would ship. Where there's a real choice, there are two options, and the one I'd pick is marked. Press <b>Play</b> to see a flow run.</p>
+  <div class="top">
+    <div class="seg" id="themeSeg"><span class="th"></span><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div>
+  </div>
+  <nav class="toc" id="toc"></nav>
+  <div id="ideas"></div>
+</div>
+
+<script>
+const svg = (i) => `<svg class="ic" viewBox="0 0 24 24">${i}</svg>`;
+const ICON = {
+  phone: svg('<rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/>'),
+  dongle: svg('<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>'),
+  pos: svg('<path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6"/>'),
+  kds: svg('<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M7 9h5M7 12.5h8M9 21h6"/>'),
+  kiosk: svg('<rect x="6" y="2.5" width="12" height="16" rx="2"/><path d="M9 21.5h6M12 18.5v3"/>'),
+  usb: svg('<path d="M12 3v14M12 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM12 9l4-2v3M12 12l-4-2V7"/>'),
+  wifi: svg('<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/>'),
+  help: svg('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.6 2.6 0 1 1 3.6 2.4c-.7.4-1.1.9-1.1 1.8M12 17h.01"/>'),
+  store: svg('<path d="M4 9l1.5-5h13L20 9M4 9v11h16V9M4 9h16M9 20v-6h6v6"/>'),
+  down: svg('<path d="M6 9l6 6 6-6"/>'),
+  search: svg('<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>'),
+  ext: svg('<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>'),
+  clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  copy: svg('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>'),
+  user: svg('<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/>'),
+  up: svg('<path d="M12 19V5M6 11l6-6 6 6"/>'),
+};
+const CHECK = '<svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const GLYPH = { dongle: '#5e5ce6', pos: '#ff9f0a', kds: '#28b463', kiosk: '#0a84ff', phone: '#8e8e93' };
+const TICK = `<span class="tick">${CHECK}</span>`;
+const TICK_S = `<span class="tick still">${CHECK}</span>`;   // already shown: don't pop again on redraw
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ── shared mock pieces ──
+const sitem = (o) => `<div class="sitem ${o.on ? 'on' : ''} ${o.cls || ''}" ${o.id ? `id="${o.id}"` : ''}>${o.pre || ''}<span class="glyph" style="--g:${GLYPH[o.c] || '#8e8e93'}">${ICON[o.c] || ICON.phone}</span><span class="two"><b>${o.name}</b><small>${o.sub}</small></span><span class="conn">${o.wifi ? ICON.wifi : ICON.usb}</span><span class="stat">${o.stat || ''}</span></div>`;
+const dot = (k) => `<i class="${k}"></i>`;
+const ring = (p) => `<svg class="ring" viewBox="0 0 16 16"><circle class="bg" cx="8" cy="8" r="6.3"/><circle class="fg" cx="8" cy="8" r="6.3" stroke-dasharray="39.6" stroke-dashoffset="${39.6 * (1 - p)}"/></svg>`;
+const row = (k, v = '', extra = '', cls = '') => `<div class="row ${cls}"><span class="k">${k}</span>${v !== '' ? `<span class="v">${v}</span>` : ''}${extra}</div>`;
+const group = (t, rows, foot = '') => `<div class="ghead">${t}</div><div class="group">${rows.join('')}</div>${foot ? `<div class="gfoot">${foot}</div>` : ''}`;
+const pill = (c, h) => `<span class="pill ${c}">${h}</span>`;
+const seg = (opts, on) => `<div class="seg"><span class="th"></span>${opts.map((o) => `<button class="${o === on ? 'on' : ''}">${o}</button>`).join('')}</div>`;
+const hdr = (c, name, sub, done) => `<div class="dhdr"><div class="dicon ${done ? 'done' : ''}" style="--g:${GLYPH[c]}">${done ? CHECK : ICON[c]}</div><div><h1>${name}</h1><p>${sub}</p></div></div>`;
+const win = (side, main, extra = '') => `<div class="win"><aside class="side"><div class="side-top"><i></i><i></i><i></i></div><div class="side-scroll">${side}</div><div class="side-foot"><div class="status"><span class="dot"></span><span>Watching for devices</span><span class="sp"></span><span class="today">3 today</span></div></div></aside><div class="main">${main}</div>${extra}</div>`;
+const toolbar = (title, sub, right = '') => `<header class="toolbar"><div class="tt"><div class="title">${title}</div><div class="sub">${sub}</div></div><span class="sp"></span>${right}<button class="tbtn">${ICON.help}</button><button class="acct"><span class="pfp">AH</span><span class="who">Ali Hassan</span></button></header><div class="pbar"><i></i></div>`;
+function placeThumbs(root) {
+  root.querySelectorAll('.seg').forEach((s) => { const b = s.querySelector('button.on'), th = s.querySelector('.th'); if (b && th) { th.style.left = b.offsetLeft + 'px'; th.style.width = b.offsetWidth + 'px'; } });
+  root.querySelectorAll('.rail').forEach((r) => { const on = r.querySelector('.sitem.on'), s = r.querySelector('.rsel'); if (on && s) { s.style.transform = `translateY(${on.offsetTop}px)`; s.style.height = on.offsetHeight + 'px'; } });
+}
+
+const FLEET = [
+  { c: 'kds', name: 'SUNMI D2s', sub: 'D2S2240A0117' },
+  { c: 'pos', name: 'SUNMI D3 Pro', sub: 'P3121C30418' },
+  { c: 'kiosk', name: 'ZC-3568K', sub: 'ZC3568K00412' },
+  { c: 'dongle', name: 'HK1 RBOX D8', sub: 'HK1D8A2209', wifi: true },
+];
+
+const IDEAS = [];
+
+// ── 1. batch enrol ──
+IDEAS.push({
+  id: 'batch', title: 'Enrol several at once', why: 'The bench usually has a few phones plugged in. Today each one needs clicking and waiting. With this, you <b>enrol every ready device in one go</b> and the list shows each one’s progress.',
+  opts: [
+    { k: 'A', label: 'A · “Enrol 4 ready” button', rec: true,
+      good: 'One click. Each device keeps the class the app suggested, which you can change on any row first. Progress rings in the list show the queue moving.',
+      bad: 'Easy to enrol one by accident. The button names the count and the confirm sheet lists the devices.',
+      draw: (st) => win(
+        `<div class="sec">Devices <span class="count">${FLEET.length}</span></div><div class="rail"><span class="rsel"></span>${FLEET.map((d, i) => sitem({ ...d, on: i === 0, sub: st.p[i] == null ? d.sub : st.p[i] >= 1 ? 'Enrolled as ' + d.c : `<span class="qstep">${st.p[i] === 0 ? 'Waiting…' : ['Installing…', 'Device Owner…', 'Starting…'][Math.min(2, Math.floor(st.p[i] * 3))]}</span>`, stat: st.p[i] == null ? '' : st.p[i] >= 1 ? (st.seen[i] ? TICK_S : TICK) : ring(st.p[i]) })).join('')}</div>`,
+        toolbar('Bench', st.run ? `Enrolling ${st.p.filter((x) => x >= 1).length} of 4…` : '4 ready to enrol', `<button class="cc-btn primary" data-act="go" ${st.run ? 'disabled' : ''}>${st.run ? '<span class="spin"></span> Enrolling' : 'Enrol 4 Ready'}</button>`) +
+        `<section class="hero"><div class="dwrap">${group('Queue', FLEET.map((d, i) => row(`<span class="glyph" style="--g:${GLYPH[d.c]}">${ICON[d.c]}</span>${d.name}`, '', st.p[i] == null ? seg(['dongle', 'pos', 'kds', 'kiosk'], d.c) : st.p[i] >= 1 ? pill('ok', 'Enrolled') : pill('warn', st.p[i] === 0 ? 'Waiting' : Math.round(st.p[i] * 100) + '%'))), 'Classes are pre-filled from what the MDM already knows about each model. Change any before you start.')}</div></section>`),
+      play: async (st, redraw) => { st.run = true; st.p = [0, 0, 0, 0]; st.seen = []; redraw(); for (let i = 0; i < 4; i++) { for (let s = 1; s <= 4; s++) { await sleep(300); st.p[i] = s / 4; if (s === 4) st.p[i] = 1; redraw(); if (s === 4) st.seen[i] = true; } } await sleep(500); st.run = false; redraw(); },
+      init: () => ({ p: [null, null, null, null], seen: [] }) },
+    { k: 'B', label: 'B · Tick boxes + action bar', rec: false,
+      good: 'You choose exactly which devices to enrol, which helps when a bench mixes ours and other people’s phones.',
+      bad: 'One more step for the usual case, where every plugged-in phone is going in.',
+      draw: (st) => win(
+        `<div class="sec">Devices <span class="count">4</span></div><div class="rail">${FLEET.map((d, i) => sitem({ ...d, pre: `<span class="cbx ${st.sel[i] ? 'on' : ''}" data-act="t${i}">${st.sel[i] ? CHECK : ''}</span>`, stat: '' })).join('')}</div>`,
+        toolbar('Bench', st.sel.filter(Boolean).length + ' selected') + `<section class="hero"><div class="dwrap">${hdr('kds', 'SUNMI D2s', 'Ready to enrol')}${group('Enrollment', [row('Status', '', pill('warn', 'Not enrolled')), row('Used as', '', seg(['dongle', 'pos', 'kds', 'kiosk'], 'kds'))])}</div></section>`,
+        st.sel.some(Boolean) ? `<div class="bulk"><b>${st.sel.filter(Boolean).length} selected</b><button class="lnk" data-act="none">Clear</button><button class="cc-btn primary">Enrol ${st.sel.filter(Boolean).length}</button></div>` : ''),
+      onact: (st, a) => { if (a[0] === 't') st.sel[+a[1]] = !st.sel[+a[1]]; if (a === 'none') st.sel = [0, 0, 0, 0]; },
+      init: () => ({ sel: [1, 1, 0, 1] }) },
+  ],
+  server: 'None. The app already has everything it needs.',
+});
+
+// ── 2. restaurant at enrol time ──
+const SITES = [['Burger Hub · Gulberg', 'Lahore'], ['Burger Hub · DHA Ph 6', 'Lahore'], ['Chai Point · F-7', 'Islamabad'], ['Pizza Lab · Clifton', 'Karachi']];
+const sitePop = (st) => st.open ? `<div class="pop2" style="${st.popAt}"><input placeholder="Search restaurants" value="${st.q || ''}" readonly><div class="sep">RECENT</div>${SITES.slice(0, 2).map((s, i) => `<div class="opt ${st.site === i ? 'on' : ''}" data-act="s${i}">${ICON.store}${s[0]}<small>${s[1]}</small></div>`).join('')}<div class="sep">ALL</div>${SITES.slice(2).map((s, i) => `<div class="opt" data-act="s${i + 2}">${ICON.store}${s[0]}<small>${s[1]}</small></div>`).join('')}<div class="sep"></div><div class="opt ${st.site === -1 ? 'on' : ''}" data-act="s-1">Onboarding inbox<small>decide later</small></div></div>` : '';
+const siteName = (st) => st.site === -1 ? 'Onboarding inbox' : SITES[st.site][0];
+IDEAS.push({
+  id: 'site', title: 'Choose the restaurant while enrolling', why: 'Every device the app enrols lands in the dashboard’s <b>onboarding inbox</b>, and someone has to place it later. The enrollment profile already supports a restaurant, so the app can send the device <b>straight to its site</b>.',
+  opts: [
+    { k: 'A', label: 'A · Set once in the toolbar', rec: true,
+      good: 'Matches how a rollout works: you prepare a batch for one restaurant, so you pick it once and every device enrolled goes there. It works well with “Enrol all”.',
+      bad: 'Easy to forget it’s set. The toolbar always shows it, and each device page names the restaurant again before you enrol.',
+      draw: (st) => win(
+        `<div class="sec">Devices <span class="count">2</span></div><div class="rail"><span class="rsel"></span>${FLEET.slice(0, 2).map((d, i) => sitem({ ...d, on: i === 0, stat: '' })).join('')}</div>`,
+        toolbar('SUNMI D2s', 'Ready to enrol', `<button class="tbpill" data-act="open">${ICON.store}<span>${st.site === -1 ? 'No restaurant' : siteName(st)}</span>${ICON.down.replace('class="ic"', 'class="ic car"')}</button>`) +
+        `<section class="hero"><div class="dwrap">${hdr('kds', 'SUNMI D2s', 'Ready to enrol')}${group('Enrollment', [row('Status', '', pill('warn', 'Not enrolled')), row('Used as', '', seg(['dongle', 'pos', 'kds', 'kiosk'], 'kds')), row('Goes to', st.site === -1 ? 'Onboarding inbox' : `<b style="color:var(--text);font-weight:500">${siteName(st)}</b>`), row('Enrolled by', 'Ali Hassan')], st.site === -1 ? 'It will wait in the onboarding inbox on the dashboard.' : 'It skips the onboarding inbox and shows up in this restaurant right away.')}<div class="dacts"><button class="cc-btn primary lg">Enrol</button></div></div></section>`,
+        sitePop({ ...st, popAt: 'top:46px;right:150px' })),
+      onact: (st, a) => { if (a === 'open') st.open = !st.open; if (a[0] === 's') { st.site = +a.slice(1); st.open = false; } },
+      init: () => ({ site: 0, open: false }) },
+    { k: 'B', label: 'B · Per device, on its page', rec: false,
+      good: 'It sits right where you enrol, so it’s hard to miss, and you can mix restaurants on one bench.',
+      bad: 'You pick it again for every device, which gets tedious for a batch of 10 for the same restaurant.',
+      draw: (st) => win(
+        `<div class="sec">Devices <span class="count">2</span></div><div class="rail"><span class="rsel"></span>${FLEET.slice(0, 2).map((d, i) => sitem({ ...d, on: i === 0, stat: '' })).join('')}</div>`,
+        toolbar('SUNMI D2s', 'Ready to enrol') +
+        `<section class="hero"><div class="dwrap">${hdr('kds', 'SUNMI D2s', 'Ready to enrol')}${group('Enrollment', [row('Status', '', pill('warn', 'Not enrolled')), row('Used as', '', seg(['dongle', 'pos', 'kds', 'kiosk'], 'kds')), row('Restaurant', '', `<button class="tbpill" data-act="open">${ICON.store}<span>${siteName(st)}</span>${ICON.down.replace('class="ic"', 'class="ic car"')}</button>`)])}<div class="dacts"><button class="cc-btn primary lg">Enrol</button></div></div></section>`,
+        sitePop({ ...st, popAt: 'top:250px;right:30px' })),
+      onact: (st, a) => { if (a === 'open') st.open = !st.open; if (a[0] === 's') { st.site = +a.slice(1); st.open = false; } },
+      init: () => ({ site: -1, open: false }) },
+  ],
+  server: 'Small. A list of restaurants for the app, and the per-user profile also keyed by restaurant (e.g. “AIO Enroll app · kds · Burger Hub Gulberg · ali”). Needs a role that may place devices.',
+});
+
+// ── 3. proof it's live ──
+const LSTEPS = ['Installing the agent', 'Setting Device Owner', 'Starting the agent', 'First check-in from the MDM'];
+IDEAS.push({
+  id: 'live', title: 'Show it’s really live on the MDM', why: 'Today “Enrolled” means the app finished its side of the work. The end is now <b>the MDM hearing from the device</b>, with its battery, Wi-Fi and agent version, plus a button that opens it on the dashboard. A desktop notification pops when it finishes, so you can walk away from long installs.',
+  opts: [
+    { k: 'A', label: 'Success page + notification', rec: true,
+      good: 'You see proof from the server, not just from adb. Problems like a wrong server URL, no internet on the phone or a firewall show up here, not later in the restaurant.',
+      bad: 'Adds up to about 20 s while waiting for the first check-in. The app moves on after 60 s with “Enrolled, not heard from yet”.',
+      draw: (st) => win(
+        `<div class="sec">Devices <span class="count">1</span></div><div class="rail"><span class="rsel"></span>${sitem({ ...FLEET[1], on: true, stat: st.s >= 4 ? TICK : st.s >= 0 ? ring(st.s / 4) : '' })}</div>`,
+        toolbar('SUNMI D3 Pro', st.s >= 4 ? 'Live on the MDM' : st.s >= 0 ? 'Enrolling…' : 'Ready to enrol') +
+        `<section class="hero"><div class="dwrap">${st.s >= 4
+          ? hdr('pos', 'SUNMI D3 Pro', 'Enrolled as pos · Burger Hub · Gulberg', true) + group('On the MDM', [row('Status', '', `<span class="pill ok pop"><span class="live"><i></i>Online</span></span>`), row('First check-in', 'just now'), row('Battery', 'Mains powered'), row('Network', 'Wi-Fi · AIO-Staff'), row('Agent', '0.2.8 · Device Owner')]) + `<div class="dacts"><button class="lnk">Enrol another</button><button class="cc-btn primary">${ICON.ext} Open on Dashboard</button></div>`
+          : hdr('pos', 'SUNMI D3 Pro', st.s >= 0 ? 'Enrolling…' : 'Ready to enrol') + group('Enrolling', LSTEPS.map((s, i) => `<div class="row steprow ${i < st.s ? 'done' : i === st.s ? 'now' : 'todo'}"><span class="state">${i < st.s ? CHECK : i === st.s ? '<span class="spin"></span>' : ''}</span><span class="k">${s}</span>${i === 3 && st.s === 3 ? '<span class="v">waiting for the phone to call home…</span>' : ''}</div>`)) + `<div class="dacts"><button class="cc-btn primary lg" data-act="go" ${st.s >= 0 ? 'disabled' : ''}>Enrol</button></div>`}</div></section>`,
+        `<div class="notif ${st.n ? 'show' : ''}"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjAiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAiIHN0b3AtY29sb3I9IiM0ZmE4ZmYiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiMwYTVmZDgiLz48L2xpbmVhckdyYWRpZW50PgogICAgPGxpbmVhckdyYWRpZW50IGlkPSJwaCIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2ZmZiIvPjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2UzZWVmZiIvPjwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTE0IiBmaWxsPSJ1cmwoI2JnKSIvPgogIDxyZWN0IHg9IjE1MCIgeT0iOTIiIHdpZHRoPSIxOTAiIGhlaWdodD0iMzI4IiByeD0iMzgiIGZpbGw9InVybCgjcGgpIi8+CiAgPHJlY3QgeD0iMTY4IiB5PSIxMjgiIHdpZHRoPSIxNTQiIGhlaWdodD0iMjQ4IiByeD0iMTQiIGZpbGw9IiMwYTVmZDgiIG9wYWNpdHk9Ii4xNCIvPgogIDxyZWN0IHg9IjIyNiIgeT0iMTA2IiB3aWR0aD0iMzgiIGhlaWdodD0iOCIgcng9IjQiIGZpbGw9IiMwYTVmZDgiIG9wYWNpdHk9Ii4zNSIvPgogIDxjaXJjbGUgY3g9IjMzOCIgY3k9IjM1MiIgcj0iNzQiIGZpbGw9IiMzNGM3NTkiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxNiIvPgogIDxwYXRoIGQ9Ik0zMDIgMzUybDI2IDI2IDQ4LTUwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K" onerror="this.style.display='none'"><div><b>SUNMI D3 Pro is live</b>Enrolled as pos · Burger Hub · Gulberg<br><small>AIO Enroll · now</small></div></div>`),
+      play: async (st, redraw) => { st.n = false; for (st.s = 0; st.s <= 4; st.s++) { redraw(); await sleep(st.s === 3 ? 1500 : 700); } st.s = 4; redraw(); await sleep(250); const nt = () => document.querySelector('#live .notif'); nt()?.classList.add('show'); await sleep(3600); nt()?.classList.remove('show'); },
+      onact: (st, a, play) => { if (a === 'go') play(); },
+      init: () => ({ s: -1, n: false }) },
+  ],
+  server: 'None. The app polls the enroll-status endpoint for last_seen; the telemetry fields come from the same device record.',
+});
+
+// ── 4. fix blocked ──
+IDEAS.push({
+  id: 'fix', title: 'Walk through fixing a blocked phone', why: 'A phone with a Google account says <b>“Can’t be enrolled”</b> and stops there. Instead, the app lists what’s in the way, <b>opens the right screen on the phone</b> for you, and ticks each item off live as you remove the accounts.',
+  opts: [
+    { k: 'A', label: 'Checklist that re-checks itself', rec: true,
+      good: 'No guessing about which setting or which account. The Enrol button unlocks the moment the phone is clean. If removing accounts isn’t possible, it says a factory reset is the way.',
+      bad: 'Some brands hide the Accounts screen under another name. If opening it fails, the app falls back to plain Settings and a written hint.',
+      draw: (st) => win(
+        `<div class="sec">Devices <span class="count">1</span></div><div class="rail"><span class="rsel"></span>${sitem({ c: 'phone', name: 'Pixel 6', sub: '1A2B3C4D5E', on: true, stat: st.left === 0 ? '' : dot('bad') })}</div>`,
+        toolbar('Pixel 6', st.left === 0 ? 'Ready to enrol' : 'Can’t be enrolled yet') +
+        `<section class="hero"><div class="dwrap">${hdr('phone', 'Pixel 6', st.left === 0 ? 'Ready to enrol' : 'Can’t be enrolled yet · Android 15')}${group('Before it can be enrolled', [
+          `<div class="row fixrow ${st.left === 0 ? 'ok' : 'bad'}"><span class="state">${st.left === 0 ? CHECK : '!'}</span><span class="k"><span>Remove the accounts on the phone<small>${st.left === 0 ? 'All removed' : st.left + ' left: ' + ['ali@gmail.com', 'work@aioapp.com'].slice(0, st.left).join(', ')}</small></span></span>${st.left ? `<button class="cc-btn sm" data-act="open">${st.opened ? 'Opened on phone ✓' : 'Open Accounts on Phone'}</button>` : ''}</div>`,
+          `<div class="row fixrow ok"><span class="state">${CHECK}</span><span class="k"><span>No other device admin<small>Nothing else manages this phone</small></span></span></div>`,
+          `<div class="row fixrow ok"><span class="state">${CHECK}</span><span class="k"><span>Single user<small>No work profile or guest user</small></span></span></div>`,
+        ], st.left ? '<span class="waitmsg"><span class="spin"></span>Checking again every few seconds…</span>' : 'All clear.')}<div class="dacts"><button class="lnk" style="margin-right:auto">Can’t remove them? Factory reset instead…</button><button class="cc-btn primary lg" ${st.left ? 'disabled' : ''}>Enrol</button></div></div></section>`),
+      play: async (st, redraw) => { st.left = 2; st.opened = false; redraw(); await sleep(700); st.opened = true; redraw(); await sleep(1500); st.left = 1; redraw(); await sleep(1500); st.left = 0; redraw(); },
+      onact: (st, a, play) => { if (a === 'open') play(); },
+      init: () => ({ left: 2, opened: false }) },
+  ],
+  server: 'None. It uses adb: dumpsys account, and “am start” on the Accounts settings screen.',
+});
+
+// ── 5. history ──
+const HIST = [['14:52', 'kds', 'SUNMI D2s', 'D2S2240A0117', 'Burger Hub · Gulberg', 'live'], ['14:49', 'pos', 'SUNMI D3 Pro', 'P3121C30418', 'Burger Hub · Gulberg', 'live'], ['14:31', 'kiosk', 'ZC-3568K', 'ZC3568K00412', 'Onboarding inbox', 'quiet'], ['11:05', 'dongle', 'HK1 RBOX D8', 'HK1D8A2209', 'Chai Point · F-7', 'live']];
+IDEAS.push({
+  id: 'hist', title: 'Today’s log', why: 'After a session you need the list of what went in, for the rollout sheet, the handover message or the restaurant. Today that means opening the dashboard and filtering. The app <b>already knows what it enrolled</b>.',
+  opts: [
+    { k: 'A', label: 'A · “Today” page with copy/export', rec: true,
+      good: 'One place for the whole session: what went in, where it went, and whether it’s online now. Copy the serials or export a CSV with one click. The footer count “3 today” opens it.',
+      bad: 'Kept locally, so it only covers this computer. The dashboard’s “Enrolled by” filter covers the rest.',
+      draw: () => win(
+        `<div class="sec">Devices <span class="count">0</span></div><div class="rail"><div class="none">Plug in a device to start</div></div><div class="sec">Today</div><div class="rail"><span class="rsel"></span><div class="sitem on"><span class="glyph" style="--g:#34c759">${ICON.clock}</span><span class="nm">Enrolled today</span><span class="count" style="color:var(--muted)">4</span></div></div>`,
+        toolbar('Enrolled today', '4 devices · Ali Hassan', `<button class="cc-btn sm">${ICON.copy} Copy Serials</button><button class="cc-btn sm">Export CSV</button>`) +
+        `<section class="hero"><div class="dwrap" style="max-width:none"><div class="group"><table class="hist"><tr><th>Time</th><th>Device</th><th>Serial</th><th>Restaurant</th><th>Now</th></tr>${HIST.map((h) => `<tr><td class="mono">${h[0]}</td><td><span class="g"><span class="glyph" style="--g:${GLYPH[h[1]]}">${ICON[h[1]]}</span></span>${h[2]}</td><td class="mono">${h[3]}</td><td>${h[4]}</td><td>${h[5] === 'live' ? pill('ok', 'Online') : pill('warn', 'Not heard from')}</td></tr>`).join('')}</table></div></div></section>`) },
+    { k: 'B', label: 'B · Summary sheet on sign-out', rec: false,
+      good: 'Zero new pages: you get the recap at the natural end of a session.',
+      bad: 'Only when signing out, which people rarely do, and you can’t check it mid-session.',
+      draw: () => win(
+        `<div class="sec">Devices <span class="count">0</span></div><div class="rail"><div class="none">Plug in a device to start</div></div>`,
+        toolbar('AIO Enroll', 'No devices connected') + `<section class="hero"></section>`,
+        `<div class="pm-back"><div class="pm-card" style="width:min(440px,92%)"><div class="pm-ic" style="background:var(--ok-solid)">${CHECK.replace('class="check"', 'class="check" style="stroke:#fff;width:26px;height:26px"')}</div><h2>4 devices enrolled today</h2><div class="group" style="width:100%;margin:10px 0 0;text-align:left">${HIST.map((h) => row(`<span class="glyph" style="--g:${GLYPH[h[1]]}">${ICON[h[1]]}</span>${h[2]}`, `<span class="mono">${h[3]}</span>`)).join('')}</div><div class="pm-btns"><button class="cc-btn">Copy Serials</button><button class="cc-btn primary">Sign Out</button></div></div></div>`) },
+  ],
+  server: 'None for A as shown. The “Now” column re-uses enroll-status.',
+});
+
+// ── 6. update agent ──
+IDEAS.push({
+  id: 'upd', title: 'Update an old agent from the bench', why: 'Lab and returned devices often come back with an old agent (the Pixel 3a XL had 0.2.4). Over USB the app can <b>push the latest agent in a few seconds</b>, with no waiting for the MDM’s self-update.',
+  opts: [
+    { k: 'A', label: 'Update row in Enrollment', rec: true,
+      good: 'Shows only when the agent is behind, so there’s no clutter otherwise. It keeps Device Owner and settings, the same as the silent self-update.',
+      bad: 'Overlaps with the MDM’s own update. The bench path is for “now”, the MDM path is for the fleet.',
+      draw: (st) => win(
+        `<div class="sec">Devices <span class="count">1</span></div><div class="rail"><span class="rsel"></span>${sitem({ ...FLEET[0], on: true, stat: TICK })}</div>`,
+        toolbar('SUNMI D2s', 'Enrolled as kds') +
+        `<section class="hero"><div class="dwrap">${hdr('kds', 'SUNMI D2s', 'Enrolled as kds · Android 11')}${group('Enrollment', [row('Status', '', pill('ok', '✓ Enrolled')), row('Used as', 'kds'),
+          row('Agent', st.u >= 1 ? '0.2.8' : '0.2.4', st.u >= 1 ? pill('ok pop', 'Up to date') : st.u > 0 ? `<span class="upd"><span class="upbar"><i style="width:${st.u * 100}%"></i></span></span>` : `<button class="cc-btn sm primary" data-act="go">${ICON.up} Update to 0.2.8</button>`),
+          row('Enrolled by', 'Ali Hassan')])}</div></section>`),
+      play: async (st, redraw) => { for (let i = 1; i <= 10; i++) { st.u = i / 10 - .001; redraw(); await sleep(160); } st.u = 1; redraw(); },
+      onact: (st, a, play) => { if (a === 'go') play(); },
+      init: () => ({ u: 0 }) },
+  ],
+  server: 'None. The app already downloads the latest agent APK when it enrols.',
+});
+
+// ── 7. search + shortcuts ──
+const MANY = [{ c: 'kds', name: 'SUNMI D2s', sub: 'D2S2240A0117' }, { c: 'pos', name: 'SUNMI D3 Pro', sub: 'P3121C30418' }, { c: 'kiosk', name: 'ZC-3568K', sub: 'ZC3568K00412' }, { c: 'dongle', name: 'HK1 RBOX D8', sub: 'HK1D8A2209', wifi: true }, { c: 'kiosk', name: 'AIO T7', sub: 'AT070AA2600030', wifi: true }, { c: 'kiosk', name: 'AIO T7', sub: 'AT070AABU00231' }, { c: 'phone', name: 'Pixel 6', sub: '1A2B3C4D5E' }];
+IDEAS.push({
+  id: 'kbd', title: 'Search and keyboard shortcuts', why: 'On a busy bench the list grows past what fits, and the person enrolling has a phone in one hand. <b>Type part of a serial to jump to it</b>, and use keys for the common actions.',
+  opts: [
+    { k: 'A', label: 'Filter field + shortcuts', rec: true,
+      good: 'Type the last four digits of the serial on the box and it’s selected. Keys: ⌘F search, ↑/↓ move, ⌘↩ Enrol, ⌘⇧W Switch to Wi-Fi.',
+      bad: 'Needs a short shortcut list in Help, or no one finds them.',
+      draw: (st) => { const q = st.q.toLowerCase(); const hits = MANY.filter((d) => !q || d.sub.toLowerCase().includes(q) || d.name.toLowerCase().includes(q)); const hl = (s) => q ? s.replace(new RegExp(`(${st.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'i'), '<mark>$1</mark>') : s;
+        return win(
+        `<div class="search">${ICON.search}<input data-q placeholder="Search  ⌘F" value="${st.q}"></div><div class="sec">Devices <span class="count">${hits.length}${q ? ' of ' + MANY.length : ''}</span></div><div class="rail"><span class="rsel"></span>${hits.map((d, i) => sitem({ ...d, name: hl(d.name), sub: hl(d.sub), on: i === 0, stat: '' })).join('') || '<div class="none">No match</div>'}</div>`,
+        toolbar(hits[0] ? hits[0].name : 'AIO Enroll', hits[0] ? 'Ready to enrol' : '') + (hits[0] ? `<section class="hero"><div class="dwrap">${hdr(hits[0].c, hits[0].name, 'Ready to enrol')}${group('Enrollment', [row('Status', '', pill('warn', 'Not enrolled')), row('Used as', '', seg(['dongle', 'pos', 'kds', 'kiosk'], hits[0].c === 'phone' ? 'pos' : hits[0].c))])}<div class="dacts"><button class="cc-btn primary lg">Enrol <span class="kbd" style="background:transparent;color:rgba(255,255,255,.85);box-shadow:inset 0 0 0 .5px rgba(255,255,255,.5)">⌘↩</span></button></div><div class="tip" style="margin-top:22px"><span class="kbd">⌘F</span> search <span class="kbd">↑</span><span class="kbd">↓</span> move <span class="kbd">⌘↩</span> enrol <span class="kbd">⌘⇧W</span> switch to Wi-Fi</div></div></section>` : '<section class="hero"></section>')); },
+      init: () => ({ q: '0231' }) },
+  ],
+  server: 'None.',
+});
+
+// ── render ──
+const root = document.getElementById('ideas');
+document.getElementById('toc').innerHTML = IDEAS.map((x, i) => `<a href="#${x.id}">${i + 1}. ${x.title}</a>`).join('');
+IDEAS.forEach((idea, n) => {
+  const el = document.createElement('section'); el.className = 'idea'; el.id = idea.id; root.appendChild(el);
+  let cur = 0; const states = idea.opts.map((o) => (o.init ? o.init() : {}));
+  const draw = () => {
+    const o = idea.opts[cur], st = states[cur];
+    el.innerHTML = `<h2><span class="num">${n + 1}</span>${idea.title}${idea.opts.some((x) => x.rec) && idea.opts.length > 1 ? '' : ''}</h2><div class="why">${idea.why}</div>
+      <div class="ctl">${idea.opts.length > 1 ? `<div class="seg optseg"><span class="th"></span>${idea.opts.map((x, i) => `<button data-o="${i}" class="${i === cur ? 'on' : ''}">${x.label}${x.rec ? ' ★' : ''}</button>`).join('')}</div>` : `<span class="tagw">${o.label}</span>`}
+      ${o.rec ? '<span class="tagr">I’d pick this</span>' : ''}${o.play ? '<button class="cc-btn" data-play>▶ Play</button>' : ''}<button class="lnk" data-reset>Reset</button></div>
+      <div class="mock">${o.draw(st)}</div>
+      <div class="notes"><div><b>GOOD AT</b>${o.good}</div><div><b>WATCH OUT</b>${o.bad}</div></div>
+      <div class="notes" style="grid-template-columns:1fr"><div><b>SERVER WORK</b>${idea.server}</div></div>`;
+    placeThumbs(el);
+    el.querySelectorAll('[data-o]').forEach((b) => b.onclick = () => { cur = +b.dataset.o; draw(); });
+    const play = async () => { if (st.busy) return; st.busy = true; try { await o.play(st, () => { el.querySelector('.mock').innerHTML = o.draw(st); placeThumbs(el); wire(); }); } finally { st.busy = false; } };
+    const wire = () => {
+      el.querySelectorAll('.mock [data-act]').forEach((b) => b.onclick = (e) => { e.stopPropagation(); const a = b.dataset.act; if (a === 'go' && o.play && !o.onact) return play(); o.onact && o.onact(st, a, play); if (!st.busy) { el.querySelector('.mock').innerHTML = o.draw(st); placeThumbs(el); wire(); } });
+      const q = el.querySelector('[data-q]'); if (q) { q.removeAttribute('readonly'); q.oninput = () => { st.q = q.value; const pos = q.selectionStart; el.querySelector('.mock').innerHTML = o.draw(st); placeThumbs(el); wire(); const nq = el.querySelector('[data-q]'); nq.focus(); nq.setSelectionRange(pos, pos); }; }
+    };
+    wire();
+    const pb = el.querySelector('[data-play]'); if (pb) pb.onclick = play;
+    el.querySelector('[data-reset]').onclick = () => { if (st.busy) return; states[cur] = o.init ? o.init() : {}; draw(); };
+  };
+  draw();
+});
+
+// theme
+const ts = document.getElementById('themeSeg');
+ts.querySelectorAll('button').forEach((b) => b.onclick = () => {
+  document.documentElement.classList.add('theming');
+  ts.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  document.documentElement.dataset.theme = b.dataset.t; placeThumbs(document);
+  setTimeout(() => document.documentElement.classList.remove('theming'), 350);
+});
+if (matchMedia('(prefers-color-scheme: dark)').matches) ts.querySelector('[data-t=dark]').click();
+requestAnimationFrame(() => placeThumbs(document));
+addEventListener('resize', () => placeThumbs(document));
+</script>
+</body></html>

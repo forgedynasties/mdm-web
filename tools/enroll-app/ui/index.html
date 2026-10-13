@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIO Enroll</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<main id="signin" hidden>
+  <form id="signinForm" class="card narrow" autocomplete="on">
+    <div class="logo"><svg viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M11 18.5h2"/></svg></div>
+    <h1>AIO Enroll</h1>
+    <p class="sub">Sign in with your MDM account.</p>
+    <label>Email or username<input id="u" name="username" autocomplete="username" required></label>
+    <label>Password<input id="p" name="password" type="password" autocomplete="current-password" required></label>
+    <details><summary>Server</summary><label><input id="srv" placeholder="https://mdm.dev.aioapp.com"></label></details>
+    <p id="signinErr" class="err" role="alert"></p>
+    <button class="cc-btn primary" id="signinBtn">Sign in</button>
+  </form>
+</main>
+
+<div id="app" hidden>
+  <div class="topbar"><b>AIO Enroll</b><span class="sp"></span><span class="pfp" id="pfp" aria-hidden="true"></span><span id="whoName" class="who"></span><button class="cc-btn sm" id="signOut">Sign out</button></div>
+  <div class="focus">
+    <nav class="rail" id="rail" aria-label="Devices"></nav>
+    <section class="hero" id="hero" aria-live="polite"></section>
+  </div>
+  <footer><span class="dot"></span><span id="foot">Watching for devices</span><span class="sp"></span><span id="today" class="mono"></span></footer>
+</div>
+<script src="app.js"></script>
+</body></html>

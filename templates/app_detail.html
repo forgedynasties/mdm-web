@@ -1,0 +1,134 @@
+{{define "app-art"}}<span class="aa-art aa-art-{{.Art}}">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}<span class="aa-ini">{{.Initial}}</span>{{end}}</span>{{end}}
+
+{{define "app_detail.html"}}
+{{template "header" .}}
+{{$a := .App}}
+<style>
+  /* Store art. We hold no banners or screenshots, so the art is a gradient keyed off the
+     package name (artSlot) with the library icon on top — stable between renders, which
+     reads as deliberate rather than random. */
+  .aa-art{position:relative;display:grid;place-items:center;border-radius:22px;overflow:hidden;flex:none;
+    box-shadow:0 5px 16px rgba(20,22,40,.14)}
+  .aa-art::after{content:"";position:absolute;inset:0;border-radius:inherit;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1px rgba(20,22,40,.07)}
+  /* Inset, never stretched: an APK icon is 96-192px and filling an 84px tile edge to edge
+     upscaled it on bigger screens. 62% keeps it at or under its own resolution. */
+  .aa-art img{width:62%;height:62%;object-fit:contain;filter:drop-shadow(0 2px 5px rgba(20,22,40,.22))}
+  .aa-ini{font-weight:800;color:rgba(255,255,255,.95);letter-spacing:-.04em}
+  .aa-art-0{background:linear-gradient(145deg,#8f94f8,#f9674e)}
+  .aa-art-1{background:linear-gradient(145deg,#34c98a,#1f8f66)}
+  .aa-art-2{background:linear-gradient(145deg,#f2a15c,#e8822e)}
+  .aa-art-3{background:linear-gradient(145deg,#5f95f7,#3b6fd4)}
+  .aa-art-4{background:linear-gradient(145deg,#ab74ee,#7c4bd0)}
+  .aa-art-5{background:linear-gradient(145deg,#f5789f,#e0486f)}
+  .ad2-wrap{max-width:980px;margin:0 auto}
+  .ad2-top{display:flex;gap:16px;align-items:flex-start;padding:17px;background:var(--surface);
+    border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm)}
+  .ad2-top .aa-art{width:84px;height:84px}
+  .ad2-top .aa-ini{font-size:32px}
+  .ad2-nm{font-size:19px;font-weight:760;letter-spacing:-.015em;line-height:1.2}
+  .ad2-pk{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--muted);margin-top:3px}
+  .ad2-sub{font-size:12.5px;color:var(--text-2);margin-top:7px;line-height:1.5}
+  /* The two CTAs stack, so they are stretched to one width: right-aligned buttons of
+     different widths read as a mistake, and these two are a pair. */
+  .ad2-cta{margin-left:auto;display:flex;flex-direction:column;align-items:stretch;gap:7px;min-width:210px}
+  .ad2-cta .cc-btn{width:100%;justify-content:center}
+  .ad2-cta .hint{font-size:11.5px;color:var(--muted);text-align:right;line-height:1.4}
+  .ad2-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border-soft);
+    border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:14px}
+  .ad2-stat{background:var(--surface);padding:12px 14px}
+  .ad2-stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .ad2-stat .v{font-size:17px;font-weight:760;margin-top:3px;letter-spacing:-.015em}
+  .ad2-stat .v small{font-size:11.5px;font-weight:600;color:var(--muted)}
+  .ad2-stat.un .v{color:var(--warn)}
+  .ad2-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 17px;margin-top:14px}
+  .ad2-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 10px}
+  .vrow{display:flex;align-items:center;gap:10px;font-size:12.5px;padding:4px 0}
+  .vrow .lbl{min-width:150px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+  .vrow .lbl.unk{font-family:inherit;color:var(--warn);font-weight:650}
+  .vrow .tr{flex:1;height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+  .vrow .tr i{display:block;height:100%;background:var(--accent)}
+  .vrow .tr i.ok{background:var(--ok)}
+  .vrow .tr i.un{background:var(--border)}
+  .vrow .n{font-weight:750;min-width:30px;text-align:right}
+  .vrow .tag{font-size:10px;font-weight:800;border-radius:5px;padding:1px 6px;background:var(--ok-bg);color:var(--ok)}
+  .dl2{display:flex;align-items:center;gap:11px;padding:7px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px}
+  .dl2:last-child{border-bottom:0}
+  .dl2 .sn{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:650;min-width:152px}
+  .dl2 .vn{color:var(--muted)}
+  .dl2 .vn.unk{color:var(--warn)}
+  .dl2 .ven{margin-left:auto;color:var(--muted);font-size:11.5px}
+  @media(max-width:720px){.ad2-stats{grid-template-columns:repeat(2,1fr)}.ad2-cta{margin:10px 0 0;align-items:flex-start}}
+</style>
+<div class="ad2-wrap">
+  <div class="cc-eyebrow" style="margin-bottom:8px"><a href="/apps" class="link-detail">Apps</a>{{if $a.FamilyName}} · {{$a.FamilyName}}{{if gt $a.Channels 1}} ({{$a.Channels}} channels){{end}}{{end}}</div>
+
+  <div class="ad2-top">
+    {{template "app-art" $a}}
+    <div>
+      <div class="ad2-nm">{{$a.Name}}</div>
+      <div class="ad2-pk">{{$a.Package}}</div>
+      <div class="ad2-sub">
+        {{if $a.InLibrary}}Library holds <b>{{if $a.LibVersion}}{{$a.LibVersion}}{{else}}an unversioned build{{end}}</b>{{if gt $a.LibVersions 1}} and {{sub $a.LibVersions 1}} older version{{if ne $a.LibVersions 2}}s{{end}}{{end}}{{if $a.LibAdded}} · added {{$a.LibAdded}}{{end}}
+        {{else}}<b>Not in the library.</b> It is on devices but there is no APK here, so it cannot be installed, updated or removed from the dashboard.{{end}}
+      </div>
+    </div>
+    {{if $a.CanSend}}
+    <div class="ad2-cta">
+      {{if gt $a.MissingCount 0}}
+      <form action="/commands" method="POST" style="margin:0">
+        <input type="hidden" name="type" value="install_apk"><input type="hidden" name="target_type" value="devices">
+        <input type="hidden" name="apk_url" value="{{$a.ApkURL}}"><input type="hidden" name="scope" value="missing">
+        <input type="hidden" name="target_serials" value="">
+        <button type="button" class="cc-btn primary" hx-get="/apps/install-targets?pkg={{$a.Package}}" hx-target="#ad2-targets" hx-swap="innerHTML">Install on {{$a.MissingCount}} device{{if ne $a.MissingCount 1}}s{{end}}</button>
+      </form>
+      {{end}}
+      {{if gt $a.OtherCount 0}}
+      <button type="button" class="cc-btn" hx-get="/apps/install-targets?pkg={{$a.Package}}" hx-target="#ad2-targets" hx-swap="innerHTML">Reconcile {{$a.OtherCount}} on another version</button>
+      {{end}}
+      <div class="hint">{{if gt $a.Unknown 0}}{{$a.Unknown}} device{{if ne $a.Unknown 1}}s{{end}} report no version and are left out of both — an install there could be a downgrade.{{else}}Every install reports its version.{{end}}</div>
+    </div>
+    {{end}}
+  </div>
+
+  <div id="ad2-targets"></div>
+
+  <div class="ad2-stats">
+    <div class="ad2-stat"><div class="k">On the fleet</div><div class="v">{{$a.Devices}} <small>of {{$a.Fleet}}</small></div></div>
+    <div class="ad2-stat"><div class="k">On the library version</div><div class="v">{{$a.OnLatest}} <small>device{{if ne $a.OnLatest 1}}s{{end}}</small></div></div>
+    <div class="ad2-stat"><div class="k">On another version</div><div class="v">{{$a.Other}} <small>device{{if ne $a.Other 1}}s{{end}}</small></div></div>
+    <div class="ad2-stat{{if gt $a.Unknown 0}} un{{end}}"><div class="k">Version unknown</div><div class="v">{{$a.Unknown}} <small>device{{if ne $a.Unknown 1}}s{{end}}</small></div></div>
+  </div>
+
+  {{if $a.Versions}}
+  <div class="ad2-card">
+    {{/* The honest replacement for screenshots: we store none, and this is what you came
+         to look at anyway. "No version" is its own row and never folded into a total. */}}
+    <div class="ad2-h">Versions in service</div>
+    {{range $a.Versions}}
+    <div class="vrow">
+      <span class="lbl{{if eq .Version ""}} unk{{end}}">{{if eq .Version ""}}no version reported{{else}}{{.Version}}{{end}}</span>
+      <span class="tr"><i class="{{if .Latest}}ok{{else if eq .Version ""}}un{{end}}" style="width:{{.Pct}}%"></i></span>
+      <span class="n">{{.Devices}}</span>
+      {{if .Latest}}<span class="tag">library</span>{{end}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{if $a.Rows}}
+  <div class="ad2-card">
+    <div class="ad2-h">Where it is installed</div>
+    {{range $a.Rows}}
+    <div class="dl2">
+      <a href="/devices/{{.Serial}}" class="sn link-detail">{{.Serial}}</a>
+      <span class="vn{{if eq .Version ""}} unk{{end}}">{{if eq .Version ""}}no version reported{{else}}{{.Version}}{{end}}</span>
+      {{if .Venue}}<span class="ven">{{.Venue}}</span>{{end}}
+    </div>
+    {{end}}
+    {{if gt $a.More 0}}<div class="dl2"><span class="sn" style="color:var(--muted)">…{{$a.More}} more</span><span class="ven"><a href="/devices?search={{$a.Package}}" class="link-detail">see them on Devices</a></span></div>{{end}}
+  </div>
+  {{end}}
+</div>
+{{template "footer" .}}
+{{end}}

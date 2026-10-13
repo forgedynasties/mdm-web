@@ -1,0 +1,53 @@
+name: Enroll app
+
+# Builds the AIO Enroll desktop app (tools/enroll-app) for macOS, Windows and Linux.
+# Unsigned: see tools/enroll-app/README.md for the first-open steps. Manual only, so a
+# push never produces release artifacts by itself.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["tools/enroll-app/**", ".github/workflows/enroll-app.yml"]
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test -p enroll-core
+        working-directory: tools/enroll-app
+
+  build:
+    needs: core-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14,       pt: darwin,  args: "--target aarch64-apple-darwin", rust_target: aarch64-apple-darwin }
+          - { os: macos-13,       pt: darwin,  args: "--target x86_64-apple-darwin",  rust_target: x86_64-apple-darwin }
+          - { os: windows-2022,   pt: windows, args: "", rust_target: "" }
+          - { os: ubuntu-22.04,   pt: linux,   args: "", rust_target: "" }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: tools/enroll-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+      - name: Linux build libraries
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libdbus-1-dev
+      - name: Bundle adb
+        shell: bash
+        run: scripts/fetch-platform-tools.sh ${{ matrix.pt }}
+      - run: cargo install tauri-cli --version "^2" --locked
+      - run: cargo tauri build ${{ matrix.args }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aio-enroll-${{ matrix.os }}-${{ matrix.pt }}
+          path: tools/enroll-app/target/**/release/bundle/**/*
+          if-no-files-found: error

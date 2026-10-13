@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIO Enroll · icon demos</title>
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:rgba(0,0,0,.08);--gate:#f5f5f7}
+:root[data-theme=dark]{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--muted:#98989d;--line:rgba(255,255,255,.1);--gate:#1e1e20}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",sans-serif;padding:28px 16px 60px;transition:background .3s,color .3s}
+.wrap{max-width:1100px;margin:0 auto}
+h1{font-size:26px;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 18px}
+.bar{display:flex;gap:10px;align-items:center;margin-bottom:22px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:2px}
+.seg button{border:0;background:none;color:var(--text);font:inherit;padding:5px 14px;border-radius:7px;cursor:pointer}
+.seg button.on{background:#0a84ff;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.opt{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.opt.now{opacity:.75}
+.hd{display:flex;align-items:baseline;gap:8px;padding:12px 14px 0}
+.hd b{font-size:15px}
+.hd .tag{font-size:11px;color:#fff;background:#0a84ff;border-radius:5px;padding:1px 6px}
+.hd .tag.gray{background:#8e8e93}
+.why{color:var(--muted);font-size:12.5px;padding:2px 14px 10px;min-height:38px}
+.gate{background:var(--gate);margin:0 12px;border-radius:10px;padding:22px 10px 18px;text-align:center}
+.gate .lg{width:64px;height:64px;margin:0 auto 10px;display:block;animation:pop .6s cubic-bezier(.2,.9,.3,1.2) both}
+.gate .lg:hover{transform:translateY(-2px) scale(1.04);transition:transform .25s}
+.gate h2{font-size:17px;margin:0}
+.gate p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.sizes{display:flex;align-items:flex-end;gap:18px;padding:14px;justify-content:center}
+.sizes figure{margin:0;text-align:center;color:var(--muted);font-size:11px}
+.sizes figure svg{display:block;margin:0 auto 4px}
+.dock{display:flex;gap:8px;align-items:flex-end;background:rgba(255,255,255,.35);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:16px;padding:6px 8px}
+:root[data-theme=dark] .dock{background:rgba(60,60,64,.5)}
+.dock i{width:44px;height:44px;border-radius:10px;display:block}
+.dock .d1{background:linear-gradient(#5ac8fa,#007aff)}
+.dock .d2{background:linear-gradient(#e5e5ea,#8e8e93)}
+.dock svg{width:52px;height:52px}
+@keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:none}}
+</style></head>
+<body>
+<div class="wrap">
+<h1>AIO Enroll · app icon</h1>
+<p class="lead">The current icon is a plain phone on a coral square. Six options are below, each shown on the sign-in screen, in the Dock and at small size. The one you pick becomes both the app icon and the sign-in logo.</p>
+<div class="bar">
+  <div class="seg" id="theme"><button data-t="light" class="on">Light</button><button data-t="dark">Dark</button></div>
+  <div class="seg"><button id="replay">Replay animation</button></div>
+</div>
+<div class="grid" id="grid"></div>
+</div>
+
+<script>
+// Each icon is a full 512 square SVG (body only), so the same art serves every size.
+const ICONS = [
+ {k:'now', name:'Now', tag:'current', why:'A plain phone glyph. It looks like a generic “Phone” app and says nothing about enrolling.',
+  svg:`<defs><linearGradient id="gNow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a70"/><stop offset=".55" stop-color="#f9674e"/><stop offset="1" stop-color="#e14d33"/></linearGradient></defs>
+  <rect width="512" height="512" rx="114" fill="url(#gNow)"/>
+  <rect x="200" y="128" width="112" height="256" rx="26" fill="none" stroke="#fff" stroke-width="18"/><path d="M240 340h32" stroke="#fff" stroke-width="18" stroke-linecap="round"/>`},
+ {k:'A', name:'A · Phone + tick', tag:'recommended', why:'A phone with a green tick badge, which reads as “set up and done”. The blue matches macOS, and the tick matches the rail.',
+  svg:`<defs><linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fa8ff"/><stop offset="1" stop-color="#0a5fd8"/></linearGradient>
+  <linearGradient id="pA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#e3eeff"/></linearGradient></defs>
+  <rect width="512" height="512" rx="114" fill="url(#gA)"/>
+  <rect x="150" y="92" width="190" height="328" rx="38" fill="url(#pA)"/>
+  <rect x="168" y="128" width="154" height="248" rx="14" fill="#0a5fd8" opacity=".14"/>
+  <rect x="226" y="106" width="38" height="8" rx="4" fill="#0a5fd8" opacity=".35"/>
+  <circle cx="338" cy="352" r="74" fill="#34c759" stroke="#fff" stroke-width="16"/>
+  <path d="M302 352l26 26 48-50" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>`},
+ {k:'B', name:'B · Arrow into phone', tag:'', why:'An arrow lands in the phone, for “install onto this device”. Indigo keeps it apart from the coral MDM icon.',
+  svg:`<defs><linearGradient id="gB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a8ff8"/><stop offset="1" stop-color="#4b45d6"/></linearGradient></defs>
+  <rect width="512" height="512" rx="114" fill="url(#gB)"/>
+  <rect x="160" y="170" width="192" height="270" rx="36" fill="none" stroke="#fff" stroke-width="22"/>
+  <path d="M232 410h48" stroke="#fff" stroke-width="20" stroke-linecap="round"/>
+  <path d="M256 96v230" stroke="#fff" stroke-width="30" stroke-linecap="round"/>
+  <path d="M200 272l56 58 56-58" fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>`},
+ {k:'C', name:'C · MDM sibling', tag:'', why:'The MDM dashboard’s coral-to-indigo gradient with a phone and a plus, so it reads as the MDM’s companion app.',
+  svg:`<defs><linearGradient id="gC" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f9674e"/><stop offset="1" stop-color="#7a80f6"/></linearGradient></defs>
+  <rect width="512" height="512" rx="114" fill="url(#gC)"/>
+  <rect x="136" y="96" width="240" height="320" rx="36" fill="none" stroke="#fff" stroke-width="26"/>
+  <circle cx="256" cy="372" r="16" fill="#fff"/>
+  <path d="M256 186v124M194 248h124" stroke="#fff" stroke-width="28" stroke-linecap="round"/>`},
+ {k:'D', name:'D · Shield phone', tag:'', why:'A dark graphite tile with a phone inside a shield, for “managed device”. It has a serious, Apple Configurator feel.',
+  svg:`<defs><linearGradient id="gD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3a3f"/><stop offset="1" stop-color="#121214"/></linearGradient>
+  <linearGradient id="sD" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8a70"/><stop offset="1" stop-color="#e14d33"/></linearGradient></defs>
+  <rect width="512" height="512" rx="114" fill="url(#gD)"/>
+  <path d="M256 70l150 54v120c0 102-66 170-150 200-84-30-150-98-150-200V124z" fill="url(#sD)"/>
+  <rect x="206" y="160" width="100" height="176" rx="20" fill="none" stroke="#fff" stroke-width="18"/>
+  <path d="M242 304h28" stroke="#fff" stroke-width="16" stroke-linecap="round"/>`},
+ {k:'E', name:'E · Cable + Wi-Fi', tag:'', why:'A phone with a USB plug below and Wi-Fi waves above, since the app connects over both. Teal makes it the “connector” of the set.',
+  svg:`<defs><linearGradient id="gE" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#40d6c0"/><stop offset="1" stop-color="#0a8f8a"/></linearGradient></defs>
+  <rect width="512" height="512" rx="114" fill="url(#gE)"/>
+  <rect x="196" y="176" width="120" height="200" rx="26" fill="#fff"/>
+  <rect x="212" y="200" width="88" height="148" rx="10" fill="#0a8f8a" opacity=".18"/>
+  <path d="M256 376v34" stroke="#fff" stroke-width="18" stroke-linecap="round"/><rect x="234" y="406" width="44" height="34" rx="6" fill="#fff"/>
+  <path d="M150 112a150 150 0 0 1 212 0M190 146a94 94 0 0 1 132 0" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round"/>`},
+ {k:'F', name:'F · AIO monogram', tag:'', why:'The letters “aio” in bold over a small phone outline, so it is clearly our tool in a Dock full of icons.',
+  svg:`<defs><linearGradient id="gF" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a70"/><stop offset="1" stop-color="#d9442b"/></linearGradient></defs>
+  <rect width="512" height="512" rx="114" fill="url(#gF)"/>
+  <rect x="96" y="96" width="320" height="320" rx="60" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="16"/>
+  <text x="256" y="296" text-anchor="middle" font-family="-apple-system,Inter,Segoe UI,sans-serif" font-weight="800" font-size="150" fill="#fff" letter-spacing="-6">aio</text>
+  <rect x="226" y="338" width="60" height="10" rx="5" fill="#fff"/>`},
+];
+const svg = (ic, px, suf) => `<svg viewBox="0 0 512 512" width="${px}" height="${px}" class="${suf||''}" style="border-radius:${px*.22}px">${ic.svg.replace(/id="(\w+)"/g,`id="$1${px}${suf||''}"`).replace(/url\(#(\w+)\)/g,`url(#$1${px}${suf||''})`)}</svg>`;
+function render(){
+  const g=document.getElementById('grid'); g.innerHTML='';
+  for(const ic of ICONS){
+    const d=document.createElement('div'); d.className='opt'+(ic.k==='now'?' now':'');
+    d.innerHTML=`<div class="hd"><b>${ic.name}</b>${ic.tag?`<span class="tag ${ic.k==='now'?'gray':''}">${ic.tag}</span>`:''}</div>
+    <div class="why">${ic.why}</div>
+    <div class="gate">${svg(ic,64,'lg').replace('class="lg"','class="lg"')}<h2>Who’s signing in?</h2><p>Choose an account to continue.</p></div>
+    <div class="sizes">
+      <figure><div class="dock"><i class="d1"></i>${svg(ic,52,'dk')}<i class="d2"></i></div>Dock</figure>
+      <figure>${svg(ic,32,'s32')}32 px</figure>
+      <figure>${svg(ic,16,'s16')}16 px</figure>
+    </div>`;
+    g.appendChild(d);
+  }
+}
+render();
+document.getElementById('replay').onclick=render;
+document.querySelectorAll('#theme button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#theme button').forEach(x=>x.classList.toggle('on',x===b));
+  document.documentElement.dataset.theme=b.dataset.t;
+});
+</script>
+</body></html>

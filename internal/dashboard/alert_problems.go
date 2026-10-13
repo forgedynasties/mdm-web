@@ -42,7 +42,7 @@ type problemView struct {
 	Search     string
 	CanAct     bool
 	KeyReset   bool // an impersonation alert: the device may have lost its key
-	KioskExit  bool // taken out of kiosk on site: offer Lock again / Leave it out
+	KioskExit  bool // unlocked on the device: offer Lock again / Leave it out
 }
 
 type problemSymptom struct {

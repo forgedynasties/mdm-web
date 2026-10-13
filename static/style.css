@@ -7505,3 +7505,329 @@ html[data-theme="dark"] body::before { background:
     radial-gradient(560px 380px at 96% 8%, rgba(90, 150, 255, .10), transparent 60%); }
 .cc-card { background: rgba(255, 255, 255, .72); border-color: rgba(0, 0, 0, .06); }
 html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-color: rgba(255, 255, 255, .09); }
+
+/* ── The rail (IA review, option B) ─────────────────────────────────────────
+   The dock showed 5 destinations and a palette; the other 26 lived in an index
+   nobody browses. The rail groups by why you are here — watching, managing,
+   setting up — and carries what the header used to: brand at the top, the
+   account and theme controls pinned at the bottom. Desktop only: on a narrow
+   screen a fixed rail eats the page, so the dock stays there. */
+.rail { display: none; }
+.rail-c { margin-left: auto; font-size: 11px; font-weight: 800; border-radius: 99px;
+  padding: 1px 7px; background: var(--danger-bg); color: var(--danger); }
+@media (min-width: 1024px) {
+  .rail {
+    display: flex; flex-direction: column; gap: 1px;
+    position: fixed; left: 0; top: 0; bottom: 0; width: 208px; z-index: 44;
+    padding: 14px 10px 12px; overflow-x: hidden; overflow-y: auto;
+    background: var(--surface); border-right: 1px solid var(--border-soft);
+    transition: width .2s cubic-bezier(.4, 0, .2, 1);
+  }
+  .rail-brand { display: block; font-size: 19px; font-weight: var(--fw-semibold);
+    letter-spacing: -.02em; padding: 2px 9px 14px; text-decoration: none; white-space: nowrap; }
+  .rail-g { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 13px 10px 5px; white-space: nowrap; }
+  .rail-g:first-of-type { padding-top: 2px; }
+  .rail-l { display: flex; align-items: center; gap: 11px; padding: 7px 9px; border-radius: 9px;
+    font-size: 13px; font-weight: 600; color: var(--text-2); text-decoration: none; white-space: nowrap;
+    border: 0; background: none; width: 100%; text-align: left; cursor: pointer; font-family: inherit; }
+  .rail-l > svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none;
+    stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .rail-l:hover { background: var(--surface-3); color: var(--text); }
+  .rail-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  .rail-more { margin-top: 10px; color: var(--muted); }
+  .rail-more kbd { margin-left: auto; font-size: 10px; border: 1px solid var(--border);
+    border-radius: 5px; padding: 1px 5px; color: var(--muted); }
+  /* The header's controls are moved in here by layout.js — not copied, so every
+     binding they already have keeps working. */
+  .rail-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border-soft);
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .rail-foot .appbar-right { display: flex; align-items: center; gap: 6px; width: 100%; }
+  .rail-foot .nbar-pop { left: 0; right: auto; bottom: 42px; top: auto; }
+
+  body.has-dock { padding-left: 208px; }
+  body.has-dock .container { padding-bottom: 28px; }
+  .dock { display: none; }
+  /* No header on desktop: its three jobs now live in the rail. */
+  .appbar { display: none; }
+
+  /* ── Reciprocal collapse ──────────────────────────────────────────────────
+     On a page with its own rail (Fleet's collections), the app rail sits
+     collapsed and trades width with the child rail on hover: 56↔208 one way,
+     208↔56 the other, so the total never changes and the content underneath
+     never reflows. Reaching for the nav must not move what you were reading. */
+  body.has-child-rail { padding-left: 56px; }
+  body.has-child-rail .rail { width: 56px; }
+
+  /* Collapsed, the rail is icons and nothing else: every label, group caption,
+     count, shortcut hint and the account name go, or they spill out of 56px —
+     "Everything else" did exactly that. Hidden, not faded: a 0-opacity label
+     still takes its width and still gets read out. */
+  body.has-child-rail:not(.rail-open) .rail .rail-t,
+  body.has-child-rail:not(.rail-open) .rail .rail-c,
+  body.has-child-rail:not(.rail-open) .rail-more kbd,
+  body.has-child-rail:not(.rail-open) .rail-foot .who { display: none; }
+  body.has-child-rail:not(.rail-open) .rail-l { justify-content: center; padding: 7px 4px; }
+  /* The group captions keep their box when collapsed — hidden, not removed — so every
+     icon stays on the same line it is on when the rail is open. Nothing jumps on hover. */
+  body.has-child-rail:not(.rail-open) .rail .rail-g { visibility: hidden; }
+  /* The wordmark will not fit either, so the brand is the product's own favicon. */
+  body.has-child-rail:not(.rail-open) .rail-brand { font-size: 0; padding: 2px 0 14px; text-align: center; }
+  body.has-child-rail:not(.rail-open) .rail-brand::before { content: ""; display: inline-block;
+    width: 28px; height: 28px; background: url("/static/favicon.svg") center/contain no-repeat; }
+
+  /* Open, the app rail takes exactly what the child rail gives up: 196 + 56 = 56 + 196,
+     so the content never reflows. The child rail collapses to its swatches — a tile
+     tinted from each row's own name — which is the one compressed form that still tells
+     two user-typed names apart. */
+  body.has-child-rail.rail-open .rail { width: 196px; }
+  body.has-child-rail.rail-open .rail-brand::before { display: none; }
+  /* No hover on a touchscreen, so there it simply stays open. */
+  @media (hover: none) { body.has-child-rail .rail { width: 208px; }
+    body.has-child-rail .rail .rail-t, body.has-child-rail .rail .rail-g { display: block; } }
+}
+
+/* ── Child rails ───────────────────────────────────────────────────────────
+   A page's own navigation — its sections, filters or tabs — as opposed to the
+   app rail, which moves you between pages.
+
+   It is FLUSH against the app rail: same surface, same full height, no gap, no
+   card border and no radius, separated by one hairline. In the first cut it was
+   an in-flow rounded card sitting in the middle of the page with a gutter of
+   background between it and the app rail, which read as content rather than as
+   navigation — the two are one band of chrome and now look like it.
+
+   A page opts in by carrying [data-child-rail]; pages that already had their own
+   nav (Settings, Enrollment, Fleet, history) carry it on that element rather
+   than growing a second one beside it. */
+/* Below 1024 there is no rail band at all: the dock carries navigation. Only the asides
+   written as child rails hide — a page's own nav (Settings' tabs, Fleet's collections)
+   carries data-child-rail too and must stay exactly as it was. */
+.child-rail { display: none; }
+@media (min-width: 1024px) {
+  [data-child-rail] {
+    display: flex; flex-direction: column; gap: 1px;
+    position: fixed; left: 208px; top: 0; bottom: 0; width: 196px; z-index: 43;
+    margin: 0; padding: 16px 10px; overflow-x: hidden; overflow-y: auto;
+    /* ── The one-line option ──────────────────────────────────────────────
+       Shipped as A: the child rail is the same surface as the app rail, one
+       hairline between them. If the two scopes read as too alike once people
+       use it, B is this single line — swap var(--surface) for the recess and
+       the child rail sits a shade darker, the way a nested panel does:
+         background: color-mix(in srgb, var(--surface) 84%, var(--bg));
+       Nothing else changes. */
+    background: var(--surface); border: 0; border-right: 1px solid var(--border-soft);
+    border-radius: 0; box-shadow: none; min-width: 0;
+    transition: width .2s cubic-bezier(.4, 0, .2, 1), left .2s cubic-bezier(.4, 0, .2, 1);
+  }
+  body.has-child-rail [data-child-rail] { left: 56px; }
+  /* The content starts where the chrome ends — one rule, whichever rail is open,
+     because the two always add up to the same width. */
+  /* One offset, on the page's outermost box only. Applying it to .container and to a
+     wrap nested inside it indented Settings twice — 432px of gutter. */
+  body.has-child-rail main,
+  body.has-child-rail > .settings-wrap,
+  body.has-child-rail > .fleet-wrap { padding-left: 216px; }
+
+  .cr-t { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 12px 9px 5px; white-space: nowrap; }
+  .cr-t:first-child { padding-top: 0; }
+  .cr-l { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-2); text-decoration: none; white-space: nowrap; }
+  .cr-l:hover { background: var(--surface-3); color: var(--text); }
+  .cr-l.on, .cr-l.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 700; }
+  /* Settings drives its tabs with .active; the rail styles .on. Both mean current. */
+  .cr-l .n { margin-left: auto; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--text-faint); }
+  /* A rail row's mark: a tile tinted from the name itself, with the health dot as a pip
+     in its corner. Venue and group names are user-typed, so no abbreviation or icon can
+     tell two of them apart — a stable colour can, and it is read before the word is. */
+  .cr-sw { position: relative; width: 20px; height: 20px; flex: none; border-radius: 6px;
+    background: linear-gradient(135deg, hsl(var(--h) 62% 58%), hsl(calc(var(--h) + 24) 58% 46%)); }
+  .cr-sw .dot { position: absolute; right: -2px; bottom: -2px; width: 8px; height: 8px;
+    border-radius: 50%; border: 2px solid var(--surface); }
+  .fleet-rail-item.on .cr-sw { box-shadow: 0 0 0 2px var(--accent); }
+
+  /* The placeholder rail, up only while the next page is in flight: the right width in
+     the right place, and plainly not real. */
+  .cr-ghost .gl { display: block; height: 10px; border-radius: 5px; background: var(--surface2);
+    flex: 1; min-width: 0; }
+  .cr-ghost .gl.short { width: 54px; flex: none; height: 8px; }
+  .cr-ghost .cr-sw { background: var(--surface2); }
+  .cr-ghost .cr-l { opacity: .75; }
+
+  /* The page you are on, inside its own section's rail: a heading rather than a row,
+     with its filters nested under a hairline. Lighting both the page and its filter
+     read as two selections; this states one and selects the other. */
+  .cr-page { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px;
+    padding: 7px 9px; border-radius: 8px; background: var(--surface-3);
+    font-size: 12.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .cr-here { margin-left: auto; font-size: 9px; font-weight: 800; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--text-faint); }
+  .cr-sub { display: flex; flex-direction: column; gap: 1px;
+    margin: 0 0 0 10px; padding-left: 10px; border-left: 1px solid var(--border); }
+  .cr-sub .cr-l { font-size: 12px; font-weight: 550; }
+  /* Folded, the heading keeps its place as an accent tick so the column still says
+     which page the dots below belong to. */
+  body.rail-open [data-child-rail] .cr-page { background: transparent; padding: 0;
+    height: 18px; justify-content: center; margin: 6px 0 2px; font-size: 0; }
+  body.rail-open [data-child-rail] .cr-page::after { content: ""; width: 16px; height: 2px;
+    border-radius: 2px; background: var(--accent); }
+  body.rail-open [data-child-rail] .cr-here { display: none; }
+  body.rail-open [data-child-rail] .cr-sub { margin-left: 0; padding-left: 0; border-left: 0; }
+
+  .cr-ini { display: none; font-size: 10.5px; font-weight: 750; letter-spacing: -.02em; }
+
+  /* The swap: the child rail folds to a column of swatches while the app rail is open.
+     Letters were tried and dropped — a two-letter abbreviation of a user-typed name says
+     nothing and repeats ("Al" was both All and Alerts). A colour keyed to the name does
+     not. */
+  body.rail-open [data-child-rail] { width: 56px; left: 196px; padding-left: 6px; padding-right: 6px; }
+  body.rail-open [data-child-rail] .cr-t,
+  body.rail-open [data-child-rail] .cr-l > span:not(.cr-sw),
+  body.rail-open [data-child-rail] .cr-l .n,
+  body.rail-open [data-child-rail] button > span:not(.cr-sw),
+  body.rail-open [data-child-rail] .fleet-rail-cap,
+  body.rail-open [data-child-rail] .fleet-rail-empty,
+  body.rail-open [data-child-rail] .nm,
+  body.rail-open [data-child-rail] .ct,
+  body.rail-open [data-child-rail] .ri-go { display: none; }
+  body.rail-open [data-child-rail] .cr-l,
+  body.rail-open [data-child-rail] button,
+  body.rail-open [data-child-rail] .fleet-rail-item,
+  body.rail-open [data-child-rail] .ri-main { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
+  body.rail-open [data-child-rail] button svg { display: none; }
+  /* Folded, the strip is health: one dot per row, in the colours the rest of the
+     dashboard already uses. The thing worth interrupting yourself for is the thing that
+     survives the fold — and on a rail of venues it means you can see a site going bad
+     while reaching for the nav. Rows with no health of their own (Settings' tabs, a
+     status filter) sit neutral, which is honest: they have nothing to report. */
+  body.rail-open [data-child-rail] .cr-sw { width: auto; height: auto; background: none;
+    border-radius: 0; box-shadow: none; display: flex; }
+  body.rail-open [data-child-rail] .cr-sw .dot { position: static; width: 10px; height: 10px;
+    border: 0; right: auto; bottom: auto; }
+  /* Rows that carry no status — Settings' tabs, a status filter — get the same dot,
+     drawn quiet. They have nothing to report and should not pretend otherwise: a
+     coloured tile on "Profiles" or "Enrollments" was decoration standing in for data. */
+  body.rail-open [data-child-rail] .cr-l:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] button:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] .cr-l .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button .cr-sw:empty::after {
+    content: ""; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--text-faint); opacity: .5; }
+  body.rail-open [data-child-rail] .cr-l.on:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] .cr-l.active:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] button.on:not(:has(.cr-sw))::after,
+  body.rail-open [data-child-rail] button.active:not(:has(.cr-sw))::after {
+    background: var(--accent); opacity: 1;
+    box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3.5px var(--accent); }
+  body.rail-open [data-child-rail] .cr-l,
+  body.rail-open [data-child-rail] button,
+  body.rail-open [data-child-rail] .fleet-rail-item {
+    min-height: 0; height: 26px; padding: 0; margin: 0; border: 0;
+    background: transparent; box-shadow: none; border-radius: 7px; }
+  body.rail-open [data-child-rail] .cr-l:hover .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button:hover .cr-sw:empty::after { opacity: .9; }
+  /* Where you are: the dot keeps its colour and gains a ring, so health and position are
+     two different marks rather than one fighting the other. */
+  body.rail-open [data-child-rail] .cr-l.on,
+  body.rail-open [data-child-rail] .cr-l.active,
+  body.rail-open [data-child-rail] button.on,
+  body.rail-open [data-child-rail] button.active,
+  body.rail-open [data-child-rail] .fleet-rail-item.on { background: var(--accent-soft); }
+  body.rail-open [data-child-rail] .cr-l.on .cr-sw .dot,
+  body.rail-open [data-child-rail] .fleet-rail-item.on .cr-sw .dot,
+  body.rail-open [data-child-rail] .cr-l.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] .cr-l.active .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.active .cr-sw:empty::after {
+    box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3.5px var(--accent); opacity: 1; }
+  body.rail-open [data-child-rail] .cr-l.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] .cr-l.active .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.on .cr-sw:empty::after,
+  body.rail-open [data-child-rail] button.active .cr-sw:empty::after { background: var(--accent); }
+  body.rail-open [data-child-rail] .fleet-rail-list { gap: 3px; }
+}
+
+}
+
+/* Pages whose own nav became the child rail: strip the card styling they carried as
+   in-flow panels, so they sit in the chrome band instead of floating in the content. */
+@media (min-width: 1024px) {
+  [data-child-rail] button { border-bottom: 0; }
+  [data-child-rail] button.on, [data-child-rail] button.active {
+    background: var(--accent-soft); color: var(--accent-text); font-weight: 700; border-radius: 8px; }
+  [data-child-rail] button:focus { outline: none; }
+  [data-child-rail] button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .settings-nav[data-child-rail] { min-width: 0; position: fixed; }
+  .settings-nav[data-child-rail] button { width: 100%; }
+  .en-tabs[data-child-rail], .hist-tabs[data-child-rail] { flex-direction: column; align-items: stretch; }
+  .en-tabs[data-child-rail] > *, .hist-tabs[data-child-rail] > * { width: 100%; text-align: left; }
+  .fleet-rail[data-child-rail] { border: 0; border-right: 1px solid var(--border-soft);
+    border-radius: 0; box-shadow: none; background: var(--surface); }
+  /* The content column no longer leaves room for an in-flow rail. */
+  body.has-child-rail .fleet-main, body.has-child-rail .fleet-grid { margin-left: 0; }
+}
+
+/* Fleet's rows carry a status dot, a count and a manage arrow, so they keep their own
+   markup inside the shared band — these just align them with .cr-l's metrics. */
+@media (min-width: 1024px) {
+  .fleet-rail[data-child-rail] .fleet-rail-item { border-radius: 8px; padding: 6px 9px; }
+  .fleet-rail[data-child-rail] .fleet-rail-cap { font-size: 10px; font-weight: 800;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); padding: 12px 9px 5px; }
+}
+
+}
+
+
+/* The account chip in the rail foot: a row of icon buttons plus the user, which needs the
+   full width to show a name at all — in the header it had the whole bar. */
+@media (min-width: 1024px) {
+  .rail-foot { flex-direction: column; align-items: stretch; gap: 8px; }
+  .rail-foot .appbar-right { flex-wrap: wrap; justify-content: flex-start; }
+  /* The account row: avatar, then name over role, both clipped to one line. Left to wrap
+     it broke "Ali Hassan" across three lines and pushed the avatar off to the right. */
+  .rail-foot #acct-wrap { width: 100%; min-width: 0; }
+  .rail-foot .appbar-acct { display: flex; align-items: center; gap: 8px; width: 100%;
+    flex-wrap: nowrap; min-width: 0; }
+  .rail-foot .appbar-acct .av { order: 1; flex: none; }
+  .rail-foot .appbar-acct .who { order: 2; flex: 1; min-width: 0; text-align: left; }
+  .rail-foot .who .n { display: block; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  /* The chip is a name and a face, nothing else: the role was a second line of small
+     type under it in a 196px column, which read as clutter and said what the menu
+     already says in its header. */
+  .rail-foot .who { display: flex; align-items: center; line-height: 1.3; min-width: 0; }
+  .rail-foot .who .n { font-size: 12.5px; font-weight: 600; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rail-foot .appbar-acct .who .r { display: none; }
+  body.rail-open .rail-foot .who, body:not(.has-child-rail) .rail-foot .who { display: flex; }
+}
+
+/* The by-venue report as a page: its fragment header belongs to the Overview card it was
+   written for, where there is no page title to say the same thing. */
+.rab-page > .rab-h { display: none; }
+.rab-page .rab-list { gap: 2px; }
+.rab-page .rab-row { padding: 11px 12px; }
+
+/* The device wall is one shape: a square per device. Battery/mains was carried by circle
+   vs square and read as two kinds of status at a glance when it is a hardware fact, and
+   it cost a second legend to explain. State — online, alert, offline, dormant — is the
+   only thing the wall encodes now, in colour, with one legend. */
+.ovd-wall .sq a.shape-circle, .ovd-wall .sq a { border-radius: 3px; }
+.ovd-wfoot-cls { display: none; }
+
+
+/* ── Notifications, top right ───────────────────────────────────────────────
+   The bell is the one control that interrupts you, so it sits where people look when
+   something changes — the top right of the page — rather than at the foot of a rail
+   that is folded most of the time. Fixed, above the content, out of the scroll. */
+.top-right { display: none; }
+@media (min-width: 1024px) {
+  .top-right { display: flex; align-items: center; gap: 8px;
+    position: fixed; top: 14px; right: 20px; z-index: 46; }
+  .top-right .appbar-icon { background: var(--surface); border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm); width: 34px; height: 34px; border-radius: 50%; }
+  .top-right .appbar-icon:hover { background: var(--surface2); }
+  /* Its popover hangs below and to the left, inside the viewport. */
+  .top-right .nbar-pop { right: 0; left: auto; top: calc(100% + 9px); }
+}

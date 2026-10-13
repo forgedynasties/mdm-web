@@ -1,0 +1,99 @@
+collecting 5 device(s) -> /home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/runs/20260929-155734-v2-1-023-client-1-5-0-fast-temperature-1.jsonl
+Exception in thread Thread-5:
+Traceback (most recent call last):
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 180, in device_loop
+    raise RuntimeError((p.stderr or p.stdout).strip()[:300])
+RuntimeError: @@BATTERY
+Current Battery Service state:
+  AC powered: false
+  USB powered: false
+  Wireless powered: false
+  Dock powered: false
+  Max charging current: 0
+  Max charging voltage: 0
+  Charge counter: 12000000
+  status: 3
+  health: 2
+  present: true
+  level: 60
+  scale: 100
+  voltage: 3942
+  temperat
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/threading.py", line 932, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.8/threading.py", line 870, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 189, in device_loop
+    subprocess.run(["adb", "connect", target], capture_output=True, timeout=15)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1869, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/usr/lib/python3.8/subprocess.py", line 1072, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['adb', 'connect', '10.32.0.13:5555']' timed out after 15 seconds
+Exception in thread Thread-4:
+Traceback (most recent call last):
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 180, in device_loop
+    raise RuntimeError((p.stderr or p.stdout).strip()[:300])
+RuntimeError: adb: device '10.32.0.134:5555' not found
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/threading.py", line 932, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.8/threading.py", line 870, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 189, in device_loop
+    subprocess.run(["adb", "connect", target], capture_output=True, timeout=15)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1869, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/usr/lib/python3.8/subprocess.py", line 1072, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['adb', 'connect', '10.32.0.134:5555']' timed out after 15 seconds
+Exception in thread Thread-2:
+Traceback (most recent call last):
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 177, in device_loop
+    p = adb(target, "shell", SNAPSHOT)
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 65, in adb
+    return subprocess.run(["adb", "-s", target, *args], capture_output=True,
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1869, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/usr/lib/python3.8/subprocess.py", line 1072, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['adb', '-s', '10.32.3.30:5555', 'shell', '\necho @@BATTERY; dumpsys battery\necho @@MEMINFO; grep -E \'^(MemTotal|MemFree|Cached):\' /proc/meminfo\necho @@STATFS; stat -f -c \'%S %a\' /data\necho @@G127; cat /sys/devices/platform/soc/soc:customer_gpio/gpio127 2>/dev/null | tr -d \'\\0\'; echo\necho @@G27; i=0; while [ $i -lt 24 ]; do v=$(cat /sys/devices/platform/soc/soc:customer_gpio/gpio27 2>/dev/null | tr -d \'\\0\'); echo "${v:-x}"; sleep 0.01; i=$((i+1)); done\necho @@UPTIME; cat /proc/uptime\necho @@SERIAL; getprop ro.serialno\necho @@END\n']' timed out after 20 seconds
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.8/threading.py", line 932, in _bootstrap_inner
+    self.run()
+  File "/usr/lib/python3.8/threading.py", line 870, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/collect.py", line 189, in device_loop
+    subprocess.run(["adb", "connect", target], capture_output=True, timeout=15)
+  File "/usr/lib/python3.8/subprocess.py", line 495, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1028, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+  File "/usr/lib/python3.8/subprocess.py", line 1869, in _communicate
+    self._check_timeout(endtime, orig_timeout, stdout, stderr)
+  File "/usr/lib/python3.8/subprocess.py", line 1072, in _check_timeout
+    raise TimeoutExpired(
+subprocess.TimeoutExpired: Command '['adb', 'connect', '10.32.3.30:5555']' timed out after 15 seconds
+/home/hwpc02/aio-mdm/aio-mdm-web/tools/telemetry-validate/runs/20260929-155734-v2-1-023-client-1-5-0-fast-temperature-1.jsonl

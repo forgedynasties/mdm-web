@@ -1,5 +1,10 @@
 {{define "clients.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="Clients">
+  <div class="cr-t">Clients</div>
+  {{range .Rails}}<a href="/clients?slot={{.Slot}}" class="cr-l{{if .Selected}} on{{end}}"><span>{{.Label}}</span><span class="n{{if .Behind}} warn{{end}}"{{if .Behind}} title="{{.Behind}} behind"{{end}}>{{.Devices}}</span></a>
+  {{end}}
+</aside>
 {{/* Clients: the MDM client each device runs, the build this server hosts for it, and
      what has been published to it. The client list stays on the left while you work in
      one of them. A slot exists per thing that must be signed differently: the standard
@@ -8,16 +13,25 @@
      visible for any device still on it). A device is only ever offered its own slot's
      build. */}}
 <style>
-.cl-split{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
-.cl-side{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;position:sticky;top:78px}
-.cl-si{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:10px;font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.cl-split{display:block}
+.cl-auto{border:1px solid var(--border);border-radius:var(--r-4);background:var(--surface);padding:13px 15px;margin:0 0 14px}
+.cl-auto.on{border-color:var(--accent-edge);background:var(--accent-soft)}
+.ca-head{display:flex;align-items:center;gap:9px}
+.ca-ttl{font-size:13.5px;font-weight:650}
+.ca-sub{font-size:12px;color:var(--muted);margin:5px 0 10px;line-height:1.5;max-width:70ch}
+.ca-form{display:inline-flex;align-items:center;gap:7px;margin:0 7px 0 0}
+.ca-win{flex-wrap:wrap;margin-top:9px}
+.ca-win label{font-size:12px;color:var(--muted)}
+.ca-win .form-input.sm{padding:5px 8px;font-size:12.5px;width:auto}
+.ca-tz{font-size:11.5px;color:var(--text-faint)}
+.cl-slots{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.cl-slot{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);font-size:12.5px;font-weight:650;color:var(--text-2);text-decoration:none}
+.cl-slot.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.cl-slot .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+@media(min-width:1024px){.cl-slots{display:none}}
 .cl-si:hover{background:var(--surface2);color:var(--text)}
 .cl-si.on{background:var(--accent-soft);color:var(--accent-text)}
-.cl-si .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cl-si .n{font-size:10.5px;font-weight:700;background:var(--surface2);color:var(--text-2);border-radius:20px;padding:1px 7px;font-variant-numeric:tabular-nums}
 .cl-si.on .n{background:var(--surface)}
-.cl-si .n.warn{background:var(--warn-bg,#fdf1dc);color:var(--warn,#8a5a00)}
-.cl-scap{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:8px 11px 4px}
 .cl-hd{margin-bottom:14px}
 .cl-hd h2{margin:0;font-size:17px;font-weight:600}
 .cl-note{font-size:12.5px;color:var(--muted);margin-top:4px;max-width:74ch;line-height:1.5}
@@ -92,7 +106,7 @@
 .cl-fold:hover{color:var(--text)}
 .cl-tr.dim{opacity:.6}
 .cl-tr.hidden{display:none}
-@media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
+@media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
 
 <div class="cc-wrap">
@@ -105,6 +119,8 @@
   </div>
 </div>
 
+{{/* Under 1024 the child rail is not rendered, so the slot picker rides along here. */}}
+<div class="cl-slots">{{range .Rails}}<a href="/clients?slot={{.Slot}}" class="cl-slot{{if .Selected}} on{{end}}">{{.Label}}<span class="n">{{.Devices}}</span></a>{{end}}</div>
 <div class="cl-split" id="cl-split">
 {{template "clients-split" .}}
 </div>
@@ -219,15 +235,6 @@ function clSkeleton(d) {
     '<div class="cl-sec"><span>Devices</span></div><div class="cl-tbl">' + rows + '</div>';
 }
 
-function clPick(a) {
-  var rail = a && a.closest('.cl-side');
-  if (rail) rail.querySelectorAll('.cl-si').forEach(function (el) { el.classList.toggle('on', el === a); });
-  var d = document.getElementById('cl-detail');
-  if (!d) return;
-  d.innerHTML = '<div class="cl-hd"><div class="skel skel-line skel-w25" style="height:17px"></div>' +
-    '<div class="skel skel-line skel-w60" style="height:11px"></div></div><div id="cl-body"></div>';
-  clSkeleton(document.getElementById('cl-body'));
-}
 </script>
 {{template "footer" .}}
 {{end}}
@@ -236,19 +243,6 @@ function clPick(a) {
      so the header, dock and scroll position stay put. The rail is inside the fragment
      because its selected state changes with the detail. */}}
 {{define "clients-split"}}
-  <nav class="cl-side" aria-label="Clients">
-    <div class="cl-scap">Clients</div>
-    {{range .Rails}}
-    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}" onclick="clPick(this)"
-       hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
-       hx-push-url="/clients?slot={{.Slot}}">
-      <span class="nm">{{.Label}}</span>
-      {{if .Behind}}<span class="n warn" title="{{.Behind}} behind">{{.Devices}}</span>
-      {{else}}<span class="n">{{.Devices}}</span>{{end}}
-    </a>
-    {{end}}
-  </nav>
-
   {{with .Selected}}
   <div id="cl-detail"{{if .Updating}} hx-get="/clients?slot={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-split" hx-swap="innerHTML"{{end}}>
     <div class="cl-hd">
@@ -290,6 +284,51 @@ function clPick(a) {
       <div class="cl-card{{if .Behind}} warn{{end}}"><div class="k">Behind</div><div class="v">{{.Behind}}</div>{{if .Unknown}}<div class="sub">{{.Unknown}} never reported a version</div>{{end}}{{if .NoBuild}}<div class="sub">{{.NoBuild}} need a newer image</div>{{end}}</div>
     </div>
 
+    {{/* The standing instruction. "Update all behind" only reached whoever was online at
+         that second; this says what the fleet should be on and lets each device satisfy it
+         whenever it next checks in. The button stays for "now, and I am watching". */}}
+    <div class="cl-auto{{if .Auto.On}} on{{end}}">
+      <div class="ca-head">
+        <span class="ca-ttl">Keep devices on the hosted build</span>
+        {{if .Auto.On}}{{if .Auto.Paused}}<span class="cc-tag warn">paused</span>{{else}}<span class="cc-tag ok">on</span>{{end}}{{else}}<span class="cc-tag">off</span>{{end}}
+      </div>
+      <div class="ca-sub">
+        {{if .Hosted}}Target <b>{{.Build.Version}}</b> — each device installs it the next time it checks in, so one that is off tonight catches up by itself.{{else}}Nothing is hosted for this client yet, so there is no target to keep devices on.{{end}}
+        {{if and .Auto.On .Auto.By}}<br>Set by {{.Auto.By}} on {{formatTime .Auto.At}}.{{end}}
+      </div>
+      {{if canAdmin $.Role}}
+      <form method="POST" action="/clients/auto-update" class="ca-form">
+        <input type="hidden" name="slot" value="{{.Slot}}">
+        <input type="hidden" name="on" value="{{if .Auto.On}}0{{else}}1{{end}}">
+        {{if .Auto.On}}<input type="hidden" name="paused" value="{{if .Auto.Paused}}1{{else}}0{{end}}">{{end}}
+        <input type="hidden" name="window_start" value="{{.Auto.WindowStart}}">
+        <input type="hidden" name="window_end" value="{{.Auto.WindowEnd}}">
+        <button type="submit" class="cc-btn sm{{if not .Auto.On}} primary{{end}}"{{if not .Hosted}} disabled{{end}}>{{if .Auto.On}}Turn off{{else}}Turn on{{end}}</button>
+      </form>
+      {{if .Auto.On}}
+      <form method="POST" action="/clients/auto-update" class="ca-form">
+        <input type="hidden" name="slot" value="{{.Slot}}">
+        <input type="hidden" name="on" value="1">
+        <input type="hidden" name="paused" value="{{if .Auto.Paused}}0{{else}}1{{end}}">
+        <input type="hidden" name="window_start" value="{{.Auto.WindowStart}}">
+        <input type="hidden" name="window_end" value="{{.Auto.WindowEnd}}">
+        <button type="submit" class="cc-btn sm">{{if .Auto.Paused}}Resume{{else}}Pause{{end}}</button>
+      </form>
+      <form method="POST" action="/clients/auto-update" class="ca-form ca-win">
+        <input type="hidden" name="slot" value="{{.Slot}}">
+        <input type="hidden" name="on" value="1">
+        <input type="hidden" name="paused" value="{{if .Auto.Paused}}1{{else}}0{{end}}">
+        <label>Only between</label>
+        <input type="time" name="window_start" value="{{.Auto.WindowStart}}" class="form-input sm">
+        <label>and</label>
+        <input type="time" name="window_end" value="{{.Auto.WindowEnd}}" class="form-input sm">
+        <button type="submit" class="cc-btn sm">Save window</button>
+        <span class="ca-tz">in each device's own timezone · leave empty for any time</span>
+      </form>
+      {{end}}
+      {{end}}
+    </div>
+
     <div class="cl-sec">
       <span>Devices</span>
       {{if and .Behind (canOperate $.Role)}}
@@ -297,7 +336,7 @@ function clPick(a) {
         <input type="hidden" name="type" value="app_update">
         <input type="hidden" name="target_type" value="devices">
         <input type="hidden" name="target_serials" value="{{.BehindSerials}}">
-        <button type="submit" class="cc-btn sm primary" data-coach="clients-update-all" data-coach-title="One press updates every device behind" data-coach-text="Each device downloads the hosted build and installs it itself; rows turn to 'installing' here as they pick it up, then to 'up to date' when they report the new version."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update all behind<span class="n">{{.Behind}}</span></button>
+        <button type="submit" class="cc-btn sm primary" data-coach="clients-update-all" data-coach-title="One press updates every device behind" data-coach-text="Each device downloads the hosted build and installs it itself; rows turn to 'installing' here as they pick it up, then to 'up to date' when they report the new version."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update the {{.Behind}} behind now<span class="n">{{.Behind}}</span></button>
       </form>
       {{end}}
     </div>

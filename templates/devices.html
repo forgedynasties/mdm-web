@@ -86,7 +86,7 @@ if (!window.__dlRowNav) {
       {{end}}
     </div>
     <div class="dl-id">
-      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}</div>
+      <div class="dl-id-top">{{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}<a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail{{if $nick}} has-name{{end}}" data-full="1" hx-boost="false">{{if $nick}}<b class="dl-name">{{$nick}}</b><span class="dl-sn">{{.SerialNumber}}</span>{{else}}{{.SerialNumber}}{{end}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Locked mode" aria-label="Locked mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}</div>
       {{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
            product key ("a14xmtfn" means nothing to a human); T7s report no model and
            keep their catalog label. */}}
@@ -239,8 +239,11 @@ if (!window.__dlRowNav) {
      changes (partial swaps) re-render it out-of-band instead of leaving the counts
      from the first page load. */}}
 {{define "fleet-headline"}}{{$onCount := .Summary.RecentlyActive}}{{$offCount := sub .Summary.Total .Summary.RecentlyActive}}
-  <h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>
-  <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}{{if .RefusedSerials}} · <span class="fl-unident">{{len .RefusedSerials}} unidentified</span>{{end}}</div>
+  {{/* A venue or group view is about the collections, not the device count. */}}
+  {{if eq .View "restaurants"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailRestaurants}}</span> venue{{if ne (len .RailRestaurants) 1}}s{{end}}</h1>
+  {{else if eq .View "groups"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailGroups}}</span> group{{if ne (len .RailGroups) 1}}s{{end}}</h1>
+  {{else}}<h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>{{end}}
+  <div class="cc-sub">{{if eq .View "restaurants"}}Every venue{{else if eq .View "groups"}}Every group{{else}}Viewing <b>{{.SelectedCollection}}</b>{{end}} · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}{{if .RefusedSerials}} · <span class="fl-unident">{{len .RefusedSerials}} unidentified</span>{{end}}</div>
 {{end}}
 
 {{/* Product tabs above the roster: stack with the rail's collection and the quick
@@ -320,11 +323,11 @@ if (!window.__dlRowNav) {
          be clipped, and portalling one to <body> is exactly the machinery that
          made this panel render itself twice. */}}
     {{if canAdminOrOperator .Role}}
-    <button type="button" class="cc-btn sm primary ss-primary" onclick="bulkAction()"><span class="ui-icon" style="width:13px;height:13px;margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
+    <button type="button" class="cc-btn sm primary ss-primary" onclick="bulkAction()"><span class="ui-icon" style="width:13px;height:13px;margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>More actions</button>
     <div class="ss-grid">
       {{if canOTA .Role}}<button type="button" class="cc-btn sm" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
-      <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'reboot'})" title="Open Actions with Reboot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
-      <button type="button" class="cc-btn sm" onclick="bulkGo('/commands', {type:'screenshot'})" title="Open Actions with Screenshot and these devices ready to send"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
+      <button type="button" class="cc-btn sm" onclick="bulkRun('reboot', null, 'Reboot {n} device(s)? Anyone using one right now loses what is on screen.')" title="Reboot the selected devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
+      <button type="button" class="cc-btn sm" onclick="bulkRun('screenshot')" title="Capture a screenshot on the selected devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
     </div>
     {{else}}
     {{/* A viewer has no Send group at all, so the two things they can always do
@@ -341,7 +344,32 @@ if (!window.__dlRowNav) {
       {{if canAdminOrOperator .Role}}
       <div class="ss-lbl">Send</div>
       <div class="ss-grid">
-        <button type="button" class="cc-btn sm ss-w" onclick="bulkGo('/commands', {type:'install_apk'})" title="Open Actions with Install app and these devices ready; pick the app there"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkShell()" title="Run a shell command on the selected devices">Shell…</button>
+        {{if $.Queries}}
+        {{/* The vetted checks: the only multi-device verb left that the console still owned.
+             Its payload is rebuilt server-side from the catalog, so nothing here can send
+             an arbitrary command under the Query name. */}}
+        <select id="bulk-query" class="form-input ss-w" style="font-size:12px" aria-label="Run a check on the selected devices"
+                onchange="if(this.value){bulkRun('query',{query_id:this.value});this.value='';}">
+          <option value="">Run a check…</option>
+          {{range $.Queries}}<option value="{{.ID}}">{{.Label}}</option>{{end}}
+        </select>
+        {{end}}
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkRun('collect_logs')" title="Collect a log bundle from the selected devices">Collect logs</button>
+        {{/* Install starts from the app, not from a device set: the store knows which
+             devices are missing it and which are on another version, so it can target
+             better than a selection can. */}}
+        <button type="button" class="cc-btn sm ss-w" onclick="window.location.href='/apps'" title="Install an app from the library — the store targets by coverage"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
+      </div>
+      {{end}}
+
+      {{if canAdmin $.Role}}
+      <div class="ss-lbl">Danger</div>
+      <div class="ss-grid">
+        {{/* Typed confirmation, not a yes/no: these are the two actions in the product that
+             cannot be undone, and a selection can carry hundreds of devices. */}}
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkDestructive('wipe','WIPE')" style="color:var(--danger)">Wipe…</button>
+        <button type="button" class="cc-btn sm ss-w" onclick="bulkDestructive('unenroll','UNENROLL')" style="color:var(--danger)">Unenroll…</button>
       </div>
       {{end}}
 
@@ -524,6 +552,22 @@ if (!window.__dlRowNav) {
 
 /* Collections rail restyled to a cc-card */
 .fleet-rail{border-radius:var(--r-4)!important;box-shadow:var(--shadow-sm);padding-top:10px!important}
+/* The collections rail is the page's child rail on desktop: it leaves the grid, joins the
+   chrome band flush against the app rail, and the grid drops to a single column so the
+   roster is not holding 232px open for something that is no longer in it. These carry
+   !important because the card styling above does. */
+@media (min-width: 1024px) {
+  .fleet-md { grid-template-columns: minmax(0, 1fr) !important; gap: 0 !important; }
+  .fleet-rail[data-child-rail] {
+    position: fixed !important; left: 208px; top: 0; bottom: 0; width: 196px;
+    margin: 0 !important; padding: 16px 10px !important; max-height: none !important;
+    border: 0 !important; border-right: 1px solid var(--border-soft) !important;
+    border-radius: 0 !important; box-shadow: none !important; z-index: 43;
+    overflow-y: auto;
+  }
+  body.has-child-rail .fleet-rail[data-child-rail] { left: 56px; }
+  body.rail-open .fleet-rail[data-child-rail] { width: 56px; left: 196px; }
+}
 .fleet-rail-item.on{border:1px solid var(--accent-edge)}
 .fleet-rail-item{min-height:40px}
 a.fleet-rail-item{min-height:40px}
@@ -619,14 +663,15 @@ a.fleet-rail-item{min-height:40px}
     </div>
   </div>
 
-  {{/* ── KPI strip: online / offline / low battery / out of kiosk ── */}}
+  {{/* ── KPI strip: online / offline / low battery / unlocked ── */}}
   
 </div>
 
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
-  <aside class="fleet-rail" aria-label="Collections">
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices">
+  <aside class="fleet-rail child-rail" data-child-rail aria-label="Collections">
+    <div class="cr-t">Collections</div>
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices" data-ini="All">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
 
@@ -636,8 +681,8 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a><a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     <div class="fleet-rail-list" data-sec="restaurants">
     {{range .RailRestaurants}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}">
-      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
+      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="cr-sw" style="--h:{{swatchHue .Name}}"><i class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></i></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
@@ -650,8 +695,8 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a><a href="/groups/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New group{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     <div class="fleet-rail-list" data-sec="groups">
     {{range .RailGroups}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}">
-      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
+      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="cr-sw" style="--h:{{swatchHue .Name}}"><i class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></i></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
@@ -668,7 +713,7 @@ a.fleet-rail-item{min-height:40px}
          manage all of them on /releases. Five busiest shown, the rest behind "Show all". */}}
     <div class="fleet-rail-list" data-sec="releases">
     {{range .RailReleases}}{{if gt .DeviceCount 0}}
-    <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}">
+    <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Version}}">
       <a class="ri-main" href="/devices?build={{.Version}}"><span class="dot ok"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span></a>
       <a class="ri-go" href="/releases/{{.ID}}" title="Manage {{.Version}}" aria-label="Manage {{.Version}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
@@ -1583,10 +1628,15 @@ document.addEventListener('click', function (e) {
   navigateDevices({ page: b.dataset.page });
 });
 
+// Every verb the console owned now runs from here or from the thing it acts on, so the
+// primary button opens the rest of them rather than another page.
 function bulkAction() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
-  window.location.href = '/commands?serials=' + encodeURIComponent(serials.join(','));
+  var more = document.getElementById('ss-more-btn');
+  if (more && more.getAttribute('aria-expanded') !== 'true') ssToggleMore(more);
+  var panel = document.getElementById('ss-more');
+  if (panel && panel.scrollIntoView) panel.scrollIntoView({block: 'nearest'});
 }
 
 function bulkExport() {
@@ -1632,6 +1682,62 @@ function bulkGo(path, extra) {
   Object.keys(extra || {}).forEach(function (k) { q.set(k, extra[k]); });
   window.location.href = path + '?' + q.toString();
 }
+// Run an action on the selection, here, rather than handing the selection to the Actions
+// console. The set IS the noun: you filter the fleet down to the devices you mean, select
+// them, and act — so there is no page whose whole job is "pick a verb, then pick targets".
+//
+// It posts to the same POST /commands every other send uses, so nothing is reimplemented:
+// the per-type role allowlist, skip-already-installed, the APK size/ETag lookup, batching
+// and the audit entry all still apply, and the response redirects to the action's page
+// where the per-device timeline lives.
+function bulkRun(type, fields, confirmMsg) {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var n = serials.length;
+  if (confirmMsg && !window.confirm(confirmMsg.replace('{n}', n) +
+      '\n\n' + serials.slice(0, 8).join('\n') + (n > 8 ? '\n…and ' + (n - 8) + ' more' : ''))) return;
+  var f = document.createElement('form');
+  f.method = 'POST'; f.action = '/commands'; f.style.display = 'none';
+  var add = function (k, v) {
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i);
+  };
+  add('type', type);
+  add('target_type', 'devices');
+  add('target_serials', serials.join('\n'));
+  Object.keys(fields || {}).forEach(function (k) { add(k, fields[k]); });
+  document.body.appendChild(f);
+  f.submit();
+}
+
+// Shell needs its line before it can run, so it gets a prompt rather than a sheet: the
+// bulk bar lives inside a scrollable panel, where an absolutely-positioned popover is
+// clipped (the same reason More expands in place).
+function bulkShell() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var cmd = window.prompt('Shell command to run on ' + serials.length + ' device' +
+    (serials.length === 1 ? '' : 's') + ':\n\nOutput comes back per device on the action page.', '');
+  if (cmd === null) return;
+  cmd = cmd.trim();
+  if (!cmd) return;
+  bulkRun('shell', { shell_cmd: cmd });
+}
+
+// Wipe and unenroll cannot be undone and a selection can carry hundreds of devices, so
+// these ask for the word rather than for a click.
+function bulkDestructive(type, word) {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var n = serials.length;
+  var answer = window.prompt(
+    (type === 'wipe' ? 'Factory-reset' : 'Unenroll') + ' ' + n + ' device' + (n === 1 ? '' : 's') +
+    '. This cannot be undone.\n\n' + serials.slice(0, 6).join('\n') + (n > 6 ? '\n…and ' + (n - 6) + ' more' : '') +
+    '\n\nType ' + word + ' to confirm:', '');
+  if (answer === null || answer.trim().toUpperCase() !== word) return;
+  bulkRun(type);
+}
+
 function bulkCopySerials() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
@@ -2773,7 +2879,7 @@ document.addEventListener('keydown', function(e) {
           <span class="muted small">Pinned to the foreground in lock-task mode. Applied when saved. Apps common to every selected device are listed first; greyed apps are on only some.</span>
           <div id="bulk-kiosk-warn" class="form-hint" style="display:none;margin-top:6px;color:var(--warn,#9a6512);font-weight:600;"></div>
         </div>
-        <button type="submit" class="btn-primary" style="margin-top:14px;">Apply Kiosk</button>
+        <button type="submit" class="btn-primary" style="margin-top:14px;">Apply lock</button>
       </form>
     </div>
   </div>

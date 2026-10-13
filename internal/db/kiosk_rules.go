@@ -21,7 +21,7 @@ type KioskState struct {
 	OfflineExit bool
 	ConfigAt    *time.Time // when the configuration last changed
 	LastSeen    time.Time
-	Suspended   bool // staff left kiosk on the device with an offline exit code
+	Suspended   bool       // staff left kiosk on the device with an offline exit code
 	ExitedAt    *time.Time // taken out of kiosk on site; stays out until answered
 }
 
@@ -348,4 +348,69 @@ func (d *DB) AutoResetDeviceKeyAnywhere(ctx context.Context, serial string) (boo
 		UPDATE devices SET device_key_hash = NULL, key_reset_at = NOW(), key_auto_reset_at = NOW()
 		WHERE serial_number = $1 AND agent_kind = 'firmware' AND device_key_hash IS NOT NULL`, serial)
 	return tag.RowsAffected() == 1, err
+}
+
+// KioskPolicyForRestaurant returns the rule that locks this venue's devices, if one
+// exists. Venue-scoped kiosk has always been expressible — kiosk_policies carries
+// target_type 'restaurant' — but it could only be reached through the fleet-wide rules
+// page, so "this restaurant's tablets run the ordering app" was not a sentence the
+// product let anyone say in the place they think it.
+func (d *DB) KioskPolicyForRestaurant(ctx context.Context, restaurantID uuid.UUID) (*KioskPolicy, error) {
+	var p KioskPolicy
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial,
+		       COALESCE(offline_exit, false)
+		FROM kiosk_policies
+		WHERE target_type = 'restaurant' AND target_id = $1
+		ORDER BY updated_at DESC LIMIT 1`, restaurantID).
+		Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.OfflineExit)
+	if err != nil {
+		return nil, nil // no rule for this venue is the normal case, not an error
+	}
+	return &p, nil
+}
+
+// RestaurantKioskState counts what is actually true on the venue's devices, which is not
+// the same as what the rule says: a device can be taken out of kiosk on site, and that is
+// exactly the disagreement worth showing next to the setting.
+func (d *DB) RestaurantKioskState(ctx context.Context, restaurantID uuid.UUID) (total, locked, exited int, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE dc.kiosk_enabled),
+		       COUNT(*) FILTER (WHERE dc.kiosk_exited_at IS NOT NULL)
+		FROM devices d
+		LEFT JOIN device_config dc ON dc.device_id = d.id
+		WHERE d.restaurant_id = $1 AND NOT d.hidden
+		  AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`, restaurantID).
+		Scan(&total, &locked, &exited)
+	return
+}
+
+// LaunchablePackagesAtRestaurant lists the apps actually installed on a venue's devices,
+// most common first — the candidates for its kiosk app. Offering anything else invites
+// the one mistake this picker can prevent: locking tablets to an app they do not have.
+func (d *DB) LaunchablePackagesAtRestaurant(ctx context.Context, restaurantID uuid.UUID) ([]PackageInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT dp.package_name, COALESCE(MAX(NULLIF(dp.app_name, '')), ''), '', COUNT(*)
+		FROM device_packages dp
+		JOIN devices d ON d.id = dp.device_id
+		WHERE d.restaurant_id = $1 AND NOT d.hidden
+		  AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
+		  AND COALESCE(dp.launchable, true)
+		  AND COALESCE(dp.is_system, false) = false
+		GROUP BY dp.package_name
+		ORDER BY COUNT(*) DESC, dp.package_name`, restaurantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PackageInstall
+	for rows.Next() {
+		var p PackageInstall
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.Version, &p.Devices); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }

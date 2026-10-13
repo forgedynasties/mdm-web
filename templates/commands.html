@@ -212,7 +212,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
 .adm-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
 .adm-toggle input{margin:0}
 
-/* ── History timeline rows (shared look with /commands/history) ── */
+/* ── History timeline rows (shared look with /jobs/history) ── */
 .cmd-timeline{overflow:hidden}
 .cmd-timeline .hgrp-h{display:flex;align-items:center;gap:8px;padding:10px 17px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);background:color-mix(in srgb,var(--surface2) 55%,transparent);border-top:1px solid var(--border-soft)}
 .cmd-timeline .hgrp-h:first-child{border-top:none}
@@ -274,7 +274,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
   <div class="cc-actions">
     {{if not (canOperate .Role)}}<span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>{{end}}
     {{if canAppLibrary .Role}}<a class="cc-btn" href="/apps"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>App library</a>{{end}}
-    <a class="cc-btn" href="/commands/history"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>History</a>
+    <a class="cc-btn" href="/jobs/history"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>History</a>
     <a class="cc-btn" href="/schedules"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Schedules</a>
   </div>
 </div>
@@ -399,7 +399,7 @@ select.co-in{flex:0 1 auto;min-width:180px}
   <div class="p-cap"><span class="p-live-dot"></span>Live activity
     <span class="right">
       {{if canAdmin .Role}}<label class="adm-toggle" title="Actions sent by admin accounts are hidden by default"><input type="checkbox" id="show-admin-actions" onchange="mdmAdminActions(this.checked)"> Show admin actions</label>{{end}}
-      <a href="/commands/history">Show all &rarr;</a>
+      <a href="/jobs/history">Show all &rarr;</a>
     </span>
   </div>
   <div class="co-dock">
@@ -628,7 +628,7 @@ window.CMD_PREFILL = {{.Prefill}};
     device: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/>',
     dot: '<circle cx="12" cy="12" r="8"/>'
   };
-  // Fleet-wide console offers only the broad-safe actions. Kiosk mode, boot splash,
+  // Fleet-wide console offers only the broad-safe actions. Locked mode, boot splash,
   // shell and factory wipe are per-device decisions and live on the device page.
   var GRID_GROUPS = [
     ['Apps', ['install_apk', 'uninstall']],
@@ -713,7 +713,7 @@ window.CMD_PREFILL = {{.Prefill}};
       case 'pkgs': if (!S.pkgs.length) return { msg: 'Choose at least one package to uninstall.' }; break;
       case 'shell': if (!S.shell.trim()) return { msg: 'Enter a shell command.' }; break;
       case 'query': if (!S.query) return { msg: 'Pick a query to run.' }; break;
-      case 'kiosk': if (!S.kiosk || (S.kiosk.enabled === '1' && !S.kiosk.pkg)) return { msg: 'Pick kiosk mode — lock to an app, or unlock.' }; break;
+      case 'kiosk': if (!S.kiosk || (S.kiosk.enabled === '1' && !S.kiosk.pkg)) return { msg: 'Pick locked mode — lock to an app, or unlock.' }; break;
       case 'splash': if (!S.splash.trim()) return { msg: 'Paste the splash image URL.' }; break;
     }
     if (S.action.destr && DS.requireReason && !S.reason.trim()) return { msg: 'A reason is required for this action.', focus: 'co-reason' };
@@ -1014,7 +1014,7 @@ window.CMD_PREFILL = {{.Prefill}};
     var ref = el('co-refine');
     ref.hidden = !scoped;
     if (scoped) {
-      ref.innerHTML = refBtn('status', 'online', 'Online only') + refBtn('battery', 'low', 'Low battery') + refBtn('kiosk', 'enabled', 'In kiosk');
+      ref.innerHTML = refBtn('status', 'online', 'Online only') + refBtn('battery', 'low', 'Low battery') + refBtn('kiosk', 'enabled', 'Locked');
     }
     renderMix();
   }
@@ -1282,7 +1282,7 @@ window.CMD_PREFILL = {{.Prefill}};
     updateSendLabel();
   }
 
-  // ── Strip dropdown menu (apps / packages / kiosk app / shell suggestions) ──
+  // ── Strip dropdown menu (apps / packages / locked app / shell suggestions) ──
   var menu = { kind: null, anchor: null };
   function closeMenu() { menu.kind = null; menu.anchor = null; menuEl.classList.remove('on'); }
 
@@ -1987,14 +1987,14 @@ window.CMD_PREFILL = {{.Prefill}};
         {{if canOperate .Role}}<form method="POST" action="/commands/clear-attention" style="margin:0 0 0 auto" hx-confirm="Clear the Needs attention list? The actions and their history stay; they just stop being flagged."><button type="submit" class="cc-btn sm">Clear</button></form>{{end}}</div>
         {{$day := ""}}
         {{range .Attention}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "TargetSerials" $.TargetSerials "Cluster" (index $.Clusters .ID) "Bucket" "attn")}}{{end}}
-        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention" hx-target="main" hx-swap="outerHTML">Show all {{.AttnCount}} needing attention →</a>{{end}}
+        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/jobs/history?status=attention" hx-target="main" hx-swap="outerHTML">Show all {{.AttnCount}} needing attention →</a>{{end}}
       {{end}}
       {{/* In progress — always shown (top), with an empty state. */}}
       <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
       {{if .InProgress}}
         {{$day := ""}}
         {{range .InProgress}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "TargetSerials" $.TargetSerials "Cluster" (index $.Clusters .ID) "Bucket" "prog")}}{{end}}
-        {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress" hx-target="main" hx-swap="outerHTML">Show all {{.ProgCount}} in progress →</a>{{end}}
+        {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/jobs/history?status=inprogress" hx-target="main" hx-swap="outerHTML">Show all {{.ProgCount}} in progress →</a>{{end}}
       {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
 
       {{/* Completed — only when present. */}}
@@ -2002,7 +2002,7 @@ window.CMD_PREFILL = {{.Prefill}};
       <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
       {{$day := ""}}
       {{range .Completed}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "AppIcon" (index $.AppIcons .ApkURL) "PkgIcon" (index $.PkgIcons (cmdHint .)) "AppIcons" $.AppIcons "AppNames" $.AppNames "Batch" (index $.Batches .ID) "TargetSerials" $.TargetSerials "Cluster" (index $.Clusters .ID) "Bucket" "done")}}{{end}}
-      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed" hx-target="main" hx-swap="outerHTML">Show all →</a>{{end}}
+      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/jobs/history?status=completed" hx-target="main" hx-swap="outerHTML">Show all →</a>{{end}}
       {{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">

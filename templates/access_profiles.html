@@ -1,5 +1,11 @@
 {{define "access_profiles.html"}}
 {{template "header" .}}
+<aside class="child-rail" data-child-rail aria-label="People">
+  <div class="cr-t">People</div>
+  <a href="/users" class="cr-l"><span>Everyone</span></a>
+  <a href="/activity" class="cr-l"><span>Activity</span></a>
+  <a href="/users/access" class="cr-l on"><span>Access control</span></a>
+</aside>
 <style>
 .ap-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:14px 17px;border-top:1px solid var(--border-soft);align-items:start}
 .ap-row:first-child{border-top:none}
@@ -31,7 +37,6 @@
     </div>
     <div class="cc-actions">{{if .CanEdit}}<button type="button" class="cc-btn primary" onclick="apOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New profile</button>{{end}}</div>
   </div>
-  {{template "users-tabs" .}}
 
   <form class="cc-card ap-form" id="ap-form" hidden onsubmit="return apSave(event)">
     <h2 id="ap-title" style="margin:0 0 12px;font-size:14px">New profile</h2>

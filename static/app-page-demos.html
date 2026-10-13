@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Apps page — four layouts · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 140px}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:850px;line-height:1.6}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 8px}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 14px;max-width:850px;line-height:1.55}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+.now{display:inline-block;font-size:10.5px;font-weight:800;color:#6b5b16;background:#fdf3d2;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a}
+html[data-theme="dark"] .now{background:rgba(210,170,40,.18);color:#e3c75f}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14)}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer}
+.themebar button.on{background:var(--accent);color:#fff}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+.goodbad{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 0;font-size:12.5px;line-height:1.55}
+.goodbad div{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:10px 12px}
+.goodbad b{display:block;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:4px}
+code{font-size:12px;background:var(--surface-3);border:1px solid var(--border-soft);border-radius:5px;padding:1px 5px}
+/* ── shared mock pieces ── */
+.mock{border:1px solid var(--border);border-radius:13px;background:var(--surface);overflow:hidden}
+.mock-nav{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--border-soft);background:var(--surface-3);font-size:12px}
+.mock-nav span{padding:5px 10px;border-radius:8px;color:var(--text-faint);font-weight:650}
+.mock-nav span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.mb{padding:14px}
+.blk{border:1px dashed var(--border);border-radius:10px;padding:9px 11px;margin-bottom:8px;font-size:12px;color:var(--text-faint);background:var(--surface-3)}
+.blk b{color:var(--text)}
+.hdr{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.hdr h2{margin:0;font-size:19px;letter-spacing:-.01em}
+.search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:7px 11px;background:var(--surface-3);color:var(--text-faint);font-size:12.5px}
+.btn{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.btn.p{background:var(--accent);border-color:transparent;color:#fff}
+.strip{display:flex;align-items:center;gap:9px;padding:8px 12px;border-radius:10px;border:1px solid var(--warn-edge);background:var(--warn-bg);font-size:12.5px;margin-bottom:12px}
+.strip .c{font-weight:800}
+.shelf-h{display:flex;align-items:baseline;gap:9px;margin:14px 0 8px}
+.shelf-h h3{margin:0;font-size:13.5px;letter-spacing:-.01em}
+.shelf-h span{font-size:11.5px;color:var(--text-faint)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:9px}
+.card{border:1px solid var(--border);border-radius:11px;padding:11px;background:var(--surface);display:flex;gap:10px}
+.ic{width:36px;height:36px;border-radius:9px;flex:none;background:linear-gradient(135deg,#7a80f6,#f9674e)}
+.ic.g{background:linear-gradient(135deg,#2bb673,#7ad3a4)}.ic.o{background:linear-gradient(135deg,#e8822e,#f3c08a)}
+.ic.b{background:linear-gradient(135deg,#4b86f5,#8fb6f8)}
+.nm{font-weight:700;font-size:13px;line-height:1.25}
+.pk{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--text-faint);margin-top:1px}
+.cv{height:5px;border-radius:99px;background:var(--surface-3);display:flex;overflow:hidden;margin-top:7px}
+.cv i{display:block;height:100%}.cv .ok{background:var(--ok)}.cv .wn{background:var(--warn)}.cv .un{background:var(--border)}
+.n2{font-size:11px;color:var(--text-faint);margin-top:4px}
+.n2 b{color:var(--text);font-weight:750}
+.rail{display:grid;grid-template-columns:186px 1fr;gap:14px}
+.rail-c{border:1px solid var(--border);border-radius:11px;padding:10px;background:var(--surface);height:fit-content}
+.rail-c .g{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin:9px 0 5px}
+.rail-c a{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 7px;border-radius:7px;color:var(--text);text-decoration:none}
+.rail-c a.on{background:var(--accent);color:#fff;font-weight:650}
+.rail-c a span{color:var(--text-faint)}.rail-c a.on span{color:rgba(255,255,255,.8)}
+@media(max-width:720px){body{padding:20px 16px 80px}.goodbad{grid-template-columns:1fr}.rail{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl" class="on">Light</button><button id="td">Dark</button></div>
+<div class="wrap">
+
+<h1>The Apps page — getting to the apps</h1>
+<p class="lead">
+Five blocks stack before you see a single app today, and two of them describe a page that no longer
+exists. Counts are the live fleet (187 devices): <b>Nugget-uatv2</b> on 108 with 6 versions and 50
+reporting none, <b>stagev2</b> 26, <b>internal</b> 15, <b>Nugget</b> 12, <b>MPOS-UATV2</b> 7 with no
+version at all.
+</p>
+
+<div class="eyebrow">What is on the page now</div>
+<div class="panel">
+  <div class="mock"><div class="mock-nav"><span>Fleet</span><span>Devices</span><span class="on">Apps</span><span>Jobs</span><span>Manage</span></div>
+  <div class="mb">
+    <div class="blk"><b>1 · Page header</b> — eyebrow "Actions · app library", "23 apps ready to install", and a paragraph saying <i>"then push it from Actions › Install app"</i> — <b style="color:var(--danger)">stale: Actions is gone</b>, and so is the "Actions" button next to it</div>
+    <div class="blk"><b>2 · Findings panel</b> — one banner per finding, six of them, plus the "186 of 187 devices have reported" line <b style="color:var(--danger)">(my addition — the main offender)</b></div>
+    <div class="blk"><b>3 · "App library" card header</b> — title, a "Variants: grouped automatically" select, an Upload button</div>
+    <div class="blk"><b>4 · Suggestions strip</b> — "X looks like one app in 3 variants" merge prompts</div>
+    <div class="blk"><b>5 · Upload drawer</b> — the dashed drop zone</div>
+    <div class="blk" style="border-style:solid;border-color:var(--ok-edge);background:var(--ok-bg);color:var(--text)"><b>6 · Finally, the apps</b></div>
+  </div></div>
+  <p class="ddesc" style="margin:12px 0 0">Everything above row 6 is chrome, and a store is the one
+  kind of page where the goods must come first. Four ways to fix it.</p>
+</div>
+
+<!-- A -->
+<div class="eyebrow">Layout A</div>
+<div class="dname">One header line, findings collapsed to a strip</div>
+<p class="ddesc">Smallest change: title + search + Upload on one row, the six findings folded into a
+single clickable strip, suggestions and the drop zone only when relevant. Grid starts immediately.</p>
+<div class="panel">
+  <div class="mock"><div class="mock-nav"><span>Fleet</span><span>Devices</span><span class="on">Apps</span><span>Jobs</span><span>Manage</span></div>
+  <div class="mb">
+    <div class="hdr"><h2>Apps</h2><div class="search">⌕ Search 23 apps…</div><span class="btn">Variants ▾</span><span class="btn p">Upload APK</span></div>
+    <div class="strip"><span class="c">6</span> things to look at — 57 installs with no version, 3 apps on several versions <span class="btn" style="margin-left:auto">Show</span></div>
+    <div class="grid">
+      <div class="card"><div class="ic"></div><div><div class="nm">Nugget-uatv2</div><div class="pk">aio.app.nugget.uatv2</div>
+        <div class="cv"><i class="ok" style="width:6%"></i><i class="wn" style="width:25%"></i><i class="un" style="width:27%"></i></div>
+        <div class="n2">on <b>108</b> of 187 · 50 unknown</div></div></div>
+      <div class="card"><div class="ic g"></div><div><div class="nm">Nugget-stagev2</div><div class="pk">aio.app.nugget.stagev2</div>
+        <div class="cv"><i class="wn" style="width:12%"></i><i class="un" style="width:2%"></i></div>
+        <div class="n2">on <b>26</b> of 187 · ahead of library</div></div></div>
+      <div class="card"><div class="ic o"></div><div><div class="nm">MPOS-UATV2</div><div class="pk">aio.app.mpos.uatv2</div>
+        <div class="cv"><i class="un" style="width:4%"></i></div>
+        <div class="n2">on <b>7</b> · no versions known</div></div></div>
+      <div class="card"><div class="ic b"></div><div><div class="nm">Nugget</div><div class="pk">aio.app.nugget</div>
+        <div class="cv"><i class="ok" style="width:6%"></i></div>
+        <div class="n2">on <b>12</b> · all current</div></div></div>
+    </div>
+  </div></div>
+  <div class="goodbad">
+    <div><b>Good at</b> An hour's work, nothing is lost, and the apps move from sixth to first. The
+      strip keeps the findings one click away rather than deleting them.</div>
+    <div><b>Bad at</b> Still one flat grid of 23 tiles where five of them are channels of the same
+      product — the shape of the fleet's real problem is not expressed. No browsing structure.</div>
+  </div>
+</div>
+
+<!-- B -->
+<div class="eyebrow">Layout B</div>
+<div class="dname">Shelves, like an actual store<span class="rec">my pick</span></div>
+<p class="ddesc">Thin header with search, then sections: what needs attention, our apps by coverage,
+and everything else the fleet reports. Channels of one product sit on one card, so the grid is short
+and each row answers a different question.</p>
+<div class="panel">
+  <div class="mock"><div class="mock-nav"><span>Fleet</span><span>Devices</span><span class="on">Apps</span><span>Jobs</span><span>Manage</span></div>
+  <div class="mb">
+    <div class="hdr"><h2>Apps</h2><div class="search">⌕ Search apps, packages, versions…</div><span class="btn p">Upload APK</span></div>
+
+    <div class="shelf-h"><h3>Needs attention</h3><span>3 apps · 57 installs we cannot judge</span></div>
+    <div class="grid">
+      <div class="card"><div class="ic o"></div><div><div class="nm">Nugget-uatv2</div><div class="pk">6 versions · 50 unknown</div>
+        <div class="n2" style="margin-top:7px"><span class="btn">Reconcile 44</span></div></div></div>
+      <div class="card"><div class="ic o"></div><div><div class="nm">MPOS-UATV2</div><div class="pk">no version reported · 7 devices</div>
+        <div class="n2" style="margin-top:7px"><span class="btn">Ask for inventory</span></div></div></div>
+      <div class="card"><div class="ic o"></div><div><div class="nm">Nugget-stagev2</div><div class="pk">devices ahead of library</div>
+        <div class="n2" style="margin-top:7px"><span class="btn">Review</span></div></div></div>
+    </div>
+
+    <div class="shelf-h"><h3>Our apps</h3><span>by how much of the fleet has them</span></div>
+    <div class="grid">
+      <div class="card"><div class="ic"></div><div><div class="nm">Nugget</div><div class="pk">5 channels · 168 installs</div>
+        <div class="cv"><i class="ok" style="width:6%"></i><i class="wn" style="width:50%"></i><i class="un" style="width:33%"></i></div>
+        <div class="n2">uatv2 108 · stagev2 26 · internal 15 · prod 12 · qa 7</div></div></div>
+      <div class="card"><div class="ic g"></div><div><div class="nm">AIO MDM</div><div class="pk">standard client · 1 channel</div>
+        <div class="cv"><i class="ok" style="width:5%"></i></div>
+        <div class="n2">on <b>9</b> of 187 · 0.2.12</div></div></div>
+      <div class="card"><div class="ic b"></div><div><div class="nm">KIOSK</div><div class="pk">2 channels · 4 installs</div>
+        <div class="cv"><i class="wn" style="width:2%"></i></div>
+        <div class="n2">on <b>4</b> of 187</div></div></div>
+    </div>
+
+    <div class="shelf-h"><h3>Also on devices</h3><span>seen in inventory, not in the library — cannot be sent from here</span></div>
+    <div class="grid">
+      <div class="card"><div class="ic b"></div><div><div class="nm">Hardware Testing</div><div class="pk">com.example.hardwaretesting</div><div class="n2">on <b>98</b> of 187</div></div></div>
+      <div class="card"><div class="ic b"></div><div><div class="nm">Key Attestation</div><div class="pk">io.github.vvb2060…</div><div class="n2">on <b>68</b> of 187</div></div></div>
+    </div>
+  </div></div>
+  <div class="goodbad">
+    <div><b>Good at</b> Reads like a store and ranks by what the operator needs: the three apps that
+      are wrong come first, our products next, third-party last. Folding channels onto one card cuts
+      the grid from 23 tiles to about 8 and makes "Nugget is five channels" the headline rather than
+      a thing you reconstruct. Search covers packages and versions, which is how people actually
+      look ("who has 46.0.0?").</div>
+    <div><b>Bad at</b> Most work of the four: three shelves, a search index over packages and
+      versions, and the channel-folding depends on the family grouping being right. "Needs
+      attention" duplicates cards that also appear under Our apps.</div>
+  </div>
+</div>
+
+<!-- C -->
+<div class="eyebrow">Layout C</div>
+<div class="dname">Filters in a rail, no banners at all</div>
+<p class="ddesc">Findings stop being banners and become filters. The rail is the only chrome; the
+grid fills the rest.</p>
+<div class="panel">
+  <div class="mock"><div class="mock-nav"><span>Fleet</span><span>Devices</span><span class="on">Apps</span><span>Jobs</span><span>Manage</span></div>
+  <div class="mb">
+    <div class="hdr" style="margin-bottom:10px"><div class="search">⌕ Search apps…</div><span class="btn p">Upload APK</span></div>
+    <div class="rail">
+      <div class="rail-c">
+        <a class="on">All apps <span>23</span></a>
+        <div class="g">Problems</div>
+        <a>No version reported <span>3</span></a>
+        <a>Several versions <span>3</span></a>
+        <a>Not in library <span>11</span></a>
+        <a>On no device <span>6</span></a>
+        <div class="g">Ours</div>
+        <a>Nugget <span>5</span></a><a>Kiosk <span>2</span></a><a>MPOS <span>2</span></a>
+      </div>
+      <div class="grid">
+        <div class="card"><div class="ic"></div><div><div class="nm">Nugget-uatv2</div><div class="pk">aio.app.nugget.uatv2</div>
+          <div class="cv"><i class="ok" style="width:6%"></i><i class="wn" style="width:25%"></i><i class="un" style="width:27%"></i></div>
+          <div class="n2">on <b>108</b> of 187</div></div></div>
+        <div class="card"><div class="ic g"></div><div><div class="nm">Nugget-stagev2</div><div class="pk">aio.app.nugget.stagev2</div>
+          <div class="cv"><i class="wn" style="width:12%"></i></div><div class="n2">on <b>26</b> of 187</div></div></div>
+        <div class="card"><div class="ic b"></div><div><div class="nm">Nugget</div><div class="pk">aio.app.nugget</div>
+          <div class="cv"><i class="ok" style="width:6%"></i></div><div class="n2">on <b>12</b> of 187</div></div></div>
+        <div class="card"><div class="ic o"></div><div><div class="nm">MPOS-UATV2</div><div class="pk">aio.app.mpos.uatv2</div>
+          <div class="cv"><i class="un" style="width:4%"></i></div><div class="n2">on <b>7</b> of 187</div></div></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="goodbad">
+    <div><b>Good at</b> Zero banners, and every finding becomes a place you can stand ("show me the
+      11 not in the library"). Scales best as the library grows; the counts in the rail are the
+      findings panel, just not shouting.</div>
+    <div><b>Bad at</b> Least store-like of the three — reads as an admin console. A problem nobody
+      clicks stays invisible, where a strip or a shelf puts it in front of you once.</div>
+  </div>
+</div>
+
+<!-- D -->
+<div class="eyebrow">Layout D</div>
+<div class="dname">Keep the cards, just fix the copy<span class="now">30 minutes</span></div>
+<p class="ddesc">Change nothing structural: delete the stale header paragraph and the Actions
+button, move the Variants select into the card's overflow, collapse the findings into the existing
+card header. Still five blocks, but two of them shrink and none of them lie.</p>
+<div class="panel">
+  <div class="goodbad" style="margin-top:0">
+    <div><b>Good at</b> Removes the two things that are actually wrong — copy pointing at a page that
+      no longer exists — without spending a day on layout. Safe, and compatible with doing A, B or C
+      later.</div>
+    <div><b>Bad at</b> The apps are still sixth on the page. Does not answer the request.</div>
+  </div>
+</div>
+
+<div class="eyebrow">Side by side</div>
+<div class="panel">
+<table style="width:100%;border-collapse:collapse;font-size:12.8px">
+  <tr><th style="text-align:left;padding:7px 9px;border-bottom:1px solid var(--border-soft);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)">&nbsp;</th>
+      <th style="text-align:left;padding:7px 9px;border-bottom:1px solid var(--border-soft);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)">A strip</th>
+      <th style="text-align:left;padding:7px 9px;border-bottom:1px solid var(--border-soft);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)">B shelves</th>
+      <th style="text-align:left;padding:7px 9px;border-bottom:1px solid var(--border-soft);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)">C rail</th>
+      <th style="text-align:left;padding:7px 9px;border-bottom:1px solid var(--border-soft);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)">D copy only</th></tr>
+  <tr><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft);font-weight:650">Apps visible without scrolling</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">Yes</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">Yes</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">Yes</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">No</td></tr>
+  <tr><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft);font-weight:650">Feels like a store</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">Partly</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)"><b>Yes</b></td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">No</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">No</td></tr>
+  <tr><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft);font-weight:650">Shows "one product, five channels"</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">No</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)"><b>Yes</b></td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">As a filter</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">No</td></tr>
+  <tr><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft);font-weight:650">Findings still visible</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">One strip</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">Top shelf</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">Rail counts</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">Card header</td></tr>
+  <tr><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft);font-weight:650">Work</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">~1h</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">~1 day</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">~half a day</td><td style="padding:7px 9px;border-bottom:1px solid var(--border-soft)">~30m</td></tr>
+</table>
+<p class="ddesc" style="margin:14px 0 0">
+<b>Deployed today:</b> the six-block stack at the top of this page. <b>I would ship B</b>, and take
+D's copy fixes as part of it rather than as a separate step — the stale paragraph and the Actions
+button are wrong right now, whichever layout wins. B is the only one that both leads with the apps
+and tells the truth about the fleet's actual shape, and its "Needs attention" shelf is the findings
+panel doing its job without being a wall of banners. If a day is too much, A gets most of the
+benefit for an hour, and B can grow out of it later — the shelves are the same grid with a heading.
+</p>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,a=document.getElementById('tl'),b=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);a.classList.toggle('on',t==='light');b.classList.toggle('on',t==='dark')}
+a.onclick=()=>set('light');b.onclick=()=>set('dark');set('light');
+</script>
+</body></html>

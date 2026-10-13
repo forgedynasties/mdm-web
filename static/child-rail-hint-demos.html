@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collapsed child rail — what marks it</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 28px 80px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede { color: var(--muted); font-size: 13.5px; max-width: 760px; margin: 0 0 26px; line-height: 1.55; }
+  .opt { margin: 0 0 30px; }
+  .opt h2 { font-size: 15px; margin: 0 0 3px; display: flex; align-items: center; gap: 9px; }
+  .opt .note { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; max-width: 760px; line-height: 1.5; }
+  .opt .note b { color: var(--text); font-weight: 650; }
+  .badge { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .badge.live { background: var(--ok-bg); color: var(--ok); }
+  .badge.pick { background: var(--accent-soft); color: var(--accent-text); }
+
+  /* A mock of the real chrome: expanded app rail (196) + collapsed child (56) + content. */
+  .mock { display: flex; height: 268px; border: 1px solid var(--border); border-radius: var(--r-4);
+    overflow: hidden; background: var(--bg); box-shadow: var(--shadow-sm); }
+  .m-app { width: 196px; flex: none; background: var(--surface); border-right: 1px solid var(--border-soft);
+    padding: 12px 9px; display: flex; flex-direction: column; gap: 2px; }
+  .m-brand { font-size: 15px; font-weight: 600; padding: 0 5px 10px; }
+  .m-g { font-size: 9px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--text-faint); padding: 8px 6px 3px; }
+  .m-l { display: flex; align-items: center; gap: 9px; padding: 5px 7px; border-radius: 8px;
+    font-size: 12px; color: var(--muted); }
+  .m-l.on { background: var(--accent-soft); color: var(--accent-text); font-weight: 650; }
+  .m-l i { width: 13px; height: 13px; border-radius: 4px; background: currentColor; opacity: .45; flex: none; }
+  .m-child { width: 56px; flex: none; background: var(--surface); border-right: 1px solid var(--border-soft);
+    padding: 12px 6px; display: flex; flex-direction: column; gap: 3px; position: relative; }
+  .m-ini { height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--muted); }
+  .m-ini.on { background: var(--accent-soft); color: var(--accent-text); }
+  .m-body { flex: 1; padding: 16px; }
+  .m-body .ln { height: 9px; border-radius: 5px; background: var(--surface2); margin-bottom: 9px; }
+  .m-body .ln.a { width: 42%; height: 13px; background: var(--surface-3); }
+  .m-body .ln.b { width: 86%; } .m-body .ln.c { width: 66%; }
+  .m-card { border: 1px solid var(--border-soft); border-radius: 10px; height: 104px; margin-top: 14px;
+    background: var(--surface); }
+
+  /* A: initials only (shipped) */
+  /* B: an edge tab */
+  .hint-tab { position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 46px; border-radius: 6px 0 0 6px; background: var(--surface-3);
+    border: 1px solid var(--border-soft); border-right: 0; display: flex; align-items: center;
+    justify-content: center; font-size: 9px; color: var(--muted); }
+  /* C: vertical name */
+  .hint-vert { writing-mode: vertical-rl; transform: rotate(180deg); margin: 2px auto 8px;
+    font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--text-faint); }
+  /* D: a cap + a grabber */
+  .hint-cap { font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-faint); text-align: center; padding: 0 0 7px; border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 7px; }
+  /* E: tooltip on the item */
+  .tip { position: absolute; left: 58px; top: 74px; background: var(--text); color: var(--bg);
+    font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 7px; white-space: nowrap; }
+  .tip::before { content: ""; position: absolute; left: -4px; top: 50%; margin-top: -4px;
+    border: 4px solid transparent; border-right-color: var(--text); border-left: 0; }
+  .m-ini.hi { background: var(--surface-3); color: var(--text); }
+  /* F: a seam the rail hangs off */
+  .m-child.seam { box-shadow: inset -3px 0 0 -1px var(--accent); }
+  .m-child.seam .m-ini.on { background: var(--accent-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Collapsed child rail — what tells you it is still there</h1>
+  <p class="lede">
+    Reaching for the app rail expands it to 196px and squeezes the page's own rail down to a 56px
+    column of initials. The swap is width-neutral, so nothing under it reflows — but for the two
+    seconds your pointer is on the nav, that column has to still read as <i>navigation you can go
+    back to</i>, not as decoration. What is shipped now is initials plus an <code>e-resize</code>
+    cursor. The title-and-chevron stub that was there before is out.
+  </p>
+
+  <div class="opt">
+    <h2>A · Initials only <span class="badge live">shipped now</span></h2>
+    <p class="note">Nothing but the items, centred, two letters each. The current page's item keeps its
+      accent fill, which is the one thing that survives the squeeze and says "this column is the page's
+      own nav". <b>Good:</b> silent, no chrome, nothing to misread. <b>Bad:</b> on a rail whose initials
+      are weak (<code>Al Ne In Co</code>) it can read as a column of tags.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="m-ini on">Al</div><div class="m-ini">AI</div><div class="m-ini">te</div><div class="m-ini">v2</div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>B · Edge tab <span class="badge pick">my pick</span></h2>
+    <p class="note">A small handle on the rail's outer edge, vertically centred — the same grammar as a
+      drawer pull. It says "this panel is folded, push here" without spending a word or a row.
+      <b>Good:</b> one affordance for the whole rail, reads instantly, survives any set of initials.
+      <b>Bad:</b> one more element on screen; it must not look clickable-but-dead, so it also opens the
+      rail on click, not only on hover.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="m-ini on">Al</div><div class="m-ini">AI</div><div class="m-ini">te</div><div class="m-ini">v2</div>
+        <div class="hint-tab">›</div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>C · Vertical name</h2>
+    <p class="note">The rail's own name set sideways down the top of the strip — <i>COLLECTIONS</i>,
+      <i>SETTINGS</i>, <i>ALERTS</i>. <b>Good:</b> names the thing, which initials never do, and costs no
+      horizontal room. <b>Bad:</b> rotated type is slow to read and is the one pattern on this dashboard
+      that appears nowhere else; long names clip.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="hint-vert">Collections</div>
+        <div class="m-ini on">Al</div><div class="m-ini">AI</div><div class="m-ini">te</div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>D · Three-letter cap</h2>
+    <p class="note">A single hairline-separated cap at the top: <code>COL</code>, <code>SET</code>,
+      <code>ALR</code>. Horizontal, so it is read at a glance, and the hairline makes the strip a panel
+      rather than a list of chips. <b>Good:</b> cheapest thing that both names and frames the rail.
+      <b>Bad:</b> abbreviations are a small vocabulary to learn, and a wrong one is worse than none.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="hint-cap">Col</div>
+        <div class="m-ini on">Al</div><div class="m-ini">AI</div><div class="m-ini">te</div><div class="m-ini">v2</div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>E · Initials only, with a tooltip per item</h2>
+    <p class="note">A is unchanged; each collapsed item carries its full label as a tooltip, so the
+      answer is one hover away. <b>Good:</b> no permanent chrome, and it fixes the real complaint —
+      "Al" being unreadable — rather than labelling the container. <b>Bad:</b> only pays off if you
+      hover, and the pointer is on the app rail at that moment, not here.</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child">
+        <div class="m-ini on">Al</div><div class="m-ini hi">AI</div><div class="m-ini">te</div><div class="m-ini">v2</div>
+        <div class="tip">AIO Test Bistro · 3</div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <div class="opt">
+    <h2>F · Accent seam</h2>
+    <p class="note">No text and no handle: the collapsed strip grows a 2px accent seam on its outer edge,
+      the same colour as the active item. <b>Good:</b> quietest of the lot, and it ties the strip to the
+      page it belongs to. <b>Bad:</b> a coloured edge is decoration until you have learned it; it says
+      "something is here", not "this folds open".</p>
+    <div class="mock">
+      <div class="m-app">
+        <div class="m-brand">AIO MDM</div>
+        <div class="m-g">Watch</div>
+        <div class="m-l"><i></i>Overview</div><div class="m-l"><i></i>Alerts</div>
+        <div class="m-g">Manage</div>
+        <div class="m-l on"><i></i>Fleet</div><div class="m-l"><i></i>Apps</div>
+      </div>
+      <div class="m-child seam">
+        <div class="m-ini on">Al</div><div class="m-ini">AI</div><div class="m-ini">te</div><div class="m-ini">v2</div>
+      </div>
+      <div class="m-body"><div class="ln a"></div><div class="ln b"></div><div class="ln c"></div><div class="m-card"></div></div>
+    </div>
+  </div>
+
+  <p class="lede"><b>Pick: B, with E's tooltips.</b> The tab is the only option that says <i>folded, and
+    it comes back</i> rather than just naming the strip — and because it is on the edge, it is the
+    nearest thing to the pointer on its way back from the app rail. E costs nothing and fixes unreadable
+    initials at the same time. C and D both spend a row to say what the page heading already says.</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Command architecture — where it stands and where it should go · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 140px;}
+.wrap{max-width:1000px;margin:0 auto;}
+h1{font-size:24px;margin:0 0 6px;letter-spacing:-.015em;}
+h2{font-size:17px;margin:0 0 10px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 10px;max-width:830px;line-height:1.65;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:42px 0 10px;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:12px;}
+p{font-size:13.5px;line-height:1.65;margin:0 0 11px;}
+li{font-size:13.5px;line-height:1.6;margin-bottom:7px;}
+code{font-size:12.5px;background:var(--surface-3);border:1px solid var(--border-soft);border-radius:5px;padding:1px 5px;}
+table{width:100%;border-collapse:collapse;font-size:12.8px;margin:6px 0 2px;}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border-soft);vertical-align:top;line-height:1.5;}
+th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);}
+td.n{white-space:nowrap;font-weight:650;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+.tag{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 8px;vertical-align:1px;}
+.t-done{background:#e6f6ee;color:#1c7d50;} .t-now{background:#fdf3d2;color:#6b5b16;} .t-new{background:#eceafd;color:#4b43a8;}
+.t-bad{background:#fde8e8;color:#9c2b2b;}
+html[data-theme="dark"] .t-done{background:rgba(43,182,115,.2);color:#5fd49a;}
+html[data-theme="dark"] .t-now{background:rgba(210,170,40,.18);color:#e3c75f;}
+html[data-theme="dark"] .t-new{background:rgba(120,110,240,.22);color:#a8a2f5;}
+html[data-theme="dark"] .t-bad{background:rgba(224,83,83,.2);color:#f08a8a;}
+pre{background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:13px 15px;overflow:auto;
+  font-size:12.2px;line-height:1.55;margin:4px 0 12px;}
+.flow{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.75;white-space:pre;overflow:auto;
+  background:var(--surface-3);border:1px solid var(--border-soft);border-radius:10px;padding:14px 16px;margin:4px 0 12px;}
+.prob{border-left:3px solid #e8822e;padding:2px 0 2px 13px;margin:0 0 16px;}
+.prob b{display:block;font-size:13.5px;margin-bottom:3px;}
+.prob p{margin:0;color:var(--text-faint);}
+.q{border-left:3px solid var(--accent);padding:2px 0 2px 13px;margin:0 0 15px;}
+.q b{display:block;font-size:13.5px;margin-bottom:3px;}
+.q p{margin:0;color:var(--text-faint);}
+/* ---- diagrams: plain SVG so they theme with the dashboard and need no library ---- */
+svg.dg{width:100%;height:auto;display:block;margin:6px 0 4px;}
+.dg .bx{fill:var(--surface-3);stroke:var(--border);stroke-width:1;}
+.dg .bx.hot{fill:#eceafd;stroke:#b9b2f0;}
+.dg .bx.good{fill:#e6f6ee;stroke:#a8dec4;}
+.dg .bx.bad{fill:#fde8e8;stroke:#f1c0c0;}
+.dg .bx.warn{fill:#fdeedd;stroke:#f3cfa8;}
+.dg text{font:600 12.5px ui-sans-serif,system-ui,sans-serif;fill:var(--text);}
+.dg text.s{font:650 11px ui-sans-serif,system-ui,sans-serif;fill:var(--text-faint);}
+.dg text.m{font:600 11.5px ui-monospace,SFMono-Regular,Menlo,monospace;fill:var(--text);}
+.dg text.lbl{font:650 10.5px ui-sans-serif,system-ui,sans-serif;fill:var(--text-faint);}
+.dg text.red{fill:#b03a3a;} .dg text.grn{fill:#1c7d50;}
+.dg .ln{fill:none;stroke:#9aa0ac;stroke-width:1.5;}
+.dg .ln.g{stroke:#2bb673;} .dg .ln.r{stroke:#e05353;} .dg .ln.a{stroke:#7a80f6;stroke-width:1.8;}
+.dg .ln.d{stroke-dasharray:5 4;}
+.dg .ax{stroke:var(--border);stroke-width:1;}
+html[data-theme="dark"] .dg .bx.hot{fill:rgba(120,110,240,.2);stroke:rgba(120,110,240,.45);}
+html[data-theme="dark"] .dg .bx.good{fill:rgba(43,182,115,.18);stroke:rgba(43,182,115,.4);}
+html[data-theme="dark"] .dg .bx.bad{fill:rgba(224,83,83,.18);stroke:rgba(224,83,83,.4);}
+html[data-theme="dark"] .dg .bx.warn{fill:rgba(232,130,46,.18);stroke:rgba(232,130,46,.4);}
+html[data-theme="dark"] .dg text.red{fill:#f08a8a;} html[data-theme="dark"] .dg text.grn{fill:#5fd49a;}
+.dgcap{font-size:11.5px;color:var(--text-faint);line-height:1.5;margin:2px 0 14px;}
+@media (max-width:720px){body{padding:20px 16px 80px;}}
+</style></head>
+<body>
+<div class="themebar"><button id="tl" class="on">Light</button><button id="td">Dark</button></div>
+<div class="wrap">
+
+<h1>Command architecture — where it stands and where it should go</h1>
+<p class="lead">
+Written 9 Oct 2026, after AT070AABU00077 spent 15 hours checking in every five minutes, looking
+healthy on every page, with a queued shell command sitting at <code>delivered</code> that it never
+received and could never have received. The client bug behind it is fixed. This page is about the
+architecture that let a single dead thread take a device completely out of reach, and that gave
+nobody a way to see it.
+</p>
+<p class="lead">
+<b>Scope: the two clients in the lineup</b> — the firmware client
+(<code>com.aioapp.mdm</code>, <code>agent_kind = firmware</code>, our AOSP images) and the DPC agent
+(<code>aio.app.mdmclient.dpc</code>, <code>agent_type = dpc</code>, off-the-shelf hardware). MDM-lite
+is gone from the active set; where the server still has a lite branch in this path it is vestigial
+and is called out as such. Both live clients take commands over the WebSocket and only over the
+WebSocket, so both have the failure below — they differ in how well they recover from it.
+</p>
+<p class="lead">
+The claim of this page: there is nothing wrong with the command <em>model</em> — one queue, strict
+per-device FIFO, explicit acks, redrive sweeps. What is wrong is that <b>delivery is push-only</b>.
+Everything downstream of that assumption inherits it: presence means "has a socket", "delivered"
+means "written to a socket", and a device that cannot be pushed to simply has no path at all.
+</p>
+
+<!-- ─────────── current ─────────── -->
+<div class="eyebrow">1 · What exists today</div>
+<div class="panel">
+<h2>Delivery — four paths, all of them the server pushing down a WebSocket</h2>
+<table>
+  <tr><th>Path</th><th>When</th><th>Reaches</th></tr>
+  <tr><td class="n">pushCommand</td><td>At creation</td><td>Devices with a live socket. <code>all</code>/<code>groups</code> fan out here.</td></tr>
+  <tr><td class="n">flushPendingCommands</td><td>On WS connect</td><td>That device, catching up on what it missed.</td></tr>
+  <tr><td class="n">redrive-stuck-deliveries</td><td>Every minute</td><td>Commands at <code>delivered</code> for &gt;90s, <em>only if the device is connected now</em>.</td></tr>
+  <tr><td class="n">redrive-unflushed</td><td>Every minute</td><td>Every connected device (covers a flush that errored before pushing).</td></tr>
+  <tr><td class="n">check-in piggyback</td><td>On HTTP check-in <span class="tag t-done">just added</span></td><td>Firmware 1.9.5+ only, when it has no socket and reports <code>extra.http_commands</code>. The DPC agent does not read it yet; the legacy and lite branches of the gate are vestigial.</td></tr>
+</table>
+<svg class="dg" viewBox="0 0 920 296" role="img" aria-label="Today: four server-push delivery paths, every one of them requiring a live WebSocket, plus the new check-in piggyback">
+<defs>
+<marker id="a1" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9aa0ac"/></marker>
+</defs><defs>
+<marker id="a1g" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2bb673"/></marker>
+</defs>
+<rect class="bx" x="14" y="126" width="132" height="46" rx="9"/>
+<text x="80" y="146" text-anchor="middle">Operator</text><text class="s" x="80" y="162" text-anchor="middle">dashboard / API</text>
+<path class="ln" d="M148 149 H182" marker-end="url(#a1)"/>
+<rect class="bx hot" x="186" y="118" width="150" height="62" rx="9"/>
+<text x="261" y="142" text-anchor="middle">commands</text><text class="s" x="261" y="160" text-anchor="middle">one queue · per-device FIFO</text>
+<text class="s" x="261" y="174" text-anchor="middle">1-hour delivery window</text>
+
+<path class="ln" d="M338 140 C372 140 372 36 400 36" marker-end="url(#a1)"/>
+<path class="ln" d="M338 145 C372 145 372 82 400 82" marker-end="url(#a1)"/>
+<path class="ln" d="M338 153 C372 153 372 128 400 128" marker-end="url(#a1)"/>
+<path class="ln" d="M338 158 C372 158 372 174 400 174" marker-end="url(#a1)"/>
+<path class="ln g d" d="M338 168 C372 168 372 242 400 242" marker-end="url(#a1g)"/>
+
+<rect class="bx" x="400" y="18" width="208" height="36" rx="8"/><text class="m" x="412" y="35">pushCommand</text><text class="s" x="412" y="48">at creation</text>
+<rect class="bx" x="400" y="64" width="208" height="36" rx="8"/><text class="m" x="412" y="81">flushPendingCommands</text><text class="s" x="412" y="94">on WS connect</text>
+<rect class="bx" x="400" y="110" width="208" height="36" rx="8"/><text class="m" x="412" y="127">redrive-stuck-deliveries</text><text class="s" x="412" y="140">every minute, if connected</text>
+<rect class="bx" x="400" y="156" width="208" height="36" rx="8"/><text class="m" x="412" y="173">redrive-unflushed</text><text class="s" x="412" y="186">every minute, all connected</text>
+<rect class="bx good" x="400" y="224" width="208" height="36" rx="8"/><text class="m" x="412" y="241">check-in piggyback</text><text class="s" x="412" y="254">firmware 1.9.5+ only, no socket</text>
+
+<path class="ln" d="M610 36 C644 36 650 110 672 134" marker-end="url(#a1)"/>
+<path class="ln" d="M610 82 C644 82 650 118 672 138" marker-end="url(#a1)"/>
+<path class="ln" d="M610 128 H672" marker-end="url(#a1)"/>
+<path class="ln" d="M610 174 C644 174 650 156 672 146" marker-end="url(#a1)"/>
+
+<rect class="bx bad" x="676" y="112" width="104" height="56" rx="9"/>
+<text x="728" y="135" text-anchor="middle">ws.Hub</text><text class="s" x="728" y="152" text-anchor="middle">live socket</text>
+<text class="s red" x="728" y="184" text-anchor="middle">if this is gone,</text>
+<text class="s red" x="728" y="198" text-anchor="middle">all four paths are gone</text>
+
+<path class="ln" d="M782 140 H812" marker-end="url(#a1)"/>
+<path class="ln g d" d="M610 242 C700 242 760 226 836 198" marker-end="url(#a1g)"/>
+<rect class="bx" x="816" y="112" width="96" height="56" rx="9"/>
+<text x="864" y="135" text-anchor="middle">device</text><text class="s" x="864" y="150" text-anchor="middle">firmware</text><text class="s" x="864" y="163" text-anchor="middle">or DPC</text>
+
+<path class="ln d" d="M864 72 C864 40 700 40 540 40" marker-start="url(#a1)"/>
+<text class="s grn" x="700" y="282" text-anchor="middle">results already return over HTTP: /commands/{id}/ack · /logcat · /ota/status · /ota/progress</text>
+</svg>
+<p class="dgcap"><b>Today.</b> Four delivery paths, one dependency. The green dashed path is the
+check-in piggyback just added — the only one that survives a dead socket, and it rides a five-minute
+telemetry schedule.</p>
+<p style="margin-top:12px">
+Four of the five require a socket. The fifth is new, rides a five-minute telemetry schedule, and is
+a backup, not a channel.
+</p>
+
+<h2 style="margin-top:22px">Eligibility — one good query</h2>
+<p><code>GetPendingCommandsForDevice</code> is the only place that decides what a device may run, and
+it is the strongest part of the system:</p>
+<ul>
+  <li>A one-hour delivery window, so a day-old queued reboot never fires on reconnect.</li>
+  <li>Terminal states excluded; <code>delivered</code> re-delivers unless <code>received_at</code> is
+      set, because writing to a half-open socket is not delivery.</li>
+  <li>Strict per-device FIFO, one command in flight at a time — OTA exempt in both directions.</li>
+  <li>Reboot exempt from re-delivery; it completes on the next boot via <code>CompleteDeliveredReboots</code>.</li>
+</ul>
+<p>Keep all of this. The redesign below changes <em>how a command gets to the device</em>, not which
+command is next.</p>
+
+<h2 style="margin-top:22px">The two clients, side by side</h2>
+<table>
+  <tr><th>&nbsp;</th><th>Firmware client</th><th>DPC agent</th></tr>
+  <tr><td class="n">Commands arrive by</td><td>WS only (the HTTP parse was dropped in <code>56b160e</code>; 1.9.5 reads the check-in response again)</td><td><b>WS only.</b> <code>MdmService.onMessage</code> → <code>executor.handleCommand</code>; the check-in handler reads <code>config</code> and <code>send_apps</code> and nothing else</td></tr>
+  <tr><td class="n">Command frame shape</td><td><code>command_type</code></td><td>Already shape-agnostic: <code>optString("command_type")</code> else <code>optString("type")</code> (<code>CommandExecutor.kt:46</code>) — an HTTP payload needs no shaping at all</td></tr>
+  <tr><td class="n">Acks</td><td>HTTP, with unsent acks persisted and drained</td><td>HTTP already, by design: <code>Acker</code> uses WS <code>command_ack</code> when connected, else <code>POST /commands/{id}/ack</code></td></tr>
+  <tr><td class="n">If the socket dies</td><td>Was permanent (dead reconnect thread, nothing restarted it) — <span class="tag t-done">fixed in 1.9.5</span>: supervised loop, <code>Throwable</code>, interrupt-safe</td><td>Self-heals: the watchdog kills the process when no WS progress arrives, and it comes back and reconnects</td></tr>
+  <tr><td class="n">Residual exposure</td><td>Reporting-but-unreachable until the supervisor or a reboot fixes it</td><td>Unreachable for the watchdog window on every WS fault — and <b>indefinitely</b> when the cause is environmental (server WS refused, a proxy dropping upgrades, a captive network): killing the process cannot fix a path that is blocked</td></tr>
+  <tr><td class="n">Can take the fix</td><td>Only <code>v2.1.x</code> devices. The 101 <code>v2.0.x</code> devices need a GMS-signed build that is not made any more</td><td>Yes, all of them — silent self-update as Device Owner, proven in the 0.2.7/0.2.8 roll. 4 lab devices today</td></tr>
+</table>
+<p style="margin-top:12px">So the DPC agent is in better shape for a <em>crashed</em> client and no better
+shape for a <em>blocked</em> one — and it is the client whose fleet is about to grow. Any pull-based
+delivery has to land in both, and the DPC agent is the easier of the two to ship it to.</p>
+
+<h2 style="margin-top:22px">What actually rides the command model</h2>
+<p>Everything in this table is a row in <code>commands</code>: queued, FIFO per device, acked,
+redriven, visible in the Queue tab — and today, deliverable only over a socket. "Short TTL" marks the
+types in <code>shortLivedCommandsSQL</code>, whose expiry deadline is five minutes rather than the
+install-shaped window.</p>
+<table>
+  <tr><th>Action</th><th>type</th><th>FW</th><th>DPC</th><th>What it does, and what losing it costs</th></tr>
+  <tr><td class="n">Install an app</td><td class="n"><code>install_apk</code></td><td>✓</td><td>✓</td><td>Download + silent install. Long-running, reports download/install percent. Exempt from the short TTL.</td></tr>
+  <tr><td class="n">Update the client itself</td><td class="n"><code>app_update</code></td><td>✓</td><td>✓</td><td>The agent replaces its own APK. <b>This is the path every future fix travels</b> — losing it means losing the ability to fix anything else remotely.</td></tr>
+  <tr><td class="n">Remove an app</td><td class="n"><code>uninstall</code></td><td>✓</td><td>✓</td><td>Silent uninstall.</td></tr>
+  <tr><td class="n">Firmware OTA</td><td class="n"><code>ota</code></td><td>✓</td><td>—</td><td>Full/incremental image via update_engine. Exempt from the per-device FIFO gate in both directions. DPC cannot do this at all.</td></tr>
+  <tr><td class="n">Reboot</td><td class="n"><code>reboot</code></td><td>✓</td><td>✓</td><td>Short TTL, but exempt from re-delivery and from expiry: completes on the next boot via <code>CompleteDeliveredReboots</code>. Also issued by the server itself — scheduled reboots, post-OTA reboots, <code>redrive-stuck-reboots</code>.</td></tr>
+  <tr><td class="n">Run a shell command</td><td class="n"><code>shell</code></td><td>✓</td><td>✓</td><td>Short TTL. The operator's debugging tool, and the one whose failure on 00077 started this. <code>query</code> and <code>collect_logs</code> are server-authored shell commands and reach the device as <code>shell</code> (<code>DeviceCommandType</code>).</td></tr>
+  <tr><td class="n">Screenshot</td><td class="n"><code>screenshot</code></td><td>✓</td><td>✓</td><td>Short TTL. One frame, not the live capture session below.</td></tr>
+  <tr><td class="n">Push config / kiosk policy</td><td class="n"><code>config</code></td><td>via check-in + WS frame</td><td>✓ as a command</td><td>Kiosk lock state, allowlists, intervals. The firmware client takes it in the check-in response and as a live frame; for DPC it is also a queued command. <b>The only control action that already has a non-socket path on firmware.</b></td></tr>
+  <tr><td class="n">Factory wipe</td><td class="n"><code>wipe</code></td><td>—</td><td>✓</td><td>DPC only, Device Owner. Irreversible, so delivery honesty matters most here.</td></tr>
+  <tr><td class="n">Unenroll</td><td class="n"><code>unenroll</code></td><td>—</td><td>✓</td><td>Drops Device Owner and leaves the device unmanaged.</td></tr>
+  <tr><td class="n">Boot splash / logo</td><td class="n"><code>update_splash</code></td><td>✓</td><td>refused</td><td>Needs the system partition; DPC answers <code>unsupported</code> rather than failing silently.</td></tr>
+  <tr><td class="n">Mic gain read / set</td><td class="n"><code>mic_gain_read</code> · <code>mic_gain_set</code></td><td>✓</td><td>—</td><td>Short TTL. A completed read folds its TX_DEC value into <code>latest_extra</code>.</td></tr>
+  <tr><td class="n">adb over TCP</td><td class="n"><code>adb_tcp</code></td><td>✓</td><td>—</td><td>Turns adbd on for the /adb page's tunnel. Ironic dependency: the fallback people reach for when a device is unreachable is itself delivered as a command.</td></tr>
+  <tr><td class="n">Start / stop screen capture</td><td class="n"><code>start_capture</code> · <code>stop_capture</code></td><td>✓</td><td>✓ (frame)</td><td>Exists as both a queued command and a live frame. Queuing it is close to meaningless — a capture session is only useful live.</td></tr>
+  <tr><td class="n">Cancel a command</td><td class="n"><code>cancel_command</code></td><td>frame</td><td>frame</td><td>Live frame only, so an operator cannot cancel anything on a socket-less device — including the install that is wedging its queue.</td></tr>
+</table>
+
+<h2 style="margin-top:22px">What does not ride it — and therefore cannot survive a lost socket</h2>
+<p>These are fire-and-forget WebSocket frames with no queue, no ack, no retry and no record that
+they were ever attempted:</p>
+<table>
+  <tr><th>Frame</th><th>What it is</th><th>Right call?</th></tr>
+  <tr><td class="n"><code>logcat_request</code> · <code>start/stop_logcat_stream</code></td><td>Log pull and live tail. <code>logcat_request</code> has its own table and its own flush-on-connect, so it is half-queued: durable, but WS-only and with no redrive.</td><td><b>No</b> — a log pull is exactly what a misbehaving device owes you. Fold into <code>commands</code>.</td></tr>
+  <tr><td class="n"><code>input_event</code> · <code>start/stop_capture</code> · <code>wake_screen</code></td><td>Remote control: taps, keys, H.264 frames.</td><td>Yes — inherently a live session.</td></tr>
+  <tr><td class="n"><code>adb_tunnel_open</code> · <code>adb_tunnel_close</code></td><td>Carries adbd over the socket for the /adb page.</td><td>Yes — a TCP tunnel needs the socket it tunnels through.</td></tr>
+  <tr><td class="n"><code>ping_request</code></td><td>Round-trip probe.</td><td>Yes, but it only ever proves the socket works. A probe that works without one is what would actually test controllability.</td></tr>
+  <tr><td class="n"><code>telemetry_request</code> · <code>checkin_now</code></td><td>Server nudges for a fresh reading.</td><td>Yes — the device reports on its own schedule anyway.</td></tr>
+  <tr><td class="n"><code>guest</code> · <code>net_scan</code> · <code>net_scan_cancel</code> · <code>net_enroll</code></td><td>Guest-info push and Wi-Fi scan/enrol on the firmware client.</td><td>Mixed. <code>net_enroll</code> changes a device's network and deserves to be durable and acked, not fire-and-forget.</td></tr>
+</table>
+
+<svg class="dg" viewBox="0 0 920 212" role="img" aria-label="Which actions are queued and survive a reconnect, and which are live-only frames that die with the socket">
+<defs><marker id="a6" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9aa0ac"/></marker></defs>
+<rect class="bx good" x="12" y="24" width="440" height="172" rx="11"/>
+<text x="32" y="48">Queued — survives a reconnect, acked, redriven</text>
+<text class="s" x="32" y="70">install_apk · app_update · uninstall · ota · reboot · shell</text>
+<text class="s" x="32" y="88">screenshot · config · wipe · unenroll · update_splash</text>
+<text class="s" x="32" y="106">mic_gain_read · mic_gain_set · adb_tcp</text>
+<text class="s grn" x="32" y="136">these are the fleet's control surface —</text>
+<text class="s grn" x="32" y="152">every one of them needs a transport that is not the socket</text>
+<text class="s" x="32" y="178">(logcat_request sits half-way: durable table, WS-only delivery)</text>
+
+<rect class="bx bad" x="468" y="24" width="440" height="172" rx="11"/>
+<text x="488" y="48">Live frames — die with the socket, by design</text>
+<text class="s" x="488" y="70">input_event · start_capture · stop_capture · wake_screen</text>
+<text class="s" x="488" y="88">adb_tunnel_open · adb_tunnel_close · ping_request</text>
+<text class="s" x="488" y="106">telemetry_request · checkin_now · guest · net_scan</text>
+<text class="s red" x="488" y="136">correct that these need a socket —</text>
+<text class="s red" x="488" y="152">wrong that the UI offers them as if they always work</text>
+<text class="s" x="488" y="178">cancel_command and net_enroll are on the wrong side of this line</text>
+</svg>
+<p class="dgcap"><b>The split is the point.</b> Fourteen queued action types are the entire remote
+control surface of the fleet, including the one that ships fixes (<code>app_update</code>) and the one
+people fall back on when a device is unreachable (<code>adb_tcp</code>). All fourteen currently
+depend on a socket.</p>
+
+<h2 style="margin-top:22px">Who issues them</h2>
+<p>Not only operators, which is why silent delivery failure compounds: the dashboard and API create
+commands by hand, and the server creates them on its own for scheduled reboots, the post-OTA reboot,
+<code>redrive-stuck-reboots</code>, scheduled recipes, and the <code>adb_tcp</code> a tunnel needs.
+A server-issued command that never lands has nobody watching for its output at all — it just quietly
+does not happen.</p>
+
+<h2 style="margin-top:22px">Return path — already transport-agnostic</h2>
+<p>Results do not have this problem, in either client.
+<code>POST /api/v1/commands/{id}/ack</code> takes <code>received</code>, the interim states, and the
+terminal ones; <code>/logcat</code>, <code>/ota/status</code> and <code>/ota/progress</code> are HTTP
+too. The firmware client persists unsent acks and drains them later; the DPC agent's <code>Acker</code>
+picks HTTP whenever the socket is down. <b>Commands already come back over HTTP — they just cannot go out that
+way.</b> That asymmetry is the whole bug class.</p>
+
+<h2 style="margin-top:22px">Two queues, not one</h2>
+<p><code>commands</code> is the queue everything above describes. <code>logcat_requests</code> is a
+second queue with its own table, its own flush (<code>flushPendingLogcatRequests</code>), no redrive,
+no expiry and <b>no HTTP path at all</b>. Live control frames — remote screen, adb tunnel,
+<code>telemetry_request</code>, <code>checkin_now</code>, <code>wake_screen</code>, ping — are not
+queued anywhere; they are fire-and-forget WS frames, which is correct for a live session and wrong
+for anything that should survive a reconnect.</p>
+</div>
+
+<!-- ─────────── problems ─────────── -->
+<div class="eyebrow">2 · What is actually wrong</div>
+<div class="panel">
+<svg class="dg" viewBox="0 0 920 258" role="img" aria-label="Timeline of AT070AABU00077 under the current design and under the proposed one">
+<defs>
+<marker id="a5" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9aa0ac"/></marker>
+</defs><defs>
+<marker id="a5r" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#e05353"/></marker>
+</defs><defs>
+<marker id="a5g" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2bb673"/></marker>
+</defs>
+<text class="lbl" x="14" y="18">AT070AABU00077 · 8–9 OCT 2026</text>
+
+<text class="s red" x="14" y="48">TODAY</text>
+<path class="ax" d="M100 62 H900"/>
+<path class="ln r" d="M130 62 V42" marker-end="url(#a5r)"/>
+<text class="s red" x="130" y="36" text-anchor="middle">ws thread dies</text>
+<circle cx="230" cy="62" r="3.5" fill="#2bb673"/><circle cx="300" cy="62" r="3.5" fill="#2bb673"/>
+<circle cx="370" cy="62" r="3.5" fill="#2bb673"/><circle cx="440" cy="62" r="3.5" fill="#2bb673"/>
+<circle cx="510" cy="62" r="3.5" fill="#2bb673"/><circle cx="580" cy="62" r="3.5" fill="#2bb673"/>
+<text class="s grn" x="400" y="82" text-anchor="middle">check-ins every 5 min · telemetry fresh · dashboard says Offline · nobody looks</text>
+<path class="ln r" d="M660 62 V40" marker-end="url(#a5r)"/>
+<text class="s red" x="664" y="34">shell sent → <tspan class="m">delivered</tspan></text>
+<path class="ln r" d="M740 62 V96" marker-end="url(#a5r)"/>
+<text class="s red" x="744" y="108">"timed out, no output in 5 min"</text>
+<path class="ln r" d="M880 62 V96" marker-end="url(#a5r)"/>
+<text class="s red" x="876" y="112" text-anchor="end">15h later: rebooted by hand</text>
+<text class="s" x="100" y="130">0h</text><text class="s" x="660" y="130" text-anchor="middle">15h</text>
+
+<path class="ax d" d="M14 152 H906" stroke-dasharray="4 4"/>
+
+<text class="s grn" x="14" y="184">PROPOSED</text>
+<path class="ax" d="M100 198 H900"/>
+<path class="ln r" d="M130 198 V178" marker-end="url(#a5r)"/>
+<text class="s red" x="130" y="172" text-anchor="middle">ws thread dies</text>
+<path class="ln g" d="M160 198 V176" marker-end="url(#a5g)"/>
+<text class="s grn" x="186" y="170">+60s: first poll · command_channel = http</text>
+<path class="ln" d="M330 198 V222" marker-end="url(#a5)"/>
+<text class="s" x="334" y="236">+20 min: alert — "reporting but no socket"</text>
+<path class="ln g" d="M660 198 V176" marker-end="url(#a5g)"/>
+<text class="s grn" x="664" y="170">shell sent</text>
+<path class="ln g" d="M690 198 V222" marker-end="url(#a5g)"/>
+<text class="s grn" x="694" y="236">runs ≤60s later, output returns</text>
+<text class="s" x="100" y="258">0h</text>
+</svg>
+<p class="dgcap"><b>The same fault, twice.</b> Nothing above prevents the socket thread from dying —
+the client fix does that. This is about what the fault costs when it happens anyway: fifteen hours
+and a site visit, or a minute of latency and an alert.</p>
+<div class="prob"><b>1. Delivery assumes a socket, and nothing notices when there isn't one.</b>
+<p>A device with no socket is unreachable, indefinitely, with no alert, no counter and a dashboard
+that calls it Offline next to "last seen: just now". The failure is silent by construction, which is
+why it cost a day. <span class="tag t-done">alert + gauge landed</span></p></div>
+
+<div class="prob"><b>2. "delivered" is not delivery.</b>
+<p>It means <code>hub.Push</code> enqueued a frame. The eligibility query knows this and ignores
+<code>delivered</code> without <code>received_at</code> — but the dashboard shows the operator a
+delivery tick, and the operator believes it. The status the UI trusts is not the status the system
+trusts.</p></div>
+
+<div class="prob"><b>3. The server decides when a device gets work.</b>
+<p>Every path is server-initiated, so every path needs the server to hold a working connection to
+that device. Neither client can ask for work — the firmware client could not until 1.9.5, and the DPC
+agent still cannot. Inverting this is the fix: the device is the only party that always knows whether
+it can be reached, and both clients already know how to talk HTTP for everything else.</p></div>
+
+<div class="prob"><b>4. Three notions of presence, none of them "controllable".</b>
+<p><code>hub.IsConnectedForDisplay</code> (socket + 30s grace), <code>MarkCheckinPresence</code>
+(mdm-lite only), and <code>last_seen_at</code>. None answers the one question an operator has before
+pressing a button: <em>will this run?</em></p></div>
+
+<div class="prob"><b>5. Logcat requests cannot reach a socket-less device at all.</b>
+<p>Second queue, second lifecycle, half the machinery. Diagnostics are exactly what you want from a
+device that is misbehaving, and they are the one thing with no fallback.</p></div>
+
+<div class="prob"><b>6. Nothing records a successful round trip.</b>
+<p>There is no per-device "last command that actually completed", so "we think it is manageable" is
+never tested until someone needs it to work.</p></div>
+
+<div class="prob"><b>7. The UI promises things the transport cannot do.</b>
+<p>A dashboard Shell command against a socket-less device waits five minutes and reports
+"Timed out — no output". It could have said, before sending, that this device holds no socket and the
+command will be picked up on its next poll.</p></div>
+</div>
+
+<!-- ─────────── proposal ─────────── -->
+<div class="eyebrow">3 · The proposal: one queue, device-pulled, socket as an accelerator</div>
+<div class="panel">
+<p><b>Principle.</b> The device fetches its own work. The WebSocket stops carrying commands and
+carries one thing instead: <em>"there is work, come and get it."</em> A socket makes delivery
+instant; no socket makes it a minute late. Nothing makes it impossible.</p>
+
+<svg class="dg" viewBox="0 0 920 300" role="img" aria-label="Proposed: the device pulls its work from one endpoint; the WebSocket only carries a wake frame">
+<defs>
+<marker id="a2" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9aa0ac"/></marker>
+</defs><defs>
+<marker id="a2a" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7a80f6"/></marker>
+</defs><defs>
+<marker id="a2g" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2bb673"/></marker>
+</defs>
+<rect class="bx" x="14" y="124" width="126" height="46" rx="9"/>
+<text x="77" y="144" text-anchor="middle">Operator</text><text class="s" x="77" y="160" text-anchor="middle">dashboard / API</text>
+<path class="ln" d="M142 147 H176" marker-end="url(#a2)"/>
+<rect class="bx hot" x="180" y="116" width="150" height="62" rx="9"/>
+<text x="255" y="140" text-anchor="middle">commands</text><text class="s" x="255" y="158" text-anchor="middle">unchanged: same window,</text>
+<text class="s" x="255" y="172" text-anchor="middle">same FIFO, same gate</text>
+
+<path class="ln a" d="M332 132 C366 132 376 56 404 52" marker-end="url(#a2a)"/>
+<path class="ln" d="M332 150 C366 150 376 146 404 146" marker-end="url(#a2)"/>
+
+<rect class="bx" x="404" y="28" width="236" height="48" rx="9"/>
+<text class="m" x="416" y="48">WS: {"type":"wake"}</text><text class="s" x="416" y="65">one frame, no payload, loss costs a poll</text>
+
+<rect class="bx good" x="404" y="112" width="236" height="60" rx="9"/>
+<text class="m" x="416" y="134">GET /commands/pending</text>
+<text class="s" x="416" y="151">the one delivery path</text><text class="s" x="416" y="165">serves GetPendingCommandsForDevice</text>
+
+<rect class="bx" x="404" y="222" width="236" height="46" rx="9"/>
+<text class="m" x="416" y="242">POST /commands/{id}/ack</text><text class="s" x="416" y="258">received → running → terminal</text>
+
+<path class="ln a" d="M644 52 C700 52 740 86 772 110" marker-end="url(#a2a)"/>
+<text class="lbl" x="700" y="80">instant, when connected</text>
+
+<path class="ln" d="M772 128 C720 128 690 134 646 134" marker-end="url(#a2)"/>
+<text class="lbl" x="710" y="122" text-anchor="middle">asks</text>
+<path class="ln g" d="M646 158 C690 158 720 164 772 164" marker-end="url(#a2g)"/>
+<text class="lbl" x="710" y="178" text-anchor="middle">gets its work</text>
+
+<path class="ln" d="M820 188 C820 232 700 245 646 245" marker-end="url(#a2)"/>
+
+<rect class="bx" x="776" y="108" width="132" height="80" rx="9"/>
+<text x="842" y="132" text-anchor="middle">device</text>
+<text class="s" x="842" y="150" text-anchor="middle">firmware + DPC: polls 60s</text>
+<text class="s" x="842" y="164" text-anchor="middle">while no socket,</text>
+<text class="s" x="842" y="178" text-anchor="middle">on wake, after each ack</text>
+<text class="s grn" x="842" y="286" text-anchor="middle">no socket ⇒ one minute late,</text>
+<text class="s grn" x="842" y="298" text-anchor="middle">never unreachable</text>
+</svg>
+<p class="dgcap"><b>Proposed.</b> The arrow that matters now points left: the device asks. The socket
+makes that instant instead of making it possible, so losing it costs latency rather than control.</p>
+<div class="flow">  create command ──▶ queue (commands table, eligibility unchanged)
+                        │
+                        ├─ socket up ──▶ WS: {"type":"wake"} ──▶ device GETs /commands/pending  (instant)
+                        │
+                        └─ no socket  ──▶ device GETs /commands/pending every 60s              (≤1 min)
+
+  device ──▶ POST /commands/{id}/ack  received → running → terminal      (unchanged, already HTTP)</div>
+
+<h2>The one delivery endpoint</h2>
+<pre>GET /api/v1/commands/pending?serial=AT070AABU00077     (device key, same auth as /ws)
+→ 200 {"commands":[{"id":"…","command_type":"shell","apk_url":"","payload":{…}}]}
+
+  · Returns what GetPendingCommandsForDevice already returns — same window, same FIFO,
+    same one-at-a-time gate. No second opinion about what is next.
+  · Marks 'delivered' (now meaning "handed to the device", which over HTTP it is).
+  · Cheap and bounded: one indexed query, empty for almost every call.</pre>
+<p>Every existing push path then becomes the same two lines — <em>wake the device if it is
+connected</em> — and <code>marshalCommand</code>, the flush-on-connect loop, the stuck-delivery
+re-push and the unflushed sweep collapse into it. A half-open socket can no longer false-deliver,
+because a lost wake frame costs at most one poll interval instead of a command.</p>
+
+<h2 style="margin-top:22px">Client: a command loop that is not the telemetry loop</h2>
+<ul>
+  <li>Poll on its own 60s cadence while there is no usable socket; stop polling when the socket is
+      healthy (the wake frame covers that case).</li>
+  <li>Poll immediately on a wake frame, and once more after each terminal ack, so a queue drains at
+      socket speed rather than one command per minute.</li>
+  <li>Telemetry keeps its own five-minute keyframe schedule, untouched. Command latency and
+      telemetry volume are separate problems and must not share a dial — minutely check-ins would
+      multiply the fleet's telemetry writes by five to fix a delivery bug.</li>
+  <li>Everything after fetch is the code that already runs for a pushed command:
+      <code>handleIncomingCommand</code> acks receipt, dedupes by id against in-flight and
+      persisted recently-done sets, and runs on <code>heavyExecutor</code>.</li>
+</ul>
+<svg class="dg" viewBox="0 0 920 352" role="img" aria-label="Flowchart: what the server does when a command is created, and what the device does on each tick">
+<defs>
+<marker id="a4" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9aa0ac"/></marker>
+</defs><defs>
+<marker id="a4g" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2bb673"/></marker>
+</defs>
+<text class="lbl" x="18" y="16">SERVER · A COMMAND IS CREATED</text>
+<rect class="bx hot" x="18" y="26" width="200" height="40" rx="8"/><text x="118" y="51" text-anchor="middle">command queued</text>
+<path class="ln" d="M118 68 V92" marker-end="url(#a4)"/>
+<polygon class="bx" points="118,96 236,136 118,176 0,136"/><text x="118" y="132" text-anchor="middle">socket up?</text><text class="s" x="118" y="148" text-anchor="middle">hub.IsConnected</text>
+<path class="ln g" d="M238 136 H286" marker-end="url(#a4g)"/><text class="lbl" x="258" y="128">yes</text>
+<rect class="bx good" x="288" y="116" width="150" height="40" rx="8"/><text class="m" x="300" y="141">send wake</text>
+<path class="ln" d="M118 178 V206" marker-end="url(#a4)"/><text class="lbl" x="128" y="196">no</text>
+<rect class="bx" x="18" y="210" width="200" height="40" rx="8"/><text class="s" x="28" y="235">nothing — it will poll</text>
+<path class="ln d" d="M438 136 C470 136 470 262 438 262"/>
+<text class="s" x="228" y="286">either way the queue is the same; the wake only changes <tspan class="m">when</tspan></text>
+
+<path class="ax" d="M472 10 V342"/>
+
+<text class="lbl" x="492" y="16">DEVICE · EVERY 60s TICK (NO SOCKET)</text>
+<rect class="bx" x="492" y="26" width="166" height="40" rx="8"/><text x="575" y="51" text-anchor="middle">tick, or wake, or ack</text>
+<path class="ln" d="M575 68 V92" marker-end="url(#a4)"/>
+<polygon class="bx" points="575,96 693,136 575,176 457,136"/><text x="575" y="132" text-anchor="middle">socket healthy?</text><text class="s" x="575" y="148" text-anchor="middle">+ fresh data</text>
+<path class="ln" d="M695 136 H742" marker-end="url(#a4)"/><text class="lbl" x="712" y="128">yes</text>
+<rect class="bx" x="744" y="116" width="166" height="40" rx="8"/><text class="s" x="754" y="135">skip the poll —</text><text class="s" x="754" y="149">wake covers this</text>
+<path class="ln g" d="M575 178 V204" marker-end="url(#a4g)"/><text class="lbl" x="585" y="196">no</text>
+<rect class="bx good" x="492" y="208" width="200" height="40" rx="8"/><text class="m" x="502" y="233">GET /commands/pending</text>
+<path class="ln" d="M692 228 H742" marker-end="url(#a4)"/>
+<polygon class="bx" points="800,194 896,228 800,262 704,228"/><text class="s" x="800" y="226" text-anchor="middle">anything</text><text class="s" x="800" y="240" text-anchor="middle">queued?</text>
+<path class="ln g" d="M800 264 V296" marker-end="url(#a4g)"/><text class="lbl" x="810" y="286">yes</text>
+<rect class="bx good" x="700" y="300" width="200" height="42" rx="8"/><text class="s" x="710" y="320">ack received, run it,</text><text class="s" x="710" y="334">poll again when done</text>
+<path class="ln d" d="M592 250 C592 318 660 320 698 320"/>
+<text class="s" x="516" y="324">no → sleep</text>
+</svg>
+<p class="dgcap"><b>Both sides get simpler.</b> The server's question shrinks to "can I hurry this
+along?", and the device owns the one question only it can answer: "can I be reached right now?"</p>
+<p>On battery, Doze floors allow-while-idle alarms near five minutes, so a true 60s cadence is real
+on mains-powered kiosks and docked tablets, and best-effort on a tablet asleep in a drawer. That is
+the right trade: a device in a drawer is not one someone is waiting on.</p>
+
+<h2 style="margin-top:22px">Status vocabulary, made honest</h2>
+<table>
+  <tr><th>State</th><th>Means</th><th>Change</th></tr>
+  <tr><td class="n">pending</td><td>Queued, not handed out</td><td>—</td></tr>
+  <tr><td class="n">sent</td><td>Handed to a transport</td><td>Rename of <code>delivered</code> in the UI only; the DB value stays</td></tr>
+  <tr><td class="n">received</td><td>The device said it has it</td><td>Promote to a first-class state the UI shows as the real tick</td></tr>
+  <tr><td class="n">running / downloading / installing</td><td>In progress on the device</td><td>—</td></tr>
+  <tr><td class="n">completed / failed / cancelled / expired</td><td>Terminal</td><td>—</td></tr>
+</table>
+<svg class="dg" viewBox="0 0 920 212" role="img" aria-label="Command state machine, with the redrive loop and the stall path">
+<defs>
+<marker id="a3" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9aa0ac"/></marker>
+</defs><defs>
+<marker id="a3r" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#e05353"/></marker>
+</defs><defs>
+<marker id="a3g" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2bb673"/></marker>
+</defs>
+<rect class="bx" x="12" y="74" width="124" height="46" rx="9"/><text x="74" y="94" text-anchor="middle">pending</text><text class="s" x="74" y="110" text-anchor="middle">queued</text>
+<path class="ln" d="M138 97 H178" marker-end="url(#a3)"/>
+<rect class="bx warn" x="180" y="74" width="134" height="46" rx="9"/><text x="247" y="94" text-anchor="middle">sent</text><text class="s" x="247" y="110" text-anchor="middle">handed to a transport</text>
+<path class="ln g" d="M316 97 H356" marker-end="url(#a3g)"/>
+<rect class="bx good" x="358" y="74" width="140" height="46" rx="9"/><text x="428" y="94" text-anchor="middle">received</text><text class="s" x="428" y="110" text-anchor="middle">the device has it</text>
+<path class="ln" d="M500 97 H540" marker-end="url(#a3)"/>
+<rect class="bx" x="542" y="74" width="150" height="46" rx="9"/><text x="617" y="94" text-anchor="middle">running</text><text class="s" x="617" y="110" text-anchor="middle">downloading / installing</text>
+<path class="ln" d="M694 97 H734" marker-end="url(#a3)"/>
+<rect class="bx" x="736" y="74" width="172" height="46" rx="9"/><text x="822" y="94" text-anchor="middle">terminal</text><text class="s" x="822" y="110" text-anchor="middle">completed / failed / cancelled</text>
+
+<path class="ln r d" d="M247 72 C247 30 90 30 74 70" marker-end="url(#a3r)"/>
+<text class="s red" x="160" y="24" text-anchor="middle">no received_at → re-deliver (today: 90s sweep; proposed: next poll)</text>
+
+<path class="ln r d" d="M617 122 C617 160 700 160 736 160" marker-end="url(#a3r)"/>
+<rect class="bx bad" x="738" y="140" width="170" height="40" rx="8"/><text x="823" y="165" text-anchor="middle">expired</text>
+<text class="s red" x="660" y="178" text-anchor="middle">stalled</text>
+
+<text class="s" x="428" y="146" text-anchor="middle">the only state that proves delivery —</text>
+<text class="s" x="428" y="160" text-anchor="middle">and the one the UI does not show today</text>
+</svg>
+<p class="dgcap"><b>The states already exist.</b> What is missing is that the dashboard ticks at
+<em>sent</em>, while the eligibility query — correctly — only trusts <em>received</em>.</p>
+<p style="margin-top:10px">One line of UI work pays for itself: an operator who can tell "we sent
+it" from "it has it" would have diagnosed 00077 in a minute.</p>
+
+<h2 style="margin-top:22px">Controllability as a stored fact</h2>
+<p>One field, computed on check-in and on connect: <code>ws</code> (socket, instant),
+<code>http</code> (no socket, polls — reachable, delayed), <code>none</code> (no socket and a client
+that cannot poll: every firmware build before 1.9.5, which includes all 101 v2.0.x devices, and
+every DPC build before the one that adds the poll). It drives the device-page
+banner, the <code>no_command_channel</code> alert, the
+<code>devices_no_command_channel</code> gauge, and a pre-flight note on the Shell box instead of a
+five-minute timeout.</p>
+
+<h2 style="margin-top:22px">Fold the second queue in</h2>
+<p>A logcat request becomes a command of type <code>logcat</code> — one queue, one lifecycle, one
+delivery endpoint, and diagnostics that work on exactly the devices that need diagnosing. Live
+frames (remote screen, adb tunnel, wake screen, telemetry_request) stay WS-only and are documented
+as live-only, with the UI saying so up front rather than failing late.</p>
+
+<h2 style="margin-top:22px">Prove it, per device</h2>
+<p><code>devices.last_command_ok_at</code>, stamped on every terminal ack. "Reporting for a week,
+nothing completed in a week" is a question worth asking automatically, and today nothing can ask
+it.</p>
+</div>
+
+<!-- ─────────── migration ─────────── -->
+<div class="eyebrow">4 · Unlearning it — the textbook design</div>
+<div class="panel">
+<p>Everything above is incremental: it takes today's model as given and fixes its worst assumption.
+This section does the opposite — it forgets the current code and asks what a device control plane
+<em>should</em> look like. It is the yardstick, not the plan; §5 says how much of it is worth
+actually building.</p>
+
+<svg class="dg" viewBox="0 0 920 384" role="img" aria-label="Layered control-plane architecture: intent, desired state and jobs, channel abstraction, device agent with reconciler and job runner, append-only event log">
+<defs><marker id="a7" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9aa0ac"/></marker>
+<marker id="a7g" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2bb673"/></marker></defs>
+
+<text class="lbl" x="16" y="16">INTENT</text>
+<rect class="bx" x="12" y="24" width="896" height="40" rx="9"/>
+<text x="28" y="49">Dashboard · API · scheduler · rollout controller</text>
+<text class="s" x="640" y="49">one way in, authorised and audited</text>
+<path class="ln" d="M240 66 V92" marker-end="url(#a7)"/><path class="ln" d="M680 66 V92" marker-end="url(#a7)"/>
+
+<text class="lbl" x="16" y="88">CONTROL PLANE · TWO KINDS OF WORK, NOT ONE</text>
+<rect class="bx hot" x="12" y="96" width="440" height="96" rx="10"/>
+<text x="30" y="120">Desired state (declarative)</text>
+<text class="s" x="30" y="140">kiosk policy · app set · config · target build · network</text>
+<text class="s" x="30" y="156">server stores desired + reported; device reconciles</text>
+<text class="s" x="30" y="178">idempotent by construction — no delivery semantics at all</text>
+
+<rect class="bx warn" x="468" y="96" width="440" height="96" rx="10"/>
+<text x="486" y="120">Jobs (imperative, genuinely one-shot)</text>
+<text class="s" x="486" y="140">reboot · wipe · shell · screenshot · collect logs</text>
+<text class="s" x="486" y="156">lease + deadline + attempts + idempotency key</text>
+<text class="s" x="486" y="178">each type declares its delivery guarantee</text>
+
+<path class="ln" d="M232 194 V222" marker-end="url(#a7)"/><path class="ln" d="M688 194 V222" marker-end="url(#a7)"/>
+
+<text class="lbl" x="16" y="218">CHANNEL · ONE INTERFACE, TRANSPORT IS AN IMPLEMENTATION DETAIL</text>
+<rect class="bx good" x="12" y="226" width="896" height="60" rx="10"/>
+<text class="m" x="30" y="250">Channel.Fetch(device) · Channel.Hint(device)</text>
+<text class="s" x="30" y="270">pull is the contract · a socket only makes the next pull happen sooner · no caller knows which</text>
+<text class="s grn" x="700" y="258">no socket ⇒ slower,</text><text class="s grn" x="700" y="274">never unreachable</text>
+
+<path class="ln g" d="M460 288 V318" marker-end="url(#a7g)"/>
+<path class="ln g" d="M400 318 V290" marker-end="url(#a7g)"/>
+<text class="lbl" x="476" y="308">fetch / report</text>
+
+<text class="lbl" x="16" y="314">DEVICE AGENT</text>
+<rect class="bx" x="12" y="322" width="440" height="56" rx="10"/>
+<text x="30" y="344">Reconciler loop + job runner</text>
+<text class="s" x="30" y="364">converges to desired state · executes leased jobs · dedups by id · reports events</text>
+
+<rect class="bx" x="468" y="322" width="440" height="56" rx="10"/>
+<text x="486" y="344">Append-only event log</text>
+<text class="s" x="486" y="364">created · leased · received · started · progress · finished — never mutated</text>
+<path class="ln" d="M908 350 C916 320 916 300 908 286" marker-end="url(#a7)"/>
+</svg>
+<p class="dgcap">Four layers, one direction of dependency. Nothing above the channel knows whether a
+device holds a socket; nothing below it knows who asked.</p>
+
+<h2 style="margin-top:20px">The eight ideas that matter</h2>
+<p><b>1 · Separate desired state from operations.</b> Most of what this MDM calls a "command" is not
+an operation at all — it is a statement about how a device should be: in kiosk on this package, with
+these apps, on this build, with this config. Those belong in a <em>desired-state</em> document the
+device reconciles against continuously. A reconciler needs no delivery guarantee, no retry logic and
+no queue: a device that misses an update converges on its next loop, and a device that is reflashed
+converges from scratch. Only genuinely one-shot acts — reboot now, wipe, run this shell line, take a
+screenshot — are jobs. <b>Roughly half of today's command types would stop being commands.</b></p>
+
+<p><b>2 · Pull is the contract; push is a hint.</b> One interface: <code>Fetch</code> (give me my
+work) and <code>Hint</code> (there is work, fetch sooner). The socket implements the hint and nothing
+else. This is the single decision that makes the whole class of failure impossible rather than
+detected — and it is why the incremental plan in §3 is pointed the same way.</p>
+
+<p><b>3 · Leases, not "delivered".</b> A job is handed out as a lease: <code>lease_id</code>, an
+expiry, and a heartbeat the device extends while it works. Expiry returns the job to the queue
+automatically. No sweeps, no 90-second staleness constant, no re-push logic, no "delivered means we
+wrote it to a socket" — the ambiguity that made 00077 confusing cannot be expressed in this model.</p>
+
+<p><b>4 · Declare the guarantee per type, don't imply it.</b> Three classes, named in a registry
+beside each type: <em>at-most-once</em> (wipe, reboot — a double-run is worse than a miss),
+<em>at-least-once + idempotent</em> (install an app, apply config — retry freely, the device dedups
+by idempotency key), <em>best-effort live</em> (remote control, tunnels — no queue, and the UI says
+so). Today these rules exist, but spread across a SQL <code>CASE</code>, a <code>break</code> in a
+loop, and two sweep jobs.</p>
+
+<p><b>5 · Append-only events instead of a mutated status column.</b> One row per thing that happened,
+never updated. Current status is a projection. "When did the device actually get it" stops being
+guesswork, the audit trail is free, and the UI can show <em>sent</em> and <em>received</em> as the
+different facts they are without anyone having to remember that one is a lie.</p>
+
+<p><b>6 · Serialization keys, not one queue per device.</b> Strict per-device FIFO is too coarse: a
+wedged install should not stop a screenshot or a reboot. Each job names a concurrency group
+(<code>install</code>, <code>firmware</code>, <code>shell</code>) and only shares a lane with its own
+kind. Today's design reaches for the same safety with a global per-device gate plus an OTA exemption
+carved out of it — which is the right instinct expressed once, by hand.</p>
+
+<p><b>7 · Capability negotiation, enforced at enqueue.</b> The device declares what it supports; the
+server refuses to create a job the device cannot run and the UI never offers it. The pieces exist
+(<code>product/caps.go</code>, <code>otagate</code>, <code>capabilities_degraded</code>) but are
+advisory — a DPC agent still has to answer <code>unsupported</code> to a boot-splash command that
+should never have been created.</p>
+
+<p><b>8 · Controllability is an SLO, measured by a canary.</b> Not "is the socket up" but "did a
+round trip complete recently". A cheap synthetic no-op job per device per day, plus
+<code>last_round_trip_ok_at</code>, turns "we believe the fleet is manageable" into a number that can
+page someone. Today nothing anywhere tests it, which is precisely why a 15-hour outage was invisible.</p>
+
+<h2 style="margin-top:22px">Named plainly: today's anti-patterns</h2>
+<table>
+  <tr><th>Anti-pattern</th><th>Where</th><th>Textbook answer</th></tr>
+  <tr><td class="n">Delivery coupled to one transport</td><td>Four push paths, all needing <code>ws.Hub</code></td><td>Channel interface; pull as the contract</td></tr>
+  <tr><td class="n">Ambiguous delivery state</td><td><code>delivered</code> = written to a socket</td><td>Leases + append-only events</td></tr>
+  <tr><td class="n">Policy inside queries</td><td>TTLs and exemptions as SQL <code>CASE</code></td><td>Per-job deadline, attempts, guarantee class</td></tr>
+  <tr><td class="n">Imperative statements of state</td><td><code>config</code> as a queued command</td><td>Desired state + reconciler</td></tr>
+  <tr><td class="n">Ordering coarser than needed</td><td>One FIFO lane per device</td><td>Concurrency groups</td></tr>
+  <tr><td class="n">Parallel queues</td><td><code>commands</code> + <code>logcat_requests</code></td><td>One queue, one lifecycle</td></tr>
+  <tr><td class="n">Liveness mistaken for control</td><td>Badge = socket presence</td><td>Round-trip SLO per device</td></tr>
+  <tr><td class="n">Repair by sweep</td><td>Four minute-jobs re-driving and expiring</td><td>Lease expiry does it with no job at all</td></tr>
+</table>
+
+<h2 style="margin-top:22px">What I would actually build, and what I would not</h2>
+<p><b>Worth it:</b> ideas 2, 3 and 8 — pull-as-contract, leases, and a round-trip canary. They are
+small, they compose with the existing queue, and together they close this failure class permanently.
+Idea 5's <em>visible</em> half (showing <code>received</code> rather than <code>sent</code>) is an
+afternoon and removes the thing that misled us.</p>
+<p><b>Worth it later:</b> idea 6 (concurrency groups) the next time a wedged install blocks a queue,
+and idea 4 (a type registry) as the natural home for rules that are currently scattered.</p>
+<p><b>Not worth rebuilding now:</b> idea 1. Moving config, app sets and kiosk policy to a full
+reconciler is the most architecturally correct item here and the largest rewrite on the page — it
+touches every client, the config push path, the deployments model and the dashboard. The honest
+position: the firmware client's config already arrives declaratively in the check-in response and is
+applied idempotently, so the most valuable part of idea 1 is <em>already true where it matters</em>.
+Full event sourcing (idea 5's storage half) likewise buys audit quality we are not currently short
+of.</p>
+<p class="dgcap" style="margin-top:12px">Put bluntly: the textbook design and the plan in §3 differ by
+two features (leases, concurrency groups) and one rewrite we should not do. That is a reassuring
+result — it means the incremental path is not a compromise with the right answer, it is a prefix of
+it.</p>
+</div>
+
+<div class="eyebrow">5 · Order of work</div>
+<div class="panel">
+<table>
+  <tr><th>Step</th><th>What</th><th>State</th></tr>
+  <tr><td class="n">0</td><td>Client: WS reconnect loop can no longer die (<code>Throwable</code>, interrupt handling, supervisor restart)</td><td><span class="tag t-done">done, 1.9.5</span></td></tr>
+  <tr><td class="n">1</td><td>Server: detect it — <code>ws_missing_since</code>, <code>no_command_channel</code> alert, <code>devices_no_command_channel</code> gauge</td><td><span class="tag t-done">done</span></td></tr>
+  <tr><td class="n">2</td><td>Server + client: commands ride the check-in response as a backup</td><td><span class="tag t-done">done</span></td></tr>
+  <tr><td class="n">3</td><td>Device page banner: reporting-but-unreachable, with what to do</td><td><span class="tag t-now">next</span></td></tr>
+  <tr><td class="n">4</td><td><code>GET /commands/pending</code> + the firmware client's own 60s command loop (separate from telemetry)</td><td><span class="tag t-now">next</span></td></tr>
+  <tr><td class="n">4b</td><td>Same loop in the DPC agent, plus <code>http_commands</code> in its telemetry. Cheapest of the lot: its executor already reads either frame shape and its acker already prefers HTTP</td><td><span class="tag t-now">next</span></td></tr>
+  <tr><td class="n">5</td><td>WS carries <code>wake</code>; the four push paths collapse into one</td><td><span class="tag t-new">then</span></td></tr>
+  <tr><td class="n">6</td><td><code>received</code> as the tick the UI trusts; <code>delivered</code> shown as "sent"</td><td><span class="tag t-new">then</span></td></tr>
+  <tr><td class="n">7</td><td>Logcat requests folded into <code>commands</code></td><td><span class="tag t-new">then</span></td></tr>
+  <tr><td class="n">8</td><td><code>last_command_ok_at</code> + the stale-control question</td><td><span class="tag t-new">then</span></td></tr>
+</table>
+<p style="margin-top:12px">Steps 4 and 5 are the architecture; 3 and 6 are what make it visible.
+Every step ships on its own and none of them changes which command is next.</p>
+<p><b>Not solved by any of this:</b> the 101 <code>v2.0.x</code> firmware devices cannot take a
+qcom-signed client, so they stay at <code>command_channel = none</code> — reachable only while their
+socket happens to be alive. For them this work buys the alert, the gauge and the banner, not control.
+The DPC fleet has no such blocker: it self-updates silently as Device Owner, so every DPC device can
+be on the pull path in one roll.</p>
+</div>
+
+<!-- ─────────── decisions ─────────── -->
+<div class="eyebrow">6 · Implementing §4 — the buildable version</div>
+<div class="panel">
+<p>Six of the eight textbook ideas are <b>additive</b>: new columns beside the existing
+<code>commands</code> / <code>command_status</code> tables, one new endpoint, one new Go package. No
+migration of live rows, no client left behind — a device that knows nothing about any of it keeps
+working over the WS push path exactly as it does today. That matters because 101 firmware devices
+will never get a new client.</p>
+
+<h2>Schema — all additive</h2>
+<pre>-- leases replace "delivered means we wrote it to a socket"
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS lease_id         UUID;
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS attempts         INT NOT NULL DEFAULT 0;
+
+-- per-job policy, instead of a CASE in three queries
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS deadline_at   TIMESTAMPTZ;
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS max_attempts  INT  NOT NULL DEFAULT 3;
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS lane          TEXT NOT NULL DEFAULT 'default';
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS guarantee     TEXT NOT NULL DEFAULT 'at_least_once';
+
+-- append-only history; current status stays a column, so nothing has to be rewritten at once
+CREATE TABLE IF NOT EXISTS command_events (
+  id         BIGSERIAL PRIMARY KEY,
+  command_id UUID NOT NULL,
+  device_id  UUID,
+  at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  kind       TEXT NOT NULL,        -- created|leased|received|started|progress|finished|expired
+  detail     JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS command_events_cmd_idx ON command_events (command_id, at);
+
+-- controllability as a measured fact, not an inference
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_round_trip_ok_at TIMESTAMPTZ;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS command_channel       TEXT NOT NULL DEFAULT 'none';</pre>
+
+<h2 style="margin-top:20px">The type registry — idea 4, and the home for scattered rules</h2>
+<p>One new package, <code>internal/command</code>, holding what is currently spread across
+<code>shortLivedCommandsSQL</code>, the <code>break</code> after a reboot, the OTA exemptions in
+<code>GetPendingCommandsForDevice</code>, and two sweep jobs:</p>
+<pre>type Spec struct {
+    Type      string
+    Guarantee Guarantee     // AtMostOnce | AtLeastOnce | BestEffortLive
+    Lane      string        // concurrency group: "install", "firmware", "shell", "default"
+    Deadline  time.Duration // per type, not per query
+    Lease     time.Duration // how long a device may hold it before it returns to the queue
+    NeedsCaps []string      // refused at enqueue if the device lacks them
+    LiveOnly  bool          // never queued; the UI must say so up front
+}
+
+// reboot: AtMostOnce, lane "device", deadline 0 (completes on next boot), no re-delivery
+// install_apk: AtLeastOnce, lane "install", lease 30m, heartbeat-extended
+// shell: AtLeastOnce, lane "shell", deadline 5m
+// ota: AtLeastOnce, lane "firmware", lease 2h, exempt from the device lane
+// update_splash: NeedsCaps ["system_partition"] — refused at enqueue for DPC, not answered
+//                "unsupported" after the fact</pre>
+<p>Enqueue consults it, so <b>the dashboard stops offering a device actions it cannot run</b>, and
+the eligibility query reads policy from columns the registry filled instead of re-deciding it.</p>
+
+<h2 style="margin-top:20px">Leases — idea 3, and the deletion of three sweep jobs</h2>
+<p>The pending query gains one clause and loses the rest of its delivery bookkeeping:</p>
+<pre>AND (cs.lease_expires_at IS NULL OR cs.lease_expires_at &lt; NOW())   -- nobody holds it now
+AND (cs.attempts &lt; c.max_attempts)                                 -- give up honestly</pre>
+<p>Handing a job out sets <code>lease_id</code>, <code>lease_expires_at = NOW() + spec.Lease</code>
+and <code>attempts = attempts + 1</code>. A device holding a lease heartbeats it — the interim
+<code>downloading</code> / <code>installing</code> acks both clients already send <em>are</em> the
+heartbeat, so long installs need no new client code. An expired lease returns the job to the queue
+with no sweep at all, which retires <code>redrive-stuck-deliveries</code>,
+<code>redrive-unflushed</code> and the 90-second staleness constant, and makes
+<code>expire-stalled-installs</code> a thin wrapper over <code>max_attempts</code>.</p>
+
+<h2 style="margin-top:20px">Events — idea 5, written from day one, projected later</h2>
+<p>Every state transition also appends to <code>command_events</code>. Nothing reads it at first;
+<code>command_status</code> stays the live column so no page changes. Once the log exists the device
+page can show a real timeline ("queued 14:02 · leased 14:02 · received 14:03 · finished 14:04"), and
+the UI can finally distinguish <em>sent</em> from <em>received</em> — idea 5's visible half, which is
+the bit that would have saved the day we lost.</p>
+
+<h2 style="margin-top:20px">The canary — idea 8, the smallest item with the largest payoff</h2>
+<p>A daily job enqueues a no-op <code>query</code> per enrolled device, lane <code>shell</code>,
+deadline an hour. Its terminal ack stamps <code>last_round_trip_ok_at</code>. Then a device that has
+not completed a round trip in, say, 48 hours while still reporting raises <code>control_stale</code>
+— and the fleet gauge becomes "devices we have actually proven we can command", not "devices with a
+socket". Half a day of work, and it is the only item here that would have caught 00077 without
+anybody suspecting anything.</p>
+
+<h2 style="margin-top:20px">Idea 1, scoped honestly</h2>
+<p>A full desired-state reconciler is the one thing on this page I would not build now. It touches
+both clients, the config push path, the deployments model and most of the dashboard, and its most
+valuable third is already true: the firmware client's config arrives declaratively in the check-in
+response and is applied idempotently every time. The cheap slice worth taking is the
+<em>reported</em> half — have each client report the state it believes it is in (kiosk on/off,
+package, app set hash, build) and show drift against desired on the device page. That is a day, needs
+no new plane, and answers "did that config actually take?", which today nobody can answer either.</p>
+
+<h2 style="margin-top:20px">Order, with effort</h2>
+<table>
+  <tr><th>&nbsp;</th><th>Slice</th><th>Touches</th><th>Effort</th></tr>
+  <tr><td class="n">A</td><td><code>GET /commands/pending</code> + leases + the registry + events written</td><td>Server only — old clients keep using WS push, new ones pull</td><td>~3 days</td></tr>
+  <tr><td class="n">B</td><td>Command poll loop in the DPC agent (its executor reads either shape, its acker already prefers HTTP)</td><td><code>aio-mdm-client-dpc</code>, 4 lab devices, silent self-update</td><td>~1 day</td></tr>
+  <tr><td class="n">C</td><td>Same loop in the firmware client, 1.9.6</td><td><code>aio-mdm-client</code>, <code>v2.1.x</code> only</td><td>~1 day</td></tr>
+  <tr><td class="n">D</td><td>Canary + <code>control_stale</code> + the gauge counting proven control</td><td>Server</td><td>~½ day</td></tr>
+  <tr><td class="n">E</td><td>UI: <em>received</em> as the tick that counts, event timeline on the device page, the device-page banner you picked</td><td>Dashboard — demo first</td><td>~1 day</td></tr>
+  <tr><td class="n">F</td><td>Concurrency lanes switched on (a wedged install stops blocking a screenshot)</td><td>One query, behind the registry</td><td>~1 day</td></tr>
+  <tr><td class="n">G</td><td>WS carries <code>wake</code> only; the four push paths collapse</td><td>Server + both clients — only once every reachable device polls</td><td>~1 day</td></tr>
+  <tr><td class="n">—</td><td>Reported-state drift (the useful third of idea 1)</td><td>Both clients + device page</td><td>~1 day</td></tr>
+  <tr><td class="n">✗</td><td>Full desired-state reconciler, event sourcing as the system of record</td><td>Everything</td><td>weeks — not now</td></tr>
+</table>
+<p style="margin-top:12px"><b>A through E is about a week</b> and gets every idea worth having: pull
+as the contract, leases, a registry, events, a proven-control metric, and a UI that stops lying.
+F and G are cleanup that can wait for the fleet to be on a polling client — and G is the one that
+cannot be undone quietly, since it removes the path the 101 <code>v2.0.x</code> devices depend on.
+<b>They must keep the WS push path forever.</b></p>
+</div>
+
+<div class="eyebrow">7 · Decisions I need from you</div>
+<div class="panel">
+<div class="q"><b>Does the WebSocket stop carrying command payloads (step 5)?</b>
+<p>Yes is the simplification that deletes three code paths and makes a half-open socket harmless.
+No keeps instant delivery on a path that is proven in production and leaves the poll as a pure
+fallback — less elegant, less risk to the thing that works today for 50 connected devices.</p></div>
+
+<div class="q"><b>Poll interval, and does it back off?</b>
+<p>60s flat is simplest. 60s for the first ten minutes then 5 min would cut the request volume of a
+fleet where a few devices sit socket-less for days — at the cost of a device being up to five
+minutes from reach when someone finally needs it.</p></div>
+
+<div class="q"><b>Do socket-less devices poll at all when nothing is queued?</b>
+<p>They must — otherwise there is no channel to be surprised by. The query is cheap and returns
+empty. 188 devices at 60s is ~3 requests a second.</p></div>
+
+<div class="q"><b>One release for both clients, or firmware first?</b>
+<p>The DPC agent is the easier port and the safer place to prove it (4 lab devices, silent
+self-update, nothing in a restaurant yet). Firmware first reaches the fleet that actually suffered
+the bug, but only its <code>v2.1.x</code> half. Doing DPC first and firmware second costs a week and
+de-risks the fleet roll.</p></div>
+
+<div class="q"><b>Fold logcat into commands now or later?</b>
+<p>It is the clean end state, and it is also a migration of a live table with its own UI. Later,
+unless diagnostics on socket-less devices is itself urgent.</p></div>
+</div>
+
+</div>
+<script>
+const r=document.documentElement,tl=document.getElementById('tl'),td=document.getElementById('td');
+function set(t){r.setAttribute('data-theme',t);tl.classList.toggle('on',t==='light');td.classList.toggle('on',t==='dark');}
+tl.onclick=()=>set('light');td.onclick=()=>set('dark');set('light');
+</script>
+</body></html>

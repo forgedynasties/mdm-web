@@ -1,5 +1,6 @@
 {{define "packages.html"}}
 {{template "header" .}}
+{{template "rollout-tabs" .}}
 
 <style>
 .pkg-note{font-size:12.5px;color:var(--muted);line-height:1.55;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:16px;}
@@ -67,7 +68,7 @@
           {{if .EffectiveSystem}}<span class="pk-eff sys">system</span>{{else}}<span class="pk-eff usr">user</span>{{end}}
         </td>
         <td style="text-align:right;">
-          <label class="pk-sw" title="Force this app to be treated as a system app — overrides what devices report (hides it from Uninstall &amp; Kiosk pickers)">
+          <label class="pk-sw" title="Force this app to be treated as a system app — overrides what devices report (hides it from the Uninstall &amp; Lock pickers)">
             <input type="checkbox" {{if .AdminFlagged}}checked{{end}}
                    data-pkg="{{.PackageName}}"
                    data-reported="{{if gt .ReportedSystem 0}}system{{else if gt .ReportedUser 0}}user{{else}}system{{end}}"
