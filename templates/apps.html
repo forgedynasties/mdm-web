@@ -57,19 +57,6 @@
   .st-mt{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35;
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 
-  /* Needs attention is a row, not a tile: a problem needs a sentence and an action beside
-     it, and neither fits under a 104px card. */
-  .st-prob{display:flex;align-items:center;gap:13px;padding:10px 2px}
-  .st-prob+.st-prob{border-top:1px solid var(--border-soft)}
-  .st-prob .st-tile{width:52px;height:52px;border-radius:14px}
-  .st-prob .st-tile img{width:34px;height:34px}
-  .st-prob .st-ini{width:34px;height:34px;border-radius:11px;font-size:15px}
-  .st-prob .txt{min-width:0}
-  .st-prob .nm{font-size:13.5px;font-weight:650;letter-spacing:-.005em}
-  .st-prob .mt{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.4}
-  .st-prob .act{margin-left:auto;display:flex;align-items:center;gap:10px;flex:none}
-  .st-pill{font-size:10.5px;font-weight:700;border-radius:99px;padding:3px 9px;
-    background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-edge)}
   .st-empty{font-size:12.5px;color:var(--muted);padding:12px 2px}
   .st-all{border-top:1px solid var(--border-soft);margin-top:10px;padding-top:22px}
   /* The dock floats over the bottom of every page; without room for it the last shelf
@@ -93,24 +80,6 @@
   </div>
 
   {{range .Shelves}}
-    {{if eq .ID "attention"}}
-    {{/* A problem needs a sentence and an action beside it, neither of which fits under a
-         104px card — so this shelf is rows while the browse shelves are tiles. */}}
-    <div class="st-shelf" id="st-{{.ID}}" data-shelf>
-      <div class="st-sh"><h2>{{.Title}}</h2><span class="cnt">{{len .Cards}}</span></div>
-      {{range .Cards}}
-      <div class="st-prob" data-card data-search="{{.Search}}">
-        <a class="st-tile" href="/apps/{{.Package}}">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}<span class="st-ini">{{.Initial}}</span>{{end}}</a>
-        <div class="txt">
-          <a href="/apps/{{.Package}}" style="text-decoration:none;color:inherit"><div class="nm">{{.Name}}</div></a>
-          <div class="mt">{{.Meta}}</div>
-        </div>
-        <div class="act"><a class="cc-btn sm" href="/apps/{{.Package}}">{{.CTA}}</a></div>
-      </div>
-      {{end}}
-      <div class="st-empty" data-shelf-empty hidden>Nothing here matches.</div>
-    </div>
-    {{else}}
     <div class="st-shelf" id="st-{{.ID}}" data-shelf>
       <div class="st-sh"><h2>{{.Title}}</h2><span class="cnt">{{len .Cards}}</span>{{if .Note}}<span class="note">{{.Note}}</span>{{end}}</div>
       <div class="st-row">
@@ -125,7 +94,6 @@
       </div>
       <div class="st-empty" data-shelf-empty hidden>Nothing here matches.</div>
     </div>
-    {{end}}
   {{end}}
   {{end}}
 

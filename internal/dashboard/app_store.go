@@ -45,12 +45,11 @@ type storeShelf struct {
 }
 
 type storeView struct {
-	Shelves []storeShelf
-	Fleet   int
 	// Chips are the shelves plus "All apps", which has to exist: shelves scroll sideways
 	// and therefore hide things, and an inventory you audit needs a view that shows
 	// everything. That view is the grid the page already had.
-	Attention int
+	Shelves []storeShelf
+	Fleet   int
 }
 
 // artSlot picks a stable gradient per package. We have no store artwork — no screenshots,
@@ -110,44 +109,6 @@ func buildStore(fams []LibFamily, cov *coverageView, apps []db.App) *storeView {
 	}
 
 	sv := &storeView{Fleet: fleet}
-
-	// ── Needs attention: one card per package that has a finding, worst first ──
-	seen := map[string]bool{}
-	var attn []storeCard
-	for _, f := range cov.Findings {
-		if f.Package == "" || seen[f.Package] {
-			continue
-		}
-		c := cardFor(f.Package, cov.Of(f.Package), famByPkg[f.Package], varByPkg[f.Package], fleet)
-		switch {
-		case c.Devices > 0 && cov.Of(f.Package).Unknown == c.Devices:
-			c.Meta = fmt.Sprintf("%d device%s · no versions known", c.Devices, plural(c.Devices))
-			c.CTA, c.CTAKind = "Ask for inventory", "inventory"
-		case countKnownVersions(cov.Of(f.Package)) > 1:
-			u := cov.Of(f.Package).Unknown
-			c.Meta = fmt.Sprintf("%d versions%s", countKnownVersions(cov.Of(f.Package)),
-				map[bool]string{true: fmt.Sprintf(" · %d unknown", u), false: ""}[u > 0])
-			c.CTA, c.CTAKind = "Reconcile", "reconcile"
-		case !cov.Of(f.Package).InLibrary:
-			// Not a fault, and not actionable from here either — there is no APK to send.
-			// It fired 16 times on stage and buried the three apps that are genuinely
-			// wrong, so it is not surfaced on this page at all.
-			continue
-		default:
-			c.Meta = fmt.Sprintf("on %d of %d", c.Devices, fleet)
-			c.CTA, c.CTAKind = "Review", "open"
-		}
-		seen[f.Package] = true
-		attn = append(attn, c)
-	}
-	sv.Attention = len(attn)
-	if len(attn) > 0 {
-		sv.Shelves = append(sv.Shelves, storeShelf{
-			ID: "attention", Title: "Needs attention",
-			Note:  "versions we cannot judge, or that disagree with the library",
-			Cards: attn,
-		})
-	}
 
 	// ── On your fleet: what is actually out there, most-installed first ──
 	var onFleet []storeCard
