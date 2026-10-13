@@ -7713,6 +7713,11 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.rail-open [data-child-rail] .fleet-rail-item.on .dot {
     background: var(--accent); opacity: 1;
     box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3.5px var(--accent); }
+  /* "Show all N" belongs to the rail you can read. Folded, the strip is dots only: its
+     text is a direct child of the button, so the generic folded rules never hid it and it
+     sat in the 56px column as a stray word (user, 13 Oct). The cap still applies, so the
+     strip carries exactly the rows the open rail is showing. */
+  body.rail-open [data-child-rail] .fleet-rail-more { display: none; }
   /* Rows that carry no status — Settings' tabs, a status filter — get the same dot,
      drawn quiet. They have nothing to report and should not pretend otherwise: a
      coloured tile on "Profiles" or "Enrollments" was decoration standing in for data. */

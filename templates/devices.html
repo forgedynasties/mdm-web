@@ -710,7 +710,7 @@ a.fleet-rail-item{min-height:40px}
     {{if canOTA .Role}}
     <div class="fleet-rail-cap"><a href="/releases">Releases</a></div>
     {{/* Only releases with at least one device on them — 0-device releases are noise here;
-         manage all of them on /releases. All rows are listed; the section scrolls. */}}
+         manage all of them on /releases. Five busiest shown, the rest behind "Show all". */}}
     <div class="fleet-rail-list" data-sec="releases">
     {{range .RailReleases}}{{if gt .DeviceCount 0}}
     <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Version}}">
@@ -727,13 +727,28 @@ a.fleet-rail-item{min-height:40px}
   </aside>
   <script>
   (function () {
-    // Every row is in the rail — no cap, no "Show all N" button (user, 13 Oct). The
-    // section scrolls with the rail instead; the order is busiest first, so the venues
-    // that matter are at the top of it.
+    // Rail sections show their five busiest rows; "Show all N" reveals the rest and
+    // the choice is remembered per section. The active row is always kept visible.
+    var CAP = 5;
     document.querySelectorAll('.fleet-rail-list').forEach(function (list) {
       var items = Array.prototype.slice.call(list.querySelectorAll('.fleet-rail-item'));
+      if (items.length <= CAP) return;
       items.sort(function (a, b) { return (+b.dataset.ct || 0) - (+a.dataset.ct || 0); });
       items.forEach(function (el) { list.appendChild(el); });
+      var key = 'mdm-rail-open-' + list.dataset.sec, open = false;
+      try { open = localStorage.getItem(key) === '1'; } catch (e) {}
+      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'fleet-rail-more';
+      function apply() {
+        var hidden = 0;
+        items.forEach(function (el, i) {
+          var hide = !open && i >= CAP && !el.classList.contains('on');
+          el.hidden = hide; if (hide) hidden++;
+        });
+        btn.textContent = open ? 'Show less' : 'Show all ' + items.length;
+        btn.hidden = !open && hidden === 0;
+      }
+      btn.addEventListener('click', function () { open = !open; try { localStorage.setItem(key, open ? '1' : '0'); } catch (e) {} apply(); });
+      list.appendChild(btn); apply();
     });
   })();
   </script>
