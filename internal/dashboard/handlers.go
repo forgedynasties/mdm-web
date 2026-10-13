@@ -9541,11 +9541,8 @@ func (h *Handler) GroupNewDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
-	// The standalone list is retired — Groups now live in the Fleet collections
-	// rail / in-shell grid. Redirect any old links/bookmarks there.
-	http.Redirect(w, r, "/devices?view=groups", http.StatusFound)
-	return
-
+	// Groups is its own page again, beside Venues: the venues section's "Groups" link
+	// landed on the fleet page instead (user, 13 Oct).
 	groups, err := h.db.ListGroups(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
