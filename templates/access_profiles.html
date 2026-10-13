@@ -1,11 +1,11 @@
 {{define "access_profiles.html"}}
 {{template "header" .}}
-<aside class="child-rail" data-child-rail aria-label="People">
-  <div class="cr-t">People</div>
-  <a href="/users" class="cr-l"><span>Everyone</span></a>
-  <a href="/activity" class="cr-l"><span>Activity</span></a>
-  <a href="/users/access" class="cr-l on"><span>Access control</span></a>
-</aside>
+<nav class="nav-pills" aria-label="People">
+  <span class="cap">People</span>
+  <a href="/users">Everyone</a>
+  <a href="/activity">Activity</a>
+  <a href="/users/access" class="on">Access control</a>
+</nav>
 <style>
 .ap-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:14px 17px;border-top:1px solid var(--border-soft);align-items:start}
 .ap-row:first-child{border-top:none}

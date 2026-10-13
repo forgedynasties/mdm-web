@@ -1,11 +1,11 @@
 {{define "users.html"}}
 {{template "header" .}}
-<aside class="child-rail" data-child-rail aria-label="People">
-  <div class="cr-t">People</div>
-  <a href="/users" class="cr-l{{if eq .ActivePath "/users"}} on{{end}}"><span>Everyone</span></a>
-  <a href="/activity" class="cr-l{{if eq .ActivePath "/activity"}} on{{end}}"><span>Activity</span></a>
-  <a href="/users/access" class="cr-l{{if hasPrefix .ActivePath "/users/access"}} on{{end}}"><span>Access control</span></a>
-</aside>
+<nav class="nav-pills" aria-label="People">
+  <span class="cap">People</span>
+  <a href="/users" class="{{if eq .ActivePath "/users"}}on{{end}}">Everyone</a>
+  <a href="/activity" class="{{if eq .ActivePath "/activity"}}on{{end}}">Activity</a>
+  <a href="/users/access" class="{{if hasPrefix .ActivePath "/users/access"}}on{{end}}">Access control</a>
+</nav>
 
 <style>
 [hidden]{display:none !important;} /* .form-row is display:flex; keep the hidden attribute authoritative */

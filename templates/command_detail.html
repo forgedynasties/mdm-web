@@ -170,11 +170,11 @@
 
 {{define "command_detail.html"}}
 {{template "header" .}}
-<aside class="child-rail" data-child-rail aria-label="Jobs">
-  <div class="cr-t">Jobs</div>
-  <a href="/jobs" class="cr-l"><span>In flight</span></a>
-  <a href="/jobs/history" class="cr-l"><span>History</span></a>
-</aside>
+<nav class="nav-pills" aria-label="Jobs">
+  <span class="cap">Jobs</span>
+  <a href="/jobs">In flight</a>
+  <a href="/jobs/history">History</a>
+</nav>
 {{$cmd := .Command}}
 <style>
   .ad-wrap{max-width:1180px;margin:0 auto}
