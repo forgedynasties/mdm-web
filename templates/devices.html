@@ -552,22 +552,6 @@ if (!window.__dlRowNav) {
 
 /* Collections rail restyled to a cc-card */
 .fleet-rail{border-radius:var(--r-4)!important;box-shadow:var(--shadow-sm);padding-top:10px!important}
-/* The collections rail is the page's child rail on desktop: it leaves the grid, joins the
-   chrome band flush against the app rail, and the grid drops to a single column so the
-   roster is not holding 232px open for something that is no longer in it. These carry
-   !important because the card styling above does. */
-@media (min-width: 1024px) {
-  .fleet-md { grid-template-columns: minmax(0, 1fr) !important; gap: 0 !important; }
-  .fleet-rail[data-child-rail] {
-    position: fixed !important; left: 208px; top: 0; bottom: 0; width: 196px;
-    margin: 0 !important; padding: 16px 10px !important; max-height: none !important;
-    border: 0 !important; border-right: 1px solid var(--border-soft) !important;
-    border-radius: 0 !important; box-shadow: none !important; z-index: 43;
-    overflow-y: auto;
-  }
-  body.has-child-rail .fleet-rail[data-child-rail] { left: 56px; }
-  body.rail-open .fleet-rail[data-child-rail] { width: 56px; left: 196px; }
-}
 .fleet-rail-item.on{border:1px solid var(--accent-edge)}
 .fleet-rail-item{min-height:40px}
 a.fleet-rail-item{min-height:40px}
@@ -669,8 +653,8 @@ a.fleet-rail-item{min-height:40px}
 
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
-  <aside class="fleet-rail child-rail" data-child-rail aria-label="Collections">
-    <div class="cr-t">Collections</div>
+  <aside class="fleet-rail" aria-label="Collections">
+    <div class="fleet-rail-cap">Collections</div>
     <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices" data-ini="All">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
@@ -682,7 +666,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="restaurants">
     {{range .RailRestaurants}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
-      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="cr-sw" style="--h:{{swatchHue .Name}}"><i class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></i></span><span class="nm">{{.Name}}</span></a>
+      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
@@ -696,7 +680,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="groups">
     {{range .RailGroups}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
-      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="cr-sw" style="--h:{{swatchHue .Name}}"><i class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></i></span><span class="nm">{{.Name}}</span></a>
+      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
@@ -727,13 +711,28 @@ a.fleet-rail-item{min-height:40px}
   </aside>
   <script>
   (function () {
-    // Every row is in the rail — no cap, no "Show all N" button (user, 13 Oct). The
-    // section scrolls with the rail instead; the order is busiest first, so the venues
-    // that matter are at the top of it.
+    // Rail sections show their five busiest rows; "Show all N" reveals the rest and
+    // the choice is remembered per section. The active row is always kept visible.
+    var CAP = 5;
     document.querySelectorAll('.fleet-rail-list').forEach(function (list) {
       var items = Array.prototype.slice.call(list.querySelectorAll('.fleet-rail-item'));
+      if (items.length <= CAP) return;
       items.sort(function (a, b) { return (+b.dataset.ct || 0) - (+a.dataset.ct || 0); });
       items.forEach(function (el) { list.appendChild(el); });
+      var key = 'mdm-rail-open-' + list.dataset.sec, open = false;
+      try { open = localStorage.getItem(key) === '1'; } catch (e) {}
+      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'fleet-rail-more';
+      function apply() {
+        var hidden = 0;
+        items.forEach(function (el, i) {
+          var hide = !open && i >= CAP && !el.classList.contains('on');
+          el.hidden = hide; if (hide) hidden++;
+        });
+        btn.textContent = open ? 'Show less' : 'Show all ' + items.length;
+        btn.hidden = !open && hidden === 0;
+      }
+      btn.addEventListener('click', function () { open = !open; try { localStorage.setItem(key, open ? '1' : '0'); } catch (e) {} apply(); });
+      list.appendChild(btn); apply();
     });
   })();
   </script>

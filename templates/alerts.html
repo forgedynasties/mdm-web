@@ -1,14 +1,14 @@
 {{define "alerts.html"}}
 {{template "header" .}}
-<aside class="child-rail" data-child-rail aria-label="Alerts">
-  <div class="cr-t">Alerts</div>
-  <a href="/alerts" class="cr-l{{if not .View}} on{{end}}"><span>Everything</span>{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
-  <a href="/alerts?view=needs" class="cr-l{{if eq .View "needs"}} on{{end}}"><span>Needs action</span>{{if .NeedsCount}}<span class="n">{{.NeedsCount}}</span>{{end}}</a>
-  <a href="/alerts?view=watching" class="cr-l{{if eq .View "watching"}} on{{end}}"><span>Watching</span>{{if .WatchCount}}<span class="n">{{.WatchCount}}</span>{{end}}</a>
-  <a href="/alerts?view=crashes" class="cr-l{{if eq .View "crashes"}} on{{end}}"><span>Crashes</span>{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
-  <div class="cr-t">Set up</div>
-  <a href="/alert-config" class="cr-l"><span>Alert rules</span></a>
-</aside>
+<nav class="nav-pills" aria-label="Alerts">
+  <span class="cap">Alerts</span>
+  <a href="/alerts" class="{{if not .View}}on{{end}}">Everything{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
+  <a href="/alerts?view=needs" class="{{if eq .View "needs"}}on{{end}}">Needs action{{if .NeedsCount}}<span class="n">{{.NeedsCount}}</span>{{end}}</a>
+  <a href="/alerts?view=watching" class="{{if eq .View "watching"}}on{{end}}">Watching{{if .WatchCount}}<span class="n">{{.WatchCount}}</span>{{end}}</a>
+  <a href="/alerts?view=crashes" class="{{if eq .View "crashes"}}on{{end}}">Crashes{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
+  <span class="cap">Set up</span>
+  <a href="/alert-config">Alert rules</a>
+</nav>
 
 <style>
 /* ── Alerts · command center ────────────────────────────── */
