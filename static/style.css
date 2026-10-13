@@ -7696,15 +7696,23 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.rail-open [data-child-rail] .fleet-rail-item,
   body.rail-open [data-child-rail] .ri-main { justify-content: center; padding-left: 0; padding-right: 0; gap: 0; }
   body.rail-open [data-child-rail] button svg { display: none; }
-  /* Folded, the strip is health: one dot per row, in the colours the rest of the
-     dashboard already uses. The thing worth interrupting yourself for is the thing that
-     survives the fold — and on a rail of venues it means you can see a site going bad
-     while reaching for the nav. Rows with no health of their own (Settings' tabs, a
-     status filter) sit neutral, which is honest: they have nothing to report. */
+  /* Folded, the strip is one dot per row — the same mark on every rail. Venue rows used
+     to keep their health colour here (green/amber/grey), which made the Fleet strip speak
+     a different language than the rail beside it: on every other page a coloured dot means
+     "where you are", so on Fleet a green dot read as position rather than health (user,
+     13 Oct). Health still shows where it can be read as health — the swatch's pip, in the
+     open rail. */
   body.rail-open [data-child-rail] .cr-sw { width: auto; height: auto; background: none;
     border-radius: 0; box-shadow: none; display: flex; }
   body.rail-open [data-child-rail] .cr-sw .dot { position: static; width: 10px; height: 10px;
     border: 0; right: auto; bottom: auto; }
+  /* Fleet rows — the collapsed swatch dot, and "All devices"' bare dot — take the neutral
+     colour the other rails draw in, and the accent + ring on the row you are on. */
+  body.rail-open [data-child-rail] .fleet-rail-item .dot {
+    width: 10px; height: 10px; background: var(--text-faint); opacity: .5; box-shadow: none; }
+  body.rail-open [data-child-rail] .fleet-rail-item.on .dot {
+    background: var(--accent); opacity: 1;
+    box-shadow: 0 0 0 2px var(--accent-soft), 0 0 0 3.5px var(--accent); }
   /* Rows that carry no status — Settings' tabs, a status filter — get the same dot,
      drawn quiet. They have nothing to report and should not pretend otherwise: a
      coloured tile on "Profiles" or "Enrollments" was decoration standing in for data. */
@@ -7735,7 +7743,6 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
   body.rail-open [data-child-rail] button.active,
   body.rail-open [data-child-rail] .fleet-rail-item.on { background: var(--accent-soft); }
   body.rail-open [data-child-rail] .cr-l.on .cr-sw .dot,
-  body.rail-open [data-child-rail] .fleet-rail-item.on .cr-sw .dot,
   body.rail-open [data-child-rail] .cr-l.on .cr-sw:empty::after,
   body.rail-open [data-child-rail] .cr-l.active .cr-sw:empty::after,
   body.rail-open [data-child-rail] button.on .cr-sw:empty::after,
