@@ -2,12 +2,12 @@
 {{template "header" .}}
 <aside class="child-rail" data-child-rail aria-label="Venues">
   <div class="cr-t">Venues</div>
-  <a href="/devices?view=restaurants" class="cr-l"><span>All venues</span></a>
-  <a href="/devices?view=groups" class="cr-l on"><span>Groups</span></a>
+  <a href="/restaurants" class="cr-l"><span>All venues</span></a>
+  <a href="/groups" class="cr-l on"><span>Groups</span></a>
 </aside>
 
 <div class="cc-wrap">
-<a href="/devices?view=groups" class="back-link">← Groups</a>
+<a href="/groups" class="back-link">← Groups</a>
 <div class="cc-top" style="margin-top:10px">
   <div>
     <div class="cc-eyebrow">Fleet · Groups</div>
@@ -47,7 +47,7 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
     <div style="padding:14px 20px;display:flex;gap:12px;align-items:center;border-top:1px solid var(--border-soft);margin-top:14px;">
       <span class="muted small">Creating <b id="gf-sum-name" style="color:var(--text);">a new group</b> with <b data-dp-count style="color:var(--text);">0</b> device(s)</span>
       <span style="flex:1;"></span>
-      <a href="/devices?view=groups" class="btn-outline">Cancel</a>
+      <a href="/groups" class="btn-outline">Cancel</a>
       <button type="submit" class="btn-primary" id="create-group-btn" disabled>Create group</button>
     </div>
   </div>

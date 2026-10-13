@@ -2,8 +2,8 @@
 {{if not .Embed}}{{template "header" .}}
 <aside class="child-rail" data-child-rail aria-label="Venues">
   <div class="cr-t">Venues</div>
-  <a href="/devices?view=restaurants" class="cr-l on"><span>All venues</span></a>
-  <a href="/devices?view=groups" class="cr-l"><span>Groups</span></a>
+  <a href="/restaurants" class="cr-l on"><span>All venues</span></a>
+  <a href="/groups" class="cr-l"><span>Groups</span></a>
 </aside>{{end}}
 
 <style>
@@ -47,7 +47,7 @@
 
 {{if not .Embed}}
 <div class="cc-wrap">
-<a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/devices?view=restaurants{{end}}" class="back-link">← Back</a>
+<a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" class="back-link">← Back</a>
 <div class="cc-top" style="margin-top:10px">
   <div>
     <div class="cc-eyebrow">Fleet · Restaurants</div>
@@ -159,7 +159,7 @@
     <div class="rf-bottom" style="padding:16px 20px;">
       <span class="muted small">Creating <b id="rf-sum-name" style="color:var(--text);">a new venue</b> · deploying <b data-dp-count style="color:var(--text);">0</b> device(s)</span>
       <span style="flex:1;"></span>
-      <a href="/devices?view=restaurants" class="btn-outline">Cancel</a>
+      <a href="/restaurants" class="btn-outline">Cancel</a>
       <button type="submit" class="btn-primary" id="rf-create-btn" disabled>Create restaurant</button>
     </div>
   </div>
