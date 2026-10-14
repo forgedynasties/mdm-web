@@ -879,7 +879,7 @@ if (!window.__ddNotesHook) {
 .vt-panel+.vt-panel{border-top:1px solid var(--border-soft)}
 .vt-lbl{position:absolute;top:5px;left:16px;z-index:1;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--text-2)}
 .vt-lbl i{width:8px;height:8px;border-radius:99px}
-.vt-legend{border-top:1px solid var(--border-soft);padding:0 16px;height:54px;display:flex;align-items:center;overflow:hidden}
+.vt-legend{padding:0 16px;height:58px;display:flex;align-items:center;overflow:hidden;margin:10px 0 0}
 @media (max-width:720px){.vt-legend{height:96px}}
 .vt-lg-row{display:flex;align-items:center;flex-wrap:wrap;gap:3px 14px;width:100%}
 .vt-lg-k{min-width:52px}
@@ -894,7 +894,7 @@ if (!window.__ddNotesHook) {
 .chart-card .vt-lbl{display:none}
 .chart-card .vt-panel{padding-top:8px}
 .chart-card .vt-panel+.vt-panel{border-top:0}
-.chart-card .vt-panel .chart-wrap--tall{height:210px}
+.chart-card .vt-panel .chart-wrap--tall{height:260px}
 .vt-navw{padding:6px 16px 12px;border-top:1px solid var(--border-soft)}
 .vt-nav{position:relative;height:34px;border-radius:8px;background:var(--surface2);overflow:hidden;cursor:pointer;touch-action:none;color:var(--text-faint);user-select:none}
 .vt-nav svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -1063,9 +1063,20 @@ if (!window.__ddNotesHook) {
     {{end}}
   </aside>
   </div><!-- /chart-split -->
-  {{/* Legend strip under the graph: one line, the same height on every tab, saying what
-       the colours on the chart in view mean. */}}
-  <div class="vt-legend" id="vt-legend">
+  {{/* Navigator: the last days at a glance with the window on screen drawn on it. Drag the
+       window to move through time, pull an edge to widen or narrow it. */}}
+  <div class="vt-navw">
+    <div class="vt-nav" id="vt-nav" title="Drag to move the window · pull an edge to zoom">
+      <svg viewBox="0 0 1000 34" preserveAspectRatio="none" aria-hidden="true"><path id="vt-nav-line" d="" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+      <div class="vt-win" id="vt-nav-win"><span class="vt-h l" data-edge="l"></span><span class="vt-h r" data-edge="r"></span></div>
+    </div>
+    <div class="vt-navcap"><span id="vt-nav-from"></span><span id="vt-nav-to"></span></div>
+  </div>
+</div>
+
+{{/* Legend, in its own pane under the graph card: the same height on every tab, saying
+     what the colours on the chart in view mean. */}}
+<div class="card vt-legend" id="vt-legend">
     {{if .ShowBattery}}<div class="vt-lg" data-lg="battery">
       {{if .Device.HasWLC}}<div class="vt-lg-row"><span class="vt-lg-k" title="The battery line's colour: the wireless charging pad">Pad</span>
       <span class="chart-legend-item" title="Line colour: a phone is on the tablet's wireless pad"><span class="chart-legend-line" style="background:#e84393;"></span> phone on it</span>
@@ -1088,16 +1099,6 @@ if (!window.__ddNotesHook) {
       <span class="chart-legend-item"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,rgba(128,128,128,.5) 0 2px,transparent 2px 4px);height:8px"></span> no data</span>
     </div>
   </div>
-  {{/* Navigator: the last days at a glance with the window on screen drawn on it. Drag the
-       window to move through time, pull an edge to widen or narrow it. */}}
-  <div class="vt-navw">
-    <div class="vt-nav" id="vt-nav" title="Drag to move the window · pull an edge to zoom">
-      <svg viewBox="0 0 1000 34" preserveAspectRatio="none" aria-hidden="true"><path id="vt-nav-line" d="" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
-      <div class="vt-win" id="vt-nav-win"><span class="vt-h l" data-edge="l"></span><span class="vt-h r" data-edge="r"></span></div>
-    </div>
-    <div class="vt-navcap"><span id="vt-nav-from"></span><span id="vt-nav-to"></span></div>
-  </div>
-</div>
 
 {{/* Location map — the JS Maps API (not the Embed iframe, which can't be
      themed) so it can follow the dashboard's dark mode like the Overview
@@ -1487,6 +1488,8 @@ function mdmBootCharts() {
           updateCharts();
           if (activeTab === 'all' && unifiedChart) applyUnifiedData();
         }
+        // The navigator shows the last two days: draw what just arrived.
+        if (window.vtNavSync) window.vtNavSync();
         setTimeout(function () { next(i + 1); }, 400);
       });
     })(0);
@@ -4566,6 +4569,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
    into Overview; the choice is kept per browser. */
 .dd-split{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:14px;align-items:start}
 .dd-split-l{position:sticky;top:76px;min-width:0}
+/* Fitted to the window: the page stays put, the panes scroll. */
+html.dd-fit{overflow:hidden}
+html.dd-fit .dd-split{align-items:stretch}
+html.dd-fit .dd-split-l,html.dd-fit .dd-split-r{position:static;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:12px}
+html.dd-fit .dd-split-r{padding-right:4px}
 .dd-split-l .chart-card{margin:0}
 .dd-split-r #dev-map-card{margin-top:0}
 .dd-split-r{min-width:0}
@@ -4611,6 +4619,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       tabrow.parentNode.insertBefore(facts, split);
       facts.classList.add('is-split');
       l.appendChild(card);
+      var lg = document.getElementById('vt-legend'); if (lg) l.appendChild(lg);
       r.appendChild(tabrow);
       // Pad and Notes join the end of the facts line, so the tabs keep one row.
       var chips = tabrow.querySelector('.dd-tabrow-r'); if (chips) facts.appendChild(chips);
@@ -4623,16 +4632,34 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       facts.classList.remove('is-split');
       if (tabrow.__home) tabrow.parentNode.insertBefore(facts, tabrow.nextSibling);
       if (card.__home) card.__home.parentNode.insertBefore(card, card.__home);
+      var lg2 = document.getElementById('vt-legend'); if (lg2) card.parentNode.insertBefore(lg2, card.nextSibling);
       split.remove();
     } else return;
+    fit();
     // Charts follow their new container width.
     setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 30);
     setTimeout(function () { if (window.ddSyncMap) window.ddSyncMap(); }, 80);
   }
+  // In the split the page itself does not scroll: the split fills the window above the
+  // dock, and each pane scrolls on its own (the tabs pane, and the graph pane when the
+  // window is short). Too short a window falls back to an ordinary scrolling page.
+  function fit() {
+    var split = document.getElementById('dd-split');
+    var root = document.documentElement;
+    if (!split) { root.classList.remove('dd-fit'); return; }
+    split.style.height = '';
+    var top = split.getBoundingClientRect().top + (window.scrollY || 0);
+    var h = window.innerHeight - top - 100;            // clear of the floating dock
+    var ok = h >= 420;
+    root.classList.toggle('dd-fit', ok);
+    if (ok) { split.style.height = h + 'px'; window.scrollTo(0, 0); }
+  }
+  window.addEventListener('resize', function () { requestAnimationFrame(fit); });
+
   // In the split, Overview's location map grows or shrinks so its card ends where the
   // graph ends; outside the split (or on another tab) it keeps its own height.
   function syncMap() {
-    var card = document.querySelector('.chart-card'), m = document.getElementById('dev-map-card'), map = document.getElementById('dev-map');
+    var card = document.getElementById('vt-legend') || document.querySelector('.chart-card'), m = document.getElementById('dev-map-card'), map = document.getElementById('dev-map');
     if (!map) return;
     if (!document.getElementById('dd-split') || !card || !m || m.offsetParent === null) { map.style.height = ''; return; }
     var diff = card.getBoundingClientRect().bottom - m.getBoundingClientRect().bottom;

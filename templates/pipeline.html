@@ -321,6 +321,7 @@ if (!window.__plChips) {
     .pl-split { grid-template-columns: minmax(0, 1fr); }
     .pl-side { position: static; grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
     .pl-side-cap { display: none; }
+    .pl-side, .pl-main { min-width: 0; max-width: 100%; }
     .pl-lane, .pl-lane.fw { grid-template-columns: 1fr; }
   }
 </style>
