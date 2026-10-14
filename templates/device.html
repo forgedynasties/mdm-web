@@ -299,6 +299,209 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .ddc-mi.is-disabled{opacity:.42;cursor:not-allowed;pointer-events:none;}
   .cpill-ic{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:1px;}
   </style>
+
+</div>
+<script>
+// Hero "Actions ▾" dropdown: toggle, close on outside-click / Escape.
+(function () {
+  var menu = document.getElementById('ddc-actions-menu');
+  var btn = document.getElementById('ddc-actions-btn');
+  if (!menu || !btn) return;
+  window.ddActionsToggle = function (e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    var open = menu.hasAttribute('hidden');
+    if (open) menu.removeAttribute('hidden'); else menu.setAttribute('hidden', '');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.classList.toggle('open', open);
+  };
+  document.addEventListener('click', function (e) {
+    var wrap = document.getElementById('ddc-actions-wrap');
+    if (wrap && !wrap.contains(e.target) && !menu.hasAttribute('hidden')) {
+      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !menu.hasAttribute('hidden')) {
+      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
+    }
+  });
+})();
+</script>
+
+<template id="page-island"{{if .Lab}} data-live{{end}}>
+  <span class="isl-dot{{if .Online}} on{{end}}"></span>
+  {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
+  <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
+  {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">needs a site</span>{{end}}
+  <span class="isl-s">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Not at a venue{{end}} · <span class="isl-on">{{if .Online}}online{{else}}offline{{end}}</span>{{if .Device.BuildID}} · {{.Device.BuildID}}{{end}}{{if .Lab}} · in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
+  <span class="isl-acts">
+    {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
+    {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
+    {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
+    <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
+      <div class="isl-menu">
+        {{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/nickname"><label>Name<input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Table 4"></label><button class="cc-btn sm primary" type="submit">Save</button></form>{{end}}
+        {{if supports .Device "kiosk_set"}}<button type="button" class="isl-mi" onclick="this.closest('details').open=false; kioskModalOpen()">Kiosk · {{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</button>{{end}}
+        <a class="isl-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}">Export</a>
+      </div>
+    </details>
+  </span>
+</template>
+<script>
+// The hero's Online/Offline badge is the live one (updated over the socket); the island
+// repeats it, so keep the island's dot and word in step with it.
+(function () {
+  var b = document.getElementById('ws-badge'); if (!b) return;
+  function sync() {
+    var on = b.classList.contains('on');
+    var d = document.querySelector('#appbar-island .isl-dot'), w = document.querySelector('#appbar-island .isl-on');
+    if (d) d.classList.toggle('on', on);
+    if (w) w.textContent = on ? 'online' : 'offline';
+  }
+  new MutationObserver(sync).observe(b, { attributes: true, attributeFilter: ['class'] });
+  setTimeout(sync, 0);
+})();
+</script>
+{{with .Lab}}
+<div class="cmdch-ban" id="lab-notice" role="status" style="flex-wrap:wrap;margin-bottom:14px">
+  <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
+  <div class="t"><b>In lab until {{.Until.Local.Format "Mon 2 Jan, 15:04"}}</b> ({{dur .RemainingSec}} left) · opened by {{.OpenedBy}} · “{{.Reason}}”.
+    It does not follow prod, it is not locked, and it raises no restaurant alerts. When lab ends it goes back to prod and locks again.</div>
+  {{if $.CanLab}}<a class="cc-btn sm" href="/devices/{{$.Device.SerialNumber}}/lab">Open lab view</a>
+  <form method="post" action="/devices/{{$.Device.SerialNumber}}/lab/end" style="margin:0" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')"><button class="cc-btn sm primary" type="submit">End lab now</button></form>{{end}}
+</div>
+{{end}}
+{{if and .CanLab (not .Lab)}}
+<dialog id="lab-dlg" class="lab-dlg" aria-labelledby="lab-dlg-h">
+  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/open">
+    <h2 id="lab-dlg-h">Open {{.Device.SerialNumber}} in lab</h2>
+    <p>While it is in lab, this device:</p>
+    <ul>
+      <li>stops following prod for its app{{if eq .FirmwareMode "prod"}} and firmware{{end}}</li>
+      <li>is <b>unlocked</b>{{if .Device.DeployedEffective}}, so guests at {{.Device.RestaurantName}} could leave the app{{end}}</li>
+      <li>does not raise restaurant alerts</li>
+    </ul>
+    <fieldset class="lab-dur"><legend>For how long</legend>
+      {{range .LabDurations}}<label><input type="radio" name="hours" value="{{.}}"{{if eq . 24}} checked{{end}}><span>{{if eq . 72}}3 days{{else}}{{.}} h{{end}}</span></label>{{end}}
+    </fieldset>
+    <label class="lab-why">Why <span>shown on the device and venue pages, and in the audit log</span>
+      <input type="text" name="reason" required maxlength="300" placeholder="e.g. Nugget freezing after payment, ticket from the venue"></label>
+    <div class="lab-dlg-foot"><button type="button" class="cc-btn sm" onclick="document.getElementById('lab-dlg').close()">Cancel</button><button type="submit" class="cc-btn sm primary">Open lab</button></div>
+  </form>
+</dialog>
+<style>
+  /* The global reset zeroes margins, which undoes the browser centring a modal dialog. */
+  .lab-dlg { margin: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; width: 520px; max-width: calc(100vw - 32px); box-shadow: var(--shadow-pop); }
+  .lab-dlg::backdrop { background: rgba(8,9,14,.55); }
+  .lab-dlg form { padding: 18px 20px 16px; font-size: 13px; color: var(--text-2); line-height: 1.55; }
+  .lab-dlg h2 { font-size: 15px; margin: 0 0 8px; color: var(--text); }
+  .lab-dlg ul { margin: 4px 0 12px; padding-left: 18px; }
+  .lab-dur { border: 0; padding: 0; margin: 0 0 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .lab-dur legend { font-weight: 700; color: var(--text); margin-bottom: 6px; padding: 0; }
+  .lab-dur label input { position: absolute; opacity: 0; }
+  .lab-dur label span { display: inline-block; font-size: 12px; font-weight: 650; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); cursor: pointer; }
+  .lab-dur label input:checked + span { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+  .lab-dur label input:focus-visible + span { outline: 2px solid var(--accent); }
+  .lab-why { display: block; font-weight: 700; color: var(--text); }
+  .lab-why span { font-weight: 400; color: var(--text-faint); font-size: 11.5px; }
+  .lab-why input { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; font: inherit; font-size: 13px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .lab-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+</style>
+<script>
+  function labDlgOpen() { var d = document.getElementById('lab-dlg'); if (d && d.showModal) d.showModal(); }
+  if (new URLSearchParams(location.search).get('lab') === 'open') { document.addEventListener('DOMContentLoaded', labDlgOpen); if (document.readyState !== 'loading') labDlgOpen(); }
+</script>
+{{end}}
+{{with .CommandChannel}}
+<div class="cmdch-ban{{if not .Reachable}} bad{{end}}" id="command-channel-notice" role="status">
+  <span class="i">{{if .Reachable}}<svg viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>{{end}}</span>
+  <div class="t">
+    {{if .Reachable}}
+      <b>Commands are going over its check-in</b>, not over a live connection — no WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span>. It is reachable, about a minute behind, and
+      its socket is not reconnecting on its own. Remote screen and the adb tunnel need that socket
+      and will not work until it comes back.
+    {{else}}
+      <b>Reporting, but nothing can be sent to it.</b> No WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span> while it kept checking in. This client takes
+      commands over the socket only, so anything queued for it will sit at "sent to device" and never
+      run — it is alive and cannot be controlled. Its reconnect loop is gone; a reboot is what brings
+      it back.
+    {{end}}
+    {{if .RoundTrip.IsZero}}No command has ever completed on this device.{{else}}Last command that
+    actually completed: <span data-rel="{{timeISO .RoundTrip}}">{{timeSince .RoundTrip}}</span>.{{end}}
+  </div>
+</div>
+{{end}}
+
+{{with .KioskExit}}
+<div class="kx-ban" id="kiosk-exit-notice" role="status">
+  <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
+  <div class="t"><b>Unlocked on the device</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
+  {{if canAdminOrOperator $.Role}}<div class="a">
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
+  </div>{{end}}
+</div>
+{{end}}
+
+<div class="ddc-body">
+<style>
+/* Device page, A5 + P3 (static/device-side-demos.html, picked 14 Oct): one column; the tab
+   row carries the tabs, the vitals and Notes; placement is one line under it. */
+.ddc-body{display:block!important}
+.ddc-body .ddc-main{width:100%;max-width:none}
+.dd-tabrow{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-bottom:8px}
+.dd-tabrow .dd-tabs{margin:0}
+.dd-tabrow-r{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.dd-tabrow-r .ddc-vitals{margin:0;padding:0;border:0;background:none;display:flex;flex-wrap:wrap;gap:6px}
+.dd-place{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:2px 4px 14px}
+.dd-place .ddc-kv{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;min-height:0}
+.dd-place .ddc-kv .k{color:var(--muted);font-weight:500}
+.dd-place .ddc-kv .v{display:inline-flex;align-items:center;gap:6px;color:var(--text);font-weight:600;position:relative}
+.dd-place .ddc-kv+.ddc-kv::before{content:"·";color:var(--text-faint);margin-right:10px}
+.dd-place .pl-pop{top:calc(100% + 6px);left:0;right:auto}
+.dd-notes-wrap{position:relative}
+.dd-notes-btn svg{flex:none}
+.dd-notes-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--accent);margin-left:2px}
+.dd-notes-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(360px,calc(100vw - 32px));box-shadow:var(--shadow-pop);border-radius:14px}
+.dd-notes-pop .ddc-card{margin:0}
+/* On wide screens the island carries name, status and the main buttons, so the hero's
+   ribbon goes; what stays in the hero is only what is unusual (charger, OTA). */
+@media (min-width:721px){
+  body.has-island .ddc-hero{background:none;border:0;box-shadow:none;padding:0;margin:0}
+  body.has-island .ddc-ribbon{display:none}
+}
+</style>
+<script>
+window.ddNotesToggle = function (e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var pop = document.getElementById('dd-notes-pop'), btn = e && e.currentTarget;
+  if (!pop) return;
+  var open = pop.hasAttribute('hidden');
+  if (open) { pop.removeAttribute('hidden'); var ta = pop.querySelector('textarea'); if (ta) ta.focus(); } else pop.setAttribute('hidden', '');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+if (!window.__ddNotesHook) {
+  window.__ddNotesHook = true;
+  document.addEventListener('click', function (e) { var p = document.getElementById('dd-notes-pop'); if (p && !p.hidden && !e.target.closest('.dd-notes-wrap')) p.setAttribute('hidden', ''); });
+  document.addEventListener('keydown', function (e) { var p = document.getElementById('dd-notes-pop'); if (e.key === 'Escape' && p && !p.hidden) p.setAttribute('hidden', ''); });
+}
+</script>
+
+
+<div class="ddc-main">
+<div class="dd-tabrow">
+<div class="dd-tabs" role="tablist" aria-label="Device details">
+  <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>{{end}}
+  {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
+  <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
+  {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
+</div>
+<div class="dd-tabrow-r">
   <div class="ddc-vitals ddc-vitals--ribbon">
     {{/* Client pill — first in the vitals ribbon, ahead of the battery pill, for every
          client kind alike. Carries the client version and a dot for "is it the hosted
@@ -494,147 +697,16 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
-</div>
-<script>
-// Hero "Actions ▾" dropdown: toggle, close on outside-click / Escape.
-(function () {
-  var menu = document.getElementById('ddc-actions-menu');
-  var btn = document.getElementById('ddc-actions-btn');
-  if (!menu || !btn) return;
-  window.ddActionsToggle = function (e) {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    var open = menu.hasAttribute('hidden');
-    if (open) menu.removeAttribute('hidden'); else menu.setAttribute('hidden', '');
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    btn.classList.toggle('open', open);
-  };
-  document.addEventListener('click', function (e) {
-    var wrap = document.getElementById('ddc-actions-wrap');
-    if (wrap && !wrap.contains(e.target) && !menu.hasAttribute('hidden')) {
-      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
-    }
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !menu.hasAttribute('hidden')) {
-      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
-    }
-  });
-})();
-</script>
-
-<template id="page-island"{{if .Lab}} data-live{{end}}>
-  <span class="isl-dot{{if .Online}} on{{end}}"></span>
-  {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
-  <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
-  <span class="isl-s">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Not at a venue{{end}} · <span class="isl-on">{{if .Online}}online{{else}}offline{{end}}</span>{{if .Device.BuildID}} · {{.Device.BuildID}}{{end}}{{if .Lab}} · in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
-  <span class="isl-acts">
-    {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
-    {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
-    {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
+  <span class="dd-notes-wrap">
+    <button type="button" class="cc-btn sm dd-notes-btn{{if .Notes}} has{{end}}" onclick="ddNotesToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="{{if .Notes}}Notes on this device{{else}}Add a note{{end}}">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+      Notes{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
+    </button>
+    <div class="dd-notes-pop" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
   </span>
-</template>
-<script>
-// The hero's Online/Offline badge is the live one (updated over the socket); the island
-// repeats it, so keep the island's dot and word in step with it.
-(function () {
-  var b = document.getElementById('ws-badge'); if (!b) return;
-  function sync() {
-    var on = b.classList.contains('on');
-    var d = document.querySelector('#appbar-island .isl-dot'), w = document.querySelector('#appbar-island .isl-on');
-    if (d) d.classList.toggle('on', on);
-    if (w) w.textContent = on ? 'online' : 'offline';
-  }
-  new MutationObserver(sync).observe(b, { attributes: true, attributeFilter: ['class'] });
-  setTimeout(sync, 0);
-})();
-</script>
-{{with .Lab}}
-<div class="cmdch-ban" id="lab-notice" role="status" style="flex-wrap:wrap;margin-bottom:14px">
-  <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
-  <div class="t"><b>In lab until {{.Until.Local.Format "Mon 2 Jan, 15:04"}}</b> ({{dur .RemainingSec}} left) · opened by {{.OpenedBy}} · “{{.Reason}}”.
-    It does not follow prod, it is not locked, and it raises no restaurant alerts. When lab ends it goes back to prod and locks again.</div>
-  {{if $.CanLab}}<a class="cc-btn sm" href="/devices/{{$.Device.SerialNumber}}/lab">Open lab view</a>
-  <form method="post" action="/devices/{{$.Device.SerialNumber}}/lab/end" style="margin:0" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')"><button class="cc-btn sm primary" type="submit">End lab now</button></form>{{end}}
 </div>
-{{end}}
-{{if and .CanLab (not .Lab)}}
-<dialog id="lab-dlg" class="lab-dlg" aria-labelledby="lab-dlg-h">
-  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/open">
-    <h2 id="lab-dlg-h">Open {{.Device.SerialNumber}} in lab</h2>
-    <p>While it is in lab, this device:</p>
-    <ul>
-      <li>stops following prod for its app{{if eq .FirmwareMode "prod"}} and firmware{{end}}</li>
-      <li>is <b>unlocked</b>{{if .Device.DeployedEffective}}, so guests at {{.Device.RestaurantName}} could leave the app{{end}}</li>
-      <li>does not raise restaurant alerts</li>
-    </ul>
-    <fieldset class="lab-dur"><legend>For how long</legend>
-      {{range .LabDurations}}<label><input type="radio" name="hours" value="{{.}}"{{if eq . 24}} checked{{end}}><span>{{if eq . 72}}3 days{{else}}{{.}} h{{end}}</span></label>{{end}}
-    </fieldset>
-    <label class="lab-why">Why <span>shown on the device and venue pages, and in the audit log</span>
-      <input type="text" name="reason" required maxlength="300" placeholder="e.g. Nugget freezing after payment, ticket from the venue"></label>
-    <div class="lab-dlg-foot"><button type="button" class="cc-btn sm" onclick="document.getElementById('lab-dlg').close()">Cancel</button><button type="submit" class="cc-btn sm primary">Open lab</button></div>
-  </form>
-</dialog>
-<style>
-  /* The global reset zeroes margins, which undoes the browser centring a modal dialog. */
-  .lab-dlg { margin: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; width: 520px; max-width: calc(100vw - 32px); box-shadow: var(--shadow-pop); }
-  .lab-dlg::backdrop { background: rgba(8,9,14,.55); }
-  .lab-dlg form { padding: 18px 20px 16px; font-size: 13px; color: var(--text-2); line-height: 1.55; }
-  .lab-dlg h2 { font-size: 15px; margin: 0 0 8px; color: var(--text); }
-  .lab-dlg ul { margin: 4px 0 12px; padding-left: 18px; }
-  .lab-dur { border: 0; padding: 0; margin: 0 0 12px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .lab-dur legend { font-weight: 700; color: var(--text); margin-bottom: 6px; padding: 0; }
-  .lab-dur label input { position: absolute; opacity: 0; }
-  .lab-dur label span { display: inline-block; font-size: 12px; font-weight: 650; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); cursor: pointer; }
-  .lab-dur label input:checked + span { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
-  .lab-dur label input:focus-visible + span { outline: 2px solid var(--accent); }
-  .lab-why { display: block; font-weight: 700; color: var(--text); }
-  .lab-why span { font-weight: 400; color: var(--text-faint); font-size: 11.5px; }
-  .lab-why input { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; font: inherit; font-size: 13px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
-  .lab-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
-</style>
-<script>
-  function labDlgOpen() { var d = document.getElementById('lab-dlg'); if (d && d.showModal) d.showModal(); }
-  if (new URLSearchParams(location.search).get('lab') === 'open') { document.addEventListener('DOMContentLoaded', labDlgOpen); if (document.readyState !== 'loading') labDlgOpen(); }
-</script>
-{{end}}
-{{with .CommandChannel}}
-<div class="cmdch-ban{{if not .Reachable}} bad{{end}}" id="command-channel-notice" role="status">
-  <span class="i">{{if .Reachable}}<svg viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>{{end}}</span>
-  <div class="t">
-    {{if .Reachable}}
-      <b>Commands are going over its check-in</b>, not over a live connection — no WebSocket for
-      <span data-rel="{{timeISO .Since}}">{{.For}}</span>. It is reachable, about a minute behind, and
-      its socket is not reconnecting on its own. Remote screen and the adb tunnel need that socket
-      and will not work until it comes back.
-    {{else}}
-      <b>Reporting, but nothing can be sent to it.</b> No WebSocket for
-      <span data-rel="{{timeISO .Since}}">{{.For}}</span> while it kept checking in. This client takes
-      commands over the socket only, so anything queued for it will sit at "sent to device" and never
-      run — it is alive and cannot be controlled. Its reconnect loop is gone; a reboot is what brings
-      it back.
-    {{end}}
-    {{if .RoundTrip.IsZero}}No command has ever completed on this device.{{else}}Last command that
-    actually completed: <span data-rel="{{timeISO .RoundTrip}}">{{timeSince .RoundTrip}}</span>.{{end}}
-  </div>
 </div>
-{{end}}
-
-{{with .KioskExit}}
-<div class="kx-ban" id="kiosk-exit-notice" role="status">
-  <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
-  <div class="t"><b>Unlocked on the device</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
-  {{if canAdminOrOperator $.Role}}<div class="a">
-    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
-    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
-  </div>{{end}}
-</div>
-{{end}}
-
-<div class="ddc-body">
-<aside class="ddc-side">
-  <div class="ddc-card">
-    <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Placement</h2></div>
+  <div class="dd-place" aria-label="Placement">
     <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">Lab</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
       <button type="button" class="kv-edit" title="Change restaurant" onclick="plTogglePop('pl-rest-pop', this)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
       <div class="pl-pop" id="pl-rest-pop" hidden>
@@ -671,8 +743,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
     </span>{{else if not .DeviceGroups}}<span class="muted">None</span>{{end}}</span></div>
   </div>
-  {{/* Charging pad — one widget combining the live occupancy status and the
-       enable/disable control. Rendered only for devices that report a pad. */}}
+
+
+<section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
   {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
   {{if and .WlcApplicable $wlcS (ne $wlcS "—")}}
   <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
@@ -707,20 +780,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
   </div>
   {{end}}
-  {{template "device-notes" .}}
-</aside>
-<div class="ddc-main">
-<div class="dd-tabs" role="tablist" aria-label="Device details">
-  <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>{{end}}
-  {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
-  <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
-  {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
-</div>
-
-<section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
 
 <div class="card chart-card">
   <div class="chart-zoom-hint" id="chart-zoom-hint" aria-hidden="true">Zoom with Ctrl + scroll</div>
