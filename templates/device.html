@@ -522,6 +522,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 })();
 </script>
 
+<template id="page-island"{{if .Lab}} data-live{{end}}>
+  <span class="isl-dot{{if .Online}} on{{end}}"></span>
+  {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
+  <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
+  <span class="isl-s">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Not at a venue{{end}} · {{if .Online}}online{{else}}offline{{end}}{{if .Device.BuildID}} · {{.Device.BuildID}}{{end}}{{if .Lab}} · in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
+  <span class="isl-acts">
+    {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
+    {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
+    {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
+  </span>
+</template>
 {{with .Lab}}
 <div class="cmdch-ban" id="lab-notice" role="status" style="flex-wrap:wrap;margin-bottom:14px">
   <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>

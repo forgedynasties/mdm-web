@@ -4,6 +4,15 @@
 <div class="cc-wrap lab-page">
 <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
 
+<template id="page-island" data-live>
+  <span class="isl-tag">LAB</span>
+  <span class="isl-t">{{.Device.SerialNumber}}</span>
+  <span class="isl-s">until {{.Session.Until.Local.Format "Mon 2 Jan, 15:04"}} · {{dur .Session.RemainingSec}} left · “{{.Session.Reason}}”</span>
+  <span class="isl-acts">
+    <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/extend"><select name="hours" aria-label="Extend by">{{range .Durations}}<option value="{{.}}"{{if eq . 24}} selected{{end}}>{{.}} h</option>{{end}}</select><button class="cc-btn" type="submit">Extend</button></form>
+    <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/end" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')"><button class="cc-btn primary" type="submit">End lab</button></form>
+  </span>
+</template>
 <div class="lab-bar" role="status">
   <span class="lab-tag">LAB</span>
   <div class="lab-bar-text">
@@ -110,7 +119,7 @@
 
 <style>
   /* Below the sticky top bar, which floats as a ~72px pill once the page scrolls. */
-  .lab-bar { position: sticky; top: 84px; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  .lab-bar { position: static; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 10px 14px; margin: 10px 0 14px; border-radius: 12px; border: 1px solid var(--warn);
     background: repeating-linear-gradient(135deg, var(--warn-bg) 0 14px, transparent 14px 28px), var(--surface); font-size: 13px; }
   .lab-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 8px; border-radius: 6px; }
@@ -134,7 +143,7 @@
   .lab-list li:first-child { border-top: 0; }
   .lab-flash { margin-bottom: 14px; }
   @media (max-width: 1024px) { .lab-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 720px) { .lab-bar { top: 8px; } } /* the top bar scrolls away on phones */
+  @media (max-width: 720px) { .lab-bar { position: sticky; top: 8px; } } /* the island is hidden on phones */
 </style>
 {{template "footer" .}}
 {{end}}

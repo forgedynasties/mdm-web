@@ -7538,3 +7538,26 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .nav-pills .n { font-size: 10.5px; font-weight: 700; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .nav-pills .n.warn { color: var(--warn); }
 .nav-pills .cap { font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); padding-right: 3px; }
+
+
+/* ── Context island ─────────────────────────────────────────────────────────────
+   The floating top pill carries the page's name, status and main buttons once the page
+   has scrolled (static/chrome-island-demos.html, option A). Hidden at the top of the
+   page, where the page's own header says the same thing. */
+.appbar-island { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; margin: 0 14px;
+  opacity: 0; transform: translateY(-4px); pointer-events: none; transition: opacity .35s ease, transform .35s ease; overflow: hidden; }
+.appbar.is-scrolled .appbar-island { opacity: 1; transform: none; pointer-events: auto; }
+.appbar-island::before { content: ""; width: 1px; height: 22px; background: var(--border); flex: none; }
+.appbar-island .isl-t { font-size: 13px; font-weight: 650; color: var(--text); white-space: nowrap; flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+.appbar-island .isl-s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.appbar-island .isl-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--muted); flex: none; }
+.appbar-island .isl-dot.on { background: var(--ok); }
+.appbar-island .isl-tag { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 7px; border-radius: 6px; flex: none; }
+.appbar-island .isl-acts { display: flex; gap: 6px; flex: none; align-items: center; }
+.appbar-island .isl-acts form { margin: 0; display: inline-flex; gap: 6px; align-items: center; }
+.appbar-island .isl-acts .cc-btn { padding: 5px 11px; font-size: 12px; box-shadow: none; }
+.appbar-island .isl-acts select { font: inherit; font-size: 12px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.appbar.island-live.is-scrolled { box-shadow: 0 0 0 2px var(--warn), 0 12px 40px rgba(0,0,0,.12) !important; }
+/* Phones: the bar scrolls away, so the island would never be seen; pages keep their own header. */
+@media (max-width: 720px) { .appbar-island { display: none; } }
+@media (max-width: 1100px) { .appbar-island .isl-s { display: none; } }

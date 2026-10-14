@@ -473,6 +473,11 @@
        floating bottom-center dock for primary nav. No left sidebar. */}}
   <header class="appbar">
     <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
+    {{/* The context island (static/chrome-island-demos.html, A): once the page scrolls and
+         the bar floats into its pill, it carries the page's name, its one-line status and
+         its main buttons. A page declares them in <template id="page-island">; a page that
+         does not just shows its title. Filled by the script below. */}}
+    <div class="appbar-island" id="appbar-island" aria-live="polite"></div>
     <div class="appbar-right">
       {{/* Search lives in the dock (.dock-search); ⌘K opens it from anywhere. */}}
 
@@ -569,18 +574,13 @@
 
   <nav class="dock dock-s" aria-label="Primary navigation">
     <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 18a9.5 9.5 0 0 1 19 0"/><path d="M12 18l4.8-5.6"/><circle cx="12" cy="18" r="1.2"/><path d="M5.4 12.6l1 .8M12 8.5v1.3M18.6 12.6l-1 .8"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path class="cut" d="M12 18l4.8-5.6"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
-    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg><span class="dock-live dock-ring" hidden></span></span><span class="dock-lbl">Fleet</span></a>
-    {{/* Apps and Jobs replace Actions. A send now starts from the thing it acts on — the
-         app in the library, or a device selection on Devices — so the nav names those,
-         and Jobs is where the work is watched. The console still exists at /commands for
-         the verbs that have not moved yet, deliberately unlisted. */}}
-    <a href="/apps" class="nav-link js-dest{{if eq .ActivePath "/apps"}} active{{end}}" data-cmdk-label="Apps"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="3" y="3" width="7" height="7" rx="1.5"/><rect class="fill" x="14" y="3" width="7" height="7" rx="1.5"/><rect class="fill" x="3" y="14" width="7" height="7" rx="1.5"/><rect class="fill" x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="dock-lbl">Apps</span></a>
-    {{/* Kiosk sits with the things you manage, before the things you watch. It is what
-         operators open most, and it was behind More — the one page people reach for
-         daily being two clicks away was the worst trade in the dock. */}}
-    <a href="/kiosk" class="nav-link js-dest{{if eq .ActivePath "/kiosk"}} active{{end}}" data-cmdk-label="Lock"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="4" y="10" width="16" height="10" rx="2"/><path class="cut" d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span class="dock-lbl">Lock</span></a>
+    {{/* Five pages (picked 14 Oct, static/chrome-island-demos.html): the places the fleet is
+         run from every day. Apps (now just the library), Lock (lock follows the role) and
+         Alerts (the bell has it, View all pinned at the top) moved to More. */}}
+    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg><span class="dock-live dock-ring" hidden></span></span><span class="dock-lbl">Fleet</span></a>
+    <a href="/restaurants" class="nav-link js-dest{{if eq .ActivePage "restaurants"}} active{{end}}" data-cmdk-label="Venues"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle class="cut" cx="12" cy="10" r="2.4"/></svg></span><span class="dock-lbl">Venues</span></a>
+    <a href="/pipeline" class="nav-link js-dest{{if eq .ActivePath "/pipeline"}} active{{end}}" data-cmdk-label="Releases"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></span><span class="dock-lbl">Releases</span></a>
     <a href="/jobs" class="nav-link js-dest{{if eq .ActivePath "/jobs"}} active{{end}}" data-cmdk-label="Jobs"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/><path class="cut" d="M21 3 10.2 13.8"/></svg></span><span class="dock-lbl">Jobs</span></a>
-    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M18 9.5a6 6 0 1 0-12 0c0 5.5-2.5 7.5-2.5 7.5h17S18 15 18 9.5z"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/></svg><span class="dock-live dock-count" hidden></span></span><span class="dock-lbl">Alerts</span></a>
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "updates"}}{{template "nav-updates" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
@@ -633,6 +633,7 @@
         <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-ic="layers" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>
         <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>
         <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Fleet health">Fleet health</a>
+        <a class="js-dest{{if eq .ActivePage "alerts"}} on{{end}}" href="/alerts" data-ic="bell" data-cmdk-sec="Fleet" data-cmdk-label="Alerts">Alerts</a>
         <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>
       </div>
 
@@ -642,12 +643,14 @@
              directory lists the destination. */}}
         <div class="t">Firmware</div>
         <a class="js-dest{{if eq .ActivePath "/pipeline"}} on{{end}}" href="/pipeline" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Releases">Releases</a>
+        <a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="App library">App library</a>
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if or (eq .ActivePath "/rollouts") (or (eq .ActivePath "/releases") (eq .ActivePath "/packages"))}} on{{end}}" href="/rollouts" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Rollouts">Rollouts</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="phone" data-cmdk-sec="Firmware" data-cmdk-label="Clients">Clients</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Control</div>
+        <a class="js-dest{{if eq .ActivePath "/kiosk"}} on{{end}}" href="/kiosk" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Device lock">Device lock</a>
         <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/adb"}} on{{end}}" href="/adb" data-ic="monitor" data-cmdk-sec="Control" data-cmdk-label="Wireless adb">Wireless adb</a>{{end}}
       </div>
@@ -1643,6 +1646,34 @@
     window.addEventListener('scroll', function () { if (!queued) { queued = true; requestAnimationFrame(apply); } }, { passive: true });
     document.addEventListener('htmx:afterSwap', apply);
     apply();
+  })();
+  // ── Context island: copy the page's <template id="page-island"> (or, failing that, its
+  // <h1>) into the top bar. Runs on load and after every swap, so it always matches the
+  // page in <main>. data-live on the template rings the pill (a lab session, say).
+  (function () {
+    var bar = document.querySelector('.appbar'), slot = document.getElementById('appbar-island');
+    if (!bar || !slot) return;
+    function fill() {
+      var tpl = document.getElementById('page-island'), h1 = document.querySelector('main h1');
+      slot.innerHTML = '';
+      bar.classList.remove('island-live');
+      if (tpl && tpl.content) {
+        slot.appendChild(document.importNode(tpl.content, true));
+        if (tpl.hasAttribute('data-live')) bar.classList.add('island-live');
+        if (window.htmx) window.htmx.process(slot);
+      } else if (h1) {
+        var t = document.createElement('span'); t.className = 'isl-t'; t.textContent = h1.textContent.trim();
+        slot.appendChild(t);
+      }
+    }
+    fill();
+    // Only when the page itself changed: a polling pane swapping in place must not reset a
+    // half-used control in the island.
+    document.addEventListener('htmx:afterSettle', function (e) {
+      var t = e.detail && e.detail.target;
+      if (t && (t.tagName === 'MAIN' || (t.querySelector && t.querySelector('#page-island')))) fill();
+    });
+    window.mdmIslandRefresh = fill;
   })();
   // ── List tools: one search box, filter chips and a "Show all N" cap for long lists.
   // Root: .lt[data-lt-n="25"]. Rows: .lt-row[data-grp][data-f-<facet>][data-lt-text].
@@ -2885,7 +2916,9 @@
         return;
       }
       close();
-      if (newTab) { window.open(it.url, '_blank', 'noopener'); return; }
+      // Opened on the next tick, outside the key event: Shift is the browser's own "new
+      // window" modifier, and a window.open() inside a Shift+Enter keydown inherits it.
+      if (newTab) { var u = it.url; setTimeout(function () { window.open(u, '_blank', 'noopener'); }, 0); return; }
       window.location.href = it.url;
     }
 
@@ -3372,10 +3405,9 @@
       { sel: '.dock .nav-link[href="/"]', title: 'Overview', body: 'Your fleet at a glance: live counts, what needs attention right now, rollouts in flight, and every restaurant worst first. Each number opens its list.', pos: 'top' },
       { sel: '.dock .nav-link[href="/devices"]', title: 'Fleet', body: 'Every device, grouped by restaurant, group, product or release. Filter, select many, and open a device for its vitals, apps and remote tools.', pos: 'top' },
       { sel: '.fleet-tab[href="/enrollment"]', title: 'Enroll', body: 'New devices land in the onboarding inbox until they have a site. Enrollment profiles are scannable QR codes that say what a batch of outsourced devices is and where it goes.', pos: 'bottom', optional: true },
-      { sel: '.dock .nav-link[href="/apps"]', title: 'Apps', body: 'Install and update apps across the fleet. Each app shows where it is already installed and which devices are on another version, so a send targets what is actually missing.', pos: 'top', optional: true },
+      { sel: '.dock .nav-link[href="/restaurants"]', title: 'Venues', body: 'Every restaurant and the devices in it. A device at a venue runs its role\'s app and stays on its prod build by itself.', pos: 'top', optional: true },
+      { sel: '.dock .nav-link[href="/pipeline"]', title: 'Releases', body: 'What every role runs: new builds, lab packages and prod, per role, plus firmware per model and the MDM clients.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/jobs"]', title: 'Jobs', body: 'Everything sent to the fleet: what is running, what needs looking at, what finished. Open a job for its per-device history — handed over, received, finished, and how long each step took.', pos: 'top', optional: true },
-      { sel: '.dock .nav-link[href="/kiosk"]', title: 'Kiosk', body: 'Kiosk rules: lock a restaurant, group or device to one app — set once, enforced continuously.', pos: 'top', optional: true },
-      { sel: '.dock .nav-link[href="/alerts"]', title: 'Alerts', body: 'Devices that stopped checking in, ran hot, drained, or crashed. Acknowledge or resolve here; the bell up top shows the live count.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/updates"]', title: 'Updates', body: 'Releases and the OTA rollouts carrying them, with per-device progress.', pos: 'top', optional: true },
       { sel: '.dock-search', title: 'Search anything', body: 'Jump to a device by serial, a restaurant, or any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'top', optional: true },
       { sel: '#alerts-indicator', title: 'Live alerts', body: 'Open alerts update live. Click for the newest ones without leaving the page.', pos: 'bottom' },

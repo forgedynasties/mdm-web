@@ -334,10 +334,39 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 
 	models := h.pipelineModels(ctx, sel, devices, st)
 
+	// The MDM clients this role's devices run, counted over this role only. The policy
+	// that keeps devices on the hosted build is per client, so it shows the same on every
+	// role that uses the client.
+	var roleDevs []db.Device
+	for i := range devices {
+		if !devices[i].Hidden && !devices[i].Retired() && devices[i].Class() == sel {
+			roleDevs = append(roleDevs, devices[i])
+		}
+	}
+	roleViews, _ := h.clientSlotSummaries(r, roleDevs)
+	var roleClients []*ClientSlotView
+	for _, slot := range clientSlotOrder {
+		v := roleViews[slot]
+		if v.Devices == 0 {
+			continue
+		}
+		var behind []string
+		for i := range roleDevs {
+			d := &roleDevs[i]
+			if agentSlotFor(d) != slot || !v.Hosted {
+				continue
+			}
+			if _, code := clientVersionOf(d); code > 0 && versionComparable(d, v.Build.Package) && code < v.Build.VersionCode {
+				behind = append(behind, d.SerialNumber)
+			}
+		}
+		v.BehindSerials = strings.Join(behind, ",")
+		roleClients = append(roleClients, v)
+	}
+
 	h.render(w, r, "pipeline.html", map[string]any{
 		"Title":       "Releases",
 		"Roles":       roles,
-		"Clients":     clients,
 		"Role":        sel,
 		"RoleLabel":   selLabel,
 		"BasePackage": base,
@@ -345,6 +374,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		"Columns":     columns,
 		"Inbox":       inbox,
 		"Models":      models,
+		"RoleClients": roleClients,
 		"CanEdit":     canLab(h.role(r)),
 		"AppRollout":  h.cfg.RoleRollout(config.RolloutApps),
 		"FwRollout":   h.cfg.RoleRollout(config.RolloutFirmware),
@@ -384,6 +414,9 @@ func (h *Handler) pipelineModels(ctx context.Context, role string, devices []db.
 			m.Label = n
 		} else if row.Model != "" && !prod.IsKnown(row.Key) {
 			m.Label = strings.TrimSpace(row.Manufacturer + " " + row.Model)
+			if strings.HasPrefix(strings.ToLower(row.Model), strings.ToLower(row.Manufacturer)) {
+				m.Label = row.Model // "ZC" + "ZC-3568K" reads as a stutter
+			}
 		}
 		if m.Maker == "" && prod.IsKnown(row.Key) {
 			m.Maker = "AIO"
