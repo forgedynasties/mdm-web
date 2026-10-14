@@ -62,7 +62,7 @@ func TestPlanAppStep(t *testing.T) {
 }
 
 func TestDefaultFirmwareMode(t *testing.T) {
-	for model, want := range map[string]string{"t7": db.FirmwareProd, "kiosk22": db.FirmwareLab, "kiosk27": db.FirmwareLab, "rk3568_r": db.FirmwareOff} {
+	for model, want := range map[string]string{"t7": db.FirmwareProd, "kiosk22": db.FirmwareLab, "rk3568_r": db.FirmwareOff} {
 		if got := db.DefaultFirmwareMode(model); got != want {
 			t.Errorf("DefaultFirmwareMode(%q) = %q, want %q", model, got, want)
 		}

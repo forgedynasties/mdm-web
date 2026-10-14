@@ -3925,7 +3925,7 @@ func sneakPeekDevices() ([]db.Device, map[uuid.UUID]bool) {
 		"Mission Rock", "Noe Valley", "Hayes Valley", "Bayview", "Potrero", "Chinatown",
 		"Union Square", "Financial", "Bernal", "Cole Valley", "Nob Hill", "Russian Hill",
 		"Sunset", "Harbor Café"}
-	prods := []string{"kiosk22", "kiosk27", "t7", "kiosk18"}
+	prods := []string{"kiosk22", "t7"}
 	devices := make([]db.Device, 0, len(names))
 	online := map[uuid.UUID]bool{}
 	now := time.Now()
@@ -4105,9 +4105,9 @@ func sneakPeekFleet() (db.Summary, []db.GroupHealth, int, []db.FleetDailyStat, i
 	v4 := total - vLatest - v2 - v3
 	versions := []db.FleetVersion{
 		{Version: "2026.06.01-release", Product: "kiosk22", DeviceCount: vLatest, ReleaseID: intPtr(90000), ReleaseStatus: "published"},
-		{Version: "2026.05.14-release", Product: "kiosk27", DeviceCount: v2, ReleaseID: intPtr(89000), ReleaseStatus: "published"},
+		{Version: "2026.05.14-release", Product: "kiosk22", DeviceCount: v2, ReleaseID: intPtr(89000), ReleaseStatus: "published"},
 		{Version: "2026.04.02-release", Product: "t7", DeviceCount: v3, ReleaseID: intPtr(88000), ReleaseStatus: "published"},
-		{Version: "2026.03.10-release", Product: "kiosk18", DeviceCount: v4},
+		{Version: "2026.03.10-release", Product: "kiosk22", DeviceCount: v4},
 	}
 
 	now := time.Now()
@@ -4117,14 +4117,12 @@ func sneakPeekFleet() (db.Summary, []db.GroupHealth, int, []db.FleetDailyStat, i
 			DeviceDownloading: total * 9 / 100, DeviceFailed: total * 1 / 100,
 			Release: &db.Release{ID: 90000, Version: "2026.06.01-release", Product: "kiosk22", Status: "published"}},
 		{ID: 9002, Status: "active", RebootBehavior: "manual", CreatedAt: now.Add(-3 * time.Hour),
-			Product: "kiosk27", DeviceTotal: 48, DeviceInstalled: 48, DeviceAwaiting: 6,
-			Release: &db.Release{ID: 89000, Version: "2026.05.14-release", Product: "kiosk27", Status: "published"}},
+			Product: "kiosk22", DeviceTotal: 48, DeviceInstalled: 48, DeviceAwaiting: 6,
+			Release: &db.Release{ID: 89000, Version: "2026.05.14-release", Product: "kiosk22", Status: "published"}},
 	}
 
-	k22 := total * 43 / 100
-	k27 := total * 28 / 100
 	t7 := total * 17 / 100
-	prodCounts := map[string]int{"kiosk22": k22, "kiosk27": k27, "t7": t7, "kiosk18": total - k22 - k27 - t7}
+	prodCounts := map[string]int{"kiosk22": total - t7, "t7": t7}
 
 	return summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts
 }
@@ -4135,13 +4133,13 @@ func sneakPeekMapJSON() template.JS {
 	pts := []deviceMapPoint{
 		{Serial: "DEMO-0041", Name: "Harbor Grill", Lat: 37.8087, Lon: -122.4098, Online: true, Product: "kiosk22", Battery: 84, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Harbor Grill"},
 		{Serial: "DEMO-0042", Name: "Harbor Grill", Lat: 37.8090, Lon: -122.4102, Online: true, Product: "kiosk22", Battery: 79, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Harbor Grill"},
-		{Serial: "DEMO-0117", Name: "Sausalito", Lat: 37.8591, Lon: -122.4853, Online: false, Product: "kiosk27", Battery: 61, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
-		{Serial: "DEMO-0119", Name: "Sausalito", Lat: 37.8570, Lon: -122.4840, Online: true, Product: "kiosk27", Battery: 88, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
+		{Serial: "DEMO-0117", Name: "Sausalito", Lat: 37.8591, Lon: -122.4853, Online: false, Product: "kiosk22", Battery: 61, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
+		{Serial: "DEMO-0119", Name: "Sausalito", Lat: 37.8570, Lon: -122.4840, Online: true, Product: "kiosk22", Battery: 88, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
 		{Serial: "DEMO-0071", Name: "Marina Point", Lat: 37.8060, Lon: -122.4330, Online: true, Product: "t7", Battery: 92, Build: "2026.06.01-release", Restaurant: "Marina Point"},
 		{Serial: "DEMO-0093", Name: "Ferry Plaza", Lat: 37.7955, Lon: -122.3937, Online: true, Product: "t7", Battery: 67, Build: "2026.06.01-release", Restaurant: "Ferry Plaza"},
 		{Serial: "DEMO-0060", Name: "Embarcadero", Lat: 37.7929, Lon: -122.3968, Online: true, Product: "kiosk22", Battery: 90, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Embarcadero"},
 		{Serial: "DEMO-0055", Name: "North Beach", Lat: 37.8003, Lon: -122.4104, Online: true, Product: "kiosk22", Battery: 85, Kiosk: true, Build: "2026.06.01-release", Restaurant: "North Beach"},
-		{Serial: "DEMO-0080", Name: "Presidio", Lat: 37.7989, Lon: -122.4662, Online: true, Product: "kiosk27", Battery: 87, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Presidio"},
+		{Serial: "DEMO-0080", Name: "Presidio", Lat: 37.7989, Lon: -122.4662, Online: true, Product: "kiosk22", Battery: 87, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Presidio"},
 		{Serial: "DEMO-0102", Name: "Mission Rock", Lat: 37.7716, Lon: -122.3893, Online: true, Product: "kiosk22", Battery: 93, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Mission Rock"},
 	}
 	b, err := json.Marshal(pts)
