@@ -1114,37 +1114,6 @@
       })();
     </script>
     {{end}}
-    {{/* The overview is the home page — no Back affordance there. */}}
-    {{if ne .ActivePage "overview"}}
-    <button type="button" class="page-back" onclick="history.back()" title="Back to previous page" aria-label="Back to previous page"
-            style="display:none;align-items:center;gap:6px;background:none;border:none;color:var(--muted);cursor:pointer;font:inherit;font-size:13px;padding:4px 0;margin-bottom:8px;">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back
-    </button>
-    <script>
-      // Show the global Back control only when there's an in-app previous page to
-      // return to (came from this origin, and the history stack has an entry), and
-      // only when the page doesn't already provide its own back affordance — detail
-      // pages render a labelled `.back-link` ("← Releases", "← AT0031"), and the
-      // device page a `.dd-close`. Those are more informative than a generic Back,
-      // so we defer to them. The in-page check waits for DOMContentLoaded since the
-      // page body isn't parsed yet at this point.
-      (function () {
-        var b = document.currentScript.previousElementSibling;
-        function show() {
-          if (b && history.length > 1 && document.referrer &&
-              document.referrer.indexOf(location.origin) === 0 &&
-              !document.querySelector('.dd-close, .back-link')) {
-            b.style.display = 'inline-flex';
-          }
-        }
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', show);
-        } else {
-          show();
-        }
-      })();
-    </script>
-    {{end}}
     <script>
       // Every labelled back-link (← Fleet, ← AT0031, ← Groups, …) should return to the
       // ACTUAL previous page the user came from, not its hard-coded default. When there's
