@@ -245,7 +245,7 @@ if (!window.__plChips) {
           {{if $.C.Auto.On}}
             <div class="pl-bk"><span class="v">{{if $.C.Auto.Paused}}Paused{{else}}On{{end}}</span>
               <div class="m">{{if and $.C.Auto.WindowStart $.C.Auto.WindowEnd}}{{$.C.Auto.WindowStart}}–{{$.C.Auto.WindowEnd}} in each device's own timezone{{else}}any time of day{{end}}{{if $.C.Auto.By}} · set by {{$.C.Auto.By}}{{end}}</div></div>
-          {{else}}<div class="pl-none">Off — devices update only when someone presses "Update the behind now".</div>{{end}}
+          {{else}}<div class="pl-none">Off — devices stay on the client they have.</div>{{end}}
           {{if canAdmin $.Root.Role}}
           <form method="POST" action="/clients/auto-update" class="pl-inline">
             <input type="hidden" name="back" value="pipeline"><input type="hidden" name="slot" value="{{$.C.Slot}}">
@@ -268,11 +268,6 @@ if (!window.__plChips) {
           <div class="pl-bk"><span class="v">{{$.C.Build.Version}}</span> <span class="pl-faint">code {{$.C.Build.VersionCode}}</span>
             {{if $.C.Devices}}<div class="pl-bar"><i style="width:{{pct $.C.UpToDate $.C.Devices}}%;background:var(--ok)"></i><i style="width:{{pct $.C.Behind $.C.Devices}}%;background:var(--accent-2)"></i><i style="width:{{pct $.C.NoBuild $.C.Devices}}%;background:var(--warn)"></i><i style="width:{{pct $.C.Unknown $.C.Devices}}%;background:var(--muted)"></i></div>{{end}}
             <div class="m">{{$.C.UpToDate}} of {{$.C.Devices}} on it{{if $.C.Behind}} · {{$.C.Behind}} behind{{end}}{{if $.C.NoBuild}} · {{$.C.NoBuild}} on an image that cannot take it{{end}}{{if $.C.Unknown}} · {{$.C.Unknown}} not reporting a version{{end}}</div>
-            {{if and $.C.Behind (canOperate $.Root.Role)}}
-            <form method="POST" action="/commands" onsubmit="return confirm('Update the client on {{$.C.Behind}} device(s) to {{$.C.Build.Version}} now?')">
-              <input type="hidden" name="type" value="app_update"><input type="hidden" name="target_type" value="devices"><input type="hidden" name="target_serials" value="{{$.C.BehindSerials}}">
-              <button class="cc-btn xs primary" type="submit">Update the {{$.C.Behind}} behind now</button>
-            </form>{{end}}
             <div class="m"><a href="/clients?slot={{$.C.Slot}}">Devices and release history →</a></div>
           </div>
           {{else}}<div class="pl-none">Nothing hosted for this client yet.</div>{{end}}
