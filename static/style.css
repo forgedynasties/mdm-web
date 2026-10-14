@@ -7340,6 +7340,16 @@ a.cc-kpi { text-decoration: none; color: inherit; }
 .dl-serial-list .dl-card > .dl-sc-id { grid-area: lead; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dl-serial-list .dl-card > .dl-stats { grid-area: stats; }
 .dl-serial-list .dl-card > .dl-act { grid-area: act; }
+/* Phones: identity and actions on the first line, power and vitals as one strip under
+   it. The one-line grid needs ~520px and squeezed the serial to nothing below that. */
+@media (max-width: 720px) {
+  .dl-serial-list .dl-card { grid-template-columns: auto 34px minmax(0, 1fr) auto;
+    grid-template-areas: "cb ic lead act" "cb pw stats stats"; column-gap: 10px; row-gap: 6px; padding: 10px 12px; }
+  .dl-serial-list .dl-card > .dl-cb-spacer { display: none; }
+  .dl-serial-list .dl-card > .dl-pw { width: 34px; }
+  .dl-serial-list .dl-card > .dl-ic { width: 34px; height: 34px; }
+  .dl-serial-list .dl-card > .dl-stats { flex-direction: row; flex-wrap: wrap; width: auto; justify-self: start; align-self: center; gap: 4px 14px; }
+}
 
 /* The gap is per-sibling rather than a flex gap: the status dot reads as part of the
    serial, so those two sit together and everything after keeps the old 8px. */

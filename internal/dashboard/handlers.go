@@ -9863,12 +9863,98 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 			health[rh.GroupID] = rh // GroupHealth.GroupID carries the restaurant id
 		}
 	}
+	// One row per venue (venues-demos.html, L1): health, a square per device, problems
+	// and when the venue last checked in, all read off one pass over the fleet.
+	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 100000, "serial", "asc")
+	devices = h.access(r).keepVisible(devices)
+	online := h.onlineMap()
+	stale := time.Duration(h.cfg.CheckinInterval()*3) * time.Second
+	byVenue := map[uuid.UUID][]db.Device{}
+	for _, d := range devices {
+		if d.RestaurantID != nil {
+			byVenue[*d.RestaurantID] = append(byVenue[*d.RestaurantID], d)
+		}
+	}
+	rows := make([]venueRow, 0, len(restaurants))
+	var sum venueSummary
+	for _, rest := range restaurants {
+		v := venueRow{R: rest, Class: "empty"}
+		v.H, v.HasH = health[rest.ID]
+		var pips []string
+		for _, d := range byVenue[rest.ID] {
+			if d.LastSeenAt.After(v.Last) {
+				v.Last = d.LastSeenAt
+			}
+			switch age := time.Since(d.LastSeenAt); {
+			case online[d.ID] || age < stale:
+				v.Online++
+				pips = append(pips, "on")
+			case age > 14*24*time.Hour:
+				v.Dormant++
+				pips = append(pips, "dormant")
+			default:
+				v.Offline++
+				pips = append(pips, "off")
+			}
+		}
+		v.Devices = len(byVenue[rest.ID])
+		// Problems first in the squares, so a short row still shows them.
+		sort.SliceStable(pips, func(i, j int) bool { return pipRank[pips[i]] < pipRank[pips[j]] })
+		if len(pips) > 20 {
+			v.More, pips = len(pips)-20, pips[:20]
+		}
+		v.Pips = pips
+		if v.Devices > 0 && v.HasH {
+			switch {
+			case v.H.Score >= 80:
+				v.Class = "ok"
+			case v.H.Score >= 50:
+				v.Class = "warn"
+			default:
+				v.Class = "danger"
+			}
+		}
+		v.NeedsLook = v.Devices > 0 && v.HasH && v.H.Score < 80
+		sum.Devices += v.Devices
+		sum.Offline += v.Offline
+		if v.NeedsLook {
+			sum.NeedLook++
+		}
+		if v.Offline > 0 {
+			sum.WithOffline++
+		}
+		if v.Devices == 0 {
+			sum.Empty++
+		}
+		if v.HasH {
+			sum.Critical += v.H.OpenCritical
+		}
+		rows = append(rows, v)
+	}
 	h.render(w, r, "restaurants.html", map[string]any{
-		"Title":       "Restaurants",
-		"Restaurants": restaurants,
-		"Health":      health,
+		"Title":   "Venues",
+		"Venues":  rows,
+		"Summary": sum,
 	})
 }
+
+// venueRow is one venue on the Venues list.
+type venueRow struct {
+	R                         db.Restaurant
+	H                         db.GroupHealth
+	HasH                      bool
+	Devices                   int
+	Online, Offline, Dormant  int
+	Pips                      []string // on | off | dormant, problems first, at most 20
+	More                      int      // devices past the 20 squares
+	Last                      time.Time
+	Class                     string // ok | warn | danger | empty
+	NeedsLook                 bool
+}
+
+type venueSummary struct{ Devices, Offline, Critical, NeedLook, WithOffline, Empty int }
+
+var pipRank = map[string]int{"off": 0, "dormant": 1, "on": 2}
 
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
@@ -9975,11 +10061,21 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	devices = h.access(r).keepVisible(devices)
 	win, hasOwn, _ := h.db.GetRestaurantServiceWindow(r.Context(), id)
+	// Online the way the Venues list counts it: connected, or checked in within three
+	// check-in intervals, so the two pages agree.
+	online := h.onlineMap()
+	onCount, stale := 0, time.Duration(h.cfg.CheckinInterval()*3)*time.Second
+	for _, d := range devices {
+		if online[d.ID] || time.Since(d.LastSeenAt) < stale {
+			onCount++
+		}
+	}
 	data := map[string]any{
 		"Title":               rest.Name,
 		"Restaurant":          rest,
 		"Devices":             devices,
-		"Online":              h.onlineMap(),
+		"Online":              online,
+		"OnlineCount":         onCount,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}

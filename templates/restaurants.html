@@ -6,102 +6,136 @@
   <a href="/groups">Groups</a>
 </nav>
 
+{{/* Venues (static/venues-demos.html, L1, picked 14 Oct): one row per venue, so 24+ venues
+     can be scanned, sorted and filtered. A square per device says how many are there and
+     how many are down. */}}
 <style>
-/* ── Restaurants — command-center header + KPI strip + heatmap tiles ── */
-.fl-page{max-width:1280px;margin:0 auto}
-.fleet-tabs{margin-bottom:16px}
-.fl-kpis{margin-bottom:16px}
-.fl-sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
-.fl-site{position:relative;display:block;padding:13px 14px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);text-decoration:none;color:inherit;overflow:hidden;transition:transform var(--dur-fast),border-color var(--dur);min-height:40px}
-.fl-site .fl-site-hit{position:absolute;inset:0;z-index:1}
-.fl-site::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ok)}
-.fl-site.warn::before{background:var(--warn)}.fl-site.danger::before{background:var(--danger)}.fl-site.empty::before{background:var(--text-faint)}
-.fl-site.ok{background:linear-gradient(180deg,var(--ok-bg),var(--surface) 70%)}
-.fl-site.warn{background:linear-gradient(180deg,var(--warn-bg),var(--surface) 70%);border-color:var(--warn-edge)}
-.fl-site.danger{background:linear-gradient(180deg,var(--danger-bg),var(--surface) 70%);border-color:var(--danger-edge)}
-.fl-site:hover{transform:translateY(-1px);border-color:var(--rule-2);color:inherit}
-.fl-site .n{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px;padding-right:26px}
-.fl-site .row{display:flex;align-items:baseline;justify-content:space-between;margin-top:7px;padding-left:4px}
-.fl-site .s{font-size:24px;font-weight:750;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ok)}
-.fl-site.warn .s{color:var(--warn)}.fl-site.danger .s{color:var(--danger)}.fl-site.empty .s{color:var(--text-faint)}
-.fl-site .s small{font-size:10px;font-weight:700;color:var(--text-faint);margin-left:2px;letter-spacing:.03em}
-.fl-site .dv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.fl-site .addr{font-size:11px;color:var(--muted);margin-top:3px;padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fl-site .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-left:4px;min-height:16px}
-.fl-del{position:absolute;top:8px;right:8px;z-index:2;width:24px;height:24px;border-radius:7px;border:1px solid transparent;background:var(--surface);color:var(--text-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;line-height:1;opacity:0;transition:opacity var(--dur)}
-.fl-site:hover .fl-del,.fl-del:focus-visible{opacity:1}
-.fl-del:hover{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-edge)}
-@media(max-width:480px){.fl-sites{grid-template-columns:1fr 1fr}.fl-kpis{grid-template-columns:repeat(2,1fr)}}
+.vn-page{max-width:1280px;margin:0 auto}
+.vn-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+.vn-search{flex:1;min-width:200px;max-width:340px;font:inherit;font-size:12.5px;padding:7px 11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.vn-chip{font:inherit;font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);cursor:pointer}
+.vn-chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-text)}
+.vn-chip .n{font-weight:500;color:var(--text-faint);margin-left:3px}.vn-chip.on .n{color:inherit}
+.vn-tbl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.vn-th,.vn-tr{display:grid;grid-template-columns:minmax(200px,1.6fr) 80px minmax(150px,1fr) minmax(150px,1fr) 110px;column-gap:14px;align-items:center;padding:0 16px}
+.vn-th{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.vn-th button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+.vn-th button:hover,.vn-th button[aria-sort]{color:var(--text-2)}
+.vn-th button[aria-sort=ascending]::after{content:"↑"}.vn-th button[aria-sort=descending]::after{content:"↓"}
+.vn-tr{position:relative;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2);text-decoration:none}
+.vn-tr:hover{background:var(--surface2);color:var(--text-2)}
+.vn-tr[hidden]{display:none}
+.vn-nm{min-width:0}.vn-nm b{display:block;color:var(--text);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vn-nm small,.vn-sm{font-size:11px;color:var(--text-faint)}
+.vn-sc{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ok)}
+.vn-sc.warn{color:var(--warn)}.vn-sc.danger{color:var(--danger)}.vn-sc.empty{color:var(--text-faint);font-weight:500}
+.vn-pips{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px}
+.vn-pips i{width:9px;height:9px;border-radius:3px;display:block;background:var(--ok)}
+.vn-pips i.off{background:var(--warn)}.vn-pips i.dormant{background:var(--text-faint);opacity:.5}
+.vn-pips em{font-style:normal;font-size:10.5px;color:var(--text-faint);line-height:9px}
+.vn-tags{display:flex;gap:4px;flex-wrap:wrap}
+.vn-none{padding:22px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-faint)}
+@media(max-width:900px){.vn-th{display:none}.vn-tr{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}.vn-tr>.vn-pipcell,.vn-tr>.vn-tags,.vn-tr>.vn-last{grid-column:1/-1}.vn-search{max-width:none}}
 </style>
 
-
-<div class="fl-page">
-{{$total := len .Restaurants}}
-{{$needLook := 0}}{{$offlineSum := 0}}{{$critSum := 0}}{{$devSum := 0}}
-{{range .Restaurants}}{{$h := index $.Health .ID}}
-  {{if and (gt $h.DeviceCount 0) (lt $h.Score 80)}}{{$needLook = add $needLook 1}}{{end}}
-  {{$offlineSum = add $offlineSum $h.OfflineCount}}
-  {{$critSum = add $critSum $h.OpenCritical}}
-  {{$devSum = add $devSum .DeviceCount}}
-{{end}}
-
+<div class="vn-page">
+{{$total := len .Venues}}{{$s := .Summary}}
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Fleet · Restaurants</div>
-    <h1 class="cc-h1">{{if gt $needLook 0}}<span class="hl {{if ge $needLook 3}}danger{{else}}warn{{end}}">{{$needLook}} of {{$total}}</span> restaurant{{if ne $total 1}}s{{end}} need{{if eq $needLook 1}}s{{end}} a look{{else}}<span class="hl ok">All {{$total}}</span> restaurant{{if ne $total 1}}s{{end}} are healthy{{end}}</h1>
-    <div class="cc-sub">{{$total}} venue{{if ne $total 1}}s{{end}} · <b>{{$devSum}}</b> device{{if ne $devSum 1}}s{{end}} deployed{{if gt $offlineSum 0}} · <b>{{$offlineSum}}</b> offline{{end}}{{if gt $critSum 0}} · <b>{{$critSum}}</b> critical alert{{if ne $critSum 1}}s{{end}}{{end}}</div>
+    <h1 class="cc-h1">Venues</h1>
+    <div class="cc-sub">{{if $total}}{{if $s.NeedLook}}<b{{if ge $s.NeedLook 3}} style="color:var(--danger)"{{else}} style="color:var(--warn)"{{end}}>{{$s.NeedLook}}</b> of {{$total}} need{{if eq $s.NeedLook 1}}s{{end}} a look{{else}}All {{$total}} healthy{{end}} · <b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if $s.Offline}} · <b>{{$s.Offline}}</b> offline{{end}}{{if $s.Critical}} · <b>{{$s.Critical}}</b> critical alert{{if ne $s.Critical 1}}s{{end}}{{end}}{{else}}Where devices live: a venue's service hours, guest Wi-Fi and health.{{end}}</div>
   </div>
-  {{if and .Restaurants (canAdminOrOperator .Role)}}
+  {{if and .Venues (canAdminOrOperator .Role)}}
   <div class="cc-actions">
-    <a href="/restaurants/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New restaurant</a>
+    <a href="/restaurants/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New venue</a>
   </div>
   {{end}}
 </div>
 
-{{if .Restaurants}}
-<div class="cc-kpis fl-kpis">
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>Venues</span><div class="v">{{$total}}</div><div class="d">{{$devSum}} device{{if ne $devSum 1}}s{{end}}</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><div class="v{{if gt $offlineSum 0}} warn{{end}}">{{$offlineSum}}</div><div class="d">devices</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Critical</span><div class="v{{if gt $critSum 0}} bad{{end}}">{{$critSum}}</div><div class="d">open alerts</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Need a look</span><div class="v{{if gt $needLook 0}} warn{{end}}">{{$needLook}}</div><div class="d">score under 80</div></div>
-</div>
-{{end}}
-
-{{if not .Restaurants}}
+{{if not .Venues}}
 <div class="cc-card">
   <div class="cc-empty tall">
     <span class="i mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>
-    <div><b>No restaurants yet</b>Create a restaurant to track which venue a device lives in, its service hours, and whether it's live.</div>
-    {{if canAdminOrOperator .Role}}<a href="/restaurants/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create restaurant</a>{{end}}
+    <div><b>No venues yet</b>Create a venue to track where a device lives, its service hours, and whether it's live.</div>
+    {{if canAdminOrOperator .Role}}<a href="/restaurants/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create venue</a>{{end}}
   </div>
 </div>
 {{else}}
-<div class="fl-sites dv-rise-1">
-  {{range .Restaurants}}
-  {{$h := index $.Health .ID}}
-  {{$cls := "empty"}}{{if gt $h.DeviceCount 0}}{{if ge $h.Score 80}}{{$cls = "ok"}}{{else if ge $h.Score 50}}{{$cls = "warn"}}{{else}}{{$cls = "danger"}}{{end}}{{end}}
-  <div class="fl-site {{$cls}}" title="{{.Name}} · score {{if gt $h.DeviceCount 0}}{{$h.Score}}{{else}}n/a{{end}}">
-    <a class="fl-site-hit" href="/restaurants/{{.ID}}" aria-label="Open {{.Name}}"></a>
-    <div class="n">{{.Name}}</div>
-    <div class="row"><span class="s">{{if gt $h.DeviceCount 0}}{{$h.Score}}<small>/100</small>{{template "score-why" (whyScore $h)}}{{else}}—{{end}}</span><span class="dv">{{.DeviceCount}} dev{{if ne .DeviceCount 1}}s{{end}}</span></div>
-    <div class="addr">{{if .Address}}{{.Address}}{{else}}no address{{end}}</div>
-    <div class="tags">
-      {{if gt $h.OfflineCount 0}}<span class="cc-tag warn">{{$h.OfflineCount}} offline</span>{{end}}
-      {{if gt $h.OpenCritical 0}}<span class="cc-tag bad">{{$h.OpenCritical}} critical</span>{{end}}
-      {{if gt $h.OpenWarning 0}}<span class="cc-tag warn">{{$h.OpenWarning}} warning{{if ne $h.OpenWarning 1}}s{{end}}</span>{{end}}
-      {{if and (eq $h.OfflineCount 0) (eq $h.OpenCritical 0) (eq $h.OpenWarning 0) (gt $h.DeviceCount 0)}}<span class="cc-tag ok">all clear</span>{{end}}
-    </div>
-    {{if canAdminOrOperator $.Role}}
-    <form action="/restaurants/{{.ID}}/delete" method="POST" class="fl-del"
-          hx-confirm="Delete restaurant {{.Name}}? Its devices become unassigned (lab).">
-      <button type="submit" title="Delete restaurant" aria-label="Delete {{.Name}}" style="all:unset;display:flex;width:100%;height:100%;align-items:center;justify-content:center;cursor:pointer">×</button>
-    </form>
-    {{end}}
+<div class="vn-filters" role="search">
+  <input type="search" class="vn-search" id="vn-q" placeholder="Search venue or address…" aria-label="Search venues" autocomplete="off">
+  <button type="button" class="vn-chip on" data-vf="all">All<span class="n">{{$total}}</span></button>
+  {{if $s.NeedLook}}<button type="button" class="vn-chip" data-vf="look">Need a look<span class="n">{{$s.NeedLook}}</span></button>{{end}}
+  {{if $s.WithOffline}}<button type="button" class="vn-chip" data-vf="offline">Offline devices<span class="n">{{$s.WithOffline}}</span></button>{{end}}
+  {{if $s.Empty}}<button type="button" class="vn-chip" data-vf="empty">Empty<span class="n">{{$s.Empty}}</span></button>{{end}}
+</div>
+<div class="vn-tbl" id="vn-tbl">
+  <div class="vn-th">
+    <span><button type="button" data-vs="name">Venue</button></span>
+    <span><button type="button" data-vs="score">Health</button></span>
+    <span><button type="button" data-vs="devices">Devices</button></span>
+    <span>Problems</span>
+    <span><button type="button" data-vs="last">Last check-in</button></span>
   </div>
+  {{range .Venues}}
+  <a class="vn-tr" href="/restaurants/{{.R.ID}}"
+     data-name="{{.R.Name}}" data-text="{{.R.Name}} {{.R.Address}} {{.R.Timezone}}"
+     data-score="{{if and .Devices .HasH}}{{.H.Score}}{{else}}999{{end}}" data-devices="{{.Devices}}" data-last="{{if not .Last.IsZero}}{{.Last.Unix}}{{else}}0{{end}}"
+     data-look="{{if .NeedsLook}}1{{end}}" data-offline="{{if .Offline}}1{{end}}" data-empty="{{if not .Devices}}1{{end}}">
+    <span class="vn-nm"><b>{{.R.Name}}</b><small>{{if .R.Address}}{{.R.Address}}{{else}}no address{{end}}{{if .R.Timezone}} · {{.R.Timezone}}{{end}}</small></span>
+    <span class="vn-sc {{.Class}}">{{if and .Devices .HasH}}{{.H.Score}}{{else}}—{{end}}</span>
+    <span class="vn-pipcell">{{if .Devices}}<span class="vn-pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span><span class="vn-sm">{{.Online}} of {{.Devices}} online{{if .Dormant}} · {{.Dormant}} dormant{{end}}</span>{{else}}<span class="vn-sm">no devices</span>{{end}}</span>
+    <span class="vn-tags">
+      {{if .HasH}}{{if gt .H.OpenCritical 0}}<span class="cc-tag bad">{{.H.OpenCritical}} critical</span>{{end}}{{end}}
+      {{if .Offline}}<span class="cc-tag warn">{{.Offline}} offline</span>{{end}}
+      {{if .HasH}}{{if gt .H.OpenWarning 0}}<span class="cc-tag warn">{{.H.OpenWarning}} warning{{if ne .H.OpenWarning 1}}s{{end}}</span>{{end}}{{end}}
+      {{if not .Devices}}<span class="cc-tag">empty</span>{{else if and (not .Offline) (or (not .HasH) (and (eq .H.OpenCritical 0) (eq .H.OpenWarning 0)))}}<span class="vn-sm">none</span>{{end}}
+    </span>
+    <span class="vn-last vn-sm">{{if .Last.IsZero}}—{{else}}{{timeSince .Last}}{{end}}</span>
+  </a>
   {{end}}
+  <div class="vn-none" id="vn-none" hidden>No venue matches.</div>
 </div>
 {{end}}
 </div>
+
+<script>
+(function () {
+  var tbl = document.getElementById('vn-tbl'); if (!tbl) return;
+  var q = document.getElementById('vn-q'), filter = 'all';
+  function rows() { return Array.prototype.slice.call(tbl.querySelectorAll('.vn-tr')); }
+  function apply() {
+    var t = (q.value || '').trim().toLowerCase(), shown = 0;
+    rows().forEach(function (r) {
+      var ok = (!t || r.dataset.text.toLowerCase().indexOf(t) >= 0) && (filter === 'all' || r.dataset[filter] === '1');
+      r.hidden = !ok; if (ok) shown++;
+    });
+    document.getElementById('vn-none').hidden = shown > 0;
+  }
+  q.addEventListener('input', apply);
+  document.querySelectorAll('[data-vf]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      filter = b.dataset.vf;
+      document.querySelectorAll('[data-vf]').forEach(function (x) { x.classList.toggle('on', x === b); });
+      apply();
+    });
+  });
+  // Sorting is in the page: the list is every venue already, so a click needs no round trip.
+  document.querySelectorAll('[data-vs]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var key = b.dataset.vs, asc = b.getAttribute('aria-sort') !== 'ascending';
+      if (key !== 'name' && !b.hasAttribute('aria-sort')) asc = key === 'score';
+      document.querySelectorAll('[data-vs]').forEach(function (x) { x.removeAttribute('aria-sort'); });
+      b.setAttribute('aria-sort', asc ? 'ascending' : 'descending');
+      var none = document.getElementById('vn-none');
+      rows().sort(function (x, y) {
+        var a = x.dataset[key], c = y.dataset[key];
+        var d = key === 'name' ? a.localeCompare(c, undefined, { sensitivity: "base" }) : (+a) - (+c);
+        return asc ? d : -d;
+      }).forEach(function (r) { tbl.insertBefore(r, none); });
+    });
+  });
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}
