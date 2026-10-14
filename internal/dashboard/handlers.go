@@ -22486,21 +22486,77 @@ func (h *Handler) CommandOutputStream(w http.ResponseWriter, r *http.Request) {
 	ch, unsub := h.shell.SubscribeCommandOutput(cmdID, device.ID)
 	defer unsub()
 
+	// A command can end without streaming anything: the firmware client streams stdout
+	// but reports stderr (and the failure) only in its final acknowledgement, and a fast
+	// command can finish before this stream subscribes. So the stream also watches the
+	// stored outcome, and when the command is over it sends whatever output the stream
+	// did not carry, then a done event that says how it ended.
+	streamed := false
+	finish := func() {
+		// The ack can land a moment after the last chunk; give it a beat.
+		var status, out string
+		for i := 0; i < 6; i++ {
+			status, out, _ = h.db.CommandOutcome(r.Context(), cmdID, device.ID)
+			if isTerminalCommandStatus(status) {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+		if !streamed && out != "" {
+			data, _ := json.Marshal(out)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+		}
+		done, _ := json.Marshal(map[string]string{"status": status})
+		fmt.Fprintf(w, "event: done\ndata: %s\n\n", done)
+		flusher.Flush()
+	}
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
 	for {
 		select {
 		case chunk, open := <-ch:
 			if !open {
-				fmt.Fprintf(w, "event: done\ndata: {}\n\n")
-				flusher.Flush()
+				finish()
 				return
 			}
+			streamed = true
 			data, _ := json.Marshal(chunk)
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
+		case <-tick.C:
+			if status, _, err := h.db.CommandOutcome(r.Context(), cmdID, device.ID); err == nil && isTerminalCommandStatus(status) {
+				// Give in-flight chunks a moment to arrive before closing.
+				time.Sleep(300 * time.Millisecond)
+				for drained := false; !drained; {
+					select {
+					case chunk, open := <-ch:
+						if !open {
+							drained = true
+							break
+						}
+						streamed = true
+						data, _ := json.Marshal(chunk)
+						fmt.Fprintf(w, "data: %s\n\n", data)
+					default:
+						drained = true
+					}
+				}
+				finish()
+				return
+			}
 		case <-r.Context().Done():
 			return
 		}
 	}
+}
+
+// isTerminalCommandStatus reports whether a device's command status is final.
+func isTerminalCommandStatus(s string) bool {
+	switch s {
+	case "completed", "failed", "unsupported", "cancelled", "canceled", "expired", "rejected", "timeout":
+		return true
+	}
+	return false
 }
 
 // LogcatLivePage renders the live logcat console for a device.

@@ -56,7 +56,12 @@
   function stream(id) {
     es = window.mdmStream('/commands/' + id + '/output/' + encodeURIComponent(serial) + '/stream');
     es.onmessage = function (e) { append(JSON.parse(e.data)); };
-    es.addEventListener('done', function () { append('\n'); finish(); });
+    es.addEventListener('done', function (e) {
+      var st = '';
+      try { st = (JSON.parse(e.data) || {}).status || ''; } catch (_) {}
+      if (st && st !== 'completed') append('[' + st + ']\n', 'sh-error');
+      append('\n'); finish();
+    });
     es.onerror = function () { finish(); };
   }
 

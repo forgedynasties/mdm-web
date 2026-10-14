@@ -616,3 +616,13 @@ func (d *DB) FailedInstalls(ctx context.Context, ids []uuid.UUID, since time.Dur
 	}
 	return out, rows.Err()
 }
+
+// CommandOutcome is how one device finished one command: its status and stored output.
+// Status is "" while nothing terminal has been recorded.
+func (d *DB) CommandOutcome(ctx context.Context, commandID, deviceID uuid.UUID) (status, output string, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT COALESCE((SELECT status FROM command_status WHERE command_id = $1 AND device_id = $2), ''),
+		       COALESCE((SELECT output FROM command_results WHERE command_id = $1 AND device_id = $2), '')`,
+		commandID, deviceID).Scan(&status, &output)
+	return status, output, err
+}
