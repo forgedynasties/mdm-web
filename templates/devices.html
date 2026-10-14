@@ -61,7 +61,7 @@ if (!window.__dlRowNav) {
       {{if eq .DeviceClass "dongle"}}
       {{/* TV box / HDMI dongle: mains-powered by design, so no battery or AC reading —
            the chip says what the device is. */}}
-      <span class="dl-chip dl-tv" role="img" aria-label="TV box" title="TV box / HDMI dongle — mains powered, no battery">
+      <span class="dl-chip dl-tv" role="img" aria-label="TV box" title="TV box / HDMI dongle — AC powered, no battery">
         <span class="bat-glyph"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m17 2-5 5-5-5"/></svg></span>
         <span class="battery-label">TV</span>
       </span>
@@ -80,7 +80,7 @@ if (!window.__dlRowNav) {
       {{else}}
       {{/* No battery (wall-powered kiosk): a power-socket icon instead of a
            meaningless 0% battery reading. */}}
-      <span class="dl-chip dl-mains" role="img" aria-label="Mains powered" title="Mains powered — no battery">
+      <span class="dl-chip dl-mains" role="img" aria-label="AC powered" title="AC powered — no battery">
         <span class="bat-glyph"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span>
       </span>
       {{end}}
@@ -123,7 +123,7 @@ if (!window.__dlRowNav) {
     {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
     {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
-          <span class="dl-pw" data-m="power"><span class="pv">{{if $noPack}}<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="pw pw-bat {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%{{if $flap}}, charger flapping{{else if and .HasCharging (charging .LatestExtra)}}, charging{{end}}"{{if $flap}} title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected"{{else if and .HasCharging (charging .LatestExtra)}} title="Charging"{{end}}><span class="v"><span class="pc">{{.BatteryPct}}%</span><span class="mk-s">{{if $flap}}<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>{{else if and .HasCharging (charging .LatestExtra)}}<svg class="mk chg" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-bolt"/></svg>{{end}}</span></span><span class="gb"><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg></span></span>{{else}}<span class="pw mains" role="img" aria-label="Mains powered" title="Mains powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>{{end}}</span></span>
+          <span class="dl-pw" data-m="power"><span class="pv">{{if $noPack}}<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="pw pw-bat {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%{{if $flap}}, charger flapping{{else if and .HasCharging (charging .LatestExtra)}}, charging{{end}}"{{if $flap}} title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected"{{else if and .HasCharging (charging .LatestExtra)}} title="Charging"{{end}}><span class="v"><span class="pc">{{.BatteryPct}}%</span><span class="mk-s">{{if $flap}}<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>{{else if and .HasCharging (charging .LatestExtra)}}<svg class="mk chg" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-bolt"/></svg>{{end}}</span></span><span class="gb"><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg></span></span>{{else}}<span class="pw mains" role="img" aria-label="AC powered" title="AC powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>{{end}}</span></span>
           <span class="dl-ic {{$kind}}" role="img" aria-label="{{.ClassLabel}}" title="{{.ClassLabel}}"><svg><use href="#dk-{{$kind}}"/></svg></span>
     <div class="dl-sc-id">
       <div class="dl-sc-l1">
@@ -2505,8 +2505,8 @@ document.addEventListener('keydown', function(e) {
         // Wall-powered kiosk: keep the mains socket chip; never repaint it as a battery
         // (which would show a bogus 0%). Mirrors the server-rendered dl-mains chip.
         chip.className = 'dl-chip dl-mains';
-        chip.setAttribute('aria-label', 'Mains powered');
-        chip.setAttribute('title', 'Mains powered — no battery');
+        chip.setAttribute('aria-label', 'AC powered');
+        chip.setAttribute('title', 'AC powered — no battery');
         chip.innerHTML = '<span class="bat-glyph"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg></span>';
       } else if (chip) {
         chip.className = 'dl-chip ' + d.battery_class;
@@ -2536,7 +2536,7 @@ document.addEventListener('keydown', function(e) {
             '<svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="' + fill + '" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg>' +
             '</span></span>';
         } else {
-          pv.innerHTML = '<span class="pw mains" role="img" aria-label="Mains powered" title="Mains powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>';
+          pv.innerHTML = '<span class="pw mains" role="img" aria-label="AC powered" title="AC powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>';
         }
       }
 

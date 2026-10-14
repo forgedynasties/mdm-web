@@ -45,11 +45,11 @@
     {{if batteryMissing .Device.LatestExtra}}<span class="dfc bad" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or the pack is unplugged). Charging is suspended in this state; any percentage would be read off the rail, not a pack."><span class="dfk">Battery</span><span class="dfv">No battery</span></span>
     {{else if .ShowBattery}}<span class="dfc{{if lt .Device.BatteryPct 20}} bad{{else if lt .Device.BatteryPct 50}} mid{{else}} good{{end}}" title="Battery"><span class="dfk">Battery</span><span class="dfv"><svg class="dfi" viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if .ChargerFlapping}} <span class="vitals-flap" title="Charger flapping — charging toggling ~{{.ChargerFlapRate}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if charging .Device.LatestExtra}} ⚡{{end}}</span></span>
     {{else if .Device.HasBattery}}<span class="dfc" title="This device has a battery but has not reported a reading yet"><span class="dfk">Battery</span><span class="dfv muted">—</span></span>
-    {{else if eq .Device.DeviceClass "dongle"}}<span class="dfc" title="TV box / HDMI dongle — mains powered, no battery"><span class="dfk">Power</span><span class="dfv">Mains · TV</span></span>
-    {{else}}<span class="dfc" title="Mains powered — no battery"><span class="dfk">Power</span><span class="dfv">Mains</span></span>{{end}}
+    {{else if eq .Device.DeviceClass "dongle"}}<span class="dfc dfc-bare" title="TV box / HDMI dongle — AC powered, no battery"><span class="dfk">Power</span><span class="dfv">AC powered · TV</span></span>
+    {{else}}<span class="dfc dfc-bare" title="AC powered — no battery"><span class="dfk">Power</span><span class="dfv">AC powered</span></span>{{end}}
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="dfc"><span class="dfk">Temp</span><span class="dfv">{{$t}}</span></span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="dfc"><span class="dfk">RAM</span><span class="dfv">{{ramPct $ram}}%</span></span>{{end}}
-    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="dfc"><span class="dfk">Uptime</span><span class="dfv">{{$up}}</span></span>{{end}}
+    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="dfc"><span class="dfk">Up</span><span class="dfv">{{$up}}</span></span>{{end}}
     {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
     {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="dfc ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="dfk">Nugget ID</span><span class="dfv"><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}} <span class="dfm">&times;{{len .NuggetIDs}}</span>{{end}}</span></button>{{else}}<button type="button" class="dfc ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="dfk">Nugget IDs</span><span class="dfv mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="dfc dfc-wide" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><span class="dfk">Wi-Fi</span><span class="dfv">{{if and $rssi (ne $rssi "—")}}{{$rssi}}dBm{{end}}{{if and $wifi (ne $wifi "—")}} <span class="dfm">{{$wifi}}</span>{{end}}</span></button>{{end}}
@@ -447,32 +447,32 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .dd-tabrow{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-bottom:12px}
 .dd-tabrow .dd-tabs{margin:0}
 .dd-tabrow-r{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
-/* Facts bar: cells share the width and wrap whole; 1px gaps over a border-coloured
-   background draw the dividers, so a wrapped row still looks ruled. */
-.dd-facts{display:flex;flex-wrap:wrap;gap:1px;background:var(--border-soft);border:1px solid var(--border);border-radius:14px;margin:0 0 14px;overflow:hidden}
+/* Facts line (static/device-facts-demos.html, F1, picked 14 Oct): no boxes, one quiet line
+   under the tabs: what the device is doing on the left, where it is on the right after a
+   divider. It wraps in order on narrow screens. */
+.dd-facts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;margin:0 0 12px;padding:2px 4px;font-size:12.5px;color:var(--muted)}
 .dd-facts>.ddc-vitals,.dd-facts>.dd-place,.dd-facts .ddc-vitals-live,.dd-facts .ddc-kpop-wrap{display:contents}
-.dd-facts .dfc,.dd-facts .ddc-kv{flex:1 1 112px;min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:9px 14px;background:var(--surface);border:0;margin:0;font:inherit;text-align:left;color:var(--text)}
-.dd-facts .dfc-wide{flex:1.6 1 170px}
-.dd-facts .ddc-kv{flex:1.3 1 150px}
-.dd-facts .dd-place>.ddc-kv:last-child{flex:1.6 1 170px}
+.dd-facts .dfc,.dd-facts .ddc-kv{flex:none;min-width:0;display:inline-flex;align-items:center;gap:5px;padding:0;margin:0;background:none;border:0;font:inherit;color:inherit;text-align:left;min-height:0}
 .dd-facts button.dfc{cursor:pointer}
-.dd-facts button.dfc:hover{background:var(--surface2)}
-.dfk,.dd-facts .ddc-kv .k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
-.dfv,.dd-facts .ddc-kv .v{font-size:13.5px;font-weight:650;color:var(--text);display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.dd-facts button.dfc:hover .dfv{color:var(--accent-text)}
+.dfk,.dd-facts .ddc-kv .k{font-size:12.5px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted)}
+.dd-facts .dfc-bare .dfk,.dd-facts .cpill-wrap .dfk{display:none}
+.dfv,.dd-facts .ddc-kv .v{font-size:12.5px;font-weight:650;color:var(--text);display:inline-flex;align-items:center;gap:5px;min-width:0;white-space:nowrap;font-variant-numeric:tabular-nums}
 .dd-facts .ddc-kv .v{justify-content:flex-start;text-align:left}
 .dd-facts .ddc-kv .v.tags{flex-wrap:wrap;white-space:normal}
-.dd-facts .ddc-kv .v a{background:none;padding:0;border:0;color:var(--text);font-weight:650;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-facts .ddc-kv .v a{background:none;padding:0;border:0;color:var(--text);font-weight:650;white-space:nowrap}
 .dd-facts .ddc-kv .v a:hover{color:var(--accent-text);text-decoration:underline}
-.dd-facts .cpill{white-space:nowrap;max-width:100%;overflow:hidden}
-.dfm{font-size:12px;font-weight:500;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.dd-facts .ddc-kv .v .muted{font-weight:500}
+/* The placement group sits at the right, after a divider. */
+.dd-facts .dfc-first{margin-left:auto;padding-left:18px;border-left:1px solid var(--border)}
+@media (max-width:720px){.dd-facts .dfc-first{margin-left:0;padding-left:0;border-left:0}}
+.dfm{font-size:12px;font-weight:500;color:var(--muted)}
 .dfv.muted{color:var(--muted);font-weight:500}
 .dfc.good .dfv{color:var(--ok)} .dfc.mid .dfv{color:var(--warn)} .dfc.bad .dfv{color:var(--danger)}
 .dfi{flex:none}
-.dd-facts .cpill{padding:0;border:0;background:none;font-size:13.5px;font-weight:650;color:var(--text);box-shadow:none}
-/* The bar clips (for its rounded corners), so its popovers are placed fixed under their
-   cell by ddFactsPop. */
+.dd-facts .cpill{padding:0;border:0;background:none;font-size:12.5px;font-weight:650;color:var(--text);box-shadow:none;white-space:nowrap}
+/* Popovers are placed fixed under their item by ddFactsPop. */
 .dd-facts .cpill-pop,.dd-facts .pl-pop{position:fixed;right:auto}
-.dd-facts .ddc-kv .v .muted{font-weight:500}
 .dd-notes-wrap{position:relative}
 .dd-notes-btn svg{flex:none}
 .dd-notes-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--accent);margin-left:2px}
@@ -976,7 +976,7 @@ if (!window.__ddNotesHook) {
          along the chart's bottom edge); the line-colour legend stays above the chart. */}}
     <div class="wlc-bar wlc-bar--strip">
       <div class="chart-legend" id="charge-strip-legend">
-        <span class="chart-legend-item" title="Strip under the chart: the tablet itself drawing power from mains"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
+        <span class="chart-legend-item" title="Strip under the chart: the tablet itself charging from AC power"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
         <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Tablet on battery</span>
         <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> Charger flapping</span>
       </div>
