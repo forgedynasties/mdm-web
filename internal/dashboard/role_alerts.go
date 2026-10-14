@@ -30,7 +30,16 @@ const (
 // RunRoleAlerts raises and clears the role alerts. Safe to call every minute.
 func (h *Handler) RunRoleAlerts(ctx context.Context) {
 	st, err := h.loadRoleAppState(ctx)
-	if err != nil || len(st.Apps) == 0 {
+	if err != nil {
+		return
+	}
+	if len(st.Apps) == 0 {
+		// Roles carry no app any more: close any alert raised while they did.
+		for _, t := range []string{"role_app_stuck", "role_unlocked"} {
+			if n, err := h.db.ResolveOpenAlertsOfType(ctx, t); err == nil && n > 0 {
+				h.hub.PublishAlertUpdate()
+			}
+		}
 		return
 	}
 	changed := false

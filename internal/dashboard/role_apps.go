@@ -142,25 +142,14 @@ type roleAppState struct {
 	Labs     map[uuid.UUID]db.LabSession
 }
 
+// loadRoleAppState returns the lab sessions only. Roles no longer carry an app (decided
+// 14 Oct 2026: Lineup is firmware, MDM clients and hardware; apps are installed by hand),
+// so Apps and Channels stay empty and everything keyed on them (the role app job, the
+// role lock, the role app alerts) does nothing. The role_apps and app_channels tables
+// are left in place, unread.
 func (h *Handler) loadRoleAppState(ctx context.Context) (*roleAppState, error) {
 	st := &roleAppState{Apps: map[string]string{}, Channels: map[string]map[string]*db.App{}}
-	apps, err := h.db.ListRoleApps(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, a := range apps {
-		st.Apps[a.Role] = a.BasePackage
-	}
-	chs, err := h.db.ListChannels(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range chs {
-		if st.Channels[c.Role] == nil {
-			st.Channels[c.Role] = map[string]*db.App{}
-		}
-		st.Channels[c.Role][c.Package] = c.App
-	}
+	var err error
 	if st.Labs, err = h.db.LabSessions(ctx); err != nil {
 		return nil, err
 	}

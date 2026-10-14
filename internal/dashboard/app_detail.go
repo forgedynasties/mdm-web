@@ -149,10 +149,8 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	// What a send would reach. Resolved now so both buttons carry a count and nothing is
 	// sent blind; the unknown-version devices are excluded by the same rule as the dialog.
-	// Installs come from Releases (a role's app) or a device's lab view (anything else)
-	// since the role model (14 Oct); the library page no longer sends installs itself.
-	// The install route stays for the API and a change of plan.
-	v.CanSend = false
+	// Roles no longer carry an app (14 Oct), so apps are sent from here again.
+	v.CanSend = v.InLibrary && h.commandTypeAllowed(h.role(r), "install_apk")
 	if v.CanSend {
 		if t, err := h.db.SerialsMissingPackage(ctx, pkg); err == nil {
 			v.MissingCount = len(t.Serials)

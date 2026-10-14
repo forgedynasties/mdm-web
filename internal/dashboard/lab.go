@@ -220,35 +220,6 @@ func (h *Handler) LabEnd(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices/"+url.PathEscape(serial)+"?flash=lab-ended", http.StatusSeeOther)
 }
 
-// LabPackage chooses which package of the role's app the device runs while in lab, and
-// starts moving it right away (a lab move does not wait for a quiet window).
-func (h *Handler) LabPackage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	serial := r.PathValue("serial")
-	dev, _, ok := h.labDevice(w, r)
-	if !ok {
-		return
-	}
-	st, err := h.loadRoleAppState(ctx)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	base := st.Apps[dev.Class()]
-	pkg := strings.TrimSpace(r.FormValue("package"))
-	if pkg != "" && (base == "" || !inFamily(base, pkg)) {
-		http.Error(w, "That package is not this role's app.", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetLabPackage(ctx, dev.ID, pkg); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	h.audit(r, "device.lab_package", serial, pkg)
-	go h.RunRoleApps(context.Background())
-	http.Redirect(w, r, "/devices/"+url.PathEscape(serial)+"/lab?flash=package", http.StatusSeeOther)
-}
-
 // LabInstall installs a library app that is not the role's app. It is removed again
 // when the session ends.
 func (h *Handler) LabInstall(w http.ResponseWriter, r *http.Request) {

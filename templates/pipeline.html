@@ -5,7 +5,7 @@
   <div class="cc-top">
     <div>
       <h1 class="cc-h1 isl-dup-sr">Lineup</h1>
-      <div class="cc-sub">Each kind of device: what it is (the models attached to it) and what it runs (its app, builds and firmware). A device at a venue follows its role's prod build by itself, inside its quiet window; lab devices follow the package their lab session chose.</div>
+      <div class="cc-sub">Each kind of device: the models that are it, the firmware they run and the MDM client on them. A device at a venue follows its model's prod firmware by itself, inside its quiet window.</div>
     </div>
   </div>
 
@@ -18,7 +18,7 @@
   {{if eq .View "none"}}<span class="isl-t">Lineup · Not attached</span>
   {{else if eq .View "runs"}}<span class="isl-t">Lineup · Production runs</span>
   {{else if .Client}}{{with .Client}}<span class="isl-t">Lineup · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
-  {{else}}<span class="isl-t">Lineup · {{.RoleLabel}}</span><span class="isl-s">{{range .Columns}}{{if .IsProd}}{{if .Current}}prod {{.Current.VersionName}} · {{.On}} of {{.Total}} deployed on it{{if .Waiting}} · {{.Waiting}} waiting{{end}}{{else}}no prod build{{end}}{{end}}{{end}}{{if .Inbox}} · {{len .Inbox}} new build{{if ne (len .Inbox) 1}}s{{end}}{{end}}</span>{{end}}
+  {{else}}<span class="isl-t">Lineup · {{.RoleLabel}}</span><span class="isl-s">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}} · {{len .HWModels}} model{{if ne (len .HWModels) 1}}s{{end}}</span>{{end}}
 </template>
 
     <nav class="pl-side" aria-label="Lineup">
@@ -57,65 +57,6 @@
       {{template "pl-client" (dict "C" .Client "Root" $)}}
     {{else}}
       <div class="lu-head"><h2>{{.RoleLabel}}</h2><span class="pl-faint">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}}</span></div>
-
-      {{/* ── App ── */}}
-      <div class="pl-lanehead">
-        <h2>App</h2>
-        {{if canAdmin $.Role}}
-        <form method="POST" action="/products/role-app" class="pl-inline">
-          <input type="hidden" name="role" value="{{.RoleKey}}">
-          <select name="base_package" class="lu-sel{{if not .BasePackage}} unset{{end}}" aria-label="App for {{.RoleLabel}}" onchange="this.form.requestSubmit()">
-            <option value="">— no app —</option>
-            {{if and .BasePackage (not (hasPrefix .BasePackage "aio.app"))}}<option value="{{.BasePackage}}" selected disabled>{{.BasePackage}} · not an aio.app package</option>{{end}}
-            {{$bp := .BasePackage}}{{range .AppChoices}}<option value="{{.Package}}"{{if eq .Package $bp}} selected{{end}}>{{.Name}} · {{.Package}}</option>{{end}}
-          </select>
-        </form>
-        {{else if .BaseName}}<b class="lu-appname">{{.BaseName}}</b>{{end}}
-        {{if .BasePackage}}<span class="pl-faint">one column per package · prod is <span class="mono">{{.BasePackage}}</span></span>{{end}}
-      </div>
-      {{if not .BasePackage}}
-        <div class="pl-empty">No app is set for {{.RoleLabel}}{{if canAdmin $.Role}}: pick one above{{else}}; a super admin sets it here{{end}}. Until then its devices are left alone.</div>
-      {{else}}
-      <div class="pl-lane" style="--cols: {{len .Columns}}">
-        <div class="pl-col">
-          <div class="pl-ct">New builds<span>{{if .Inbox}}{{len .Inbox}}{{end}}</span></div>
-          {{range .Inbox}}
-          <div class="pl-bk">
-            <span class="v">{{.App.VersionName}}</span>
-            <div class="m"><span class="mono">{{.App.PackageName}}</span><br>added {{timeSince .App.CreatedAt}}</div>
-            {{if $.CanEdit}}
-            <form method="post" action="/pipeline/channel" {{if .IsProd}}onsubmit="return confirm('Promote {{.App.VersionName}} to prod?\n\nEvery deployed {{$.RoleLabel}} device moves to it in its quiet window. There is no app rollback: to undo, promote a newer fixed build.')"{{end}}>
-              <input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="app_id" value="{{.App.ID}}">
-              <button class="cc-btn xs{{if .IsProd}} primary{{end}}" type="submit">{{if .IsProd}}Promote to prod{{else}}Release to {{.Label}}{{end}}</button>
-            </form>
-            {{end}}
-          </div>
-          {{else}}<div class="pl-none">Nothing new</div>{{end}}
-        </div>
-        {{range .Columns}}
-        <div class="pl-col{{if .IsProd}} prod{{end}}">
-          <div class="pl-ct">{{.Label}}<span>{{if and (not .IsProd) .LabDevices}}{{.LabDevices}} lab{{end}}</span></div>
-          <div class="pl-pkg mono">{{.Package}}</div>
-          {{if .Current}}
-          <div class="pl-bk">
-            <span class="v">{{.Current.VersionName}}</span>{{if not .SetAt.IsZero}} <span class="pl-faint">since {{shortDate .SetAt}}</span>{{end}}
-            {{if .IsProd}}
-              {{if .Total}}<div class="pl-bar"><i style="width:{{pct .On .Total}}%;background:var(--ok)"></i><i style="width:{{pct .Waiting .Total}}%;background:var(--accent-2)"></i><i style="width:{{pct .Missing .Total}}%;background:var(--warn)"></i><i style="width:{{pct .Ahead .Total}}%;background:var(--muted)"></i></div>{{end}}
-              <div class="m">{{.On}} of {{.Total}} deployed on it{{if .Waiting}} · {{.Waiting}} waiting for their window{{end}}{{if .Missing}} · {{.Missing}} without the app{{end}}{{if .Ahead}} · {{.Ahead}} on a newer build{{end}}</div>
-            {{else}}
-              <div class="m">{{if .LabDevices}}{{.LabDevices}} lab device{{if ne .LabDevices 1}}s{{end}} on it{{else}}no lab device on it{{end}}</div>
-            {{end}}
-            {{if .SetBy}}<div class="m">set by {{.SetBy}}</div>{{end}}
-          </div>
-          {{else}}
-          <div class="pl-none">{{if .IsProd}}No prod build yet. Deployed devices are left alone until one is set.{{else}}No build yet{{end}}</div>
-          {{end}}
-          {{range .Earlier}}<div class="pl-bk old"><span class="v">{{.Version}}</span> <span class="pl-faint">earlier · {{shortDate .SetAt}}</span></div>{{end}}
-        </div>
-        {{end}}
-      </div>
-      {{end}}
-
 
       {{/* ── Hardware ── */}}
       {{template "lu-hardware" .}}
@@ -182,8 +123,8 @@
       {{end}}
       <details class="pl-rollouts">
         <summary>When devices move</summary>
-        <p class="pl-faint">Deployed devices move to a new prod build only while present and inside this window, in their own timezone. Lab moves happen straight away.</p>
-        {{range $k, $p := dict "apps" .AppRollout "firmware" .FwRollout}}
+        <p class="pl-faint">Deployed devices move to a new prod firmware only while present and inside this window, in their own timezone.</p>
+        {{range $k, $p := dict "firmware" .FwRollout}}
         <form class="pl-inline" method="post" action="/pipeline/rollout">
           <input type="hidden" name="kind" value="{{$k}}"><input type="hidden" name="role" value="{{$.RoleKey}}">
           <b style="min-width:70px">{{if eq $k "apps"}}Apps{{else}}Firmware{{end}}</b>

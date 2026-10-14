@@ -9645,6 +9645,18 @@ func (d *DB) ResolveOpenAlert(ctx context.Context, typ string, deviceID uuid.UUI
 	return tag.RowsAffected(), nil
 }
 
+// ResolveOpenAlertsOfType resolves every open alert of one type, on any device.
+func (d *DB) ResolveOpenAlertsOfType(ctx context.Context, typ string) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE type = $1 AND status <> 'resolved'
+	`, typ)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // ListAlerts returns alerts (newest first), optionally filtered by status, with the
 // device serial joined. limit <= 0 means 200.
 func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert, error) {

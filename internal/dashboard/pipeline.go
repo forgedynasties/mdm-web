@@ -162,16 +162,19 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// Roles carry no app any more: the side list says what each role is.
+		nm := len(hw.ByRole[c])
 		switch {
-		case !pr.HasApp:
-			pr.Status, pr.Tone = "no app set", "muted"
-		case st.Channels[c][st.Apps[c]] == nil:
-			pr.Status, pr.Tone = "no prod build", "muted"
-		case behind > 0:
-			pr.Status, pr.Tone = fmt.Sprintf("%d behind prod", behind), "warn"
+		case nm == 0:
+			pr.Status, pr.Tone = "no models", "muted"
 		default:
-			pr.Status, pr.Tone = "all on prod", "ok"
+			pr.Status = fmt.Sprintf("%d device%s · %d model%s", hw.Devices[c], plural(hw.Devices[c]), nm, plural(nm))
+			pr.Tone = "ok"
+			if hw.Devices[c] == 0 {
+				pr.Tone = "muted"
+			}
 		}
+		_ = behind
 		roles = append(roles, pr)
 	}
 	// MDM clients sit in the same side list (merged from the Clients page): our own agents,

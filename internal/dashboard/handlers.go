@@ -6426,7 +6426,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Lab":          labSess,
 		// At a venue and not in lab: the device runs its role's app, so the lab tools
 		// (install, uninstall, shell) are not offered here. Their routes stay.
-		"Restricted":   device.RestaurantID != nil && labSess == nil,
+		"Restricted":   false, // installs are by hand again (roles no longer carry an app)
 		"CanLab":       canLab(h.role(r)),
 		"LabDurations": labDurations,
 		"FirmwareMode": db.FirmwareModeOf(fwModes, modelKey(device)),
@@ -21997,7 +21997,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/lab/open", h.requireLab(h.deviceRoute("shell", h.LabOpen)))
 	post("POST /devices/{serial}/lab/extend", h.requireLab(h.deviceRoute("shell", h.LabExtend)))
 	post("POST /devices/{serial}/lab/end", h.requireLab(h.deviceRoute("shell", h.LabEnd)))
-	post("POST /devices/{serial}/lab/package", h.requireLab(h.deviceRoute("shell", h.LabPackage)))
 	post("POST /devices/{serial}/lab/install", h.requireLab(h.deviceRoute("shell", h.LabInstall)))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.deviceRoute("view", h.DeviceCommandsPartial)))
 	mux.HandleFunc("GET /devices/{serial}/alerts-panel", h.requireAuth(h.deviceRoute("view", h.DeviceAlertsPanel)))
@@ -22269,7 +22268,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Roles & hardware (products.go): what each role runs, and each model's firmware mode.
 	// Super admins only — Releases shows both read-only.
 	post("POST /products/attach", h.requireStrictAdmin(h.ProductAttach))
-	post("POST /products/role-app", h.requireStrictAdmin(h.PipelineRoleApp))
 	post("POST /products/firmware-mode", h.requireStrictAdmin(h.PipelineFirmwareMode))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.

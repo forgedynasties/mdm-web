@@ -31,7 +31,7 @@
   <div>
     <div class="cc-eyebrow">Fleet · Devices · Lab</div>
     <h1 class="cc-h1 isl-dup-sr">{{.Device.SerialNumber}} in lab</h1>
-    <div class="cc-sub">{{.RoleLabel}} · {{if .Online}}<span style="color:var(--ok)">online</span>{{else}}offline{{end}} · build <span class="mono">{{.Device.BuildID}}</span>. While in lab it does not follow prod, it is not locked, and it raises no restaurant alerts.</div>
+    <div class="cc-sub">{{.RoleLabel}} · {{if .Online}}<span style="color:var(--ok)">online</span>{{else}}offline{{end}} · build <span class="mono">{{.Device.BuildID}}</span>. While in lab it does not follow prod firmware, it is not locked, and it raises no restaurant alerts.</div>
   </div>
 </div>
 
@@ -52,26 +52,6 @@
   </div>
 
   <div class="lab-col">
-    <div class="cc-card">
-      <h2>{{if .BasePackage}}App build{{else}}App{{end}}</h2>
-      {{if not .BasePackage}}
-        <p class="muted">No app is set for the {{.RoleLabel}} role yet. Set one on <a href="/lineup?role={{.Device.Class}}">Lineup</a>.</p>
-      {{else}}
-        <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/package" class="lab-radio">
-          <label class="{{if not .Session.Package}}on{{end}}"><input type="radio" name="package" value=""{{if not .Session.Package}} checked{{end}}> Leave as it is <span class="v">no change</span></label>
-          {{range .Variants}}
-          <label class="{{if .Chosen}}on{{end}}{{if not .Build}} off{{end}}">
-            <input type="radio" name="package" value="{{.Package}}"{{if .Chosen}} checked{{end}}{{if not .Build}} disabled{{end}}>
-            <span><b>{{.Label}}</b> <span class="mono muted">{{.Package}}</span></span>
-            <span class="v">{{if .Build}}{{.Build.VersionName}}{{else}}no build{{end}}{{if .Installed}} · has {{.Installed}}{{end}}</span>
-          </label>
-          {{end}}
-          <button class="cc-btn sm primary" type="submit">Use this build</button>
-          <p class="muted small">The chosen package is installed and the role's other packages are removed, so one stays. When lab ends the device goes back to prod.</p>
-        </form>
-      {{end}}
-    </div>
-
     <div class="cc-card">
       <h2>Firmware</h2>
       {{if eq .FirmwareMode "off"}}
@@ -98,7 +78,7 @@
 
     <div class="cc-card">
       <h2>Lock <span class="cc-tag {{if .Device.KioskEnabled}}ok{{else}}warn{{end}}">{{if .Device.KioskEnabled}}locked{{else}}released{{end}}</span></h2>
-      <p class="muted small">Released while in lab, so guests could leave the app. It locks to the role's app again when lab ends.</p>
+      <p class="muted small">Released while in lab. When lab ends, the lock rule that covers it applies again.</p>
     </div>
 
     {{if and (canAdmin .Role) (or (supports .Device "unenroll") (supports .Device "wipe"))}}
