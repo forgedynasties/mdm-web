@@ -285,7 +285,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           {{if and .CanCollectLogs (supports .Device "collect_logs")}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="collect_logs"><button type="submit" class="ddc-mi" title="logcat, dumpsys, getprop and the OTA log, as a file to download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Collect logs</button></form>{{end}}
           <div class="ddc-msep"></div>
           <div class="ddc-mcap">Device</div>
-          {{if and .ShellEnabled .CanShell (supports .Device "shell")}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on Standard MDM"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
+          {{if and .ShellEnabled .CanShell (supports .Device "shell") (not .Restricted)}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on Standard MDM"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
           {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}} danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
           {{if supports .Device "app_reload"}}
           {{/* MDM Lite: control the app that hosts it (the menu board). */}}
@@ -3619,7 +3619,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <h2>Installed applications</h2>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
-{{if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its role's app from Releases">Installs come from <a href="/pipeline">Releases</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
         Install app</button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
@@ -3717,7 +3717,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{/* hx-post + hx-swap="none" + close the popup after: fire the uninstall without
            navigating; the drawer refreshes (device-updated) to show "Uninstalling…". */}}
       <input type="hidden" id="ai-uninstall-pkg" value="">
-      {{if supports .Device "uninstall"}}<button type="button" class="btn-danger-sm" id="ai-uninstall-btn" onclick="var t=window.__aiTile; appInfoClose(); if(t){doUninstall(t);}">Uninstall</button>{{else}}<span class="muted small">This device's agent ({{.Device.KindLabel}}) can't uninstall apps.</span>{{end}}
+      {{if .Restricted}}<span class="muted small">At a venue: apps are kept by its role. Open lab to remove one by hand.</span>{{else if supports .Device "uninstall"}}<button type="button" class="btn-danger-sm" id="ai-uninstall-btn" onclick="var t=window.__aiTile; appInfoClose(); if(t){doUninstall(t);}">Uninstall</button>{{else}}<span class="muted small">This device's agent ({{.Device.KindLabel}}) can't uninstall apps.</span>{{end}}
     </div>
     {{end}}
   </div>
@@ -5195,7 +5195,7 @@ async function saveNewApp() {
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{else}}{{with index $.NuggetIDByPackage $p.PackageName}}<div class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</div>{{end}}{{end}}
-    {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall")}}
+    {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall") (not $.Restricted)}}
     {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
          server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app
          shows "Uninstalling…" until the device confirms removal. */}}

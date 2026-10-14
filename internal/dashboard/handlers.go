@@ -6424,6 +6424,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Device": device,
 		// Lab session (lab.go): the banner, the entry dialog and the lab view link.
 		"Lab":          labSess,
+		// At a venue and not in lab: the device runs its role's app, so the lab tools
+		// (install, uninstall, shell) are not offered here. Their routes stay.
+		"Restricted":   device.RestaurantID != nil && labSess == nil,
 		"CanLab":       canLab(h.role(r)),
 		"LabDurations": labDurations,
 		"FirmwareMode": db.FirmwareModeOf(fwModes, modelKey(device)),
