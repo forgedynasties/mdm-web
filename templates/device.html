@@ -1999,8 +1999,10 @@ function mdmBootCharts() {
       var btn = document.querySelector('.vt-tab[data-chart-tab="' + t + '"]');
       if (btn) { btn.classList.toggle('active', t === tab); btn.setAttribute('aria-selected', t === tab ? 'true' : 'false'); }
     });
-    if (tab === 'temp') loadMetricLazy('temp');
-    if (tab === 'ram') loadMetricLazy('ram');
+    function nav() { if (window.vtNavSync) window.vtNavSync(); }
+    if (tab === 'temp') loadMetricLazy('temp', false, nav);
+    if (tab === 'ram') loadMetricLazy('ram', false, nav);
+    nav();
     var c = tab === 'temp' ? tempChart : tab === 'ram' ? ramChart : batteryChart;
     if (c) setTimeout(function () { try { c.resize(); } catch (e) {} }, 0);
     document.querySelectorAll('#vt-legend .vt-lg').forEach(function (l) { l.hidden = l.getAttribute('data-lg') !== tab; });
@@ -3585,10 +3587,13 @@ function mdmBootCharts() {
       navA = Math.min(curA - w * 0.5, navB - 48 * 3600e3);
       if (navA < CHART_MIN_X) navA = Math.min(CHART_MIN_X, curA);
       navFloor = Math.min(CHART_MIN_X, curA);
-      var bat = HAS_BATTERY && allBattery.length > 0, src = bat ? allBattery : allTemp;
+      // The strip draws the metric on screen: battery and RAM on 0–100, temperature
+      // scaled to what it covers.
+      var src = activeTab === 'ram' ? allRam : activeTab === 'temp' ? allTemp : allBattery;
+      var pct = activeTab !== 'temp';
       var pts = src.filter(function (p) { return p.y != null && p.x >= navA && p.x <= navB; });
-      var lo = bat ? 0 : Infinity, hi = bat ? 100 : -Infinity;
-      if (!bat) pts.forEach(function (p) { lo = Math.min(lo, p.y); hi = Math.max(hi, p.y); });
+      var lo = pct ? 0 : Infinity, hi = pct ? 100 : -Infinity;
+      if (!pct) pts.forEach(function (p) { lo = Math.min(lo, p.y); hi = Math.max(hi, p.y); });
       if (!(hi - lo >= 1)) hi = lo + 1;
       var step = Math.max(1, Math.floor(pts.length / 300)), d = '';
       for (var i = 0; i < pts.length; i += step) {
