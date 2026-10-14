@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device role model: plan</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 34px 140px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -.01em; }
+  h2 { font-size: 17px; margin: 38px 0 8px; }
+  h3 { font-size: 14px; margin: 22px 0 6px; }
+  p, li { font-size: 13.5px; line-height: 1.6; color: var(--text-2); }
+  p b, li b { color: var(--text); font-weight: 650; }
+  .lede { max-width: 880px; }
+  .model { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 6px; }
+  .model .m { border: 1px solid var(--border); border-radius: 13px; background: var(--surface); padding: 14px 16px; }
+  .model .m .k { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); }
+  .model .m .t { font-size: 15px; font-weight: 750; margin: 3px 0 5px; }
+  .model .m p { margin: 0; font-size: 12.5px; }
+  .model .m.cmd .t { color: var(--danger); } .model .m.sess .t { color: var(--accent-2); } .model .m.cfg .t { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 10px 0 4px; }
+  th { text-align: left; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); padding: 8px 9px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 9px; border-bottom: 1px solid var(--border-soft); vertical-align: top; color: var(--text-2); line-height: 1.45; }
+  td:first-child { font-family: var(--mono); font-size: 11.5px; color: var(--text); white-space: nowrap; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+  .tag.cmd { background: var(--danger-bg); color: var(--danger); }
+  .tag.sess { background: var(--accent-2-soft); color: var(--accent-2); }
+  .tag.cfg { background: var(--ok-bg); color: var(--ok); }
+  .tag.drop { background: var(--surface2); color: var(--muted); }
+  .tag.sys { background: var(--warn-bg); color: var(--warn); }
+  .find { border-left: 3px solid var(--warn); background: var(--warn-bg); border-radius: 0 10px 10px 0; padding: 10px 14px; margin: 10px 0; }
+  .find b { color: var(--text); }
+  .find code, td code, p code, li code { font-size: 11.5px; background: var(--surface2); border: 1px solid var(--border-soft); border-radius: 5px; padding: 1px 5px; }
+  .pick { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--accent-text); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; margin-left: 8px; vertical-align: 1px; }
+  .steps li { margin-bottom: 7px; }
+  .q { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 12px 16px; margin: 10px 0; }
+  .q b { display: block; color: var(--text); margin-bottom: 3px; }
+  .q p { margin: 0; font-size: 12.5px; }
+  .dec { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+  .dec div { border:1px solid var(--border); border-radius:12px; background:var(--surface); padding:10px 14px; font-size:13px; color:var(--text-2); line-height:1.5; }
+  .dec div b { display:block; color:var(--text); font-size:13.5px; margin-bottom:2px; }
+  .flow { font-family: var(--mono); font-size: 12px; background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 16px; white-space:pre; overflow-x:auto; color: var(--text-2); }
+  @media (max-width:720px){ body{padding:20px 16px 100px} .dec,.model{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Device role model: plan</h1>
+<p class="lede">The MDM was built around the firmware and testing teams' lab work: install any APK, free shell, bulk screenshots. Restaurants need the opposite. <b>Every device has one job, runs one AIO app, and must stay on the current prod build of that app without anyone pressing a button.</b> This page fixes the model before any UI is drawn. It builds on <a href="/static/command-model-audit.html">the command-model audit</a> (3 commands, 3 sessions, the rest is config). Words in quotes are placeholders; naming is a later pass. Drafted 14 Oct 2026 from the Q&amp;A with you.</p>
+
+<h2>1 · Decided</h2>
+<div class="dec">
+  <div><b>Role decides the app</b>Many hardware models map to one role, detected automatically. One AIO app per role, nothing else in the foreground.</div>
+  <div><b>Two states, set by venue</b>Assigning a venue makes a device "deployed". Removing the venue makes it "undeployed" and unlocks it. Moving venue keeps it deployed.</div>
+  <div><b>Deployed = latest prod</b>All venues run the latest prod build of their role's app, and the latest prod firmware for their hardware. No pilot venues. No app rollback.</div>
+  <div><b>Lab devices get slots and a debug flag</b>Release slots are per role. Debug tooling appears only on debug-flagged devices. The hardware testing team manages the app inventory.</div>
+  <div><b>Lock follows role</b>A deployed, non-debug device is always locked to its role app. It can still be exited on the device.</div>
+  <div><b>MDM never configures the app</b>No managed config, no backend URL, no venue data pushed into the app. The app sorts that out with its own backend.</div>
+  <div><b>Alerts come from MDM</b>Nobody relies on restaurant staff calling. MDM must notice a broken device first.</div>
+  <div><b>Hide in UI, keep in backend</b>Lab features leave the dashboard for deployed devices but keep their handlers and API, so a change of plan is a UI change only. Same precedent as the boot logo.</div>
+</div>
+<p>Delivery: one big change on the <code>stage</code> branch, deployed to stage. Live is not touched until you say so.</p>
+
+<h2>2 · The model</h2>
+<div class="model">
+  <div class="m cfg"><div class="k">Role</div><div class="t">What the device is for</div><p>Today's <code>device_class</code> keys (<code>t7</code>, <code>kiosk</code>, <code>dongle</code>, <code>kds</code>, <code>pos</code>, <code>mpos</code>, <code>payment</code>). Each role names one app family, e.g. TSAI → Nugget.</p></div>
+  <div class="m sess"><div class="k">State</div><div class="t">Undeployed / deployed</div><p>Derived, not stored: <i>has a venue</i>. One fewer field to fall out of sync.</p></div>
+  <div class="m cmd"><div class="k">Channel</div><div class="t">Prod, slot 1, slot 2…</div><p>Per role. A deployed device follows prod, always. A lab device follows the slot it is put on.</p></div>
+</div>
+
+<h3>Role detection</h3>
+<p>A model → role table replaces today's substring guesser (<code>product.ClassForModel</code>), which matches tokens like <code>d2</code> and <code>t3</code> and gets things wrong. Our own hardware stays catalog-driven: a T7 is always TSAI, a Kiosk 18/22/27 is always a kiosk. Stock hardware is matched on exact manufacturer + model, several models per role:</p>
+<table>
+<tr><th>Manufacturer / model</th><th>Role</th><th>App</th></tr>
+<tr><td>AIO T7 (catalog)</td><td>Tableside AI</td><td>Nugget</td></tr>
+<tr><td>AIO Kiosk 18/22/27 (catalog)</td><td>Self-order kiosk</td><td>to confirm</td></tr>
+<tr><td>Sunmi D3 Pro</td><td>POS terminal</td><td>to confirm</td></tr>
+<tr><td>Sunmi D2s</td><td>Kitchen display</td><td>to confirm</td></tr>
+<tr><td>HK1 RBOX D8</td><td>Menu board</td><td>to confirm</td></tr>
+<tr><td>ZC-3568K "Mega"</td><td>Self-order kiosk</td><td>to confirm</td></tr>
+</table>
+<p>An unknown model lands in "role needed" in the enrollment inbox, exactly as an empty class does today. Adding it to the table is an admin action on the dashboard, so it never needs a deploy. A per-device override stays for the odd unit.</p>
+
+<h3>App inventory and channels</h3>
+<div class="flow">software team ──upload APK──▶ MDM app library (per role's app family)
+                                      │
+testing team ──promote build──▶ role channel:  prod │ slot 1 │ slot 2
+                                      │
+reconciler (every minute) ──▶ deployed devices  → prod
+                          ──▶ lab devices       → their slot, or left alone</div>
+<p>The reconciler is a clone of <code>client_autoupdate.go</code>, which already works: present devices only, behind the target, inside their own timezone's window, 20 per tick, skip anything installing. The diff it acts on is the existing app coverage code. Firmware uses the same shape: one prod build per hardware for deployed devices, fed by the OTA deployments that already reconcile per device.</p>
+<div class="find"><b>Variants are separate packages.</b> Nugget ships as <code>aio.app.nugget</code>, <code>aio.app.nugget.internal</code> and <code>aio.app.nugget.uatv2</code>. Android treats those as three different apps that can sit side by side. If slot 1 means "uatv2", a lab device moving between slots would end up with two Nugget apps installed unless the reconciler also removes the other variants. See question 1 below.</div>
+
+<h3>Lock</h3>
+<p>Lock rules collapse into the role. A deployed, non-debug device is locked to its role app's package for its channel. The lock rules page and per-device overrides stay in the backend, and the dashboard stops offering them for deployed devices. The on-device exit stays, with the existing unlock code. When a device re-locks after an exit is still open.</p>
+
+<h3>Alerts</h3>
+<p>Today's alerts cover <code>offline</code>, <code>crash</code>, <code>battery_low</code>, <code>storage_low</code> and <code>control_stale</code>. They fire for every device, lab included. Under this model:</p>
+<ul>
+  <li><b>Only deployed devices page anyone.</b> A lab unit going dark at 6 pm is normal.</li>
+  <li><b>New: role app not running.</b> The device is online but its app is not in the foreground, or not installed.</li>
+  <li><b>New: stuck behind prod.</b> The device is present and inside its window, but the install keeps failing.</li>
+  <li><b>New: unlocked too long.</b> A deployed device is out of lock for longer than a set time.</li>
+</ul>
+
+<h2>3 · What the dashboard stops showing for deployed devices</h2>
+<table>
+<tr><th>Feature</th><th>Deployed device</th><th>Debug device</th><th>Backend</th></tr>
+<tr><td>Install any APK / uninstall</td><td><span class="tag drop">hidden</span></td><td><span class="tag cfg">shown</span></td><td>kept</td></tr>
+<tr><td>Free-text shell</td><td><span class="tag drop">hidden</span></td><td><span class="tag cfg">shown</span></td><td>kept</td></tr>
+<tr><td>Bulk shell / bulk screenshot</td><td><span class="tag drop">hidden</span></td><td><span class="tag drop">hidden</span></td><td>kept</td></tr>
+<tr><td>Lock rules, kiosk package picker</td><td><span class="tag drop">hidden</span></td><td><span class="tag cfg">shown</span></td><td>kept</td></tr>
+<tr><td>Arbitrary firmware OTA</td><td><span class="tag drop">hidden</span></td><td><span class="tag cfg">shown</span></td><td>kept</td></tr>
+<tr><td>Remote screen, logcat, reboot</td><td><span class="tag cfg">shown</span></td><td><span class="tag cfg">shown</span></td><td>kept</td></tr>
+<tr><td>Diagnostics from the query catalog</td><td><span class="tag cfg">shown</span></td><td><span class="tag cfg">shown</span></td><td>kept</td></tr>
+<tr><td>App and firmware version</td><td><span class="tag sess">read-only, follows prod</span></td><td><span class="tag cfg">slot picker</span></td><td>new</td></tr>
+</table>
+
+<h2>4 · Build order on stage</h2>
+<ol class="steps">
+  <li><b>Model → role table</b> with an admin page, replacing the substring guesser. Role → app family mapping.</li>
+  <li><b>Channels.</b> A <code>role_channels</code> table (role, channel, app build, set by, at). Promote and demote in the app library.</li>
+  <li><b>Reconciler</b> for apps, cloned from client auto-update. Deployed → prod. Lab → slot.</li>
+  <li><b>Lock from role.</b> The lock reconciler reads role + channel instead of lock rules for deployed devices.</li>
+  <li><b>Debug flag</b> on devices, admin-only, audited. The UI gating from the table above.</li>
+  <li><b>Firmware prod pointer</b> per hardware, with live membership on deployments (audit step 2).</li>
+  <li><b>Alerts</b> limited to deployed devices, plus the three new kinds.</li>
+  <li><b>Demos first</b> for the device page, the app library with channels, and nav. Nothing visible is built before you pick.</li>
+</ol>
+<p>Audit steps 1 and 2 (one command catalogue, one scope resolver) come first. Step 3 above is the audit's "app rules", narrowed to role + channel.</p>
+
+<h2>5 · Decided in round two (14 Oct)</h2>
+<div class="dec">
+  <div><b>A slot holds a build or a variant</b>Either a newer build of the prod package or a variant package such as uatv2. The reconciler keeps exactly one package of the role's app family on the device, removing the others.</div>
+  <div><b>Builds arrive as a link</b>The software team sends an APK link to the testing team, who puts it on a slot or promotes it. MDM gets an "Add build from link" box and a "new builds" inbox. One person can promote; no second approval.</div>
+  <div><b>Debug is allowed at a venue</b>With an expiry, default 24 h, and a banner on the device page. When it ends the device returns to prod and lock by itself.</div>
+  <div><b>Rollout = quiet window</b>Prod builds roll out like client auto-update today: present devices, inside their own window, 20 per tick. No staged percentage.</div>
+</div>
+<h2>5b · Decided in round three (14 Oct)</h2>
+<div class="dec">
+  <div><b>Lab work happens in a separate lab view</b>"Open in lab" on the device page, entered by choosing how long (default 24 h) and giving a reason. The device page keeps no lab tools. <a href="/static/device-lab-view-demos.html">Demo</a>.</div>
+  <div><b>Firmware releases are set per role</b>A role switch says whether firmware releases apply to it. Even when on, they apply only to the role's devices on the Firmware client (in-house hardware). Standard-client devices (stock hardware) in the same role follow the app channel only. The switch says whether firmware applies to the role. The client type says whether a device can take it.</div>
+</div>
+<div class="dec"><div><b>Firmware releases are per model, not per role</b>A role can mix our hardware and another company's (self-order kiosk: Kiosk 18/22/27 on the Firmware client, ZC-3568K on the Standard client). The firmware switch lives on each model row in the Role table. Firmware builds belong to one model (product key). The app stays per role. This replaces the per-role switch decided earlier the same day.</div></div>
+<div class="dec"><div><b>Releases page is the pipeline</b>Inbox → Slot 1 / Slot 2 → Prod lanes, roles in a list on the side (option B). App lane per role, firmware lane per model with model chips. <a href="/static/releases-pipeline-demos.html">Worked out</a>.</div></div>
+<h2>5c · Decided in round four (14 Oct)</h2>
+<div class="dec">
+  <div><b>Lab channels are package variants</b>Prod is the base package (aio.app.nugget). internal, uatv2 and so on are their own packages and their own columns. Leaving lab swaps packages, so the no-rollback rule never forces an in-place downgrade.</div>
+  <div><b>Firmware per model: Prod, Lab only or Off</b>T7 is Prod. Kiosk 18/22/27 are Lab only for now, with no prod firmware and no gating; deployed kiosks keep what they have. Stock models are Off. Firmware changes in lab are off-venue only.</div>
+  <div><b>No migration logic in the reconciler</b>Prod moves a device only within its firmware line. The 101 T7s on v2.0 migrate through two watched rollouts (v2.0.997, then v2.1.022) using the existing rollout tools. After that they follow prod by themselves, and no bridge code is left to delete.</div>
+  <div><b>Live facts checked</b>v2.0.997 and v2.1.022 are published T7 releases on live. Kiosk 22 has its own v1.1.x line; Kiosk 18 and 27 have no releases yet.</div>
+</div>
+<h2>6 · Parked for later</h2>
+<p>Re-lock after an on-device exit. Lab tooling moving to adb. A venue health landing page. Naming for deployed, undeployed, slots and debug. A direct upload path for the software team's CI, which would remove the link hand-off.</p>
+<h2>7 · Demos</h2>
+<ul>
+  <li><a href="/static/role-releases-demos.html">Role releases</a>: where builds become what venues run, plus the dock change.</li>
+  <li><a href="/static/device-role-page-demos.html">Device page</a>: deployed view and debug mode.</li>
+  <li><a href="/static/device-lab-view-demos.html">Open in lab</a>: the separate lab view, end to end.</li>
+  <li>Firmware now sits on each role card in the releases demo; deployed T7s on the old v2.0 line are an open question there.</li>
+</ul>
+</div>
+</body>
+</html>

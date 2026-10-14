@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device lab view demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 26px 34px 140px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede, p.q { color: var(--muted); font-size: 13.5px; max-width: 920px; line-height: 1.6; }
+  .lede b, p.q b { color: var(--text); font-weight: 650; }
+  h2.opt { font-size: 16px; margin: 40px 0 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pick { font-size: 10.5px; font-weight: 800; color: var(--accent-text); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; }
+  .pros { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+  .pros div { border-left: 3px solid var(--ok); padding: 4px 12px; }
+  .pros div.bad { border-color: var(--danger); }
+  .page { border: 1px solid var(--border); border-radius: 14px; background: var(--bg); padding: 16px 20px 20px; margin-top: 12px; }
+  .page .cc-card { padding: 14px 16px; margin: 0; border-radius: 13px; }
+  .mono { font-family: var(--mono); font-size: 11.5px; }
+  .faint { color: var(--text-faint); font-size: 11.5px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); }
+  .ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; color: #fff; flex: none;
+    background: linear-gradient(135deg, hsl(265 62% 56%), hsl(291 58% 44%)); }
+  .hero { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .hero .t { font-size: 18px; font-weight: 750; }
+  .hero .sub2 { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  .hero .acts { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .hl { box-shadow: 0 0 0 2px var(--accent); }
+
+  /* the entry dialog */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 8px 0 0; flex-wrap: wrap; }
+  .seg button { font: inherit; font-size: 12px; font-weight: 650; padding: 6px 12px; background: var(--surface); color: var(--text-2); border: 0; cursor: pointer; }
+  .seg button.on { background: var(--accent-soft); color: var(--accent-text); }
+  .dlg { max-width: 520px; margin: 14px auto 4px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+  .dlg .dh { padding: 16px 20px 6px; font-size: 15px; font-weight: 750; }
+  .dlg .db { padding: 4px 20px 12px; font-size: 12.5px; color: var(--text-2); line-height: 1.55; }
+  .dlg .df { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 20px 16px; border-top: 1px solid var(--border-soft); }
+  .dlg ul { margin: 6px 0 10px; padding-left: 18px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .chips span { font-size: 12px; font-weight: 650; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-2); }
+  .chips span.on { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+  .dlg input { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .hide { display: none !important; }
+
+  /* the lab view */
+  .labbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px; border-radius: 12px 12px 0 0; margin: -16px -20px 14px;
+    background: repeating-linear-gradient(135deg, var(--warn-bg) 0 14px, transparent 14px 28px), var(--surface); border-bottom: 1px solid var(--warn); font-size: 12.5px; }
+  .labbar .tag { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 8px; border-radius: 6px; }
+  .labbar .grow { flex: 1; min-width: 220px; color: var(--text); }
+  .lab { display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; }
+  .lab .stack { display: grid; gap: 12px; align-content: start; }
+  .lab h3 { font-size: 13px; margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+  .lab h3 .r { margin-left: auto; }
+  .term { background: #0b0c10; border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 11.5px; color: #c9d1d9; line-height: 1.55; min-height: 210px; white-space: nowrap; overflow-x: auto; }
+  .term .p { color: #7ee787; } .term .d { color: #8b949e; }
+  .tbar { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .tbar select { font: inherit; font-size: 12px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .radio { display: grid; gap: 6px; font-size: 12.5px; color: var(--text-2); }
+  .radio label { display: flex; gap: 9px; align-items: center; padding: 7px 10px; border: 1px solid var(--border-soft); border-radius: 9px; }
+  .radio label.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .radio .dot { width: 12px; height: 12px; border-radius: 99px; border: 2px solid var(--muted); flex: none; }
+  .radio label.on .dot { border-color: var(--accent); background: var(--accent); }
+  .radio .v { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; }
+  .li:first-of-type { border-top: 0; }
+  .li .grow { flex: 1; }
+  .log { font-family: var(--mono); font-size: 11px; color: var(--text-2); line-height: 1.5; max-height: 110px; overflow: hidden; }
+  .log .e { color: var(--danger); } .log .w { color: var(--warn); }
+
+  /* after */
+  .after { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .after .cc-card { padding: 14px 16px; margin: 0; border-radius: 13px; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+  .after .cc-card b { display: block; color: var(--text); margin-bottom: 3px; }
+  @media (max-width: 1024px) { .lab { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) { body { padding: 20px 16px 100px; } .pros, .after { grid-template-columns: 1fr; } .page { padding: 14px; } .labbar { margin: -14px -14px 14px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Open in lab: what it looks like, end to end</h1>
+<p class="lede" style="color:var(--ok)"><b style="color:var(--ok)">Chosen 14 Oct:</b> the separate lab view, entered with A (timed, with a reason).</p>
+<p class="lede">This expands option 2 from <a href="/static/device-role-page-demos.html">the device page demos</a>. The device page stays the short "is it doing its job" view. Lab work happens on a <b>separate lab view</b> at its own URL, which looks different on purpose so nobody mistakes it for the normal page. Below are the four moments: <b>the button</b>, <b>getting in</b> (three ways to choose from), <b>the lab view itself</b>, and <b>what happens when lab ends</b>. Device, venue, versions and output are made up.</p>
+
+<!-- ───────── 1 · the button ───────── -->
+<h2 class="opt">1 · The button on the device page</h2>
+<p class="q">One extra button on the deployed device page. It is shown to roles allowed to do lab work, and hidden from everyone else, such as a restaurant owner.</p>
+<div class="page">
+  <div class="hero">
+    <div class="ico">N</div>
+    <div><div class="t">TSAI · Table 14</div><div class="sub2">Tableside AI · Burger Bros, Downtown · <span class="mono">T7A2401188</span> · <span class="ok">Online</span> · Nugget 4.2.1 prod · <span class="ok">Locked</span></div></div>
+    <div class="acts"><button class="cc-btn sm">Remote screen</button><button class="cc-btn sm">Reboot</button><button class="cc-btn sm hl">Open in lab ↗</button></div>
+  </div>
+</div>
+
+<!-- ───────── 2 · getting in ───────── -->
+<h2 class="opt">2 · Getting in: three ways</h2>
+<p class="q">The real decision is <b>when the device stops behaving like a restaurant device</b>: when you open the lab, for as long as a tab is open, or only when you do something that changes it. Switch between them.</p>
+<div class="seg" id="entry"><button class="on" data-e="timed">A · Timed, set on entry (my pick)</button><button data-e="tab">B · Only while the tab is open</button><button data-e="act">C · Look first, take over to act</button></div>
+
+<div class="dlg e-timed">
+  <div class="dh">Open T7A2401188 in lab</div>
+  <div class="db">While it is in lab, this device:
+    <ul><li>stops following prod for Nugget and firmware</li><li>is <b>unlocked</b>, so guests at Table 14 can leave Nugget</li><li>does not raise restaurant alerts</li></ul>
+    <b style="color:var(--text)">For how long</b>
+    <div class="chips"><span>2 h</span><span>8 h</span><span class="on">24 h</span><span>3 days</span></div>
+    <b style="color:var(--text)">Why</b> <span class="faint">(shown on the device and venue pages, and in the audit log)</span>
+    <input value="Nugget freezing after payment, ticket from Burger Bros">
+  </div>
+  <div class="df"><button class="cc-btn sm">Cancel</button><button class="cc-btn primary sm">Open lab until tomorrow 10:40</button></div>
+</div>
+
+<div class="dlg e-tab hide">
+  <div class="dh">No dialog</div>
+  <div class="db">The lab view opens straight away. The device goes into lab when the page loads, and stays there while any lab tab for it is open; the page pings the server every 30 s. Two minutes after the last tab closes, lab ends.<br><br><span class="warn"><b>What breaks:</b> a laptop lid closes during a 6-hour soak test and the device snaps back to prod and lock mid-test. A test that needs the device left alone overnight cannot be done at all.</span></div>
+</div>
+
+<div class="dlg e-act hide">
+  <div class="dh">Lab view opens read-only</div>
+  <div class="db">Opening the lab view changes nothing. You can see logcat, the screen and what is installed. The first action that changes the device (a shell, a slot, an install) asks the question from A, "for how long and why", and only then takes it out of prod.<br><br><span class="faint">Good for support people who mostly look. One more step for the testing team, who always act.</span></div>
+</div>
+<div class="pros"><div><b>A is my pick.</b> It is the 24-hour expiry you already chose, asked once at the door. The reason is what makes "why is Table 14 unlocked?" answerable by anyone.</div><div class="bad"><b>C is worth having later</b> if support staff start using lab only to look. It is A with the question moved to the first change, so it can be added without redoing anything.</div></div>
+
+<!-- ───────── 3 · the lab view ───────── -->
+<h2 class="opt">3 · The lab view <span class="pick">same in A, B and C</span></h2>
+<p class="q">Its own URL, for example <span class="mono">/devices/T7A2401188/lab</span>. A striped bar that never scrolls away says it is a lab session and when it ends. Everything the testing and firmware teams use today is here, and nothing on this page exists on the normal device page.</p>
+<div class="page">
+  <div class="labbar"><span class="tag">LAB</span><div class="grow"><b>T7A2401188</b> · Burger Bros, Downtown · until <b>tomorrow 10:40</b> (23 h 52 m) · opened by a teammate on the testing team · "Nugget freezing after payment"</div><button class="cc-btn sm">Extend</button><button class="cc-btn sm">← Device page</button><button class="cc-btn primary sm">End lab now</button></div>
+  <div class="lab">
+    <div class="stack">
+      <div class="cc-card">
+        <h3>Shell <span class="faint">live session · recorded</span><span class="r"><button class="cc-btn sm">Full screen</button></span></h3>
+        <div class="term"><span class="p">t7:/ $</span> dumpsys activity top | grep ACTIVITY<br>  ACTIVITY aio.app.nugget/.MainActivity 4f1c2a pid=8812<br><span class="p">t7:/ $</span> cd /sdcard/Android/data/aio.app.nugget/files/logs<br><span class="p">t7:/sdcard/…/logs $</span> ls -t | head -3<br>  pay-2026-10-14.log  anr-1013.txt  boot.log<br><span class="p">t7:/sdcard/…/logs $</span> tail -2 anr-1013.txt<br>  <span class="d">"main" prio=5 tid=1 Blocked</span><br>  <span class="d">  at aio.app.nugget.pay.Terminal.await(Terminal.kt:212)</span><br><span class="p">t7:/sdcard/…/logs $</span> █</div>
+        <div class="tbar"><select><option>Run a saved diagnostic…</option><option>Battery and charger</option><option>Wi-Fi and signal</option><option>Top processes</option></select><button class="cc-btn sm">Collect logs (zip)</button><button class="cc-btn sm">Screenshot</button></div>
+      </div>
+      <div class="cc-card">
+        <h3>Logcat <span class="faint">aio.app.nugget · warnings and up</span><span class="r"><button class="cc-btn sm">Open stream</button></span></h3>
+        <div class="log"><span class="w">10:41:02 W Nugget/Pay: terminal ack slow (4210 ms)</span><br><span class="e">10:41:07 E Nugget/Pay: await timeout, retrying</span><br><span class="w">10:41:07 W ActivityManager: Slow operation: 5004ms</span><br><span class="e">10:41:12 E ANR in aio.app.nugget (MainActivity)</span></div>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="cc-card">
+        <h3>Nugget build</h3>
+        <div class="radio">
+          <label><span class="dot"></span>prod · aio.app.nugget<span class="v">4.2.1</span></label>
+          <label class="on"><span class="dot"></span>internal · aio.app.nugget.internal<span class="v">4.3.0-rc2</span></label>
+          <label><span class="dot"></span>uatv2 · aio.app.nugget.uatv2<span class="v">4.3.0</span></label>
+          <label><span class="dot"></span>A specific build…<span class="v">library</span></label>
+        </div>
+        <div class="faint" style="margin-top:6px">Installing internal 4.3.0-rc2 · the prod package is removed so only one Nugget stays.</div>
+      </div>
+      <div class="cc-card">
+        <h3>Firmware</h3>
+        <div class="faint" style="margin-bottom:4px">Shown only for devices whose model has firmware set to Prod or Lab only in the Role table.</div>
+        <div class="li"><div class="grow">Running <span class="mono">v2.1.030</span> <span class="faint">user · prod</span></div><button class="cc-btn sm" disabled title="Off-venue only">Change ▾</button></div>
+        <div class="faint">Any lab build, e.g. <span class="mono">v2.1.025-aio-glance-23</span>. <b>Firmware changes are off-venue only</b>: on a device with a venue this card is read-only.</div>
+      </div>
+      <div class="cc-card">
+        <h3>Lab apps <span class="r"><button class="cc-btn sm">Add from library</button></span></h3>
+        <div class="li"><div class="grow">Thermobench <span class="mono faint">1.0.3</span></div><span class="faint">removed when lab ends</span></div>
+        <div class="li"><div class="grow">Pay terminal simulator <span class="mono faint">0.4</span></div><span class="faint">removed when lab ends</span></div>
+      </div>
+      <div class="cc-card">
+        <h3>Lock <span class="cc-tag warn">released</span><span class="r"><button class="cc-btn sm">Lock to Nugget now</button></span></h3>
+        <div class="faint">Guests can leave Nugget while this is released. Locking again here does not end lab.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── 4 · ending ───────── -->
+<h2 class="opt">4 · When lab ends</h2>
+<p class="q">By the timer, by <b>End lab now</b>, or by removing the device from its venue. The reconciler then puts it back without anyone remembering to.</p>
+<div class="after">
+  <div class="cc-card"><b>Back to prod</b>The prod package (aio.app.nugget 4.2.1) is installed and the internal package removed, inside the venue's quiet window. Variants are separate packages, so nothing is ever downgraded in place.</div>
+  <div class="cc-card"><b>Cleaned and locked</b>Lab apps installed in this session are removed. The device locks to Nugget again. The shell transcript stays on the device's timeline with who, when and why.</div>
+  <div class="cc-card"><b>Visible meanwhile</b>The device page shows a "In lab until 10:40" banner. The venue page shows "1 device in lab", so nobody at AIO is surprised by an unlocked table.</div>
+</div>
+
+<h2 class="opt">Settled by your answers (14 Oct)</h2>
+<p class="q"><b>No downgrade problem.</b> Lab columns are package variants, so leaving lab swaps packages instead of downgrading one. <b>Firmware in lab is off-venue only.</b> <b>Who sees the button:</b> testing and firmware teams and super admins, my lean, not yet confirmed.</p>
+
+<h2 class="opt">My recommendation</h2>
+<p class="q"><b>Use entry A with this lab view, and compare it with option 1 on the device page demos.</b> The two differ only in where the lab tools live: a Debug tab on the same page, or a separate lab page. A separate page is clearer for the restaurant-facing audience you are rolling out to, and it gives lab work room for a real terminal. That room matters, because the shell becomes a live session. If you prefer this, I would switch my device page pick from option 1 to option 2 with entry A.</p>
+</div>
+<script>
+document.querySelectorAll('#entry button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#entry button').forEach(x => x.classList.toggle('on', x === b));
+  ['timed','tab','act'].forEach(k => document.querySelector('.e-' + k).classList.toggle('hide', k !== b.dataset.e));
+});
+</script>
+</body>
+</html>
