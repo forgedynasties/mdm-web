@@ -71,6 +71,19 @@ func (h *Handler) RunCommandCanary(ctx context.Context) {
 // itself never came back, which is as strong a statement as this system can make: the
 // device is alive and we cannot make it do anything.
 func (h *Handler) RunControlStaleAlerts(ctx context.Context) {
+	// Without the probe there is no evidence to be missing: a device nobody has sent a
+	// command to in two days is not a fault. Live ran this way for days and raised the
+	// alert on 41 of 42 reporting devices (14 Oct 2026). So the alert exists only while
+	// the canary does, and switching the canary off clears whatever it raised.
+	if !h.cfg.CommandCanary() {
+		if n, err := h.db.ResolveAllControlStaleAlerts(ctx); err != nil {
+			log.Printf("[control-stale] ResolveAllControlStaleAlerts: %v", err)
+		} else if n > 0 {
+			log.Printf("[control-stale] canary is off — %d alert(s) resolved", n)
+			h.hub.PublishAlertUpdate()
+		}
+		return
+	}
 	// Evidence ends the condition: close anything that has since proven a round trip,
 	// before raising new ones. An alert that cannot clear itself trains people to ignore
 	// the list, which costs more than the alert was worth.
