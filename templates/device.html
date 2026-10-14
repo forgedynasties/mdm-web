@@ -328,6 +328,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
     {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
     {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
+    {{/* Split view toggle (graph beside the tabs), for the whole page, so it lives here. */}}
+    <button type="button" class="cc-btn dd-split-btn" onclick="ddSplitToggle()" title="Graph beside the tabs" aria-label="Graph beside the tabs"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></button>
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu">
         {{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/nickname"><label>Name<input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Table 4"></label><button class="cc-btn sm primary" type="submit">Save</button></form>{{end}}
@@ -984,9 +986,6 @@ if (!window.__ddNotesHook) {
         </div>
       </div>
       </div>
-      <button type="button" id="vt-split-btn" class="vt-ib vt-split-btn" title="Show the graph beside the tabs" aria-label="Show the graph beside the tabs" aria-pressed="false" onclick="ddSplitToggle()">
-        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
-      </button>
       <button type="button" id="chart-fs-btn" class="vt-ib" title="View graphs full screen" aria-label="View graphs full screen">⤢</button>
       <div class="vt-range-wrap">
         <button type="button" class="vt-ib" aria-label="More" aria-haspopup="menu" aria-expanded="false" onclick="vtMenu(event,'vt-more-menu')" data-vt-trig>⋯</button>
@@ -2496,14 +2495,15 @@ function mdmBootCharts() {
   // Same y-axis width on every chart, so their plots (and the pointer line) line up.
   function vtYFit(scale) { scale.width = 50; }
   function vtCss(name, fb) { return (getComputedStyle(document.documentElement).getPropertyValue(name) || '').trim() || fb; }
-  function vtNearest(data, ms) {
-    let best = null, bd = Infinity;
+  function vtNearestIdx(data, ms) {
+    let best = -1, bd = Infinity;
     for (let i = 0; i < data.length; i++) {
       const p = data[i]; if (!p || p.y == null) continue;
-      const d = Math.abs(p.x - ms); if (d < bd) { bd = d; best = p; }
+      const d = Math.abs(p.x - ms); if (d < bd) { bd = d; best = i; }
     }
     return best;
   }
+  function vtNearest(data, ms) { const i = vtNearestIdx(data, ms); return i < 0 ? null : data[i]; }
   function vtRound(ctx, x, y, w, h, r) {
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
@@ -2515,17 +2515,23 @@ function mdmBootCharts() {
     const ca = chart.chartArea, xs = chart.scales.x, ys = chart.scales.y;
     if (!ca || !xs || !ys) return;
     const px = chart._crosshairX, ms = xs.getValueForPixel(px);
-    const data = (chart.data.datasets[0] && chart.data.datasets[0].data) || [];
-    const pt = vtNearest(data, ms);
+    // Read the raw check-ins, not the drawn line: the battery line is drawn from the
+    // points where the value changed, which can be hours apart.
+    const data = chart._accent === 'battery' ? (chart.$wlcPts || []) : ((chart.data.datasets[0] && chart.data.datasets[0].data) || []);
+    const idx = vtNearestIdx(data, ms), pt = idx < 0 ? null : data[idx];
     const ctx = chart.ctx, col = VT_COLOR[chart._accent] || '#7a80f6';
     ctx.save();
+    // Shown wherever there is a reading nearby; hidden in an offline gap.
     if (pt && Math.abs(pt.x - ms) <= (xs.max - xs.min) * 0.04) {
       let txt;
       if (chart._accent === 'battery') {
-        const raw = vtNearest(chart.$wlcPts || [], ms) || pt;
-        txt = Math.round(raw.y) + '%';
-        if (raw.wlc === 1) txt += ' · phone on pad';
-        else if (raw.wlc === 2) txt += ' · pad misplaced';
+        txt = Math.round(pt.y) + '%';
+        // Not every check-in carries the pad state: use the last one reported.
+        let w = null;
+        for (let k = idx; k >= 0 && k > idx - 500; k--) { const v = data[k] && data[k].wlc; if (v !== undefined && v !== null) { w = v; break; } }
+        if (w === 1) txt += ' · phone on pad';
+        else if (w === 0) txt += ' · pad vacant';
+        else if (w === 2) txt += ' · pad misplaced';
       } else if (chart._accent === 'temp') txt = pt.y.toFixed(1) + '°C';
       else txt = Math.round(pt.y) + '%';
       const py = ys.getPixelForValue(pt.y);
@@ -4561,6 +4567,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 .dd-split{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:14px;align-items:start}
 .dd-split-l{position:sticky;top:76px;min-width:0}
 .dd-split-l .chart-card{margin:0}
+.dd-split-r #dev-map-card{margin-top:0}
 .dd-split-r{min-width:0}
 .dd-split-r .dd-tabrow .dd-tabs{flex-wrap:wrap}
 .dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
@@ -4574,8 +4581,9 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 .dd-facts.is-split .dfc-wide .dfm{display:none}
 .dd-facts.is-split .dd-tabrow-r .cc-btn{padding-left:9px;padding-right:9px}
 
-.vt-split-btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
-@media (max-width:1099px){.vt-split-btn{display:none}}
+.appbar-island .isl-acts .dd-split-btn{padding:5px 8px;display:inline-flex;align-items:center}
+.dd-is-split .dd-split-btn{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+@media (max-width:1099px){.dd-split-btn{display:none!important}}
 </style>
 <script>
 (function () {
@@ -4588,8 +4596,9 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
         tabrow = document.querySelector('.ddc-main .dd-tabrow'), facts = document.querySelector('.ddc-main .dd-facts');
     if (!main || !card || !tabrow || !facts) return;
     var on = want() && WIDE.matches, split = document.getElementById('dd-split');
-    var btn = document.getElementById('vt-split-btn');
-    if (btn) { btn.setAttribute('aria-pressed', on ? 'true' : 'false'); btn.title = on ? 'Put the graph back into Overview' : 'Show the graph beside the tabs'; }
+    // The toggle lives in the top bar (copied there from the page's island template),
+    // so its pressed look is driven by a body class rather than by the button itself.
+    document.body.classList.toggle('dd-is-split', on);
     if (on && !split) {
       if (!card.__home) { card.__home = document.createComment('chart-home'); card.parentNode.insertBefore(card.__home, card); }
       if (!tabrow.__home) { tabrow.__home = document.createComment('tabs-home'); tabrow.parentNode.insertBefore(tabrow.__home, tabrow); }
@@ -4618,7 +4627,26 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     } else return;
     // Charts follow their new container width.
     setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 30);
+    setTimeout(function () { if (window.ddSyncMap) window.ddSyncMap(); }, 80);
   }
+  // In the split, Overview's location map grows or shrinks so its card ends where the
+  // graph ends; outside the split (or on another tab) it keeps its own height.
+  function syncMap() {
+    var card = document.querySelector('.chart-card'), m = document.getElementById('dev-map-card'), map = document.getElementById('dev-map');
+    if (!map) return;
+    if (!document.getElementById('dd-split') || !card || !m || m.offsetParent === null) { map.style.height = ''; return; }
+    var diff = card.getBoundingClientRect().bottom - m.getBoundingClientRect().bottom;
+    if (Math.abs(diff) < 1) return;
+    map.style.height = Math.max(180, Math.round(map.getBoundingClientRect().height + diff)) + 'px';
+  }
+  window.ddSyncMap = syncMap;
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function () { requestAnimationFrame(syncMap); });
+    var cc = document.querySelector('.chart-card'); if (cc) ro.observe(cc);
+  }
+  window.addEventListener('resize', function () { requestAnimationFrame(syncMap); });
+  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.dd-tab')) setTimeout(syncMap, 30); });
+
   window.ddSplitToggle = function () {
     try { localStorage.setItem(KEY, want() ? '0' : '1'); } catch (e) {}
     apply();
