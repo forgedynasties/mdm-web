@@ -557,7 +557,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 </script>
 
 {{with .Lab}}
-<div class="cmdch-ban" id="lab-notice" role="status">
+<div class="cmdch-ban" id="lab-notice" role="status" style="flex-wrap:wrap">
   <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
   <div class="t"><b>In lab until {{.Until.Local.Format "Mon 2 Jan, 15:04"}}</b> ({{dur .RemainingSec}} left) · opened by {{.OpenedBy}} · “{{.Reason}}”.
     It does not follow prod, it is not locked, and it raises no restaurant alerts. When lab ends it goes back to prod and locks again.</div>

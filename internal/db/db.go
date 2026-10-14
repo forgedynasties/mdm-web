@@ -2391,7 +2391,7 @@ func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt, &dev.EnrolledBy); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt, &dev.EnrolledBy, &dev.RestaurantID, &dev.DeployedEffective); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -2642,7 +2642,8 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			d.discharge_total_pct, d.discharge_backfilled,
 			d.product,
 			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
-			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at, d.enrolled_by
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at, d.enrolled_by,
+			d.restaurant_id, (d.restaurant_id IS NOT NULL)
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id`
