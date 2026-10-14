@@ -7,11 +7,6 @@
       <h1 class="cc-h1 isl-dup-sr">Releases</h1>
       <div class="cc-sub">What every role runs. A device at a venue follows its role's prod build by itself, inside its quiet window; lab devices follow the package their lab session chose.</div>
     </div>
-    <div class="cc-actions">
-      <a class="cc-btn sm" href="/products">Hardware</a>
-      <a class="cc-btn sm" href="/apps">Library</a>
-      <a class="cc-btn sm" href="/packages">Packages</a>
-    </div>
   </div>
 
   {{if .Flash}}<div class="pl-flash">{{if eq .Flash "channel"}}Saved. Devices move to it in their window.{{else if eq .Flash "fetching"}}Fetching the build. It appears under New builds when it is done.{{else if eq .Flash "app"}}App saved for this role.{{else if eq .Flash "firmware"}}Prod firmware saved.{{else if eq .Flash "mode"}}Firmware mode saved.{{else if eq .Flash "rollout"}}Rollout saved.{{end}}</div>{{end}}
