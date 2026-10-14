@@ -6417,9 +6417,16 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	if kioskRule == nil {
 		kioskOverride = false
 	}
+	labSess, _ := h.db.GetLabSession(r.Context(), device.ID)
+	fwModes, _ := h.db.FirmwareModes(r.Context())
 	h.render(w, r, "device.html", map[string]any{
 		"Title":  device.SerialNumber,
 		"Device": device,
+		// Lab session (lab.go): the banner, the entry dialog and the lab view link.
+		"Lab":          labSess,
+		"CanLab":       canLab(h.role(r)),
+		"LabDurations": labDurations,
+		"FirmwareMode": db.FirmwareModeOf(fwModes, modelKey(device)),
 		"IsDPC":  device.IsDPC(),
 		// The hosted agent build vs. the one this device reports, so the menu can
 		// offer an update only when there is actually a newer one to install.
@@ -21996,6 +22003,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.deviceRoute("query", h.DeviceAIAnalysis)))
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.deviceRoute("view", h.DeviceAIAnalysesList)))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireReleaseAdmin(h.deviceRoute("shell", h.DeviceShellPage)))
+	// Lab sessions (lab.go): the timed lab view and its actions.
+	mux.HandleFunc("GET /devices/{serial}/lab", h.requireLab(h.deviceRoute("shell", h.LabView)))
+	post("POST /devices/{serial}/lab/open", h.requireLab(h.deviceRoute("shell", h.LabOpen)))
+	post("POST /devices/{serial}/lab/extend", h.requireLab(h.deviceRoute("shell", h.LabExtend)))
+	post("POST /devices/{serial}/lab/end", h.requireLab(h.deviceRoute("shell", h.LabEnd)))
+	post("POST /devices/{serial}/lab/package", h.requireLab(h.deviceRoute("shell", h.LabPackage)))
+	post("POST /devices/{serial}/lab/install", h.requireLab(h.deviceRoute("shell", h.LabInstall)))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.deviceRoute("view", h.DeviceCommandsPartial)))
 	mux.HandleFunc("GET /devices/{serial}/alerts-panel", h.requireAuth(h.deviceRoute("view", h.DeviceAlertsPanel)))
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.deviceRoute("view", h.DeviceQueuePartial)))

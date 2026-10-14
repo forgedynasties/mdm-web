@@ -275,6 +275,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </button>{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
+      {{if .CanLab}}{{if .Lab}}<a href="/devices/{{.Device.SerialNumber}}/lab" class="ddc-btn cc-btn warn" title="In lab until {{.Lab.Until.Local.Format "Mon 15:04"}}">Lab view ↗</a>{{else}}<button type="button" class="ddc-btn cc-btn" onclick="labDlgOpen()" aria-haspopup="dialog" title="Take this device out of its restaurant behaviour for a set time">Open in lab</button>{{end}}{{end}}
       <div class="ddc-menu-wrap" id="ddc-actions-wrap">
         <button type="button" class="ddc-btn cc-btn" id="ddc-actions-btn" onclick="ddActionsToggle(event)" aria-haspopup="true" aria-expanded="false">Actions <svg class="ddc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="ddc-menu" id="ddc-actions-menu" hidden>
@@ -555,6 +556,55 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 })();
 </script>
 
+{{with .Lab}}
+<div class="cmdch-ban" id="lab-notice" role="status">
+  <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
+  <div class="t"><b>In lab until {{.Until.Local.Format "Mon 2 Jan, 15:04"}}</b> ({{dur .RemainingSec}} left) · opened by {{.OpenedBy}} · “{{.Reason}}”.
+    It does not follow prod, it is not locked, and it raises no restaurant alerts. When lab ends it goes back to prod and locks again.</div>
+  {{if $.CanLab}}<a class="cc-btn sm" href="/devices/{{$.Device.SerialNumber}}/lab">Open lab view</a>
+  <form method="post" action="/devices/{{$.Device.SerialNumber}}/lab/end" style="margin:0" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')"><button class="cc-btn sm primary" type="submit">End lab now</button></form>{{end}}
+</div>
+{{end}}
+{{if and .CanLab (not .Lab)}}
+<dialog id="lab-dlg" class="lab-dlg" aria-labelledby="lab-dlg-h">
+  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/open">
+    <h2 id="lab-dlg-h">Open {{.Device.SerialNumber}} in lab</h2>
+    <p>While it is in lab, this device:</p>
+    <ul>
+      <li>stops following prod for its app{{if eq .FirmwareMode "prod"}} and firmware{{end}}</li>
+      <li>is <b>unlocked</b>{{if .Device.DeployedEffective}}, so guests at {{.Device.RestaurantName}} could leave the app{{end}}</li>
+      <li>does not raise restaurant alerts</li>
+    </ul>
+    <fieldset class="lab-dur"><legend>For how long</legend>
+      {{range .LabDurations}}<label><input type="radio" name="hours" value="{{.}}"{{if eq . 24}} checked{{end}}><span>{{if eq . 72}}3 days{{else}}{{.}} h{{end}}</span></label>{{end}}
+    </fieldset>
+    <label class="lab-why">Why <span>shown on the device and venue pages, and in the audit log</span>
+      <input type="text" name="reason" required maxlength="300" placeholder="e.g. Nugget freezing after payment, ticket from the venue"></label>
+    <div class="lab-dlg-foot"><button type="button" class="cc-btn sm" onclick="document.getElementById('lab-dlg').close()">Cancel</button><button type="submit" class="cc-btn sm primary">Open lab</button></div>
+  </form>
+</dialog>
+<style>
+  .lab-dlg { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; width: 520px; max-width: calc(100vw - 32px); box-shadow: var(--shadow-pop); }
+  .lab-dlg::backdrop { background: rgba(8,9,14,.55); }
+  .lab-dlg form { padding: 18px 20px 16px; font-size: 13px; color: var(--text-2); line-height: 1.55; }
+  .lab-dlg h2 { font-size: 15px; margin: 0 0 8px; color: var(--text); }
+  .lab-dlg ul { margin: 4px 0 12px; padding-left: 18px; }
+  .lab-dur { border: 0; padding: 0; margin: 0 0 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .lab-dur legend { font-weight: 700; color: var(--text); margin-bottom: 6px; padding: 0; }
+  .lab-dur label input { position: absolute; opacity: 0; }
+  .lab-dur label span { display: inline-block; font-size: 12px; font-weight: 650; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); cursor: pointer; }
+  .lab-dur label input:checked + span { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+  .lab-dur label input:focus-visible + span { outline: 2px solid var(--accent); }
+  .lab-why { display: block; font-weight: 700; color: var(--text); }
+  .lab-why span { font-weight: 400; color: var(--text-faint); font-size: 11.5px; }
+  .lab-why input { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; font: inherit; font-size: 13px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .lab-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+</style>
+<script>
+  function labDlgOpen() { var d = document.getElementById('lab-dlg'); if (d && d.showModal) d.showModal(); }
+  if (new URLSearchParams(location.search).get('lab') === 'open') { document.addEventListener('DOMContentLoaded', labDlgOpen); if (document.readyState !== 'loading') labDlgOpen(); }
+</script>
+{{end}}
 {{with .CommandChannel}}
 <div class="cmdch-ban{{if not .Reachable}} bad{{end}}" id="command-channel-notice" role="status">
   <span class="i">{{if .Reachable}}<svg viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>{{end}}</span>

@@ -1,0 +1,126 @@
+{{define "device_lab.html"}}
+{{template "header" .}}
+
+<div class="cc-wrap lab-page">
+<a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+
+<div class="lab-bar" role="status">
+  <span class="lab-tag">LAB</span>
+  <div class="lab-bar-text">
+    <b class="mono">{{.Device.SerialNumber}}</b>{{if .Device.RestaurantName}} · {{.Device.RestaurantName}}{{end}}
+    · until <b>{{.Session.Until.Local.Format "Mon 2 Jan, 15:04"}}</b> ({{dur .Session.RemainingSec}} left)
+    · opened by {{.Session.OpenedBy}} · “{{.Session.Reason}}”
+  </div>
+  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/extend" class="lab-inline">
+    <select name="hours" aria-label="Extend by">{{range .Durations}}<option value="{{.}}"{{if eq . 24}} selected{{end}}>{{.}} h from now</option>{{end}}</select>
+    <button class="cc-btn sm" type="submit">Extend</button>
+  </form>
+  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/end" class="lab-inline" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')">
+    <button class="cc-btn sm primary" type="submit">End lab now</button>
+  </form>
+</div>
+
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Devices · Lab</div>
+    <h1 class="cc-h1">{{.Device.SerialNumber}} in lab</h1>
+    <div class="cc-sub">{{.RoleLabel}} · {{if .Online}}<span style="color:var(--ok)">online</span>{{else}}offline{{end}} · build <span class="mono">{{.Device.BuildID}}</span>. While in lab it does not follow prod, it is not locked, and it raises no restaurant alerts.</div>
+  </div>
+</div>
+
+{{if .Flash}}<div class="cc-card lab-flash">{{if eq .Flash "extended"}}Lab extended.{{else if eq .Flash "package"}}Build choice saved. The device moves to it now.{{else if eq .Flash "installing"}}Install queued. It is removed again when lab ends.{{end}}</div>{{end}}
+
+<div class="lab-grid">
+  <div class="lab-col">
+    {{if .ShellEnabled}}{{template "shell_console" .}}{{else}}<div class="cc-card"><h2>Shell</h2><p class="muted">Shell commands are switched off by an administrator.</p></div>{{end}}
+    <div class="cc-card">
+      <h2>Look and collect</h2>
+      <div class="lab-actions">
+        <a class="cc-btn sm" href="/devices/{{.Device.SerialNumber}}/remote">Remote screen</a>
+        <a class="cc-btn sm" href="/devices/{{.Device.SerialNumber}}/logcat/live">Logcat</a>
+        <form method="post" action="/devices/{{.Device.SerialNumber}}/commands"><input type="hidden" name="type" value="screenshot"><button class="cc-btn sm" type="submit">Screenshot</button></form>
+        <form method="post" action="/devices/{{.Device.SerialNumber}}/commands"><input type="hidden" name="type" value="collect_logs"><button class="cc-btn sm" type="submit">Collect logs</button></form>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab-col">
+    <div class="cc-card">
+      <h2>{{if .BasePackage}}App build{{else}}App{{end}}</h2>
+      {{if not .BasePackage}}
+        <p class="muted">No app is set for the {{.RoleLabel}} role yet. Set one on <a href="/pipeline">Releases</a>.</p>
+      {{else}}
+        <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/package" class="lab-radio">
+          <label class="{{if not .Session.Package}}on{{end}}"><input type="radio" name="package" value=""{{if not .Session.Package}} checked{{end}}> Leave as it is <span class="v">no change</span></label>
+          {{range .Variants}}
+          <label class="{{if .Chosen}}on{{end}}{{if not .Build}} off{{end}}">
+            <input type="radio" name="package" value="{{.Package}}"{{if .Chosen}} checked{{end}}{{if not .Build}} disabled{{end}}>
+            <span><b>{{.Label}}</b> <span class="mono muted">{{.Package}}</span></span>
+            <span class="v">{{if .Build}}{{.Build.VersionName}}{{else}}no build{{end}}{{if .Installed}} · has {{.Installed}}{{end}}</span>
+          </label>
+          {{end}}
+          <button class="cc-btn sm primary" type="submit">Use this build</button>
+          <p class="muted small">The chosen package is installed and the role's other packages are removed, so one stays. When lab ends the device goes back to prod.</p>
+        </form>
+      {{end}}
+    </div>
+
+    <div class="cc-card">
+      <h2>Firmware</h2>
+      {{if eq .FirmwareMode "off"}}
+        <p class="muted">Firmware is off for this model: it runs its maker's firmware.</p>
+      {{else if .AtVenue}}
+        <p>Running <span class="mono">{{.Device.BuildID}}</span>.</p>
+        <p class="muted small">Firmware changes in lab are off-venue only. Remove the device from its venue first.</p>
+      {{else}}
+        <p>Running <span class="mono">{{.Device.BuildID}}</span> · firmware for this model is <b>{{if eq .FirmwareMode "prod"}}prod{{else}}lab only{{end}}</b>.</p>
+        <a class="cc-btn sm" href="/releases">Push a lab build…</a>
+      {{end}}
+    </div>
+
+    <div class="cc-card">
+      <h2>Lab apps</h2>
+      {{if .LabApps}}<ul class="lab-list">{{range .LabApps}}<li><span class="mono">{{.}}</span><span class="muted small">removed when lab ends</span></li>{{end}}</ul>{{else}}<p class="muted small">Nothing installed in this session.</p>{{end}}
+      {{if .Installable}}
+      <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/install" class="lab-inline">
+        <select name="app_id" aria-label="App from the library">{{range .Installable}}<option value="{{.ID}}">{{.Name}} {{.VersionName}}</option>{{end}}</select>
+        <button class="cc-btn sm" type="submit">Install</button>
+      </form>
+      {{end}}
+    </div>
+
+    <div class="cc-card">
+      <h2>Lock <span class="cc-tag {{if .Device.KioskEnabled}}ok{{else}}warn{{end}}">{{if .Device.KioskEnabled}}locked{{else}}released{{end}}</span></h2>
+      <p class="muted small">Released while in lab, so guests could leave the app. It locks to the role's app again when lab ends.</p>
+    </div>
+  </div>
+</div>
+</div>
+
+<style>
+  .lab-bar { position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; margin: 10px 0 14px; border-radius: 12px; border: 1px solid var(--warn);
+    background: repeating-linear-gradient(135deg, var(--warn-bg) 0 14px, transparent 14px 28px), var(--surface); font-size: 13px; }
+  .lab-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 8px; border-radius: 6px; }
+  .lab-bar-text { flex: 1; min-width: 220px; }
+  .lab-inline { display: inline-flex; gap: 6px; align-items: center; margin: 0; flex-wrap: wrap; }
+  .lab-inline select { font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 100%; }
+  .lab-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; align-items: start; }
+  .lab-col { display: grid; gap: 14px; min-width: 0; }
+  .lab-page .cc-card h2 { font-size: 14px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .lab-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .lab-actions form { margin: 0; }
+  .lab-radio { display: grid; gap: 6px; }
+  .lab-radio label { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 9px; font-size: 12.5px; cursor: pointer; }
+  .lab-radio label.on { border-color: var(--accent); background: var(--accent-soft); }
+  .lab-radio label.off { opacity: .55; cursor: default; }
+  .lab-radio .v { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); text-align: right; }
+  .lab-radio button { justify-self: start; margin-top: 4px; }
+  .lab-list { list-style: none; margin: 0 0 10px; padding: 0; }
+  .lab-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; }
+  .lab-list li:first-child { border-top: 0; }
+  .lab-flash { margin-bottom: 14px; }
+  @media (max-width: 1024px) { .lab-grid { grid-template-columns: 1fr; } }
+</style>
+{{template "footer" .}}
+{{end}}

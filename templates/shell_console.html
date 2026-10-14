@@ -1,0 +1,118 @@
+{{/* shell_console: the device shell card, shared by the shell page and the lab view.
+     Pass a map with .Device. One per page: it uses fixed element ids. */}}
+{{define "shell_console"}}
+<div class="card sh-card">
+  <div class="card-header cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg></span>
+    <h2 class="sh-title mono">{{.Device.SerialNumber}}</h2>
+    <button type="button" class="btn-outline btn-sm cc-btn sm right" onclick="window.shellClear&&window.shellClear()">Clear</button>
+  </div>
+  <div class="sh-body">
+    <pre id="sh-output" class="sh-term"></pre>
+    <div class="sh-quick">
+      <button type="button" class="sh-chip" onclick="shFill('pm list packages -3')">pm list packages</button>
+      <button type="button" class="sh-chip" onclick="shFill('getprop ro.build.version.release')">getprop</button>
+      <button type="button" class="sh-chip" onclick="shFill('df -h')">df -h</button>
+      <button type="button" class="sh-chip" onclick="shFill('dumpsys battery')">dumpsys battery</button>
+      <button type="button" class="sh-chip" onclick="shFill('logcat -d -t 100')">logcat tail</button>
+    </div>
+    <form id="sh-form" class="sh-bar" hx-boost="false">
+      <span class="sh-sign mono">$</span>
+      <input id="sh-input" type="text" class="sh-input mono" autocomplete="off" autocapitalize="off"
+             spellcheck="false" placeholder="type a command and press Enter">
+      <button type="submit" class="btn-primary">Run</button>
+    </form>
+    <div class="muted small" style="margin-top:8px;">↑/↓ recall history · output streams live as the device reports it.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var serial = '{{.Device.SerialNumber}}';
+  var out = document.getElementById('sh-output');
+  var input = document.getElementById('sh-input');
+  var form = document.getElementById('sh-form');
+  var runBtn = form.querySelector('button[type=submit]');
+  var es = null, running = false;
+  var history = [], histIdx = -1;
+
+  function append(text, cls) {
+    var span = document.createElement('span');
+    if (cls) span.className = cls;
+    span.textContent = text;
+    out.appendChild(span);
+    out.scrollTop = out.scrollHeight;
+  }
+  function setRunning(v) {
+    running = v;
+    input.disabled = v;
+    runBtn.disabled = v;
+    if (!v) input.focus();
+  }
+  function finish() {
+    if (es) { es.close(); es = null; }
+    setRunning(false);
+  }
+  function stream(id) {
+    es = window.mdmStream('/commands/' + id + '/output/' + encodeURIComponent(serial) + '/stream');
+    es.onmessage = function (e) { append(JSON.parse(e.data)); };
+    es.addEventListener('done', function () { append('\n'); finish(); });
+    es.onerror = function () { finish(); };
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (running) return;
+    var cmd = input.value.trim();
+    if (!cmd) return;
+    history.push(cmd); histIdx = history.length;
+    append('$ ' + cmd + '\n', 'sh-prompt');
+    input.value = '';
+    setRunning(true);
+    fetch('/devices/' + encodeURIComponent(serial) + '/commands', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'type=shell&shell_cmd=' + encodeURIComponent(cmd)
+    })
+      .then(function (r) { if (!r.ok) throw new Error('send failed (' + r.status + ')'); return r.json(); })
+      .then(function (d) { stream(d.id); })
+      .catch(function (err) { append('[error] ' + err.message + '\n', 'sh-error'); setRunning(false); });
+  });
+
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowUp') {
+      if (histIdx > 0) { histIdx--; input.value = history[histIdx]; e.preventDefault(); }
+    } else if (e.key === 'ArrowDown') {
+      if (histIdx < history.length - 1) { histIdx++; input.value = history[histIdx]; }
+      else { histIdx = history.length; input.value = ''; }
+      e.preventDefault();
+    }
+  });
+
+  window.shellClear = function () { out.textContent = ''; input.focus(); };
+  window.shFill = function (cmd) { input.value = cmd; input.focus(); };
+  input.focus();
+})();
+</script>
+
+<style>
+  .sh-title { display: flex; align-items: center; gap: 9px; }
+  .sh-statdot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+  .sh-statdot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(43,182,115,.18); }
+  .sh-body { padding: 16px 20px; }
+  .sh-term { height: 420px; overflow: auto; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word;
+    background: var(--console-bg); color: var(--console-text); border: 1px solid var(--console-border); border-radius: 12px; padding: 14px 16px;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; }
+  .sh-term .sh-prompt { color: var(--ok); font-weight: 600; }
+  .sh-term .sh-error { color: var(--danger); }
+  .sh-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .sh-chip { font: inherit; font-size: 12px; font-weight: 600; font-family: var(--mono); padding: 5px 11px;
+    border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+  .sh-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .sh-bar { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 11px; padding: 6px 6px 6px 13px; }
+  .sh-bar:focus-within { border-color: var(--accent-2); }
+  .sh-sign { color: var(--accent); font-weight: 700; }
+  .sh-bar .sh-input { flex: 1; border: 0; outline: 0; box-shadow: none; background: none; font-size: 13.5px; color: var(--text); }
+  .sh-bar .sh-input:focus { border: 0; outline: 0; box-shadow: none; }
+</style>
+{{end}}

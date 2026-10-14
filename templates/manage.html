@@ -132,7 +132,7 @@
   <div id="lock-uncovered"></div>
     <div class="kr-else">
     <span class="cc-sq"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-    <div style="flex:1"><b>Everything else</b> · {{.NotCovered}} device{{if ne .NotCovered 1}}s{{end}} no rule covers{{if .ByHand}} · {{.ByHand}} locked by hand on their device page{{end}}</div>
+    <div style="flex:1"><b>Everything else</b> · {{.NotCovered}} device{{if ne .NotCovered 1}}s{{end}} no rule covers{{if .ByRole}} · {{.ByRole}} at a venue follow their role's app instead ({{.ByRoleLocked}} locked) — set on <a href="/pipeline">Releases</a>{{end}}{{if .ByHand}} · {{.ByHand}} locked by hand on their device page{{end}}</div>
     {{if .CanEdit}}<a href="/kiosk/policies/new?target=all" class="cc-btn sm">Lock these too</a>{{end}}
   </div>
 </div>

@@ -381,6 +381,9 @@ func (s LabSession) Remaining() time.Duration {
 	return 0
 }
 
+// RemainingSec is Remaining in whole seconds, for the dashboard's dur formatter.
+func (s LabSession) RemainingSec() int { return int(s.Remaining().Seconds()) }
+
 // GetLabSession returns the device's open session, or nil when it is not in lab. An
 // expired row counts as closed even before the minute job removes it.
 func (d *DB) GetLabSession(ctx context.Context, deviceID uuid.UUID) (*LabSession, error) {
