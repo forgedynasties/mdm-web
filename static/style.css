@@ -243,7 +243,11 @@ html[data-theme="dark"] {
   --console-border:  #2c333d;
 }
 
-html, body { height: 100%; }
+/* The body grows with its content (min-height, not height): a body capped at the window's
+   height ends one screen down, and the sticky top bar — a child of body — is released
+   with it, so it scrolled away on every page longer than the window. */
+html { height: 100%; }
+body { min-height: 100%; }
 
 body {
   font-family: var(--font);

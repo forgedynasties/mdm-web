@@ -1654,7 +1654,7 @@
     var bar = document.querySelector('.appbar'), slot = document.getElementById('appbar-island');
     if (!bar || !slot) return;
     function fill() {
-      var tpl = document.getElementById('page-island'), h1 = document.querySelector('main h1');
+      var tpl = document.getElementById('page-island'), h1 = document.querySelector('main .cc-h1') || document.querySelector('main .cc-top h1, main h1');
       slot.innerHTML = '';
       bar.classList.remove('island-live');
       if (tpl && tpl.content) {
