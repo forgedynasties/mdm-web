@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -152,4 +153,38 @@ func (h *Handler) ShellSessionInput(w http.ResponseWriter, r *http.Request) {
 		h.audit(r, "shell.input", info.Serial, line)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// shellQueueItem is one shell command sent through the device's queue, for the console's
+// "Queued commands" tab.
+type shellQueueItem struct {
+	ID        uuid.UUID
+	Cmd       string
+	Status    string
+	Output    string
+	CreatedAt time.Time
+}
+
+// shellQueue lists the device's most recent queued shell commands, newest first.
+func (h *Handler) shellQueue(r *http.Request, deviceID uuid.UUID) []shellQueueItem {
+	cmds, err := h.db.GetDeviceCommands(r.Context(), deviceID, h.cfg.CheckinInterval()*3)
+	if err != nil {
+		return nil
+	}
+	var out []shellQueueItem
+	for _, c := range cmds {
+		if c.Type != "shell" {
+			continue
+		}
+		var p struct {
+			Cmd string `json:"cmd"`
+		}
+		_ = json.Unmarshal(c.Payload, &p)
+		out = append(out, shellQueueItem{ID: c.ID, Cmd: p.Cmd, Status: c.Status, Output: c.Output, CreatedAt: c.CreatedAt})
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	if len(out) > 20 {
+		out = out[:20]
+	}
+	return out
 }

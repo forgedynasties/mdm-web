@@ -8843,6 +8843,7 @@ func (h *Handler) DeviceShellPage(w http.ResponseWriter, r *http.Request) {
 		"Device": device,
 		"Online": h.hub.IsConnected(device.ID),
 		"ShellSession": supportsShellSession(device),
+		"ShellQueue":   h.shellQueue(r, device.ID),
 	})
 }
 

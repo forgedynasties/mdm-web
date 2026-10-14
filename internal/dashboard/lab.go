@@ -119,6 +119,7 @@ func (h *Handler) LabView(w http.ResponseWriter, r *http.Request) {
 		"Online":       h.hub.IsConnected(dev.ID),
 		"ShellEnabled": h.cfg.ShellEnabled(),
 		"ShellSession": supportsShellSession(dev),
+		"ShellQueue":   h.shellQueue(r, dev.ID),
 		"RoleLabel":    prod.ClassLabel(role),
 		"BasePackage":  base,
 		"Variants":     variants,

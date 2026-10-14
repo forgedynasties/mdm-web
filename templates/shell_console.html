@@ -1,199 +1,297 @@
-{{/* shell_console: the device shell card, shared by the shell page and the lab view.
-     Pass a map with .Device. One per page: it uses fixed element ids. */}}
 {{define "shell_console"}}
-<div class="card sh-card">
-  <div class="card-header cc-ch">
+{{/* Shell console (static/lab-shell-demos.html, X1, picked 14 Oct). Two tools, each named
+     for what it does:
+       Terminal         a live session: one shell on the device for as long as this page is
+                        open, typed into directly, output streamed back over the device's
+                        socket (its own channel, not the command queue).
+       Queued commands  one command at a time through the device's queue; it waits there
+                        when the device is offline, and its result is kept (and shown in
+                        the device's Activity).
+     The client's session is `sh -i` over pipes, not a terminal device: line editing is done
+     here, Ctrl+C clears the line rather than interrupting, and full-screen programs do not
+     run. End session stops a command that never finishes. */}}
+<link rel="stylesheet" href="/static/vendor/xterm.min.css">
+<div class="card sh-card" id="sh-card" data-serial="{{.Device.SerialNumber}}">
+  <div class="card-header cc-ch sh-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg></span>
-    <h2 class="sh-title mono">{{.Device.SerialNumber}}</h2>
-    <button type="button" class="btn-outline btn-sm cc-btn sm right" onclick="window.shellClear&&window.shellClear()">Clear</button>
-  </div>
-  <div class="sh-body">
-    <pre id="sh-output" class="sh-term"></pre>
-    <div class="sh-quick">
-      <button type="button" class="sh-chip" onclick="shFill('pm list packages -3')">pm list packages</button>
-      <button type="button" class="sh-chip" onclick="shFill('getprop ro.build.version.release')">getprop</button>
-      <button type="button" class="sh-chip" onclick="shFill('df -h')">df -h</button>
-      <button type="button" class="sh-chip" onclick="shFill('dumpsys battery')">dumpsys battery</button>
-      <button type="button" class="sh-chip" onclick="shFill('logcat -d -t 100')">logcat tail</button>
+    <div class="sh-tabs" role="tablist" aria-label="Shell">
+      <button type="button" role="tab" class="sh-tab{{if .ShellSession}} on{{end}}" data-sh-tab="term" aria-selected="{{if .ShellSession}}true{{else}}false{{end}}">Terminal</button>
+      <button type="button" role="tab" class="sh-tab{{if not .ShellSession}} on{{end}}" data-sh-tab="queue" aria-selected="{{if .ShellSession}}false{{else}}true{{end}}">Queued commands{{if .ShellQueue}} <span class="sh-n" id="sh-qn">{{len .ShellQueue}}</span>{{end}}</button>
     </div>
-    <form id="sh-form" class="sh-bar" hx-boost="false">
+    {{if .ShellSession}}
+    <span class="sh-ctl" id="sh-ctl">
+      <span class="sh-st" id="sh-st" data-st="off"><i></i><span id="sh-st-t">Connecting…</span></span>
+      <button type="button" class="cc-btn sm" id="sh-end">End session</button>
+      <button type="button" class="cc-btn sm primary" id="sh-open" hidden>Open a session</button>
+    </span>
+    {{end}}
+  </div>
+
+  <div class="sh-pane" data-sh-pane="term"{{if not .ShellSession}} hidden{{end}}>
+    {{if .ShellSession}}
+    <div class="sh-xterm" id="sh-xterm"></div>
+    <div class="sh-foot">
+      <span><kbd>Enter</kbd> run</span><span><kbd>↑</kbd> <kbd>↓</kbd> history</span><span><kbd>Ctrl</kbd>+<kbd>C</kbd> clear the line</span><span><kbd>Ctrl</kbd>+<kbd>L</kbd> clear the screen</span>
+      <span class="sh-foot-r">live · every line is in the audit log</span>
+    </div>
+    <div class="sh-note">A command that never finishes is stopped with <b>End session</b>: this client's shell has no terminal device, so Ctrl+C can't reach a running program, and full-screen programs like <span class="mono">top</span> or <span class="mono">vi</span> don't run here.</div>
+    {{else}}
+    <div class="sh-empty">This device's client can't hold a live session. Use <b>Queued commands</b>: each command runs on its own and its output comes back here.</div>
+    {{end}}
+  </div>
+
+  <div class="sh-pane" data-sh-pane="queue"{{if .ShellSession}} hidden{{end}}>
+    <form id="sh-qform" class="sh-bar" hx-boost="false" data-no-spinner="true">
       <span class="sh-sign mono">$</span>
-      <input id="sh-input" type="text" class="sh-input mono" autocomplete="off" autocapitalize="off"
-             spellcheck="false" placeholder="type a command and press Enter">
-      <button type="submit" class="btn-primary">Run</button>
+      <input id="sh-qin" type="text" class="sh-input mono" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="a command to send through the device's queue">
+      <button type="submit" class="cc-btn sm primary">Send</button>
     </form>
-    <div class="muted small" style="margin-top:8px;">{{if .ShellSession}}One shell for as long as this page is open — <span class="mono">cd</span> and variables carry over. Closing the page ends it. <button type="button" id="sh-again" class="cc-btn sm" hidden onclick="window.shellAgain()">Open a new session</button>{{else}}↑/↓ recall history · output streams live as the device reports it.{{end}}</div>
+    <div class="sh-quick">
+      <button type="button" class="sh-chip" data-cmd="pm list packages -3">pm list packages</button>
+      <button type="button" class="sh-chip" data-cmd="getprop ro.build.version.release">getprop</button>
+      <button type="button" class="sh-chip" data-cmd="df -h">df -h</button>
+      <button type="button" class="sh-chip" data-cmd="dumpsys battery">dumpsys battery</button>
+      <button type="button" class="sh-chip" data-cmd="logcat -d -t 100">logcat tail</button>
+    </div>
+    <div class="sh-qlist" id="sh-qlist">
+      {{range $i, $q := .ShellQueue}}
+      <details class="sh-q"{{if eq $i 0}} open{{end}}>
+        <summary><span class="sh-qd {{if eq $q.Status "completed"}}ok{{else if or (eq $q.Status "failed") (eq $q.Status "expired")}}err{{else}}wait{{end}}"></span><code>{{$q.Cmd}}</code><span class="sh-qs">{{$q.Status}}</span><span class="sh-qt reltime" data-ts="{{$q.CreatedAt.Unix}}"></span></summary>
+        <pre class="sh-qo">{{if $q.Output}}{{$q.Output}}{{else}}(no output){{end}}</pre>
+      </details>
+      {{else}}
+      <div class="sh-qnone" id="sh-qnone">Nothing sent through the queue yet.</div>
+      {{end}}
+    </div>
+    <div class="sh-qnote">Queued commands wait in the device's queue when it is offline, and each one is kept in the device's Activity.</div>
   </div>
 </div>
 
-{{if .ShellSession}}
 <script>
 (function () {
-  // Interactive session: one shell on the device for as long as this console is open.
-  var serial = '{{.Device.SerialNumber}}';
-  var out = document.getElementById('sh-output');
-  var input = document.getElementById('sh-input');
-  var form = document.getElementById('sh-form');
-  var runBtn = form.querySelector('button[type=submit]');
-  var es = null, sid = null, history = [], histIdx = -1;
+  var card = document.getElementById('sh-card'); if (!card) return;
+  var serial = card.getAttribute('data-serial');
+  var enc = encodeURIComponent(serial);
 
-  function append(text, cls) {
-    var span = document.createElement('span');
-    if (cls) span.className = cls;
-    span.textContent = text;
-    out.appendChild(span);
-    out.scrollTop = out.scrollHeight;
+  // ── Tabs ──
+  function showTab(name) {
+    card.querySelectorAll('.sh-tab').forEach(function (t) { var on = t.getAttribute('data-sh-tab') === name; t.classList.toggle('on', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    card.querySelectorAll('.sh-pane').forEach(function (p) { p.hidden = p.getAttribute('data-sh-pane') !== name; });
+    var ctl = document.getElementById('sh-ctl'); if (ctl) ctl.hidden = name !== 'term';
+    if (name === 'term' && window.__shTerm) { window.__shFit(); window.__shTerm.focus(); }
+    if (name === 'queue') { var qi = document.getElementById('sh-qin'); if (qi) qi.focus(); }
   }
-  function ready(v) { input.disabled = !v; runBtn.disabled = !v; if (v) input.focus(); }
+  card.querySelectorAll('.sh-tab').forEach(function (t) { t.addEventListener('click', function () { showTab(t.getAttribute('data-sh-tab')); }); });
+
+  // ── Queued commands ──
+  var qform = document.getElementById('sh-qform'), qin = document.getElementById('sh-qin'), qlist = document.getElementById('sh-qlist');
+  card.querySelectorAll('.sh-chip').forEach(function (c) { c.addEventListener('click', function () { qin.value = c.getAttribute('data-cmd'); qin.focus(); }); });
+  function qRow(cmd) {
+    var none = document.getElementById('sh-qnone'); if (none) none.remove();
+    qlist.querySelectorAll('details[open]').forEach(function (d) { d.open = false; });
+    var d = document.createElement('details'); d.className = 'sh-q'; d.open = true;
+    var s = document.createElement('summary');
+    var dot = document.createElement('span'); dot.className = 'sh-qd wait';
+    var code = document.createElement('code'); code.textContent = cmd;
+    var st = document.createElement('span'); st.className = 'sh-qs'; st.textContent = 'sending';
+    var t = document.createElement('span'); t.className = 'sh-qt'; t.textContent = 'just now';
+    s.appendChild(dot); s.appendChild(code); s.appendChild(st); s.appendChild(t);
+    var pre = document.createElement('pre'); pre.className = 'sh-qo sh-qo-wait'; pre.textContent = 'waiting for the device…';
+    d.appendChild(s); d.appendChild(pre);
+    qlist.insertBefore(d, qlist.firstChild);
+    var n = document.getElementById('sh-qn');
+    if (n) n.textContent = String(+n.textContent + 1);
+    return { dot: dot, st: st, pre: pre };
+  }
+  if (qform) qform.addEventListener('submit', function (e) {
+    e.preventDefault();
+    // Sent in place, not a page submit: drop the page-wide busy spinner at once.
+    var sb = qform.querySelector('button[type=submit]');
+    setTimeout(function () { sb.classList.remove('is-busy'); sb.removeAttribute('aria-busy'); }, 0);
+    var cmd = qin.value.trim(); if (!cmd) return;
+    qin.value = '';
+    var row = qRow(cmd);
+    fetch('/devices/' + enc + '/commands', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'type=shell&shell_cmd=' + encodeURIComponent(cmd)
+    })
+      .then(function (r) { if (!r.ok) throw new Error('send failed (' + r.status + ')'); return r.json(); })
+      .then(function (d) {
+        row.st.textContent = 'queued';
+        var es = window.mdmStream('/commands/' + d.id + '/output/' + enc + '/stream');
+        es.onmessage = function (ev) {
+          if (row.pre.classList.contains('sh-qo-wait')) { row.pre.classList.remove('sh-qo-wait'); row.pre.textContent = ''; }
+          row.st.textContent = 'running'; row.pre.textContent += JSON.parse(ev.data);
+        };
+        es.addEventListener('done', function (ev) {
+          var s = ''; try { s = (JSON.parse(ev.data) || {}).status || ''; } catch (_) {}
+          row.st.textContent = s || 'completed';
+          row.dot.className = 'sh-qd ' + (!s || s === 'completed' ? 'ok' : 'err');
+          if (row.pre.classList.contains('sh-qo-wait')) { row.pre.classList.remove('sh-qo-wait'); row.pre.textContent = '(no output)'; }
+          es.close();
+        });
+        es.onerror = function () { es.close(); };
+      })
+      .catch(function (err) { row.st.textContent = 'failed'; row.dot.className = 'sh-qd err'; row.pre.textContent = err.message; });
+  });
+
+  // ── Terminal (live session) ──
+  var host = document.getElementById('sh-xterm');
+  if (!host) return;
+  // xterm is loaded on first use (the page can arrive by a boosted navigation, where a
+  // <script src> would not be waited for).
+  function need(src, ready) {
+    if (ready()) return Promise.resolve();
+    return new Promise(function (res) { var sc = document.createElement('script'); sc.src = src; sc.onload = res; sc.onerror = res; document.head.appendChild(sc); });
+  }
+  need('/static/vendor/xterm.min.js', function () { return !!window.Terminal; })
+    .then(function () { return need('/static/vendor/xterm-addon-fit.min.js', function () { return !!window.FitAddon; }); })
+    .then(function () { if (window.Terminal) initTerm(); else host.textContent = 'Could not load the terminal.'; });
+  function initTerm() {
+  var css = getComputedStyle(document.documentElement);
+  var mono = (css.getPropertyValue('--mono') || '').trim() || 'ui-monospace, SFMono-Regular, Menlo, monospace';
+  var term = new window.Terminal({
+    convertEol: true, cursorBlink: true, fontFamily: mono, fontSize: 13, lineHeight: 1.25, scrollback: 5000,
+    theme: { background: '#0b0d12', foreground: '#d7dae0', cursor: '#d7dae0', selectionBackground: 'rgba(120,140,200,.35)' }
+  });
+  var fit = window.FitAddon ? new window.FitAddon.FitAddon() : null;
+  if (fit) term.loadAddon(fit);
+  term.open(host);
+  // xterm 5.3 measures glyphs in a 50000px-wide box on <body>, moved off-screen upwards
+  // only; that widened the page. Move it off to the left as well.
+  setTimeout(function () {
+    document.querySelectorAll('body > div').forEach(function (d) { if (d.style.width === '50000px') d.style.left = '-50000px'; });
+  }, 0);
+  window.__shTerm = term;
+  window.__shFit = function () { try { if (fit) fit.fit(); } catch (e) {} };
+  window.__shFit();
+  window.addEventListener('resize', window.__shFit);
+
+  var es = null, sid = null, line = '', hist = [], hi = 0, opened = 0, timer = null;
+  var stEl = document.getElementById('sh-st'), stT = document.getElementById('sh-st-t');
+  var endBtn = document.getElementById('sh-end'), openBtn = document.getElementById('sh-open');
+  function status(st, text) { stEl.setAttribute('data-st', st); stT.textContent = text; }
+  function tick() {
+    if (!sid) return;
+    var m = Math.floor((Date.now() - opened) / 60000);
+    status('on', 'Connected · ' + (m < 1 ? 'just now' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'));
+  }
+  function dim(s) { term.write('\x1b[90m' + s + '\x1b[0m'); }
   function stop(note) {
     if (es) { es.close(); es = null; }
-    if (sid && note) append('\n' + note + '\n', 'sh-error');
-    sid = null; ready(false);
-    var again = document.getElementById('sh-again'); if (again) again.hidden = false;
+    if (timer) { clearInterval(timer); timer = null; }
+    if (note) dim('\r\n' + note + '\r\n');
+    sid = null; line = '';
+    status('off', 'Not connected');
+    endBtn.hidden = true; openBtn.hidden = false;
   }
   function start() {
-    var again = document.getElementById('sh-again'); if (again) again.hidden = true;
-    append('[opening a session…]\n', 'sh-dim');
-    es = window.mdmStream('/devices/' + encodeURIComponent(serial) + '/shell/session');
+    if (es) return;
+    status('wait', 'Connecting…');
+    endBtn.hidden = false; openBtn.hidden = true;
+    es = window.mdmStream('/devices/' + enc + '/shell/session');
     es.addEventListener('session', function (e) {
-      sid = JSON.parse(e.data).id;
-      append('[session open: cd, variables and running programs carry from line to line]\n', 'sh-dim');
-      ready(true);
+      sid = JSON.parse(e.data).id; opened = Date.now();
+      tick(); timer = setInterval(tick, 30000);
+      term.focus();
     });
-    es.onmessage = function (e) { append(JSON.parse(e.data)); };
+    es.onmessage = function (e) { term.write(JSON.parse(e.data)); };
     es.addEventListener('end', function () { stop('[session ended]'); });
     // Never let the browser reconnect on its own: that would open a second shell.
     es.onerror = function () { stop(sid ? '[connection lost]' : '[could not open a session — is the device online?]'); };
   }
   function send(data) {
     if (!sid) return;
-    fetch('/devices/' + encodeURIComponent(serial) + '/shell/session/' + sid + '/input', {
+    fetch('/devices/' + enc + '/shell/session/' + sid + '/input', {
       method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: 'data=' + encodeURIComponent(data)
-    }).then(function (r) { if (!r.ok) return r.text().then(function (t) { append('[' + t.trim() + ']\n', 'sh-error'); }); })
-      .catch(function (err) { append('[send failed: ' + err.message + ']\n', 'sh-error'); });
+    }).then(function (r) { if (!r.ok) return r.text().then(function (t) { dim('\r\n[' + t.trim() + ']\r\n'); }); })
+      .catch(function (err) { dim('\r\n[send failed: ' + err.message + ']\r\n'); });
   }
-
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    var cmd = input.value;
+  function replaceLine(s) {
+    term.write('\b \b'.repeat(line.length));
+    line = s; term.write(line);
+  }
+  function submit() {
+    term.write('\r\n');
+    if (line.trim()) { hist.push(line); }
+    hi = hist.length;
+    send(line + '\n');
+    line = '';
+  }
+  // Line editing happens here (the device's shell has no terminal to do it): printable
+  // keys echo locally, Enter sends the whole line, Backspace, ↑/↓ history, Ctrl+C drops
+  // the line and asks for a fresh prompt, Ctrl+L clears the screen. A paste of several
+  // lines runs them one after another.
+  term.onData(function (d) {
     if (!sid) return;
-    if (cmd.trim()) { history.push(cmd); histIdx = history.length; }
-    append(cmd + '\n', 'sh-prompt');
-    input.value = '';
-    send(cmd + '\n');
-  });
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowUp') {
-      if (histIdx > 0) { histIdx--; input.value = history[histIdx]; e.preventDefault(); }
-    } else if (e.key === 'ArrowDown') {
-      if (histIdx < history.length - 1) { histIdx++; input.value = history[histIdx]; }
-      else { histIdx = history.length; input.value = ''; }
-      e.preventDefault();
+    if (d === '\r') { submit(); return; }
+    if (d === '\x7f' || d === '\b') { if (line.length) { line = line.slice(0, -1); term.write('\b \b'); } return; }
+    if (d === '\x03') { term.write('^C\r\n'); line = ''; hi = hist.length; send('\n'); return; }
+    if (d === '\x0c') { term.clear(); return; }
+    if (d === '\x04') { if (!line) { endSession(); } return; }
+    if (d === '\x1b[A') { if (hi > 0) { hi--; replaceLine(hist[hi]); } return; }
+    if (d === '\x1b[B') { if (hi < hist.length - 1) { hi++; replaceLine(hist[hi]); } else { hi = hist.length; replaceLine(''); } return; }
+    if (d.charAt(0) === '\x1b') return;                       // other keys: not supported
+    var parts = d.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].replace(/[\x00-\x1f]/g, '');
+      line += p; term.write(p);
+      if (i < parts.length - 1) submit();
     }
   });
-  window.shellClear = function () { out.textContent = ''; input.focus(); };
-  window.shFill = function (cmd) { input.value = cmd; input.focus(); };
-  window.shellAgain = function () { start(); };
-  ready(false);
+  function endSession() { stop('[session ended]'); }
+  endBtn.addEventListener('click', endSession);
+  openBtn.addEventListener('click', function () { term.clear(); start(); });
   start();
+  }
 })();
 </script>
-{{else}}
-<script>
-(function () {
-  var serial = '{{.Device.SerialNumber}}';
-  var out = document.getElementById('sh-output');
-  var input = document.getElementById('sh-input');
-  var form = document.getElementById('sh-form');
-  var runBtn = form.querySelector('button[type=submit]');
-  var es = null, running = false;
-  var history = [], histIdx = -1;
-
-  function append(text, cls) {
-    var span = document.createElement('span');
-    if (cls) span.className = cls;
-    span.textContent = text;
-    out.appendChild(span);
-    out.scrollTop = out.scrollHeight;
-  }
-  function setRunning(v) {
-    running = v;
-    input.disabled = v;
-    runBtn.disabled = v;
-    if (!v) input.focus();
-  }
-  function finish() {
-    if (es) { es.close(); es = null; }
-    setRunning(false);
-  }
-  function stream(id) {
-    es = window.mdmStream('/commands/' + id + '/output/' + encodeURIComponent(serial) + '/stream');
-    es.onmessage = function (e) { append(JSON.parse(e.data)); };
-    es.addEventListener('done', function (e) {
-      var st = '';
-      try { st = (JSON.parse(e.data) || {}).status || ''; } catch (_) {}
-      if (st && st !== 'completed') append('[' + st + ']\n', 'sh-error');
-      append('\n'); finish();
-    });
-    es.onerror = function () { finish(); };
-  }
-
-  form.addEventListener('submit', function (e) {
-    e.preventDefault();
-    if (running) return;
-    var cmd = input.value.trim();
-    if (!cmd) return;
-    history.push(cmd); histIdx = history.length;
-    append('$ ' + cmd + '\n', 'sh-prompt');
-    input.value = '';
-    setRunning(true);
-    fetch('/devices/' + encodeURIComponent(serial) + '/commands', {
-      method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'type=shell&shell_cmd=' + encodeURIComponent(cmd)
-    })
-      .then(function (r) { if (!r.ok) throw new Error('send failed (' + r.status + ')'); return r.json(); })
-      .then(function (d) { stream(d.id); })
-      .catch(function (err) { append('[error] ' + err.message + '\n', 'sh-error'); setRunning(false); });
-  });
-
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'ArrowUp') {
-      if (histIdx > 0) { histIdx--; input.value = history[histIdx]; e.preventDefault(); }
-    } else if (e.key === 'ArrowDown') {
-      if (histIdx < history.length - 1) { histIdx++; input.value = history[histIdx]; }
-      else { histIdx = history.length; input.value = ''; }
-      e.preventDefault();
-    }
-  });
-
-  window.shellClear = function () { out.textContent = ''; input.focus(); };
-  window.shFill = function (cmd) { input.value = cmd; input.focus(); };
-  input.focus();
-})();
-</script>
-{{end}}
-
 <style>
-  .sh-title { display: flex; align-items: center; gap: 9px; }
-  .sh-statdot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
-  .sh-statdot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(43,182,115,.18); }
-  .sh-body { padding: 16px 20px; }
-  .sh-term { height: 420px; overflow: auto; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word;
-    background: var(--console-bg); color: var(--console-text); border: 1px solid var(--console-border); border-radius: 12px; padding: 14px 16px;
-    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; }
-  .sh-term .sh-prompt { color: var(--ok); font-weight: 600; }
-  .sh-term .sh-error { color: var(--danger); }
-  .sh-term .sh-dim { color: var(--text-faint); }
-  .sh-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .sh-chip { font: inherit; font-size: 12px; font-weight: 600; font-family: var(--mono); padding: 5px 11px;
-    border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+  .sh-card [hidden] { display: none !important; }
+  .sh-head { gap: 12px; flex-wrap: wrap; }
+  .sh-tabs { display: inline-flex; gap: 3px; background: var(--surface2); border-radius: 10px; padding: 3px; }
+  .sh-tab { font: inherit; font-size: 12.5px; font-weight: 650; padding: 6px 12px; border-radius: 8px; border: 0; background: none; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .sh-tab.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+  .sh-n { font-size: 10.5px; font-weight: 800; border-radius: 99px; padding: 1px 6px; background: var(--surface2); color: var(--text-2); }
+  .sh-tab.on .sh-n { background: var(--accent-soft); color: var(--accent-text); }
+  .sh-ctl { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+  .sh-st { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 650; border-radius: 99px; padding: 3px 10px; color: var(--muted); background: var(--surface2); }
+  .sh-st i { width: 7px; height: 7px; border-radius: 99px; background: var(--muted); }
+  .sh-st[data-st="on"] { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+  .sh-st[data-st="on"] i { background: var(--ok); }
+  .sh-st[data-st="wait"] { color: var(--warn); background: var(--warn-bg); }
+  .sh-st[data-st="wait"] i { background: var(--warn); }
+  .sh-pane[data-sh-pane="term"] { background: #0b0d12; }
+  .sh-xterm { height: 420px; padding: 10px 12px 4px; }
+  .sh-xterm .xterm { height: 100%; }
+  .sh-foot { display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid #1d222b; font-size: 11px; color: #8b949e; font-family: var(--mono); }
+  .sh-foot kbd { font-family: var(--mono); background: #1d222b; border-radius: 4px; padding: 0 5px; color: #c9d1d9; }
+  .sh-foot-r { margin-left: auto; }
+  .sh-note { padding: 8px 14px 12px; font-size: 11.5px; color: #8b949e; line-height: 1.5; }
+  .sh-note b { color: #c9d1d9; }
+  .sh-empty { padding: 22px 18px; font-size: 13px; color: var(--muted); background: var(--surface); }
+  .sh-pane[data-sh-pane="queue"] { padding: 14px 18px 16px; display: grid; gap: 10px; }
+  .sh-quick { display: flex; gap: 6px; flex-wrap: wrap; }
+  .sh-chip { font: inherit; font-size: 12px; font-weight: 600; font-family: var(--mono); padding: 5px 11px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; }
   .sh-chip:hover { border-color: var(--accent); color: var(--accent); }
-  .sh-bar { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 11px; padding: 6px 6px 6px 13px; }
+  .sh-bar { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 11px; padding: 6px 6px 6px 13px; margin: 0; }
   .sh-bar:focus-within { border-color: var(--accent-2); }
   .sh-sign { color: var(--accent); font-weight: 700; }
-  .sh-bar .sh-input { flex: 1; border: 0; outline: 0; box-shadow: none; background: none; font-size: 13.5px; color: var(--text); }
-  .sh-bar .sh-input:focus { border: 0; outline: 0; box-shadow: none; }
+  .sh-bar .sh-input { flex: 1; border: 0; outline: 0; box-shadow: none; background: none; font-size: 13.5px; color: var(--text); min-width: 0; }
+  .sh-qlist { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .sh-q + .sh-q { border-top: 1px solid var(--border-soft); }
+  .sh-q > summary { list-style: none; display: grid; grid-template-columns: 10px minmax(0,1fr) auto auto; gap: 10px; align-items: center; padding: 9px 12px; cursor: pointer; font-size: 12.5px; }
+  .sh-q > summary::-webkit-details-marker { display: none; }
+  .sh-q > summary code { font-family: var(--mono); font-size: 12px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sh-qd { width: 8px; height: 8px; border-radius: 99px; background: var(--muted); }
+  .sh-qd.ok { background: var(--ok); } .sh-qd.err { background: var(--danger); } .sh-qd.wait { background: var(--warn); }
+  .sh-qs { font-size: 11px; font-weight: 700; color: var(--text-2); }
+  .sh-qt { font-size: 11px; color: var(--muted); }
+  .sh-qo { margin: 0; padding: 10px 14px 12px 32px; background: #0b0d12; color: #c9d1d9; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; }
+  .sh-qo-wait { color: #8b949e; font-style: italic; }
+  .sh-qnone { padding: 14px; font-size: 12.5px; color: var(--muted); }
+  .sh-qnote { font-size: 11.5px; color: var(--muted); }
 </style>
 {{end}}
