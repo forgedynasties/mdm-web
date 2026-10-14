@@ -16,16 +16,6 @@
 
   {{if .Flash}}<div class="pl-flash">{{if eq .Flash "channel"}}Saved. Devices move to it in their window.{{else if eq .Flash "fetching"}}Fetching the build. It appears under New builds when it is done.{{else if eq .Flash "app"}}App saved for this role.{{else if eq .Flash "firmware"}}Prod firmware saved.{{else if eq .Flash "mode"}}Firmware mode saved.{{else if eq .Flash "rollout"}}Rollout saved.{{end}}</div>{{end}}
 
-  {{if .CanEdit}}
-  <form class="pl-intake" method="post" action="/pipeline/fetch">
-    <input type="hidden" name="role" value="{{.Role}}">
-    <label for="pl-url"><b>Add build from link</b></label>
-    <input id="pl-url" type="url" name="url" required placeholder="https://… .apk link from the software team"{{if not .CanFetch}} disabled{{end}}>
-    <button class="cc-btn sm primary" type="submit"{{if not .CanFetch}} disabled title="APK storage is not configured on this server"{{end}}>Fetch</button>
-    <span class="pl-faint">The role is worked out from the package.</span>
-  </form>
-  {{range .Fetches}}<div class="pl-fetch"><span class="mono">{{index . 0}}</span> — {{index . 1}}</div>{{end}}
-  {{end}}
 
   <div class="pl-split" id="pl-split">
 <template id="page-island">
