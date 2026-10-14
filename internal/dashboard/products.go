@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 
 	"mdm/internal/product"
+
+	"github.com/google/uuid"
 )
 
 // productNames caches the admin-set product display names (product_names table),
@@ -183,6 +185,13 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 		cur.On = true
 		sel = cur.Key
 	}
+	// Production runs linked to each model, shown under its name.
+	prodRuns := map[string]int{}
+	for _, p := range productions {
+		if p.Model != "" {
+			prodRuns[p.Model]++
+		}
+	}
 	noneDevices := 0
 	for _, m := range none {
 		noneDevices += m.Devices
@@ -205,6 +214,8 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 		"ClassKeys":   product.Classes(),
 		"Choices":     appChoicesFrom(library),
 		"Productions": productions,
+		"Models":      h.modelOptions(ctx),
+		"ProdRuns":    prodRuns,
 		"Flash":       r.URL.Query().Get("flash"),
 	})
 }
@@ -302,4 +313,73 @@ func (h *Handler) ProductSetRole(w http.ResponseWriter, r *http.Request) {
 		msg = fmt.Sprintf("Set to %s · %d device%s updated", product.ClassLabel(role), n, map[bool]string{true: "", false: "s"}[n == 1])
 	}
 	h.hxDoneToast(w, r, "/products", msg, "success")
+}
+
+// modelOpt is one hardware model a production run can be linked to.
+type modelOpt struct{ Key, Label string }
+
+// modelOptions lists every model the dashboard knows: our catalog boards, every model the
+// fleet has reported, and models attached to a class ahead of their first device.
+func (h *Handler) modelOptions(ctx context.Context) []modelOpt {
+	seen := map[string]bool{}
+	var out []modelOpt
+	add := func(k string) {
+		k = product.Normalize(k)
+		if k == "" || seen[k] {
+			return
+		}
+		seen[k] = true
+		out = append(out, modelOpt{k, productLabel(k)})
+	}
+	for _, cp := range product.All() {
+		add(cp.Key)
+	}
+	if rows, err := h.db.ProductOverview(ctx); err == nil {
+		for _, p := range rows {
+			add(p.Key)
+		}
+	}
+	if rows, err := h.db.AttachedModels(ctx); err == nil {
+		for _, p := range rows {
+			add(p.Key)
+		}
+	}
+	return out
+}
+
+func (h *Handler) isModelOption(ctx context.Context, key string) bool {
+	for _, m := range h.modelOptions(ctx) {
+		if m.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
+// ProductionSetModel links a production run to the hardware model it built, or unlinks it.
+func (h *Handler) ProductionSetModel(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid production ID", http.StatusBadRequest)
+		return
+	}
+	back := r.FormValue("back")
+	if !strings.HasPrefix(back, "/") || strings.HasPrefix(back, "//") {
+		back = "/productions/" + id.String()
+	}
+	model := product.Normalize(r.FormValue("model"))
+	if model != "" && !h.isModelOption(r.Context(), model) {
+		h.hxDoneToast(w, r, back, "Unknown model", "error")
+		return
+	}
+	if err := h.db.SetProductionModel(r.Context(), id, model); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "production.model", id.String(), model)
+	msg := "Production unlinked from its model"
+	if model != "" {
+		msg = "Production linked to " + productLabel(model)
+	}
+	h.hxDoneToast(w, r, back, msg, "success")
 }

@@ -609,6 +609,7 @@ type Production struct {
 	StartSequence int       `json:"start_sequence"`
 	EndSequence   int       `json:"end_sequence"`
 	Notes         string    `json:"notes"`
+	Model         string    `json:"model"` // hardware model (product key) the run built; "" = not linked
 	CreatedAt     time.Time `json:"created_at"`
 	// Computed stats
 	Total         int `json:"total"`
@@ -4272,17 +4273,18 @@ type ProductionParams struct {
 	StartSequence int
 	EndSequence   int
 	Notes         string
+	Model         string
 }
 
 func (d *DB) CreateProduction(ctx context.Context, p ProductionParams) (*Production, error) {
 	var prod Production
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO productions (name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id, name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes, created_at
-	`, p.Name, p.ProductCode, p.ModelCode, p.Variant, p.SKU, p.Batch, p.BatchMonth, p.BatchYear, p.StartSequence, p.EndSequence, p.Notes).
+		INSERT INTO productions (name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes, model)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		RETURNING id, name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes, model, created_at
+	`, p.Name, p.ProductCode, p.ModelCode, p.Variant, p.SKU, p.Batch, p.BatchMonth, p.BatchYear, p.StartSequence, p.EndSequence, p.Notes, p.Model).
 		Scan(&prod.ID, &prod.Name, &prod.ProductCode, &prod.ModelCode, &prod.Variant, &prod.SKU,
-			&prod.Batch, &prod.BatchMonth, &prod.BatchYear, &prod.StartSequence, &prod.EndSequence, &prod.Notes, &prod.CreatedAt)
+			&prod.Batch, &prod.BatchMonth, &prod.BatchYear, &prod.StartSequence, &prod.EndSequence, &prod.Notes, &prod.Model, &prod.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -4296,7 +4298,7 @@ func (d *DB) ListProductions(ctx context.Context, connected []uuid.UUID) ([]Prod
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
-			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
+			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.model, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
 			COUNT(d.id) FILTER (WHERE d.id = ANY($1::uuid[])) AS online
@@ -4318,7 +4320,7 @@ func (d *DB) ListProductions(ctx context.Context, connected []uuid.UUID) ([]Prod
 	for rows.Next() {
 		var p Production
 		if err := rows.Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
-			&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
+			&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.Model, &p.CreatedAt,
 			&p.Total, &p.EverConnected, &p.Online); err != nil {
 			return nil, err
 		}
@@ -4332,7 +4334,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, connected []uuid.U
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
-			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
+			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.model, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
 			COUNT(d.id) FILTER (WHERE d.id = ANY($2::uuid[])) AS online
@@ -4345,12 +4347,18 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, connected []uuid.U
 		WHERE p.id = $1
 		GROUP BY p.id
 	`, id, connected).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
-		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
+		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.Model, &p.CreatedAt,
 		&p.Total, &p.EverConnected, &p.Online)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+// SetProductionModel links a production run to the hardware model it built ("" unlinks).
+func (d *DB) SetProductionModel(ctx context.Context, id uuid.UUID, model string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE productions SET model = $2 WHERE id = $1`, id, model)
+	return err
 }
 
 func (d *DB) DeleteProduction(ctx context.Context, id uuid.UUID) error {
@@ -12245,6 +12253,9 @@ CREATE TABLE IF NOT EXISTS productions (
 );
 CREATE INDEX IF NOT EXISTS idx_productions_batch ON productions(batch);
 CREATE INDEX IF NOT EXISTS idx_productions_prefix ON productions(product_code, model_code, variant, sku, batch);
+-- The hardware model a production run built (a product key, as on the Hardware page);
+-- '' = not linked.
+ALTER TABLE productions ADD COLUMN IF NOT EXISTS model TEXT NOT NULL DEFAULT '';
 
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS changelog TEXT NOT NULL DEFAULT '';
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS status    TEXT NOT NULL DEFAULT 'active';

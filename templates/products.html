@@ -66,6 +66,7 @@
 .hw-tr{padding:10px 0;border-top:1px solid var(--border-soft)}
 .hw-fw{width:auto}
 .hw-zero{color:var(--text-faint)}
+.hw-runs{font-family:var(--font, inherit);color:var(--muted);text-decoration:none}.hw-runs:hover{color:var(--accent-text)}
 .hw-tag{font-size:10.5px;font-weight:700;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:1px}
 .hw-mn-acts{display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap}
 .hw-ren summary,.hw-x{font:inherit;font-size:11.5px;color:var(--muted);cursor:pointer;background:none;border:0;padding:0;list-style:none}
@@ -225,12 +226,19 @@
   {{else}}
   <div class="scroll-x"><table class="table">
     <thead>
-      <tr><th>Name</th><th>Serial Range</th><th>Batch</th><th class="text-right">Total</th><th class="text-right">Connected</th><th class="text-right">Online</th><th class="text-right">Never</th><th>Created</th><th></th></tr>
+      <tr><th>Name</th><th>Model</th><th>Serial Range</th><th>Batch</th><th class="text-right">Total</th><th class="text-right">Connected</th><th class="text-right">Online</th><th class="text-right">Never</th><th>Created</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Productions}}
       <tr>
         <td><a href="/productions/{{.ID}}" class="link-detail">{{.Name}}</a></td>
+        <td>{{$pm := .Model}}<form method="POST" action="/productions/{{.ID}}/model" hx-boost="false" style="margin:0">
+          <input type="hidden" name="back" value="/products{{if $.Sel}}?class={{$.Sel}}{{end}}#productions">
+          <select name="model" class="pr-sel{{if not .Model}} unset{{end}}" style="width:auto;min-width:150px" onchange="this.form.submit()" aria-label="Model for {{.Name}}">
+            <option value="">Link a model…</option>
+            {{range $.Models}}<option value="{{.Key}}"{{if eq .Key $pm}} selected{{end}}>{{.Label}}</option>{{end}}
+          </select>
+        </form></td>
         <td class="mono small">{{.FirstSerial}} → {{.LastSerial}}</td>
         <td class="mono">{{.Batch}}</td>
         <td class="text-right">{{.Total}}</td>
@@ -270,7 +278,7 @@ if (!window.__hwPopHook) {
 {{define "hw-model-name"}}{{$m := .M}}
   <div class="hw-mn">
     <div class="pr-name">{{$m.Display}}{{if $m.Known}} <span class="hw-tag">built in</span>{{end}}</div>
-    <div class="pr-key">{{$m.Key}}</div>
+    <div class="pr-key">{{$m.Key}}{{with index .Root.ProdRuns $m.Key}} · <a href="#productions" class="hw-runs">{{.}} production run{{if ne . 1}}s{{end}}</a>{{end}}</div>
     {{if not $m.Known}}
     <div class="hw-mn-acts">
       <details class="hw-ren"><summary>Rename</summary>

@@ -20,6 +20,15 @@
       <span class="muted small">Auto-generated from fields below — edit to override.</span>
     </div>
 
+    <div class="form-row">
+      <label class="form-label" for="f-hwmodel">Hardware model</label>
+      <select name="model" id="f-hwmodel" class="form-input">
+        <option value="">Not linked</option>
+        {{range .Models}}<option value="{{.Key}}">{{.Label}} · {{.Key}}</option>{{end}}
+      </select>
+      <span class="muted small">The model this run builds, as on the Hardware page.</span>
+    </div>
+
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
       <div class="form-row">
         <label class="form-label" for="f-product">Product Code</label>

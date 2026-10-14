@@ -21278,7 +21278,7 @@ func (h *Handler) ProductionList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ProductionNew(w http.ResponseWriter, r *http.Request) {
-	h.render(w, r, "production_form.html", nil)
+	h.render(w, r, "production_form.html", map[string]any{"Models": h.modelOptions(r.Context())})
 }
 
 func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
@@ -21305,6 +21305,11 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 	startSeq, _ := strconv.Atoi(r.FormValue("start_sequence"))
 	quantity, _ := strconv.Atoi(r.FormValue("quantity"))
 	notes := r.FormValue("notes")
+	model := product.Normalize(r.FormValue("model"))
+	if model != "" && !h.isModelOption(r.Context(), model) {
+		http.Error(w, "Unknown model", http.StatusBadRequest)
+		return
+	}
 
 	if name == "" || productCode == "" || modelCode == "" ||
 		batchMonth < 1 || batchMonth > 12 || batchYear < 0 || batchYear > 99 ||
@@ -21346,6 +21351,7 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 		StartSequence: startSeq,
 		EndSequence:   endSeq,
 		Notes:         notes,
+		Model:         model,
 	}
 	prod, err := h.db.CreateProduction(r.Context(), params)
 	if err != nil {
@@ -21373,6 +21379,7 @@ func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, "production_detail.html", map[string]any{
 		"Production":          prod,
+		"Models":              h.modelOptions(r.Context()),
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
@@ -22126,6 +22133,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /productions/{id}", h.requireAdminOrOperator(h.fleetWide(h.ProductionDetail)))
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrOperator(h.fleetWide(h.ProductionExportCSV)))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
+	post("POST /productions/{id}/model", h.requireAdminOrOperator(h.ProductionSetModel))
 
 	// The console is gone. Every verb it owned now starts from the thing it acts on — an
 	// install from the app in the library, diagnostics and the destructive pair from a
