@@ -11,6 +11,8 @@ type modelPicture struct {
 }
 
 var modelPictures = map[string]modelPicture{
+	// TSAI: our T7 tablet in its guest stand.
+	"t7": {Img: "/static/img/models/t7.webp"},
 	// POS: the Qualcomm C8G board.
 	"trinket": {Img: "/static/img/models/trinket.webp", Tagline: "Touchscreen built for the rush.",
 		Specs: []string{"15.6″ FHD touchscreen", "4 GB RAM + 64 GB", "Qualcomm"}},
@@ -26,9 +28,18 @@ func modelPic(key string) *modelPicture {
 	return nil
 }
 
-// rolePic is a role's picture: its model's, when the role has exactly one model. With two
-// or more there is no one shot that is the role.
-func rolePic(models []hwModel) *modelPicture {
+// classPictures are pictures of a class itself, kept apart from its models' (a kiosk's
+// models are boards; the class is the stand people see). Under static/img/classes.
+var classPictures = map[string]modelPicture{
+	"kiosk": {Img: "/static/img/classes/kiosk.webp"},
+}
+
+// rolePic is a role's picture: the class's own, else its model's when the role has
+// exactly one model. With two or more models and no class picture there is none.
+func rolePic(class string, models []hwModel) *modelPicture {
+	if p, ok := classPictures[class]; ok {
+		return &p
+	}
 	if len(models) != 1 {
 		return nil
 	}
