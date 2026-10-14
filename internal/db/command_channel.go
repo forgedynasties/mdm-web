@@ -250,3 +250,16 @@ func (d *DB) ResolveProvenControlAlerts(ctx context.Context, staleAfter time.Dur
 	}
 	return tag.RowsAffected(), nil
 }
+
+// ResolveAllControlStaleAlerts closes every open control_stale alert. Used when the canary
+// is off: without the probe, "nothing completed in 48h" only says nobody sent the device a
+// command, which is not a fault, and an alert built on it is noise for the whole fleet.
+func (d *DB) ResolveAllControlStaleAlerts(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE type = 'control_stale' AND status <> 'resolved'`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
