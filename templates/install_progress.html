@@ -50,9 +50,6 @@
   .ip-done{padding:16px 6px 4px;color:var(--ok,#2bb673);font-weight:650;font-size:13px;}
 </style>
 <div class="ip-wrap">
-  <div class="ip-head">
-    <a class="ip-back" href="/devices/{{.Device.SerialNumber}}">← {{.Device.SerialNumber}}</a>
-  </div>
   <h2 style="margin:0 0 4px;">Installing {{len .Rows}} app{{if ne (len .Rows) 1}}s{{end}}</h2>
   <div class="muted small" style="margin-bottom:14px;">Live progress for the apps you just queued on this device.</div>
   {{if .Skipped}}<div class="ip-skip">Skipped (already installed or in flight): {{.Skipped}}</div>{{end}}

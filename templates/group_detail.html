@@ -13,8 +13,6 @@
 </style>
 
 <div class="fl-page">
-<a href="/groups" class="back-link">← Groups</a>
-
 {{$onCount := 0}}{{range .Devices}}{{if index $.Online .ID}}{{$onCount = add $onCount 1}}{{end}}{{end}}
 {{$offCount := sub .Group.DeviceCount $onCount}}
 <div class="cc-top" style="margin-top:10px">

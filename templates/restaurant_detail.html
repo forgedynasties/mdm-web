@@ -27,8 +27,6 @@
 </style>
 
 <div class="fl-page">
-<a href="/restaurants" class="back-link">← Restaurants</a>
-
 {{$onCount := 0}}{{range .Devices}}{{if index $.Online .ID}}{{$onCount = add $onCount 1}}{{end}}{{end}}
 {{$offCount := sub .Restaurant.DeviceCount $onCount}}
 <div class="cc-top" style="margin-top:10px">
