@@ -68,7 +68,7 @@ type RestaurantGuestWifi struct {
 
 // One query shape for every caller: the device row, its venue (if any), nothing else.
 const guestSelect = `
-	SELECT d.id, d.agent_kind, COALESCE(r.name, ''), d.table_label,
+	SELECT d.id, d.agent_kind, COALESCE(r.name, ''), ''::text AS table_label, -- table labels are retired (14 Oct): always sent empty, so tablets clear one they still show
 	       COALESCE(r.guest_wifi_ssid, ''), COALESCE(r.guest_wifi_password, ''),
 	       COALESCE(r.guest_wifi_security, 'WPA'), COALESCE(r.guest_app_package, '')
 	FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id`

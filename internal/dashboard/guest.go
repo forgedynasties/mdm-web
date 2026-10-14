@@ -64,31 +64,6 @@ func (h *Handler) pushGuestToRestaurant(ctx context.Context, restaurantID uuid.U
 	h.pushGuest(ctx, gs)
 }
 
-// DeviceSetTableLabel is POST /devices/{serial}/table: the table this tablet sits on,
-// shown to guests on its home and lock screens ("" clears it).
-func (h *Handler) DeviceSetTableLabel(w http.ResponseWriter, r *http.Request) {
-	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if !h.requireDeviceAction(w, r, "notes", device.ID) {
-		return
-	}
-	label := db.NormalizeTableLabel(r.FormValue("table_label"))
-	if r.FormValue("clear") != "" {
-		label = ""
-	}
-	if err := h.db.SetTableLabel(r.Context(), device.ID, label); err != nil {
-		http.Error(w, "Could not save", http.StatusInternalServerError)
-		return
-	}
-	h.auditDev(r, "device.table_label", device.ID, device.SerialNumber, label)
-	h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
-	h.hub.PublishDeviceUpdate(device.ID)
-	h.hxRedirect(w, r, "/devices/"+device.SerialNumber)
-}
-
 // RestaurantSetGuestWifi is POST /restaurants/{id}/guest-wifi: the venue's guest
 // Wi-Fi (and its guest ordering app, when not the default), pushed to every tablet
 // there that is online.

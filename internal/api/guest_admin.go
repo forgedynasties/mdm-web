@@ -110,29 +110,6 @@ func (h *Handler) SetRestaurantGuestWifi(w http.ResponseWriter, r *http.Request)
 		"security": wifi.Security, "app_package": wifi.AppPackage})
 }
 
-// SetDeviceTable is POST /api/v1/devices/{serial}/table {"table_label"}; "" clears it.
-func (h *Handler) SetDeviceTable(w http.ResponseWriter, r *http.Request) {
-	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
-		return
-	}
-	var body struct {
-		TableLabel string `json:"table_label"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-		return
-	}
-	if err := h.db.SetTableLabel(r.Context(), device.ID, body.TableLabel); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
-	}
-	h.PushGuest(r.Context(), device.ID)
-	writeJSON(w, http.StatusOK, map[string]string{"serial": device.SerialNumber,
-		"table_label": db.NormalizeTableLabel(body.TableLabel)})
-}
-
 func (h *Handler) restaurantFromPath(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {

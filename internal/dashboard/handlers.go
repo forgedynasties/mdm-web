@@ -6480,7 +6480,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"NuggetIDsJSON":     nuggetIDsJSON(nuggetAndroidIDs(device.LatestExtra)),
 		"NuggetIDByPackage": nuggetIDByPackage(device.LatestExtra),
 		// The table guests are told they are at (home and lock screen on a T7).
-		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),
 		"BuildChanges":        buildChanges,
 		"Activity":            activity,
 		"Commands":            commands,
@@ -22017,7 +22016,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/key-reset", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceKeyReset)))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
-	post("POST /devices/{serial}/table", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetTableLabel)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))
 	post("POST /devices/{serial}/kiosk/relock", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskRelock)))
 	post("POST /devices/{serial}/kiosk/leave-out", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskLeaveOut)))
