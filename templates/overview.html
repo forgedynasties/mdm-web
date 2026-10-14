@@ -1,5 +1,6 @@
 {{define "overview.html"}}
 {{template "header" .}}
+{{template "ov-island" .}}
 
 <style>
 /* ── Overview · Command center v3 ─────────────────────────── */
@@ -1118,3 +1119,15 @@
         {{end}}
       </div>
 {{end}}
+
+{{/* Top bar (static/island-context-demos.html, C1, picked 14 Oct): the page's name, its
+     live state, and the button it is for. Shared by the new and classic Overview. */}}
+{{define "ov-island"}}
+<template id="page-island">
+  <span class="isl-dot {{if eq .ScoreClass "ok"}}on{{else}}{{.ScoreClass}}{{end}}"></span>
+  <span class="isl-t">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span>
+  <span class="isl-s"><b>{{.Summary.RecentlyActive}}</b> of {{.Summary.Total}} online{{if .Offline}} · {{.Offline}} offline{{end}}{{if .AlertsOpenCount}} · <span class="d">{{.AlertsOpenCount}} open alert{{if ne .AlertsOpenCount 1}}s{{end}}</span>{{end}}{{if .Crashes24h}} · <span class="w">{{.Crashes24h}} crash{{if ne .Crashes24h 1}}es{{end}} today</span>{{end}}{{if .RolloutsCount}} · {{.RolloutsCount}} rollout{{if ne .RolloutsCount 1}}s{{end}} running{{end}}</span>
+  <span class="isl-acts">{{if .AlertsOpenCount}}<a class="cc-btn" href="/alerts">Alerts {{.AlertsOpenCount}}</a>{{end}}<a class="cc-btn" href="/devices">Fleet</a></span>
+</template>
+{{end}}
+

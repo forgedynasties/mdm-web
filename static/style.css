@@ -7574,6 +7574,11 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .appbar-island .isl-s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 .appbar-island .isl-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--muted); flex: none; }
 .appbar-island .isl-dot.on { background: var(--ok); }
+.appbar-island .isl-dot.warn { background: var(--warn); }
+.appbar-island .isl-dot.danger, .appbar-island .isl-dot.bad { background: var(--danger); }
+.appbar-island .isl-s b { color: var(--text); font-weight: 650; }
+.appbar-island .isl-s .w { color: var(--warn); font-weight: 650; }
+.appbar-island .isl-s .d { color: var(--danger); font-weight: 650; }
 .appbar-island .isl-cls { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--text-2); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .appbar-island .isl-tag { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 7px; border-radius: 6px; flex: none; }
 .appbar-island .isl-acts { display: flex; gap: 6px; flex: none; align-items: center; }
