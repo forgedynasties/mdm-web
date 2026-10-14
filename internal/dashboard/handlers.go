@@ -22003,6 +22003,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.deviceRoute("query", h.DeviceAIAnalysis)))
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.deviceRoute("view", h.DeviceAIAnalysesList)))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireReleaseAdmin(h.deviceRoute("shell", h.DeviceShellPage)))
+	// Releases (pipeline.go): what every role runs, and the per-model firmware.
+	mux.HandleFunc("GET /pipeline", h.requireAuth(h.Pipeline))
+	post("POST /pipeline/role-app", h.requireLab(h.PipelineRoleApp))
+	post("POST /pipeline/channel", h.requireLab(h.PipelineChannel))
+	post("POST /pipeline/firmware", h.requireLab(h.PipelineFirmware))
+	post("POST /pipeline/firmware-mode", h.requireLab(h.PipelineFirmwareMode))
+	post("POST /pipeline/rollout", h.requireLab(h.PipelineRollout))
+	post("POST /pipeline/fetch", h.requireLab(h.PipelineFetch))
 	// Lab sessions (lab.go): the timed lab view and its actions.
 	mux.HandleFunc("GET /devices/{serial}/lab", h.requireLab(h.deviceRoute("shell", h.LabView)))
 	post("POST /devices/{serial}/lab/open", h.requireLab(h.deviceRoute("shell", h.LabOpen)))

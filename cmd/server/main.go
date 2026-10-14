@@ -825,6 +825,7 @@ func main() {
 				// act only where a lab session or a prod build exists.
 				runJob(bgCtx, "lab-expiry", time.Minute, dash.RunLabExpiry)
 				runJob(bgCtx, "role-apps", time.Minute, dash.RunRoleApps)
+				runJob(bgCtx, "role-firmware", time.Minute, dash.RunRoleFirmware)
 				runJob(bgCtx, "lock-rules", time.Minute, dash.RunLockRules)
 			}
 		}

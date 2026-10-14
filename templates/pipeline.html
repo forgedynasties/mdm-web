@@ -1,0 +1,250 @@
+{{define "pipeline.html"}}
+{{template "header" .}}
+
+<div class="cc-wrap pl-wrap">
+  <div class="cc-top">
+    <div>
+      <h1 class="cc-h1">Releases</h1>
+      <div class="cc-sub">What every role runs. A device at a venue follows its role's prod build by itself, inside its quiet window; lab devices follow the package their lab session chose.</div>
+    </div>
+    <div class="cc-actions">
+      <a class="cc-btn sm" href="/products">Role table</a>
+      <a class="cc-btn sm" href="/apps">Library</a>
+      <a class="cc-btn sm" href="/packages">Packages</a>
+    </div>
+  </div>
+
+  {{if .Flash}}<div class="pl-flash">{{if eq .Flash "channel"}}Saved. Devices move to it in their window.{{else if eq .Flash "fetching"}}Fetching the build. It appears under New builds when it is done.{{else if eq .Flash "app"}}App saved for this role.{{else if eq .Flash "firmware"}}Prod firmware saved.{{else if eq .Flash "mode"}}Firmware mode saved.{{else if eq .Flash "rollout"}}Rollout saved.{{end}}</div>{{end}}
+
+  {{if .CanEdit}}
+  <form class="pl-intake" method="post" action="/pipeline/fetch">
+    <input type="hidden" name="role" value="{{.Role}}">
+    <label for="pl-url"><b>Add build from link</b></label>
+    <input id="pl-url" type="url" name="url" required placeholder="https://… .apk link from the software team"{{if not .CanFetch}} disabled{{end}}>
+    <button class="cc-btn sm primary" type="submit"{{if not .CanFetch}} disabled title="APK storage is not configured on this server"{{end}}>Fetch</button>
+    <span class="pl-faint">The role is worked out from the package.</span>
+  </form>
+  {{range .Fetches}}<div class="pl-fetch"><span class="mono">{{index . 0}}</span> — {{index . 1}}</div>{{end}}
+  {{end}}
+
+  <div class="pl-split">
+    <nav class="pl-side" aria-label="Roles">
+      {{range .Roles}}
+      <a href="/pipeline?role={{.Key}}" class="pl-role{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
+        <span><b>{{.Label}}</b><small class="tone-{{.Tone}}">{{.Status}}</small></span>
+        <i class="dot tone-{{.Tone}}"></i>
+      </a>
+      {{end}}
+    </nav>
+
+    <div class="pl-main">
+      <div class="pl-lanehead">
+        <h2>App{{if .BaseName}} · {{.BaseName}}{{end}}</h2>
+        {{if .BasePackage}}<span class="pl-faint">one column per package · prod is <span class="mono">{{.BasePackage}}</span></span>{{end}}
+        {{if .CanEdit}}
+        <form class="pl-inline pl-right" method="post" action="/pipeline/role-app">
+          <input type="hidden" name="role" value="{{.Role}}">
+          <select name="base_package" aria-label="App for {{.RoleLabel}}">
+            <option value="">— no app —</option>
+            {{range .Choices}}<option value="{{.Package}}"{{if eq .Package $.BasePackage}} selected{{end}}>{{.Name}} ({{.Package}})</option>{{end}}
+          </select>
+          <button class="cc-btn sm" type="submit">Set app</button>
+        </form>
+        {{end}}
+      </div>
+
+      {{if not .BasePackage}}
+        <div class="pl-empty">No app is set for {{.RoleLabel}}. Pick the role's app above; until then its devices are left alone.</div>
+      {{else}}
+      <div class="pl-lane" style="--cols: {{len .Columns}}">
+        <div class="pl-col">
+          <div class="pl-ct">New builds<span>{{if .Inbox}}{{len .Inbox}}{{end}}</span></div>
+          {{range .Inbox}}
+          <div class="pl-bk">
+            <span class="v">{{.App.VersionName}}</span>
+            <div class="m"><span class="mono">{{.App.PackageName}}</span><br>added {{timeSince .App.CreatedAt}}</div>
+            {{if $.CanEdit}}
+            <form method="post" action="/pipeline/channel" {{if .IsProd}}onsubmit="return confirm('Promote {{.App.VersionName}} to prod?\n\nEvery deployed {{$.RoleLabel}} device moves to it in its quiet window. There is no app rollback: to undo, promote a newer fixed build.')"{{end}}>
+              <input type="hidden" name="role" value="{{$.Role}}"><input type="hidden" name="app_id" value="{{.App.ID}}">
+              <button class="cc-btn xs{{if .IsProd}} primary{{end}}" type="submit">{{if .IsProd}}Promote to prod{{else}}Release to {{.Label}}{{end}}</button>
+            </form>
+            {{end}}
+          </div>
+          {{else}}<div class="pl-none">Nothing new</div>{{end}}
+        </div>
+        {{range .Columns}}
+        <div class="pl-col{{if .IsProd}} prod{{end}}">
+          <div class="pl-ct">{{.Label}}<span>{{if and (not .IsProd) .LabDevices}}{{.LabDevices}} lab{{end}}</span></div>
+          <div class="pl-pkg mono">{{.Package}}</div>
+          {{if .Current}}
+          <div class="pl-bk">
+            <span class="v">{{.Current.VersionName}}</span>{{if not .SetAt.IsZero}} <span class="pl-faint">since {{shortDate .SetAt}}</span>{{end}}
+            {{if .IsProd}}
+              {{if .Total}}<div class="pl-bar"><i style="width:{{pct .On .Total}}%;background:var(--ok)"></i><i style="width:{{pct .Waiting .Total}}%;background:var(--accent-2)"></i><i style="width:{{pct .Missing .Total}}%;background:var(--warn)"></i><i style="width:{{pct .Ahead .Total}}%;background:var(--muted)"></i></div>{{end}}
+              <div class="m">{{.On}} of {{.Total}} deployed on it{{if .Waiting}} · {{.Waiting}} waiting for their window{{end}}{{if .Missing}} · {{.Missing}} without the app{{end}}{{if .Ahead}} · {{.Ahead}} on a newer build{{end}}</div>
+            {{else}}
+              <div class="m">{{if .LabDevices}}{{.LabDevices}} lab device{{if ne .LabDevices 1}}s{{end}} on it{{else}}no lab device on it{{end}}</div>
+            {{end}}
+            {{if .SetBy}}<div class="m">set by {{.SetBy}}</div>{{end}}
+          </div>
+          {{else}}
+          <div class="pl-none">{{if .IsProd}}No prod build yet. Deployed devices are left alone until one is set.{{else}}No build yet{{end}}</div>
+          {{end}}
+          {{range .Earlier}}<div class="pl-bk old"><span class="v">{{.Version}}</span> <span class="pl-faint">earlier · {{shortDate .SetAt}}</span></div>{{end}}
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+
+      <div class="pl-lanehead" style="margin-top:22px">
+        <h2>Firmware</h2><span class="pl-faint">per hardware model</span>
+      </div>
+      {{if not .Models}}<div class="pl-empty">No hardware model serves {{.RoleLabel}} yet.</div>{{end}}
+      {{if .Models}}
+      <div class="pl-chips" role="tablist">
+        {{range $i, $m := .Models}}<button type="button" role="tab" class="pl-chip{{if eq $i 0}} on{{end}}{{if eq $m.Mode "off"}} off{{end}}" data-model="{{$m.Key}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}">{{$m.Label}}{{if eq $m.Mode "lab"}} · lab{{else if eq $m.Mode "off"}} · off{{end}}</button>{{end}}
+      </div>
+      {{range $i, $m := .Models}}
+      <div class="pl-model" data-model="{{$m.Key}}"{{if ne $i 0}} hidden{{end}}>
+        <div class="pl-lanehead">
+          <span class="pl-faint">{{$m.Label}}{{if $m.Maker}} · made by {{$m.Maker}}{{end}} · {{$m.Firmware}} on the Firmware client{{if $m.Std}} · {{$m.Std}} on the Standard client{{end}}</span>
+          {{if $.CanEdit}}
+          <form class="pl-inline pl-right" method="post" action="/pipeline/firmware-mode">
+            <input type="hidden" name="role" value="{{$.Role}}"><input type="hidden" name="model" value="{{$m.Key}}">
+            <select name="mode" aria-label="Firmware mode for {{$m.Label}}">
+              <option value="prod"{{if eq $m.Mode "prod"}} selected{{end}}>Firmware: prod</option>
+              <option value="lab"{{if eq $m.Mode "lab"}} selected{{end}}>Firmware: lab only</option>
+              <option value="off"{{if eq $m.Mode "off"}} selected{{end}}>Firmware: off</option>
+            </select>
+            <button class="cc-btn sm" type="submit">Save</button>
+          </form>
+          {{else}}<span class="cc-tag pl-right">{{$m.Mode}}</span>{{end}}
+        </div>
+        {{if eq $m.Mode "off"}}
+          <div class="pl-empty">Firmware is off for this model. It runs its maker's firmware and follows the app lane only.</div>
+        {{else}}
+        <div class="pl-lane fw">
+          <div class="pl-col">
+            <div class="pl-ct">{{if eq $m.Mode "prod"}}Newer than prod{{else}}Published builds{{end}}<span>{{if eq $m.Mode "prod"}}{{len $m.Newer}}{{else}}{{len $m.Releases}}{{end}}</span></div>
+            {{if eq $m.Mode "prod"}}{{if $m.Channel}}{{range $m.Newer}}
+              <div class="pl-bk"><span class="v">{{.Version}}</span>{{if .IsDev}} <span class="cc-tag">dev</span>{{end}}
+                {{if $.CanEdit}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?\n\nDeployed devices on the same line move to it in their quiet window, and reboot.')"><input type="hidden" name="role" value="{{$.Role}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs primary" type="submit">Promote to prod</button></form>{{end}}</div>
+            {{else}}<div class="pl-none">Nothing newer on this line</div>{{end}}{{else}}
+              {{range $m.Releases}}<div class="pl-bk"><span class="v">{{.Version}}</span>
+                {{if $.CanEdit}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?')"><input type="hidden" name="role" value="{{$.Role}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs" type="submit">Set as prod</button></form>{{end}}</div>
+              {{else}}<div class="pl-none">No published release</div>{{end}}
+            {{end}}{{else}}
+              {{range $m.Releases}}<div class="pl-bk"><span class="v">{{.Version}}</span><div class="m"><a href="/releases/{{.ID}}">open</a></div></div>{{else}}<div class="pl-none">No published release yet</div>{{end}}
+            {{end}}
+          </div>
+          <div class="pl-col">
+            <div class="pl-ct">Lab</div>
+            <div class="pl-none">Lab devices take any published build from the release page, off-venue only. <a href="/releases">Releases list</a></div>
+          </div>
+          <div class="pl-col prod">
+            <div class="pl-ct">Prod</div>
+            {{if eq $m.Mode "lab"}}
+              <div class="pl-none">Lab only for now. No prod firmware and no gating: deployed devices keep the firmware they have.</div>
+            {{else if $m.Channel}}
+              <div class="pl-bk"><span class="v">{{$m.Channel.Version}}</span> <span class="pl-faint">since {{shortDate $m.Channel.SetAt}}</span>
+                {{if $m.Total}}<div class="pl-bar"><i style="width:{{pct $m.On $m.Total}}%;background:var(--ok)"></i><i style="width:{{pct $m.Behind $m.Total}}%;background:var(--accent-2)"></i><i style="width:{{pct $m.OtherLine $m.Total}}%;background:var(--warn)"></i></div>{{end}}
+                <div class="m">{{$m.On}} of {{$m.Total}} deployed on it{{if $m.Behind}} · {{$m.Behind}} waiting{{end}}</div>
+                {{if $m.Channel.DeploymentID}}<div class="m"><a href="/rollouts">rollout progress</a></div>{{end}}
+              </div>
+              {{if $m.OtherLine}}<div class="pl-note">{{$m.OtherLine}} deployed device{{if ne $m.OtherLine 1}}s are{{else}} is{{end}} on another firmware line. Prod only moves devices already on the v{{$m.Line}} line; migrate the rest with rollouts you watch, after which they follow prod by themselves.</div>{{end}}
+            {{else}}
+              <div class="pl-none">No prod firmware yet. Deployed devices are left alone until one is set{{if $m.Releases}}: pick one under Published builds{{end}}.</div>
+            {{end}}
+          </div>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+      {{end}}
+
+      <details class="pl-rollouts">
+        <summary>When devices move</summary>
+        <p class="pl-faint">Deployed devices move to a new prod build only while present and inside this window, in their own timezone. Lab moves happen straight away.</p>
+        {{range $k, $p := dict "apps" .AppRollout "firmware" .FwRollout}}
+        <form class="pl-inline" method="post" action="/pipeline/rollout">
+          <input type="hidden" name="kind" value="{{$k}}"><input type="hidden" name="role" value="{{$.Role}}">
+          <b style="min-width:70px">{{if eq $k "apps"}}Apps{{else}}Firmware{{end}}</b>
+          <label>from <input type="time" name="window_start" value="{{$p.WindowStart}}"></label>
+          <label>to <input type="time" name="window_end" value="{{$p.WindowEnd}}"></label>
+          <label><input type="checkbox" name="paused" value="1"{{if $p.Paused}} checked{{end}}> paused</label>
+          {{if $.CanEdit}}<button class="cc-btn sm" type="submit">Save</button>{{end}}
+        </form>
+        {{end}}
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.pl-chip').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.pl-chip').forEach(function (x) { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+    document.querySelectorAll('.pl-model').forEach(function (m) { m.hidden = m.dataset.model !== b.dataset.model; });
+  });
+});
+</script>
+
+<style>
+  .pl-wrap { max-width: 1280px; }
+  .pl-flash { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--ok-bg); color: var(--ok); font-size: 13px; font-weight: 600; }
+  .pl-intake { display: flex; gap: 8px; align-items: center; border: 1px dashed var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pl-intake input[type=url] { flex: 1; min-width: 220px; font: inherit; font-size: 12.5px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .pl-fetch { font-size: 12px; color: var(--text-2); margin: 0 0 6px 4px; overflow-wrap: anywhere; }
+  .pl-faint { font-size: 11.5px; color: var(--text-faint); }
+  .pl-split { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
+  .pl-side { display: grid; gap: 4px; position: sticky; top: 12px; }
+  .pl-role { display: flex; gap: 9px; align-items: center; padding: 8px 10px; border-radius: 10px; color: var(--text-2); text-decoration: none; font-size: 12.5px; }
+  .pl-role:hover { background: var(--surface-3, var(--surface2)); }
+  .pl-role.on { background: var(--accent-soft); color: var(--text); }
+  .pl-role span { flex: 1; min-width: 0; }
+  .pl-role b { display: block; font-weight: 650; color: var(--text); }
+  .pl-role small { display: block; font-size: 11px; }
+  .pl-role .dot { width: 8px; height: 8px; border-radius: 99px; flex: none; }
+  .tone-ok { color: var(--ok); } .tone-warn { color: var(--warn); } .tone-bad { color: var(--danger); } .tone-muted { color: var(--text-faint); }
+  .dot.tone-ok { background: var(--ok); } .dot.tone-warn { background: var(--warn); } .dot.tone-bad { background: var(--danger); } .dot.tone-muted { background: var(--muted); }
+  .pl-main { min-width: 0; }
+  .pl-lanehead { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; flex-wrap: wrap; }
+  .pl-lanehead h2 { font-size: 14px; margin: 0; }
+  .pl-right { margin-left: auto; }
+  .pl-inline { display: inline-flex; gap: 6px; align-items: center; margin: 0; flex-wrap: wrap; font-size: 12.5px; }
+  .pl-inline select, .pl-inline input[type=time] { font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 100%; }
+  .pl-lane { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)) minmax(0, 1.25fr); gap: 10px; }
+  .pl-lane.fw { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); }
+  .pl-col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-height: 110px; min-width: 0; }
+  .pl-col.prod { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+  .pl-ct { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 6px; display: flex; gap: 6px; }
+  .pl-col.prod .pl-ct { color: var(--ok); }
+  .pl-ct span { margin-left: auto; letter-spacing: 0; text-transform: none; font-weight: 700; }
+  .pl-pkg { font-size: 11px; color: var(--text-faint); margin: -2px 0 8px; overflow-wrap: anywhere; }
+  .pl-bk { background: var(--bg); border: 1px solid var(--border-soft); border-radius: 10px; padding: 9px 10px; margin-bottom: 8px; font-size: 12px; color: var(--text-2); }
+  .pl-bk .v { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .pl-bk .m { font-size: 11px; color: var(--text-faint); margin-top: 3px; line-height: 1.45; overflow-wrap: anywhere; }
+  .pl-bk form { margin: 8px 0 0; }
+  .pl-bk.old { opacity: .6; padding: 6px 10px; }
+  .pl-bar { height: 5px; border-radius: 9px; background: var(--surface2); margin: 6px 0 3px; overflow: hidden; display: flex; }
+  .pl-bar i { display: block; height: 100%; }
+  .pl-none { font-size: 11.5px; color: var(--text-faint); padding: 6px 2px; line-height: 1.5; }
+  .pl-note { font-size: 11.5px; color: var(--warn); margin-top: 8px; line-height: 1.5; }
+  .pl-empty { font-size: 12.5px; color: var(--text-faint); padding: 12px 14px; border: 1px dashed var(--border); border-radius: 12px; }
+  .pl-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
+  .pl-chip { font: inherit; font-size: 11.5px; font-weight: 650; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; }
+  .pl-chip.on { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+  .pl-chip.off { color: var(--text-faint); }
+  .pl-rollouts { margin-top: 22px; font-size: 12.5px; }
+  .pl-rollouts summary { cursor: pointer; font-weight: 650; }
+  .pl-rollouts form { display: flex; margin: 8px 0; }
+  .cc-btn.xs { font-size: 11px; padding: 4px 9px; box-shadow: none; }
+  @media (max-width: 1024px) { .pl-lane, .pl-lane.fw { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 720px) {
+    .pl-split { grid-template-columns: 1fr; }
+    .pl-side { position: static; grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
+    .pl-lane, .pl-lane.fw { grid-template-columns: 1fr; }
+  }
+</style>
+{{template "footer" .}}
+{{end}}

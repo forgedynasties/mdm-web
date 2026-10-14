@@ -74,3 +74,23 @@ func TestDefaultFirmwareMode(t *testing.T) {
 		t.Errorf("empty product is the default product (t7), got %q", got)
 	}
 }
+
+func TestFirmwareBehind(t *testing.T) {
+	for _, c := range []struct {
+		build, prod string
+		want        bool
+	}{
+		{"v2.1.029", "v2.1.030", true},
+		{"v2.1.030", "v2.1.030", false},
+		{"v2.1.031", "v2.1.030", false},
+		{"v2.0.997", "v2.1.030", false}, // other line: a migration, not this job
+		{"v2.0.4l", "v2.1.030", false},
+		{"v2.1.025-aio-glance-23", "v2.1.030", true},
+		{"", "v2.1.030", false},
+		{"A15-v1.62-user", "v2.1.030", false},
+	} {
+		if got := firmwareBehind(c.build, c.prod); got != c.want {
+			t.Errorf("firmwareBehind(%q, %q) = %v, want %v", c.build, c.prod, got, c.want)
+		}
+	}
+}
