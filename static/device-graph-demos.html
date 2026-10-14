@@ -42,6 +42,32 @@ svg.strip{margin-top:4px;border-radius:3px}
 .tip{position:absolute;top:18px;z-index:2;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px;box-shadow:0 10px 30px rgba(0,0,0,.25);display:grid;gap:2px;min-width:140px}.tip small{color:var(--muted)}.tip i{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:6px}
 @media (max-width:720px){body{padding:20px 16px 100px}.pros{grid-template-columns:1fr}.sr{grid-template-columns:1fr;gap:4px}.mkl{padding-left:18px}.tiles2{grid-template-columns:1fr 1fr}.vc-split{grid-template-columns:1fr;padding-right:18px}.side{display:none}}
 </style>
+<style>
+.tb{border:1px solid var(--border);border-radius:16px;background:var(--surface);margin-top:12px;overflow:visible;position:relative}
+.tb-row{display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap}
+.tb-row .sp{flex:1}
+.tb-row .lbl{font-size:12.5px;font-weight:650;color:var(--text);padding:0 6px;white-space:nowrap}
+.tb-row .lbl small{color:var(--muted);font-weight:500}
+.ib.w{width:auto;padding:0 10px;font-size:12px;font-weight:650;gap:6px;display:inline-flex;align-items:center;color:var(--text-2)}
+.ib.on{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+.menu{position:absolute;z-index:3;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.3);padding:6px;display:grid;gap:2px;min-width:200px;font-size:12.5px}
+.menu .mi{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;color:var(--text)}
+.menu .mi:hover{background:var(--surface2)}
+.menu .mi .k{margin-left:auto;color:var(--muted);font-size:11px}
+.menu .sep{height:1px;background:var(--border-soft);margin:4px 2px}
+.menu .hd{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 10px 2px}
+.ghost{height:120px;margin:0 16px 14px;border-radius:10px;border:1px dashed var(--border);background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent);position:relative}
+.ghost .ft{position:absolute;top:8px;right:8px;display:flex;gap:4px;padding:4px;border-radius:10px;background:var(--bg);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.2)}
+.ghost .ft .ib{width:26px;height:26px;border:0}
+.nav{margin:0 16px 14px;height:34px;border-radius:8px;background:var(--surface2);position:relative;overflow:hidden}
+.nav svg{position:absolute;inset:0;width:100%;height:100%}
+.nav .win{position:absolute;top:0;bottom:0;left:72%;width:18%;background:color-mix(in srgb,var(--accent) 18%,transparent);border:1.5px solid var(--accent);border-radius:6px}
+.nav .win::before,.nav .win::after{content:"";position:absolute;top:9px;bottom:9px;width:4px;border-radius:2px;background:var(--accent)}
+.nav .win::before{left:-3px}.nav .win::after{right:-3px}
+.chipt{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:5px 10px;border-radius:99px;border:1px solid var(--border);color:var(--text-2)}
+.chipt i{width:2px;height:11px;display:inline-block}
+.chipt.off{opacity:.45;text-decoration:line-through}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -88,8 +114,31 @@ svg.strip{margin-top:4px;border-radius:3px}
 </div>
 <div class="pros"><div><b>Good:</b> the smallest change; the graph gets about 120px more height for the same card.</div><div class="bad"><b>Bad:</b> still one metric at a time; the "All" view still has the three-units-on-one-axis problem.</div></div>
 
+<h2 class="opt" style="margin-top:60px;font-size:19px">The toolbar on its own</h2>
+<p class="q">Whichever chart layout wins, the control row above it can be any of these. Today it is eight groups and twenty controls in one line: <b>You / UTC · 1h 6h 12h 24h 48h Custom · ‹ › · Commands Builds · − + ⤓ ↺ ⤢</b>.</p>
+<h2 class="opt">Now <span class="now">on stage</span></h2>
+<p class="q">Every control shown, each group in its own box.</p>
+<div class="tb"><div class="tb-row"><span class="seg"><b>You</b><span>UTC</span></span><span class="seg"><span>1h</span><b>6h</b><span>12h</span><span>24h</span><span>48h</span><span>Custom</span></span><span class="seg"><span>‹</span><span>›</span></span><span class="seg"><span>Commands</span><b>Builds</b></span><span class="sp"></span><span class="ib">−</span><span class="ib">+</span><span class="ib">⤓</span><span class="ib">↺</span><span class="ib">⤢</span></div></div>
+<div class="pros"><div><b>Good:</b> one click to anything.</div><div class="bad"><b>Bad:</b> reads as a control panel; the range, the thing people change most, is one box among eight; wraps to two lines below about 1200px.</div></div>
+<h2 class="opt">T1 · Range first, rare tools in ⋯ <span class="pick">my pick</span></h2>
+<p class="q">The range chips and ‹ › sit together with the window they show written out ("Today 09:00 – 15:00"). Markers become one "Markers" menu with a tick per kind. Time zone, zoom, reset, PNG and full screen go into ⋯ (shown open).</p>
+<div class="tb" style="margin-bottom:320px"><div class="tb-row"><span class="seg"><span>1h</span><b>6h</b><span>24h</span><span>48h</span><span>7d</span><span>Custom</span></span><span class="ib">‹</span><span class="lbl">Today 09:00 – 15:00 <small>your time</small></span><span class="ib">›</span><span class="sp"></span><span class="ib w">Markers · 2 ▾</span><span class="ib on">⋯</span></div><div class="menu" style="right:16px;top:56px"><div class="hd">Time zone</div><div class="mi">● Your time <span class="k">Asia/Karachi</span></div><div class="mi">○ UTC</div><div class="sep"></div><div class="mi">Zoom in <span class="k">Ctrl + scroll</span></div><div class="mi">Zoom out</div><div class="mi">Reset view <span class="k">dbl-click</span></div><div class="sep"></div><div class="mi">Download PNG</div><div class="mi">Full screen</div></div></div>
+<div class="pros"><div><b>Good:</b> one line at any width down to a tablet; the window you are looking at is spelled out, so "‹" is no longer a guess; the time zone is still one click, and named.</div><div class="bad"><b>Bad:</b> zoom and PNG take two clicks (drag-to-zoom and double-click reset still work on the chart itself).</div></div>
+<h2 class="opt">T2 · Range as one dropdown </h2>
+<p class="q">Everything about time is one button: "Last 6 hours ▾" opens presets, custom dates and the time zone. Next to it ‹ ›, then marker toggles as small chips and a full-screen button.</p>
+<div class="tb" style="margin-bottom:310px"><div class="tb-row"><span class="ib w on">◷ Last 6 hours ▾</span><span class="ib">‹</span><span class="ib">›</span><span class="sp"></span><span class="chipt"><i style="background:var(--accent)"></i>Commands</span><span class="chipt off"><i style="background:var(--ok)"></i>Builds</span><span class="ib">⤢</span><span class="ib">⋯</span></div><div class="menu" style="left:16px;top:56px"><div class="hd">Range</div><div class="mi">Last hour</div><div class="mi" style="background:var(--surface2)">Last 6 hours</div><div class="mi">Last 24 hours</div><div class="mi">Last 48 hours</div><div class="mi">Last 7 days</div><div class="mi">Custom dates…</div><div class="sep"></div><div class="mi">Show in UTC <span class="k">off</span></div></div></div>
+<div class="pros"><div><b>Good:</b> the quietest row; familiar from Grafana and Datadog; marker toggles show their colour, so they double as the legend.</div><div class="bad"><b>Bad:</b> changing range is two clicks instead of one, and the presets are not visible until you open it.</div></div>
+<h2 class="opt">T3 · Tools float on the chart </h2>
+<p class="q">The row above keeps only time: range chips, ‹ ›, the written-out window and the time-zone switch. The chart tools (− + ⤓ ↺ ⤢) appear as a small floating bar in the chart's corner when you hover it, and markers are toggled from the legend under the chart.</p>
+<div class="tb"><div class="tb-row"><span class="seg"><span>1h</span><b>6h</b><span>24h</span><span>48h</span><span>7d</span><span>Custom</span></span><span class="ib">‹</span><span class="lbl">Today 09:00 – 15:00</span><span class="ib">›</span><span class="sp"></span><span class="seg"><b>You</b><span>UTC</span></span></div><div class="ghost"><span class="ft"><span class="ib">−</span><span class="ib">+</span><span class="ib">⤓</span><span class="ib">↺</span><span class="ib">⤢</span></span></div><div class="tb-row" style="padding-top:0"><span class="chipt"><i style="background:var(--accent)"></i>Commands</span><span class="chipt off"><i style="background:var(--ok)"></i>Builds</span><span style="font-size:11.5px;color:var(--muted)">click to show or hide</span></div></div>
+<div class="pros"><div><b>Good:</b> tools sit where they act; nothing hidden behind a menu; the top row is only about time.</div><div class="bad"><b>Bad:</b> the floating bar is invisible until you hover, so on a touch screen the tools need a tap on the chart first.</div></div>
+<h2 class="opt">T4 · A navigator strip instead of ‹ › and zoom </h2>
+<p class="q">Under the chart, a thin overview of the whole 48 hours with a draggable window. Drag it to move, pull its edges to zoom; that replaces ‹ ›, − and +. The row above is range chips plus ⋯.</p>
+<div class="tb"><div class="tb-row"><span class="seg"><span>1h</span><b>6h</b><span>24h</span><span>48h</span><span>7d</span><span>Custom</span></span><span class="lbl">Today 09:00 – 15:00</span><span class="sp"></span><span class="ib w">Markers · 2 ▾</span><span class="ib">⋯</span></div><div class="ghost" style="height:90px"></div><div class="nav"><svg viewBox="0 0 1000 34" preserveAspectRatio="none"><path d="M0,22 C80,18 120,26 200,20 S320,8 400,14 S560,28 640,22 S800,6 1000,12" fill="none" stroke="var(--text-faint)" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg><span class="win"></span></div></div>
+<div class="pros"><div><b>Good:</b> moving through time becomes one drag instead of many clicks; you always see where the window sits in the day.</div><div class="bad"><b>Bad:</b> one more strip of height; a new control people have to discover.</div></div>
+<p class="q"><b>Toolbar pick: T1.</b> It keeps the most-used control (range) one click away and in front, says which window you are looking at, and takes the row from twenty controls to nine. It works with any of G1–G3.</p>
 <h2 class="opt">My recommendation</h2>
-<p class="q"><b>G1.</b> The question people bring to this graph is "what happened to this device and when", and the answer is almost always a relationship (hot because charging and busy, RAM climbing until a reboot). A shared timeline answers it at a glance, and folding the rarely used controls into ⋯ is what makes room for it.</p>
+<p class="q"><b>G1 with toolbar T1.</b> The question people bring to this graph is "what happened to this device and when", and the answer is almost always a relationship (hot because charging and busy, RAM climbing until a reboot). A shared timeline answers it at a glance, and folding the rarely used controls into ⋯ is what makes room for it.</p>
 </div>
 </body>
 </html>
