@@ -967,6 +967,9 @@ if (!window.__ddNotesHook) {
       </div>
       <button type="button" class="vt-chip" id="toggle-markers-btn" aria-pressed="false" title="Show when commands were sent to this device"><i class="vt-c"></i>Commands</button>
       <button type="button" class="vt-chip" id="toggle-builds-btn" aria-pressed="false" title="Show when the device switched to a different build"><i class="vt-b"></i>Builds</button>
+      <button type="button" id="vt-split-btn" class="vt-ib vt-split-btn" title="Show the graph beside the tabs" aria-label="Show the graph beside the tabs" aria-pressed="false" onclick="ddSplitToggle()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
+      </button>
       <button type="button" id="chart-fs-btn" class="vt-ib" title="View graphs full screen" aria-label="View graphs full screen">⤢</button>
       <div class="vt-range-wrap">
         <button type="button" class="vt-ib" aria-label="More" aria-haspopup="menu" aria-expanded="false" onclick="vtMenu(event,'vt-more-menu')" data-vt-trig>⋯</button>
@@ -4542,6 +4545,70 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 })();
 </script>
 </div><!-- /ddc-main -->
+<style>
+/* Split view (static/device-split-demos.html, S4 with split on by default, picked 14 Oct):
+   on wide screens the Vitals graph is a pane on the left that stays in view on every
+   tab, and the tabs with their panels are the right pane. ⇆ on the graph puts it back
+   into Overview; the choice is kept per browser. */
+.dd-split{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:14px;align-items:start}
+.dd-split-l{position:sticky;top:76px;min-width:0}
+.dd-split-l .chart-card{margin:0}
+.dd-split-r{min-width:0}
+.dd-split-r .dd-tabrow .dd-tabs{flex-wrap:wrap}
+.dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
+.dd-facts>.dd-tabrow-r{margin-left:auto}
+.dd-split-l #chart-panel-battery .wlc-bar:not(.wlc-bar--strip){position:static;padding:0 16px 0 84px;margin-top:-16px}
+.vt-split-btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+@media (max-width:1099px){.vt-split-btn{display:none}}
+</style>
+<script>
+(function () {
+  var KEY = 'mdm.deviceSplit', WIDE = window.matchMedia('(min-width: 1100px)');
+  function want() { try { return localStorage.getItem(KEY) !== '0'; } catch (e) { return true; } }
+  // Markers remember where the graph and the tab row live in the normal layout, so
+  // undocking puts them back exactly.
+  function apply() {
+    var main = document.querySelector('.ddc-main'), card = document.querySelector('.chart-card'),
+        tabrow = document.querySelector('.ddc-main .dd-tabrow'), facts = document.querySelector('.ddc-main .dd-facts');
+    if (!main || !card || !tabrow || !facts) return;
+    var on = want() && WIDE.matches, split = document.getElementById('dd-split');
+    var btn = document.getElementById('vt-split-btn');
+    if (btn) { btn.setAttribute('aria-pressed', on ? 'true' : 'false'); btn.title = on ? 'Put the graph back into Overview' : 'Show the graph beside the tabs'; }
+    if (on && !split) {
+      if (!card.__home) { card.__home = document.createComment('chart-home'); card.parentNode.insertBefore(card.__home, card); }
+      if (!tabrow.__home) { tabrow.__home = document.createComment('tabs-home'); tabrow.parentNode.insertBefore(tabrow.__home, tabrow); }
+      split = document.createElement('div'); split.id = 'dd-split'; split.className = 'dd-split';
+      var l = document.createElement('div'); l.className = 'dd-split-l';
+      var r = document.createElement('div'); r.className = 'dd-split-r';
+      split.appendChild(l); split.appendChild(r);
+      facts.parentNode.insertBefore(split, facts.nextSibling);
+      // Facts line above both panes; the tab row heads the right pane.
+      tabrow.parentNode.insertBefore(facts, split);
+      l.appendChild(card);
+      r.appendChild(tabrow);
+      // Pad and Notes join the end of the facts line, so the tabs keep one row.
+      var chips = tabrow.querySelector('.dd-tabrow-r'); if (chips) facts.appendChild(chips);
+      Array.prototype.slice.call(main.querySelectorAll(':scope > .dd-panel')).forEach(function (p) { r.appendChild(p); });
+    } else if (!on && split) {
+      var rr = split.querySelector('.dd-split-r');
+      Array.prototype.slice.call(rr.querySelectorAll(':scope > .dd-panel')).forEach(function (p) { main.insertBefore(p, split); });
+      if (tabrow.__home) tabrow.__home.parentNode.insertBefore(tabrow, tabrow.__home);
+      var ch = facts.querySelector(':scope > .dd-tabrow-r'); if (ch) tabrow.appendChild(ch);
+      if (tabrow.__home) tabrow.parentNode.insertBefore(facts, tabrow.nextSibling);
+      if (card.__home) card.__home.parentNode.insertBefore(card, card.__home);
+      split.remove();
+    } else return;
+    // Charts follow their new container width.
+    setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 30);
+  }
+  window.ddSplitToggle = function () {
+    try { localStorage.setItem(KEY, want() ? '0' : '1'); } catch (e) {}
+    apply();
+  };
+  if (WIDE.addEventListener) WIDE.addEventListener('change', apply); else if (WIDE.addListener) WIDE.addListener(apply);
+  apply();
+})();
+</script>
 </div><!-- /ddc-body -->
 </div><!-- /device-detail -->
 
