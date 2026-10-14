@@ -579,10 +579,8 @@
          Alerts (the bell has it, View all pinned at the top) moved to More. */}}
     <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg><span class="dock-live dock-ring" hidden></span></span><span class="dock-lbl">Fleet</span></a>
     <a href="/restaurants" class="nav-link js-dest{{if eq .ActivePage "restaurants"}} active{{end}}" data-cmdk-label="Venues"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle class="cut" cx="12" cy="10" r="2.4"/></svg></span><span class="dock-lbl">Venues</span></a>
-    <a href="/pipeline" class="nav-link js-dest{{if eq .ActivePath "/pipeline"}} active{{end}}" data-cmdk-label="Releases"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></span><span class="dock-lbl">Releases</span></a>
+    <a href="/lineup" class="nav-link js-dest{{if eq .ActivePath "/lineup"}} active{{end}}" data-cmdk-label="Lineup"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></span><span class="dock-lbl">Lineup</span></a>
     <a href="/jobs" class="nav-link js-dest{{if eq .ActivePath "/jobs"}} active{{end}}" data-cmdk-label="Jobs"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/><path class="cut" d="M21 3 10.2 13.8"/></svg></span><span class="dock-lbl">Jobs</span></a>
-    {{/* Sixth, for super admins (picked 14 Oct): the role model's configuration. */}}
-    {{if canAdmin .Role}}{{template "nav-products" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "updates"}}{{template "nav-updates" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
@@ -643,7 +641,7 @@
              rendering a slice of the others. They are tabs of one destination now, so the
              directory lists the destination. */}}
         <div class="t">Firmware</div>
-        <a class="js-dest{{if eq .ActivePath "/pipeline"}} on{{end}}" href="/pipeline" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Releases">Releases</a>
+        <a class="js-dest{{if eq .ActivePath "/lineup"}} on{{end}}" href="/lineup" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Lineup">Lineup</a>
         <a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="App library">App library</a>
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if or (eq .ActivePath "/rollouts") (or (eq .ActivePath "/releases") (eq .ActivePath "/packages"))}} on{{end}}" href="/rollouts" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Rollouts">Rollouts</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="phone" data-cmdk-sec="Firmware" data-cmdk-label="Clients">Clients</a>{{end}}
@@ -673,7 +671,6 @@
         <div class="t">Configuration</div>
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-ic="gear" data-cmdk-sec="Configuration" data-cmdk-label="Settings">Settings</a>{{end}}
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup"}} on{{end}}" href="/setup" data-ic="sliders" data-cmdk-sec="Configuration" data-cmdk-label="Setup">Setup</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/products"}} on{{end}}" href="/products" data-ic="monitor" data-cmdk-sec="Configuration" data-cmdk-label="Hardware">Hardware</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-ic="server" data-cmdk-sec="Configuration" data-cmdk-label="Server">Server</a>{{end}}
       </div>
 
@@ -3383,7 +3380,7 @@
       { sel: '.dock .nav-link[href="/devices"]', title: 'Fleet', body: 'Every device, grouped by restaurant, group, product or release. Filter, select many, and open a device for its vitals, apps and remote tools.', pos: 'top' },
       { sel: '.fleet-tab[href="/enrollment"]', title: 'Enroll', body: 'New devices land in the onboarding inbox until they have a site. Enrollment profiles are scannable QR codes that say what a batch of outsourced devices is and where it goes.', pos: 'bottom', optional: true },
       { sel: '.dock .nav-link[href="/restaurants"]', title: 'Venues', body: 'Every restaurant and the devices in it. A device at a venue runs its role\'s app and stays on its prod build by itself.', pos: 'top', optional: true },
-      { sel: '.dock .nav-link[href="/pipeline"]', title: 'Releases', body: 'What every role runs: new builds, lab packages and prod, per role, plus firmware per model and the MDM clients.', pos: 'top', optional: true },
+      { sel: '.dock .nav-link[href="/lineup"]', title: 'Lineup', body: 'Each kind of device: the models that are it, the app and builds it runs, its firmware, and the MDM clients.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/jobs"]', title: 'Jobs', body: 'Everything sent to the fleet: what is running, what needs looking at, what finished. Open a job for its per-device history — handed over, received, finished, and how long each step took.', pos: 'top', optional: true },
       { sel: '.dock .nav-link[href="/updates"]', title: 'Updates', body: 'Releases and the OTA rollouts carrying them, with per-device progress.', pos: 'top', optional: true },
       { sel: '.dock-search', title: 'Search anything', body: 'Jump to a device by serial, a restaurant, or any page. Press ⌘K / Ctrl+K from anywhere.', pos: 'top', optional: true },
@@ -3504,7 +3501,6 @@
 
 {{define "nav-clients"}}<a href="/clients" class="{{.cls}}{{if eq .active "clients"}} active{{end}}" data-cmdk-label="Clients"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 6v7"/><path d="m9 10 3 3 3-3"/><path d="M10.5 18.5h3"/></svg></span><span class="dock-lbl">Clients</span></a>{{end}}
 {{define "nav-manage"}}<a href="/kiosk" class="{{.cls}}{{if eq .active "manage"}} active{{end}}" data-cmdk-label="Lock"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Lock</span></a>{{end}}
-{{define "nav-products"}}<a href="/products" class="{{.cls}}{{if eq .active "products"}} active{{end}}" data-cmdk-label="Hardware"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span class="dock-lbl">Hardware</span></a>{{end}}
 {{define "nav-users"}}<a href="/users" class="{{.cls}}{{if eq .active "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}
 
 {{/* The three firmware views as this page's own rail: they were separate nav entries

@@ -170,7 +170,7 @@ func (h *Handler) ClientAutoUpdateSet(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "settings.client_auto_update", slot, what)
 	if r.FormValue("back") == "pipeline" {
-		http.Redirect(w, r, "/pipeline?client="+slot+"&flash=rollout", http.StatusFound)
+		http.Redirect(w, r, "/lineup?client="+slot+"&flash=rollout", http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, "/clients?slot="+slot, http.StatusFound)

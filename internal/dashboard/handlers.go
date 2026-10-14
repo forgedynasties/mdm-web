@@ -21986,7 +21986,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/shell/session", h.requireReleaseAdmin(drainable(h.deviceRoute("shell", h.ShellSessionStream))))
 	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.ShellSessionInput)))
 	// Releases (pipeline.go): what every role runs, and the per-model firmware.
-	mux.HandleFunc("GET /pipeline", h.requireAuth(h.Pipeline))
+	mux.HandleFunc("GET /lineup", h.requireAuth(h.Pipeline))
+	mux.HandleFunc("GET /pipeline", h.requireAuth(h.PipelineRedirect))
 	post("POST /pipeline/channel", h.requireLab(h.PipelineChannel))
 	post("POST /pipeline/firmware", h.requireLab(h.PipelineFirmware))
 	post("POST /pipeline/rollout", h.requireLab(h.PipelineRollout))
@@ -22242,7 +22243,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// re-add it to the directory without asking.
 	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
-	mux.HandleFunc("GET /products", h.requireStrictAdmin(h.ProductsPage))
+	mux.HandleFunc("GET /products", h.requireAuth(h.ProductsPage))
 	mux.HandleFunc("GET /settings/google-usage", h.requireStrictAdmin(h.GoogleUsageJSON))
 	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
 	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))

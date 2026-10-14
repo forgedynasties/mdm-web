@@ -55,7 +55,7 @@
     <div class="cc-card">
       <h2>{{if .BasePackage}}App build{{else}}App{{end}}</h2>
       {{if not .BasePackage}}
-        <p class="muted">No app is set for the {{.RoleLabel}} role yet. Set one on <a href="/pipeline">Releases</a>.</p>
+        <p class="muted">No app is set for the {{.RoleLabel}} role yet. Set one on <a href="/lineup?role={{.Device.Class}}">Lineup</a>.</p>
       {{else}}
         <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/package" class="lab-radio">
           <label class="{{if not .Session.Package}}on{{end}}"><input type="radio" name="package" value=""{{if not .Session.Package}} checked{{end}}> Leave as it is <span class="v">no change</span></label>

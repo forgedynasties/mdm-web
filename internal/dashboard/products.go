@@ -1,13 +1,11 @@
 package dashboard
 
 import (
-	"mdm/internal/db"
 	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -52,172 +50,23 @@ func (h *Handler) reloadProductNames(ctx context.Context) {
 	productNames.Store(m)
 }
 
-// ProductsPage is the Hardware page (static/hardware-class-models-demos.html, H3): the
-// classes in a side list, one class at a time on the right with its app and the models
-// attached to it. A device's class is its model's class, so this is where a class is
-// decided. Our own hardware is built in to its class; any other model is attached here,
-// before or after its first device enrolls. Super admins only.
+// ProductsPage is the old Hardware page, now part of Lineup: it sends the visitor to the
+// same role there.
 func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	h.reloadProductNames(ctx)
-	productions, _ := h.db.ListProductions(ctx, h.connectedSlice())
-	rows, err := h.db.ProductOverview(ctx)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	dest := "/lineup"
+	if c := r.URL.Query().Get("class"); c != "" {
+		dest += "?role=" + url.QueryEscape(c)
 	}
-	// Models with no device yet: our catalog boards, and models attached ahead of time.
-	seen := map[string]bool{}
-	for _, p := range rows {
-		seen[p.Key] = true
-	}
-	for _, cp := range product.All() {
-		if !seen[cp.Key] {
-			rows = append(rows, db.ProductRow{Key: cp.Key})
-			seen[cp.Key] = true
-		}
-	}
-	if attached, err := h.db.AttachedModels(ctx); err == nil {
-		for _, p := range attached {
-			if !seen[p.Key] {
-				rows = append(rows, p)
-				seen[p.Key] = true
-			}
-		}
-	}
-	modes, _ := h.db.FirmwareModes(ctx)
-	roleApps, _ := h.db.ListRoleApps(ctx)
-	appOf := map[string]string{}
-	for _, ra := range roleApps {
-		appOf[ra.Role] = ra.BasePackage
-	}
-	library, _ := h.db.ListApps(ctx)
+	http.Redirect(w, r, dest, http.StatusMovedPermanently)
+}
 
-	type model struct {
-		Key, Display, Reported, Name, Role string
-		Known, CanFw                       bool
-		Devices, Firmware, DPC, Lite       int
-		FwMode                             string // prod | lab | off
+// PipelineRedirect sends the old Releases address to Lineup, keeping the query.
+func (h *Handler) PipelineRedirect(w http.ResponseWriter, r *http.Request) {
+	dest := "/lineup"
+	if q := r.URL.RawQuery; q != "" {
+		dest += "?" + q
 	}
-	type classGroup struct {
-		Key, Label, App string
-		Devices         int
-		Models          []model
-		On              bool
-	}
-	var groups []classGroup
-	var none []model
-	idx := map[string]int{}
-	for _, c := range product.Classes() {
-		idx[c] = len(groups)
-		groups = append(groups, classGroup{Key: c, Label: product.ClassLabel(c), App: appOf[c]})
-	}
-	var stock []model // every attachable model, for the "+ Add model" list
-	for _, p := range rows {
-		m := model{
-			Key: p.Key, Known: product.IsKnown(p.Key), Reported: modelLabel(p.Manufacturer, p.Model),
-			Devices: p.Devices, Firmware: p.Firmware, DPC: p.DPC, Lite: p.Lite, Name: p.Name, Role: p.Role,
-			FwMode: db.FirmwareModeOf(modes, p.Key),
-		}
-		if m.Known {
-			cp, _ := product.Resolve(p.Key)
-			m.Role, m.CanFw = cp.Class, true
-		}
-		m.Display = productLabel(p.Key)
-		if !m.Known {
-			stock = append(stock, m)
-		}
-		i, ok := idx[m.Role]
-		if !ok {
-			none = append(none, m)
-			continue
-		}
-		groups[i].Models = append(groups[i].Models, m)
-		groups[i].Devices += m.Devices
-	}
-	// Built-in boards first in catalog order, then attached models by device count.
-	order := map[string]int{}
-	for i, cp := range product.All() {
-		order[cp.Key] = i
-	}
-	for i := range groups {
-		ms := groups[i].Models
-		sort.SliceStable(ms, func(a, b int) bool {
-			if ms[a].Known != ms[b].Known {
-				return ms[a].Known
-			}
-			if ms[a].Known {
-				return order[ms[a].Key] < order[ms[b].Key]
-			}
-			return ms[a].Devices > ms[b].Devices
-		})
-	}
-	// "Other" only shows once something is in it.
-	kept := groups[:0]
-	for _, g := range groups {
-		if g.Key != product.ClassOther || len(g.Models) > 0 || g.App != "" {
-			kept = append(kept, g)
-		}
-	}
-	sel := r.URL.Query().Get("class")
-	if sel == "none" && len(none) == 0 {
-		sel = ""
-	}
-	var cur *classGroup
-	for i := range kept {
-		if kept[i].Key == sel {
-			cur = &kept[i]
-		}
-	}
-	if cur == nil && sel != "none" {
-		// Default: the first class with devices, else the first class.
-		for i := range kept {
-			if kept[i].Devices > 0 {
-				cur = &kept[i]
-				break
-			}
-		}
-		if cur == nil && len(kept) > 0 {
-			cur = &kept[0]
-		}
-	}
-	if cur != nil {
-		cur.On = true
-		sel = cur.Key
-	}
-	// Production runs linked to each model, shown under its name.
-	prodRuns := map[string]int{}
-	for _, p := range productions {
-		if p.Model != "" {
-			prodRuns[p.Model]++
-		}
-	}
-	noneDevices := 0
-	for _, m := range none {
-		noneDevices += m.Devices
-	}
-	var candidates []model
-	for _, m := range stock {
-		if m.Role != sel {
-			candidates = append(candidates, m)
-		}
-	}
-	h.render(w, r, "products.html", map[string]any{
-		"Title":       "Hardware",
-		"ActivePage":  "products",
-		"Classes":     kept,
-		"Cur":         cur,
-		"Sel":         sel,
-		"None":        none,
-		"NoneDevices": noneDevices,
-		"Candidates":  candidates,
-		"ClassKeys":   product.Classes(),
-		"Choices":     appChoicesFrom(library),
-		"Productions": productions,
-		"Models":      h.modelOptions(ctx),
-		"ProdRuns":    prodRuns,
-		"Flash":       r.URL.Query().Get("flash"),
-	})
+	http.Redirect(w, r, dest, http.StatusMovedPermanently)
 }
 
 // ProductAttach attaches a stock model to a class (or, with no class, detaches it), from
@@ -226,9 +75,9 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 // enrollment.
 func (h *Handler) ProductAttach(w http.ResponseWriter, r *http.Request) {
 	back := strings.TrimSpace(r.FormValue("back"))
-	dest := "/products"
+	dest := "/lineup"
 	if back != "" {
-		dest += "?class=" + url.QueryEscape(back)
+		dest += "?role=" + url.QueryEscape(back)
 	}
 	key := product.Normalize(r.FormValue("model_key"))
 	if key == "" {
@@ -266,7 +115,7 @@ func (h *Handler) ProductAttach(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ProductRename(w http.ResponseWriter, r *http.Request) {
 	key := product.Normalize(r.PathValue("key"))
 	if key == "" || product.IsKnown(key) {
-		h.hxDoneToast(w, r, "/products", "Only stock products (Standard MDM / MDM Lite hardware) can be renamed", "error")
+		h.hxDoneToast(w, r, "/lineup", "Only stock products (Standard MDM / MDM Lite hardware) can be renamed", "error")
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -274,7 +123,7 @@ func (h *Handler) ProductRename(w http.ResponseWriter, r *http.Request) {
 		name = ""
 	}
 	if len(name) > 60 {
-		h.hxDoneToast(w, r, "/products", "Keep the name under 60 characters", "error")
+		h.hxDoneToast(w, r, "/lineup", "Keep the name under 60 characters", "error")
 		return
 	}
 	if err := h.db.SetProductName(r.Context(), key, name, h.currentUsername(r)); err != nil {
@@ -287,19 +136,19 @@ func (h *Handler) ProductRename(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		msg = "Name reset — showing what the devices report"
 	}
-	h.hxDoneToast(w, r, "/products", msg, "success")
+	h.hxDoneToast(w, r, "/lineup", msg, "success")
 }
 
 // ProductSetRole sets a stock model's default role and applies it to the model's devices.
 func (h *Handler) ProductSetRole(w http.ResponseWriter, r *http.Request) {
 	key := product.Normalize(r.PathValue("key"))
 	if key == "" || product.IsKnown(key) {
-		h.hxDoneToast(w, r, "/products", "Our own hardware takes its product from the catalog", "error")
+		h.hxDoneToast(w, r, "/lineup", "Our own hardware takes its product from the catalog", "error")
 		return
 	}
 	role := strings.TrimSpace(r.FormValue("role"))
 	if role != "" && !product.IsClass(role) {
-		h.hxDoneToast(w, r, "/products", "Unknown product", "error")
+		h.hxDoneToast(w, r, "/lineup", "Unknown product", "error")
 		return
 	}
 	n, err := h.db.SetProductRole(r.Context(), key, role, h.currentUsername(r))
@@ -312,7 +161,7 @@ func (h *Handler) ProductSetRole(w http.ResponseWriter, r *http.Request) {
 	if role != "" {
 		msg = fmt.Sprintf("Set to %s · %d device%s updated", product.ClassLabel(role), n, map[bool]string{true: "", false: "s"}[n == 1])
 	}
-	h.hxDoneToast(w, r, "/products", msg, "success")
+	h.hxDoneToast(w, r, "/lineup", msg, "success")
 }
 
 // modelOpt is one hardware model a production run can be linked to.

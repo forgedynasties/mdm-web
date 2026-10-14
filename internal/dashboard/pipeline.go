@@ -132,6 +132,10 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	installed, _ := h.db.FamilyVersions(ctx, bases)
 
 	sel := strings.TrimSpace(r.URL.Query().Get("role"))
+	view := strings.TrimSpace(r.URL.Query().Get("view"))
+	productions, _ := h.db.ListProductions(ctx, h.connectedSlice())
+	h.reloadProductNames(ctx)
+	hw := h.lineupHardware(ctx, productions)
 	var roles []pipeRole
 	for _, c := range prod.Classes() {
 		if c == prod.ClassOther {
@@ -188,6 +192,31 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		}
 		clients = append(clients, pc)
 	}
+	// Everything the side list and every pane share.
+	common := func(m map[string]any) map[string]any {
+		m["Title"] = "Lineup"
+		m["Roles"] = roles
+		m["Clients"] = clients
+		m["NoneCount"] = len(hw.None)
+		m["NoneDevices"] = hw.NoneDevices
+		m["RunCount"] = len(productions)
+		if _, ok := m["View"]; !ok {
+			m["View"] = view
+		}
+		m["ClientSel"] = clientSel
+		m["CanEdit"] = canLab(h.role(r))
+		m["Flash"] = r.URL.Query().Get("flash")
+		return m
+	}
+	// Models attached to no role, and the production runs: panes of their own.
+	if sel == "none" {
+		h.render(w, r, "pipeline.html", common(map[string]any{"View": "none", "None": hw.None, "ClassKeys": prod.Classes()}))
+		return
+	}
+	if view == "runs" {
+		h.render(w, r, "pipeline.html", common(map[string]any{"View": "runs", "Productions": productions, "Models": h.modelOptions(ctx)}))
+		return
+	}
 	if v, ok := views[clientSel]; ok {
 		var behind []string
 		for i := range devices {
@@ -200,14 +229,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		v.BehindSerials = strings.Join(behind, ",")
-		h.render(w, r, "pipeline.html", map[string]any{
-			"Title":   "Releases",
-			"Roles":   roles,
-			"Clients": clients,
-			"Client":  v,
-			"CanEdit": canLab(h.role(r)),
-			"Flash":   r.URL.Query().Get("flash"),
-		})
+		h.render(w, r, "pipeline.html", common(map[string]any{"Client": v}))
 		return
 	}
 	if sel == "" {
@@ -227,7 +249,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if selLabel == "" {
-		http.Redirect(w, r, "/pipeline", http.StatusSeeOther)
+		http.Redirect(w, r, "/lineup", http.StatusSeeOther)
 		return
 	}
 
@@ -364,10 +386,12 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		roleClients = append(roleClients, v)
 	}
 
-	h.render(w, r, "pipeline.html", map[string]any{
-		"Title":       "Releases",
-		"Roles":       roles,
-		"Role":        sel,
+	h.render(w, r, "pipeline.html", common(map[string]any{
+		"HWModels":    hw.ByRole[sel],
+		"HWDevices":   hw.Devices[sel],
+		"Candidates":  hw.hwCandidates(sel),
+		"AppChoices":  appChoicesFrom(library),
+		"RoleKey":     sel,
 		"RoleLabel":   selLabel,
 		"BasePackage": base,
 		"BaseName":    names[base],
@@ -375,13 +399,9 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		"Inbox":       inbox,
 		"Models":      models,
 		"RoleClients": roleClients,
-		"CanEdit":     canLab(h.role(r)),
 		"AppRollout":  h.cfg.RoleRollout(config.RolloutApps),
 		"FwRollout":   h.cfg.RoleRollout(config.RolloutFirmware),
-		"Fetches":     recentFetches(),
-		"CanFetch":    h.apk != nil,
-		"Flash":       r.URL.Query().Get("flash"),
-	})
+	}))
 }
 
 // pipelineModels builds the firmware lane: every hardware model whose devices serve the
@@ -476,7 +496,7 @@ func (h *Handler) pipelineBack(w http.ResponseWriter, r *http.Request, role, fla
 	if flash != "" {
 		q.Set("flash", flash)
 	}
-	http.Redirect(w, r, "/pipeline?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, "/lineup?"+q.Encode(), http.StatusSeeOther)
 }
 
 // PipelineRoleApp sets (or clears) the app a role runs.
@@ -496,7 +516,7 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.role_app", role, base)
-	http.Redirect(w, r, "/products?class="+role+"&flash=app", http.StatusSeeOther)
+	http.Redirect(w, r, "/lineup?role="+role+"&flash=app", http.StatusSeeOther)
 }
 
 // PipelineChannel puts a build on its package's column. On the base package this is
@@ -586,7 +606,7 @@ func (h *Handler) PipelineFirmwareMode(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.firmware_mode", model, mode)
 	cls, _ := prod.Resolve(model)
-	http.Redirect(w, r, "/products?class="+cls.Class+"&flash=mode#model-"+model, http.StatusSeeOther)
+	http.Redirect(w, r, "/lineup?role="+cls.Class+"&flash=mode#model-"+model, http.StatusSeeOther)
 }
 
 // PipelineRollout pauses or resumes, and sets the window of, the app or firmware rollout.

@@ -564,7 +564,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       {{if .RestaurantName}}<span>· {{.RestaurantName}}</span>{{end}}
       {{/* The class follows the model (Hardware page); a model nobody has attached to a
            class yet leaves the device with none. */}}
-      {{if .Class}}<span>· {{.ClassLabel}}</span>{{else if canAdmin $.Role}}<a class="cc-tag warn" href="/products?class=none#model-{{.Product}}" title="Attach this model to a class on the Hardware page">model has no class</a>{{else}}<span class="cc-tag warn">model has no class</span>{{end}}
+      {{if .Class}}<span>· {{.ClassLabel}}</span>{{else if canAdmin $.Role}}<a class="cc-tag warn" href="/lineup?role=none#model-{{.Product}}" title="Attach this model to a role on the Lineup page">model has no class</a>{{else}}<span class="cc-tag warn">model has no class</span>{{end}}
     </div>
   </div>
   <div></div>
