@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model pictures demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1220px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede{color:var(--muted);font-size:13.5px;max-width:980px;line-height:1.6}.lede b{color:var(--text);font-weight:650}
+h2.opt{font-size:16px;margin:38px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.shot{border:1px solid var(--border);border-radius:14px;margin-top:12px;background:var(--bg);padding:18px}
+.mono{font-family:var(--mono);font-size:11.5px;color:var(--text-faint)}
+.tbl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.th,.tr{display:grid;grid-template-columns:minmax(220px,1.4fr) 1fr 120px 110px 70px;gap:14px;align-items:center;padding:0 16px}
+.th{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.tr{padding:10px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2)}
+.mn{display:flex;gap:12px;align-items:center;min-width:0}.mn b{display:block;color:var(--text);font-weight:650}
+.thumb{width:48px;height:48px;flex:none;border-radius:10px;background:var(--surface2);display:grid;place-items:center;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:contain}
+.thumb.none svg{width:20px;height:20px;stroke:var(--text-faint);fill:none;stroke-width:1.6}
+.n{text-align:right;font-weight:650;color:var(--text)}
+.hero{display:flex;gap:20px;align-items:center;margin-bottom:14px}
+.hero img{width:132px;height:132px;object-fit:contain;flex:none;border-radius:16px;background:var(--surface2)}
+.hero .t{font-size:24px;font-weight:600}.hero .s{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.55}
+.spec{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.spec span{font-size:11px;font-weight:650;border-radius:6px;padding:2px 8px;background:var(--surface2);color:var(--text-2)}
+.dev{display:flex;gap:16px;align-items:center}.dev img{width:72px;height:72px;object-fit:contain;border-radius:12px;background:var(--surface2)}
+.dev .t{font-size:22px;font-weight:600;font-family:var(--mono)}.dev .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+@media(max-width:720px){body{padding:16px}.pros{grid-template-columns:1fr}.th{display:none}.tr{grid-template-columns:1fr auto}.tr>.hide{display:none}.hero img{width:88px;height:88px}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Model pictures</h1>
+<p class="lede">Product shots from <b>aioapp.com/products/aio-order-and-pay</b>, trimmed to 480 px webp in <span class="mono">static/img/models/&lt;model key&gt;.webp</span>.
+<b>POS</b> → <span class="mono">trinket</span> (QUALCOMM C8G, stage). <b>KDS</b> → <span class="mono">d2s_kds_stgl</span> (SUNMI D2s, the model on live, now attached to KDS on stage).
+A model with no picture keeps a plain icon. The question is where the pictures show.</p>
+
+<h2 class="opt">M1 · Thumbnail in the Lineup model rows</h2>
+<div class="shot"><div class="tbl">
+  <div class="th"><span>Model</span><span class="hide">Devices report</span><span class="hide">Client</span><span class="hide">Firmware</span><span style="text-align:right">Devices</span></div>
+  <div class="tr"><div class="mn"><span class="thumb"><img src="/static/img/models/trinket.webp" alt=""></span><span><b>POS</b><span class="mono">trinket</span></span></div><span class="hide">QUALCOMM C8G</span><span class="hide">Standard</span><span class="hide faint">Off · maker's firmware</span><span class="n">1</span></div>
+  <div class="tr"><div class="mn"><span class="thumb none"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span><span><b>Sunmi D3 Pro</b><span class="mono">d3_pro</span></span></div><span class="hide">SUNMI D3 PRO</span><span class="hide">Standard</span><span class="hide faint">Off · maker's firmware</span><span class="n">0</span></div>
+</div></div>
+<div class="pros"><div>Smallest change; shows which box a model is at a glance.</div><div class="bad">48 px hides most of the shot; the role itself still has no face.</div></div>
+
+<h2 class="opt">M2 · M1, plus the role's picture and specs in the Lineup header <span class="pick">my pick</span></h2>
+<div class="shot">
+  <div class="hero"><img src="/static/img/models/trinket.webp" alt=""><div><div class="t">POS</div><div class="s">Touchscreen built for the rush. 1 device · 1 model</div>
+    <div class="spec"><span>15.6″ FHD touchscreen</span><span>4 GB RAM + 64 GB</span><span>Qualcomm</span></div></div></div>
+  <div class="hero"><img src="/static/img/models/d2s_kds_stgl.webp" alt=""><div><div class="t">Kitchen display</div><div class="s">Built to handle steam, splashes and a slammed Saturday night. 0 devices · 1 model</div></div></div>
+  <div class="tbl"><div class="tr"><div class="mn"><span class="thumb"><img src="/static/img/models/d2s_kds_stgl.webp" alt=""></span><span><b>Sunmi D2s KDS</b><span class="mono">d2s_kds_stgl</span></span></div><span class="hide">SUNMI D2s_KDS_STGL</span><span class="hide">Standard</span><span class="hide faint">Off · maker's firmware</span><span class="n">0</span></div></div>
+</div>
+<div class="pros"><div>Lineup is where roles and models are set up; the header says what the role is, in our own words, with the site's specs.</div><div class="bad">Header taller by ~60 px. Specs are typed text per model, kept by hand.</div></div>
+
+<h2 class="opt">M3 · M2, plus the picture on each device page</h2>
+<div class="shot"><div class="dev"><img src="/static/img/models/trinket.webp" alt=""><div><div class="t">C8G2400117</div><div class="s">POS · QUALCOMM C8G · Standard client 0.2.8 · online</div></div></div></div>
+<div class="pros"><div>Whoever opens a device sees which box it is: useful on support calls.</div><div class="bad">The device header is already busy; most of the fleet (T7) has no picture yet, so it would be uneven.</div></div>
+
+<p class="lede" style="margin-top:34px"><b>Pick M2.</b> The pictures belong where models are managed; device pages can follow once T7 and kiosks have shots too (the kiosk shots are on the same aioapp.com page).</p>
+</div></body></html>
