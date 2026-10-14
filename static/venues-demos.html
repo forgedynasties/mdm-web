@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Venues demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1220px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede{color:var(--muted);font-size:13.5px;max-width:980px;line-height:1.6}.lede b{color:var(--text);font-weight:650}
+h2.part{font-size:19px;margin:46px 0 2px;padding-top:18px;border-top:1px solid var(--border)}
+h2.opt{font-size:16px;margin:34px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.now{font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface2);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.shot{border:1px solid var(--border);border-radius:14px;margin-top:12px;background:var(--bg);padding:18px;position:relative}
+.top{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.top .h{font-size:24px;font-weight:600;letter-spacing:-.01em}.top .s{font-size:12.5px;color:var(--muted);margin-top:3px}.top .s b{color:var(--text)}
+.top .r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;position:relative}
+.btn{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:9px;padding:6px 11px;color:var(--text-2);background:var(--surface);display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.btn.p{background:var(--accent);color:var(--accent-ink,#fff);border-color:transparent}
+.btn.on{outline:2px solid var(--accent-edge,var(--accent));outline-offset:1px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:0}
+.card .ct{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:650;margin-bottom:10px}.card .ct .m{font-weight:500;font-size:12px;color:var(--muted)}.card .ct .r{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent-text)}
+.dot{width:8px;height:8px;border-radius:9px;display:inline-block;flex:none}.c-ok{background:var(--ok)}.c-off{background:var(--text-faint)}.c-warn{background:var(--warn)}.c-bad{background:var(--danger)}
+.tag{font-size:10.5px;font-weight:700;border-radius:6px;padding:1px 7px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
+.tag.w{background:var(--warn-bg);color:var(--warn)}.tag.d{background:var(--danger-bg);color:var(--danger)}.tag.g{background:var(--ok-bg);color:var(--ok)}
+.mono{font-family:var(--mono);font-size:12px}
+.faint{color:var(--text-faint);font-size:11.5px}
+/* venue list rows */
+.vt{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.vh,.vr{display:grid;grid-template-columns:minmax(200px,1.6fr) 90px minmax(150px,1fr) minmax(140px,1fr) 110px;gap:14px;align-items:center;padding:0 16px}
+.vh{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.vr{padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2)}
+.vr b{color:var(--text);font-weight:650;display:block}.vr small{font-size:11px;color:var(--text-faint)}
+.sc{font-weight:700;font-variant-numeric:tabular-nums}.sc.lo{color:var(--danger)}.sc.mid{color:var(--warn)}.sc.hi{color:var(--ok)}
+.pips{display:flex;gap:3px;flex-wrap:wrap}.pips i{width:9px;height:9px;border-radius:3px;display:block}
+.filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.search{flex:1;min-width:200px;max-width:340px;border:1px solid var(--border);border-radius:10px;padding:7px 11px;font-size:12.5px;color:var(--text-faint);background:var(--surface)}
+.chip{font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface)}.chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-text)}
+.vgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.vc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:grid;gap:8px}
+.vc .n{display:flex;gap:8px;align-items:baseline}.vc .n b{font-size:14.5px;font-weight:650}.vc .n .sc{margin-left:auto;font-size:18px}
+.vc .meter{height:6px;border-radius:9px;background:var(--surface2);display:flex;overflow:hidden}.vc .meter i{display:block;height:100%}
+.mapsplit{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+.fmap{border-radius:14px;border:1px solid var(--border);min-height:380px;position:relative;overflow:hidden;background:
+ linear-gradient(0deg,transparent 49.6%,var(--border-soft) 50%,transparent 50.4%) 0 0/60px 60px,
+ linear-gradient(90deg,transparent 49.6%,var(--border-soft) 50%,transparent 50.4%) 0 0/60px 60px,var(--surface2)}
+.pin{position:absolute;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.pin span{transform:rotate(45deg);font-size:10px;font-weight:800;color:#fff}
+.mini{display:grid;gap:0}.mini .vr{grid-template-columns:minmax(0,1fr) 60px 80px}
+/* venue page */
+.vp2{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:14px;align-items:start}
+.stack{display:grid;gap:12px}
+.dl{display:grid}
+.dr{display:grid;grid-template-columns:24px minmax(0,1fr) 110px 120px 28px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2)}
+.dr:first-child{border-top:0}
+.dr b{color:var(--text);font-family:var(--mono);font-size:12.5px}.dr small{display:block;color:var(--text-faint);font-size:11px}
+.ico{width:24px;height:24px;border-radius:7px;background:var(--surface2);display:grid;place-items:center;font-size:12px}
+.x{color:var(--text-faint);font-size:14px;text-align:center}
+.kv{display:grid;grid-template-columns:110px 1fr auto;gap:8px 10px;font-size:12.5px;align-items:center}
+.kv span{color:var(--muted)}.kv b{color:var(--text);font-weight:600}.kv a{font-size:12px;font-weight:600;color:var(--accent-text)}
+.bars{display:flex;gap:4px;align-items:flex-end;height:54px;margin-top:8px}.bars i{flex:1;border-radius:4px 4px 0 0;background:var(--accent);opacity:.85}.bars i.o{background:var(--surface2);opacity:1}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stats div{font-size:11.5px;color:var(--muted)}.stats b{display:block;font-size:18px;color:var(--text);font-weight:600}
+.tabs{display:inline-flex;gap:3px;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:12px}
+.tabs span{font-size:12.5px;font-weight:650;padding:6px 13px;border-radius:8px;color:var(--muted)}.tabs span.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+/* the add-devices popover */
+.pop{position:absolute;right:0;top:calc(100% + 8px);z-index:5;width:380px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop,0 18px 40px rgba(0,0,0,.3));padding:12px;display:grid;gap:9px;text-align:left}
+.pop .t{font-weight:650;font-size:13px}
+.pop .in{border:1px solid var(--border);border-radius:9px;padding:7px 10px;font-size:12.5px;color:var(--text-faint);background:var(--bg)}
+.pop .list{display:grid;gap:1px;max-height:210px;overflow:auto}
+.pop .o{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:9px;align-items:center;padding:7px 8px;border-radius:8px;font-size:12.5px}
+.pop .o.on{background:var(--accent-soft)}
+.pop .o small{display:block;font-size:11px;color:var(--text-faint)}
+.cb{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--border);display:grid;place-items:center;font-size:10px;color:#fff}.o.on .cb{background:var(--accent);border-color:var(--accent)}
+.pop .ft{display:flex;align-items:center;gap:8px;border-top:1px solid var(--border-soft);padding-top:9px;font-size:12px;color:var(--muted)}.pop .ft .btn{margin-left:auto}
+.callout{position:absolute;font-size:11px;font-weight:700;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+@media (max-width:900px){body{padding:20px 16px 100px}.pros,.vp2,.mapsplit,.vgrid{grid-template-columns:1fr}.vh{display:none}.vr{grid-template-columns:1fr auto;row-gap:4px}.vr>:nth-child(n+3){grid-column:1/-1}.pop{width:min(380px,calc(100vw - 64px))}.dr{grid-template-columns:24px minmax(0,1fr) 28px}.dr>:nth-child(3),.dr>:nth-child(4){display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Venues and the venue page</h1>
+<p class="lede">Two pages. <b>The venue page</b> spends its first screen on three stat cards that repeat its own subtitle, then a 400px "Deploy devices" picker that is open all the time, then the Service hours and Guest Wi-Fi forms, and only at the very bottom the devices, which are what someone opens a venue to see. <b>The Venues list</b> still says "Fleet · Restaurants", repeats its headline in four stat cards, and shows each venue as a small card that fits only a name and a score.</p>
+<p class="lede">In every venue-page option the picker becomes an <b>Add devices</b> button with a popover (shown open). The data is made up but has the shape of stage.</p>
+
+<!-- ═══════════════════ VENUE PAGE ═══════════════════ -->
+<h2 class="part">The venue page</h2>
+
+<h2 class="opt">R1 · Devices first, settings as one-line rows</h2>
+<div class="shot">
+  <div class="top">
+    <div><div class="h">AIO Test Bistro</div><div class="s"><b>6</b> devices · <b>5</b> online · <b>1</b> offline · open 07:00–23:00 · Asia/Karachi</div></div>
+    <div class="r"><span class="btn p on">+ Add devices</span><span class="btn">Weekly report</span><span class="btn">Edit</span><span class="btn">⋯</span>
+      <div class="pop">
+        <div class="t">Add devices to AIO Test Bistro</div>
+        <div class="in">Search serial or paste a list…</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap"><span class="chip on">Not at a venue 4</span><span class="chip">Online</span><span class="chip">All</span></div>
+        <div class="list">
+          <div class="o on"><span class="cb">✓</span><span><b class="mono">AT070AABU00240</b><small>Tableside AI · v2.1.031 · 3m ago</small></span><span class="dot c-ok"></span></div>
+          <div class="o on"><span class="cb">✓</span><span><b class="mono">AT070AABU00241</b><small>Tableside AI · v2.1.031 · 5m ago</small></span><span class="dot c-ok"></span></div>
+          <div class="o"><span class="cb"></span><span><b class="mono">K22-0003</b><small>Kiosk 22 · v1.1.003 · 2h ago</small></span><span class="dot c-off"></span></div>
+          <div class="o"><span class="cb"></span><span><b class="mono">NEWBOX01</b><small>Menu board · 1d ago</small></span><span class="dot c-off"></span></div>
+        </div>
+        <div class="faint">A device lives at one venue, so one from elsewhere moves here.</div>
+        <div class="ft">2 selected<span class="btn p">Add 2</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card"><div class="ct">Devices <span class="m">6</span><span class="r" style="color:var(--muted);font-weight:500">sort: problems first</span></div>
+      <div class="dl">
+        <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00231</b><small>Tableside AI · v2.1.025 · update waiting</small></span><span><span class="tag w">offline 3h</span></span><span class="faint">battery 0%</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00232</b><small>Tableside AI · v2.1.031</small></span><span><span class="tag g">online</span></span><span class="faint">78% · pad vacant</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00233</b><small>Tableside AI · v2.1.031</small></span><span><span class="tag g">online</span></span><span class="faint">91% · phone on pad</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▤</span><span><b>K22-0001</b><small>Kiosk 22 · v1.1.003</small></span><span><span class="tag g">online</span></span><span class="faint">AC powered</span><span class="x">↗</span></div>
+      </div>
+    </div>
+    <div class="card"><div class="ct">Last 7 days <span class="m">avg 19 of 16 open hrs powered · pad used 12 times</span><span class="r">7d ▾</span></div><div class="bars"><i style="height:60%"></i><i style="height:80%"></i><i style="height:75%"></i><i style="height:90%"></i><i style="height:40%"></i><i style="height:85%"></i><i class="o" style="height:20%"></i></div></div>
+    <div class="card"><div class="ct">Settings</div>
+      <div class="kv"><span>Service hours</span><b>07:00 – 23:00 · fleet default</b><a>Edit</a><span>Guest Wi-Fi</span><b style="color:var(--warn)">Not set</b><a>Set up</a><span>Time zone</span><b>Asia/Karachi (from devices)</b><a>Edit</a></div>
+    </div>
+  </div>
+  <div class="pros"><div>Devices are the first thing under the title. Hours and Wi-Fi shrink to one line each and open in place only when edited. One column, so it reads the same on a phone.</div><div class="bad">On a 1280px screen the right half of the device rows is mostly empty space; the usage chart becomes a strip.</div></div>
+</div>
+
+<h2 class="opt">R2 · Two columns: devices left, venue facts right <span class="pick">my pick</span></h2>
+<div class="shot">
+  <div class="top">
+    <div><div class="h">AIO Test Bistro</div><div class="s"><b>6</b> devices · <b>5</b> online · <b>1</b> offline · 1 warning</div></div>
+    <div class="r"><span class="btn p on">+ Add devices</span><span class="btn">Weekly report</span><span class="btn">Edit</span><span class="btn">⋯</span>
+      <div class="pop">
+        <div class="t">Add devices to AIO Test Bistro</div>
+        <div class="in">Search serial or paste a list…</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap"><span class="chip on">Not at a venue 4</span><span class="chip">Online</span><span class="chip">All</span></div>
+        <div class="list">
+          <div class="o on"><span class="cb">✓</span><span><b class="mono">AT070AABU00240</b><small>Tableside AI · v2.1.031 · 3m ago</small></span><span class="dot c-ok"></span></div>
+          <div class="o"><span class="cb"></span><span><b class="mono">AT070AABU00241</b><small>Tableside AI · v2.1.031 · 5m ago</small></span><span class="dot c-ok"></span></div>
+          <div class="o"><span class="cb"></span><span><b class="mono">K22-0003</b><small>Kiosk 22 · v1.1.003 · 2h ago</small></span><span class="dot c-off"></span></div>
+        </div>
+        <div class="ft">1 selected<span class="btn p">Add 1</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="vp2">
+    <div class="card"><div class="ct">Devices <span class="m">6</span><span class="r" style="color:var(--muted);font-weight:500">problems first</span></div>
+      <div class="dl">
+        <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00231</b><small>Tableside AI · v2.1.025 · update waiting</small></span><span><span class="tag w">offline 3h</span></span><span class="faint">battery 0%</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00232</b><small>Tableside AI · v2.1.031</small></span><span><span class="tag g">online</span></span><span class="faint">78% · pad vacant</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00233</b><small>Tableside AI · v2.1.031</small></span><span><span class="tag g">online</span></span><span class="faint">91% · phone on pad</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00234</b><small>Tableside AI · v2.1.031</small></span><span><span class="tag g">online</span></span><span class="faint">64% · charging</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▤</span><span><b>K22-0001</b><small>Kiosk 22 · v1.1.003</small></span><span><span class="tag g">online</span></span><span class="faint">AC powered</span><span class="x">↗</span></div>
+        <div class="dr"><span class="ico">▭</span><span><b>NEWBOX02</b><small>Menu board · 0.2.8</small></span><span><span class="tag g">online</span></span><span class="faint">AC powered</span><span class="x">↗</span></div>
+      </div>
+    </div>
+    <div class="stack">
+      <div class="card"><div class="ct">Last 7 days <span class="r">7d ▾</span></div>
+        <div class="stats"><div><b>19h</b>powered / day</div><div><b>12</b>phones on pads</div><div><b>0h</b>on AC</div></div>
+        <div class="bars"><i style="height:60%"></i><i style="height:80%"></i><i style="height:75%"></i><i style="height:90%"></i><i style="height:40%"></i><i style="height:85%"></i><i class="o" style="height:20%"></i></div>
+      </div>
+      <div class="card"><div class="ct">Service hours <span class="r">Edit</span></div><div class="kv" style="grid-template-columns:90px 1fr"><span>Open</span><b>07:00 – 23:00</b><span>Time zone</span><b>Asia/Karachi</b></div><div class="faint" style="margin-top:6px">Fleet default. Offline and battery alerts count only inside these hours.</div></div>
+      <div class="card"><div class="ct">Guest Wi-Fi <span class="tag w">not set</span><span class="r">Set up</span></div><div class="faint">Tablets show guests the network with a QR code to join.</div></div>
+    </div>
+  </div>
+  <div class="pros"><div>The whole venue fits one screen at 1280: who is here and how they are on the left, the venue's own facts on the right, each with an Edit that opens the form in place. Below 1024 the right column drops under the devices, which is R1.</div><div class="bad">The usage chart gets a third of the width, so per-day bars stay small; the full chart moves behind "Weekly report".</div></div>
+</div>
+
+<h2 class="opt">R3 · Tabs, like the device page</h2>
+<div class="shot">
+  <div class="top">
+    <div><div class="h">AIO Test Bistro</div><div class="s"><b>6</b> devices · <b>5</b> online · <b>1</b> offline</div></div>
+    <div class="r"><span class="btn p">+ Add devices</span><span class="btn">Weekly report</span><span class="btn">⋯</span></div>
+  </div>
+  <div class="tabs"><span class="on">Devices 6</span><span>Usage</span><span>Settings</span></div>
+  <div class="card"><div class="dl">
+    <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00231</b><small>Tableside AI · v2.1.025 · update waiting</small></span><span><span class="tag w">offline 3h</span></span><span class="faint">battery 0%</span><span class="x">↗</span></div>
+    <div class="dr"><span class="ico">▣</span><span><b>AT070AABU00232</b><small>Tableside AI · v2.1.031</small></span><span><span class="tag g">online</span></span><span class="faint">78% · pad vacant</span><span class="x">↗</span></div>
+    <div class="dr"><span class="ico">▤</span><span><b>K22-0001</b><small>Kiosk 22 · v1.1.003</small></span><span><span class="tag g">online</span></span><span class="faint">AC powered</span><span class="x">↗</span></div>
+  </div></div>
+  <div class="pros"><div>Each part gets the full width; matches how the device page works, so it feels familiar.</div><div class="bad">Hours and Wi-Fi go out of sight, and a "Guest Wi-Fi not set" warning on a hidden tab is easy to miss. Three tabs for a page this short is a lot of chrome.</div></div>
+</div>
+
+<!-- ═══════════════════ VENUES LIST ═══════════════════ -->
+<h2 class="part">The Venues list</h2>
+
+<h2 class="opt">L1 · A table: one row per venue <span class="pick">my pick</span></h2>
+<div class="shot">
+  <div class="top"><div><div class="h">Venues</div><div class="s"><b>3</b> of 24 need a look · 188 devices · 7 offline</div></div><div class="r"><span class="btn p">+ New venue</span></div></div>
+  <div class="filters"><span class="search">Search venue, city, serial…</span><span class="chip on">All 24</span><span class="chip">Need a look 3</span><span class="chip">Offline devices 2</span><span class="chip">Empty 1</span><span class="chip">Groups ▾</span></div>
+  <div class="vt">
+    <div class="vh"><span>Venue</span><span>Health</span><span>Devices</span><span>Problems</span><span>Last check-in</span></div>
+    <div class="vr"><span><b>Burger Bros, Downtown</b><small>Lahore · Asia/Karachi</small></span><span class="sc lo">48</span><span><div class="pips"><i class="c-off"></i><i class="c-off"></i><i class="c-off"></i><i class="c-ok"></i></div><small>1 of 4 online</small></span><span><span class="tag d">3 critical</span> <span class="tag w">3 offline</span></span><span class="faint">5h ago</span></div>
+    <div class="vr"><span><b>AIO Test Bistro</b><small>Karachi · Asia/Karachi</small></span><span class="sc mid">76</span><span><div class="pips"><i class="c-warn"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i></div><small>5 of 6 online</small></span><span><span class="tag w">1 offline</span></span><span class="faint">1m ago</span></div>
+    <div class="vr"><span><b>Saffron House</b><small>Islamabad · Asia/Karachi</small></span><span class="sc hi">97</span><span><div class="pips"><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i><i class="c-ok"></i></div><small>12 of 12 online</small></span><span class="faint">none</span><span class="faint">just now</span></div>
+    <div class="vr"><span><b>Nugget Co. Mall Road</b><small>no address</small></span><span class="faint">—</span><span><small>no devices</small></span><span><span class="tag">empty</span></span><span class="faint">—</span></div>
+  </div>
+  <div class="pros"><div>Scales to the 24+ venues live has: scan a column, sort by health, filter to the ones that need a look. One square per device says "how many and how many are down" at a glance. The four stat cards go; the subtitle already says it.</div><div class="bad">Less visual than cards; a venue with 40 devices makes a long row of squares (capped at 20 with "+20").</div></div>
+</div>
+
+<h2 class="opt">L2 · Bigger cards <span class="now">close to today</span></h2>
+<div class="shot">
+  <div class="top"><div><div class="h">Venues</div><div class="s"><b>3</b> of 24 need a look · 188 devices · 7 offline</div></div><div class="r"><span class="btn p">+ New venue</span></div></div>
+  <div class="filters"><span class="search">Search venue, city, serial…</span><span class="chip on">All 24</span><span class="chip">Need a look 3</span><span class="chip">Empty 1</span></div>
+  <div class="vgrid">
+    <div class="vc"><div class="n"><b>Burger Bros, Downtown</b><span class="sc lo">48</span></div><div class="faint">Lahore · 4 devices · seen 5h ago</div><div class="meter"><i class="c-ok" style="width:25%"></i><i class="c-off" style="width:75%"></i></div><div><span class="tag d">3 critical</span> <span class="tag w">3 offline</span></div></div>
+    <div class="vc"><div class="n"><b>AIO Test Bistro</b><span class="sc mid">76</span></div><div class="faint">Karachi · 6 devices · seen 1m ago</div><div class="meter"><i class="c-ok" style="width:83%"></i><i class="c-warn" style="width:17%"></i></div><div><span class="tag w">1 offline</span></div></div>
+    <div class="vc"><div class="n"><b>Saffron House</b><span class="sc hi">97</span></div><div class="faint">Islamabad · 12 devices · seen just now</div><div class="meter"><i class="c-ok" style="width:100%"></i></div><div><span class="tag g">all good</span></div></div>
+  </div>
+  <div class="pros"><div>Friendly, and venues with problems still stand out by colour. Keeps today's look, only bigger and with an online bar.</div><div class="bad">Three per row: 24 venues is 8 rows of cards to scroll, with no way to compare columns.</div></div>
+</div>
+
+<h2 class="opt">L3 · Map and list</h2>
+<div class="shot">
+  <div class="top"><div><div class="h">Venues</div><div class="s"><b>3</b> of 24 need a look</div></div><div class="r"><span class="btn p">+ New venue</span></div></div>
+  <div class="mapsplit">
+    <div class="fmap">
+      <div class="pin c-bad" style="left:30%;top:40%"><span>4</span></div>
+      <div class="pin c-warn" style="left:58%;top:62%"><span>6</span></div>
+      <div class="pin c-ok" style="left:44%;top:22%"><span>12</span></div>
+    </div>
+    <div class="vt mini">
+      <div class="vr"><span><b>Burger Bros, Downtown</b><small>Lahore</small></span><span class="sc lo">48</span><span class="tag w">3 offline</span></div>
+      <div class="vr"><span><b>AIO Test Bistro</b><small>Karachi</small></span><span class="sc mid">76</span><span class="tag w">1 offline</span></div>
+      <div class="vr"><span><b>Saffron House</b><small>Islamabad</small></span><span class="sc hi">97</span><span class="faint">all good</span></div>
+    </div>
+  </div>
+  <div class="pros"><div>Where venues are is obvious, and pins coloured by health show a regional outage at once.</div><div class="bad">Needs every venue to have an address (several have none today) and a Maps key; most of the time the map is decoration. There is already a Fleet map page.</div></div>
+</div>
+
+</div>
+</body>
+</html>
