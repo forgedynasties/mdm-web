@@ -473,6 +473,14 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .dd-facts .cpill{padding:0;border:0;background:none;font-size:12.5px;font-weight:650;color:var(--text);box-shadow:none;white-space:nowrap}
 /* Popovers are placed fixed under their item by ddFactsPop. */
 .dd-facts .cpill-pop,.dd-facts .pl-pop{position:fixed;right:auto}
+.dd-pad-wrap{position:relative}
+.dd-pad-chip{gap:6px}
+.dd-pad-dot{width:7px;height:7px;border-radius:99px;background:var(--muted);display:inline-block}
+.dd-pad-chip[data-st="on"] .dd-pad-dot{background:var(--ok)}
+.dd-pad-chip[data-st="flapping"],.dd-pad-chip[data-st="bad"]{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-bg)}
+.dd-pad-chip[data-st="flapping"] .dd-pad-dot,.dd-pad-chip[data-st="bad"] .dd-pad-dot{background:var(--warn)}
+.dd-pad-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(380px,calc(100vw - 32px));box-shadow:var(--shadow-pop);border-radius:14px}
+.dd-pad-pop .ddc-card{margin:0}
 .dd-notes-wrap{position:relative}
 .dd-notes-btn svg{flex:none}
 .dd-notes-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--accent);margin-left:2px}
@@ -500,6 +508,26 @@ if (!window.__ddFactsScroll) {
     document.querySelectorAll('.dd-facts .pl-pop:not([hidden])').forEach(function (p) { p.setAttribute('hidden', ''); });
     var c = document.querySelector('.dd-facts .cpill-pop:not([hidden])'); if (c) { var b = document.getElementById('cpill-btn'); if (b) b.click(); }
   }, { passive: true });
+}
+window.ddPadToggle = function (e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var pop = document.getElementById('dd-pad-pop'), btn = e && e.currentTarget;
+  if (!pop) return;
+  var open = pop.hasAttribute('hidden');
+  if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+// Mirror the pad state onto the chip: na (charging off) | on | vacant | flapping | bad.
+window.ddPadChip = function (st) {
+  var c = document.getElementById('pad-chip'), t = document.getElementById('pad-chip-t');
+  if (!c || !t) return;
+  c.setAttribute('data-st', st);
+  t.textContent = { na: 'off', on: 'phone on', vacant: 'vacant', flapping: 'misplaced' }[st] || 'unreadable';
+};
+if (!window.__ddPadHook) {
+  window.__ddPadHook = true;
+  document.addEventListener('click', function (e) { var p = document.getElementById('dd-pad-pop'); if (p && !p.hidden && !e.target.closest('.dd-pad-wrap')) p.setAttribute('hidden', ''); });
+  document.addEventListener('keydown', function (e) { var p = document.getElementById('dd-pad-pop'); if (e.key === 'Escape' && p && !p.hidden) p.setAttribute('hidden', ''); });
 }
 window.ddNotesToggle = function (e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -529,6 +557,51 @@ if (!window.__ddNotesHook) {
   {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
 </div>
 <div class="dd-tabrow-r">
+  {{/* Charging pad (static/device-pad-demos.html, W2, picked 14 Oct): a chip beside Notes
+       that says what the pad is doing; its popover holds the on/off switch and the reason. */}}
+  {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
+  {{if and .WlcApplicable $wlcS (ne $wlcS "—")}}
+  {{$pst := "bad"}}{{if not .KioskConfig.WlcChargingEnabled}}{{$pst = "na"}}{{else if eq $wlcS "1"}}{{$pst = "on"}}{{else if eq $wlcS "0"}}{{$pst = "vacant"}}{{else if eq $wlcS "2"}}{{$pst = "flapping"}}{{end}}
+  <span class="dd-pad-wrap">
+    <button type="button" class="cc-btn sm dd-pad-chip" id="pad-chip" data-st="{{$pst}}" onclick="ddPadToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="Wireless charging pad">
+      <i class="dd-pad-dot" aria-hidden="true"></i>Pad · <span id="pad-chip-t">{{if eq $pst "na"}}off{{else if eq $pst "on"}}phone on{{else if eq $pst "vacant"}}vacant{{else if eq $pst "flapping"}}misplaced{{else}}unreadable{{end}}</span>
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="dd-pad-pop" id="dd-pad-pop" hidden>
+  <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
+    <div class="ddc-card-t pad-card-t cc-ch">
+      <span style="display:flex;align-items:center;gap:9px;"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg></span><h2>Charging pad</h2></span>
+      {{if true}}
+      <button type="button" id="wlc-chip" class="ddc-swpill pad-swpill{{if .KioskConfig.WlcChargingEnabled}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}
+              data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
+              data-serial="{{.Device.SerialNumber}}"
+              title="Enable or disable wireless charging on this pad" onclick="wlcToggle(this)">
+        <span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span><span class="ddc-sw"></span>
+      </button>
+      {{else}}
+      <span class="{{if .KioskConfig.WlcChargingEnabled}}pad-en{{else}}muted{{end}}">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span>
+      {{end}}
+    </div>
+    {{/* gpio27 only carries a real placed/vacant reading while charging is ON. With
+         charging disabled the line is meaningless, so show "Not available" rather than a
+         misleading placed/vacant. */}}
+    <div class="ddc-kv"><span class="k">Status</span><span class="v">
+      {{if .KioskConfig.WlcChargingEnabled}}
+      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status">
+        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Wireless charging active{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Charging pad misplaced{{else}}Unreadable{{end}}</span>
+      </span>
+      {{else}}
+      <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
+      {{end}}
+    </span></div>
+    {{/* Flapping = gpio27 kept disagreeing instead of settling — a real hardware symptom
+         (loose connector, failing pad), not a transient misread. Only meaningful while
+         charging is on, matching the status pill above. */}}
+    <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
+  </div>
+    </div>
+  </span>
+  {{end}}
   <span class="dd-notes-wrap">
     <button type="button" class="cc-btn sm dd-notes-btn{{if .Notes}} has{{end}}" onclick="ddNotesToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="{{if .Notes}}Notes on this device{{else}}Add a note{{end}}">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
@@ -718,6 +791,7 @@ if (!window.__ddNotesHook) {
         // placed/vacant.
         var ps = document.getElementById('pad-status');
         if (ps && !v) { ps.className = 'pad-stat pad-stat-na'; var t = ps.querySelector('.pad-txt'); if (t) t.textContent = 'Not available'; }
+        if (!v && window.ddPadChip) window.ddPadChip('na');
       };
       apply(next); // optimistic
       btn.disabled = true;
@@ -765,40 +839,6 @@ if (!window.__ddNotesHook) {
 
 
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
-  {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
-  {{if and .WlcApplicable $wlcS (ne $wlcS "—")}}
-  <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
-    <div class="ddc-card-t pad-card-t cc-ch">
-      <span style="display:flex;align-items:center;gap:9px;"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg></span><h2>Charging pad</h2></span>
-      {{if true}}
-      <button type="button" id="wlc-chip" class="ddc-swpill pad-swpill{{if .KioskConfig.WlcChargingEnabled}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}
-              data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
-              data-serial="{{.Device.SerialNumber}}"
-              title="Enable or disable wireless charging on this pad" onclick="wlcToggle(this)">
-        <span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span><span class="ddc-sw"></span>
-      </button>
-      {{else}}
-      <span class="{{if .KioskConfig.WlcChargingEnabled}}pad-en{{else}}muted{{end}}">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span>
-      {{end}}
-    </div>
-    {{/* gpio27 only carries a real placed/vacant reading while charging is ON. With
-         charging disabled the line is meaningless, so show "Not available" rather than a
-         misleading placed/vacant. */}}
-    <div class="ddc-kv"><span class="k">Status</span><span class="v">
-      {{if .KioskConfig.WlcChargingEnabled}}
-      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status">
-        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Wireless charging active{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Charging pad misplaced{{else}}Unreadable{{end}}</span>
-      </span>
-      {{else}}
-      <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
-      {{end}}
-    </span></div>
-    {{/* Flapping = gpio27 kept disagreeing instead of settling — a real hardware symptom
-         (loose connector, failing pad), not a transient misread. Only meaningful while
-         charging is on, matching the status pill above. */}}
-    <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
-  </div>
-  {{end}}
 
 <style>
 /* Vitals card: stacked charts, range dropdown, navigator (see the comment in the card). */
@@ -4853,6 +4893,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       el.className = 'pad-stat pad-stat-na';
       var tn = el.querySelector('.pad-txt'); if (tn) tn.textContent = 'Not available';
       if (warn) warn.hidden = true;
+      if (window.ddPadChip) window.ddPadChip('na');
       return;
     }
     var map = { 1: ['on', 'Wireless charging active'], 0: ['vacant', 'Vacant'], 2: ['flapping', 'Charging pad misplaced'] };
@@ -4860,6 +4901,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     el.className = 'pad-stat pad-stat-' + m[0];
     var t = el.querySelector('.pad-txt'); if (t) t.textContent = m[1];
     if (warn) warn.hidden = (wlc !== 2);
+    if (window.ddPadChip) window.ddPadChip(m[0]);
   };
 
   window.chShowAll = function () {
