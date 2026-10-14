@@ -843,7 +843,10 @@ if (!window.__ddNotesHook) {
 <style>
 /* Vitals card: stacked charts, range dropdown, navigator (see the comment in the card). */
 .chart-card .vt-head{flex-wrap:nowrap;align-items:center;gap:10px}
-.chart-card .vt-head .gcontrols.vt-tools{flex:1 1 auto;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.chart-card .vt-head .gcontrols.vt-tools{flex:1 1 auto;justify-content:flex-end;gap:6px;flex-wrap:nowrap;min-width:0}
+.chart-card .vt-head .vt-tools>.vt-range-wrap:first-of-type{min-width:0}
+.vt-range{max-width:100%;min-width:0}
+.vt-range .chart-wlabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .vt-range-wrap{position:relative}
 .vt-range{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:10px;border:1px solid transparent;background:var(--accent-soft);color:var(--accent-text);font:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
 .vt-range .chart-wlabel{font-size:12.5px;font-weight:650;color:inherit;opacity:1}
@@ -874,15 +877,21 @@ if (!window.__ddNotesHook) {
 .vt-panel+.vt-panel{border-top:1px solid var(--border-soft)}
 .vt-lbl{position:absolute;top:5px;left:16px;z-index:1;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--text-2)}
 .vt-lbl i{width:8px;height:8px;border-radius:99px}
-#chart-panel-battery .wlc-bar:not(.wlc-bar--strip){position:absolute;top:2px;right:12px;z-index:1;padding:0;margin:0}
-#chart-panel-battery .wlc-bar .chart-legend{gap:4px 12px;font-size:11px}
+.vt-legend{border-top:1px solid var(--border-soft);padding:0 16px;height:54px;display:flex;align-items:center;overflow:hidden}
+@media (max-width:720px){.vt-legend{height:96px}}
+.vt-lg-row{display:flex;align-items:center;flex-wrap:wrap;gap:3px 14px;width:100%}
+.vt-lg-k{min-width:52px}
+.vt-lg{display:flex;align-items:center;flex-wrap:wrap;gap:5px 14px;font-size:11.5px;color:var(--text-2);width:100%}
+.vt-lg[hidden]{display:none}
+.vt-lg .chart-legend-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.vt-lg-k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.vt-lg-sep{width:1px;height:14px;background:var(--border)}
 .vt-tabs{display:inline-flex;gap:2px;background:var(--surface2);border-radius:10px;padding:3px}
 .vt-tab{font:inherit;font-size:12.5px;font-weight:650;padding:5px 12px;border-radius:8px;border:0;background:none;color:var(--muted);cursor:pointer}
 .vt-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .chart-card .vt-lbl{display:none}
 .chart-card .vt-panel{padding-top:8px}
 .chart-card .vt-panel+.vt-panel{border-top:0}
-#chart-panel-battery.vt-panel{padding-top:26px}
 .chart-card .vt-panel .chart-wrap--tall{height:210px}
 .vt-navw{padding:6px 16px 12px;border-top:1px solid var(--border-soft)}
 .vt-nav{position:relative;height:34px;border-radius:8px;background:var(--surface2);overflow:hidden;cursor:pointer;touch-action:none;color:var(--text-faint);user-select:none}
@@ -893,7 +902,7 @@ if (!window.__ddNotesHook) {
 .vt-h.l{left:-6px}.vt-h.r{right:-6px}
 .vt-h::after{content:"";position:absolute;top:9px;bottom:9px;left:4px;width:4px;border-radius:2px;background:var(--accent)}
 .vt-navcap{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);padding-top:4px;font-variant-numeric:tabular-nums}
-@media (max-width:720px){.chart-card .vt-head{flex-wrap:wrap}.chart-card .vt-head .gcontrols.vt-tools{flex-basis:100%;justify-content:flex-start}#chart-panel-battery .wlc-bar:not(.wlc-bar--strip){position:static;padding:0 16px}}
+@media (max-width:720px){.chart-card .vt-head{flex-wrap:wrap}.chart-card .vt-head .gcontrols.vt-tools{flex-basis:100%;justify-content:flex-start}}
 </style>
 <div class="card chart-card">
   <div class="chart-zoom-hint" id="chart-zoom-hint" aria-hidden="true">Zoom with Ctrl + scroll</div>
@@ -1002,37 +1011,7 @@ if (!window.__ddNotesHook) {
   {{if .ShowBattery}}
   <div id="chart-panel-battery" class="vt-panel">
     <div class="vt-lbl"><i style="background:#f9674e"></i>Battery</div>
-    {{/* The pad legend only makes sense on hardware with a wireless charging pad;
-         MDM DPC devices and products without a pad get the plain battery chart. */}}
-    {{if .Device.HasWLC}}
-    <div class="wlc-bar">
-      <div class="chart-legend" id="wlc-legend">
-        {{if .Device.HasWLC}}
-        {{/* Two different things are drawn here and they were both called "charging".
-             The LINE colour is the wireless pad — a customer's phone on the tablet.
-             The STRIP is the tablet charging itself from mains. Naming both of them
-             "charging" made the chart unreadable, so the line says wireless
-             throughout and the strip says what is being charged. */}}
-        <span class="chart-legend-item" title="Line colour: a phone is on the tablet's wireless pad"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless charging in use</span>
-        <span class="chart-legend-item" title="Line colour: pad powered, nothing on it"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Wireless pad vacant</span>
-        <span class="chart-legend-item" title="Line colour: the phone is off-centre on the pad"><span class="chart-legend-line" style="background:#e8a13a;"></span> Wireless pad misplaced</span>
-        <span class="chart-legend-item" title="Line colour: the pad did not report a readable state"><span class="chart-legend-line" style="background:#b2bec3;"></span> Wireless pad unreadable</span>
-        {{end}}
-      </div>
-    </div>
-    {{end}}
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
-    {{if .Device.HasCharging}}
-    {{/* The strip's legend sits under the strip it explains (chargeStripPlugin draws it
-         along the chart's bottom edge); the line-colour legend stays above the chart. */}}
-    <div class="wlc-bar wlc-bar--strip">
-      <div class="chart-legend" id="charge-strip-legend">
-        <span class="chart-legend-item" title="Strip under the chart: the tablet itself charging from AC power"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
-        <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Tablet on battery</span>
-        <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> Charger flapping</span>
-      </div>
-    </div>
-    {{end}}
   </div>
   {{end}}
 
@@ -1085,6 +1064,31 @@ if (!window.__ddNotesHook) {
     {{end}}
   </aside>
   </div><!-- /chart-split -->
+  {{/* Legend strip under the graph: one line, the same height on every tab, saying what
+       the colours on the chart in view mean. */}}
+  <div class="vt-legend" id="vt-legend">
+    {{if .ShowBattery}}<div class="vt-lg" data-lg="battery">
+      {{if .Device.HasWLC}}<div class="vt-lg-row"><span class="vt-lg-k" title="The battery line's colour: the wireless charging pad">Pad</span>
+      <span class="chart-legend-item" title="Line colour: a phone is on the tablet's wireless pad"><span class="chart-legend-line" style="background:#e84393;"></span> phone on it</span>
+      <span class="chart-legend-item" title="Line colour: pad powered, nothing on it"><span class="chart-legend-line" style="background:#6c5ce7;"></span> vacant</span>
+      <span class="chart-legend-item" title="Line colour: the phone is off-centre on the pad"><span class="chart-legend-line" style="background:#e8a13a;"></span> misplaced</span>
+      <span class="chart-legend-item" title="Line colour: the pad did not report a readable state"><span class="chart-legend-line" style="background:#b2bec3;"></span> unreadable</span></div>{{end}}
+      {{if .Device.HasCharging}}<div class="vt-lg-row"><span class="vt-lg-k" title="The strip under the chart: the tablet itself">Tablet</span>
+      <span class="chart-legend-item" title="Strip under the chart: the tablet itself charging from AC power"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> charging</span>
+      <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> on battery</span>
+      <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> charger flapping</span></div>{{end}}
+      {{if not (or .Device.HasWLC .Device.HasCharging)}}<span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.35);height:8px"></span> Shaded: under 20%</span>{{end}}
+    </div>{{end}}
+    <div class="vt-lg" data-lg="temp"{{if .ShowBattery}} hidden{{end}}>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(232,161,58,.35);height:8px"></span> 40–45 °C warm</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.4);height:8px"></span> over 45 °C hot</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,rgba(128,128,128,.5) 0 2px,transparent 2px 4px);height:8px"></span> no data</span>
+    </div>
+    <div class="vt-lg" data-lg="ram" hidden>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.4);height:8px"></span> over 85% used</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,rgba(128,128,128,.5) 0 2px,transparent 2px 4px);height:8px"></span> no data</span>
+    </div>
+  </div>
   {{/* Navigator: the last days at a glance with the window on screen drawn on it. Drag the
        window to move through time, pull an edge to widen or narrow it. */}}
   <div class="vt-navw">
@@ -1996,6 +2000,7 @@ function mdmBootCharts() {
     if (tab === 'ram') loadMetricLazy('ram');
     var c = tab === 'temp' ? tempChart : tab === 'ram' ? ramChart : batteryChart;
     if (c) setTimeout(function () { try { c.resize(); } catch (e) {} }, 0);
+    document.querySelectorAll('#vt-legend .vt-lg').forEach(function (l) { l.hidden = l.getAttribute('data-lg') !== tab; });
   };
 
   function applyData(chart, all) {
@@ -2026,6 +2031,16 @@ function mdmBootCharts() {
     unifiedChart.update('none');
   }
 
+  // A custom window, short enough for the range button: "Oct 14, 09:52–15:52" within a
+  // day, "Oct 13 09:06 – Oct 14 09:06" across days, dates only for long spans.
+  function vtRangeLabel(a, b) {
+    var day = function (ms) { return new Date(ms).toLocaleDateString([], tzArg({ month: 'short', day: 'numeric' })); };
+    var hm = function (ms) { return new Date(ms).toLocaleTimeString([], tzArg({ hour: '2-digit', minute: '2-digit', hour12: false })); };
+    if (day(a) === day(b)) return day(a) + ', ' + hm(a) + '\u2013' + hm(b);
+    if (b - a >= 3 * 86400e3) return day(a) + ' \u2013 ' + day(b);
+    return day(a) + ' ' + hm(a) + ' \u2013 ' + day(b) + ' ' + hm(b);
+  }
+
   function updateCharts() {
     const { pts } = filterWindow(srcBattery());
     const labels = {3600000: "Last hour", 21600000: "Last 6 hours", 43200000: "Last 12 hours", 86400000: "Last 24 hours", 172800000: "Last 48 hours", 604800000: "Last 7 days"};
@@ -2033,10 +2048,10 @@ function mdmBootCharts() {
     // row, so a wide custom/shifted range can't wrap the toolbar. The old #chart-info
     // slot is kept empty to hold the row's layout stable.
     var _wtext = (customMin !== null && customMax !== null)
-      ? fmtDate(customMin) + " \u2013 " + fmtDate(customMax)
+      ? vtRangeLabel(customMin, customMax)
       : (labels[currentDuration] || "Last " + Math.round(currentDuration / 3600000) + " hours");
     var _wl = document.getElementById("chart-window-label");
-    if (_wl) _wl.textContent = _wtext;
+    if (_wl) { _wl.textContent = _wtext; _wl.title = _wtext; }
     var _ci = document.getElementById("chart-info");
     if (_ci) _ci.textContent = "";
 
@@ -2294,7 +2309,8 @@ function mdmBootCharts() {
   function evenTimeTicks(axis) {
     const min = axis.min, max = axis.max;
     if (min == null || max == null || max <= min) return;
-    const span = max - min, target = 7;
+    // About one label per 95px of chart, at most 7, so a narrow chart doesn't overlap them.
+    const span = max - min, target = Math.max(3, Math.min(7, Math.floor(((axis.chart && axis.chart.width) || 700) / 95)));
     // Spans beyond what a 14-day step can cover with ~7 ticks switch to calendar
     // months (1st of the month, every 1/2/3/6 months), which a fixed millisecond
     // step can't express. fmtTimeAxis reads axis._tickStep to pick the label form.
@@ -4557,7 +4573,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 .dd-facts.is-split .dd-pad-chip:not([data-st="flapping"]):not([data-st="bad"]) #pad-chip-t{display:none}
 .dd-facts.is-split .dfc-wide .dfm{display:none}
 .dd-facts.is-split .dd-tabrow-r .cc-btn{padding-left:9px;padding-right:9px}
-.dd-split-l #chart-panel-battery .wlc-bar:not(.wlc-bar--strip){position:static;padding:0 16px 0 84px;margin-top:-16px}
+
 .vt-split-btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
 @media (max-width:1099px){.vt-split-btn{display:none}}
 </style>
