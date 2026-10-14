@@ -496,7 +496,7 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.role_app", role, base)
-	http.Redirect(w, r, "/products?flash=app#role-"+role, http.StatusSeeOther)
+	http.Redirect(w, r, "/products?class="+role+"&flash=app", http.StatusSeeOther)
 }
 
 // PipelineChannel puts a build on its package's column. On the base package this is
@@ -585,7 +585,8 @@ func (h *Handler) PipelineFirmwareMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.firmware_mode", model, mode)
-	http.Redirect(w, r, "/products?flash=mode#model-"+model, http.StatusSeeOther)
+	cls, _ := prod.Resolve(model)
+	http.Redirect(w, r, "/products?class="+cls.Class+"&flash=mode#model-"+model, http.StatusSeeOther)
 }
 
 // PipelineRollout pauses or resumes, and sets the window of, the app or firmware rollout.

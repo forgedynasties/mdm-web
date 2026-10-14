@@ -22260,6 +22260,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
 	// Roles & hardware (products.go): what each role runs, and each model's firmware mode.
 	// Super admins only — Releases shows both read-only.
+	post("POST /products/attach", h.requireStrictAdmin(h.ProductAttach))
 	post("POST /products/role-app", h.requireStrictAdmin(h.PipelineRoleApp))
 	post("POST /products/firmware-mode", h.requireStrictAdmin(h.PipelineFirmwareMode))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))

@@ -41,6 +41,50 @@
 .rh-mini{height:26px;padding:0 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;font-size:11.5px;margin-left:4px}
 .rh-mini.unset{border-color:var(--warn);color:var(--warn)}
 .rh-name{margin-top:6px;max-width:320px}
+.hw-split{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;align-items:start;margin-bottom:22px}
+.hw-side{display:grid;gap:3px;position:sticky;top:84px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:6px}
+.hw-cls{display:flex;gap:9px;align-items:center;padding:8px 10px;border-radius:10px;color:var(--text-2);text-decoration:none;font-size:12.5px}
+.hw-cls:hover{background:var(--surface2)}
+.hw-cls.on{background:var(--accent-soft)}
+.hw-cls span{flex:1;min-width:0}
+.hw-cls b{display:block;font-weight:650;color:var(--text)}
+.hw-cls small{display:block;font-size:11px;color:var(--muted)}
+.hw-cls i{font-style:normal;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text-2)}
+.hw-cls.warn b,.hw-cls.warn i{color:var(--warn)}
+.hw-pane{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:16px 18px;min-width:0}
+.hw-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hw-head h2{margin:0;font-size:17px;font-weight:650}
+.hw-faint{font-size:12px;color:var(--muted)}
+.hw-note{font-size:13px;color:var(--muted);margin:6px 0 12px}
+.hw-app{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 6px}
+.hw-app .pr-sel{width:auto;min-width:240px}
+.hw-k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.hw-tbl{margin-top:10px;border-top:1px solid var(--border-soft)}
+.hw-th,.hw-tr{display:grid;grid-template-columns:minmax(200px,1.4fr) minmax(150px,1fr) minmax(150px,1fr) 70px;column-gap:16px;align-items:center}
+.hw-th.hw-tr5,.hw-tr.hw-tr5,.hw-tbl:has(.hw-tr5) .hw-th{grid-template-columns:minmax(200px,1.4fr) minmax(120px,1fr) minmax(150px,1fr) 150px 70px}
+.hw-th{height:34px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.hw-tr{padding:10px 0;border-top:1px solid var(--border-soft)}
+.hw-fw{width:auto}
+.hw-zero{color:var(--text-faint)}
+.hw-tag{font-size:10.5px;font-weight:700;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:1px}
+.hw-mn-acts{display:flex;gap:10px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.hw-ren summary,.hw-x{font:inherit;font-size:11.5px;color:var(--muted);cursor:pointer;background:none;border:0;padding:0;list-style:none}
+.hw-ren summary::-webkit-details-marker{display:none}
+.hw-ren summary:hover,.hw-x:hover{color:var(--accent-text)}
+.hw-ren[open] .pr-form{margin-top:6px;max-width:320px}
+.hw-mn-acts form{margin:0}
+.hw-empty{margin-top:14px;padding:18px;border:1px dashed var(--border);border-radius:12px;color:var(--muted);font-size:13px}
+.hw-pop-wrap{position:relative}
+.hw-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(340px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:12px}
+.hw-pop form{display:grid;gap:8px}
+.hw-pop-t{font-weight:650;font-size:13px}
+.hw-pop-list{display:grid;gap:2px;max-height:240px;overflow:auto}
+.hw-opt{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center;padding:6px 8px;border-radius:8px;font-size:12.5px;cursor:pointer}
+.hw-opt:hover{background:var(--surface2)}
+.hw-opt small{grid-column:2;color:var(--muted);font-size:11px}
+.hw-opt .mono{font-size:11px;color:var(--muted)}
+.hw-key{font:inherit;font-size:12.5px;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)}
+@media(max-width:900px){.hw-split{grid-template-columns:1fr}.hw-side{position:static;grid-auto-flow:column;grid-auto-columns:max-content;overflow-x:auto}.hw-th{display:none}.hw-tr,.hw-tr.hw-tr5{grid-template-columns:1fr auto;row-gap:8px}.hw-tr>:not(.hw-mn):not(.pr-n){grid-column:1/-1}}
 .pr-flash{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:var(--ok-bg);color:var(--ok);font-size:13px;font-weight:600}
 @media(max-width:900px){.rh-hd{display:none}.rh-role,.rh-model{grid-template-columns:1fr auto;row-gap:8px}.rh-role>*:nth-child(2),.rh-model>*:nth-child(2),.rh-model>*:nth-child(3),.rh-model>*:nth-child(4){grid-column:1/-1}.rh-role>span{display:none}}
 @media(max-width:900px){
@@ -53,40 +97,112 @@
 <div class="cc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Fleet · Roles &amp; hardware</div>
-    <h1 class="cc-h1">Roles &amp; hardware</h1>
-    <div class="cc-sub">Set once by a super admin: the app each role runs, which hardware models serve each role, and whether a model takes firmware from us. Releases and the device pages follow what is set here.</div>
+    <div class="cc-eyebrow">Fleet · Hardware</div>
+    <h1 class="cc-h1">Hardware</h1>
+    <div class="cc-sub">Each class, the app it runs and the models attached to it. A device's class is its model's class: every device of an attached model, enrolled now or later, is in that class. Our own hardware is built in to its class.</div>
   </div>
 </div>
-{{if .Flash}}<div class="pr-flash">{{if eq .Flash "app"}}App saved for that role.{{else if eq .Flash "mode"}}Firmware setting saved.{{end}}</div>{{end}}
+{{if .Flash}}<div class="pr-flash">{{if eq .Flash "app"}}App saved for that class.{{else if eq .Flash "mode"}}Firmware setting saved.{{end}}</div>{{end}}
 
-<div class="pr-list rh-list">
-  <div class="rh-hd"><span>Role · model</span><span>App · devices report</span><span>Client</span><span>Firmware</span><span style="text-align:right">Devices</span></div>
-  {{range .Groups}}{{$g := .}}
-  <div class="rh-role" id="role-{{.Key}}">
-    <div class="pr-name">{{.Label}}</div>
-    <div>
-      {{if canAdmin $.Role}}
+{{/* Hardware page, H3 (static/hardware-class-models-demos.html, picked 14 Oct): classes in
+     a side list that swaps the pane in place, one class at a time on the right. */}}
+<div class="hw-split" id="hw-split">
+  <nav class="hw-side" aria-label="Classes">
+    {{range .Classes}}
+    <a href="/products?class={{.Key}}" hx-get="/products?class={{.Key}}" hx-target="#hw-split" hx-select="#hw-split" hx-swap="outerHTML show:none" hx-push-url="true" class="hw-cls{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
+      <span><b>{{.Label}}</b><small>{{len .Models}} model{{if ne (len .Models) 1}}s{{end}}{{if .App}} · app set{{end}}</small></span><i>{{.Devices}}</i>
+    </a>
+    {{end}}
+    {{if .None}}
+    <a href="/products?class=none" hx-get="/products?class=none" hx-target="#hw-split" hx-select="#hw-split" hx-swap="outerHTML show:none" hx-push-url="true" class="hw-cls warn{{if eq .Sel "none"}} on{{end}}"{{if eq .Sel "none"}} aria-current="page"{{end}}>
+      <span><b>Not attached</b><small>{{len .None}} model{{if ne (len .None) 1}}s{{end}} without a class</small></span><i>{{.NoneDevices}}</i>
+    </a>
+    {{end}}
+  </nav>
+
+  <section class="hw-pane">
+  {{if eq .Sel "none"}}
+    <div class="hw-head"><h2>Not attached</h2></div>
+    <p class="hw-note">Models the fleet reported that no class has yet. Their devices have no class (or a guess from the model name) until the model is attached.</p>
+    <div class="hw-tbl">
+      <div class="hw-th"><span>Model</span><span>Attach to</span><span>Client</span><span style="text-align:right">Devices</span></div>
+      {{range .None}}{{$m := .}}
+      <div class="hw-tr" id="model-{{.Key}}">
+        {{template "hw-model-name" (dict "M" . "Root" $)}}
+        <div><form method="POST" action="/products/attach" class="rh-inline" hx-boost="false">
+          <input type="hidden" name="model" value="{{.Key}}"><input type="hidden" name="back" value="none">
+          <select name="role" class="pr-sel unset" aria-label="Class for {{.Display}}" onchange="this.form.requestSubmit()">
+            <option value="">Attach to…</option>
+            {{range $.ClassKeys}}<option value="{{.}}">{{classLabel .}}</option>{{end}}
+          </select>
+        </form></div>
+        {{template "pr-agents" .}}
+        <div class="pr-n">{{.Devices}}</div>
+      </div>
+      {{end}}
+    </div>
+  {{else}}{{with .Cur}}{{$g := .}}
+    <div class="hw-head">
+      <h2>{{.Label}}</h2>
+      <span class="hw-faint">{{.Devices}} device{{if ne .Devices 1}}s{{end}}</span>
+      <span class="hw-pop-wrap" style="margin-left:auto">
+        <button type="button" class="cc-btn sm" onclick="hwAddToggle(event)" aria-haspopup="dialog" aria-expanded="false">+ Add model</button>
+        <div class="hw-pop" id="hw-add" hidden>
+          <form method="POST" action="/products/attach" hx-boost="false">
+            <input type="hidden" name="role" value="{{.Key}}"><input type="hidden" name="back" value="{{.Key}}">
+            <div class="hw-pop-t">Attach a model to {{.Label}}</div>
+            {{if $.Candidates}}<div class="hw-pop-list">
+              {{range $.Candidates}}<label class="hw-opt"><input type="radio" name="model" value="{{.Key}}"><span><b>{{.Display}}</b> <span class="mono">{{.Key}}</span></span><small>{{if .Role}}in {{classLabel .Role}}{{else}}not attached{{end}} · {{.Devices}}</small></label>{{end}}
+            </div>{{end}}
+            <input type="text" name="model_key" class="hw-key" placeholder="or type a model key, e.g. rk3566_box" autocomplete="off" spellcheck="false">
+            <div class="hw-faint">Its devices take this class now and at every later enrollment.</div>
+            <button type="submit" class="cc-btn sm primary">Attach</button>
+          </form>
+        </div>
+      </span>
+    </div>
+    <div class="hw-app">
+      <span class="hw-k">App</span>
       <form method="POST" action="/products/role-app" class="rh-inline">
         <input type="hidden" name="role" value="{{.Key}}">
         <select name="base_package" class="pr-sel{{if not .App}} unset{{end}}" aria-label="App for {{.Label}}" onchange="this.form.requestSubmit()">
           <option value="">— no app —</option>
-          {{/* Only aio.app* packages are offered; a role still set to another app shows it, unpickable. */}}
+          {{/* Only aio.app* packages are offered; a class still set to another app shows it, unpickable. */}}
           {{if and .App (not (hasPrefix .App "aio.app"))}}<option value="{{.App}}" selected disabled>{{.App}} · not an aio.app package</option>{{end}}
           {{range $.Choices}}<option value="{{.Package}}"{{if eq .Package $g.App}} selected{{end}}>{{.Name}} · {{.Package}}</option>{{end}}
         </select>
       </form>
-      {{else}}{{if .App}}<span class="mono">{{.App}}</span>{{else}}<span class="pr-fixed">no app</span>{{end}}{{end}}
+      <span class="hw-faint">Every deployed device of the class runs it; releases are on <a href="/pipeline?role={{.Key}}" class="link-detail">Releases</a>.</span>
     </div>
-    <span></span><span></span>
-    <div class="pr-n">{{.Devices}}</div>
-  </div>
-  {{range .Models}}{{template "rh-model" (dict "M" . "Root" $)}}{{end}}
-  {{end}}
-  {{if .NeedRole}}
-  <div class="rh-role rh-need"><div class="pr-name">Role needed</div><div class="pr-fixed">New models land here until someone sets their role.</div><span></span><span></span><span></span></div>
-  {{range .NeedRole}}{{template "rh-model" (dict "M" . "Root" $)}}{{end}}
-  {{end}}
+    {{if .Models}}
+    <div class="hw-tbl">
+      <div class="hw-th"><span>Model</span><span>Devices report</span><span>Client</span><span>Firmware</span><span style="text-align:right">Devices</span></div>
+      {{range .Models}}
+      <div class="hw-tr hw-tr5" id="model-{{.Key}}">
+        {{template "hw-model-name" (dict "M" . "Root" $ "Class" $g.Key)}}
+        <div class="pr-rep">{{if .Reported}}{{.Reported}}{{else}}<span class="pr-fixed">—</span>{{end}}</div>
+        {{template "pr-agents" .}}
+        <div>
+          {{if .CanFw}}
+          <form method="POST" action="/products/firmware-mode" class="rh-inline">
+            <input type="hidden" name="model" value="{{.Key}}">
+            <select name="mode" class="pr-sel hw-fw" aria-label="Firmware for {{.Display}}" onchange="this.form.requestSubmit()">
+              <option value="prod"{{if eq .FwMode "prod"}} selected{{end}}>Prod</option>
+              <option value="lab"{{if eq .FwMode "lab"}} selected{{end}}>Lab only</option>
+              <option value="off"{{if eq .FwMode "off"}} selected{{end}}>Off</option>
+            </select>
+          </form>
+          {{else}}<span class="pr-fixed">Off · maker's firmware</span>{{end}}
+        </div>
+        <div class="pr-n{{if not .Devices}} hw-zero{{end}}">{{.Devices}}</div>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="hw-empty">No models in {{.Label}} yet. <b>+ Add model</b> attaches one, also before any device of it has enrolled.</div>
+    {{end}}
+  {{end}}{{end}}
+  </section>
 </div>
 
 {{/* Production runs (serial ranges of our own hardware and how many units have
@@ -134,42 +250,41 @@
 </div>
 </div>
 </div>
+<script>
+window.hwAddToggle = function (e) {
+  e.preventDefault(); e.stopPropagation();
+  var pop = document.getElementById('hw-add'), btn = e.currentTarget; if (!pop) return;
+  var open = pop.hasAttribute('hidden');
+  if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+if (!window.__hwPopHook) {
+  window.__hwPopHook = true;
+  document.addEventListener('click', function (e) { var p = document.getElementById('hw-add'); if (p && !p.hidden && !e.target.closest('.hw-pop-wrap')) p.setAttribute('hidden', ''); });
+  document.addEventListener('keydown', function (e) { var p = document.getElementById('hw-add'); if (e.key === 'Escape' && p && !p.hidden) p.setAttribute('hidden', ''); });
+}
+</script>
 {{template "footer" .}}
 {{end}}
 
-{{define "rh-model"}}{{$m := .M}}{{$root := .Root}}
-  <div class="rh-model" id="model-{{$m.Key}}">
-    <div>
-      <div class="pr-name">{{$m.Display}}</div><div class="pr-key">{{$m.Key}}{{if not $m.Known}} · <span>role</span>
-        <form method="POST" action="/products/{{$m.Key}}/role" hx-post="/products/{{$m.Key}}/role" hx-swap="none" hx-trigger="change" hx-on::after-request="if(event.detail.successful)location.reload()" class="rh-inline">
-          <select name="role" class="rh-mini{{if not $m.Role}} unset{{end}}" aria-label="Role for {{$m.Key}}">
-            <option value="">Choose a role…</option>
-            {{range $root.Classes}}<option value="{{.}}"{{if eq . $m.Role}} selected{{end}}>{{classLabel .}}</option>{{end}}
-          </select>
-        </form>{{end}}</div>
-      {{if not $m.Known}}
-      <form class="pr-form rh-name" method="POST" action="/products/{{$m.Key}}/name" hx-post="/products/{{$m.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
-        <input type="text" name="name" value="{{$m.Name}}" maxlength="60" placeholder="Display name" aria-label="Display name for {{$m.Key}}">
-        <button type="submit" class="save">Save</button>{{if $m.Name}}<button type="submit" name="reset" value="1">Reset</button>{{end}}
-      </form>
-      {{end}}
+{{define "hw-model-name"}}{{$m := .M}}
+  <div class="hw-mn">
+    <div class="pr-name">{{$m.Display}}{{if $m.Known}} <span class="hw-tag">built in</span>{{end}}</div>
+    <div class="pr-key">{{$m.Key}}</div>
+    {{if not $m.Known}}
+    <div class="hw-mn-acts">
+      <details class="hw-ren"><summary>Rename</summary>
+        <form class="pr-form" method="POST" action="/products/{{$m.Key}}/name" hx-post="/products/{{$m.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
+          <input type="text" name="name" value="{{$m.Name}}" maxlength="60" placeholder="Display name" aria-label="Display name for {{$m.Key}}">
+          <button type="submit" class="save">Save</button>{{if $m.Name}}<button type="submit" name="reset" value="1">Reset</button>{{end}}
+        </form>
+      </details>
+      {{if .Class}}<form method="POST" action="/products/attach" hx-boost="false" onsubmit="return confirm('Detach {{$m.Display}} from this class? Its devices lose the class.')">
+        <input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="role" value=""><input type="hidden" name="back" value="{{.Class}}">
+        <button type="submit" class="hw-x" title="Detach from this class">Detach</button>
+      </form>{{end}}
     </div>
-    <div class="pr-rep">{{if $m.Reported}}{{$m.Reported}}{{else}}<span class="pr-fixed">—</span>{{end}}</div>
-    {{template "pr-agents" $m}}
-    <div>
-      {{if and $m.CanFw (canAdmin $root.Role)}}
-      <form method="POST" action="/products/firmware-mode" class="rh-inline">
-        <input type="hidden" name="model" value="{{$m.Key}}">
-        <select name="mode" class="pr-sel" aria-label="Firmware for {{$m.Display}}" onchange="this.form.requestSubmit()">
-          <option value="prod"{{if eq $m.FwMode "prod"}} selected{{end}}>Prod</option>
-          <option value="lab"{{if eq $m.FwMode "lab"}} selected{{end}}>Lab only</option>
-          <option value="off"{{if eq $m.FwMode "off"}} selected{{end}}>Off</option>
-        </select>
-      </form>
-      {{else if $m.CanFw}}<span class="pr-rep">{{if eq $m.FwMode "prod"}}Prod{{else if eq $m.FwMode "lab"}}Lab only{{else}}Off{{end}}</span>
-      {{else}}<span class="pr-fixed">Off · maker's firmware</span>{{end}}
-    </div>
-    <div class="pr-n">{{$m.Devices}}</div>
+    {{end}}
   </div>
 {{end}}
 

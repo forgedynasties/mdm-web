@@ -8,7 +8,7 @@
       <div class="cc-sub">What every role runs. A device at a venue follows its role's prod build by itself, inside its quiet window; lab devices follow the package their lab session chose.</div>
     </div>
     <div class="cc-actions">
-      <a class="cc-btn sm" href="/products">Roles &amp; hardware</a>
+      <a class="cc-btn sm" href="/products">Hardware</a>
       <a class="cc-btn sm" href="/apps">Library</a>
       <a class="cc-btn sm" href="/packages">Packages</a>
     </div>
@@ -49,11 +49,11 @@
       <div class="pl-lanehead">
         <h2>App{{if .BaseName}} · {{.BaseName}}{{end}}</h2>
         {{if .BasePackage}}<span class="pl-faint">one column per package · prod is <span class="mono">{{.BasePackage}}</span></span>{{end}}
-        <span class="pl-faint pl-right">set in <a href="/products#role-{{.Role}}">Roles &amp; hardware</a></span>
+        <span class="pl-faint pl-right">set in <a href="/products?class={{.Role}}">Hardware</a></span>
       </div>
 
       {{if not .BasePackage}}
-        <div class="pl-empty">No app is set for {{.RoleLabel}}. A super admin sets it in <a href="/products#role-{{.Role}}">Roles &amp; hardware</a>; until then its devices are left alone.</div>
+        <div class="pl-empty">No app is set for {{.RoleLabel}}. A super admin sets it in <a href="/products?class={{.Role}}">Hardware</a>; until then its devices are left alone.</div>
       {{else}}
       <div class="pl-lane" style="--cols: {{len .Columns}}">
         <div class="pl-col">
