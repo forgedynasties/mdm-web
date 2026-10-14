@@ -41,6 +41,7 @@ type pipeRole struct {
 	Tone          string // ok | warn | bad | muted
 	On            bool   // the selected role
 	HasApp        bool
+	Pic           *modelPicture // its one model's picture
 }
 
 // pipeClient is one MDM client in the side list.
@@ -164,6 +165,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		}
 		// Roles carry no app any more: the side list says what each role is.
 		nm := len(hw.ByRole[c])
+		pr.Pic = rolePic(hw.ByRole[c])
 		switch {
 		case nm == 0:
 			pr.Status, pr.Tone = "no models", "muted"
@@ -389,6 +391,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pipeline.html", common(map[string]any{
 		"HWModels":    hw.ByRole[sel],
+		"RolePic":     rolePic(hw.ByRole[sel]),
 		"HWDevices":   hw.Devices[sel],
 		"Candidates":  hw.hwCandidates(sel),
 		"AppChoices":  appChoicesFrom(library),

@@ -7574,6 +7574,7 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .appbar-island .isl-s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 .appbar-island .isl-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--muted); flex: none; }
 .appbar-island .isl-dot.on { background: var(--ok); }
+.appbar-island .isl-pic { width: 32px; height: 32px; flex: none; object-fit: contain; border-radius: 8px; background: var(--surface2); margin: -4px 0; }
 .appbar-island .isl-tag { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 7px; border-radius: 6px; flex: none; }
 .appbar-island .isl-acts { display: flex; gap: 6px; flex: none; align-items: center; }
 .appbar-island .isl-acts form { margin: 0; display: inline-flex; gap: 6px; align-items: center; }

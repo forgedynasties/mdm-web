@@ -1112,6 +1112,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// catalog does not know ("Sunmi D3 PRO", not the wire key "d3_pro").
 		"productLabel": productLabel,
 		"productName":  productName, // admin-set display name for a stock product, "" if none
+		"modelPic":     modelPic,    // a model's product shot, nil if none
 		// clFormat makes a changelog line scannable: the lead sentence (up to the
 		// first ". ") becomes a bold headline, the rest stays as body text. Input is
 		// HTML-escaped first, so entries are plain text authored in version.go.
