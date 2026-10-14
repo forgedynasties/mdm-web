@@ -11,6 +11,7 @@
      how many are down. */}}
 <style>
 .vn-page{max-width:1280px;margin:0 auto}
+@media(min-width:721px){body.has-island .vn-page>.cc-top{margin-bottom:6px}}
 .vn-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
 .vn-search{flex:1;min-width:200px;max-width:340px;font:inherit;font-size:12.5px;padding:7px 11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
 .vn-chip{font:inherit;font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);cursor:pointer}
@@ -38,15 +39,22 @@
 @media(max-width:900px){.vn-th{display:none}.vn-tr{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}.vn-tr>.vn-pipcell,.vn-tr>.vn-tags,.vn-tr>.vn-last{grid-column:1/-1}.vn-search{max-width:none}}
 </style>
 
+{{$total := len .Venues}}{{$s := .Summary}}
+<template id="page-island">
+  <span class="isl-dot {{if $s.NeedLook}}warn{{else if $total}}on{{end}}"></span>
+  <span class="isl-t">Venues</span>
+  <span class="isl-s">{{if $total}}<b>{{$total}}</b> venue{{if ne $total 1}}s{{end}}{{if $s.NeedLook}} · <span class="w">{{$s.NeedLook}} need{{if eq $s.NeedLook 1}}s{{end}} a look</span>{{end}} · {{$s.Devices}} device{{if ne $s.Devices 1}}s{{end}}{{if $s.Offline}} · {{$s.Offline}} offline{{end}}{{if $s.Critical}} · <span class="d">{{$s.Critical}} critical</span>{{end}}{{else}}No venues yet{{end}}</span>
+  <span class="isl-acts">{{if canAdminOrOperator .Role}}<a class="cc-btn primary" href="/restaurants/new">New venue</a>{{end}}</span>
+</template>
 <div class="vn-page">
 {{$total := len .Venues}}{{$s := .Summary}}
 <div class="cc-top">
   <div>
-    <h1 class="cc-h1">Venues</h1>
-    <div class="cc-sub">{{if $total}}{{if $s.NeedLook}}<b{{if ge $s.NeedLook 3}} style="color:var(--danger)"{{else}} style="color:var(--warn)"{{end}}>{{$s.NeedLook}}</b> of {{$total}} need{{if eq $s.NeedLook 1}}s{{end}} a look{{else}}All {{$total}} healthy{{end}} · <b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if $s.Offline}} · <b>{{$s.Offline}}</b> offline{{end}}{{if $s.Critical}} · <b>{{$s.Critical}}</b> critical alert{{if ne $s.Critical 1}}s{{end}}{{end}}{{else}}Where devices live: a venue's service hours, guest Wi-Fi and health.{{end}}</div>
+    <h1 class="cc-h1 isl-dup-sr">Venues</h1>
+    <div class="cc-sub isl-dup">{{if $total}}{{if $s.NeedLook}}<b{{if ge $s.NeedLook 3}} style="color:var(--danger)"{{else}} style="color:var(--warn)"{{end}}>{{$s.NeedLook}}</b> of {{$total}} need{{if eq $s.NeedLook 1}}s{{end}} a look{{else}}All {{$total}} healthy{{end}} · <b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if $s.Offline}} · <b>{{$s.Offline}}</b> offline{{end}}{{if $s.Critical}} · <b>{{$s.Critical}}</b> critical alert{{if ne $s.Critical 1}}s{{end}}{{end}}{{else}}Where devices live: a venue's service hours, guest Wi-Fi and health.{{end}}</div>
   </div>
   {{if and .Venues (canAdminOrOperator .Role)}}
-  <div class="cc-actions">
+  <div class="cc-actions isl-dup">
     <a href="/restaurants/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New venue</a>
   </div>
   {{end}}
