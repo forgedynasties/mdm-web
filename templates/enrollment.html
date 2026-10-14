@@ -156,7 +156,7 @@
       <div class="lt-chips">
         <button type="button" class="lt-chip" data-f="kind" data-v="firmware">Firmware client</button>
         <button type="button" class="lt-chip" data-f="kind" data-v="dpc">Standard client</button>
-        <button type="button" class="lt-chip" data-f="type" data-v="needed">Type needed</button>
+        <button type="button" class="lt-chip" data-f="type" data-v="needed">Model has no class</button>
       </div>
       <span class="lt-count"></span>
     </div>
@@ -194,7 +194,7 @@
         {{if $canOp}}<input type="checkbox" class="en-pick" name="ids" value="{{.ID}}" form="en-prof-bulk" aria-label="Select {{.Name}}">{{end}}
         <div class="pr-main">
           <b title="{{.Name}}">{{.Name}}</b>
-          <div class="pr-facts">{{if .DeviceClass}}{{.ClassLabel}}{{else}}type not set{{end}} · {{if .RestaurantName}}{{.RestaurantName}}{{else}}no site, goes to the inbox{{end}}{{if .GroupName}} · {{.GroupName}}{{end}} · <b>{{.EnrollCount}}</b>{{if .MaxEnrolls}}/{{.MaxEnrolls}}{{end}} enrolled{{if .LastEnrolledAt}} · last {{timeSince .LastEnrolledAt}}{{end}}{{if .ExpiresAt}} · {{if .Expired}}expired{{else}}expires{{end}} {{timeUntil .ExpiresAt}}{{end}}{{if .Notes}} · {{.Notes}}{{end}}</div>
+          <div class="pr-facts">{{if .RestaurantName}}{{.RestaurantName}}{{else}}no site, goes to the inbox{{end}}{{if .GroupName}} · {{.GroupName}}{{end}} · <b>{{.EnrollCount}}</b>{{if .MaxEnrolls}}/{{.MaxEnrolls}}{{end}} enrolled{{if .LastEnrolledAt}} · last {{timeSince .LastEnrolledAt}}{{end}}{{if .ExpiresAt}} · {{if .Expired}}expired{{else}}expires{{end}} {{timeUntil .ExpiresAt}}{{end}}{{if .Notes}} · {{.Notes}}{{end}}</div>
         </div>
         {{if .Revoked}}<span class="cc-tag bad">revoked</span>{{else if .Expired}}<span class="cc-tag warn">expired</span>{{else if .Exhausted}}<span class="cc-tag warn">limit reached</span>{{else}}<span class="cc-tag ok">active</span>{{end}}
         <details class="en-kebab">
@@ -203,7 +203,7 @@
             <button type="button" onclick="enToggleQR('{{.ID}}');this.closest('details').removeAttribute('open')">Show QR</button>
             <button type="button" onclick="enCopy(this,'{{.Token}}')">Copy token</button>
             {{if $canOp}}
-            <button type="button" onclick="enOpenModal(this)" data-id="{{.ID}}" data-name="{{.Name}}" data-class="{{.DeviceClass}}" data-site="{{if .RestaurantID}}{{.RestaurantID}}{{end}}" data-group="{{if .GroupID}}{{.GroupID}}{{end}}" data-max="{{if .MaxEnrolls}}{{.MaxEnrolls}}{{end}}" data-notes="{{.Notes}}">Edit</button>
+            <button type="button" onclick="enOpenModal(this)" data-id="{{.ID}}" data-name="{{.Name}}" data-site="{{if .RestaurantID}}{{.RestaurantID}}{{end}}" data-group="{{if .GroupID}}{{.GroupID}}{{end}}" data-max="{{if .MaxEnrolls}}{{.MaxEnrolls}}{{end}}" data-notes="{{.Notes}}">Edit</button>
             <hr>
             {{if .Revoked}}
             <form method="POST" action="/enrollment/profiles/{{.ID}}/activate" hx-boost="false"><button type="submit">Reactivate</button></form>
@@ -339,9 +339,6 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       {{/* hx-boost off: these mutations redirect back to a re-rendered page (a boosted 204 would leave the modal open). */}}
       <form id="en-modal-form" method="POST" action="/enrollment/profiles" class="en-form" hx-boost="false">
         <div class="full"><label for="en-f-name">Name</label><input id="en-f-name" name="name" required placeholder="e.g. mPOS rollout, Downtown"></div>
-        <div><label for="en-f-class">Product</label>
-          <select id="en-f-class" name="device_class"><option value="">— not set —</option>{{range .Classes}}<option value="{{.}}">{{classLabel .}}</option>{{end}}</select>
-          <div class="hint">What these devices are for. Filters and icons only.</div></div>
         <div><label for="en-f-site">Site</label>
           <select id="en-f-site" name="restaurant_id"><option value="">— none · goes to inbox —</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
           <div class="hint">With a site set, devices skip the inbox.</div></div>
@@ -428,7 +425,6 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     el('en-modal-title').textContent = d ? 'Edit profile' : 'New enrollment profile';
     el('en-f-submit').textContent = d ? 'Save' : 'Create profile';
     el('en-f-name').value = d ? d.name : '';
-    el('en-f-class').value = d ? d.class : '';
     el('en-f-site').value = d ? d.site : '';
     el('en-f-group').value = d ? d.group : '';
     el('en-f-max').value = d ? d.max : '';
@@ -535,10 +531,6 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
         <form method="POST" action="/enrollment/sightings/{{.ID}}/recheck" hx-boost="false"><button type="submit" class="cc-btn sm">Check again</button></form>
       {{else}}
         <form method="POST" action="/enrollment/sightings/{{.ID}}/enroll" hx-boost="false" style="display:flex;gap:8px;align-items:center">
-          <select name="device_class" class="en-sel short" aria-label="Type" required>
-            <option value="" {{if not .ClassGuess}}selected{{end}} disabled>— type —</option>
-            {{$cg := .ClassGuess}}{{range $.Classes}}<option value="{{.}}" {{if eq . $cg}}selected{{end}}>{{classLabel .}}{{if eq . $cg}} · guess{{end}}</option>{{end}}
-          </select>
           <button type="submit" class="cc-btn primary sm">{{if eq .State "failed"}}Try again{{else}}Enrol{{end}}</button>
         </form>
       {{end}}
@@ -570,9 +562,9 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       <span>{{if and .IsDPC (ne $m "") (ne $m "—")}}{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$m}}{{else}}{{.ProductLabel}}{{end}}</span>
       <span>· {{if .IsDPC}}enrolled{{else}}first seen{{end}} {{timeSince .EnrolledAt}}</span>
       {{if .RestaurantName}}<span>· {{.RestaurantName}}</span>{{end}}
-      {{/* Our own hardware carries its category in the product it reports; a stock
-           device only has whatever its model gave away, so say when that came up empty. */}}
-      {{if and .IsDPC (eq .Class "")}}<span class="cc-tag warn">type needed</span>{{end}}
+      {{/* The class follows the model (Hardware page); a model nobody has attached to a
+           class yet leaves the device with none. */}}
+      {{if .Class}}<span>· {{.ClassLabel}}</span>{{else if canAdmin $.Role}}<a class="cc-tag warn" href="/products#model-{{.Product}}" title="Attach this model to a class on the Hardware page">model has no class</a>{{else}}<span class="cc-tag warn">model has no class</span>{{end}}
     </div>
   </div>
   <div></div>
@@ -582,14 +574,6 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     <select class="en-sel" name="restaurant_id" aria-label="Site">
       <option value="">Site…</option>
       {{range $.Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-    </select>
-    {{/* Firmware keeps "" (its type follows the product it reports, so it must not be
-         frozen into a stored override); a stock device preselects its guessed type so
-         "Done" confirms the guess in one click. */}}
-    {{$cls := .Class}}{{$isDPC := .IsDPC}}
-    <select class="en-sel short" name="device_class" aria-label="Type">
-      <option value="">{{if and $cls (not $isDPC)}}{{.ClassLabel}} (from model){{else}}Type…{{end}}</option>
-      {{range $.Classes}}<option value="{{.}}"{{if and $isDPC (eq . $cls)}} selected{{end}}>{{classLabel .}}</option>{{end}}
     </select>
     <button type="submit" class="cc-btn primary sm">Done</button>
   </form>

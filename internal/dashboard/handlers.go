@@ -11164,35 +11164,6 @@ func (h *Handler) BulkNickname(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToastEvents(w, r, "/devices", msg, typ, "refresh-devices")
 }
 
-// BulkClass sets the device type (tablet, panel, kiosk, ...) on the selection.
-func (h *Handler) BulkClass(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	serials := parseSerialsField(r.Form["serials"])
-	if len(serials) == 0 {
-		http.Redirect(w, r, "/devices", http.StatusSeeOther)
-		return
-	}
-	c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
-	if c != "" && !product.IsClass(c) {
-		http.Error(w, "Unknown class", http.StatusBadRequest)
-		return
-	}
-	done := 0
-	for _, serial := range serials {
-		device, err := h.db.GetDevice(r.Context(), serial)
-		if err != nil {
-			continue
-		}
-		if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
-			continue
-		}
-		h.hub.PublishDeviceUpdate(device.ID)
-		done++
-	}
-	h.audit(r, "device.bulk_class", strings.Join(serials, ","), fmt.Sprintf("%d devices: %s", done, c))
-	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("Set type on %d device%s", done, plural(done)), "success", "refresh-devices")
-}
-
 // BulkRetire takes the selection out of the active fleet (lists, alerts, policy
 // coverage) while keeping history and placement; a later check-in brings a device
 // back. With action=unretire it does the reverse.
@@ -22056,7 +22027,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/views/{id}/delete", h.requireAuth(h.FleetViewDelete))
 	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-nickname", h.requireAdminOrOperator(h.BulkNickname))
-	post("POST /devices/bulk-class", h.requireStrictAdmin(h.BulkClass))
 	post("POST /devices/bulk-retire", h.requireStrictAdmin(h.BulkRetire))
 	post("POST /devices/bulk-kiosk", h.requireAdminOrOperator(h.BulkKioskUpdate))
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
@@ -22199,7 +22169,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/delete-expired", h.requireStrictAdmin(h.EnrollmentProfilesDeleteExpired))
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
-	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))

@@ -487,6 +487,10 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	base := strings.TrimSpace(r.FormValue("base_package"))
+	if base != "" && !roleAppAllowed(base) {
+		http.Error(w, "A role can only run an aio.app package", http.StatusBadRequest)
+		return
+	}
 	if err := h.db.SetRoleApp(r.Context(), role, base, h.currentUsername(r)); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -706,6 +710,9 @@ func (h *Handler) fetchBuild(ctx context.Context, link, base string) (*db.App, e
 // appChoice is one app a role can be set to: a root package of the library.
 type appChoice struct{ Package, Name string }
 
+// roleAppAllowed: a role runs one of our own apps, so only aio.app* packages can be set.
+func roleAppAllowed(pkg string) bool { return strings.HasPrefix(pkg, "aio.app") }
+
 // appChoicesFrom lists every root package in the library (variants fold into their
 // base), named after the base build, sorted by name.
 func appChoicesFrom(library []db.App) []appChoice {
@@ -730,6 +737,9 @@ func appChoicesFrom(library []db.App) []appChoice {
 	}
 	var out []appChoice
 	for p := range set {
+		if !roleAppAllowed(p) {
+			continue
+		}
 		n := names[p]
 		if n == "" {
 			n = p

@@ -396,7 +396,6 @@ if (!window.__dlRowNav) {
       {{if canAdmin .Role}}
       <div class="ss-lbl">Admin</div>
       <div class="ss-grid">
-        <button type="button" class="cc-btn sm ss-w" onclick="openBulkClassModal()" title="Set the product of the selected devices">Set product</button>
       </div>
       {{end}}
 
@@ -1802,16 +1801,6 @@ function submitBulkRename(event) {
   return true;
 }
 // Set type (admin): one class for the whole selection.
-function openBulkClassModal() {
-  var serials = getSelectedSerials();
-  if (serials.length === 0) return;
-  var c = document.getElementById('bulk-class-count'); if (c) c.textContent = serials.length;
-  ssOpen('bulk-class-modal');
-}
-function submitBulkClass(event) {
-  if (!ssFillSerials(event.target)) { event.preventDefault(); return false; }
-  return true;
-}
 // Retire (admin): out of the active fleet, history kept; a check-in brings a device back.
 function bulkRetire() {
   var serials = getSelectedSerials();
@@ -2789,27 +2778,6 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 {{if canAdmin .Role}}
-<div id="bulk-class-modal" class="modal-backdrop" onclick="ssClose('bulk-class-modal', event)">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span class="modal-title">Set product</span>
-      <button class="modal-close" aria-label="Close" type="button" onclick="ssClose('bulk-class-modal')">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="muted small"><span id="bulk-class-count">0</span> selected device(s) get this type. It drives filters and the capability defaults.</div>
-      <form action="/devices/bulk-class" method="POST" class="command-form" style="padding:0;margin-top:12px;" onsubmit="return submitBulkClass(event)">
-        <div class="form-row">
-          <label class="form-label" for="bulk-class-select">Type</label>
-          <select name="device_class" id="bulk-class-select" class="form-input">
-            {{range classes}}<option value="{{.}}">{{classLabel .}}</option>{{end}}
-            <option value="">Not set</option>
-          </select>
-        </div>
-        <button type="submit" class="btn-primary">Set type</button>
-      </form>
-    </div>
-  </div>
-</div>
 <form action="/devices/bulk-retire" method="POST" id="bulk-retire-form" hidden></form>
 {{end}}
 

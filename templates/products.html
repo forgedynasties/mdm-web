@@ -71,6 +71,8 @@
         <input type="hidden" name="role" value="{{.Key}}">
         <select name="base_package" class="pr-sel{{if not .App}} unset{{end}}" aria-label="App for {{.Label}}" onchange="this.form.requestSubmit()">
           <option value="">— no app —</option>
+          {{/* Only aio.app* packages are offered; a role still set to another app shows it, unpickable. */}}
+          {{if and .App (not (hasPrefix .App "aio.app"))}}<option value="{{.App}}" selected disabled>{{.App}} · not an aio.app package</option>{{end}}
           {{range $.Choices}}<option value="{{.Package}}"{{if eq .Package $g.App}} selected{{end}}>{{.Name}} · {{.Package}}</option>{{end}}
         </select>
       </form>

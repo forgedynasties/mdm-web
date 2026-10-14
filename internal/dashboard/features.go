@@ -118,7 +118,8 @@ func (h *Handler) ScoutEnroll(w http.ResponseWriter, r *http.Request) {
 		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
 		return
 	}
-	class := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
+	// No class here: the device takes the class its model is attached to.
+	class := ""
 	serverURL := h.baseURL(r)
 	apkURL := h.agentAPKURL(r)
 	apkSHA := ""
@@ -269,9 +270,6 @@ func enrollmentProfileInputFromForm(r *http.Request) db.EnrollmentProfileInput {
 		if parsed, err := uuid.Parse(rid); err == nil {
 			in.RestaurantID = &parsed
 		}
-	}
-	if c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class"))); product.IsClass(c) {
-		in.DeviceClass = c
 	}
 	if days, err := strconv.Atoi(strings.TrimSpace(r.FormValue("expires_days"))); err == nil && days > 0 {
 		t := time.Now().Add(time.Duration(days) * 24 * time.Hour)
@@ -2047,12 +2045,6 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 			h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
 		}
 	}
-	if c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class"))); c != "" && product.IsClass(c) {
-		if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-	}
 	if err := h.db.MarkOnboarded(r.Context(), device.ID); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2064,28 +2056,6 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 		from = "/enrollment?tab=inbox"
 	}
 	h.hxDoneToast(w, r, from, "Device onboarded", "success")
-}
-
-// DeviceSetClass overrides the form factor for one device.
-func (h *Handler) DeviceSetClass(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
-	if c != "" && !product.IsClass(c) {
-		http.Error(w, "Unknown class", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.class", serial, c)
-	h.hub.PublishDeviceUpdate(device.ID)
-	h.hxDoneToast(w, r, "/devices/"+serial, "Class updated", "success")
 }
 
 // DeviceRetire takes a device out of the active fleet (lists, alerts, policy coverage)

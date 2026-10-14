@@ -192,7 +192,8 @@ func (s *Service) StartScan(ctx context.Context, restaurantID uuid.UUID, host st
 // and apkURL are absolute (the caller builds them from the request); apkSHA256 may be ""
 // for an externally hosted APK whose file digest we don't hold.
 func (s *Service) Approve(ctx context.Context, sightingID uuid.UUID, class, approver, serverURL, apkURL, apkSHA256 string) error {
-	if !prod.IsClass(class) {
+	// The class comes from the model once the device checks in; "" is the normal case.
+	if class != "" && !prod.IsClass(class) {
 		return errors.New("unknown device class")
 	}
 	sg, err := s.db.GetSighting(ctx, sightingID)
@@ -243,7 +244,7 @@ func (s *Service) Approve(ctx context.Context, sightingID uuid.UUID, class, appr
 		return errors.New("scout went offline")
 	}
 	_ = s.db.InsertAudit(ctx, approver, "device.enroll", sg.Serial,
-		"via "+c.Serial+" at "+sg.RestaurantName+" as "+prod.ClassLabel(class))
+		"via "+c.Serial+" at "+sg.RestaurantName)
 	log.Printf("[scout] net_enroll job=%s %s via %s class=%s", job, sg.Serial, c.Serial, class)
 	return nil
 }

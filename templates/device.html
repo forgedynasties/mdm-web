@@ -3585,13 +3585,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
 
     <div class="en-grp">Settings</div>
-    <div class="ddc-kv"><span class="k">Product</span><span class="v">{{if canAdminOrOperator .Role}}
-      <form method="POST" action="/devices/{{.Device.SerialNumber}}/class" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;margin:0">
-        <select name="device_class" class="en-sel" onchange="this.form.submit()">
-          <option value="" {{if not .Device.DeviceClass}}selected{{end}}>{{if .Device.Class}}{{.Device.ClassLabel}} (product default){{else}}— not set —{{end}}</option>
-          {{range .Classes}}<option value="{{.}}" {{if eq . $.Device.DeviceClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
-        </select>
-      </form>{{else}}{{.Device.ClassLabel}}{{end}}</span></div>
+    {{/* The class follows the model: set on the Hardware page, never per device. */}}
+    <div class="ddc-kv"><span class="k">Class</span><span class="v">{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}<span class="muted">none</span>{{end}} <span class="muted small">· from the model{{if canAdmin .Role}} · <a href="/products#model-{{.Device.Product}}" class="link-detail">Hardware</a>{{end}}</span></span></div>
     {{if .Device.NeedsOnboarding}}
     <div class="ddc-kv"><span class="k">Onboarding</span><span class="v">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/onboard" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0">

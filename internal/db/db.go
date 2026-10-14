@@ -1588,13 +1588,17 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		}
 		if err := json.Unmarshal(extra, &ident); err == nil && prod.IsStockAgent(ident.AgentType) {
 			guessedClass = prod.ClassForModel(product, ident.Manufacturer, ident.Model)
-			// An admin-set role for this model (Products page) beats the guess.
-			if product != "" {
-				if role, _ := d.ProductRole(ctx, product); role != "" {
-					guessedClass = role
-				}
-			}
 		}
+	}
+	// The class a model is attached to on the Hardware page is the device's class, always:
+	// it replaces whatever the device had, where the guess above only fills an empty one.
+	var modelClass string
+	if product != "" {
+		modelClass, _ = d.ProductRole(ctx, product)
+	}
+	insertClass := guessedClass
+	if modelClass != "" {
+		insertClass = modelClass
 	}
 
 	tx, err := d.pool.Begin(ctx)
@@ -1665,10 +1669,11 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Only overwrite product when the device actually reported one; an empty
 			    -- value (delta frame / legacy client) keeps whatever was last learned.
 			    product            = COALESCE(NULLIF(EXCLUDED.product, ''), devices.product),
-			    -- A stock device's category cannot be derived from its product, so we
-			    -- guess it from the model it reports. Only ever fills an EMPTY class:
-			    -- an admin's assignment (inbox, device page, bulk) always wins.
-			    device_class       = CASE WHEN devices.device_class = '' THEN EXCLUDED.device_class
+			    -- The class follows the model: the class its model is attached to on the
+			    -- Hardware page ($7) when it has one, else a guess from the model it reports
+			    -- that only ever fills an EMPTY class.
+			    device_class       = CASE WHEN $7 <> '' THEN $7
+			                              WHEN devices.device_class = '' THEN EXCLUDED.device_class
 			                              ELSE devices.device_class END,
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
@@ -1693,7 +1698,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    custody_source     = '',
 			    custody_set_at     = NULL
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra, NOW()
-	`, extraExpr), serial, buildID, batteryPct, extra, product, guessedClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged, &at)
+	`, extraExpr), serial, buildID, batteryPct, extra, product, insertClass, modelClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged, &at)
 	if err != nil {
 		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
@@ -17394,20 +17399,18 @@ type EnrollResult struct {
 
 // EnrollDevice registers (or re-registers, e.g. after factory reset) a device under an
 // enrollment profile: upserts the device row as a DPC device, stores the new key hash
-// (rotating out any previous key), applies the profile's intent (class, site, group),
+// (rotating out any previous key), applies the profile's intent (site, group),
 // and bumps the profile counter. A profile that names a site auto-onboards the device;
 // otherwise it waits in the onboarding inbox (onboarded_at NULL). Re-enrolling keeps
-// the device's existing site/class/onboarded state unless the profile overrides them.
+// the device's existing site/onboarded state unless the profile overrides them.
 func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, serial, product, keyHash string) (EnrollResult, error) {
 	var res EnrollResult
-	// The model's role (Products page) beats the profile's blanket class: one token
-	// often enrolls several kinds of hardware, and a TV box must not become whatever
-	// the profile was made for.
-	class := profile.DeviceClass
+	// The class comes from the model alone (the class it is attached to on the Hardware
+	// page); nobody picks one at enrollment. A model not attached yet leaves it empty and
+	// the first check-in fills a guess from the model it reports.
+	var class string
 	if product != "" {
-		if role, _ := d.ProductRole(ctx, product); role != "" {
-			class = role
-		}
+		class, _ = d.ProductRole(ctx, product)
 	}
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
@@ -17464,13 +17467,6 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 func (d *DB) MarkOnboarded(ctx context.Context, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE devices SET onboarded_at = COALESCE(onboarded_at, NOW()) WHERE id = $1`, id)
-	return err
-}
-
-// SetDeviceClass overrides the form factor for one device ("" = back to the product
-// default / unset).
-func (d *DB) SetDeviceClass(ctx context.Context, id uuid.UUID, class string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2 WHERE id = $1`, id, class)
 	return err
 }
 
