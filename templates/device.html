@@ -52,7 +52,7 @@
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="dfc"><span class="dfk">Up</span><span class="dfv">{{$up}}</span></span>{{end}}
     {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
     {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="dfc ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="dfk">Nugget ID</span><span class="dfv"><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}} <span class="dfm">&times;{{len .NuggetIDs}}</span>{{end}}</span></button>{{else}}<button type="button" class="dfc ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="dfk">Nugget IDs</span><span class="dfv mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
-    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="dfc dfc-wide" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><span class="dfk">Wi-Fi</span><span class="dfv">{{if and $rssi (ne $rssi "—")}}{{$rssi}}dBm{{end}}{{if and $wifi (ne $wifi "—")}} <span class="dfm">{{$wifi}}</span>{{end}}</span></button>{{end}}
+    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="dfc dfc-wide" onclick="wifiModalOpen()" aria-haspopup="dialog" title="{{if and $wifi (ne $wifi "—")}}{{$wifi}} · {{end}}Nearby Wi-Fi networks"><span class="dfk">Wi-Fi</span><span class="dfv">{{if and $rssi (ne $rssi "—")}}{{$rssi}}dBm{{end}}{{if and $wifi (ne $wifi "—")}} <span class="dfm">{{$wifi}}</span>{{end}}</span></button>{{end}}
 {{end}}
 
 {{define "device-commands"}}
@@ -564,7 +564,7 @@ if (!window.__ddNotesHook) {
   {{$pst := "bad"}}{{if not .KioskConfig.WlcChargingEnabled}}{{$pst = "na"}}{{else if eq $wlcS "1"}}{{$pst = "on"}}{{else if eq $wlcS "0"}}{{$pst = "vacant"}}{{else if eq $wlcS "2"}}{{$pst = "flapping"}}{{end}}
   <span class="dd-pad-wrap">
     <button type="button" class="cc-btn sm dd-pad-chip" id="pad-chip" data-st="{{$pst}}" onclick="ddPadToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="Wireless charging pad">
-      <i class="dd-pad-dot" aria-hidden="true"></i>Pad · <span id="pad-chip-t">{{if eq $pst "na"}}off{{else if eq $pst "on"}}phone on{{else if eq $pst "vacant"}}vacant{{else if eq $pst "flapping"}}misplaced{{else}}unreadable{{end}}</span>
+      <i class="dd-pad-dot" aria-hidden="true"></i>Pad<span class="dd-pad-sep"> · </span><span id="pad-chip-t">{{if eq $pst "na"}}off{{else if eq $pst "on"}}phone on{{else if eq $pst "vacant"}}vacant{{else if eq $pst "flapping"}}misplaced{{else}}unreadable{{end}}</span>
       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </button>
     <div class="dd-pad-pop" id="dd-pad-pop" hidden>
@@ -605,7 +605,7 @@ if (!window.__ddNotesHook) {
   <span class="dd-notes-wrap">
     <button type="button" class="cc-btn sm dd-notes-btn{{if .Notes}} has{{end}}" onclick="ddNotesToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="{{if .Notes}}Notes on this device{{else}}Add a note{{end}}">
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
-      Notes{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
+      <span class="dd-notes-t">Notes</span>{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
     </button>
     <div class="dd-notes-pop" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
   </span>
@@ -876,9 +876,14 @@ if (!window.__ddNotesHook) {
 .vt-lbl i{width:8px;height:8px;border-radius:99px}
 #chart-panel-battery .wlc-bar:not(.wlc-bar--strip){position:absolute;top:2px;right:12px;z-index:1;padding:0;margin:0}
 #chart-panel-battery .wlc-bar .chart-legend{gap:4px 12px;font-size:11px}
-#chart-panel-battery .chart-wrap--tall{height:190px}
-#chart-panel-temp .chart-wrap--tall,#chart-panel-ram .chart-wrap--tall{height:140px}
-#chart-panel-ram .chart-wrap--tall{height:166px}
+.vt-tabs{display:inline-flex;gap:2px;background:var(--surface2);border-radius:10px;padding:3px}
+.vt-tab{font:inherit;font-size:12.5px;font-weight:650;padding:5px 12px;border-radius:8px;border:0;background:none;color:var(--muted);cursor:pointer}
+.vt-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.chart-card .vt-lbl{display:none}
+.chart-card .vt-panel{padding-top:8px}
+.chart-card .vt-panel+.vt-panel{border-top:0}
+#chart-panel-battery.vt-panel{padding-top:26px}
+.chart-card .vt-panel .chart-wrap--tall{height:210px}
 .vt-navw{padding:6px 16px 12px;border-top:1px solid var(--border-soft)}
 .vt-nav{position:relative;height:34px;border-radius:8px;background:var(--surface2);overflow:hidden;cursor:pointer;touch-action:none;color:var(--text-faint);user-select:none}
 .vt-nav svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -898,6 +903,11 @@ if (!window.__ddNotesHook) {
        on each chart at the pointer. */}}
   <div class="card-header cc-ch vt-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><h2 style="flex:none;">Vitals</h2>
+    <div class="vt-tabs" role="tablist" aria-label="Vitals">
+      {{if .ShowBattery}}<button type="button" role="tab" class="vt-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery</button>{{end}}
+      <button type="button" role="tab" class="vt-tab{{if not .ShowBattery}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">Temp</button>
+      <button type="button" role="tab" class="vt-tab" data-chart-tab="ram" onclick="setChartTab('ram')">RAM</button>
+    </div>
     <div class="gcontrols vt-tools">
       <span id="chart-info" class="muted small gc-info" hidden></span>
       {{$devtz := extraField .Device.LatestExtra "timezone"}}
@@ -965,8 +975,6 @@ if (!window.__ddNotesHook) {
         </div>
       </div>
       </div>
-      <button type="button" class="vt-chip" id="toggle-markers-btn" aria-pressed="false" title="Show when commands were sent to this device"><i class="vt-c"></i>Commands</button>
-      <button type="button" class="vt-chip" id="toggle-builds-btn" aria-pressed="false" title="Show when the device switched to a different build"><i class="vt-b"></i>Builds</button>
       <button type="button" id="vt-split-btn" class="vt-ib vt-split-btn" title="Show the graph beside the tabs" aria-label="Show the graph beside the tabs" aria-pressed="false" onclick="ddSplitToggle()">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>
       </button>
@@ -1738,10 +1746,11 @@ function mdmBootCharts() {
   let customMin = null, customMax = null;
   let batteryChart, tempChart, ramChart, unifiedChart;
   let storedMarkerPref = localStorage.getItem(markerStorageKey);
-  let showMarkers = storedMarkerPref === null ? false : storedMarkerPref === 'visible';
+  // Commands are not marked on the graph; build changes always are (14 Oct).
+  let showMarkers = false;
   let storedBuildPref = null;
   try { storedBuildPref = localStorage.getItem(buildStorageKey); } catch (e) {}
-  let showBuilds = storedBuildPref === null ? true : storedBuildPref === 'visible';
+  let showBuilds = true;
   // Wireless-charging-state colouring is always on: the raw battery line is
   // coloured by WLC state with the legend shown (no per-device toggle).
   // The chart tab is driven by context (a ?focus deep-link), not remembered across
@@ -1973,15 +1982,20 @@ function mdmBootCharts() {
     });
   }
 
-  // No tabs any more: the three charts are always stacked, so this shows them all and
-  // makes sure Temp and RAM are loaded. Kept under its old name for the deep-link path.
-  window.setChartTab = function setChartTab() {
-    activeTab = HAS_BATTERY ? 'battery' : 'temp';
+  // One chart at a time, picked with the Battery / Temp / RAM tabs in the card header.
+  window.setChartTab = function setChartTab(tab) {
+    if (tab === 'all' || CHART_TABS.indexOf(tab) < 0) tab = HAS_BATTERY ? 'battery' : 'temp';
+    activeTab = tab;
     CHART_TABS.forEach(function (t) {
       var el = document.getElementById('chart-panel-' + t);
-      if (el) el.style.display = t === 'all' ? 'none' : '';
+      if (el) el.style.display = t === tab ? '' : 'none';
+      var btn = document.querySelector('.vt-tab[data-chart-tab="' + t + '"]');
+      if (btn) { btn.classList.toggle('active', t === tab); btn.setAttribute('aria-selected', t === tab ? 'true' : 'false'); }
     });
-    loadMetricLazy('temp', false, function () { loadMetricLazy('ram'); });
+    if (tab === 'temp') loadMetricLazy('temp');
+    if (tab === 'ram') loadMetricLazy('ram');
+    var c = tab === 'temp' ? tempChart : tab === 'ram' ? ramChart : batteryChart;
+    if (c) setTimeout(function () { try { c.resize(); } catch (e) {} }, 0);
   };
 
   function applyData(chart, all) {
@@ -2512,8 +2526,8 @@ function mdmBootCharts() {
       ctx.lineWidth = 1.2; ctx.strokeStyle = col; ctx.stroke();
       ctx.fillStyle = vtCss('--text', '#111'); ctx.fillText(txt, bx + 7, by + h / 2 + 0.5);
     }
-    // The time of the pointer, on the bottom chart's axis.
-    if (chart === vtStack()[vtStack().length - 1]) {
+    // The time of the pointer, on the chart's time axis.
+    {
       const span = xs.max - xs.min;
       const t = span > 36 * 3600e3 ? fmtDate(ms) : fmtTime(ms);
       ctx.font = '700 10.5px ' + (Chart.defaults.font.family || 'system-ui, sans-serif');
@@ -2784,17 +2798,12 @@ function mdmBootCharts() {
       animation: false, responsive: true, maintainAspectRatio: false, clip: false,
       events: ['mousemove', 'mouseout'],
       interaction: { mode: "nearest", intersect: false, axis: "x" },
-      // Room under the plot for the charging strip (chargeStripPlugin), now that this
-      // chart prints no time labels of its own.
-      layout: { padding: { bottom: {{if .Device.HasCharging}}CHARGE_STRIP_GAP + CHARGE_STRIP_H + 3{{else}}0{{end}} } },
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false },
       },
       scales: {
-        // The time axis is printed once, under the bottom chart. The battery chart keeps
-        // an empty label row only where the charging strip needs that room.
-        x: (function () { const sx = sharedXScale(); sx.ticks.display = false; return sx; })(),
+        x: {{if .Device.HasCharging}}chargeStripXScale(){{else}}sharedXScale(){{end}},
         y: { min: 0, max: 100, afterFit: vtYFit, ticks: { color: TICK, callback: v => v + "%", stepSize: 50, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
@@ -2850,7 +2859,7 @@ function mdmBootCharts() {
         tooltip: { enabled: false },
       },
       scales: {
-        x: (function () { const sx = sharedXScale(); sx.ticks.display = false; return sx; })(),
+        x: sharedXScale(),
         y: { afterFit: vtYFit, ticks: { color: TICK, callback: v => v + "°C", padding: 6, maxTicksLimit: 4 }, grid: { color: GRID }, border: { display: false } },
       },
     },
@@ -3684,23 +3693,6 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
   }
 });
 </script>
-
-<div class="ddc-actsec">
-  <div class="ddc-act-h">Recent activity</div>
-  {{if .Commands}}
-  <div class="ddc-activity">
-    {{range $i, $c := .Commands}}{{if lt $i 6}}
-    <a class="ddc-tl ddc-tl-link" href="/commands/{{$c.ID}}">
-      <span class="dot {{if eq $c.Status "success"}}ok{{else if eq $c.Status "failed"}}err{{else if eq $c.Status "expired"}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
-      <span class="ddc-tl-main"><b>{{cmdTitle $c}}</b> · {{cmdStatusLabel $c.Status $.Online}}</span>
-      <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}">{{timeSince $c.CreatedAt}}</span>
-    </a>
-    {{end}}{{end}}
-  </div>
-  {{else}}
-  <div class="muted small" style="padding:8px 0;">No actions sent to this device yet.</div>
-  {{end}}
-</div>
 
 </section><!-- /summary -->
 
@@ -4557,6 +4549,14 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 .dd-split-r .dd-tabrow .dd-tabs{flex-wrap:wrap}
 .dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
 .dd-facts>.dd-tabrow-r{margin-left:auto}
+/* In the split the chips share the facts line, so they go compact: Notes is its icon,
+   the pad says only "Pad" unless something is wrong, and the Wi-Fi name moves to the
+   tooltip. */
+.dd-facts.is-split .dd-notes-t{display:none}
+.dd-facts.is-split .dd-pad-chip:not([data-st="flapping"]):not([data-st="bad"]) .dd-pad-sep,
+.dd-facts.is-split .dd-pad-chip:not([data-st="flapping"]):not([data-st="bad"]) #pad-chip-t{display:none}
+.dd-facts.is-split .dfc-wide .dfm{display:none}
+.dd-facts.is-split .dd-tabrow-r .cc-btn{padding-left:9px;padding-right:9px}
 .dd-split-l #chart-panel-battery .wlc-bar:not(.wlc-bar--strip){position:static;padding:0 16px 0 84px;margin-top:-16px}
 .vt-split-btn[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
 @media (max-width:1099px){.vt-split-btn{display:none}}
@@ -4584,6 +4584,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       facts.parentNode.insertBefore(split, facts.nextSibling);
       // Facts line above both panes; the tab row heads the right pane.
       tabrow.parentNode.insertBefore(facts, split);
+      facts.classList.add('is-split');
       l.appendChild(card);
       r.appendChild(tabrow);
       // Pad and Notes join the end of the facts line, so the tabs keep one row.
@@ -4594,6 +4595,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       Array.prototype.slice.call(rr.querySelectorAll(':scope > .dd-panel')).forEach(function (p) { main.insertBefore(p, split); });
       if (tabrow.__home) tabrow.__home.parentNode.insertBefore(tabrow, tabrow.__home);
       var ch = facts.querySelector(':scope > .dd-tabrow-r'); if (ch) tabrow.appendChild(ch);
+      facts.classList.remove('is-split');
       if (tabrow.__home) tabrow.parentNode.insertBefore(facts, tabrow.nextSibling);
       if (card.__home) card.__home.parentNode.insertBefore(card, card.__home);
       split.remove();
