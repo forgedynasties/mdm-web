@@ -584,7 +584,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   </form>
 </dialog>
 <style>
-  .lab-dlg { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; width: 520px; max-width: calc(100vw - 32px); box-shadow: var(--shadow-pop); }
+  /* The global reset zeroes margins, which undoes the browser centring a modal dialog. */
+  .lab-dlg { margin: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; width: 520px; max-width: calc(100vw - 32px); box-shadow: var(--shadow-pop); }
   .lab-dlg::backdrop { background: rgba(8,9,14,.55); }
   .lab-dlg form { padding: 18px 20px 16px; font-size: 13px; color: var(--text-2); line-height: 1.55; }
   .lab-dlg h2 { font-size: 15px; margin: 0 0 8px; color: var(--text); }
