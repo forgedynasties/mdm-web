@@ -650,7 +650,7 @@ if (!window.__ddNotesHook) {
         {{end}}
         <div class="cpill-foot">
           <span class="vv">{{if not .Hosted}}No build hosted{{else if .Behind}}{{.Latest}} available{{else if .Version}}Up to date{{else}}Version not reported{{end}}</span>
-          <a href="/clients{{if .Slot}}?slot={{.Slot}}{{end}}">Open Clients page →</a>
+          <a href="/lineup?client={{if .Slot}}{{.Slot}}{{else}}firmware-qcom{{end}}">Open in Lineup →</a>
         </div>
       </div>
     </span>

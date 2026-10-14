@@ -1,12 +1,8 @@
-{{define "clients.html"}}
-{{template "header" .}}
-{{/* Clients: the MDM client each device runs, the build this server hosts for it, and
-     what has been published to it. The client list stays on the left while you work in
-     one of them. A slot exists per thing that must be signed differently: the standard
-     client has its own key, and the firmware client is signed with the platform key of its
-     build tree (QCOM is the only one actively published — GMS is frozen but kept
-     visible for any device still on it). A device is only ever offered its own slot's
-     build. */}}
+{{/* MDM clients (merged into Lineup, 14 Oct): the build this server hosts for each client,
+     the policy that keeps devices on it, the devices and the release history. A slot exists
+     per signing key, and a device is only ever offered its own slot's build. Lineup renders
+     clients-detail as its client pane; ?partial=1 returns the pane alone for the refreshes. */}}
+{{define "clients-style"}}
 <style>
 .cl-split{display:grid;grid-template-columns:238px minmax(0,1fr);gap:18px;align-items:start}
 .cl-side{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;position:sticky;top:78px}
@@ -104,22 +100,9 @@
 .cl-tr.hidden{display:none}
 @media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
 </style>
+{{end}}
 
-<div class="cc-wrap">
-<div class="cc-top">
-  <div>
-    <div class="cc-eyebrow">Fleet · Clients</div>
-    <h1 class="cc-h1">Clients</h1>
-    <div class="cc-sub">The MDM client on each device and the build this server hosts for it. A device is only offered a build signed with the same key it already trusts, so the firmware client has one entry per variant. Builds arrive from CI, not by hand.</div>
-    <div class="cc-sub" style="margin-top:6px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling. <a href="/static/device-key-plan.html" hx-boost="false">The plan</a></div>
-  </div>
-</div>
-
-<div class="cl-split" id="cl-split">
-{{template "clients-split" .}}
-</div>
-</div>
-
+{{define "clients-script"}}
 <script>
 // One release menu open at a time, closed by Escape or a click anywhere else — the rows
 // sit inside an htmx-swapped fragment, so this is delegated rather than bound per row.
@@ -139,6 +122,8 @@ function clCopy(btn, sha) {
   if (navigator.clipboard) navigator.clipboard.writeText(sha).then(done, function () {});
   else done();
 }
+if (!window.__clHooks) {
+window.__clHooks = true;
 document.addEventListener('click', function () {
   document.querySelectorAll('.cl-pop').forEach(function (p) { p.hidden = true; });
 });
@@ -153,6 +138,7 @@ document.addEventListener('lt:change', function (e) {
     if (btn && btn.getAttribute('aria-expanded') !== 'true' && e.target.querySelector('.cl-tr[data-dormant="' + key + '"]:not(.lt-out)')) clFold(btn, key);
   });
 });
+}
 function clFold(btn, key) {
   var open = btn.getAttribute('aria-expanded') === 'true';
   document.querySelectorAll('[data-dormant="' + key + '"]').forEach(function (row) {
@@ -199,10 +185,10 @@ function clSent(form) {
   // together put a spinner on each side of the word.
   if (b) { b.disabled = true; b.classList.add('cl-sent'); b.innerHTML = '<span class="cl-spin"></span>Sent'; }
   var d = document.getElementById('cl-detail');
-  var slot = (new URLSearchParams(location.search)).get('slot') || '';
+  var slot = (new URLSearchParams(location.search)).get('client') || '';
   setTimeout(function () {
-    if (window.htmx) htmx.ajax('GET', '/clients?slot=' + encodeURIComponent(slot) + '&partial=1',
-      { target: '#cl-split', swap: 'innerHTML' });
+    if (window.htmx && document.getElementById('cl-detail')) htmx.ajax('GET', '/lineup?client=' + encodeURIComponent(slot) + '&partial=1',
+      { target: '#cl-detail', swap: 'outerHTML' });
   }, 1500);
   void d;
 }
@@ -240,28 +226,11 @@ function clSkeleton(d) {
 }
 
 </script>
-{{template "footer" .}}
 {{end}}
 
-{{/* Rail + detail, swapped as one: picking a client re-renders this and nothing else,
-     so the header, dock and scroll position stay put. The rail is inside the fragment
-     because its selected state changes with the detail. */}}
-{{define "clients-split"}}
-  <nav class="cl-side" aria-label="Clients">
-    <div class="cl-scap">Clients</div>
-    {{range .Rails}}
-    <a class="cl-si{{if .Selected}} on{{end}}" href="/clients?slot={{.Slot}}" onclick="clPick(this)"
-       hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
-       hx-push-url="/clients?slot={{.Slot}}">
-      <span class="nm">{{.Label}}</span>
-      {{if .Behind}}<span class="n warn" title="{{.Behind}} behind">{{.Devices}}</span>
-      {{else}}<span class="n">{{.Devices}}</span>{{end}}
-    </a>
-    {{end}}
-  </nav>
-
+{{define "clients-detail"}}
   {{with .Selected}}
-  <div id="cl-detail"{{if .Updating}} hx-get="/clients?slot={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-split" hx-swap="innerHTML"{{end}}>
+  <div id="cl-detail"{{if .Updating}} hx-get="/lineup?client={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-detail" hx-swap="outerHTML"{{end}}>
     <div class="cl-hd">
       <h2>{{if .GroupLabel}}{{.GroupLabel}}{{else}}{{.Label}}{{end}}</h2>
       <div class="cl-note">{{if .GroupNote}}{{.GroupNote}}{{else}}{{.Note}}{{end}}</div>
@@ -275,9 +244,9 @@ function clSkeleton(d) {
     <div class="vseg" role="tablist" aria-label="Firmware variant">
       {{range .Variants}}
       <a class="{{if .Selected}}on{{end}}" role="tab" aria-selected="{{if .Selected}}true{{else}}false{{end}}"
-         href="/clients?slot={{.Slot}}" onclick="clVar(this)"
-         hx-get="/clients?slot={{.Slot}}&partial=1" hx-target="#cl-split" hx-swap="innerHTML"
-         hx-push-url="/clients?slot={{.Slot}}">{{.Variant}}<span class="n">{{.Devices}}</span></a>
+         href="/lineup?client={{.Slot}}" onclick="clVar(this)"
+         hx-get="/lineup?client={{.Slot}}&partial=1" hx-target="#cl-detail" hx-swap="outerHTML"
+         hx-push-url="/lineup?client={{.Slot}}">{{.Variant}}<span class="n">{{.Devices}}</span></a>
       {{end}}
     </div>
     <div class="cl-vnote">{{.Note}}</div>

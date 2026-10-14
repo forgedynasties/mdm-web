@@ -220,19 +220,17 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		h.render(w, r, "pipeline.html", common(map[string]any{"View": "runs", "Productions": productions, "Models": h.modelOptions(ctx)}))
 		return
 	}
-	if v, ok := views[clientSel]; ok {
-		var behind []string
-		for i := range devices {
-			d := &devices[i]
-			if agentSlotFor(d) != clientSel || !v.Hosted {
-				continue
-			}
-			if _, code := clientVersionOf(d); code > 0 && versionComparable(d, v.Build.Package) && code < v.Build.VersionCode {
-				behind = append(behind, d.SerialNumber)
-			}
+	// An MDM client's pane: the old Clients page, whole. ?partial=1 is the pane alone,
+	// for the refreshes it runs while an update is in flight.
+	if v, ok := h.clientDetail(r, devices, clientSel); ok {
+		data := common(map[string]any{"Client": v, "Selected": v, "ServerURL": h.baseURL(r)})
+		if r.URL.Query().Get("partial") == "1" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			h.tmpl.ExecuteTemplate(w, "clients-detail", h.withRole(r, data))
+			return
 		}
-		v.BehindSerials = strings.Join(behind, ",")
-		h.render(w, r, "pipeline.html", common(map[string]any{"Client": v}))
+		data["KeysOwn"], data["KeysShared"], _ = h.db.DeviceKeyCounts(ctx)
+		h.render(w, r, "pipeline.html", data)
 		return
 	}
 	if sel == "" {

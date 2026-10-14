@@ -54,7 +54,8 @@
     {{else if eq .View "runs"}}
       {{template "lu-runs" .}}
     {{else if .Client}}
-      {{template "pl-client" (dict "C" .Client "Root" $)}}
+      {{template "clients-detail" .}}
+      {{if or .KeysOwn .KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling. <a href="/static/device-key-plan.html" hx-boost="false">The plan</a></div>{{end}}
     {{else}}
       <div class="lu-head"><h2>{{.RoleLabel}}</h2><span class="pl-faint">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}}</span></div>
 
@@ -140,6 +141,8 @@
   </div>
 </div>
 
+{{template "clients-style" .}}
+{{template "clients-script" .}}
 <script>
 // + Add model popover on the Hardware section.
 window.luAddToggle = function (e) {
@@ -307,7 +310,7 @@ if (!window.__plChips) {
           <div class="pl-bk"><span class="v">{{$.C.Build.Version}}</span> <span class="pl-faint">code {{$.C.Build.VersionCode}}</span>
             {{if $.C.Devices}}<div class="pl-bar"><i style="width:{{pct $.C.UpToDate $.C.Devices}}%;background:var(--ok)"></i><i style="width:{{pct $.C.Behind $.C.Devices}}%;background:var(--accent-2)"></i><i style="width:{{pct $.C.NoBuild $.C.Devices}}%;background:var(--warn)"></i><i style="width:{{pct $.C.Unknown $.C.Devices}}%;background:var(--muted)"></i></div>{{end}}
             <div class="m">{{$.C.UpToDate}} of {{$.C.Devices}} on it{{if $.C.Behind}} · {{$.C.Behind}} behind{{end}}{{if $.C.NoBuild}} · {{$.C.NoBuild}} on an image that cannot take it{{end}}{{if $.C.Unknown}} · {{$.C.Unknown}} not reporting a version{{end}}</div>
-            <div class="m"><a href="/clients?slot={{$.C.Slot}}">Devices and release history →</a></div>
+            <div class="m"><a href="/lineup?client={{$.C.Slot}}">Devices and release history →</a></div>
           </div>
           {{else}}<div class="pl-none">Nothing hosted for this client yet.</div>{{end}}
         </div>

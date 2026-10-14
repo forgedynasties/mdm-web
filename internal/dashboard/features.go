@@ -1357,41 +1357,25 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 	return v
 }
 
+// ClientsPage is where the Clients page used to be: it moved into Lineup (14 Oct), so old
+// links and bookmarks land on the same client there.
 func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "serial", "asc")
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	slot := r.URL.Query().Get("slot")
+	if _, ok := AgentAPKSlots[slot]; !ok {
+		slot = clientSlotOrder[0]
 	}
-	order := clientSlotOrder
-	views, counts := h.clientSlotSummaries(r, devices)
-	variants := map[string]string{}
-	firmwareGroup := []string{"firmware-qcom"}
-	const firmwareLabel = "Firmware MDM"
-	const firmwareNote = "The system app in our AOSP images, covering user and userdebug builds alike. It is platform-signed, so a device installs only a build signed with the key its own image trusts."
+	http.Redirect(w, r, "/lineup?client="+url.QueryEscape(clientDisplaySlot(slot)), http.StatusFound)
+}
 
-	// Which client is open. An unknown or missing ?slot lands on the first one that has
-	// devices, so the page opens on something worth looking at rather than an empty tab.
-	selected := r.URL.Query().Get("slot")
+// clientDetail builds the Lineup pane for one MDM client: its summary, release history
+// and a row per device on it, behind first. ok is false for a slot that does not exist.
+func (h *Handler) clientDetail(r *http.Request, devices []db.Device, selected string) (*ClientSlotView, bool) {
+	views, _ := h.clientSlotSummaries(r, devices)
 	if _, ok := views[selected]; !ok {
-		selected = order[0]
-		for _, slot := range order {
-			if views[slot].Devices > 0 {
-				selected = slot
-				break
-			}
-		}
+		return nil, false
 	}
 	views[selected].Selected = true
 	views[selected].History = clientHistoryRows(selected, h.cfg.AgentAPKHistory(selected), views[selected].Build.SHA)
-	if variants[selected] != "" {
-		views[selected].GroupLabel = firmwareLabel
-		views[selected].GroupNote = firmwareNote
-		for _, slot := range firmwareGroup {
-			views[slot].Selected = slot == selected
-			views[selected].Variants = append(views[selected].Variants, views[slot])
-		}
-	}
 
 	// The device rows, for the open client only.
 	sel := views[selected]
@@ -1472,70 +1456,7 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 	})
 	sel.Groups = groupClientRows(sel.Rows, sel.Build.Version, time.Now())
 
-	var slots []*ClientSlotView
-	for _, slot := range order {
-		v := views[slot]
-		for _, c := range counts[slot] {
-			v.Versions = append(v.Versions, *c)
-		}
-		sort.Slice(v.Versions, func(i, j int) bool { return v.Versions[i].Code > v.Versions[j].Code })
-		slots = append(slots, v)
-	}
-
-	// The rail: the firmware variants collapse into one row whose count is the whole
-	// firmware fleet, and which opens on the variant already selected — or, coming in
-	// cold, the one with devices on it rather than an empty tree.
-	var rails []ClientRailEntry
-	fw := ClientRailEntry{Label: firmwareLabel, Slot: firmwareGroup[0]}
-	inGroup := map[string]bool{}
-	for _, slot := range firmwareGroup {
-		inGroup[slot] = true
-		v := views[slot]
-		fw.Devices += v.Devices
-		fw.Behind += v.Behind
-		if v.Selected {
-			fw.Selected, fw.Slot = true, slot
-		}
-	}
-	if !fw.Selected {
-		for _, slot := range firmwareGroup {
-			if views[slot].Devices > 0 {
-				fw.Slot = slot
-				break
-			}
-		}
-	}
-	for _, slot := range order {
-		if inGroup[slot] {
-			if slot == firmwareGroup[0] {
-				rails = append(rails, fw)
-			}
-			continue
-		}
-		v := views[slot]
-		rails = append(rails, ClientRailEntry{Label: v.Label, Slot: slot, Devices: v.Devices, Behind: v.Behind, Selected: v.Selected})
-	}
-
-	data := map[string]any{
-		"Title":      "Clients",
-		"ActivePage": "clients",
-		"Slots":      slots,
-		"Rails":      rails,
-		"Selected":   sel,
-		"ServerURL":  h.baseURL(r),
-	}
-	// Picking a client swaps the rail + detail rather than reloading the page, so the
-	// header, dock and scroll position survive. withRole because the fragment renders
-	// the same role-gated actions the full page does.
-	if r.URL.Query().Get("partial") == "1" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.tmpl.ExecuteTemplate(w, "clients-split", h.withRole(r, data))
-		return
-	}
-	// Device keys (device-key plan): how many devices still identify with the shared
-	// key, which is public, against those with their own.
-	data["KeysOwn"], data["KeysShared"], _ = h.db.DeviceKeyCounts(r.Context())
-	h.render(w, r, "clients.html", data)
+	return sel, true
 }
 
 // knownAgentSlots names the publishable slots, sorted, for the error a build machine
@@ -1812,17 +1733,17 @@ func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
 	sha := strings.TrimSpace(r.FormValue("sha256"))
 	p := agentAPKArchivePath(slot, sha)
 	if p == "" {
-		h.hxDoneToast(w, r, "/clients", "Unknown client or digest", "error")
+		h.hxDoneToast(w, r, "/lineup?client=firmware-qcom", "Unknown client or digest", "error")
 		return
 	}
 	data, err := os.ReadFile(p)
 	if err != nil {
-		h.hxDoneToast(w, r, "/clients?slot="+slot, "That build is not in the archive any more", "error")
+		h.hxDoneToast(w, r, "/lineup?client="+slot, "That build is not in the archive any more", "error")
 		return
 	}
 	sum := sha256.Sum256(data)
 	if hex.EncodeToString(sum[:]) != sha {
-		h.hxDoneToast(w, r, "/clients?slot="+slot, "Archived build does not match its digest — not published", "error")
+		h.hxDoneToast(w, r, "/lineup?client="+slot, "Archived build does not match its digest — not published", "error")
 		return
 	}
 	var name string
@@ -1833,11 +1754,11 @@ func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if _, _, err := h.storeAgentAPK(data, name, slot, "rolled back to this build"); err != nil {
-		h.hxDoneToast(w, r, "/clients?slot="+slot, "Rollback failed: "+err.Error(), "error")
+		h.hxDoneToast(w, r, "/lineup?client="+slot, "Rollback failed: "+err.Error(), "error")
 		return
 	}
 	h.audit(r, "clients.agent_apk_rollback", slot, "sha256 "+sha)
-	h.hxDoneToast(w, r, "/clients?slot="+slot, "Rolled back — this build is what devices install now", "success")
+	h.hxDoneToast(w, r, "/lineup?client="+slot, "Rolled back — this build is what devices install now", "success")
 }
 
 // SettingsAgentAPKUpload stores an uploaded agent APK and records its SHA-256 (URL-safe

@@ -2235,7 +2235,7 @@ var prefetchableTemplates = map[string]bool{
 	// navigation in the dashboard, and the rail warms the next page on hover.
 	"alerts.html": true, "alert_config.html": true, "report_alerts.html": true,
 	"apps.html": true, "app_detail.html": true, "jobs.html": true,
-	"command_history.html": true, "clients.html": true, "manage.html": true,
+	"command_history.html": true, "manage.html": true,
 	"enrollment.html": true, "groups.html": true, "restaurants.html": true,
 	"settings.html": true, "updates_rollouts.html": true, "releases.html": true,
 	"packages.html": true, "users.html": true, "activity.html": true,
