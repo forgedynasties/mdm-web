@@ -108,6 +108,9 @@ func (d *DB) ProductRole(ctx context.Context, key string) (string, error) {
 	if err != nil {
 		return "", nil // no row: no default
 	}
+	if !prod.IsClass(role) {
+		return "", nil // attached to a class that has since been retired
+	}
 	return role, nil
 }
 

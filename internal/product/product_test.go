@@ -121,11 +121,11 @@ func TestClassForModel(t *testing.T) {
 	for _, tc := range []struct {
 		productKey, mfr, model, want string
 	}{
-		{"d3_pro", "SUNMI", "D3 PRO", ClassMPOS},
+		{"d3_pro", "SUNMI", "D3 PRO", ""}, // handheld, payment and tablet are retired: no guess
 		{"rk3399_android11", "telpo", "K20", ClassKiosk},
-		{"a14xmtfn", "samsung", "SM-S146VL", ClassMPOS},
+		{"a14xmtfn", "samsung", "SM-S146VL", ""},
 		{"kiosk_x", "vendor", "Self Service 21", ClassKiosk},
-		{"sm-x200", "samsung", "Galaxy Tab A8", ClassTablet},
+		{"sm-x200", "samsung", "Galaxy Tab A8", ""},
 		{"rockchip029", "Google", "HK1 RBOX D8", ClassDongle},
 		{"sdk_gphone64_x86_64", "Google", "sdk_gphone64_x86_64", ""},
 		{"", "", "", ""},
