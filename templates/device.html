@@ -4641,10 +4641,29 @@ html.dd-fit .dd-split-r{padding-right:4px}
       var lg2 = document.getElementById('vt-legend'); if (lg2) card.parentNode.insertBefore(lg2, card.nextSibling);
       split.remove();
     } else return;
+    overviewTab(on);
     fit();
     // Charts follow their new container width.
     setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 30);
     setTimeout(function () { if (window.ddSyncMap) window.ddSyncMap(); }, 80);
+  }
+  // In the split the graph has left Overview; what stays there is the map and the pad
+  // card, and a device with neither (a mains-powered stock device) would open on an empty
+  // tab. Hide it then, and open the next tab instead.
+  function overviewTab(on) {
+    var t = document.getElementById('dd-tab-summary'), p = document.getElementById('dd-panel-summary');
+    if (!t || !p) return;
+    var empty = !Array.prototype.some.call(p.children, function (c) {
+      return !/^(SCRIPT|STYLE|TEMPLATE|LINK)$/.test(c.tagName) && !c.hidden && getComputedStyle(c).display !== 'none';
+    });
+    t.hidden = on && empty;
+    function away() {
+      if (!t.hidden || !t.classList.contains('active') || !window.setDeviceTab) return;
+      var alt = document.getElementById('dd-tab-apps') || document.getElementById('dd-tab-about');
+      if (alt) window.setDeviceTab(alt.getAttribute('data-dd-tab'), alt);
+    }
+    // On first load setDeviceTab is defined further down the page.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', away); else away();
   }
   // In the split the page itself does not scroll: the split fills the window above the
   // dock, and each pane scrolls on its own (the tabs pane, and the graph pane when the
