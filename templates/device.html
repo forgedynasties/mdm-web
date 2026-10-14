@@ -1067,7 +1067,7 @@ if (!window.__ddNotesHook) {
        window to move through time, pull an edge to widen or narrow it. */}}
   <div class="vt-navw">
     <div class="vt-nav" id="vt-nav" title="Drag to move the window · pull an edge to zoom">
-      <svg viewBox="0 0 1000 34" preserveAspectRatio="none" aria-hidden="true"><path id="vt-nav-line" d="" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>
+      <svg viewBox="0 0 1000 34" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="vt-nav-clip"><rect id="vt-nav-clip-r" x="0" y="0" width="1000" height="34"/></clipPath></defs><path id="vt-nav-line" d="" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" clip-path="url(#vt-nav-clip)"/></svg>
       <div class="vt-win" id="vt-nav-win"><span class="vt-h l" data-edge="l"></span><span class="vt-h r" data-edge="r"></span></div>
     </div>
     <div class="vt-navcap"><span id="vt-nav-from"></span><span id="vt-nav-to"></span></div>
@@ -3576,6 +3576,24 @@ function mdmBootCharts() {
       win.style.left = l + '%';
       win.style.width = Math.max(0.8, r - l) + '%';
     }
+    // The line draws itself in: a clip sweeps out to the points that just arrived (older
+    // history loads in chunks), rather than the line jumping a chunk at a time.
+    var clipR = document.getElementById('vt-nav-clip-r'), shown = { l: 0, r: 0, n: 0, tab: null }, anim = 0;
+    function setClip(l, r) { if (clipR) { clipR.setAttribute('x', l.toFixed(1)); clipR.setAttribute('width', Math.max(0, r - l).toFixed(1)); } }
+    function navReveal(l, r, n) {
+      var fresh = shown.tab !== activeTab || shown.n === 0;
+      var grew = n > shown.n;
+      var from = fresh ? { l: l, r: l } : { l: shown.l, r: shown.r };
+      shown.tab = activeTab; shown.n = n; shown.l = l; shown.r = r;
+      cancelAnimationFrame(anim);
+      if (!fresh && !grew) { setClip(l, r + 2); return; }
+      var t0 = performance.now(), dur = fresh ? 1400 : 900;
+      (function step(now) {
+        var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        setClip(from.l + (l - from.l) * e, from.r + (r + 2 - from.r) * e);
+        if (k < 1) anim = requestAnimationFrame(step);
+      })(t0);
+    }
     window.vtNavSync = function () {
       var c = vtStack()[0]; if (!c) return;
       var a = c.options.scales.x.min, b = c.options.scales.x.max;
@@ -3600,6 +3618,7 @@ function mdmBootCharts() {
         d += (d ? ' L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
       }
       if (line) line.setAttribute('d', d);
+      if (pts.length) navReveal((pts[0].x - navA) / (navB - navA) * 1000, (pts[pts.length - 1].x - navA) / (navB - navA) * 1000, pts.length);
       if (!drag) place(curA, curB);
       var f = document.getElementById('vt-nav-from'), t = document.getElementById('vt-nav-to');
       if (f) f.textContent = fmtDate(navA);
