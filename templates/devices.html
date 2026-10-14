@@ -239,6 +239,18 @@ if (!window.__dlRowNav) {
      changes (partial swaps) re-render it out-of-band instead of leaving the counts
      from the first page load. */}}
 {{define "fleet-headline"}}{{$onCount := .Summary.RecentlyActive}}{{$offCount := sub .Summary.Total .Summary.RecentlyActive}}
+  {{/* Top bar (island-context-demos.html, C1). Inside the headline so filter swaps, which
+       re-render the headline out-of-band, refresh it too. */}}
+  <template id="page-island">
+    <span class="isl-dot {{if gt $offCount 0}}warn{{else}}on{{end}}"></span>
+    <span class="isl-t">Fleet · {{if eq .View "restaurants"}}Venues{{else if eq .View "groups"}}Groups{{else}}{{.SelectedCollection}}{{end}}</span>
+    <span class="isl-s"><b>{{$onCount}}</b> of {{.Summary.Total}} online · {{.SelectedCount}} in view{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}}{{end}}{{if .RefusedSerials}} · <span class="w">{{len .RefusedSerials}} unidentified</span>{{end}}</span>
+    <span class="isl-acts">
+      {{if .MapsEmbedKey}}<button type="button" class="cc-btn" data-fl-map aria-pressed="false" onclick="window.flToggleMap && flToggleMap()">Map view</button>{{end}}
+      <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()">Refresh</button>
+      {{if canAdmin .Role}}<a class="cc-btn primary" href="/enrollment" hx-boost="false">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} · {{.FleetCounts.Inbox}} new{{end}}{{end}}</a>{{end}}
+    </span>
+  </template>
   {{/* A venue or group view is about the collections, not the device count. */}}
   {{if eq .View "restaurants"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailRestaurants}}</span> venue{{if ne (len .RailRestaurants) 1}}s{{end}}</h1>
   {{else if eq .View "groups"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailGroups}}</span> group{{if ne (len .RailGroups) 1}}s{{end}}</h1>
@@ -633,16 +645,28 @@ a.fleet-rail-item{min-height:40px}
 </style>
 
 {{/* ── Fleet header: verdict headline + KPI strip ── */}}
+<script>
+// The top bar's Map button mirrors the page's own (hidden) one.
+function flMapSync() {
+  var b = document.getElementById('fl-map-btn'), on = !!b && b.getAttribute('aria-pressed') === 'true';
+  document.querySelectorAll('#appbar-island [data-fl-map]').forEach(function (x) { x.textContent = on ? 'Back to list' : 'Map view'; x.setAttribute('aria-pressed', String(on)); });
+}
+document.addEventListener('htmx:oobAfterSwap', function (e) {
+  var t = e.detail && e.detail.target;
+  if (t && t.id === 'fl-headline' && window.mdmIslandRefresh) { window.mdmIslandRefresh(); flMapSync(); }
+});
+window.addEventListener('load', flMapSync);
+</script>
 <div class="fl-wrap">
-  <div class="fl-top cc-top">
+  <div class="fl-top cc-top isl-dup">
     <div>
-      <div class="cc-eyebrow">Fleet · Devices</div>
-      <div id="fl-headline">{{template "fleet-headline" .}}</div>
+      <div class="cc-eyebrow isl-dup">Fleet · Devices</div>
+      <div id="fl-headline" class="isl-dup">{{template "fleet-headline" .}}</div>
     </div>
     <div class="cc-actions fl-actions">
-      {{if canAdmin .Role}}<a class="cc-btn" href="/enrollment" hx-boost="false" title="Onboarding inbox and enrollment profiles"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}}<span class="n warn">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
+      {{if canAdmin .Role}}<a class="cc-btn isl-dup" href="/enrollment" hx-boost="false" title="Onboarding inbox and enrollment profiles"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}}<span class="n warn">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
       {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg class="i-map" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><svg class="i-list" viewBox="0 0 24 24" hidden><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Map view</span></button>{{end}}
-      <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
+      <button type="button" class="cc-btn isl-dup" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>
   </div>
 
@@ -2408,6 +2432,7 @@ document.addEventListener('keydown', function(e) {
     btn.querySelector('.lbl').textContent = on ? 'Back to list' : 'Map view';
     btn.querySelector('.i-map').hidden = on; btn.querySelector('.i-list').hidden = !on;
     btn.title = on ? 'Show the device list again' : 'Show the devices in this view on a map';
+    document.querySelectorAll('#appbar-island [data-fl-map]').forEach(function (b) { b.textContent = on ? 'Back to list' : 'Map view'; b.setAttribute('aria-pressed', String(on)); });
     try { localStorage.setItem('mdm-fleet-view', on ? 'map' : 'list'); } catch (e) {}
     if (on) load();
   };
