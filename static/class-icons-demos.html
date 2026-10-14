@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class icons demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1220px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede{color:var(--muted);font-size:13.5px;max-width:980px;line-height:1.6}.lede b{color:var(--text);font-weight:650}
+h2.part{font-size:19px;margin:46px 0 2px;padding-top:18px;border-top:1px solid var(--border)}
+h2.opt{font-size:16px;margin:34px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.now{font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface2);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.shot{border:1px solid var(--border);border-radius:14px;margin-top:12px;background:var(--bg);padding:18px;display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.tgl{position:fixed;top:14px;right:16px;z-index:5}
+svg.ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* side list */
+.side{width:250px;flex:none}
+.cap{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);padding:0 10px 6px}
+.role{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;color:var(--text-2);font-size:12.5px}
+.role.on{background:var(--accent-soft);color:var(--text)}
+.role>span:not(.tile):not(.gap){flex:1;min-width:0}.role b{display:block;font-weight:650;color:var(--text)}.role small{display:block;font-size:11px;color:var(--text-faint)}
+.role .dot{width:8px;height:8px;border-radius:99px;background:var(--ok);flex:none}.role .dot.m{background:var(--text-faint)}
+.role img{width:30px;height:30px;object-fit:contain;border-radius:8px;background:var(--surface2);flex:none}
+.role .gap{width:30px;flex:none}
+.role .ic{color:var(--text-faint)}.role.on .ic{color:var(--accent-text)}
+.tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;background:var(--surface2);color:var(--text-2)}
+.role.on .tile{background:var(--accent);color:#fff}
+.tile svg.ic{width:17px;height:17px}
+/* a dropdown, e.g. the Fleet class filter */
+.menu{width:230px;flex:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px;box-shadow:var(--shadow-pop)}
+.mi{display:flex;gap:10px;align-items:center;padding:7px 9px;border-radius:8px;font-size:12.5px;color:var(--text-2)}
+.mi:hover,.mi.on{background:var(--surface2);color:var(--text)}.mi .n{margin-left:auto;font-size:11px;color:var(--text-faint)}
+.mi img{width:22px;height:22px;object-fit:contain;border-radius:6px;background:var(--surface2)}
+.mi .tile{width:24px;height:24px;border-radius:7px}.mi .tile svg.ic{width:14px;height:14px}
+.set{display:flex;gap:18px;flex-wrap:wrap}
+.set figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:8px;width:110px;font-size:11.5px;color:var(--text-2);text-align:center}
+.set .big{width:64px;height:64px;border-radius:14px;background:var(--surface);border:1px solid var(--border);display:grid;place-items:center}
+.set .big svg.ic{width:34px;height:34px;stroke-width:1.4}
+.pics{display:flex;gap:18px;flex-wrap:wrap}
+.pics figure{margin:0;width:240px;font-size:12px;color:var(--text-2)}
+.pics img{width:240px;height:240px;object-fit:contain;border-radius:16px;background:var(--surface2);display:block;margin-bottom:8px}
+.pics .svgbox{width:240px;height:240px;border-radius:16px;background:var(--surface2);display:grid;place-items:center;margin-bottom:8px;color:var(--text-2)}
+.pics .svgbox svg.ic{width:120px;height:120px;stroke-width:1.1}
+@media(max-width:720px){body{padding:16px}.pros{grid-template-columns:1fr}.side,.menu{width:100%}.pics figure,.pics img,.pics .svgbox{width:100%}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-dongle" viewBox="0 0 24 24"><rect x="2" y="3.5" width="20" height="12.5" rx="1.5"/><path d="M5.5 7.5h5M5.5 10.5h3.5M13.5 7.5h5M13.5 10.5h3.5"/><path d="M16 16v1.5"/><rect x="14.6" y="17.5" width="2.8" height="4" rx=".9"/></symbol>
+  <symbol id="i-pos" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="11" rx="1.5"/><path d="M10.2 14l-.9 4.5h5.4l-.9-4.5"/><path d="M6 21h12"/><path d="M9.3 18.5 8 21M14.7 18.5 16 21"/></symbol>
+  <symbol id="i-kiosk" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="14" rx="1.5"/><path d="M9.5 12.5h5"/><path d="M12 16v5"/><path d="M8.5 21h7"/></symbol>
+  <symbol id="i-kds" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="1.5"/><rect x="5" y="7" width="3.6" height="8" rx=".6"/><rect x="10.2" y="7" width="3.6" height="5.5" rx=".6"/><rect x="15.4" y="7" width="3.6" height="7" rx=".6"/><path d="M9 21h6"/></symbol>
+  <symbol id="i-t7" viewBox="0 0 24 24"><path d="M7.5 3.5h9.5c.6 0 1 .5.9 1.1L16.3 17.2c-.1.5-.5.8-1 .8H6.8c-.6 0-1-.5-.9-1.1L7.5 3.5z"/><path d="M8.6 15.5h6.2"/><path d="M5 21h13.5"/><path d="M6.6 18 5.2 21M15.8 18l1.2 3"/></symbol>
+</svg>
+<button type="button" class="cc-btn sm tgl" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
+<div class="wrap">
+<h1>Class icons and the menu board picture</h1>
+<p class="lede">Two questions. <b>1.</b> In menus that list classes (the Lineup side list, and the Fleet class filter), should a class show an <b>SVG icon</b> instead of a photo?
+Photos stay where there is room: the role header, model rows and device page. <b>2.</b> aioapp.com has no product shot of a menu board (only a street photo), so which picture should the menu board class use?</p>
+
+<h2 class="part">1 · Class entries in menus</h2>
+
+<h2 class="opt">I1 · Photos <span class="now">on stage now</span></h2>
+<div class="shot">
+  <div class="side"><div class="cap">Roles</div>
+    <div class="role"><span class="gap"></span><span><b>Menu board</b><small>no models</small></span><i class="dot m"></i></div>
+    <div class="role on"><img src="/static/img/models/trinket.webp" alt=""><span><b>POS terminal</b><small>1 device · 1 model</small></span><i class="dot"></i></div>
+    <div class="role"><img src="/static/img/classes/kiosk.webp" alt=""><span><b>Self-order kiosk</b><small>2 devices · 4 models</small></span><i class="dot"></i></div>
+    <div class="role"><img src="/static/img/models/d2s_kds_stgl.webp" alt=""><span><b>Kitchen display</b><small>0 devices · 1 model</small></span><i class="dot m"></i></div>
+    <div class="role"><img src="/static/img/models/t7.webp" alt=""><span><b>Tableside AI</b><small>3 devices · 1 model</small></span><i class="dot"></i></div>
+  </div>
+  <div class="menu">
+    <div class="mi on"><span class="gap" style="width:22px"></span>All classes<span class="n">188</span></div>
+    <div class="mi"><img src="/static/img/models/t7.webp" alt="">Tableside AI<span class="n">160</span></div>
+    <div class="mi"><img src="/static/img/classes/kiosk.webp" alt="">Self-order kiosk<span class="n">14</span></div>
+    <div class="mi"><span style="width:22px"></span>Menu board<span class="n">9</span></div>
+    <div class="mi"><img src="/static/img/models/trinket.webp" alt="">POS terminal<span class="n">3</span></div>
+  </div>
+</div>
+<div class="pros"><div>Real hardware; you recognise the box.</div><div class="bad">At 22–30 px a photo is a smudge (the kiosk is a thin line), and a class with no picture leaves a hole.</div></div>
+
+<h2 class="opt">I2 · Line icons, same stroke as the dashboard's other icons <span class="pick">my pick</span></h2>
+<div class="shot">
+  <div class="side"><div class="cap">Roles</div>
+    <div class="role"><svg class="ic"><use href="#i-dongle"/></svg><span><b>Menu board</b><small>no models</small></span><i class="dot m"></i></div>
+    <div class="role on"><svg class="ic"><use href="#i-pos"/></svg><span><b>POS terminal</b><small>1 device · 1 model</small></span><i class="dot"></i></div>
+    <div class="role"><svg class="ic"><use href="#i-kiosk"/></svg><span><b>Self-order kiosk</b><small>2 devices · 4 models</small></span><i class="dot"></i></div>
+    <div class="role"><svg class="ic"><use href="#i-kds"/></svg><span><b>Kitchen display</b><small>0 devices · 1 model</small></span><i class="dot m"></i></div>
+    <div class="role"><svg class="ic"><use href="#i-t7"/></svg><span><b>Tableside AI</b><small>3 devices · 1 model</small></span><i class="dot"></i></div>
+  </div>
+  <div class="menu">
+    <div class="mi on"><span style="width:18px"></span>All classes<span class="n">188</span></div>
+    <div class="mi"><svg class="ic"><use href="#i-t7"/></svg>Tableside AI<span class="n">160</span></div>
+    <div class="mi"><svg class="ic"><use href="#i-kiosk"/></svg>Self-order kiosk<span class="n">14</span></div>
+    <div class="mi"><svg class="ic"><use href="#i-dongle"/></svg>Menu board<span class="n">9</span></div>
+    <div class="mi"><svg class="ic"><use href="#i-pos"/></svg>POS terminal<span class="n">3</span></div>
+  </div>
+</div>
+<div class="pros"><div>Crisp at any size, follows light/dark and the selected colour, every class has one. Matches the nav and button icons.</div><div class="bad">Drawn, not the real product; the photo only appears once you open the role.</div></div>
+
+<h2 class="opt">I3 · Icons in a tinted tile</h2>
+<div class="shot">
+  <div class="side"><div class="cap">Roles</div>
+    <div class="role"><span class="tile"><svg class="ic"><use href="#i-dongle"/></svg></span><span><b>Menu board</b><small>no models</small></span><i class="dot m"></i></div>
+    <div class="role on"><span class="tile"><svg class="ic"><use href="#i-pos"/></svg></span><span><b>POS terminal</b><small>1 device · 1 model</small></span><i class="dot"></i></div>
+    <div class="role"><span class="tile"><svg class="ic"><use href="#i-kiosk"/></svg></span><span><b>Self-order kiosk</b><small>2 devices · 4 models</small></span><i class="dot"></i></div>
+    <div class="role"><span class="tile"><svg class="ic"><use href="#i-kds"/></svg></span><span><b>Kitchen display</b><small>0 devices · 1 model</small></span><i class="dot m"></i></div>
+    <div class="role"><span class="tile"><svg class="ic"><use href="#i-t7"/></svg></span><span><b>Tableside AI</b><small>3 devices · 1 model</small></span><i class="dot"></i></div>
+  </div>
+  <div class="menu">
+    <div class="mi on"><span style="width:24px"></span>All classes<span class="n">188</span></div>
+    <div class="mi"><span class="tile"><svg class="ic"><use href="#i-t7"/></svg></span>Tableside AI<span class="n">160</span></div>
+    <div class="mi"><span class="tile"><svg class="ic"><use href="#i-kiosk"/></svg></span>Self-order kiosk<span class="n">14</span></div>
+    <div class="mi"><span class="tile"><svg class="ic"><use href="#i-dongle"/></svg></span>Menu board<span class="n">9</span></div>
+    <div class="mi"><span class="tile"><svg class="ic"><use href="#i-pos"/></svg></span>POS terminal<span class="n">3</span></div>
+  </div>
+</div>
+<div class="pros"><div>Bolder; the selected role stands out twice (row and tile).</div><div class="bad">Heavier list, and the filled tile competes with the status dot.</div></div>
+
+<p class="lede" style="margin-top:22px">The five icons, large:</p>
+<div class="set">
+  <figure><span class="big"><svg class="ic"><use href="#i-dongle"/></svg></span>Menu board<br>screen + dongle</figure>
+  <figure><span class="big"><svg class="ic"><use href="#i-pos"/></svg></span>POS terminal</figure>
+  <figure><span class="big"><svg class="ic"><use href="#i-kiosk"/></svg></span>Self-order kiosk</figure>
+  <figure><span class="big"><svg class="ic"><use href="#i-kds"/></svg></span>Kitchen display<br>ticket columns</figure>
+  <figure><span class="big"><svg class="ic"><use href="#i-t7"/></svg></span>Tableside AI<br>tablet in its stand</figure>
+</div>
+
+<h2 class="part">2 · Menu board picture (role header)</h2>
+<div class="shot"><div class="pics">
+  <figure><img src="/static/img/classes/dongle.webp" alt=""><b>B1 · Screen and dongle</b> <span class="pick">my pick</span><br>Composed here: a wall screen showing the AIO menu screen (from the site's Mega Kiosk shot) with our HDMI stick hanging off it. Says what the role is: any screen, our dongle.</figure>
+  <figure><img src="/static/img/demos/menuboard-photo.webp" alt=""><b>B2 · The site's photo</b><br>"Smart menu board" from aioapp.com/products/aio-marketing. Real, but it's people, a playlist overlay and a screen cut off at the top.</figure>
+  <figure><span class="svgbox"><svg class="ic"><use href="#i-dongle"/></svg></span><b>B3 · The icon, large</b><br>No photo until we have a real one of a board in a store.</figure>
+</div></div>
+
+<p class="lede" style="margin-top:34px"><b>Pick I2 + B1.</b> Icons where classes are listed (small, many, must read at a glance); photos where a class or model is the page's subject. B1 is a stand-in until there is a real photo of one of our boards.</p>
+</div></body></html>
