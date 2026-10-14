@@ -7551,6 +7551,14 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .appbar-island { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; margin: 0 14px;
   opacity: 0; transform: translateY(-4px); pointer-events: none; transition: opacity .35s ease, transform .35s ease; overflow: hidden; }
 .appbar.is-scrolled .appbar-island { opacity: 1; transform: none; pointer-events: auto; }
+.appbar-island.always { opacity: 1; transform: none; pointer-events: auto; }
+/* What the island already says is not said again on the page (wide screens only: the
+   island is hidden on phones). .isl-dup leaves the page; .isl-dup-sr stays for screen
+   readers (the page's <h1>). */
+@media (min-width: 721px) {
+  body.has-island .isl-dup { display: none !important; }
+  body.has-island .isl-dup-sr { position: absolute !important; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+}
 .appbar-island::before { content: ""; width: 1px; height: 22px; background: var(--border); flex: none; }
 .appbar-island .isl-t { font-size: 13px; font-weight: 650; color: var(--text); white-space: nowrap; flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
 .appbar-island .isl-s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }

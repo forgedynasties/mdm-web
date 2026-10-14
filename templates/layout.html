@@ -1656,10 +1656,16 @@
     function fill() {
       var tpl = document.getElementById('page-island'), h1 = document.querySelector('main .cc-h1') || document.querySelector('main .cc-top h1, main h1');
       slot.innerHTML = '';
+      slot.classList.remove('always');
+      document.body.classList.remove('has-island');
       bar.classList.remove('island-live');
       if (tpl && tpl.content) {
         slot.appendChild(document.importNode(tpl.content, true));
         if (tpl.hasAttribute('data-live')) bar.classList.add('island-live');
+        // A page with its own island shows it from the top and drops what it repeats
+        // (marked .isl-dup / .isl-dup-sr in the page); a title-only island waits for scroll.
+        slot.classList.add('always');
+        document.body.classList.add('has-island');
         if (window.htmx) window.htmx.process(slot);
       } else if (h1) {
         var t = document.createElement('span'); t.className = 'isl-t'; t.textContent = h1.textContent.trim();

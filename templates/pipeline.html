@@ -4,7 +4,7 @@
 <div class="cc-wrap pl-wrap">
   <div class="cc-top">
     <div>
-      <h1 class="cc-h1">Releases</h1>
+      <h1 class="cc-h1 isl-dup-sr">Releases</h1>
       <div class="cc-sub">What every role runs. A device at a venue follows its role's prod build by itself, inside its quiet window; lab devices follow the package their lab session chose.</div>
     </div>
     <div class="cc-actions">
@@ -259,7 +259,7 @@ if (!window.__plChips) {
           <div class="pl-ct">Keep devices on it</div>
           {{if $.C.Auto.On}}
             <div class="pl-bk"><span class="v">{{if $.C.Auto.Paused}}Paused{{else}}On{{end}}</span>
-              <div class="m">{{if and $.C.Auto.WindowStart .Auto.WindowEnd}}{{$.C.Auto.WindowStart}}–{{$.C.Auto.WindowEnd}} in each device's own timezone{{else}}any time of day{{end}}{{if $.C.Auto.By}} · set by {{$.C.Auto.By}}{{end}}</div></div>
+              <div class="m">{{if and $.C.Auto.WindowStart $.C.Auto.WindowEnd}}{{$.C.Auto.WindowStart}}–{{$.C.Auto.WindowEnd}} in each device's own timezone{{else}}any time of day{{end}}{{if $.C.Auto.By}} · set by {{$.C.Auto.By}}{{end}}</div></div>
           {{else}}<div class="pl-none">Off — devices update only when someone presses "Update the behind now".</div>{{end}}
           {{if canAdmin $.Root.Role}}
           <form method="POST" action="/clients/auto-update" class="pl-inline">
@@ -281,7 +281,7 @@ if (!window.__plChips) {
           <div class="pl-ct">Hosted build</div>
           {{if $.C.Hosted}}
           <div class="pl-bk"><span class="v">{{$.C.Build.Version}}</span> <span class="pl-faint">code {{$.C.Build.VersionCode}}</span>
-            {{if $.C.Devices}}<div class="pl-bar"><i style="width:{{pct $.C.UpToDate .Devices}}%;background:var(--ok)"></i><i style="width:{{pct $.C.Behind .Devices}}%;background:var(--accent-2)"></i><i style="width:{{pct $.C.NoBuild .Devices}}%;background:var(--warn)"></i><i style="width:{{pct $.C.Unknown .Devices}}%;background:var(--muted)"></i></div>{{end}}
+            {{if $.C.Devices}}<div class="pl-bar"><i style="width:{{pct $.C.UpToDate $.C.Devices}}%;background:var(--ok)"></i><i style="width:{{pct $.C.Behind $.C.Devices}}%;background:var(--accent-2)"></i><i style="width:{{pct $.C.NoBuild $.C.Devices}}%;background:var(--warn)"></i><i style="width:{{pct $.C.Unknown $.C.Devices}}%;background:var(--muted)"></i></div>{{end}}
             <div class="m">{{$.C.UpToDate}} of {{$.C.Devices}} on it{{if $.C.Behind}} · {{$.C.Behind}} behind{{end}}{{if $.C.NoBuild}} · {{$.C.NoBuild}} on an image that cannot take it{{end}}{{if $.C.Unknown}} · {{$.C.Unknown}} not reporting a version{{end}}</div>
             {{if and $.C.Behind (canOperate $.Root.Role)}}
             <form method="POST" action="/commands" onsubmit="return confirm('Update the client on {{$.C.Behind}} device(s) to {{$.C.Build.Version}} now?')">

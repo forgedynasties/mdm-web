@@ -210,12 +210,12 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <div class="ddc-ribbon">
   <div class="ddc-top">
     <div class="ddc-id">
-      <div class="cc-eyebrow">Fleet · Devices · {{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
+      <div class="cc-eyebrow isl-dup">Fleet · Devices · {{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
       <div class="dd-title-row">
         {{/* Title leads with what the device is (nickname, else the reported model, else
              its product), serial beside it — the same identity order as the fleet rows. */}}
         {{$hwModel := .Device.ProductLabel}}{{$rm := extraField .Device.LatestExtra "model"}}{{if and (ne $rm "") (ne $rm "—")}}{{$hwModel = $rm}}{{$rmf := extraField .Device.LatestExtra "manufacturer"}}{{if and (ne $rmf "") (ne $rmf "—")}}{{$hwModel = printf "%s %s" $rmf $rm}}{{end}}{{end}}{{with productName .Device.Product}}{{$hwModel = .}}{{end}}
-        <h1 class="cc-h1">{{if .Nickname}}{{.Nickname}}{{else}}{{$hwModel}}{{end}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span>{{if .HardwareSerial}} <span class="muted" style="font-weight:500;font-size:.5em;font-family:var(--mono);" title="The chip's own serial. Set by the hardware, it never changes, even if the AIO serial does.">HW {{.HardwareSerial}}</span>{{end}}</h1>
+        <h1 class="cc-h1 isl-dup-sr">{{if .Nickname}}{{.Nickname}}{{else}}{{$hwModel}}{{end}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span>{{if .HardwareSerial}} <span class="muted" style="font-weight:500;font-size:.5em;font-family:var(--mono);" title="The chip's own serial. Set by the hardware, it never changes, even if the AIO serial does.">HW {{.HardwareSerial}}</span>{{end}}</h1>
         {{if not .IsOwner}}<details class="dd-nick{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><summary title="Friendly name shown to restaurant owners, e.g. Table 4"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{{if .Nickname}}Rename{{else}}Name{{end}}</summary><form action="/devices/{{.Device.SerialNumber}}/nickname" method="POST" class="dd-nick-pop" hx-boost="true"><input type="text" name="nickname" class="form-input" placeholder="e.g. Table 4" value="{{.Nickname}}" maxlength="40" style="width:170px;" autofocus><button type="submit" class="cc-btn sm primary">Save</button>{{if .Nickname}}<button type="submit" name="nickname" value="" class="cc-btn sm" title="Remove the name">Clear</button>{{end}}</form></details>
         <style>
         .dd-nick{position:relative;display:inline-block;vertical-align:middle;margin-left:6px}
@@ -239,24 +239,24 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         .cmdch-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.55;color:var(--text-2)}
         .cmdch-ban .t b{color:var(--text)}
         </style>{{end}}
-        {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
+        {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}<span class="isl-dup">{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}</span>
         {{/* Hardware model, as reported by the agent (e.g. "samsung SM-S146VL"); legacy
              clients don't report it so the tag simply doesn't render for them. */}}
         {{$model := extraField .Device.LatestExtra "model"}}{{$manu := extraField .Device.LatestExtra "manufacturer"}}
         {{if and .Nickname (ne $model "") (ne $model "—")}}<span class="cc-tag" title="Hardware model">{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$model}}</span>{{end}}
-        {{if .Device.BuildID}}<span class="cc-tag">{{.Device.BuildID}}</span>{{end}}
+        {{if .Device.BuildID}}<span class="cc-tag isl-dup">{{.Device.BuildID}}</span>{{end}}
         {{if isLegacyBuild .Device.BuildID}}<span class="ddc-legacy-tag cc-tag warn" tabindex="0" role="note" aria-label="Legacy device — appears offline by design" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. &#10;&#10;'Last seen' reflects their most recent check-in.">Legacy device<svg class="ddc-info-ic" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
         {{if .Device.Class}}<span class="cc-tag" title="Product">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if and .Device.Retired (ne .Device.EnrollmentStatus "unenrolled")}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
-      <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}} · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}{{if .EnrolledByName}} by {{.EnrolledByName}}{{end}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span></div>
+      <div class="cc-sub"><span class="ddc-build isl-dup">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}}<span class="isl-dup"> · </span>{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}{{if .EnrolledByName}} by {{.EnrolledByName}}{{end}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span></div>
     </div>
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <style>.ddc-aid{cursor:pointer;font:inherit}.ddc-aid .mono{font-family:var(--mono);font-size:11px}.ai-copy{border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:6px;font:inherit;font-size:11px;font-weight:650;padding:1px 8px;margin-left:6px;cursor:pointer}</style>
     <div class="ddc-actions cc-actions">
-      {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
+      {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="isl-dup ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
            Placed next to Analyze per the chosen "Identity Ribbon" layout. */}}
       {{/* The pill reports what the DEVICE is doing, not only what the server asked
@@ -275,10 +275,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </button>{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
-      {{if .CanLab}}{{if .Lab}}<a href="/devices/{{.Device.SerialNumber}}/lab" class="ddc-btn cc-btn warn" title="In lab until {{.Lab.Until.Local.Format "Mon 15:04"}}">Lab view ↗</a>{{else}}<button type="button" class="ddc-btn cc-btn" onclick="labDlgOpen()" aria-haspopup="dialog" title="Take this device out of its restaurant behaviour for a set time">Open in lab</button>{{end}}{{end}}
+      {{if .CanLab}}{{if .Lab}}<a href="/devices/{{.Device.SerialNumber}}/lab" class="isl-dup ddc-btn cc-btn warn" title="In lab until {{.Lab.Until.Local.Format "Mon 15:04"}}">Lab view ↗</a>{{else}}<button type="button" class="isl-dup ddc-btn cc-btn" onclick="labDlgOpen()" aria-haspopup="dialog" title="Take this device out of its restaurant behaviour for a set time">Open in lab</button>{{end}}{{end}}
       {{/* Diagnostics, shell, screenshots and log collection live in the lab view now
            (static/device-lab-view-demos.html); a device page keeps the two everyday acts. */}}
-      {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-btn cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
+      {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="isl-dup ddc-btn cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
       <a class="ddc-btn cc-btn" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Export</a>
     </div>
   </div>
@@ -526,13 +526,28 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <span class="isl-dot{{if .Online}} on{{end}}"></span>
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
   <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
-  <span class="isl-s">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Not at a venue{{end}} · {{if .Online}}online{{else}}offline{{end}}{{if .Device.BuildID}} · {{.Device.BuildID}}{{end}}{{if .Lab}} · in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
+  <span class="isl-s">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Not at a venue{{end}} · <span class="isl-on">{{if .Online}}online{{else}}offline{{end}}</span>{{if .Device.BuildID}} · {{.Device.BuildID}}{{end}}{{if .Lab}} · in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
   <span class="isl-acts">
     {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
     {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
     {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
   </span>
 </template>
+<script>
+// The hero's Online/Offline badge is the live one (updated over the socket); the island
+// repeats it, so keep the island's dot and word in step with it.
+(function () {
+  var b = document.getElementById('ws-badge'); if (!b) return;
+  function sync() {
+    var on = b.classList.contains('on');
+    var d = document.querySelector('#appbar-island .isl-dot'), w = document.querySelector('#appbar-island .isl-on');
+    if (d) d.classList.toggle('on', on);
+    if (w) w.textContent = on ? 'online' : 'offline';
+  }
+  new MutationObserver(sync).observe(b, { attributes: true, attributeFilter: ['class'] });
+  setTimeout(sync, 0);
+})();
+</script>
 {{with .Lab}}
 <div class="cmdch-ban" id="lab-notice" role="status" style="flex-wrap:wrap;margin-bottom:14px">
   <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>

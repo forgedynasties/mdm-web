@@ -13,7 +13,7 @@
     <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/end" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')"><button class="cc-btn primary" type="submit">End lab</button></form>
   </span>
 </template>
-<div class="lab-bar" role="status">
+<div class="lab-bar isl-dup" role="status">
   <span class="lab-tag">LAB</span>
   <div class="lab-bar-text">
     <b class="mono">{{.Device.SerialNumber}}</b>{{if .Device.RestaurantName}} · {{.Device.RestaurantName}}{{end}}
@@ -32,7 +32,7 @@
 <div class="cc-top">
   <div>
     <div class="cc-eyebrow">Fleet · Devices · Lab</div>
-    <h1 class="cc-h1">{{.Device.SerialNumber}} in lab</h1>
+    <h1 class="cc-h1 isl-dup-sr">{{.Device.SerialNumber}} in lab</h1>
     <div class="cc-sub">{{.RoleLabel}} · {{if .Online}}<span style="color:var(--ok)">online</span>{{else}}offline{{end}} · build <span class="mono">{{.Device.BuildID}}</span>. While in lab it does not follow prod, it is not locked, and it raises no restaurant alerts.</div>
   </div>
 </div>
