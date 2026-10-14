@@ -827,6 +827,7 @@ func main() {
 				runJob(bgCtx, "role-apps", time.Minute, dash.RunRoleApps)
 				runJob(bgCtx, "role-firmware", time.Minute, dash.RunRoleFirmware)
 				runJob(bgCtx, "lock-rules", time.Minute, dash.RunLockRules)
+				runJob(bgCtx, "role-alerts", time.Minute, dash.RunRoleAlerts)
 			}
 		}
 	})

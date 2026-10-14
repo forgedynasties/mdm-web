@@ -584,3 +584,35 @@ func (d *DB) InFlightInstalls(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	}
 	return out, rows.Err()
 }
+
+// FailedInstalls counts, per device and APK, the installs that failed in the window.
+func (d *DB) FailedInstalls(ctx context.Context, ids []uuid.UUID, since time.Duration) (map[uuid.UUID]map[string]int, error) {
+	out := map[uuid.UUID]map[string]int{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT cs.device_id, c.apk_url, count(*)
+		FROM commands c JOIN command_status cs ON cs.command_id = c.id
+		WHERE c.type = 'install_apk' AND cs.status = 'failed'
+		  AND c.created_at > now() - make_interval(secs => $2)
+		  AND cs.device_id = ANY($1)
+		GROUP BY 1, 2`, ids, since.Seconds())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var url string
+		var n int
+		if err := rows.Scan(&id, &url, &n); err != nil {
+			return nil, err
+		}
+		if out[id] == nil {
+			out[id] = map[string]int{}
+		}
+		out[id][url] = n
+	}
+	return out, rows.Err()
+}

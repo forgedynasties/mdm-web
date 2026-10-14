@@ -70,6 +70,10 @@ func CauseOf(types []string) Cause {
 		return Cause{"transport", "No proven control", "It is checking in, but nothing we have sent it has completed — including the daily probe. Treat it as unmanageable until a command comes back, whatever the badge says."}
 	case has["no_command_channel"]:
 		return Cause{"transport", "Reporting but unreachable", "It is checking in and its readings are current, but it holds no WebSocket — so commands sent to it do not run. The dashboard shows it Offline although it is plainly alive. It usually clears itself; if it does not, the client's socket thread is gone and only a reboot brings it back."}
+	case has["role_unlocked"]:
+		return Cause{"kiosk", "Unlocked for too long", "It was taken out of its role's lock on site hours ago and nobody has locked it again or answered the exit."}
+	case has["role_app_stuck"]:
+		return Cause{"app", "Stuck behind prod", "Its role's prod build keeps failing to install, so it is running an older build than every other device in its role."}
 	case has["kiosk_exited"]:
 		return Cause{"kiosk", "Unlocked on the device", "Someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."}
 	case has["identity_conflict"]:

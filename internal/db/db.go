@@ -9483,6 +9483,12 @@ type alertUpsert struct {
 // upsertAlert is CreateAlertIfAbsent that also reports the row id and whether an open
 // alert was escalated to critical by this pass.
 func (d *DB) upsertAlert(ctx context.Context, ruleID *uuid.UUID, typ string, deviceID uuid.UUID, severity, summary string, detail any) (alertUpsert, error) {
+	// A device in a lab session raises no restaurant alerts (role model, 14 Oct): it is
+	// unlocked, off prod and being worked on by someone who already knows.
+	var inLab bool
+	if err := d.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM device_lab WHERE device_id = $1 AND until > now())`, deviceID).Scan(&inLab); err == nil && inLab {
+		return alertUpsert{}, nil
+	}
 	detailJSON := []byte("{}")
 	if detail != nil {
 		b, err := json.Marshal(detail)
