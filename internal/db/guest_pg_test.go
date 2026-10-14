@@ -52,9 +52,6 @@ func TestGuestInfoAgainstPostgres(t *testing.T) {
 	if err := d.AssignDeviceToRestaurant(ctx, serial, &rest.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.SetTableLabel(ctx, id, "  Table 12  "); err != nil {
-		t.Fatal(err)
-	}
 	wifi, err := NormalizeGuestWifi(RestaurantGuestWifi{SSID: "Diner-Guest", Password: "pizza1234", AppPackage: "aio.app.nugget.uatv2"})
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +63,7 @@ func TestGuestInfoAgainstPostgres(t *testing.T) {
 		t.Fatalf("stored wifi = %+v, %v; want %+v", got, err, wifi)
 	}
 
-	want := GuestInfo{RestaurantName: "Guest Diner", TableLabel: "Table 12", WifiSSID: "Diner-Guest",
+	want := GuestInfo{RestaurantName: "Guest Diner", WifiSSID: "Diner-Guest",
 		WifiPassword: "pizza1234", WifiSecurity: "WPA", AppPackage: "aio.app.nugget.uatv2"}
 	if g, err := d.GuestForDevice(ctx, id); err != nil || g.Guest != want {
 		t.Fatalf("GuestForDevice = %+v, %v; want %+v", g.Guest, err, want)
@@ -93,7 +90,7 @@ func TestGuestInfoAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	g, _ = d.GuestForDevice(ctx, id)
-	if g.Guest.RestaurantName != "" || g.Guest.TableLabel != "Table 12" {
+	if g.Guest.RestaurantName != "" {
 		t.Fatalf("after deleting the venue: %+v", g.Guest)
 	}
 }

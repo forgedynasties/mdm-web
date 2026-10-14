@@ -2961,7 +2961,7 @@ func (h *Handler) deliveryNicknames(ctx context.Context, ds []db.CommandDelivery
 	return m
 }
 
-// DeviceSetNickname stores a friendly name for a device ("Table 4"), shown to
+// DeviceSetNickname stores a friendly name for a device ("Host stand"), shown to
 // restaurant owners and next to the serial on the device page.
 func (h *Handler) DeviceSetNickname(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
@@ -5020,7 +5020,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Friendly names ("Table 4") so the roster leads with the name and shows the
+	// Friendly names ("Host stand") so the roster leads with the name and shows the
 	// serial as the subtle line.
 	nickIDs := make([]uuid.UUID, 0, len(devices))
 	for _, d := range devices {
