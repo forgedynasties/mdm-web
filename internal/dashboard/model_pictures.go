@@ -16,6 +16,8 @@ var modelPictures = map[string]modelPicture{
 	// POS: the Qualcomm C8G board.
 	"trinket": {Img: "/static/img/models/trinket.webp", Tagline: "Touchscreen built for the rush.",
 		Specs: []string{"15.6″ FHD touchscreen", "4 GB RAM + 64 GB", "Qualcomm"}},
+	// Menu board stick: the HK1 RBOX D8 (Rockchip).
+	"rockchip029": {Img: "/static/img/models/rockchip029.webp"},
 	// KDS: the Sunmi D2s on live.
 	"d2s_kds_stgl": {Img: "/static/img/models/d2s_kds_stgl.webp", Tagline: "Built to handle steam, splashes and a slammed Saturday night."},
 }

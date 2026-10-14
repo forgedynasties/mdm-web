@@ -32,19 +32,19 @@
       <div class="pl-side-cap">MDM clients</div>
       {{range .Clients}}
       <a href="/lineup?client={{.Slot}}" hx-get="/lineup?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
-        <span><b>{{.Label}}</b><small class="tone-{{.Tone}}">{{.Status}}</small></span>
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg><span><b>{{.Label}}</b><small class="tone-{{.Tone}}">{{.Status}}</small></span>
         <i class="dot tone-{{.Tone}}"></i>
       </a>
       {{end}}
       <div class="pl-side-cap">Setup</div>
       {{if .NoneCount}}
       <a href="/lineup?role=none" hx-get="/lineup?role=none" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if eq .View "none"}} on{{end}}">
-        <span><b>Not attached</b><small class="tone-warn">{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} without a role</small></span>
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#lu-unattached"/></svg><span><b>Not attached</b><small class="tone-warn">{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} without a role</small></span>
         <i class="dot tone-warn"></i>
       </a>
       {{end}}
       <a href="/lineup?view=runs" hx-get="/lineup?view=runs" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if eq .View "runs"}} on{{end}}">
-        <span><b>Production runs</b><small class="tone-muted">{{.RunCount}} run{{if ne .RunCount 1}}s{{end}}</small></span>
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#lu-runs"/></svg><span><b>Production runs</b><small class="tone-muted">{{.RunCount}} run{{if ne .RunCount 1}}s{{end}}</small></span>
       </a>
     </nav>
 
