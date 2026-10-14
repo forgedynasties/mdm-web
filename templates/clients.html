@@ -99,6 +99,46 @@
 .cl-tr.dim{opacity:.6}
 .cl-tr.hidden{display:none}
 @media(max-width:900px){.cl-split{grid-template-columns:1fr}.cl-side{position:static}.cl-th{display:none}.cl-tr{grid-template-columns:1fr auto;row-gap:6px}}
+
+/* Version table (client-pane-demos.html, C2) */
+.cv-top{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.cv-id{flex:1;min-width:240px}
+.cv-pol{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
+.cv-pol .ca-form{margin:0}
+.cv-sw{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--text-2)}
+.cv-sw[disabled]{cursor:not-allowed;opacity:.5}
+.cv-sw i{width:30px;height:17px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);position:relative;flex:none;transition:background .15s}
+.cv-sw i::after{content:"";position:absolute;left:2px;top:2px;width:13px;height:13px;border-radius:99px;background:var(--text-faint);transition:left .15s}
+.cv-sw.on i{background:var(--ok);border-color:transparent}.cv-sw.on i::after{left:15px;background:#fff}
+.cv-sw:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.cv-win{position:relative}
+.cv-win>summary{list-style:none;cursor:pointer}.cv-win>summary::-webkit-details-marker{display:none}
+.cv-win-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:grid;gap:8px;min-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:var(--shadow-pop)}
+.cv-win-pop label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--text-2)}
+.cv-tbl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:visible;margin-top:14px}
+.cv-th,.cv-r{display:grid;grid-template-columns:96px minmax(180px,1fr) minmax(130px,200px) minmax(150px,auto);column-gap:14px;align-items:center;padding:0 16px}
+.cv-th{height:32px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.cv-row{border-top:1px solid var(--border-soft)}
+.cv-r{padding:11px 16px;cursor:pointer;list-style:none;font-size:12.5px;color:var(--text-2)}
+.cv-r::-webkit-details-marker{display:none}
+.cv-r:hover{background:var(--surface2)}
+.cv-row:last-child .cv-r{border-radius:0 0 14px 14px}
+.cv-v{font-family:var(--mono);font-weight:700;color:var(--text);font-size:13px}
+.cv-n{min-width:0}.cv-n b{display:block;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cv-n small{display:block;font-size:11px;color:var(--text-faint);margin-top:2px}
+.cv-c{display:flex;gap:10px;align-items:center}.cv-c .n{font-weight:700;color:var(--text);min-width:26px;text-align:right;font-variant-numeric:tabular-nums}
+.cv-c .b{flex:1;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}.cv-c .b i{display:block;height:100%;background:var(--text-faint);opacity:.5}
+.k-hosted .cv-c .b i,.k-newer .cv-c .b i{background:var(--ok);opacity:1}.k-behind .cv-c .b i{background:var(--warn);opacity:1}
+.k-release .cv-r{opacity:.6}.k-release .cv-r:hover{opacity:1}
+.cv-a{display:flex;gap:6px;align-items:center;justify-content:flex-end}.cv-a form{margin:0}
+.cv-chg{font-size:11.5px;color:var(--text-2);padding:8px 10px;border-top:1px solid var(--border-soft);max-width:320px;line-height:1.45;white-space:normal}
+.cv-devs{display:flex;gap:6px;flex-wrap:wrap;padding:2px 16px 14px 126px}
+.cv-d{font-family:var(--mono);font-size:11px;background:var(--surface2);border-radius:6px;padding:2px 7px;color:var(--text-2);text-decoration:none;display:inline-flex;gap:5px;align-items:center}
+.cv-d:hover{color:var(--text);background:var(--accent-soft)}.cv-d.off{opacity:.55}
+.cv-foot{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.cv-more{all:unset;cursor:pointer;color:var(--accent-text);font-weight:600}
+.cv-url .mono{font-size:11px;word-break:break-all}
+@media(max-width:720px){.cv-th{display:none}.cv-r{grid-template-columns:auto minmax(0,1fr);row-gap:8px}.cv-r>.cv-n,.cv-r>.cv-c{grid-column:1/-1}.cv-a{justify-content:flex-start}.cv-devs{padding-left:16px}.cv-pol{margin-left:0}.cv-win-pop{right:auto;left:0}}
 </style>
 {{end}}
 
@@ -231,9 +271,50 @@ function clSkeleton(d) {
 {{define "clients-detail"}}
   {{with .Selected}}
   <div id="cl-detail"{{if .Updating}} hx-get="/lineup?client={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-detail" hx-swap="outerHTML"{{end}}>
-    <div class="cl-hd">
-      <h2>{{if .GroupLabel}}{{.GroupLabel}}{{else}}{{.Label}}{{end}}</h2>
-      <div class="cl-note">{{if .GroupNote}}{{.GroupNote}}{{else}}{{.Note}}{{end}}</div>
+    <div class="cl-hd cv-top">
+      <div class="cv-id">
+        <h2>{{if .GroupLabel}}{{.GroupLabel}}{{else}}{{.Label}}{{end}}</h2>
+        <div class="cl-note">{{if .GroupNote}}{{.GroupNote}}{{else}}{{.Note}}{{end}}</div>
+      </div>
+      {{/* The standing instruction, in the header: keep devices on the hosted build, inside
+           a window in each device's own timezone. "Update N now" on a version row stays for
+           "now, and I am watching". */}}
+      <div class="cv-pol">
+        {{if canAdmin $.Role}}
+        <form method="POST" action="/clients/auto-update" class="ca-form">
+          <input type="hidden" name="slot" value="{{.Slot}}">
+          <input type="hidden" name="on" value="{{if .Auto.On}}0{{else}}1{{end}}">
+          {{if .Auto.On}}<input type="hidden" name="paused" value="{{if .Auto.Paused}}1{{else}}0{{end}}">{{end}}
+          <input type="hidden" name="window_start" value="{{.Auto.WindowStart}}">
+          <input type="hidden" name="window_end" value="{{.Auto.WindowEnd}}">
+          <button type="submit" class="cv-sw{{if .Auto.On}} on{{end}}" role="switch" aria-checked="{{if .Auto.On}}true{{else}}false{{end}}"{{if not .Hosted}} disabled title="Nothing is hosted for this client yet"{{else}} title="{{if .Auto.On}}Set by {{.Auto.By}} on {{formatTime .Auto.At}}. Click to turn off.{{else}}Each device installs the hosted build at its next check-in inside the window.{{end}}"{{end}}><i></i>Keep devices on hosted</button>
+        </form>
+        {{if .Auto.On}}
+        <form method="POST" action="/clients/auto-update" class="ca-form">
+          <input type="hidden" name="slot" value="{{.Slot}}">
+          <input type="hidden" name="on" value="1">
+          <input type="hidden" name="paused" value="{{if .Auto.Paused}}0{{else}}1{{end}}">
+          <input type="hidden" name="window_start" value="{{.Auto.WindowStart}}">
+          <input type="hidden" name="window_end" value="{{.Auto.WindowEnd}}">
+          <button type="submit" class="cc-btn sm{{if .Auto.Paused}} warn{{end}}">{{if .Auto.Paused}}Paused · resume{{else}}Pause{{end}}</button>
+        </form>
+        <details class="cv-win">
+          <summary class="cc-btn sm">{{if .Auto.WindowStart}}Window {{.Auto.WindowStart}}–{{.Auto.WindowEnd}}{{else}}Any time{{end}}</summary>
+          <form method="POST" action="/clients/auto-update" class="cv-win-pop">
+            <input type="hidden" name="slot" value="{{.Slot}}">
+            <input type="hidden" name="on" value="1">
+            <input type="hidden" name="paused" value="{{if .Auto.Paused}}1{{else}}0{{end}}">
+            <label>Only between <input type="time" name="window_start" value="{{.Auto.WindowStart}}" class="form-input sm"></label>
+            <label>and <input type="time" name="window_end" value="{{.Auto.WindowEnd}}" class="form-input sm"></label>
+            <div class="cl-meta">In each device's own timezone. Empty for any time.</div>
+            <button type="submit" class="cc-btn sm primary">Save</button>
+          </form>
+        </details>
+        {{end}}
+        {{else}}
+        <span class="cl-tag {{if and .Auto.On (not .Auto.Paused)}}ok{{else}}unk{{end}}">{{if .Auto.On}}{{if .Auto.Paused}}Auto-update paused{{else}}Auto-update on{{if .Auto.WindowStart}} · {{.Auto.WindowStart}}–{{.Auto.WindowEnd}}{{end}}{{end}}{{else}}Auto-update off{{end}}</span>
+        {{end}}
+      </div>
     </div>
 
     {{/* One client, one build per signing key. The variant is an explicit choice
@@ -253,241 +334,61 @@ function clSkeleton(d) {
     {{end}}
 
     <div id="cl-body">
-    <div class="cl-cards">
-      <div class="cl-card">
-        <div class="k">Hosted build</div>
-        {{if .Hosted}}
-          <div class="v">{{if .Build.Version}}{{.Build.Version}}{{else}}unknown{{end}}</div>
-          <div class="sub">{{if .Build.VersionCode}}code {{.Build.VersionCode}} · {{end}}{{.Build.At.Format "2 Jan 15:04"}}</div>
-          <div class="mono">{{.Build.Package}}</div>
-        {{else}}
-          <div class="v" style="color:var(--warn)">None</div>
-          <div class="sub">no updates can be offered</div>
-        {{end}}
-      </div>
-      <div class="cl-card"><div class="k">Devices</div><div class="v">{{.Devices}}</div><div class="sub">on this client</div></div>
-      <div class="cl-card"><div class="k">On this build</div><div class="v">{{.UpToDate}}</div></div>
-      <div class="cl-card{{if .Behind}} warn{{end}}"><div class="k">Behind</div><div class="v">{{.Behind}}</div>{{if .Unknown}}<div class="sub">{{.Unknown}} never reported a version</div>{{end}}{{if .NoBuild}}<div class="sub">{{.NoBuild}} need a newer image</div>{{end}}</div>
-    </div>
-
-    {{/* The standing instruction. "Update all behind" only reached whoever was online at
-         that second; this says what the fleet should be on and lets each device satisfy it
-         whenever it next checks in. The button stays for "now, and I am watching". */}}
-    <div class="cl-auto{{if .Auto.On}} on{{end}}">
-      <div class="ca-head">
-        <span class="ca-ttl">Keep devices on the hosted build</span>
-        {{if .Auto.On}}{{if .Auto.Paused}}<span class="cc-tag warn">paused</span>{{else}}<span class="cc-tag ok">on</span>{{end}}{{else}}<span class="cc-tag">off</span>{{end}}
-      </div>
-      <div class="ca-sub">
-        {{if .Hosted}}Target <b>{{.Build.Version}}</b> — each device installs it the next time it checks in, so one that is off tonight catches up by itself.{{else}}Nothing is hosted for this client yet, so there is no target to keep devices on.{{end}}
-        {{if and .Auto.On .Auto.By}}<br>Set by {{.Auto.By}} on {{formatTime .Auto.At}}.{{end}}
-      </div>
-      {{if canAdmin $.Role}}
-      <form method="POST" action="/clients/auto-update" class="ca-form">
-        <input type="hidden" name="slot" value="{{.Slot}}">
-        <input type="hidden" name="on" value="{{if .Auto.On}}0{{else}}1{{end}}">
-        {{if .Auto.On}}<input type="hidden" name="paused" value="{{if .Auto.Paused}}1{{else}}0{{end}}">{{end}}
-        <input type="hidden" name="window_start" value="{{.Auto.WindowStart}}">
-        <input type="hidden" name="window_end" value="{{.Auto.WindowEnd}}">
-        <button type="submit" class="cc-btn sm{{if not .Auto.On}} primary{{end}}"{{if not .Hosted}} disabled{{end}}>{{if .Auto.On}}Turn off{{else}}Turn on{{end}}</button>
-      </form>
-      {{if .Auto.On}}
-      <form method="POST" action="/clients/auto-update" class="ca-form">
-        <input type="hidden" name="slot" value="{{.Slot}}">
-        <input type="hidden" name="on" value="1">
-        <input type="hidden" name="paused" value="{{if .Auto.Paused}}0{{else}}1{{end}}">
-        <input type="hidden" name="window_start" value="{{.Auto.WindowStart}}">
-        <input type="hidden" name="window_end" value="{{.Auto.WindowEnd}}">
-        <button type="submit" class="cc-btn sm">{{if .Auto.Paused}}Resume{{else}}Pause{{end}}</button>
-      </form>
-      <form method="POST" action="/clients/auto-update" class="ca-form ca-win">
-        <input type="hidden" name="slot" value="{{.Slot}}">
-        <input type="hidden" name="on" value="1">
-        <input type="hidden" name="paused" value="{{if .Auto.Paused}}1{{else}}0{{end}}">
-        <label>Only between</label>
-        <input type="time" name="window_start" value="{{.Auto.WindowStart}}" class="form-input sm">
-        <label>and</label>
-        <input type="time" name="window_end" value="{{.Auto.WindowEnd}}" class="form-input sm">
-        <button type="submit" class="cc-btn sm">Save window</button>
-        <span class="ca-tz">in each device's own timezone · leave empty for any time</span>
-      </form>
-      {{end}}
-      {{end}}
-    </div>
-
-    <div class="cl-sec">
-      <span>Devices</span>
-      {{if and .Behind (canOperate $.Role)}}
-      <form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on {{.Behind}} device(s) to {{.Build.Version}}?" onsubmit="clSent(this)">
-        <input type="hidden" name="type" value="app_update">
-        <input type="hidden" name="target_type" value="devices">
-        <input type="hidden" name="target_serials" value="{{.BehindSerials}}">
-        <button type="submit" class="cc-btn sm primary" data-coach="clients-update-all" data-coach-title="One press updates every device behind" data-coach-text="Each device downloads the hosted build and installs it itself; rows turn to 'installing' here as they pick it up, then to 'up to date' when they report the new version."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update the {{.Behind}} behind now<span class="n">{{.Behind}}</span></button>
-      </form>
-      {{end}}
-    </div>
-
-    {{if .Rows}}
-    {{$total := len .Rows}}
-    <div class="cl-split-bar{{if .Updating}} live{{end}}" title="{{.Behind}} behind · {{.Unknown}} never reported a version{{if .NoBuild}} · {{.NoBuild}} no build for this image{{end}} · {{.UpToDate}} up to date">
-      {{if .Behind}}<i class="behind" style="width:{{pct .Behind $total}}%"></i>{{end}}
-      {{if .Unknown}}<i class="unk" style="width:{{pct .Unknown $total}}%"></i>{{end}}
-      {{if .NoBuild}}<i class="nobuild" style="width:{{pct .NoBuild $total}}%"></i>{{end}}
-      {{if .UpToDate}}<i class="ok" style="width:{{pct .UpToDate $total}}%"></i>{{end}}
-    </div>
-    <div class="cl-legend">
-      <span><i class="behind"></i>{{.Behind}} behind</span>
-      <span><i class="unk"></i>{{.Unknown}} never reported a version</span>
-      {{if .NoBuild}}<span><i class="nobuild"></i>{{.NoBuild}} no build for this image</span>{{end}}
-      <span><i class="ok"></i>{{.UpToDate}} up to date</span>
-    </div>
-    <div class="cl-tbl lt" id="cl-devs" data-lt-n="25">
-      <div class="lt-bar">
-        <input class="lt-q" type="search" placeholder="Search serial or version…" aria-label="Search devices" autocomplete="off">
-        <div class="lt-chips">
-          <button type="button" class="lt-chip" data-f="state" data-v="behind">Behind</button>
-          <button type="button" class="lt-chip" data-f="state" data-v="current">Up to date</button>
-          <button type="button" class="lt-chip" data-f="state" data-v="unknown">No version</button>
-          <button type="button" class="lt-chip" data-f="state" data-v="nobuild">No build for this image</button>
-          <button type="button" class="lt-chip" data-f="state" data-v="updating">Updating</button>
-          <button type="button" class="lt-chip" data-f="state" data-v="elsewhere">On another server</button>
-        </div>
-        <span class="lt-count"></span>
-      </div>
-      <div class="lt-none lt-out">No device matches.</div>
-      <div class="cl-th"><span>Serial</span><span>Version</span><span>State</span><span>Last seen</span><span></span></div>
-      {{range $g := .Groups}}
-      <div class="cl-grp lt-grp" data-grp="{{$g.Key}}"><span>{{$g.Label}}</span><span class="n"><span class="lt-n">{{len $g.Rows}}</span>{{if $g.Dormant}} + {{len $g.Dormant}} dormant{{end}}</span><span class="cl-meta">{{$g.Why}}</span></div>
-      {{range $g.Rows}}
-      <div class="cl-tr lt-row" data-grp="{{$g.Key}}" data-f-state="{{if .Elsewhere}}elsewhere{{else}}{{.State}}{{end}}" data-lt-text="{{.Serial}} {{.Version}}{{if .Elsewhere}} {{.Elsewhere}}{{end}}">
-        <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
-        <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
-        <span>
-          {{if .Elsewhere}}<span class="cl-tag unk" title="This device reports to {{.Elsewhere}}. It takes its client from that server, so nothing can be installed on it from here.">on {{.Elsewhere}}</span>
-          {{else if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else if eq .Progress "pending"}}queued{{else}}sent to device{{end}}</span>
-          {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
-          {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
-          {{else if eq .State "nobuild"}}<span class="cl-tag unk" title="This device runs an older system image. The hosted client is platform-signed with a key that image does not trust, so Android would refuse the install — it needs a firmware OTA before it can take a client update.">no build for this image</span>
-          {{else}}<span class="cl-tag unk">no version</span>{{end}}
-        </span>
-        <span class="cl-meta">{{timeSince .LastSeen}}</span>
-        <span>
-          {{if .Elsewhere}}
-          {{/* The button stays, because a blank cell reads as a page that forgot to
-               draw one. Pressing it says why nothing will happen, which is the answer
-               the operator came for. */}}
-          <button type="button" class="cc-btn sm" onclick="clElsewhere('{{.Serial}}','{{.Elsewhere}}','{{.ElsewhereURL}}')"
-                  title="This device reports to {{.Elsewhere}}">On {{.Elsewhere}}</button>
-          {{else if eq .State "updating"}}
-          <button type="button" class="cc-btn sm" disabled title="The device has the command and is installing {{$.Selected.Build.Version}}. It restarts itself when it lands."><span class="cl-spin"></span>Updating</button>
-          {{else if eq .State "nobuild"}}
-          {{/* Nothing is published for the key this image trusts, so the button exists
-               only to say so — a blank cell reads as a page that forgot to draw one. */}}
-          <button type="button" class="cc-btn sm" disabled title="No build is published for this device's system image — its platform key does not trust the hosted client, so a firmware OTA has to come first."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
-          {{else if eq .State "unknown"}}
-          {{/* A client that never reported its own version predates client OTA: the
-               build on it has no ClientUpdater to receive app_update, so offering the
-               button would queue a command nothing will ever act on. It needs a
-               firmware OTA to get a client that can update itself. */}}
-          <button type="button" class="cc-btn sm" disabled title="This client reports no version, so it predates client OTA — it can only be updated by a firmware OTA."><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
-          {{else if and (eq .State "behind") $.Selected.Hosted (canOperate $.Role)}}
-          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)"
-                {{if .Unreachable}}hx-confirm="{{.Serial}} has not checked in since {{timeSince .LastSeen}}. The update sits queued until it comes back — and if it was pointed at another MDM, it never will. Queue it anyway?"{{end}}>
-            <input type="hidden" name="type" value="app_update">
-            <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}}"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
-          </form>
-          {{end}}
-        </span>
-      </div>
-      {{end}}
-      {{if $g.Rows}}<div class="lt-more lt-out" data-grp="{{$g.Key}}" data-what="active"><button type="button" class="app-more lt-more-t"></button></div>{{end}}
-      {{if $g.Dormant}}
-      {{/* Long-unseen devices are still listed — most are retired or boxed hardware,
-           and inline they outnumber the rows worth acting on three to one. */}}
-      <div class="cl-grp dim lt-grp" data-fold="{{$g.Key}}" data-grp="{{$g.Key}}-d">
-        <span>Not seen in 14 days</span><span class="n lt-n">{{len $g.Dormant}}</span>
-        <button type="button" class="cl-fold" aria-expanded="false" onclick="clFold(this,'{{$g.Key}}')">Show</button>
-      </div>
-      {{range $g.Dormant}}
-      <div class="cl-tr dim hidden lt-row" data-dormant="{{$g.Key}}" data-grp="{{$g.Key}}-d" data-f-state="{{if .Elsewhere}}elsewhere{{else}}{{.State}}{{end}}" data-lt-text="{{.Serial}} {{.Version}}{{if .Elsewhere}} {{.Elsewhere}}{{end}}">
-        <a class="cl-sn" href="/devices/{{.Serial}}">{{.Serial}}</a>
-        <span>{{if .Version}}{{.Version}}{{else if .Misreported}}<span class="cl-meta" title="This client reported the platform release (Android) as its own version — a bug fixed in client 1.0.2. It is older than 1.0.2; how much older it cannot say.">pre-1.0.2</span>{{else}}—{{end}}</span>
-        <span>
-          {{if .Elsewhere}}<span class="cl-tag unk" title="This device reports to {{.Elsewhere}}. It takes its client from that server, so nothing can be installed on it from here.">on {{.Elsewhere}}</span>
-          {{else if eq .State "updating"}}<span class="cl-tag go"><span class="cl-spin"></span>{{if eq .Progress "downloading"}}downloading{{else if eq .Progress "installing"}}installing{{else if eq .Progress "pending"}}queued{{else}}sent to device{{end}}</span>
-          {{else if eq .State "current"}}<span class="cl-tag ok">up to date</span>
-          {{else if eq .State "behind"}}<span class="cl-tag behind">behind</span>
-          {{else if eq .State "nobuild"}}<span class="cl-tag unk" title="This device runs an older system image. The hosted client is platform-signed with a key that image does not trust, so Android would refuse the install — it needs a firmware OTA before it can take a client update.">no build for this image</span>
-          {{else}}<span class="cl-tag unk">no version</span>{{end}}
-        </span>
-        <span class="cl-meta">{{timeSince .LastSeen}}</span>
-        <span>
-          {{if and (eq .State "behind") (not .Elsewhere) $.Selected.Hosted (canOperate $.Role)}}
-          <form method="POST" action="/devices/{{.Serial}}/commands" hx-post="/devices/{{.Serial}}/commands" hx-swap="none" style="margin:0" onsubmit="clSent(this)"
-                hx-confirm="{{.Serial}} has not checked in since {{timeSince .LastSeen}}. The update sits queued until it comes back — and if it was pointed at another MDM, it never will. Queue it anyway?">
-            <input type="hidden" name="type" value="app_update">
-            <button type="submit" class="cc-btn sm" title="Install {{$.Selected.Build.Version}} on {{.Serial}} — it has not checked in for a while, so the command waits until it does"><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Update</button>
-          </form>
-          {{end}}
-        </span>
-      </div>
-      {{end}}
-      <div class="lt-more lt-out hidden" data-dormant="{{$g.Key}}" data-grp="{{$g.Key}}-d" data-what="dormant"><button type="button" class="app-more lt-more-t"></button></div>
-      {{end}}
-      {{end}}
-    </div>
-    {{else}}
-    <div class="cl-empty">No devices are running this client yet.</div>
-    {{end}}
-
-    <div class="cl-sec"><span>Releases</span></div>
-    {{if .History}}
-    <div class="cl-rel lt" id="cl-rels" data-lt-n="10">
-      <div class="lt-bar">
-        <input class="lt-q" type="search" placeholder="Search version or changelog…" aria-label="Search releases" autocomplete="off">
-        <div class="lt-chips">
-          <button type="button" class="lt-chip" data-f="hosted" data-v="1">Hosted</button>
-          <button type="button" class="lt-chip" data-f="hosted" data-v="0">Previous</button>
-        </div>
-        <span class="lt-count"></span>
-      </div>
-      <div class="lt-none lt-out">No release matches.</div>
-      {{$slot := .Slot}}
-      {{range $i, $h := .History}}
-      {{$b := $h.Build}}
-      <div class="cl-rr lt-row" data-f-hosted="{{if $h.Hosted}}1{{else}}0{{end}}" data-lt-text="{{$b.Version}} {{$b.VersionCode}} {{$b.Changelog}} {{$b.Name}}">
-        <span class="cl-ver">{{if $b.Version}}{{$b.Version}}{{else}}unversioned{{end}}{{if $b.VersionCode}}<div class="cl-meta">code {{$b.VersionCode}}</div>{{end}}</span>
-        <span class="cl-chg">{{if $b.Changelog}}{{$b.Changelog}}{{else}}<span class="cl-meta">No changelog — the publisher sent none.</span>{{end}}<div class="cl-meta">{{$b.Name}}</div></span>
-        <span class="cl-meta">{{$b.At.Format "2 Jan 15:04"}}</span>
-        <span>{{if $h.Hosted}}<span class="cl-tag ok">hosted</span>{{else}}<span class="cl-tag unk">previous</span>{{end}}</span>
-        <span class="cl-acts">
-          {{if $h.Archived}}
-          <div class="cl-menu" data-menu="{{$i}}">
-            <button type="button" class="cl-kebab" aria-haspopup="true" aria-expanded="false"
-                    aria-label="Actions for {{if $b.Version}}{{$b.Version}}{{else}}this build{{end}}"
-                    onclick="clMenu(event,this)">&#8943;</button>
-            <div class="cl-pop" hidden>
-              <a href="/agent/history/{{$slot}}/{{$b.SHA256Hex}}.apk" download>Download APK</a>
-              <button type="button" onclick="clCopy(this,'{{$b.SHA256Hex}}')">Copy SHA-256</button>
-              {{if and (not $h.Hosted) (canAdmin $.Role)}}
-              <form method="POST" action="/clients/rollback" hx-post="/clients/rollback" hx-swap="none"
-                    hx-confirm="Make {{if $b.Version}}{{$b.Version}}{{else}}this build{{end}} the build this server hosts? Devices behind it will be offered it from now on.">
-                <input type="hidden" name="slot" value="{{$slot}}">
-                <input type="hidden" name="sha256" value="{{$b.SHA256Hex}}">
-                <button type="submit" class="danger">Roll back to this build</button>
-              </form>
-              {{end}}
+    {{if .VersionRows}}
+    {{$slot := .Slot}}{{$sel := .}}
+    <div class="cv-tbl" id="cv-tbl">
+      <div class="cv-th"><span>Version</span><span>What changed</span><span>Devices</span><span></span></div>
+      {{range .VersionRows}}
+      <details class="cv-row k-{{.Kind}}{{if .Old}} cv-old{{end}}"{{if .Old}} hidden{{end}}>
+        <summary class="cv-r">
+          <span class="cv-v">{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
+          <span class="cv-n"><b>{{.Title}}</b><small>{{.Detail}}</small></span>
+          <span class="cv-c"><span class="n">{{len .Devices}}</span><span class="b"><i style="width:{{.Pct}}%"></i></span></span>
+          <span class="cv-a">
+            {{if eq .Kind "hosted"}}<span class="cl-tag ok">hosted</span>
+            {{else if and .NSend (canOperate $.Role)}}
+            <form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on {{.NSend}} device(s) from {{.Version}} to {{$sel.Build.Version}}?" onsubmit="clSent(this)">
+              <input type="hidden" name="type" value="app_update">
+              <input type="hidden" name="target_type" value="devices">
+              <input type="hidden" name="target_serials" value="{{.Serials}}">
+              <button type="submit" class="cc-btn sm">Update {{.NSend}} now</button>
+            </form>
+            {{else if .Updating}}<span class="cl-tag go"><span class="cl-spin"></span>installing</span>
+            {{else if eq .Kind "newer"}}<span class="cl-tag unk">newer</span>
+            {{else if eq .Kind "nobuild"}}<span class="cl-meta">can't update here</span>
+            {{else if eq .Kind "unknown"}}<span class="cl-meta">needs a firmware OTA</span>
+            {{else if and (eq .Kind "release") .Release}}{{if and .Release.Archived (canAdmin $.Role)}}
+            <form method="POST" action="/clients/rollback" hx-post="/clients/rollback" hx-swap="none"
+                  hx-confirm="Make {{.Version}} the build this server hosts? Devices on a newer build stay there; those behind it will be offered it.">
+              <input type="hidden" name="slot" value="{{$slot}}">
+              <input type="hidden" name="sha256" value="{{.Release.Build.SHA256Hex}}">
+              <button type="submit" class="cc-btn sm">Roll back to this</button>
+            </form>{{else if not .Release.Archived}}<span class="cl-meta" title="Published before the server kept an archive: its APK is no longer on disk.">not archived</span>{{end}}
+            {{end}}
+            {{with .Release}}{{if .Archived}}{{$b := .Build}}
+            <div class="cl-menu">
+              <button type="button" class="cl-kebab" aria-haspopup="true" aria-expanded="false" aria-label="More for {{$b.Version}}" onclick="clMenu(event,this)">&#8943;</button>
+              <div class="cl-pop" hidden>
+                <a href="/agent/history/{{$slot}}/{{$b.SHA256Hex}}.apk" download>Download APK</a>
+                <button type="button" onclick="clCopy(this,'{{$b.SHA256Hex}}')">Copy SHA-256</button>
+                {{if $b.Changelog}}<div class="cv-chg">{{$b.Changelog}}</div>{{end}}
+              </div>
             </div>
-          </div>
-          {{else}}
-          {{/* Published before the archive existed: the row is all that survives, because
-               each publish renamed the slot file over the one before it. */}}
-          <span class="cl-meta" title="This build was published before the server kept an archive, so its APK is no longer on disk. Only builds published from now on can be downloaded or rolled back to.">not archived</span>
-          {{end}}
-        </span>
-      </div>
+            {{end}}{{end}}
+          </span>
+        </summary>
+        {{if .Devices}}
+        <div class="cv-devs">
+          {{range .Devices}}<a href="/devices/{{.Serial}}" class="cv-d{{if or .Unreachable .Elsewhere}} off{{end}}" title="{{if .Elsewhere}}Reports to {{.Elsewhere}}{{else}}Last seen {{timeSince .LastSeen}}{{end}}{{if eq .State "updating"}} · {{if .Progress}}{{.Progress}}{{else}}update sent{{end}}{{end}}">{{.Serial}}{{if eq .State "updating"}}<span class="cl-spin"></span>{{end}}</a>{{end}}
+        </div>
+        {{else}}<div class="cv-devs cl-meta">No device runs this build.</div>{{end}}
+      </details>
       {{end}}
-      <div class="lt-more lt-out" data-what="releases"><button type="button" class="app-more lt-more-t"></button></div>
+    </div>
+    <div class="cv-foot cl-meta">
+      Click a version to see its devices.
+      {{range .VersionRows}}{{if .Old}}<button type="button" class="cv-more" onclick="document.querySelectorAll('#cv-tbl .cv-old').forEach(function(r){r.hidden=false});this.remove()">Show older releases</button>{{break}}{{end}}{{end}}
+      {{if .Hosted}}<span class="cv-url">Download: <span class="mono">{{.URL}}</span></span>{{end}}
     </div>
     {{else}}
     <div class="cl-empty">
@@ -496,8 +397,6 @@ function clSkeleton(d) {
       — the changelog it sends is what shows here.
     </div>
     {{end}}
-
-    {{if .Hosted}}<div class="cl-sec"><span>Download</span></div><div class="cl-url">{{.URL}}</div>{{end}}
     </div><!-- /cl-body -->
   </div>
   {{end}}

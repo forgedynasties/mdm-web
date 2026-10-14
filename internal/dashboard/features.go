@@ -1102,6 +1102,7 @@ type ClientSlotView struct {
 	Rows     []ClientDeviceRow
 	Groups   []ClientDeviceGroup
 	History  []ClientHistoryRow
+	VersionRows []ClientVersionRow // the open client's table: one row per version
 	Selected bool
 	// Auto is this slot's standing instruction: keep devices on the hosted build.
 	Auto config.ClientAutoUpdate
@@ -1455,6 +1456,7 @@ func (h *Handler) clientDetail(r *http.Request, devices []db.Device, selected st
 		return sel.Rows[i].Serial < sel.Rows[j].Serial
 	})
 	sel.Groups = groupClientRows(sel.Rows, sel.Build.Version, time.Now())
+	sel.VersionRows = clientVersionRows(sel, sel.Build.Version)
 
 	return sel, true
 }

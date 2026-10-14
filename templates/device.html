@@ -50,8 +50,7 @@
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="dfc"><span class="dfk">Temp</span><span class="dfv">{{$t}}</span></span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="dfc"><span class="dfk">RAM</span><span class="dfv">{{ramPct $ram}}%</span></span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="dfc"><span class="dfk">Up</span><span class="dfv">{{$up}}</span></span>{{end}}
-    {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
-    {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="dfc ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="dfk">Nugget ID</span><span class="dfv"><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}} <span class="dfm">&times;{{len .NuggetIDs}}</span>{{end}}</span></button>{{else}}<button type="button" class="dfc ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="dfk">Nugget IDs</span><span class="dfv mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
+    {{/* The Nugget ID chip was here; the ID stays on the app row in Applications (14 Oct). */}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="dfc dfc-wide" onclick="wifiModalOpen()" aria-haspopup="dialog" title="{{if and $wifi (ne $wifi "—")}}{{$wifi}} · {{end}}Nearby Wi-Fi networks"><span class="dfk">Wi-Fi</span><span class="dfv">{{if and $rssi (ne $rssi "—")}}{{$rssi}}dBm{{end}}{{if and $wifi (ne $wifi "—")}} <span class="dfm">{{$wifi}}</span>{{end}}</span></button>{{end}}
 {{end}}
 
@@ -321,7 +320,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 
 <template id="page-island"{{if .Lab}} data-live{{end}}>
   <span class="isl-dot{{if .Online}} on{{end}}"></span>
-  {{with modelPic .Device.Product}}<img class="isl-pic" src="{{.Img}}" alt="" width="32" height="32" decoding="async">{{end}}
+  {{if .Device.Class}}<svg class="isl-cls" aria-hidden="true"><use href="#dk-{{.Device.Class}}"/></svg>{{end}}
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
   <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
   {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">needs a site</span>{{end}}
