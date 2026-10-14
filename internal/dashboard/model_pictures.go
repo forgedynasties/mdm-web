@@ -32,6 +32,9 @@ func modelPic(key string) *modelPicture {
 // models are boards; the class is the stand people see). Under static/img/classes.
 var classPictures = map[string]modelPicture{
 	"kiosk": {Img: "/static/img/classes/kiosk.webp"},
+	// Composed (class-icons-demos.html, B1): a wall screen with our HDMI stick on it, until
+	// there is a photo of one of our boards in a store.
+	"dongle": {Img: "/static/img/classes/dongle.webp"},
 }
 
 // rolePic is a role's picture: the class's own, else its model's when the role has

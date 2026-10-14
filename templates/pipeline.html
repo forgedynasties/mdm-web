@@ -25,7 +25,7 @@
       <div class="pl-side-cap">Roles</div>
       {{range .Roles}}
       <a href="/lineup?role={{.Key}}" hx-get="/lineup?role={{.Key}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
-        {{if .Pic}}<img class="pl-role-pic" src="{{.Pic.Img}}" alt="" width="30" height="30" decoding="async">{{end}}<span><b>{{.Label}}</b><small class="tone-{{.Tone}}">{{.Status}}</small></span>
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#dk-{{.Key}}"/></svg><span><b>{{.Label}}</b><small class="tone-{{.Tone}}">{{.Status}}</small></span>
         <i class="dot tone-{{.Tone}}"></i>
       </a>
       {{end}}
@@ -242,7 +242,8 @@ if (!window.__plChips) {
   .lu-pic { width: 44px; height: 44px; flex: none; object-fit: contain; border-radius: 10px; background: var(--surface2); }
   .lu-pic.none { display: grid; place-items: center; }
   .lu-pic.none svg { width: 18px; height: 18px; fill: none; stroke: var(--text-faint); stroke-width: 1.6; }
-  .pl-role-pic { width: 30px; height: 30px; flex: none; object-fit: contain; border-radius: 8px; background: var(--surface2); }
+  .pl-role-ic { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--text-faint); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .pl-role.on .pl-role-ic { stroke: var(--accent-text); }
   @media (max-width: 720px) { .lu-hero img { width: 84px; height: 84px; } }
   .lu-appname { font-size: 13px; }
   .lu-sel { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 100%; }
@@ -393,7 +394,7 @@ if (!window.__plChips) {
 
 {{define "lu-model-name"}}{{$m := .M}}
   <div class="lu-mn">
-  {{with modelPic $m.Key}}<img class="lu-pic" src="{{.Img}}" alt="" width="44" height="44" decoding="async">{{else}}<span class="lu-pic none" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></span>{{end}}
+  {{with modelPic $m.Key}}<img class="lu-pic" src="{{.Img}}" alt="" width="44" height="44" decoding="async">{{else}}<span class="lu-pic none" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#dk-{{if $m.Role}}{{$m.Role}}{{else}}other{{end}}"/></svg></span>{{end}}
   <div class="lu-mn-b">
     <div class="lu-name">{{$m.Display}}{{if $m.Known}} <span class="lu-tag">built in</span>{{end}}</div>
     <div class="lu-key-t mono">{{$m.Key}}{{if $m.Runs}} · <a href="/lineup?view=runs" class="lu-runs">{{$m.Runs}} production run{{if ne $m.Runs 1}}s{{end}}</a>{{end}}</div>
