@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device facts demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1180px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede,p.q{color:var(--muted);font-size:13.5px;max-width:940px;line-height:1.6}.lede b,p.q b{color:var(--text);font-weight:650}
+h2.opt{font-size:16px;margin:40px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.now{font-size:10.5px;font-weight:800;color:var(--warn);background:var(--warn-bg);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.shot{border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:12px;background:var(--bg)}
+.bar{display:flex;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--border-soft);background:color-mix(in srgb,var(--surface) 70%,var(--bg))}
+.brand{font-weight:600;font-size:20px;flex:none}.brand b{color:var(--accent);font-weight:600}
+.isl{flex:1;display:flex;align-items:center;gap:9px;min-width:0;border-left:1px solid var(--border);padding-left:12px;font-size:13px}
+.isl .dot{width:8px;height:8px;border-radius:99px;background:var(--ok)}.isl b{font-weight:700}
+.isl .s{color:var(--muted);font-size:12.5px}.isl .ed{color:var(--accent-text);font-size:12px;border-bottom:1px dashed;cursor:pointer}
+.tag{font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;background:var(--surface2);color:var(--text-2)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.body{padding:10px 18px 18px;display:grid;gap:10px}
+.tabrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;border:1px solid var(--border);border-radius:14px;padding:5px;background:var(--surface)}
+.tabs span{font-size:13px;font-weight:650;padding:7px 13px;border-radius:10px;color:var(--text-2)}.tabs span.on{background:var(--bg);color:var(--accent-text)}
+.tabrow .r{margin-left:auto;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.chart{height:110px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 8%,var(--surface)),var(--surface))}
+.cells{display:flex;flex-wrap:wrap;gap:1px;background:var(--border-soft);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.cells .c{flex:1 1 112px;background:var(--surface);padding:9px 14px}
+.k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.v{font-size:13.5px;font-weight:650;color:var(--text);margin-top:3px;white-space:nowrap}
+.v .m{color:var(--muted);font-weight:500}
+.ok{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--ok);margin-right:5px}
+.pen{color:var(--text-faint);font-size:12px;margin-left:4px}
+.add{font-size:11.5px;font-weight:650;color:var(--muted);border:1px dashed var(--border);border-radius:7px;padding:1px 8px}
+.line{display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);padding:2px 4px}
+.line b{color:var(--text);font-weight:650}
+.line .grp{display:flex;gap:6px 14px;align-items:center;flex-wrap:wrap}
+.line .sp{flex:1}
+.vsep{width:1px;height:18px;background:var(--border)}
+.two{display:grid;grid-template-columns:1.6fr 1fr;gap:10px}
+.card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:12px 14px}
+.card h3{margin:0 0 8px;font-size:12px;font-weight:700;color:var(--text-2)}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 14px}
+.kv{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border-soft);font-size:13px}.kv:first-of-type{border-top:0}
+.kv .kk{color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 10px;background:var(--surface);color:var(--text-2);white-space:nowrap}
+.big{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-end;padding:4px 4px 2px}
+.big .n{font-size:24px;font-weight:600;color:var(--text);letter-spacing:-.01em;line-height:1.1}
+.big .n small{font-size:13px;color:var(--muted);font-weight:500;margin-left:2px}
+@media (max-width:720px){body{padding:20px 16px 100px}.pros,.two{grid-template-columns:1fr}.g3{grid-template-columns:1fr 1fr}.isl .s{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Device page: the facts under the tabs</h1>
+<p class="lede">What sits between the tabs and the Vitals graph: what the device is doing (client, power, temperature, RAM, uptime, Wi-Fi) and where it is (restaurant, groups). Table is gone, as you asked. Values are from the Kiosk 22 you pasted. Since the graph below now shows temperature and RAM over time, the numbers here only need to say "right now".</p>
+
+<h2 class="opt">Now <span class="now">on stage</span></h2>
+<p class="q">One bar of labelled cells sharing the width.</p>
+<div class="shot"><div class="body">
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 11</span><span>About</span><span>Settings</span></div><div class="r"><span class="pill">▤ Notes</span></div></div>
+<div class="cells"><div class="c"><div class="k">Client</div><div class="v"><span class="ok"></span>Firmware MDM 1.9.9 ▾</div></div><div class="c"><div class="k">Power</div><div class="v">Mains</div></div><div class="c"><div class="k">Temp</div><div class="v">40.4°C</div></div><div class="c"><div class="k">RAM</div><div class="v">56%</div></div><div class="c"><div class="k">Uptime</div><div class="v">18h 37m</div></div><div class="c"><div class="k">Restaurant</div><div class="v">Lab<span class="pen">✎</span></div></div><div class="c"><div class="k">Groups</div><div class="v"><span class="add">+ group</span></div></div></div>
+<div class="chart"></div></div></div>
+<div class="pros"><div><b>Good:</b> every value has a fixed place.</div><div class="bad"><b>Bad:</b> heavy: a boxed grid for seven short facts; health and placement look like the same kind of thing; with fewer values (a kiosk has no battery or Wi-Fi) the cells stretch wide and empty.</div></div>
+
+<h2 class="opt">F1 · One quiet line, two groups <span class="pick">my pick</span></h2>
+<p class="q">No boxes. Under the tabs, one line: the device's state on the left as small label + value pairs, the placement on the right after a divider, each editable with ✎. It reads like a status line, not a form.</p>
+<div class="shot"><div class="body">
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 11</span><span>About</span><span>Settings</span></div><div class="r"><span class="pill">▤ Notes</span></div></div>
+<div class="line"><span class="grp"><span><span class="ok"></span><b>Firmware MDM 1.9.9</b> ▾</span><span>Mains</span><span>Temp <b>40.4°C</b></span><span>RAM <b>56%</b></span><span>Up <b>18h 37m</b></span></span><span class="sp"></span><span class="vsep"></span><span class="grp"><span>Restaurant <b>Lab</b><span class="pen">✎</span></span><span>Groups <span class="add">+ group</span></span></span></div>
+<div class="chart"></div></div></div>
+<div class="pros"><div><b>Good:</b> the lightest; the graph moves up; health and placement are visibly two things; a device with fewer values just has a shorter line.</div><div class="bad"><b>Bad:</b> on a phone it wraps to two or three lines (still in order, no empty boxes).</div></div>
+
+<h2 class="opt">F2 · Two small cards: Now, and Placement</h2>
+<p class="q">A "Now" card with the readings in a 3-column grid, and a "Placement" card beside it with Restaurant and Groups as rows, each with its edit control.</p>
+<div class="shot"><div class="body">
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 11</span><span>About</span><span>Settings</span></div><div class="r"><span class="pill">▤ Notes</span></div></div>
+<div class="two"><div class="card"><h3>Now</h3><div class="g3"><div><div class="k">Client</div><div class="v"><span class="ok"></span>Firmware 1.9.9 ▾</div></div><div><div class="k">Power</div><div class="v">Mains</div></div><div><div class="k">Uptime</div><div class="v">18h 37m</div></div><div><div class="k">Temp</div><div class="v">40.4°C</div></div><div><div class="k">RAM</div><div class="v">56%</div></div><div><div class="k">Wi-Fi</div><div class="v m">—</div></div></div></div>
+<div class="card"><h3>Placement</h3><div class="kv"><span class="kk">Restaurant</span><b>Lab<span class="pen">✎</span></b></div><div class="kv"><span class="kk">Groups</span><span class="add">+ group</span></div></div></div>
+<div class="chart"></div></div></div>
+<div class="pros"><div><b>Good:</b> clearly grouped and labelled; room for more placement facts later; looks like the other cards on the page.</div><div class="bad"><b>Bad:</b> the tallest option — pushes the graph down by about 60px more than today.</div></div>
+
+<h2 class="opt">F3 · Placement in the top bar, readings as big numbers</h2>
+<p class="q">Where the device is moves into the top bar next to its name ("Lab ✎ · + group"), so it is visible on every tab. Under the tabs only the readings remain, as a row of larger numbers; client and power as small tags.</p>
+<div class="shot">
+<div class="bar"><span class="brand"><b>AIO</b> MDM</span><span class="isl"><span class="dot"></span><b>Kiosk 22 · K222026091301</b><span class="tag">Self-order kiosk</span><span class="s">at <span class="ed">Lab</span> · <span class="ed">+ group</span></span></span><button class="cc-btn sm">Remote</button><button class="cc-btn sm">Reboot</button><button class="cc-btn sm primary">Open in lab</button></div>
+<div class="body">
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 11</span><span>About</span><span>Settings</span></div><div class="r"><span class="pill"><span class="ok"></span>Firmware MDM 1.9.9 ▾</span><span class="pill">Mains</span><span class="pill">▤ Notes</span></div></div>
+<div class="big"><div><div class="k">Temp</div><div class="n">40.4<small>°C</small></div></div><div><div class="k">RAM</div><div class="n">56<small>%</small></div></div><div><div class="k">Uptime</div><div class="n">18<small>h</small> 37<small>m</small></div></div></div>
+<div class="chart"></div></div></div>
+<div class="pros"><div><b>Good:</b> placement is always in view, whichever tab is open; the readings get the emphasis a dashboard gives numbers.</div><div class="bad"><b>Bad:</b> a busier top bar; on phones the top bar is hidden, so placement needs its own line there.</div></div>
+
+<h2 class="opt">My recommendation</h2>
+<p class="q"><b>F1.</b> The graph right below already shows the readings over time, so this section only has to answer "what is it doing right now, and where is it" in one glance. A single line does that with the least weight and no empty boxes on devices that report less.</p>
+</div>
+</body>
+</html>
