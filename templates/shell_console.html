@@ -22,10 +22,84 @@
              spellcheck="false" placeholder="type a command and press Enter">
       <button type="submit" class="btn-primary">Run</button>
     </form>
-    <div class="muted small" style="margin-top:8px;">↑/↓ recall history · output streams live as the device reports it.</div>
+    <div class="muted small" style="margin-top:8px;">{{if .ShellSession}}One shell for as long as this page is open — <span class="mono">cd</span> and variables carry over. Closing the page ends it. <button type="button" id="sh-again" class="cc-btn sm" hidden onclick="window.shellAgain()">Open a new session</button>{{else}}↑/↓ recall history · output streams live as the device reports it.{{end}}</div>
   </div>
 </div>
 
+{{if .ShellSession}}
+<script>
+(function () {
+  // Interactive session: one shell on the device for as long as this console is open.
+  var serial = '{{.Device.SerialNumber}}';
+  var out = document.getElementById('sh-output');
+  var input = document.getElementById('sh-input');
+  var form = document.getElementById('sh-form');
+  var runBtn = form.querySelector('button[type=submit]');
+  var es = null, sid = null, history = [], histIdx = -1;
+
+  function append(text, cls) {
+    var span = document.createElement('span');
+    if (cls) span.className = cls;
+    span.textContent = text;
+    out.appendChild(span);
+    out.scrollTop = out.scrollHeight;
+  }
+  function ready(v) { input.disabled = !v; runBtn.disabled = !v; if (v) input.focus(); }
+  function stop(note) {
+    if (es) { es.close(); es = null; }
+    if (sid && note) append('\n' + note + '\n', 'sh-error');
+    sid = null; ready(false);
+    var again = document.getElementById('sh-again'); if (again) again.hidden = false;
+  }
+  function start() {
+    var again = document.getElementById('sh-again'); if (again) again.hidden = true;
+    append('[opening a session…]\n', 'sh-dim');
+    es = window.mdmStream('/devices/' + encodeURIComponent(serial) + '/shell/session');
+    es.addEventListener('session', function (e) {
+      sid = JSON.parse(e.data).id;
+      append('[session open: cd, variables and running programs carry from line to line]\n', 'sh-dim');
+      ready(true);
+    });
+    es.onmessage = function (e) { append(JSON.parse(e.data)); };
+    es.addEventListener('end', function () { stop('[session ended]'); });
+    // Never let the browser reconnect on its own: that would open a second shell.
+    es.onerror = function () { stop(sid ? '[connection lost]' : '[could not open a session — is the device online?]'); };
+  }
+  function send(data) {
+    if (!sid) return;
+    fetch('/devices/' + encodeURIComponent(serial) + '/shell/session/' + sid + '/input', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=' + encodeURIComponent(data)
+    }).then(function (r) { if (!r.ok) return r.text().then(function (t) { append('[' + t.trim() + ']\n', 'sh-error'); }); })
+      .catch(function (err) { append('[send failed: ' + err.message + ']\n', 'sh-error'); });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var cmd = input.value;
+    if (!sid) return;
+    if (cmd.trim()) { history.push(cmd); histIdx = history.length; }
+    append(cmd + '\n', 'sh-prompt');
+    input.value = '';
+    send(cmd + '\n');
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowUp') {
+      if (histIdx > 0) { histIdx--; input.value = history[histIdx]; e.preventDefault(); }
+    } else if (e.key === 'ArrowDown') {
+      if (histIdx < history.length - 1) { histIdx++; input.value = history[histIdx]; }
+      else { histIdx = history.length; input.value = ''; }
+      e.preventDefault();
+    }
+  });
+  window.shellClear = function () { out.textContent = ''; input.focus(); };
+  window.shFill = function (cmd) { input.value = cmd; input.focus(); };
+  window.shellAgain = function () { start(); };
+  ready(false);
+  start();
+})();
+</script>
+{{else}}
 <script>
 (function () {
   var serial = '{{.Device.SerialNumber}}';
@@ -99,6 +173,7 @@
   input.focus();
 })();
 </script>
+{{end}}
 
 <style>
   .sh-title { display: flex; align-items: center; gap: 9px; }
@@ -110,6 +185,7 @@
     font-family: var(--mono); font-size: 12.5px; line-height: 1.7; }
   .sh-term .sh-prompt { color: var(--ok); font-weight: 600; }
   .sh-term .sh-error { color: var(--danger); }
+  .sh-term .sh-dim { color: var(--text-faint); }
   .sh-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .sh-chip { font: inherit; font-size: 12px; font-weight: 600; font-family: var(--mono); padding: 5px 11px;
     border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }

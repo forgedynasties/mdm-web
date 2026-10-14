@@ -8843,6 +8843,7 @@ func (h *Handler) DeviceShellPage(w http.ResponseWriter, r *http.Request) {
 		"Title":  "Shell · " + serial,
 		"Device": device,
 		"Online": h.hub.IsConnected(device.ID),
+		"ShellSession": supportsShellSession(device),
 	})
 }
 
@@ -22003,6 +22004,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.deviceRoute("query", h.DeviceAIAnalysis)))
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.deviceRoute("view", h.DeviceAIAnalysesList)))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireReleaseAdmin(h.deviceRoute("shell", h.DeviceShellPage)))
+	// Interactive shell sessions (shell_session.go).
+	mux.HandleFunc("GET /devices/{serial}/shell/session", h.requireReleaseAdmin(drainable(h.deviceRoute("shell", h.ShellSessionStream))))
+	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.ShellSessionInput)))
 	// Releases (pipeline.go): what every role runs, and the per-model firmware.
 	mux.HandleFunc("GET /pipeline", h.requireAuth(h.Pipeline))
 	post("POST /pipeline/role-app", h.requireLab(h.PipelineRoleApp))

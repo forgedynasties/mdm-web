@@ -457,7 +457,7 @@ func main() {
 			}
 			_ = json.Unmarshal(raw, &p)
 			hub.SignalPong(p.Nonce)
-		case "logcat_stream", "logcat_stream_end":
+		case "logcat_stream", "logcat_stream_end", "shell_data", "shell_end":
 			logMgr.HandleDeviceMessage(raw)
 		case "net_sighting":
 			scoutSvc.IngestSighting(context.Background(), deviceID, raw)

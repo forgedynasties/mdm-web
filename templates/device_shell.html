@@ -7,7 +7,7 @@
   <div>
     <div class="cc-eyebrow">Fleet · Devices · Shell</div>
     <h1 class="cc-h1"><span class="sh-statdot {{if .Online}}on{{end}}" style="display:inline-block;margin-right:9px;"></span>Interactive shell</h1>
-    <div class="cc-sub">Runs on <b class="mono">{{.Device.SerialNumber}}</b> — each line is a separate command; state like <span class="mono">cd</span> does not persist between lines.</div>
+    <div class="cc-sub">Runs on <b class="mono">{{.Device.SerialNumber}}</b> — {{if .ShellSession}}one interactive shell for as long as this page is open.{{else}}each line is a separate command; state like <span class="mono">cd</span> does not persist between lines. Update the client for an interactive session.{{end}}</div>
   </div>
 </div>
 

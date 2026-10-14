@@ -57,7 +57,8 @@ func (m *Manager) Close(requestID string) {
 	}
 }
 
-// HandleDeviceMessage routes a device's logcat_stream / logcat_stream_end frames.
+// HandleDeviceMessage routes a device's logcat_stream / logcat_stream_end frames, and the
+// interactive shell's shell_data / shell_end frames, which use the same request_id keying.
 // Returns true if the frame was a logcat-stream frame (so the hub dispatch can stop).
 func (m *Manager) HandleDeviceMessage(raw []byte) bool {
 	var f struct {
@@ -71,7 +72,7 @@ func (m *Manager) HandleDeviceMessage(raw []byte) bool {
 		return false
 	}
 	switch f.Type {
-	case "logcat_stream":
+	case "logcat_stream", "shell_data":
 		// Send under the lock so we never send on a channel Close just closed.
 		m.mu.Lock()
 		if s, ok := m.streams[f.RequestID]; ok && !s.ended {
@@ -83,7 +84,7 @@ func (m *Manager) HandleDeviceMessage(raw []byte) bool {
 		}
 		m.mu.Unlock()
 		return true
-	case "logcat_stream_end":
+	case "logcat_stream_end", "shell_end":
 		if f.Error != "" {
 			log.Printf("[logstream] stream %s ended: %s (%s)", f.RequestID, f.Reason, f.Error)
 		}
