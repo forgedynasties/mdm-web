@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device tab row demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 26px 34px 140px; }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede, p.q { color: var(--muted); font-size: 13.5px; max-width: 940px; line-height: 1.6; }
+  .lede b, p.q b { color: var(--text); font-weight: 650; }
+  h2.opt { font-size: 16px; margin: 40px 0 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pick { font-size: 10.5px; font-weight: 800; color: var(--accent-text); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; }
+  .pros { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+  .pros div { border-left: 3px solid var(--ok); padding: 4px 12px; }
+  .pros div.bad { border-color: var(--danger); }
+
+  .shot { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-top: 12px; background: var(--bg); }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 10px 18px; border-bottom: 1px solid var(--border-soft); background: color-mix(in srgb, var(--surface) 70%, var(--bg)); }
+  .brand { font-weight: 600; font-size: 22px; flex: none; } .brand b { color: var(--accent); font-weight: 600; }
+  .isl { flex: 1; display: flex; align-items: center; gap: 9px; min-width: 0; border-left: 1px solid var(--border); padding-left: 12px; }
+  .isl .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--ok); flex: none; }
+  .isl .t { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .isl .s { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tag { font-size: 10.5px; font-weight: 700; border-radius: 6px; padding: 2px 7px; background: var(--surface2); color: var(--text-2); white-space: nowrap; }
+  .tag.warn { background: var(--warn-bg); color: var(--warn); }
+  .acts { display: flex; gap: 6px; flex: none; }
+  .ic { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--border); display: grid; place-items: center; color: var(--muted); flex: none; font-size: 13px; }
+  .body { padding: 14px 18px 18px; display: grid; gap: 12px; }
+  .back { font-size: 13px; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; border: 1px solid var(--border); border-radius: 99px; padding: 5px 11px; background: var(--surface); color: var(--text-2); white-space: nowrap; }
+  .chip.warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+  .chip.ok i { width: 7px; height: 7px; border-radius: 99px; background: var(--ok); }
+  .tabrow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 4px; border: 1px solid var(--border); border-radius: 14px; padding: 5px; flex-wrap: wrap; background: var(--surface); }
+  .tabs span { font-size: 13px; font-weight: 650; padding: 8px 14px; border-radius: 10px; color: var(--text-2); }
+  .tabs span.on { background: var(--bg); color: var(--accent-text); }
+  .tabrow .r { margin-left: auto; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: 300px 1fr; gap: 12px; align-items: start; }
+  .card { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 14px 16px; font-size: 12.5px; color: var(--text-2); }
+  .card h3 { font-size: 13.5px; margin: 0 0 10px; color: var(--text); }
+  .kv { display: flex; justify-content: space-between; padding: 6px 0; border-top: 1px solid var(--border-soft); }
+  .kv:first-of-type { border-top: 0; }
+  .kv b { color: var(--text); font-weight: 650; }
+  .chart { height: 150px; border-radius: 10px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent); border: 1px dashed var(--border); }
+  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .tile { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 10px 12px; }
+  .tile .k { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+  .tile .v { font-size: 16px; font-weight: 700; margin-top: 3px; color: var(--text); }
+  .tile .v.ok { color: var(--ok); }
+  .tile .m { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  @media (max-width: 900px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 720px) { body { padding: 20px 16px 100px; } .pros, .grid { grid-template-columns: 1fr; } .isl .s { display: none; } }
+  .full { border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 14px 16px; }
+  .full .chart { height: 190px; }
+  .inline { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); padding: 2px 4px; }
+  .inline b { color: var(--text); font-weight: 650; }
+  .inline .ed { color: var(--accent-text); cursor: pointer; }
+  .pop { position: absolute; z-index: 3; width: 290px; box-shadow: 0 16px 40px rgba(0,0,0,.3); }
+  .drawer { position: absolute; right: 0; top: 0; bottom: 0; width: 320px; border-left: 1px solid var(--border); background: var(--surface); padding: 16px; display: grid; gap: 12px; align-content: start; box-shadow: -20px 0 40px rgba(0,0,0,.25); }
+  textarea.nt { width: 100%; box-sizing: border-box; min-height: 70px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 12.5px; padding: 8px 10px; }
+  .isl .venue { border-bottom: 1px dashed var(--muted); cursor: pointer; }
+</style><style>
+  .isl .s { display:none }
+  .tabs.ul { border:0; border-bottom:1px solid var(--border); border-radius:0; padding:0; background:none; gap:2px; flex:1 }
+  .tabs.ul span { border-radius:0; padding:10px 12px; border-bottom:2px solid transparent; margin-bottom:-1px }
+  .tabs.ul span.on { background:none; border-bottom-color: var(--accent); }
+  .nbtn { display:inline-flex; align-items:center; gap:6px; }
+  .nbtn svg { width:14px; height:14px }
+  .facts { display:flex; align-items:center; gap:6px 14px; flex-wrap:wrap; font-size:12.5px; color:var(--muted); padding:2px 4px; }
+  .facts b { color:var(--text); font-weight:650 }
+  .facts .sp { flex:1 }
+  .facts .d { color:var(--text-faint) }
+  .facts .ed { color:var(--muted); font-size:11px; margin-left:3px }
+  .facts .ok { width:7px; height:7px; border-radius:99px; background:var(--ok); display:inline-block; margin-right:2px }
+  .cells { display:grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border:1px solid var(--border); border-radius:14px; background:var(--surface); overflow:hidden }
+  .cells .c { padding:10px 14px; border-left:1px solid var(--border-soft); min-width:0 }
+  .cells .c:first-child { border-left:0 }
+  .cells .c.gap { border-left:1px solid var(--border) }
+  .cells .k { font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--text-faint) }
+  .cells .v { font-size:13.5px; font-weight:650; color:var(--text); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:6px }
+  .cells .v.mut { color:var(--muted); font-weight:500 }
+  .cells .v .ed { color:var(--muted); font-size:11px; font-weight:500 }
+  .cells .v i { width:7px; height:7px; border-radius:99px; background:var(--ok); flex:none }
+  .cardh { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .cardh h3 { margin:0 }
+  .cardh .r { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap }
+  .now { font-size: 10.5px; font-weight: 800; color: var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 2px 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Device page: the rows under the tabs</h1>
+<p class="lede">The tabs, vitals, Notes and placement currently fall into three ragged rows (your screenshot). Four ways to tidy them. The top bar is shown as it is now on stage minus the "Not at a venue · online · build" line, which is removed per your note. Values from your Kiosk 22.</p>
+<h2 class="opt">Now <span class="now">on stage</span></h2>
+<p class="q">What you flagged: the vitals do not fit beside the tabs, so they wrap to a second line, pushed right; placement makes a third line. Three ragged rows, none of them aligned with the others.</p>
+<div class="shot">
+  <div class="bar"><span class="brand"><b>AIO</b> MDM</span>
+    <span class="isl"><span class="dot"></span><span class="t">Kiosk 22 · K222026091301</span><span class="tag">Self-order kiosk</span><span class="tag warn">needs a site</span></span>
+    <span class="acts"><button class="cc-btn sm">Remote</button><button class="cc-btn sm">Reboot</button><button class="cc-btn sm primary">Open in lab</button><button class="cc-btn sm">⋯</button></span><span class="ic">◐</span></div>
+  <div class="body">
+    <span class="back">← Fleet</span>
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 130</span><span>About</span><span>Settings</span></div><div class="r"><span class="chip ok"><i></i>Firmware MDM 1.9.9 ▾</span><span class="chip">Mains</span><span class="chip">🌡 43.5°C</span><span class="chip">RAM 47%</span><span class="chip">↑ 18h 49m uptime</span><span class="chip">“TP-LINK_81B9” · −32dBm</span><button class="cc-btn sm nbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Notes</button></div></div><div class="inline">Restaurant <b>Lab</b> <span class="ed">✎</span> · Table <b>Not set</b> <span class="ed">✎</span> · Groups <span class="chip">+ group</span></div><div class="full"><h3 style="margin:0 0 10px;font-size:13.5px">Vitals</h3><div class="chart"></div></div>
+  </div>
+</div>
+<div class="pros"><div><b>Good:</b> everything is one glance away.</div><div class="bad"><b>Bad:</b> reads as clutter; where things land depends on the window width and the Wi-Fi name.</div></div>
+<h2 class="opt">T1 · One quiet facts line </h2>
+<p class="q">Tabs and Notes on the first row, nothing else. Under them one line of plain text, no pills: the vitals on the left, placement on the right with its ✎. The client stays clickable for its changelog.</p>
+<div class="shot">
+  <div class="bar"><span class="brand"><b>AIO</b> MDM</span>
+    <span class="isl"><span class="dot"></span><span class="t">Kiosk 22 · K222026091301</span><span class="tag">Self-order kiosk</span><span class="tag warn">needs a site</span></span>
+    <span class="acts"><button class="cc-btn sm">Remote</button><button class="cc-btn sm">Reboot</button><button class="cc-btn sm primary">Open in lab</button><button class="cc-btn sm">⋯</button></span><span class="ic">◐</span></div>
+  <div class="body">
+    <span class="back">← Fleet</span>
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 130</span><span>About</span><span>Settings</span></div><div class="r"><button class="cc-btn sm nbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Notes</button></div></div><div class="facts"><span class="ok"></span><b>Firmware MDM 1.9.9</b> ▾<span class="d">·</span>Mains<span class="d">·</span><b>43.5°C</b><span class="d">·</span>RAM <b>47%</b><span class="d">·</span>up <b>18h 49m</b><span class="d">·</span>TP-LINK_81B9 <b>−32dBm</b><span class="sp"></span>Restaurant <b>Lab</b><span class="ed">✎</span><span class="d">·</span>Table <b>Not set</b><span class="ed">✎</span><span class="d">·</span><span class="chip">+ group</span></div><div class="full"><h3 style="margin:0 0 10px;font-size:13.5px">Vitals</h3><div class="chart"></div></div>
+  </div>
+</div>
+<div class="pros"><div><b>Good:</b> two rows, both fixed; the lightest option, and the tabs read as tabs again.</div><div class="bad"><b>Bad:</b> plain text is quieter than pills, so a hot temperature has to turn the number red to be noticed.</div></div>
+<h2 class="opt">T2 · Facts bar with labelled cells <span class="pick">my pick</span></h2>
+<p class="q">Tabs and Notes on the first row. Under them one bar of labelled cells, the way a spec sheet reads: what the device is doing (client, power, temperature, RAM, uptime, Wi-Fi), then where it is (restaurant, table, groups), each editable in place. The cells share the width evenly and wrap as whole cells on a narrow screen.</p>
+<div class="shot">
+  <div class="bar"><span class="brand"><b>AIO</b> MDM</span>
+    <span class="isl"><span class="dot"></span><span class="t">Kiosk 22 · K222026091301</span><span class="tag">Self-order kiosk</span><span class="tag warn">needs a site</span></span>
+    <span class="acts"><button class="cc-btn sm">Remote</button><button class="cc-btn sm">Reboot</button><button class="cc-btn sm primary">Open in lab</button><button class="cc-btn sm">⋯</button></span><span class="ic">◐</span></div>
+  <div class="body">
+    <span class="back">← Fleet</span>
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 130</span><span>About</span><span>Settings</span></div><div class="r"><button class="cc-btn sm nbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Notes</button></div></div>
+<div class="cells"><div class="c"><div class="k">Client</div><div class="v"><i></i>Firmware 1.9.9 ▾</div></div><div class="c"><div class="k">Power</div><div class="v">Mains</div></div><div class="c"><div class="k">Temp</div><div class="v">43.5°C</div></div><div class="c"><div class="k">RAM</div><div class="v">47%</div></div><div class="c"><div class="k">Uptime</div><div class="v">18h 49m</div></div><div class="c"><div class="k">Wi-Fi</div><div class="v">−32dBm <span class="ed">TP-LINK_81B9</span></div></div><div class="c gap"><div class="k">Restaurant</div><div class="v">Lab <span class="ed">✎</span></div></div><div class="c"><div class="k">Table</div><div class="v mut">Not set <span class="ed">✎</span></div></div><div class="c"><div class="k">Groups</div><div class="v"><span class="chip" style="padding:2px 8px">+ group</span></div></div></div><div class="full"><h3 style="margin:0 0 10px;font-size:13.5px">Vitals</h3><div class="chart"></div></div>
+  </div>
+</div>
+<div class="pros"><div><b>Good:</b> every value sits under a label in a fixed place, so the eye finds temperature or restaurant without reading the row; it looks the same at any width; nothing floats.</div><div class="bad"><b>Bad:</b> one more bordered box above the chart (about the height the two wrapped rows take today).</div></div>
+<h2 class="opt">T3 · Vitals into the Vitals card </h2>
+<p class="q">The header keeps only tabs, Notes and the placement line. The live numbers move into the Vitals card's own header, next to the chart they describe.</p>
+<div class="shot">
+  <div class="bar"><span class="brand"><b>AIO</b> MDM</span>
+    <span class="isl"><span class="dot"></span><span class="t">Kiosk 22 · K222026091301</span><span class="tag">Self-order kiosk</span><span class="tag warn">needs a site</span></span>
+    <span class="acts"><button class="cc-btn sm">Remote</button><button class="cc-btn sm">Reboot</button><button class="cc-btn sm primary">Open in lab</button><button class="cc-btn sm">⋯</button></span><span class="ic">◐</span></div>
+  <div class="body">
+    <span class="back">← Fleet</span>
+<div class="tabrow"><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 130</span><span>About</span><span>Settings</span></div><div class="r"><button class="cc-btn sm nbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Notes</button></div></div><div class="inline">Restaurant <b>Lab</b> <span class="ed">✎</span> · Table <b>Not set</b> <span class="ed">✎</span> · Groups <span class="chip">+ group</span></div><div class="full"><div class="cardh"><h3 style="font-size:13.5px">Vitals</h3><div class="r"><span class="chip ok"><i></i>Firmware MDM 1.9.9 ▾</span><span class="chip">Mains</span><span class="chip">🌡 43.5°C</span><span class="chip">RAM 47%</span><span class="chip">↑ 18h 49m uptime</span><span class="chip">“TP-LINK_81B9” · −32dBm</span></div></div><div class="chart" style="margin-top:10px"></div></div>
+  </div>
+</div>
+<div class="pros"><div><b>Good:</b> the cleanest header; numbers live beside their chart.</div><div class="bad"><b>Bad:</b> on Applications, Activity and the other tabs the vitals are not shown at all.</div></div>
+<h2 class="opt">T4 · Underlined tabs, one shared row under them </h2>
+<p class="q">Tabs become an underlined bar across the full width with Notes at its right end. Under it one row: placement on the left, the vitals pills on the right.</p>
+<div class="shot">
+  <div class="bar"><span class="brand"><b>AIO</b> MDM</span>
+    <span class="isl"><span class="dot"></span><span class="t">Kiosk 22 · K222026091301</span><span class="tag">Self-order kiosk</span><span class="tag warn">needs a site</span></span>
+    <span class="acts"><button class="cc-btn sm">Remote</button><button class="cc-btn sm">Reboot</button><button class="cc-btn sm primary">Open in lab</button><button class="cc-btn sm">⋯</button></span><span class="ic">◐</span></div>
+  <div class="body">
+    <span class="back">← Fleet</span>
+<div class="tabrow" style="align-items:flex-end"><div class="tabs ul"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts 130</span><span>About</span><span>Settings</span></div><button class="cc-btn sm nbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>Notes</button></div><div class="tabrow"><div class="inline" style="padding:0">Restaurant <b>Lab</b> <span class="ed">✎</span> · Table <b>Not set</b> <span class="ed">✎</span> · Groups <span class="chip">+ group</span></div><div class="r"><span class="chip ok"><i></i>Firmware MDM 1.9.9 ▾</span><span class="chip">Mains</span><span class="chip">🌡 43.5°C</span><span class="chip">RAM 47%</span><span class="chip">↑ 18h 49m uptime</span><span class="chip">“TP-LINK_81B9” · −32dBm</span></div></div><div class="full"><h3 style="margin:0 0 10px;font-size:13.5px">Vitals</h3><div class="chart"></div></div>
+  </div>
+</div>
+<div class="pros"><div><b>Good:</b> a familiar tab bar; two rows instead of three.</div><div class="bad"><b>Bad:</b> at laptop widths placement and six pills still do not fit one row, so it wraps like today.</div></div>
+
+<h2 class="opt">My recommendation</h2>
+<p class="q"><b>T2.</b> The problem today is that nothing has a fixed place. Labelled cells give every value one, keep vitals visible on every tab, and make placement look editable rather than like a caption. T1 is the fallback if you want it lighter.</p>
+</div>
+</body>
+</html>

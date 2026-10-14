@@ -40,28 +40,19 @@
      re-fetched on each "device-updated" SSE event (and a 60s fallback), so battery,
      charging, temperature, RAM, uptime and Wi-Fi refresh without a page reload. */}}
 {{define "device-vitals"}}
-    {{if batteryMissing .Device.LatestExtra}}<span class="ddc-chip battery-low" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or the pack is unplugged). Charging is suspended in this state; any percentage would be read off the rail, not a pack.">
-      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><path d="M6 4l12 8M18 4L6 12" stroke="currentColor" stroke-width="1.5"/></svg>No battery
-    </span>{{else if .ShowBattery}}<span class="ddc-chip battery-{{if lt .Device.BatteryPct 20}}low{{else if lt .Device.BatteryPct 50}}mid{{else}}ok{{end}}" title="Battery">
-      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if .ChargerFlapping}} <span class="vitals-flap" title="Charger flapping — charging toggling ~{{.ChargerFlapRate}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if charging .Device.LatestExtra}} ⚡{{end}}
-    </span>{{else if .Device.HasBattery}}<span class="ddc-chip" title="This device has a battery but has not reported a reading yet">
-      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/></svg>—
-    </span>{{else if eq .Device.DeviceClass "dongle"}}<span class="ddc-chip" title="TV box / HDMI dongle — mains powered, no battery">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m17 2-5 5-5-5"/></svg>TV
-    </span>{{else}}<span class="ddc-chip" role="img" aria-label="Mains powered" title="Mains powered — no battery">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
-    </span>{{end}}
-    {{/* wlc_status: 1 = device placed, 0 = vacant, 2 = flapping (gpio27 kept disagreeing
-         instead of settling — a real hardware symptom, e.g. a loose connector or failing
-         pad; see the client's classifyWlc + tools/wlc-gpio-matrix.sh). */}}
-    {{/* Wireless-charging status moved to the "Charging pad" sidebar card, combined
-         with its enable/disable control. */}}
-    {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
-    {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
-    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
+    {{/* The facts bar's live cells (static/device-tabrow-demos.html, T2): a label over each
+         value, swapped in place every few minutes by GET /devices/{serial}/vitals. */}}
+    {{if batteryMissing .Device.LatestExtra}}<span class="dfc bad" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or the pack is unplugged). Charging is suspended in this state; any percentage would be read off the rail, not a pack."><span class="dfk">Battery</span><span class="dfv">No battery</span></span>
+    {{else if .ShowBattery}}<span class="dfc{{if lt .Device.BatteryPct 20}} bad{{else if lt .Device.BatteryPct 50}} mid{{else}} good{{end}}" title="Battery"><span class="dfk">Battery</span><span class="dfv"><svg class="dfi" viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if .ChargerFlapping}} <span class="vitals-flap" title="Charger flapping — charging toggling ~{{.ChargerFlapRate}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if charging .Device.LatestExtra}} ⚡{{end}}</span></span>
+    {{else if .Device.HasBattery}}<span class="dfc" title="This device has a battery but has not reported a reading yet"><span class="dfk">Battery</span><span class="dfv muted">—</span></span>
+    {{else if eq .Device.DeviceClass "dongle"}}<span class="dfc" title="TV box / HDMI dongle — mains powered, no battery"><span class="dfk">Power</span><span class="dfv">Mains · TV</span></span>
+    {{else}}<span class="dfc" title="Mains powered — no battery"><span class="dfk">Power</span><span class="dfv">Mains</span></span>{{end}}
+    {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="dfc"><span class="dfk">Temp</span><span class="dfv">{{$t}}</span></span>{{end}}
+    {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="dfc"><span class="dfk">RAM</span><span class="dfv">{{ramPct $ram}}%</span></span>{{end}}
+    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="dfc"><span class="dfk">Uptime</span><span class="dfv">{{$up}}</span></span>{{end}}
     {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
-    {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="ddc-chip ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="k">Nugget ID</span><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}}<span class="k">&times;{{len .NuggetIDs}}</span>{{end}}</button>{{else}}<button type="button" class="ddc-chip ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="k">Nugget IDs</span><span class="mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
-    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
+    {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="dfc ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="dfk">Nugget ID</span><span class="dfv"><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}} <span class="dfm">&times;{{len .NuggetIDs}}</span>{{end}}</span></button>{{else}}<button type="button" class="dfc ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="dfk">Nugget IDs</span><span class="dfv mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
+    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="dfc dfc-wide" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><span class="dfk">Wi-Fi</span><span class="dfv">{{if and $rssi (ne $rssi "—")}}{{$rssi}}dBm{{end}}{{if and $wifi (ne $wifi "—")}} <span class="dfm">{{$wifi}}</span>{{end}}</span></button>{{end}}
 {{end}}
 
 {{define "device-commands"}}
@@ -333,7 +324,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
   <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
   {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">needs a site</span>{{end}}
-  <span class="isl-s">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Not at a venue{{end}} · <span class="isl-on">{{if .Online}}online{{else}}offline{{end}}</span>{{if .Device.BuildID}} · {{.Device.BuildID}}{{end}}{{if .Lab}} · in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
+  <span class="isl-s">{{if .Lab}}in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
   <span class="isl-acts">
     {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
     {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
@@ -447,20 +438,40 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 
 <div class="ddc-body">
 <style>
-/* Device page, A5 + P3 (static/device-side-demos.html, picked 14 Oct): one column; the tab
-   row carries the tabs, the vitals and Notes; placement is one line under it. */
+/* Device page, A5 + P3 (static/device-side-demos.html) and T2 (static/device-tabrow-demos.html),
+   picked 14 Oct: one column; the tab row carries the tabs and Notes, and under it one facts bar
+   of labelled cells holds the vitals and the placement. */
 .ddc-body{display:block!important}
 .ddc-body .ddc-main{width:100%;max-width:none}
-.dd-tabrow{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-bottom:8px}
+.dd-tabrow{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-bottom:12px}
 .dd-tabrow .dd-tabs{margin:0}
 .dd-tabrow-r{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
-.dd-tabrow-r .ddc-vitals{margin:0;padding:0;border:0;background:none;display:flex;flex-wrap:wrap;gap:6px}
-.dd-place{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin:2px 4px 14px}
-.dd-place .ddc-kv{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;min-height:0}
-.dd-place .ddc-kv .k{color:var(--muted);font-weight:500}
-.dd-place .ddc-kv .v{display:inline-flex;align-items:center;gap:6px;color:var(--text);font-weight:600;position:relative}
-.dd-place .ddc-kv+.ddc-kv::before{content:"·";color:var(--text-faint);margin-right:10px}
-.dd-place .pl-pop{top:calc(100% + 6px);left:0;right:auto}
+/* Facts bar: cells share the width and wrap whole; 1px gaps over a border-coloured
+   background draw the dividers, so a wrapped row still looks ruled. */
+.dd-facts{display:flex;flex-wrap:wrap;gap:1px;background:var(--border-soft);border:1px solid var(--border);border-radius:14px;margin:0 0 14px;overflow:hidden}
+.dd-facts>.ddc-vitals,.dd-facts>.dd-place,.dd-facts .ddc-vitals-live,.dd-facts .ddc-kpop-wrap{display:contents}
+.dd-facts .dfc,.dd-facts .ddc-kv{flex:1 1 112px;min-width:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;padding:9px 14px;background:var(--surface);border:0;margin:0;font:inherit;text-align:left;color:var(--text)}
+.dd-facts .dfc-wide{flex:1.6 1 170px}
+.dd-facts .ddc-kv{flex:1.3 1 150px}
+.dd-facts .dd-place>.ddc-kv:last-child{flex:1.6 1 170px}
+.dd-facts button.dfc{cursor:pointer}
+.dd-facts button.dfc:hover{background:var(--surface2)}
+.dfk,.dd-facts .ddc-kv .k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.dfv,.dd-facts .ddc-kv .v{font-size:13.5px;font-weight:650;color:var(--text);display:inline-flex;align-items:center;gap:6px;max-width:100%;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.dd-facts .ddc-kv .v{justify-content:flex-start;text-align:left}
+.dd-facts .ddc-kv .v.tags{flex-wrap:wrap;white-space:normal}
+.dd-facts .ddc-kv .v a{background:none;padding:0;border:0;color:var(--text);font-weight:650;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-facts .ddc-kv .v a:hover{color:var(--accent-text);text-decoration:underline}
+.dd-facts .cpill{white-space:nowrap;max-width:100%;overflow:hidden}
+.dfm{font-size:12px;font-weight:500;color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.dfv.muted{color:var(--muted);font-weight:500}
+.dfc.good .dfv{color:var(--ok)} .dfc.mid .dfv{color:var(--warn)} .dfc.bad .dfv{color:var(--danger)}
+.dfi{flex:none}
+.dd-facts .cpill{padding:0;border:0;background:none;font-size:13.5px;font-weight:650;color:var(--text);box-shadow:none}
+/* The bar clips (for its rounded corners), so its popovers are placed fixed under their
+   cell by ddFactsPop. */
+.dd-facts .cpill-pop,.dd-facts .pl-pop{position:fixed;right:auto}
+.dd-facts .ddc-kv .v .muted{font-weight:500}
 .dd-notes-wrap{position:relative}
 .dd-notes-btn svg{flex:none}
 .dd-notes-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--accent);margin-left:2px}
@@ -474,6 +485,21 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 }
 </style>
 <script>
+// A popover inside the facts bar is fixed-positioned under its cell (the bar clips), and
+// any scroll closes it rather than leaving it floating away from its cell.
+window.ddFactsPop = function (pop, anchor) {
+  if (!pop || !anchor || !pop.closest('.dd-facts')) return;
+  var cell = anchor.closest('.dfc, .ddc-kv') || anchor, r = cell.getBoundingClientRect();
+  pop.style.top = (r.bottom + 6) + 'px';
+  pop.style.left = Math.max(12, Math.min(r.left, window.innerWidth - pop.offsetWidth - 12)) + 'px';
+};
+if (!window.__ddFactsScroll) {
+  window.__ddFactsScroll = true;
+  window.addEventListener('scroll', function () {
+    document.querySelectorAll('.dd-facts .pl-pop:not([hidden])').forEach(function (p) { p.setAttribute('hidden', ''); });
+    var c = document.querySelector('.dd-facts .cpill-pop:not([hidden])'); if (c) { var b = document.getElementById('cpill-btn'); if (b) b.click(); }
+  }, { passive: true });
+}
 window.ddNotesToggle = function (e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   var pop = document.getElementById('dd-notes-pop'), btn = e && e.currentTarget;
@@ -502,13 +528,25 @@ if (!window.__ddNotesHook) {
   {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
 </div>
 <div class="dd-tabrow-r">
-  <div class="ddc-vitals ddc-vitals--ribbon">
+  <span class="dd-notes-wrap">
+    <button type="button" class="cc-btn sm dd-notes-btn{{if .Notes}} has{{end}}" onclick="ddNotesToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="{{if .Notes}}Notes on this device{{else}}Add a note{{end}}">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+      Notes{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
+    </button>
+    <div class="dd-notes-pop" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
+  </span>
+</div>
+</div>
+{{/* Facts bar (static/device-tabrow-demos.html, T2, picked 14 Oct): labelled cells, what the
+     device is doing, then where it is. Each child of the two display:contents wrappers is a cell. */}}
+<div class="dd-facts" aria-label="Device facts">
+  <div class="ddc-vitals">
     {{/* Client pill — first in the vitals ribbon, ahead of the battery pill, for every
          client kind alike. Carries the client version and a dot for "is it the hosted
          build?"; clicking it opens every client with its hosted version and this
          client's changelog, so the question is answered without leaving the device. */}}
     {{with .ClientPill}}
-    <span class="cpill-wrap">
+    <span class="cpill-wrap dfc dfc-wide"><span class="dfk">Client</span>
       <button type="button" class="cpill" id="cpill-btn" aria-expanded="false" aria-controls="cpill-pop"
               title="{{.Title}}" onclick="toggleClientPill(event)">
         {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
@@ -694,20 +732,11 @@ if (!window.__ddNotesHook) {
     </script>
     {{end}}
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
+    <span class="dfc"><span class="dfk">Lock</span><span class="dfv ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
-  <span class="dd-notes-wrap">
-    <button type="button" class="cc-btn sm dd-notes-btn{{if .Notes}} has{{end}}" onclick="ddNotesToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="{{if .Notes}}Notes on this device{{else}}Add a note{{end}}">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
-      Notes{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
-    </button>
-    <div class="dd-notes-pop" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
-  </span>
-</div>
-</div>
   <div class="dd-place" aria-label="Placement">
-    <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">Lab</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
+    <div class="ddc-kv dfc-first"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">Lab</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
       <button type="button" class="kv-edit" title="Change restaurant" onclick="plTogglePop('pl-rest-pop', this)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
       <div class="pl-pop" id="pl-rest-pop" hidden>
         <div class="pl-pop-h">Move to venue</div>
@@ -743,6 +772,7 @@ if (!window.__ddNotesHook) {
       </div>
     </span>{{else if not .DeviceGroups}}<span class="muted">None</span>{{end}}</span></div>
   </div>
+</div>
 
 
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
@@ -4291,6 +4321,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     if (!pop) return;
     var open = pop.hidden;
     pop.hidden = !open;
+    if (open) window.ddFactsPop(pop, btn);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     btn.closest('.cpill-wrap').classList.toggle('open', open);
     if (!open) return;
@@ -4380,7 +4411,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     if (!pop) return;
     var opening = pop.hasAttribute('hidden');
     document.querySelectorAll('.pl-pop').forEach(function (p) { p.setAttribute('hidden', ''); });
-    if (opening) { pop.removeAttribute('hidden'); }
+    if (opening) { pop.removeAttribute('hidden'); window.ddFactsPop(pop, btn); }
   };
   window.ddAddGroup = function (gid, btn) {
     // URLSearchParams -> application/x-www-form-urlencoded. Must NOT be FormData: that
