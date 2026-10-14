@@ -93,6 +93,17 @@
       <h2>Lock <span class="cc-tag {{if .Device.KioskEnabled}}ok{{else}}warn{{end}}">{{if .Device.KioskEnabled}}locked{{else}}released{{end}}</span></h2>
       <p class="muted small">Released while in lab, so guests could leave the app. It locks to the role's app again when lab ends.</p>
     </div>
+
+    {{if and (canAdmin .Role) (or (supports .Device "unenroll") (supports .Device "wipe"))}}
+    <div class="cc-card">
+      <h2>Hand back</h2>
+      <p class="muted small">Takes the device out of the fleet. Admins only.</p>
+      <div class="lab-actions">
+        {{if supports .Device "unenroll"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Unenroll {{.Device.SerialNumber}}? It stops being managed from here and keeps everything on it.')"><input type="hidden" name="type" value="unenroll"><button type="submit" class="cc-btn sm">Unenroll</button></form>{{end}}
+        {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone.')"><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm danger">Factory reset</button></form>{{end}}
+      </div>
+    </div>
+    {{end}}
   </div>
 </div>
 </div>
