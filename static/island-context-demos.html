@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top bar context demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1240px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede{color:var(--muted);font-size:13.5px;max-width:980px;line-height:1.6}.lede b{color:var(--text);font-weight:650}
+h2.part{font-size:19px;margin:44px 0 4px;padding-top:18px;border-top:1px solid var(--border)}
+h2.opt{font-size:16px;margin:30px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.now{font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface2);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.tgl{position:fixed;top:14px;right:16px;z-index:5}
+.pg{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin:16px 0 6px}
+.pg span{text-transform:none;letter-spacing:0;font-weight:500;margin-left:8px}
+/* mock top bar */
+.bar{display:flex;align-items:center;gap:14px;height:56px;padding:0 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);min-width:0}
+.logo{font-size:20px;font-weight:600;letter-spacing:-.02em;flex:none;color:var(--text-2)}.logo b{background:linear-gradient(90deg,#8a7cf0,#f0607a);-webkit-background-clip:text;color:transparent;font-weight:700}
+.isl{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding-left:14px;border-left:1px solid var(--border)}
+.t{font-size:13px;font-weight:650;color:var(--text);white-space:nowrap}
+.s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.s b{color:var(--text);font-weight:650}.s .w{color:var(--warn);font-weight:650}.s .d{color:var(--danger);font-weight:650}
+.dot{width:8px;height:8px;border-radius:99px;background:var(--ok);flex:none}.dot.w{background:var(--warn)}.dot.d{background:var(--danger)}
+.ic{width:18px;height:18px;fill:none;stroke:var(--text-2);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.acts{display:flex;gap:6px;margin-left:auto;flex:none}
+.b{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:5px 12px;color:var(--text-2);background:var(--surface);white-space:nowrap}
+.b.p{background:var(--accent);color:#fff;border-color:transparent}
+.chip{font-size:11px;font-weight:700;border-radius:99px;padding:3px 9px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}.chip.w{background:var(--warn-bg);color:var(--warn)}.chip.d{background:var(--danger-bg);color:var(--danger)}
+.right{display:flex;gap:8px;flex:none}.right i{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);display:block}
+.crumb{font-size:13px;color:var(--muted);white-space:nowrap}.crumb b{color:var(--text);font-weight:650}
+.srch{flex:1;max-width:280px;font-size:12px;color:var(--text-faint);border:1px solid var(--border);border-radius:99px;padding:6px 12px;background:var(--bg)}
+@media(max-width:900px){.bar{overflow:hidden}.logo,.acts .b:not(.p),.srch{display:none}.chip:nth-of-type(n+3){display:none}.s,.right{display:none}.pros{grid-template-columns:1fr}body{padding:16px}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="d-t7" viewBox="0 0 24 24"><path d="M7.5 3.5h9.5c.6 0 1 .5.9 1.1L16.3 17.2c-.1.5-.5.8-1 .8H6.8c-.6 0-1-.5-.9-1.1L7.5 3.5z"/><path d="M8.6 15.5h6.2"/><path d="M5 21h13.5"/><path d="M6.6 18 5.2 21M15.8 18l1.2 3"/></symbol>
+</svg>
+<button type="button" class="b tgl" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
+<div class="wrap">
+<h1>The top bar's context area, per page</h1>
+<p class="lede">The device page uses the top bar well: <b>what you are looking at, its state, and its main buttons</b>. Every other page except Lineup shows only its name ("Overview"). The mocks use numbers shaped like live (188 devices).
+When a page puts its context in the bar, it drops what that repeats lower down (the big page title, the status line), so the page starts higher.</p>
+
+<div class="pg">Reference <span>the device page today</span></div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="dot"></span><svg class="ic"><use href="#d-t7"/></svg><span class="t">T7 · AT070AABU00231</span><span class="s">Flights Vegas · v2.1.031</span><span class="acts"><span class="b">Remote</span><span class="b">Reboot</span><span class="b p">Open in lab</span><span class="b">⋯</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<h2 class="part">C1 · Name, live state, main buttons, on every page <span class="pick">my pick</span></h2>
+<p class="lede">The same three parts as the device page. The state line is the page's headline numbers, coloured only when something needs a look; the buttons are what the page is for.</p>
+
+<div class="pg">Overview</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="dot w"></span><span class="t">Overview</span><span class="s"><b>171</b> of 188 online · <span class="d">3 critical</span> · <span class="w">18 behind on client</span> · 2 jobs running</span><span class="acts"><span class="b">Alerts 3</span><span class="b">Last 24 h ▾</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">Fleet</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">Fleet · All devices</span><span class="s"><b>188</b> devices · 171 online · filtered: Tableside AI, offline</span><span class="acts"><span class="b">Save view</span><span class="b p">Enroll</span></span></div><span class="right"><i></i><i></i></span></div>
+<div class="pg">Fleet <span>with devices ticked</span></div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">Fleet · 12 selected</span><span class="s">of 188 · 9 online</span><span class="acts"><span class="b">Reboot</span><span class="b">Install app</span><span class="b">Move to venue</span><span class="b">Clear</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">Venues</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="dot w"></span><span class="t">Venues</span><span class="s"><b>24</b> venues · <span class="w">3 need a look</span> · 7 offline devices</span><span class="acts"><span class="b p">New venue</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">A venue</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="dot"></span><span class="t">Flights Vegas</span><span class="s"><b>11</b> of 12 online · open now, closes 23:00 · health 92</span><span class="acts"><span class="b">Weekly report</span><span class="b p">+ Add devices</span><span class="b">⋯</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">Lineup <span>already does this</span></div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">Lineup · Tableside AI</span><span class="s">160 devices · 1 model · prod v2.1.031 · <span class="w">4 behind</span></span><span class="acts"><span class="b">+ Add model</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">Jobs</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="dot"></span><span class="t">Jobs</span><span class="s"><b>2</b> running · 41 of 58 done on "Rollout 2.4.1" · <span class="d">1 failed today</span></span><span class="acts"><span class="b p">New job</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">Alerts</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="dot d"></span><span class="t">Alerts</span><span class="s"><span class="d">3 critical</span> · <span class="w">9 warnings</span> · oldest 2 h</span><span class="acts"><span class="b">Rules</span><span class="b">Acknowledge all</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">App library</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">App library</span><span class="s"><b>14</b> apps · Nugget 2.4.1 on 152 devices · 1 install running</span><span class="acts"><span class="b p">Upload APK</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pg">Settings</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">Settings · Users</span><span class="s">8 people · 2 admins · last change 3 Oct by you</span><span class="acts"><span class="b p">Invite</span></span></div><span class="right"><i></i><i></i></span></div>
+
+<div class="pros"><div>One rule for every page: you always see where you are, whether anything is wrong and the button the page is for, even after scrolling. The page header can shrink to nothing, so content starts higher.</div><div class="bad">Each page needs its numbers computed for the bar (most already are for the page). Under 1100 px the state line hides, like the device page today.</div></div>
+
+<h2 class="part">C2 · Name and status chips, no buttons</h2>
+<div class="pg">Overview</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">Overview</span><span class="chip ok">171 online</span><span class="chip">17 offline</span><span class="chip d">3 critical</span><span class="chip w">18 behind</span></div><span class="right"><i></i><i></i></span></div>
+<div class="pg">Fleet</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">Fleet</span><span class="chip">188</span><span class="chip ok">171 online</span><span class="chip">Tableside AI ×</span><span class="chip">offline ×</span></div><span class="right"><i></i><i></i></span></div>
+<div class="pg">A venue</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="t">Flights Vegas</span><span class="chip ok">11 of 12 online</span><span class="chip">open · closes 23:00</span></div><span class="right"><i></i><i></i></span></div>
+<div class="pros"><div>Glanceable; chips can double as filters (Fleet).</div><div class="bad">Buttons stay down in the page, so after scrolling the main action is gone; chips get crowded on narrow screens.</div></div>
+
+<h2 class="part">C3 · Breadcrumb and a page search</h2>
+<div class="pg">Fleet</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="crumb">Fleet › <b>All devices</b></span><span class="srch">Search 188 devices…</span><span class="acts"><span class="b p">Enroll</span></span></div><span class="right"><i></i><i></i></span></div>
+<div class="pg">A venue</div>
+<div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="isl"><span class="crumb">Venues › <b>Flights Vegas</b></span><span class="srch">Search this venue…</span><span class="acts"><span class="b p">+ Add devices</span></span></div><span class="right"><i></i><i></i></span></div>
+<div class="pros"><div>Shows the way back up; search is always reachable.</div><div class="bad">No state: the bar never tells you something is wrong. The dock already has a global search.</div></div>
+
+<p class="lede" style="margin-top:34px"><b>Pick C1.</b> It is what already works on the device page, applied everywhere: where you are, whether anything needs you, and the button the page is for.</p>
+</div></body></html>
