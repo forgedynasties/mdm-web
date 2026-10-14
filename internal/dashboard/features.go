@@ -1366,64 +1366,11 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	order := clientSlotOrder
-	labels := clientSlotLabels
-	// One firmware client, one build. There is no tree to pick any more, so there are
-	// no variants and nothing collapses into a group: `variants` stays empty, which is
-	// what keeps the variant tabs and the group header off the page.
-	firmwareGroup := []string{"firmware-qcom"}
+	views, counts := h.clientSlotSummaries(r, devices)
 	variants := map[string]string{}
+	firmwareGroup := []string{"firmware-qcom"}
 	const firmwareLabel = "Firmware MDM"
 	const firmwareNote = "The system app in our AOSP images, covering user and userdebug builds alike. It is platform-signed, so a device installs only a build signed with the key its own image trusts."
-	notes := map[string]string{
-		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
-		"firmware-qcom": "Our own hardware — T7 and the kiosks — on the v2.1.x build line. Published from the AOSP tree that signs it, and the only firmware line that is built.",
-	}
-
-	views := map[string]*ClientSlotView{}
-	counts := map[string]map[int64]*ClientVersionCount{}
-	for _, slot := range order {
-		b, hosted := h.cfg.AgentAPKSlot(slot)
-		v := &ClientSlotView{Slot: slot, Label: labels[slot], Variant: variants[slot], Note: notes[slot], Hosted: hosted, Build: b,
-			Auto: h.cfg.ClientAutoUpdate(slot)}
-		if hosted {
-			v.URL = h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]
-		}
-		views[slot] = v
-		counts[slot] = map[int64]*ClientVersionCount{}
-	}
-
-	for i := range devices {
-		d := &devices[i]
-		real := agentSlotFor(d)
-		v := views[clientDisplaySlot(real)]
-		if v == nil {
-			continue
-		}
-		v.Devices++
-		name, code := clientVersionOf(d)
-		switch {
-		case real != v.Slot:
-			// Folded in from a slot with nothing published: counted, never offered.
-			v.NoBuild++
-		case code == 0 || !versionComparable(d, v.Build.Package):
-			v.Unknown++
-		case v.Hosted && code >= v.Build.VersionCode:
-			v.UpToDate++
-		case v.Hosted:
-			v.Behind++
-		}
-		_ = name
-		if code == 0 && name == "" {
-			continue
-		}
-		c := counts[v.Slot][code]
-		if c == nil {
-			c = &ClientVersionCount{Version: name, Code: code}
-			counts[v.Slot][code] = c
-		}
-		c.Count++
-		c.Current = v.Hosted && code == v.Build.VersionCode
-	}
 
 	// Which client is open. An unknown or missing ?slot lands on the first one that has
 	// devices, so the page opens on something worth looking at rather than an empty tab.
@@ -2235,4 +2182,65 @@ func dischargeSeriesJSON(pts []db.DischargePoint, err error) template.JS {
 		return template.JS("[]")
 	}
 	return template.JS(b)
+}
+
+// clientSlotSummaries counts, per client slot, the devices on it and where they stand
+// against the hosted build (shared by the Clients page and Releases).
+func (h *Handler) clientSlotSummaries(r *http.Request, devices []db.Device) (map[string]*ClientSlotView, map[string]map[int64]*ClientVersionCount) {
+	order := clientSlotOrder
+	labels := clientSlotLabels
+	// One firmware client, one build: no variants.
+	variants := map[string]string{}
+	notes := map[string]string{
+		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
+		"firmware-qcom": "Our own hardware — T7 and the kiosks — on the v2.1.x build line. Published from the AOSP tree that signs it, and the only firmware line that is built.",
+	}
+
+	views := map[string]*ClientSlotView{}
+	counts := map[string]map[int64]*ClientVersionCount{}
+	for _, slot := range order {
+		b, hosted := h.cfg.AgentAPKSlot(slot)
+		v := &ClientSlotView{Slot: slot, Label: labels[slot], Variant: variants[slot], Note: notes[slot], Hosted: hosted, Build: b,
+			Auto: h.cfg.ClientAutoUpdate(slot)}
+		if hosted {
+			v.URL = h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]
+		}
+		views[slot] = v
+		counts[slot] = map[int64]*ClientVersionCount{}
+	}
+
+	for i := range devices {
+		d := &devices[i]
+		real := agentSlotFor(d)
+		v := views[clientDisplaySlot(real)]
+		if v == nil {
+			continue
+		}
+		v.Devices++
+		name, code := clientVersionOf(d)
+		switch {
+		case real != v.Slot:
+			// Folded in from a slot with nothing published: counted, never offered.
+			v.NoBuild++
+		case code == 0 || !versionComparable(d, v.Build.Package):
+			v.Unknown++
+		case v.Hosted && code >= v.Build.VersionCode:
+			v.UpToDate++
+		case v.Hosted:
+			v.Behind++
+		}
+		_ = name
+		if code == 0 && name == "" {
+			continue
+		}
+		c := counts[v.Slot][code]
+		if c == nil {
+			c = &ClientVersionCount{Version: name, Code: code}
+			counts[v.Slot][code] = c
+		}
+		c.Count++
+		c.Current = v.Hosted && code == v.Build.VersionCode
+	}
+
+	return views, counts
 }

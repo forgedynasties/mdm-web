@@ -43,6 +43,12 @@ type pipeRole struct {
 	HasApp        bool
 }
 
+// pipeClient is one MDM client in the side list.
+type pipeClient struct {
+	Slot, Label, Status, Tone string
+	On                        bool
+}
+
 // pipeColumn is one package of the role's app: prod (the base package) or a lab package.
 type pipeColumn struct {
 	Package    string
@@ -163,6 +169,46 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			pr.Status, pr.Tone = "all on prod", "ok"
 		}
 		roles = append(roles, pr)
+	}
+	// MDM clients sit in the same side list (merged from the Clients page): our own agents,
+	// kept on their hosted build by the auto-update policy.
+	views, _ := h.clientSlotSummaries(r, devices)
+	clientSel := strings.TrimSpace(r.URL.Query().Get("client"))
+	var clients []pipeClient
+	for _, slot := range clientSlotOrder {
+		v := views[slot]
+		pc := pipeClient{Slot: slot, Label: v.Label, On: slot == clientSel}
+		switch {
+		case !v.Hosted:
+			pc.Status, pc.Tone = "no hosted build", "muted"
+		case v.Behind > 0:
+			pc.Status, pc.Tone = fmt.Sprintf("%d behind %s", v.Behind, v.Build.Version), "warn"
+		default:
+			pc.Status, pc.Tone = "all on "+v.Build.Version, "ok"
+		}
+		clients = append(clients, pc)
+	}
+	if v, ok := views[clientSel]; ok {
+		var behind []string
+		for i := range devices {
+			d := &devices[i]
+			if agentSlotFor(d) != clientSel || !v.Hosted {
+				continue
+			}
+			if _, code := clientVersionOf(d); code > 0 && versionComparable(d, v.Build.Package) && code < v.Build.VersionCode {
+				behind = append(behind, d.SerialNumber)
+			}
+		}
+		v.BehindSerials = strings.Join(behind, ",")
+		h.render(w, r, "pipeline.html", map[string]any{
+			"Title":   "Releases",
+			"Roles":   roles,
+			"Clients": clients,
+			"Client":  v,
+			"CanEdit": canLab(h.role(r)),
+			"Flash":   r.URL.Query().Get("flash"),
+		})
+		return
 	}
 	if sel == "" {
 		sel = prod.ClassT7
@@ -291,6 +337,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "pipeline.html", map[string]any{
 		"Title":       "Releases",
 		"Roles":       roles,
+		"Clients":     clients,
 		"Role":        sel,
 		"RoleLabel":   selLabel,
 		"BasePackage": base,
