@@ -687,8 +687,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 <div class="dd-tabs" role="tablist" aria-label="Device details">
   <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-queue" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-queue" data-dd-tab="queue" onclick="setDeviceTab('queue', this)">Queue{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n">{{len .Queue}}</span>{{end}}</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-history" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-history" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>{{end}}
+  {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
   {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
@@ -4084,16 +4084,21 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 
 
 {{if not .IsOwner}}
-<section class="dd-panel" data-dd-panel="queue" id="dd-panel-queue" role="tabpanel" aria-labelledby="dd-tab-queue" tabindex="0" hidden>
-  {{template "device-queue" .}}
-</section><!-- /queue -->
+<section class="dd-panel dd-activity" data-dd-panel="activity" id="dd-panel-activity" role="tabpanel" aria-labelledby="dd-tab-activity" tabindex="0" hidden>
+  <div class="dd-act-queue">{{template "device-queue" .}}</div>
+  {{/* History renders on first open: the partial returns the "device-commands" root with
+       its own live-refresh attributes, so after the outerHTML swap it keeps updating. */}}
+  <div hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
+       class="muted small" style="padding:26px;text-align:center;">Loading history…</div>
+</section><!-- /activity -->
+<style>.dd-activity .dd-act-queue{margin-bottom:16px}</style>
 {{end}}
 <script>
   // Keep the Queue tab's count badge in sync as the queue drains/morphs live.
   document.body.addEventListener('htmx:afterSwap', function (e) {
     if (!e.target || e.target.id !== 'device-queue') return;
     var n = e.target.querySelectorAll('.dq-item').length;
-    var tab = document.getElementById('dd-tab-queue');
+    var tab = document.getElementById('dd-tab-activity');
     var badge = document.getElementById('dd-queue-n');
     if (n > 0) {
       if (!badge && tab) { badge = document.createElement('span'); badge.className = 'dd-tab-n'; badge.id = 'dd-queue-n'; tab.appendChild(document.createTextNode(' ')); tab.appendChild(badge); }
@@ -4102,14 +4107,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   });
 </script>
 
-{{if not .IsOwner}}
-<section class="dd-panel" data-dd-panel="history" id="dd-panel-history" role="tabpanel" aria-labelledby="dd-tab-history" tabindex="0" hidden>
-  {{/* Rendered on first open: the partial returns the "device-commands" root with its own
-       live-refresh attributes, so after the outerHTML swap it keeps updating as before. */}}
-  <div hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
-       class="muted small" style="padding:26px;text-align:center;">Loading history…</div>
-</section><!-- /history -->
-{{end}}
+
 
 {{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="alerts" id="dd-panel-alerts" role="tabpanel" aria-labelledby="dd-tab-alerts" tabindex="0" hidden
@@ -4184,7 +4182,9 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
         // Lazy panels (Alerts, History) fetch their content on first open; the
         // "once" in their hx-trigger makes repeat opens a no-op.
         var lazy = p.hasAttribute('hx-get') ? p : p.querySelector(':scope > [hx-trigger^="dd-show"]');
-        if (lazy) { window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); }
+        // process() first: on a deep-link or remembered tab this runs before htmx has wired
+        // the element up, and the trigger would go to nothing. It is a no-op when already done.
+        if (lazy) { window.htmx.process(lazy); window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); }
       }
     });
     try { localStorage.setItem(ddTabKey, name); } catch (e) {}
@@ -4275,6 +4275,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     var want = null;
     try { var qp = new URLSearchParams(location.search); if (qp.get('tab')) want = qp.get('tab'); } catch (e) {}
     if (!want) { try { want = localStorage.getItem(ddTabKey); } catch (e) {} }
+    if (want === 'queue' || want === 'history') want = 'activity'; // the two tabs merged
     if (!want || want === 'summary') return;
     var btn = document.getElementById('dd-tab-' + want);
     if (btn) setDeviceTab(want, btn);
