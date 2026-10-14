@@ -280,6 +280,9 @@ if (!window.__plChips) {
   .lu-head h2 { font-size: 18px; font-weight: 650; margin: 0; }
   .lu-appname { font-size: 13px; }
   .lu-sel { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 100%; }
+  .pl-lanehead .pl-inline { min-width: 0; max-width: 100%; }
+  .pl-lanehead .lu-sel { width: 100%; text-overflow: ellipsis; }
+  @media (min-width: 721px) { .pl-lanehead .lu-sel { width: auto; } }
   .lu-sel.unset { border-color: var(--warn); color: var(--warn); }
   .lu-tbl { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0 12px; }
   .lu-th, .lu-tr { display: grid; grid-template-columns: minmax(180px,1.4fr) minmax(110px,1fr) minmax(140px,1fr) 130px 60px; column-gap: 14px; align-items: center; }
