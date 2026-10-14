@@ -892,9 +892,9 @@ if (!window.__ddNotesHook) {
 .vt-tab{font:inherit;font-size:12.5px;font-weight:650;padding:5px 12px;border-radius:8px;border:0;background:none;color:var(--muted);cursor:pointer}
 .vt-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .chart-card .vt-lbl{display:none}
-.chart-card .vt-panel{padding-top:8px}
+.chart-card .vt-panel{padding-top:0}
 .chart-card .vt-panel+.vt-panel{border-top:0}
-.chart-card .vt-panel .chart-wrap--tall{height:260px}
+.chart-card .vt-panel .chart-wrap--tall{height:260px;padding:10px 14px 2px 6px}
 .vt-navw{padding:6px 16px 12px;border-top:1px solid var(--border-soft)}
 .vt-nav{position:relative;height:34px;border-radius:8px;background:var(--surface2);overflow:hidden;cursor:pointer;touch-action:none;color:var(--text-faint);user-select:none}
 .vt-nav svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -2496,7 +2496,7 @@ function mdmBootCharts() {
   const VT_COLOR = { battery: '#f9674e', temp: '#e8a13a', ram: '#7a80f6' };
   function vtStack() { return [batteryChart, tempChart, ramChart].filter(Boolean); }
   // Same y-axis width on every chart, so their plots (and the pointer line) line up.
-  function vtYFit(scale) { scale.width = 50; }
+  function vtYFit(scale) { scale.width = 46; }
   function vtCss(name, fb) { return (getComputedStyle(document.documentElement).getPropertyValue(name) || '').trim() || fb; }
   function vtNearestIdx(data, ms) {
     let best = -1, bd = Infinity;
