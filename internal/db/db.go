@@ -16779,6 +16779,50 @@ func (d *DB) ListDeviceCrashesPage(ctx context.Context, deviceID uuid.UUID, limi
 	return out, total, rows.Err()
 }
 
+// AgentUpdateGiveUps names the devices the auto-update job should stop offering a build
+// to: those that refused it for its signing key (a different key never installs, however
+// often it is sent) and those it has failed on autoUpdateMaxFails times. Keyed to the
+// build's SHA-256, so publishing a new build gives every device a fresh start.
+func (d *DB) AgentUpdateGiveUps(ctx context.Context, deviceIDs []uuid.UUID, sha256Hex string, maxFails int) (map[uuid.UUID]string, error) {
+	out := map[uuid.UUID]string{}
+	if len(deviceIDs) == 0 || sha256Hex == "" {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT ct.target_id,
+		       COUNT(*) FILTER (WHERE cs.status = 'failed'),
+		       BOOL_OR(r.output ILIKE '%signed with a different key%' OR r.output ILIKE '%INSTALL_FAILED_UPDATE_INCOMPATIBLE%')
+		FROM commands c
+		JOIN command_targets ct ON ct.command_id = c.id
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
+		LEFT JOIN command_results r ON r.command_id = c.id AND r.device_id = ct.target_id
+		WHERE c.type = 'app_update'
+		  AND c.created_by = 'auto-update'
+		  AND ct.target_id = ANY($1)
+		  AND c.payload->>'sha256' = $2
+		  AND c.created_at > NOW() - INTERVAL '30 days'
+		GROUP BY ct.target_id`, deviceIDs, sha256Hex)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var fails int
+		var key *bool
+		if err := rows.Scan(&id, &fails, &key); err != nil {
+			return nil, err
+		}
+		switch {
+		case key != nil && *key:
+			out[id] = "signed with a different key"
+		case fails >= maxFails:
+			out[id] = "failed " + strconv.Itoa(fails) + " times"
+		}
+	}
+	return out, rows.Err()
+}
+
 // ListDeviceActiveAlerts returns the non-resolved alerts for a single device, worst
 // severity first then newest — the alert feed for that device's Alerts tab.
 // InFlightAgentUpdates reports, per device, the state of an agent update that is
