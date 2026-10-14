@@ -8,7 +8,7 @@
       <div class="cc-sub">What every role runs. A device at a venue follows its role's prod build by itself, inside its quiet window; lab devices follow the package their lab session chose.</div>
     </div>
     <div class="cc-actions">
-      <a class="cc-btn sm" href="/products">Role table</a>
+      <a class="cc-btn sm" href="/products">Roles &amp; hardware</a>
       <a class="cc-btn sm" href="/apps">Library</a>
       <a class="cc-btn sm" href="/packages">Packages</a>
     </div>
@@ -41,20 +41,11 @@
       <div class="pl-lanehead">
         <h2>App{{if .BaseName}} · {{.BaseName}}{{end}}</h2>
         {{if .BasePackage}}<span class="pl-faint">one column per package · prod is <span class="mono">{{.BasePackage}}</span></span>{{end}}
-        {{if .CanEdit}}
-        <form class="pl-inline pl-right" method="post" action="/pipeline/role-app">
-          <input type="hidden" name="role" value="{{.Role}}">
-          <select name="base_package" aria-label="App for {{.RoleLabel}}">
-            <option value="">— no app —</option>
-            {{range .Choices}}<option value="{{.Package}}"{{if eq .Package $.BasePackage}} selected{{end}}>{{.Name}} ({{.Package}})</option>{{end}}
-          </select>
-          <button class="cc-btn sm" type="submit">Set app</button>
-        </form>
-        {{end}}
+        <span class="pl-faint pl-right">set in <a href="/products#role-{{.Role}}">Roles &amp; hardware</a></span>
       </div>
 
       {{if not .BasePackage}}
-        <div class="pl-empty">No app is set for {{.RoleLabel}}. Pick the role's app above; until then its devices are left alone.</div>
+        <div class="pl-empty">No app is set for {{.RoleLabel}}. A super admin sets it in <a href="/products#role-{{.Role}}">Roles &amp; hardware</a>; until then its devices are left alone.</div>
       {{else}}
       <div class="pl-lane" style="--cols: {{len .Columns}}">
         <div class="pl-col">
@@ -108,17 +99,7 @@
       <div class="pl-model" data-model="{{$m.Key}}"{{if ne $i 0}} hidden{{end}}>
         <div class="pl-lanehead">
           <span class="pl-faint">{{$m.Label}}{{if $m.Maker}} · made by {{$m.Maker}}{{end}} · {{$m.Firmware}} on the Firmware client{{if $m.Std}} · {{$m.Std}} on the Standard client{{end}}</span>
-          {{if $.CanEdit}}
-          <form class="pl-inline pl-right" method="post" action="/pipeline/firmware-mode">
-            <input type="hidden" name="role" value="{{$.Role}}"><input type="hidden" name="model" value="{{$m.Key}}">
-            <select name="mode" aria-label="Firmware mode for {{$m.Label}}">
-              <option value="prod"{{if eq $m.Mode "prod"}} selected{{end}}>Firmware: prod</option>
-              <option value="lab"{{if eq $m.Mode "lab"}} selected{{end}}>Firmware: lab only</option>
-              <option value="off"{{if eq $m.Mode "off"}} selected{{end}}>Firmware: off</option>
-            </select>
-            <button class="cc-btn sm" type="submit">Save</button>
-          </form>
-          {{else}}<span class="cc-tag pl-right">{{$m.Mode}}</span>{{end}}
+          <span class="pl-right"><span class="cc-tag {{if eq $m.Mode "prod"}}ok{{else if eq $m.Mode "lab"}}info{{end}}">Firmware: {{if eq $m.Mode "prod"}}prod{{else if eq $m.Mode "lab"}}lab only{{else}}off{{end}}</span> <a class="pl-faint" href="/products#model-{{$m.Key}}">change</a></span>
         </div>
         {{if eq $m.Mode "off"}}
           <div class="pl-empty">Firmware is off for this model. It runs its maker's firmware and follows the app lane only.</div>

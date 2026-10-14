@@ -30,6 +30,19 @@
 .pr-cap h2{font-size:15px;font-weight:600;margin:0}
 .pr-cap span{font-size:12.5px;color:var(--muted)}
 .pr-prod{margin-top:6px}
+.rh-hd,.rh-role,.rh-model{display:grid;grid-template-columns:minmax(220px,1.3fr) minmax(220px,1.3fr) 190px 150px 70px;align-items:center;column-gap:18px;padding:0 18px}
+.rh-hd{height:36px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border)}
+.rh-role{min-height:54px;padding-top:8px;padding-bottom:8px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--accent) 5%,var(--surface))}
+.rh-role:first-of-type{border-top:0}
+.rh-need{background:var(--warn-bg)}
+.rh-model{min-height:56px;padding-top:9px;padding-bottom:9px;border-top:1px solid var(--border-soft)}
+.rh-model>div:first-child{padding-left:16px}
+.rh-inline{display:inline-flex;gap:6px;align-items:center;margin:0;max-width:100%}
+.rh-mini{height:26px;padding:0 6px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;font-size:11.5px;margin-left:4px}
+.rh-mini.unset{border-color:var(--warn);color:var(--warn)}
+.rh-name{margin-top:6px;max-width:320px}
+.pr-flash{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:var(--ok-bg);color:var(--ok);font-size:13px;font-weight:600}
+@media(max-width:900px){.rh-hd{display:none}.rh-role,.rh-model{grid-template-columns:1fr auto;row-gap:8px}.rh-role>*:nth-child(2),.rh-model>*:nth-child(2),.rh-model>*:nth-child(3),.rh-model>*:nth-child(4){grid-column:1/-1}.rh-role>span{display:none}}
 @media(max-width:900px){
   .pr-hd{display:none}
   .pr-row{grid-template-columns:1fr auto;row-gap:8px}
@@ -40,57 +53,37 @@
 <div class="cc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Fleet · Products</div>
-    <h1 class="cc-h1">Products</h1>
-    <div class="cc-sub">Many vendor models can serve one product (POS terminal, menu board, …). Map each stock model to its product and give it a name people recognise; our own boards keep their catalog names. Admins only.</div>
+    <div class="cc-eyebrow">Fleet · Roles &amp; hardware</div>
+    <h1 class="cc-h1">Roles &amp; hardware</h1>
+    <div class="cc-sub">Set once by a super admin: the app each role runs, which hardware models serve each role, and whether a model takes firmware from us. Releases and the device pages follow what is set here.</div>
   </div>
 </div>
+{{if .Flash}}<div class="pr-flash">{{if eq .Flash "app"}}App saved for that role.{{else if eq .Flash "mode"}}Firmware setting saved.{{end}}</div>{{end}}
 
-<div class="pr-cap"><h2>Stock hardware</h2><span>Standard MDM and MDM Lite devices · set each model's product once and all its devices follow</span></div>
-<div class="pr-list">
-  <div class="pr-hd"><span>Model</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Product</span><span>Display name</span></div>
-  {{range .Stock}}
-  <div class="pr-row">
-    <div><div class="pr-name">{{.Display}}</div><div class="pr-key">{{.Key}}</div></div>
-    <div class="pr-rep">{{if .Reported}}{{.Reported}}{{else}}<span class="pr-fixed">no model reported</span>{{end}}</div>
-    <div class="pr-n">{{.Devices}}</div>
-    {{template "pr-agents" .}}
-    <div class="pr-role">
-      <form method="POST" action="/products/{{.Key}}/role" hx-post="/products/{{.Key}}/role" hx-swap="none" hx-trigger="change" hx-on::after-request="if(event.detail.successful)location.reload()">
-        <select name="role" class="pr-sel{{if not .Role}} unset{{end}}" aria-label="Product for {{.Key}}">
-          <option value="">Choose a product…</option>
-          {{$cur := .Role}}{{range $.Classes}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{classLabel .}}</option>{{end}}
+<div class="pr-list rh-list">
+  <div class="rh-hd"><span>Role · model</span><span>App · devices report</span><span>Client</span><span>Firmware</span><span style="text-align:right">Devices</span></div>
+  {{range .Groups}}{{$g := .}}
+  <div class="rh-role" id="role-{{.Key}}">
+    <div class="pr-name">{{.Label}}</div>
+    <div>
+      {{if canAdmin $.Role}}
+      <form method="POST" action="/products/role-app" class="rh-inline">
+        <input type="hidden" name="role" value="{{.Key}}">
+        <select name="base_package" class="pr-sel{{if not .App}} unset{{end}}" aria-label="App for {{.Label}}" onchange="this.form.requestSubmit()">
+          <option value="">— no app —</option>
+          {{range $.Choices}}<option value="{{.Package}}"{{if eq .Package $g.App}} selected{{end}}>{{.Name}} · {{.Package}}</option>{{end}}
         </select>
       </form>
+      {{else}}{{if .App}}<span class="mono">{{.App}}</span>{{else}}<span class="pr-fixed">no app</span>{{end}}{{end}}
     </div>
-    <div class="pr-edit">
-      <form class="pr-form" method="POST" action="/products/{{.Key}}/name" hx-post="/products/{{.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
-        <input type="text" name="name" value="{{.Name}}" maxlength="60" placeholder="{{if .Reported}}{{.Reported}}{{else}}{{.Key}}{{end}}" aria-label="Display name for {{.Key}}">
-        <button type="submit" class="save">Save</button>
-        {{if .Name}}<button type="submit" name="reset" value="1" title="Go back to what the devices report">Reset</button>{{end}}
-      </form>
-      {{if .Name}}<div class="pr-by">Named{{if .UpdatedBy}} by {{.UpdatedBy}}{{end}} · devices report “{{if .Reported}}{{.Reported}}{{else}}{{.Key}}{{end}}”</div>{{end}}
-    </div>
-  </div>
-  {{else}}
-  <div class="pr-row"><div class="pr-fixed">No Standard MDM or MDM Lite devices yet.</div></div>
-  {{end}}
-</div>
-
-<div class="pr-cap"><h2>Our hardware</h2><span>Firmware MDM catalog · names are fixed</span></div>
-<div class="pr-list">
-  <div class="pr-hd"><span>Product</span><span>Devices report</span><span style="text-align:right">Devices</span><span>Clients</span><span>Product</span><span></span></div>
-  {{range .Ours}}
-  <div class="pr-row">
-    <div><div class="pr-name">{{.Display}}</div><div class="pr-key">{{.Key}}</div></div>
-    <div class="pr-rep">{{if .Reported}}{{.Reported}}{{else}}<span class="pr-fixed">—</span>{{end}}</div>
+    <span></span><span></span>
     <div class="pr-n">{{.Devices}}</div>
-    {{template "pr-agents" .}}
-    <div class="pr-rep">{{classLabel .Role}}</div>
-    <div class="pr-fixed">Catalog name and product</div>
   </div>
-  {{else}}
-  <div class="pr-row"><div class="pr-fixed">No devices on our hardware yet.</div></div>
+  {{range .Models}}{{template "rh-model" (dict "M" . "Root" $)}}{{end}}
+  {{end}}
+  {{if .NeedRole}}
+  <div class="rh-role rh-need"><div class="pr-name">Role needed</div><div class="pr-fixed">New models land here until someone sets their role.</div><span></span><span></span><span></span></div>
+  {{range .NeedRole}}{{template "rh-model" (dict "M" . "Root" $)}}{{end}}
   {{end}}
 </div>
 
@@ -140,6 +133,42 @@
 </div>
 </div>
 {{template "footer" .}}
+{{end}}
+
+{{define "rh-model"}}{{$m := .M}}{{$root := .Root}}
+  <div class="rh-model" id="model-{{$m.Key}}">
+    <div>
+      <div class="pr-name">{{$m.Display}}</div><div class="pr-key">{{$m.Key}}{{if not $m.Known}} · <span>role</span>
+        <form method="POST" action="/products/{{$m.Key}}/role" hx-post="/products/{{$m.Key}}/role" hx-swap="none" hx-trigger="change" hx-on::after-request="if(event.detail.successful)location.reload()" class="rh-inline">
+          <select name="role" class="rh-mini{{if not $m.Role}} unset{{end}}" aria-label="Role for {{$m.Key}}">
+            <option value="">Choose a role…</option>
+            {{range $root.Classes}}<option value="{{.}}"{{if eq . $m.Role}} selected{{end}}>{{classLabel .}}</option>{{end}}
+          </select>
+        </form>{{end}}</div>
+      {{if not $m.Known}}
+      <form class="pr-form rh-name" method="POST" action="/products/{{$m.Key}}/name" hx-post="/products/{{$m.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
+        <input type="text" name="name" value="{{$m.Name}}" maxlength="60" placeholder="Display name" aria-label="Display name for {{$m.Key}}">
+        <button type="submit" class="save">Save</button>{{if $m.Name}}<button type="submit" name="reset" value="1">Reset</button>{{end}}
+      </form>
+      {{end}}
+    </div>
+    <div class="pr-rep">{{if $m.Reported}}{{$m.Reported}}{{else}}<span class="pr-fixed">—</span>{{end}}</div>
+    {{template "pr-agents" $m}}
+    <div>
+      {{if and $m.CanFw (canAdmin $root.Role)}}
+      <form method="POST" action="/products/firmware-mode" class="rh-inline">
+        <input type="hidden" name="model" value="{{$m.Key}}">
+        <select name="mode" class="pr-sel" aria-label="Firmware for {{$m.Display}}" onchange="this.form.requestSubmit()">
+          <option value="prod"{{if eq $m.FwMode "prod"}} selected{{end}}>Prod</option>
+          <option value="lab"{{if eq $m.FwMode "lab"}} selected{{end}}>Lab only</option>
+          <option value="off"{{if eq $m.FwMode "off"}} selected{{end}}>Off</option>
+        </select>
+      </form>
+      {{else if $m.CanFw}}<span class="pr-rep">{{if eq $m.FwMode "prod"}}Prod{{else if eq $m.FwMode "lab"}}Lab only{{else}}Off{{end}}</span>
+      {{else}}<span class="pr-fixed">Off · maker's firmware</span>{{end}}
+    </div>
+    <div class="pr-n">{{$m.Devices}}</div>
+  </div>
 {{end}}
 
 {{define "pr-agents"}}<span class="pr-agents">{{if .Firmware}}<span class="pr-ag">Firmware MDM <b>{{.Firmware}}</b></span>{{end}}{{if .DPC}}<span class="pr-ag">Standard MDM <b>{{.DPC}}</b></span>{{end}}{{if .Lite}}<span class="pr-ag">MDM Lite <b>{{.Lite}}</b></span>{{end}}</span>{{end}}

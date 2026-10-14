@@ -22009,10 +22009,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.ShellSessionInput)))
 	// Releases (pipeline.go): what every role runs, and the per-model firmware.
 	mux.HandleFunc("GET /pipeline", h.requireAuth(h.Pipeline))
-	post("POST /pipeline/role-app", h.requireLab(h.PipelineRoleApp))
 	post("POST /pipeline/channel", h.requireLab(h.PipelineChannel))
 	post("POST /pipeline/firmware", h.requireLab(h.PipelineFirmware))
-	post("POST /pipeline/firmware-mode", h.requireLab(h.PipelineFirmwareMode))
 	post("POST /pipeline/rollout", h.requireLab(h.PipelineRollout))
 	post("POST /pipeline/fetch", h.requireLab(h.PipelineFetch))
 	// Lab sessions (lab.go): the timed lab view and its actions.
@@ -22291,6 +22289,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
 	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
 	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
+	// Roles & hardware (products.go): what each role runs, and each model's firmware mode.
+	// Super admins only — Releases shows both read-only.
+	post("POST /products/role-app", h.requireStrictAdmin(h.PipelineRoleApp))
+	post("POST /products/firmware-mode", h.requireStrictAdmin(h.PipelineFirmwareMode))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.
 	mux.HandleFunc("GET /clients", h.requireAuth(h.fleetWide(h.ClientsPage)))
@@ -22498,13 +22500,20 @@ func (h *Handler) CommandOutputStream(w http.ResponseWriter, r *http.Request) {
 	streamed := false
 	finish := func() {
 		// The ack can land a moment after the last chunk; give it a beat.
+		// The firmware client marks the end over the socket and sends what it printed
+		// on stderr in a separate HTTP ack, which can land seconds later. So once it is
+		// over, keep waiting (up to 15s) for that output if none was streamed.
 		var status, out string
-		for i := 0; i < 6; i++ {
+		for i := 0; i < 30; i++ {
 			status, out, _ = h.db.CommandOutcome(r.Context(), cmdID, device.ID)
-			if isTerminalCommandStatus(status) {
+			if isTerminalCommandStatus(status) && (streamed || out != "" || i >= 10 && status == "completed") {
 				break
 			}
-			time.Sleep(500 * time.Millisecond)
+			select {
+			case <-r.Context().Done():
+				return
+			case <-time.After(500 * time.Millisecond):
+			}
 		}
 		if !streamed && out != "" {
 			data, _ := json.Marshal(out)

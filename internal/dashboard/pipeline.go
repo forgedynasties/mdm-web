@@ -279,36 +279,12 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		sort.Slice(inbox, func(i, j int) bool { return inbox[i].App.CreatedAt.After(inbox[j].App.CreatedAt) })
 	}
 
-	// App choices for "Set the app": every root package in the library.
-	var pkgNames []string
 	names := map[string]string{}
 	for _, a := range library {
-		if a.PackageName != "" {
-			pkgNames = append(pkgNames, a.PackageName)
-			if names[a.PackageName] == "" {
-				names[a.PackageName] = a.Name
-			}
+		if a.PackageName != "" && names[a.PackageName] == "" {
+			names[a.PackageName] = a.Name
 		}
 	}
-	roots := deriveRoots(pkgNames)
-	choiceSet := map[string]bool{}
-	for _, p := range pkgNames {
-		if r := roots[p]; r != "" {
-			choiceSet[r] = true
-		} else {
-			choiceSet[p] = true
-		}
-	}
-	type appChoice struct{ Package, Name string }
-	var choices []appChoice
-	for p := range choiceSet {
-		n := names[p]
-		if n == "" {
-			n = p
-		}
-		choices = append(choices, appChoice{p, n})
-	}
-	sort.Slice(choices, func(i, j int) bool { return strings.ToLower(choices[i].Name) < strings.ToLower(choices[j].Name) })
 
 	models := h.pipelineModels(ctx, sel, devices, st)
 
@@ -321,7 +297,6 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		"BaseName":    names[base],
 		"Columns":     columns,
 		"Inbox":       inbox,
-		"Choices":     choices,
 		"Models":      models,
 		"CanEdit":     canLab(h.role(r)),
 		"AppRollout":  h.cfg.RoleRollout(config.RolloutApps),
@@ -437,7 +412,7 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.role_app", role, base)
-	h.pipelineBack(w, r, role, "app")
+	http.Redirect(w, r, "/products?flash=app#role-"+role, http.StatusSeeOther)
 }
 
 // PipelineChannel puts a build on its package's column. On the base package this is
@@ -509,7 +484,6 @@ func (h *Handler) PipelineFirmware(w http.ResponseWriter, r *http.Request) {
 // PipelineFirmwareMode sets a model's firmware mode. Prod and lab only need the model's
 // devices to run the Firmware client.
 func (h *Handler) PipelineFirmwareMode(w http.ResponseWriter, r *http.Request) {
-	role := strings.TrimSpace(r.FormValue("role"))
 	model := prod.Normalize(r.FormValue("model"))
 	mode := strings.TrimSpace(r.FormValue("mode"))
 	if model == "" || !db.IsFirmwareMode(mode) {
@@ -527,7 +501,7 @@ func (h *Handler) PipelineFirmwareMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.firmware_mode", model, mode)
-	h.pipelineBack(w, r, role, "mode")
+	http.Redirect(w, r, "/products?flash=mode#model-"+model, http.StatusSeeOther)
 }
 
 // PipelineRollout pauses or resumes, and sets the window of, the app or firmware rollout.
@@ -647,4 +621,41 @@ func (h *Handler) fetchBuild(ctx context.Context, link, base string) (*db.App, e
 		}
 	}()
 	return app, nil
+}
+
+// appChoice is one app a role can be set to: a root package of the library.
+type appChoice struct{ Package, Name string }
+
+// appChoicesFrom lists every root package in the library (variants fold into their
+// base), named after the base build, sorted by name.
+func appChoicesFrom(library []db.App) []appChoice {
+	var pkgNames []string
+	names := map[string]string{}
+	for _, a := range library {
+		if a.PackageName != "" {
+			pkgNames = append(pkgNames, a.PackageName)
+			if names[a.PackageName] == "" {
+				names[a.PackageName] = a.Name
+			}
+		}
+	}
+	roots := deriveRoots(pkgNames)
+	set := map[string]bool{}
+	for _, p := range pkgNames {
+		if r := roots[p]; r != "" {
+			set[r] = true
+		} else {
+			set[p] = true
+		}
+	}
+	var out []appChoice
+	for p := range set {
+		n := names[p]
+		if n == "" {
+			n = p
+		}
+		out = append(out, appChoice{p, n})
+	}
+	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
+	return out
 }

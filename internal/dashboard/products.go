@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"mdm/internal/db"
 	"context"
 	"fmt"
 	"log"
@@ -83,13 +84,58 @@ func (h *Handler) ProductsPage(w http.ResponseWriter, r *http.Request) {
 			stock = append(stock, v)
 		}
 	}
+	// Roles & hardware (static/role-config-demos.html, option A): group the models by the
+	// role they serve, under each role's app, with each model's firmware mode.
+	modes, _ := h.db.FirmwareModes(r.Context())
+	roleApps, _ := h.db.ListRoleApps(r.Context())
+	appOf := map[string]string{}
+	for _, ra := range roleApps {
+		appOf[ra.Role] = ra.BasePackage
+	}
+	library, _ := h.db.ListApps(r.Context())
+	type model struct {
+		view
+		FwMode string // prod | lab | off
+		CanFw    bool   // our hardware on the Firmware client: prod and lab are possible
+	}
+	type roleGroup struct {
+		Key, Label, App string
+		Devices         int
+		Models          []model
+	}
+	var groups []roleGroup
+	var needRole []model
+	byRole := map[string]int{}
+	for _, c := range product.Classes() {
+		byRole[c] = len(groups)
+		groups = append(groups, roleGroup{Key: c, Label: product.ClassLabel(c), App: appOf[c]})
+	}
+	for _, v := range append(append([]view{}, ours...), stock...) {
+		m := model{view: v, FwMode: db.FirmwareModeOf(modes, v.Key), CanFw: v.Known}
+		i, ok := byRole[v.Role]
+		if !ok {
+			needRole = append(needRole, m)
+			continue
+		}
+		groups[i].Models = append(groups[i].Models, m)
+		groups[i].Devices += v.Devices
+	}
+	// Show a role when it has hardware or an app; "Other" only when something is in it.
+	kept := groups[:0]
+	for _, g := range groups {
+		if len(g.Models) > 0 || g.App != "" || (g.Key != product.ClassOther && len(g.Models) == 0) {
+			kept = append(kept, g)
+		}
+	}
 	h.render(w, r, "products.html", map[string]any{
-		"Title":      "Products",
-		"ActivePage": "products",
-		"Ours":       ours,
-		"Stock":      stock,
-		"Classes":    product.Classes(),
+		"Title":       "Roles & hardware",
+		"ActivePage":  "products",
+		"Groups":      kept,
+		"NeedRole":    needRole,
+		"Choices":     appChoicesFrom(library),
+		"Classes":     product.Classes(),
 		"Productions": productions,
+		"Flash":       r.URL.Query().Get("flash"),
 	})
 }
 
