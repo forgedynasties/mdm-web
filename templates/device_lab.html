@@ -98,7 +98,8 @@
 </div>
 
 <style>
-  .lab-bar { position: sticky; top: 8px; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  /* Below the sticky top bar, which floats as a ~72px pill once the page scrolls. */
+  .lab-bar { position: sticky; top: 84px; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 10px 14px; margin: 10px 0 14px; border-radius: 12px; border: 1px solid var(--warn);
     background: repeating-linear-gradient(135deg, var(--warn-bg) 0 14px, transparent 14px 28px), var(--surface); font-size: 13px; }
   .lab-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 8px; border-radius: 6px; }
@@ -122,6 +123,7 @@
   .lab-list li:first-child { border-top: 0; }
   .lab-flash { margin-bottom: 14px; }
   @media (max-width: 1024px) { .lab-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) { .lab-bar { top: 8px; } } /* the top bar scrolls away on phones */
 </style>
 {{template "footer" .}}
 {{end}}
