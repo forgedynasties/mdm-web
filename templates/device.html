@@ -4199,7 +4199,6 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // Device-detail tab switching. The active tab is remembered per device so a
   // server-triggered reload (e.g. after sending a reboot from Controls) re-opens
   // the same tab instead of snapping back to the summary.
-  var ddTabKey = 'dd-tab:{{.Device.SerialNumber}}';
   function setDeviceTab(name, btn) {
     document.querySelectorAll('.dd-tab').forEach(function (t) { var sel = t === btn; t.classList.toggle('active', sel); t.setAttribute('aria-selected', sel ? 'true' : 'false'); });
     document.querySelectorAll('.dd-panel').forEach(function (p) {
@@ -4213,7 +4212,6 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
         if (lazy) { window.htmx.process(lazy); window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); }
       }
     });
-    try { localStorage.setItem(ddTabKey, name); } catch (e) {}
     // Charts may have been laid out while hidden; nudge a resize when summary shows.
     if (name === 'summary' && window.mdmChart) {
       requestAnimationFrame(function () { window.dispatchEvent(new Event('resize')); });
@@ -4295,12 +4293,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   })();
 
   // On load, honor a ?tab= deep-link (a crash link from the fleet views points at
-  // ?tab=alerts), else fall back to the per-device remembered tab. The query param
-  // wins so a shared link always lands on the tab it names.
+  // ?tab=alerts). Nothing else: the page opens on Overview every time.
   (function () {
     var want = null;
     try { var qp = new URLSearchParams(location.search); if (qp.get('tab')) want = qp.get('tab'); } catch (e) {}
-    if (!want) { try { want = localStorage.getItem(ddTabKey); } catch (e) {} }
+    // A device page always opens on Overview; only a link that names a tab opens another.
     if (want === 'queue' || want === 'history') want = 'activity'; // the two tabs merged
     if (!want || want === 'summary') return;
     var btn = document.getElementById('dd-tab-' + want);
