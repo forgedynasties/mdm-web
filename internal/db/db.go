@@ -849,6 +849,9 @@ func (d *DB) ListOrphanActors(ctx context.Context) ([]OrphanActor, error) {
 		if err := rows.Scan(&o.Username, &o.Rows, &o.LastAt); err != nil {
 			return nil, err
 		}
+		if _, sys := SystemActorLabel(o.Username); sys {
+			continue // the server's own work, never an account to merge
+		}
 		out = append(out, o)
 	}
 	return out, rows.Err()

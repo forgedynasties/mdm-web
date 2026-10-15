@@ -1,10 +1,5 @@
 {{define "restaurant_detail.html"}}
 {{template "header" .}}
-<nav class="nav-pills" aria-label="Venues">
-  <span class="cap">Venues</span>
-  <a href="/restaurants" class="on">All venues</a>
-  <a href="/groups">Groups</a>
-</nav>
 <style>
 /* Venue page (static/venues-demos.html, R2, picked 14 Oct): devices on the left, the
    venue's own facts on the right, each a one-line summary that opens its form in place.
@@ -69,7 +64,7 @@
 @media(max-width:720px){.vn-form{grid-template-columns:1fr}.vn-pop{position:fixed;left:16px;right:16px;top:76px;width:auto;max-height:calc(100vh - 170px);overflow:auto}.vn-menu{right:auto;left:0}}
 /* With the top bar (island-context-demos.html, C1) the header is the bar; the Add devices
    popover stays here and opens under the bar. */
-@media(min-width:721px){body.has-island .vn-hdr{margin:0!important;min-height:0;padding:0}body.has-island #vn-add .vn-pop{position:fixed;top:68px;right:24px}}
+@media(min-width:721px){body.has-island .vn-hdr{margin:0!important;min-height:0;padding:0;height:0;overflow:visible}body.has-island #vn-add .vn-pop{position:fixed;top:68px;right:24px}}
 </style>
 
 <template id="page-island">

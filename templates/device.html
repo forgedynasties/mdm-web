@@ -192,6 +192,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     }));
 </script>
 
+{{/* The split is assembled by the script at the end of this page; until then the page
+     would paint in the stacked layout for a moment. Keep it hidden on wide screens until
+     the split is in place (and never longer than 1.5 s). */}}
+<style>html.dd-pending .device-detail{visibility:hidden}</style>
+<script>(function(){var r=document.documentElement;if(!window.matchMedia||!matchMedia('(min-width: 1100px)').matches)return;r.classList.add('dd-pending');setTimeout(function(){r.classList.remove('dd-pending')},1500);})();</script>
 <div class="device-detail cc-wrap dd-cc">
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
@@ -4804,6 +4809,7 @@ html.dd-fit .dd-split-r{padding-right:4px}
 
   if (WIDE.addEventListener) WIDE.addEventListener('change', apply); else if (WIDE.addListener) WIDE.addListener(apply);
   apply();
+  document.documentElement.classList.remove('dd-pending');
 })();
 </script>
 </div><!-- /ddc-body -->
