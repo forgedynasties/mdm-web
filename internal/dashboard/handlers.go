@@ -2192,6 +2192,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "restaurants"
 	case strings.HasPrefix(path, "/productions"):
 		data["ActivePage"] = "productions"
+	case strings.HasPrefix(path, "/compliance"):
+		data["ActivePage"] = "compliance"
 	case strings.HasPrefix(path, "/lock"), strings.HasPrefix(path, "/kiosk"), strings.HasPrefix(path, "/manage"):
 		data["ActivePage"] = "manage"
 	case strings.HasPrefix(path, "/commands"):
@@ -22038,6 +22040,17 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// keep their names: they are the wire protocol to clients in the field and the
 	// product's own taxonomy, neither of which is a label.
 	mux.HandleFunc("GET /lock", h.requireAuth(h.Manage))
+	// Compliance (static plan of 15 Oct; rules editor B1): read by anyone with fleet
+	// access, changed by admins only, every change audited.
+	mux.HandleFunc("GET /compliance", h.requireAuth(h.ComplianceIndex))
+	mux.HandleFunc("GET /compliance/rules", h.requireAuth(h.ComplianceRulesPage))
+	post("POST /compliance/rules", h.requireStrictAdmin(h.ComplianceBaselineSave))
+	post("POST /compliance/rules/preview", h.requireStrictAdmin(h.ComplianceBaselinePreview))
+	mux.HandleFunc("GET /compliance/overrides/new", h.requireStrictAdmin(h.ComplianceOverrideForm))
+	mux.HandleFunc("GET /compliance/overrides/{id}/edit", h.requireStrictAdmin(h.ComplianceOverrideForm))
+	post("POST /compliance/overrides", h.requireStrictAdmin(h.ComplianceOverrideSave))
+	post("POST /compliance/overrides/{id}/delete", h.requireStrictAdmin(h.ComplianceOverrideDelete))
+	post("POST /compliance/overrides/{id}/move", h.requireStrictAdmin(h.ComplianceOverrideMove))
 	mux.HandleFunc("GET /kiosk", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/lock", http.StatusMovedPermanently)
 	}))

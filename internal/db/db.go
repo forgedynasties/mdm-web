@@ -13370,18 +13370,56 @@ CREATE TABLE IF NOT EXISTS geofences (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Compliance rules: admin-defined checks (kind + optional param + severity) evaluated
--- live against device telemetry — posture flags in latest_extra plus the battery/build/
--- last-seen columns. No stored results: pass/fail is computed on page load, like
--- geofence membership.
-CREATE TABLE IF NOT EXISTS compliance_rules (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    kind       TEXT NOT NULL,
-    param      TEXT NOT NULL DEFAULT '',
-    severity   TEXT NOT NULL DEFAULT 'violation',
-    enabled    BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- The first compliance rules (fleet-wide, evaluated on page load) were replaced on 15 Oct
+-- by compliance_baseline / compliance_overrides / compliance_results below.
+DROP TABLE IF EXISTS compliance_rules;
+
+-- Compliance (static/compliance-plan.html; rules editor B1, picked 15 Oct). The fleet
+-- baseline is one row per check (a check with no row uses its registry default);
+-- overrides are ordered and the first that covers a device and names a check wins for
+-- that check, as lock rules do. Results hold each device's current state per check and
+-- change only when the state does; every change is an event, which is what history,
+-- alerts and the venue report read.
+CREATE TABLE IF NOT EXISTS compliance_baseline (
+    check_id   TEXT PRIMARY KEY,
+    level      TEXT NOT NULL,               -- required | recommended | off
+    param      INT  NOT NULL DEFAULT 0,     -- the check's threshold (hours, days); 0 = its default
+    updated_by TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS compliance_overrides (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    position   INT  NOT NULL DEFAULT 0,
+    name       TEXT NOT NULL DEFAULT '',
+    scope_type TEXT NOT NULL,               -- venue | group | role | unassigned | lab
+    scope_id   UUID,                        -- the venue or group
+    scope_key  TEXT NOT NULL DEFAULT '',    -- the role (device class)
+    cap        TEXT NOT NULL DEFAULT '',    -- '' | recommended | off: a ceiling on every check
+    checks     JSONB NOT NULL DEFAULT '{}', -- check id -> {"level": …, "param": …}
+    created_by TEXT NOT NULL DEFAULT '',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS compliance_results (
+    device_id  UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    check_id   TEXT NOT NULL,
+    state      TEXT NOT NULL,               -- pass | fail | unknown | na
+    level      TEXT NOT NULL,               -- the level that applied
+    detail     TEXT NOT NULL DEFAULT '',
+    since      TIMESTAMPTZ NOT NULL DEFAULT NOW(), -- when the state last changed
+    checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (device_id, check_id)
+);
+CREATE TABLE IF NOT EXISTS compliance_events (
+    device_id  UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    check_id   TEXT NOT NULL,
+    from_state TEXT NOT NULL,               -- '' for a device's first result
+    to_state   TEXT NOT NULL,
+    level      TEXT NOT NULL,
+    detail     TEXT NOT NULL DEFAULT '',
+    at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_compliance_events_device_at ON compliance_events(device_id, at DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_events_at ON compliance_events(at);
 
 -- Client-reported "has a launcher (app-drawer) entry" flag per package. NULL when
 -- the client is too old to report it; the dashboard's app lists default to
@@ -17721,59 +17759,6 @@ func (d *DB) DeleteGeofence(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-// ── Compliance rules ──────────────────────────────────────────────────────────
-
-// ComplianceRule is one admin-defined fleet check; devices are evaluated against
-// the enabled rules live on page load, so there is no stored result to keep in
-// sync. Kind is one of the fixed set the dashboard evaluator understands
-// (require_screen_lock, require_encryption, forbid_adb, min_battery,
-// require_build_prefix, max_offline_hours); Param carries the threshold/prefix
-// for the parameterized kinds. Severity is "warn" or "violation".
-type ComplianceRule struct {
-	ID        uuid.UUID
-	Kind      string
-	Param     string
-	Severity  string
-	Enabled   bool
-	CreatedAt time.Time
-}
-
-func (d *DB) CreateComplianceRule(ctx context.Context, kind, param, severity string) (uuid.UUID, error) {
-	var id uuid.UUID
-	err := d.pool.QueryRow(ctx, `
-		INSERT INTO compliance_rules (kind, param, severity)
-		VALUES ($1, $2, $3) RETURNING id`, kind, param, severity).Scan(&id)
-	return id, err
-}
-
-func (d *DB) ListComplianceRules(ctx context.Context) ([]ComplianceRule, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, kind, param, severity, enabled, created_at
-		FROM compliance_rules ORDER BY created_at`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []ComplianceRule
-	for rows.Next() {
-		var ru ComplianceRule
-		if err := rows.Scan(&ru.ID, &ru.Kind, &ru.Param, &ru.Severity, &ru.Enabled, &ru.CreatedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, ru)
-	}
-	return out, rows.Err()
-}
-
-func (d *DB) SetComplianceRuleEnabled(ctx context.Context, id uuid.UUID, enabled bool) error {
-	_, err := d.pool.Exec(ctx, `UPDATE compliance_rules SET enabled = $2 WHERE id = $1`, id, enabled)
-	return err
-}
-
-func (d *DB) DeleteComplianceRule(ctx context.Context, id uuid.UUID) error {
-	_, err := d.pool.Exec(ctx, `DELETE FROM compliance_rules WHERE id = $1`, id)
-	return err
-}
 
 // ── MDM OTA support per build ────────────────────────────────────────────────
 // See the ota_support table: which firmware builds can actually apply an MDM OTA.

@@ -821,6 +821,9 @@ func main() {
 				// where that was switched on. A device that was away collects it the
 				// first minute it is seen again — see client_autoupdate.go.
 				runJob(bgCtx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
+				// Score every device against the compliance baseline and overrides; only
+				// changed results are written, each change kept as an event (compliance.go).
+				runJob(bgCtx, "compliance", time.Minute, dash.RunCompliance)
 				// The role model (static/device-role-model-plan.html): close lab sessions
 				// whose time is up, then keep each device on its role's app build. Both
 				// act only where a lab session or a prod build exists.

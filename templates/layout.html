@@ -586,6 +586,7 @@
     <a href="/restaurants" class="nav-link js-dest{{if eq .ActivePage "restaurants"}} active{{end}}" data-cmdk-label="Venues"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle class="cut" cx="12" cy="10" r="2.4"/></svg></span><span class="dock-lbl">Venues</span></a>
     <a href="/lineup" class="nav-link js-dest{{if eq .ActivePath "/lineup"}} active{{end}}" data-cmdk-label="Lineup"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></span><span class="dock-lbl">Lineup</span></a>
     <a href="/jobs" class="nav-link js-dest{{if eq .ActivePath "/jobs"}} active{{end}}" data-cmdk-label="Jobs"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 3 10.2 13.8"/><path d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M21 3l-6.5 18-4.3-7.2L3 9.5z"/><path class="cut" d="M21 3 10.2 13.8"/></svg></span><span class="dock-lbl">Jobs</span></a>
+    <a href="/compliance" class="nav-link js-dest{{if eq .ActivePage "compliance"}} active{{end}}" data-cmdk-label="Compliance"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12.2 2.3 2.3 4.4-4.6"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12.2 2.3 2.3 4.4-4.6"/></svg></span><span class="dock-lbl">Compliance</span></a>
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "updates"}}{{template "nav-updates" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
@@ -653,6 +654,7 @@
       <div class="nav-dir-sec">
         <div class="t">Control</div>
         <a class="js-dest{{if eq .ActivePath "/kiosk"}} on{{end}}" href="/kiosk" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Device lock">Device lock</a>
+        <a class="js-dest{{if eq .ActivePath "/compliance/rules"}} on{{end}}" href="/compliance/rules" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Compliance rules">Compliance rules</a>
         <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/adb"}} on{{end}}" href="/adb" data-ic="monitor" data-cmdk-sec="Control" data-cmdk-label="Wireless adb">Wireless adb</a>{{end}}
       </div>
