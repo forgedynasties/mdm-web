@@ -50,6 +50,16 @@ func changelogLead(s string) string {
 	return s
 }
 
+// changelogText is a publisher's changelog for reading in full: the prefix gone, first
+// letter up, nothing cut.
+func changelogText(s string) string {
+	s = strings.TrimSpace(changelogPrefix.ReplaceAllString(strings.TrimSpace(s), ""))
+	if r, n := utf8.DecodeRuneInString(s); n > 0 {
+		s = string(unicode.ToUpper(r)) + s[n:]
+	}
+	return s
+}
+
 // clientVersionRows groups the open client's devices by the version they run and lays
 // the release history over them.
 func clientVersionRows(sel *ClientSlotView, hosted string) []ClientVersionRow {
