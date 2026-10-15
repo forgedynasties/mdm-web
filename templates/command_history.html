@@ -42,16 +42,27 @@
 }
 </style>
 
+{{/* Same Jobs switch and top bar as In flight (15 Oct): History is the other half of
+     Jobs, not a page of its own. */}}
+<nav class="nav-pills" aria-label="Jobs">
+  <span class="cap">Jobs</span>
+  <a href="/jobs">In flight{{if gt .ProgCount 0}}<span class="n">{{.ProgCount}}</span>{{end}}</a>
+  <a href="/jobs/history" class="on">History</a>
+</nav>
+<template id="page-island">
+  <span class="isl-dot {{if gt .AttnCount 0}}warn{{else if gt .ProgCount 0}}on{{end}}"></span>
+  <span class="isl-t">Jobs · History</span>
+  <span class="isl-s">{{if gt .ProgCount 0}}<b>{{.ProgCount}}</b> in flight{{else}}Nothing in flight{{end}}{{if gt .AttnCount 0}} · <span class="w">{{.AttnCount}} need{{if eq .AttnCount 1}}s{{end}} attention</span>{{end}} · {{.Total}} in this view</span>
+  <span class="isl-acts"><a class="cc-btn" href="/schedules">Schedules</a><a class="cc-btn" href="/apps">Apps</a><a class="cc-btn primary" href="/devices">Devices</a></span>
+</template>
 <div class="ch-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Actions · History</div>
-    <h1 class="cc-h1">{{if gt .AttnCount 0}}<span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention{{else if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> in progress{{else}}All actions settled{{end}}</h1>
+    <div class="cc-eyebrow isl-dup">Jobs · History</div>
+    <h1 class="cc-h1 isl-dup-sr">{{if gt .AttnCount 0}}<span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention{{else if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> in progress{{else}}All actions settled{{end}}</h1>
     <div class="cc-sub">Every action sent across devices — <b>{{.Total}}</b> in this view.</div>
   </div>
-  <div class="cc-actions">
-    <a class="cc-btn primary" href="/jobs"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Back to Jobs</a>
-  </div>
+
 </div>
 
 {{template "action-history-live" .}}
