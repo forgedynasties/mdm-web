@@ -9,35 +9,7 @@
 {{/* Venues (static/venues-demos.html, L1, picked 14 Oct): one row per venue, so 24+ venues
      can be scanned, sorted and filtered. A square per device says how many are there and
      how many are down. */}}
-<style>
-.vn-page{max-width:1280px;margin:0 auto}
-@media(min-width:721px){body.has-island .vn-page>.cc-top{margin-bottom:6px}}
-.vn-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
-.vn-search{flex:1;min-width:200px;max-width:340px;font:inherit;font-size:12.5px;padding:7px 11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
-.vn-chip{font:inherit;font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);cursor:pointer}
-.vn-chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-text)}
-.vn-chip .n{font-weight:500;color:var(--text-faint);margin-left:3px}.vn-chip.on .n{color:inherit}
-.vn-tbl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-.vn-th,.vn-tr{display:grid;grid-template-columns:minmax(200px,1.6fr) 80px minmax(150px,1fr) minmax(150px,1fr) 110px;column-gap:14px;align-items:center;padding:0 16px}
-.vn-th{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
-.vn-th button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
-.vn-th button:hover,.vn-th button[aria-sort]{color:var(--text-2)}
-.vn-th button[aria-sort=ascending]::after{content:"↑"}.vn-th button[aria-sort=descending]::after{content:"↓"}
-.vn-tr{position:relative;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2);text-decoration:none}
-.vn-tr:hover{background:var(--surface2);color:var(--text-2)}
-.vn-tr[hidden]{display:none}
-.vn-nm{min-width:0}.vn-nm b{display:block;color:var(--text);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vn-nm small,.vn-sm{font-size:11px;color:var(--text-faint)}
-.vn-sc{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ok)}
-.vn-sc.warn{color:var(--warn)}.vn-sc.danger{color:var(--danger)}.vn-sc.empty{color:var(--text-faint);font-weight:500}
-.vn-pips{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px}
-.vn-pips i{width:9px;height:9px;border-radius:3px;display:block;background:var(--ok)}
-.vn-pips i.off{background:var(--warn)}.vn-pips i.dormant{background:var(--text-faint);opacity:.5}
-.vn-pips em{font-style:normal;font-size:10.5px;color:var(--text-faint);line-height:9px}
-.vn-tags{display:flex;gap:4px;flex-wrap:wrap}
-.vn-none{padding:22px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-faint)}
-@media(max-width:900px){.vn-th{display:none}.vn-tr{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}.vn-tr>.vn-pipcell,.vn-tr>.vn-tags,.vn-tr>.vn-last{grid-column:1/-1}.vn-search{max-width:none}}
-</style>
+
 
 {{$total := len .Venues}}{{$s := .Summary}}
 <template id="page-island">
@@ -69,8 +41,51 @@
   </div>
 </div>
 {{else}}
+{{template "coll-table" (dict "Rows" .Venues "Sum" .Summary "Kind" "restaurants")}}
+{{end}}
+</div>
+
+
+
+{{template "footer" .}}
+{{end}}
+
+{{/* The collection table (venues-demos.html, L1): one row per venue, group or release,
+     shared by Venues and Fleet's Restaurants, Groups and Releases views (15 Oct).
+     Params: Rows, Sum (venueSummary), Kind (restaurants | groups | releases). */}}
+{{define "coll-table"}}{{$rows := .Rows}}{{$s := .Sum}}{{$k := .Kind}}{{$total := len $rows}}
+{{$one := "venue"}}{{$many := "venues"}}{{if eq $k "groups"}}{{$one = "group"}}{{$many = "groups"}}{{else if eq $k "releases"}}{{$one = "release"}}{{$many = "releases"}}{{end}}
+<style>
+.vn-page{max-width:1280px;margin:0 auto}
+@media(min-width:721px){body.has-island .vn-page>.cc-top{margin-bottom:6px}}
+.vn-filters{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px}
+.vn-search{flex:1;min-width:200px;max-width:340px;font:inherit;font-size:12.5px;padding:7px 11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.vn-chip{font:inherit;font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);cursor:pointer}
+.vn-chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-text)}
+.vn-chip .n{font-weight:500;color:var(--text-faint);margin-left:3px}.vn-chip.on .n{color:inherit}
+.vn-tbl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.vn-th,.vn-tr{display:grid;grid-template-columns:minmax(200px,1.6fr) 80px minmax(150px,1fr) minmax(150px,1fr) 110px;column-gap:14px;align-items:center;padding:0 16px}
+.vn-th{height:34px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.vn-th button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+.vn-th button:hover,.vn-th button[aria-sort]{color:var(--text-2)}
+.vn-th button[aria-sort=ascending]::after{content:"↑"}.vn-th button[aria-sort=descending]::after{content:"↓"}
+.vn-tr{position:relative;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2);text-decoration:none}
+.vn-tr:hover{background:var(--surface2);color:var(--text-2)}
+.vn-tr[hidden]{display:none}
+.vn-nm{min-width:0}.vn-nm b{display:block;color:var(--text);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vn-nm small,.vn-sm{font-size:11px;color:var(--text-faint)}
+.vn-sc{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ok)}
+.vn-sc.warn{color:var(--warn)}.vn-sc.danger{color:var(--danger)}.vn-sc.empty{color:var(--text-faint);font-weight:500}
+.vn-pips{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:3px}
+.vn-pips i{width:9px;height:9px;border-radius:3px;display:block;background:var(--ok)}
+.vn-pips i.off{background:var(--warn)}.vn-pips i.dormant{background:var(--text-faint);opacity:.5}
+.vn-pips em{font-style:normal;font-size:10.5px;color:var(--text-faint);line-height:9px}
+.vn-tags{display:flex;gap:4px;flex-wrap:wrap}
+.vn-none{padding:22px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-faint)}
+@media(max-width:900px){.vn-th{display:none}.vn-tr{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}.vn-tr>.vn-pipcell,.vn-tr>.vn-tags,.vn-tr>.vn-last{grid-column:1/-1}.vn-search{max-width:none}}
+</style>
 <div class="vn-filters" role="search">
-  <input type="search" class="vn-search" id="vn-q" placeholder="Search venue or address…" aria-label="Search venues" autocomplete="off">
+  <input type="search" class="vn-search" id="vn-q" placeholder="Search {{$one}}{{if eq $k "restaurants"}} or address{{end}}…" aria-label="Search {{$many}}" autocomplete="off">
   <button type="button" class="vn-chip on" data-vf="all">All<span class="n">{{$total}}</span></button>
   {{if $s.NeedLook}}<button type="button" class="vn-chip" data-vf="look">Need a look<span class="n">{{$s.NeedLook}}</span></button>{{end}}
   {{if $s.WithOffline}}<button type="button" class="vn-chip" data-vf="offline">Offline devices<span class="n">{{$s.WithOffline}}</span></button>{{end}}
@@ -78,18 +93,18 @@
 </div>
 <div class="vn-tbl" id="vn-tbl">
   <div class="vn-th">
-    <span><button type="button" data-vs="name">Venue</button></span>
+    <span><button type="button" data-vs="name">{{if eq $k "restaurants"}}Venue{{else if eq $k "groups"}}Group{{else}}Release{{end}}</button></span>
     <span><button type="button" data-vs="score">Health</button></span>
     <span><button type="button" data-vs="devices">Devices</button></span>
     <span>Problems</span>
     <span><button type="button" data-vs="last">Last check-in</button></span>
   </div>
-  {{range .Venues}}
-  <a class="vn-tr" href="/restaurants/{{.R.ID}}"
-     data-name="{{.R.Name}}" data-text="{{.R.Name}} {{.R.Address}} {{.R.Timezone}}"
+  {{range $rows}}
+  <a class="vn-tr" href="{{.Href}}"
+     data-name="{{.Name}}" data-text="{{.Text}}"
      data-score="{{if and .Devices .HasH}}{{.H.Score}}{{else}}999{{end}}" data-devices="{{.Devices}}" data-last="{{if not .Last.IsZero}}{{.Last.Unix}}{{else}}0{{end}}"
      data-look="{{if .NeedsLook}}1{{end}}" data-offline="{{if .Offline}}1{{end}}" data-empty="{{if not .Devices}}1{{end}}">
-    <span class="vn-nm"><b>{{.R.Name}}</b><small>{{if .R.Address}}{{.R.Address}}{{else}}no address{{end}}{{if .R.Timezone}} · {{.R.Timezone}}{{end}}</small></span>
+    <span class="vn-nm"><b>{{.Name}}</b><small>{{.Sub}}</small></span>
     <span class="vn-sc {{.Class}}">{{if and .Devices .HasH}}{{.H.Score}}{{else}}—{{end}}</span>
     <span class="vn-pipcell">{{if .Devices}}<span class="vn-pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span><span class="vn-sm">{{.Online}} of {{.Devices}} online{{if .Dormant}} · {{.Dormant}} dormant{{end}}</span>{{else}}<span class="vn-sm">no devices</span>{{end}}</span>
     <span class="vn-tags">
@@ -101,11 +116,8 @@
     <span class="vn-last vn-sm">{{if .Last.IsZero}}—{{else}}{{timeSince .Last}}{{end}}</span>
   </a>
   {{end}}
-  <div class="vn-none" id="vn-none" hidden>No venue matches.</div>
+  <div class="vn-none" id="vn-none" hidden>No {{$one}} matches.</div>
 </div>
-{{end}}
-</div>
-
 <script>
 (function () {
   var tbl = document.getElementById('vn-tbl'); if (!tbl) return;
@@ -144,6 +156,4 @@
   });
 })();
 </script>
-
-{{template "footer" .}}
 {{end}}

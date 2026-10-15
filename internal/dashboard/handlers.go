@@ -5141,6 +5141,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 		data["Queries"] = enabled
 	}
+	if view == "restaurants" || view == "groups" || view == "releases" {
+		data["CollRows"], data["CollSummary"] = h.collRows(r, view)
+	}
 	h.render(w, r, "devices.html", data)
 }
 
@@ -9849,85 +9852,9 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 	// Venues is a place of its own again. Sending it to the Fleet shell meant the
 	// rail's "Venues" opened a page headed "9 of 20 devices online" with a Collections
 	// rail — the nav said one thing and the page said another.
-	restaurants, err := h.db.ListRestaurants(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	health := make(map[uuid.UUID]db.GroupHealth)
-	if rhs, err := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7); err == nil {
-		for _, rh := range rhs {
-			health[rh.GroupID] = rh // GroupHealth.GroupID carries the restaurant id
-		}
-	}
-	// One row per venue (venues-demos.html, L1): health, a square per device, problems
-	// and when the venue last checked in, all read off one pass over the fleet.
-	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 100000, "serial", "asc")
-	devices = h.access(r).keepVisible(devices)
-	online := h.onlineMap()
-	stale := time.Duration(h.cfg.CheckinInterval()*3) * time.Second
-	byVenue := map[uuid.UUID][]db.Device{}
-	for _, d := range devices {
-		if d.RestaurantID != nil {
-			byVenue[*d.RestaurantID] = append(byVenue[*d.RestaurantID], d)
-		}
-	}
-	rows := make([]venueRow, 0, len(restaurants))
-	var sum venueSummary
-	for _, rest := range restaurants {
-		v := venueRow{R: rest, Class: "empty"}
-		v.H, v.HasH = health[rest.ID]
-		var pips []string
-		for _, d := range byVenue[rest.ID] {
-			if d.LastSeenAt.After(v.Last) {
-				v.Last = d.LastSeenAt
-			}
-			switch age := time.Since(d.LastSeenAt); {
-			case online[d.ID] || age < stale:
-				v.Online++
-				pips = append(pips, "on")
-			case age > 14*24*time.Hour:
-				v.Dormant++
-				pips = append(pips, "dormant")
-			default:
-				v.Offline++
-				pips = append(pips, "off")
-			}
-		}
-		v.Devices = len(byVenue[rest.ID])
-		// Problems first in the squares, so a short row still shows them.
-		sort.SliceStable(pips, func(i, j int) bool { return pipRank[pips[i]] < pipRank[pips[j]] })
-		if len(pips) > 20 {
-			v.More, pips = len(pips)-20, pips[:20]
-		}
-		v.Pips = pips
-		if v.Devices > 0 && v.HasH {
-			switch {
-			case v.H.Score >= 80:
-				v.Class = "ok"
-			case v.H.Score >= 50:
-				v.Class = "warn"
-			default:
-				v.Class = "danger"
-			}
-		}
-		v.NeedsLook = v.Devices > 0 && v.HasH && v.H.Score < 80
-		sum.Devices += v.Devices
-		sum.Offline += v.Offline
-		if v.NeedsLook {
-			sum.NeedLook++
-		}
-		if v.Offline > 0 {
-			sum.WithOffline++
-		}
-		if v.Devices == 0 {
-			sum.Empty++
-		}
-		if v.HasH {
-			sum.Critical += v.H.OpenCritical
-		}
-		rows = append(rows, v)
-	}
+	// One row per venue (venues-demos.html, L1), built by collRows, which Fleet's
+	// Restaurants, Groups and Releases views share.
+	rows, sum := h.collRows(r, "restaurants")
 	h.render(w, r, "restaurants.html", map[string]any{
 		"Title":   "Venues",
 		"Venues":  rows,
@@ -9937,7 +9864,7 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 
 // venueRow is one venue on the Venues list.
 type venueRow struct {
-	R                         db.Restaurant
+	ID, Name, Sub, Href, Text string // the collection: a venue, group or release
 	H                         db.GroupHealth
 	HasH                      bool
 	Devices                   int
