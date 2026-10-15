@@ -60,6 +60,9 @@ type Config struct {
 	// missing — boxes are off overnight, a venue's wifi is out, a unit is unplugged for
 	// a week. A policy is satisfied whenever each device next appears instead.
 	ClientAutoUpdates map[string]ClientAutoUpdate `json:"client_auto_updates,omitempty"`
+	// RoleRollouts is when the role model's minute jobs may move deployed devices onto a
+	// role's prod build: "apps" and "firmware". Missing means DefaultRoleRollout.
+	RoleRollouts map[string]ClientAutoUpdate `json:"role_rollouts,omitempty"`
 	// Build IDs that identify legacy (WebSocket-incapable) firmware. Devices on these
 	// builds only HTTP check-in, so they never hold a live WS and are shown Offline with a
 	// "Legacy device" tag. Seeded with a default; admins can add/remove via Settings.
@@ -1622,6 +1625,41 @@ func (c *Config) SetClientAutoUpdate(slot string, v ClientAutoUpdate) error {
 		c.ClientAutoUpdates = map[string]ClientAutoUpdate{}
 	}
 	c.ClientAutoUpdates[slot] = v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// Role rollout kinds (RoleRollouts keys).
+const (
+	RolloutApps     = "apps"
+	RolloutFirmware = "firmware"
+)
+
+// DefaultRoleRollout is the policy before anyone sets one: on, inside 02:00–05:00 in
+// each device's own timezone. It moves nothing by itself — the jobs act only for roles
+// and models that have a prod build set.
+func DefaultRoleRollout() ClientAutoUpdate {
+	return ClientAutoUpdate{On: true, WindowStart: "02:00", WindowEnd: "05:00"}
+}
+
+// RoleRollout returns the policy for one kind, or the default.
+func (c *Config) RoleRollout(kind string) ClientAutoUpdate {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if v, ok := c.RoleRollouts[kind]; ok {
+		return v
+	}
+	return DefaultRoleRollout()
+}
+
+// SetRoleRollout records the policy for one kind.
+func (c *Config) SetRoleRollout(kind string, v ClientAutoUpdate) error {
+	c.mu.Lock()
+	if c.RoleRollouts == nil {
+		c.RoleRollouts = map[string]ClientAutoUpdate{}
+	}
+	c.RoleRollouts[kind] = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

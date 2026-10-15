@@ -4,8 +4,8 @@
 // whether a telemetry key happened to be present.
 //
 // Historically the fleet was a single product (the T7 tablet, which has a battery,
-// a charger, and a wireless-charging guest pad). The Kiosk 18/22/27 variants are
-// wall-powered panels with none of that. Without a declared capability set the
+// a charger, and a wireless-charging guest pad). The Kiosk 22 is a
+// wall-powered panel with none of that. Without a declared capability set the
 // dashboard/alerts can't tell "device legitimately has no pad" from "pad reading
 // missing", so wlc/charging widgets and alerts misfire on kiosks. This package is
 // the single source of truth that fixes that.
@@ -63,9 +63,7 @@ type Product struct {
 // Keys for the known products. Clients send these verbatim in the check-in payload.
 const (
 	KeyT7      = "t7"
-	KeyKiosk18 = "kiosk18"
 	KeyKiosk22 = "kiosk22"
-	KeyKiosk27 = "kiosk27"
 )
 
 // DefaultKey is assumed when a device reports no product. The existing fleet is all
@@ -83,9 +81,7 @@ var genericCaps = Caps{HasBattery: true, HasCharging: true, HasWLC: false}
 // dropdown order (see All).
 var catalog = []Product{
 	{Key: KeyT7, Label: "T7", Caps: Caps{HasBattery: true, HasCharging: true, HasWLC: true}, Kind: KindFirmware, Class: ClassT7, DisplayName: "TSAI"},
-	{Key: KeyKiosk18, Label: "Kiosk 18", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
 	{Key: KeyKiosk22, Label: "Kiosk 22", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
-	{Key: KeyKiosk27, Label: "Kiosk 27", Caps: Caps{HasBattery: false, HasCharging: false, HasWLC: false}, Kind: KindFirmware, Class: ClassKiosk},
 }
 
 var byKey = func() map[string]Product {

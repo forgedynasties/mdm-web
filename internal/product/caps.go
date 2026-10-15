@@ -49,13 +49,14 @@ const (
 	ClassOther   = "other"
 	// ClassPanel is retired: the wall kiosks are Kiosk now. The const and its label
 	// stay so a row written before the retag still renders; Classes() no longer
-	// offers it, so IsClass rejects it on new admin input.
+	// offers it, so IsClass rejects it on new admin input. Handheld (mpos), payment
+	// terminal and tablet were retired the same way on 14 Oct 2026.
 	ClassPanel = "panel"
 )
 
 // Classes lists every device class in display order (dashboard filters and forms).
 func Classes() []string {
-	return []string{ClassDongle, ClassPOS, ClassKiosk, ClassKDS, ClassT7, ClassMPOS, ClassPayment, ClassTablet, ClassOther}
+	return []string{ClassDongle, ClassPOS, ClassKiosk, ClassKDS, ClassT7, ClassOther}
 }
 
 // ClassLabel is the human label for a class key; unknown keys are shown as-is and an

@@ -118,7 +118,8 @@ func (h *Handler) ScoutEnroll(w http.ResponseWriter, r *http.Request) {
 		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
 		return
 	}
-	class := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
+	// No class here: the device takes the class its model is attached to.
+	class := ""
 	serverURL := h.baseURL(r)
 	apkURL := h.agentAPKURL(r)
 	apkSHA := ""
@@ -269,9 +270,6 @@ func enrollmentProfileInputFromForm(r *http.Request) db.EnrollmentProfileInput {
 		if parsed, err := uuid.Parse(rid); err == nil {
 			in.RestaurantID = &parsed
 		}
-	}
-	if c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class"))); product.IsClass(c) {
-		in.DeviceClass = c
 	}
 	if days, err := strconv.Atoi(strings.TrimSpace(r.FormValue("expires_days"))); err == nil && days > 0 {
 		t := time.Now().Add(time.Duration(days) * 24 * time.Hour)
@@ -1104,6 +1102,7 @@ type ClientSlotView struct {
 	Rows     []ClientDeviceRow
 	Groups   []ClientDeviceGroup
 	History  []ClientHistoryRow
+	VersionRows []ClientVersionRow // the open client's table: one row per version
 	Selected bool
 	// Auto is this slot's standing instruction: keep devices on the hosted build.
 	Auto config.ClientAutoUpdate
@@ -1359,94 +1358,25 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 	return v
 }
 
+// ClientsPage is where the Clients page used to be: it moved into Lineup (14 Oct), so old
+// links and bookmarks land on the same client there.
 func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "serial", "asc")
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	slot := r.URL.Query().Get("slot")
+	if _, ok := AgentAPKSlots[slot]; !ok {
+		slot = clientSlotOrder[0]
 	}
-	order := clientSlotOrder
-	labels := clientSlotLabels
-	// One firmware client, one build. There is no tree to pick any more, so there are
-	// no variants and nothing collapses into a group: `variants` stays empty, which is
-	// what keeps the variant tabs and the group header off the page.
-	firmwareGroup := []string{"firmware-qcom"}
-	variants := map[string]string{}
-	const firmwareLabel = "Firmware MDM"
-	const firmwareNote = "The system app in our AOSP images, covering user and userdebug builds alike. It is platform-signed, so a device installs only a build signed with the key its own image trusts."
-	notes := map[string]string{
-		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
-		"firmware-qcom": "Our own hardware — T7 and the kiosks — on the v2.1.x build line. Published from the AOSP tree that signs it, and the only firmware line that is built.",
-	}
+	http.Redirect(w, r, "/lineup?client="+url.QueryEscape(clientDisplaySlot(slot)), http.StatusFound)
+}
 
-	views := map[string]*ClientSlotView{}
-	counts := map[string]map[int64]*ClientVersionCount{}
-	for _, slot := range order {
-		b, hosted := h.cfg.AgentAPKSlot(slot)
-		v := &ClientSlotView{Slot: slot, Label: labels[slot], Variant: variants[slot], Note: notes[slot], Hosted: hosted, Build: b,
-			Auto: h.cfg.ClientAutoUpdate(slot)}
-		if hosted {
-			v.URL = h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]
-		}
-		views[slot] = v
-		counts[slot] = map[int64]*ClientVersionCount{}
-	}
-
-	for i := range devices {
-		d := &devices[i]
-		real := agentSlotFor(d)
-		v := views[clientDisplaySlot(real)]
-		if v == nil {
-			continue
-		}
-		v.Devices++
-		name, code := clientVersionOf(d)
-		switch {
-		case real != v.Slot:
-			// Folded in from a slot with nothing published: counted, never offered.
-			v.NoBuild++
-		case code == 0 || !versionComparable(d, v.Build.Package):
-			v.Unknown++
-		case v.Hosted && code >= v.Build.VersionCode:
-			v.UpToDate++
-		case v.Hosted:
-			v.Behind++
-		}
-		_ = name
-		if code == 0 && name == "" {
-			continue
-		}
-		c := counts[v.Slot][code]
-		if c == nil {
-			c = &ClientVersionCount{Version: name, Code: code}
-			counts[v.Slot][code] = c
-		}
-		c.Count++
-		c.Current = v.Hosted && code == v.Build.VersionCode
-	}
-
-	// Which client is open. An unknown or missing ?slot lands on the first one that has
-	// devices, so the page opens on something worth looking at rather than an empty tab.
-	selected := r.URL.Query().Get("slot")
+// clientDetail builds the Lineup pane for one MDM client: its summary, release history
+// and a row per device on it, behind first. ok is false for a slot that does not exist.
+func (h *Handler) clientDetail(r *http.Request, devices []db.Device, selected string) (*ClientSlotView, bool) {
+	views, _ := h.clientSlotSummaries(r, devices)
 	if _, ok := views[selected]; !ok {
-		selected = order[0]
-		for _, slot := range order {
-			if views[slot].Devices > 0 {
-				selected = slot
-				break
-			}
-		}
+		return nil, false
 	}
 	views[selected].Selected = true
 	views[selected].History = clientHistoryRows(selected, h.cfg.AgentAPKHistory(selected), views[selected].Build.SHA)
-	if variants[selected] != "" {
-		views[selected].GroupLabel = firmwareLabel
-		views[selected].GroupNote = firmwareNote
-		for _, slot := range firmwareGroup {
-			views[slot].Selected = slot == selected
-			views[selected].Variants = append(views[selected].Variants, views[slot])
-		}
-	}
 
 	// The device rows, for the open client only.
 	sel := views[selected]
@@ -1526,71 +1456,9 @@ func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
 		return sel.Rows[i].Serial < sel.Rows[j].Serial
 	})
 	sel.Groups = groupClientRows(sel.Rows, sel.Build.Version, time.Now())
+	sel.VersionRows = clientVersionRows(sel, sel.Build.Version)
 
-	var slots []*ClientSlotView
-	for _, slot := range order {
-		v := views[slot]
-		for _, c := range counts[slot] {
-			v.Versions = append(v.Versions, *c)
-		}
-		sort.Slice(v.Versions, func(i, j int) bool { return v.Versions[i].Code > v.Versions[j].Code })
-		slots = append(slots, v)
-	}
-
-	// The rail: the firmware variants collapse into one row whose count is the whole
-	// firmware fleet, and which opens on the variant already selected — or, coming in
-	// cold, the one with devices on it rather than an empty tree.
-	var rails []ClientRailEntry
-	fw := ClientRailEntry{Label: firmwareLabel, Slot: firmwareGroup[0]}
-	inGroup := map[string]bool{}
-	for _, slot := range firmwareGroup {
-		inGroup[slot] = true
-		v := views[slot]
-		fw.Devices += v.Devices
-		fw.Behind += v.Behind
-		if v.Selected {
-			fw.Selected, fw.Slot = true, slot
-		}
-	}
-	if !fw.Selected {
-		for _, slot := range firmwareGroup {
-			if views[slot].Devices > 0 {
-				fw.Slot = slot
-				break
-			}
-		}
-	}
-	for _, slot := range order {
-		if inGroup[slot] {
-			if slot == firmwareGroup[0] {
-				rails = append(rails, fw)
-			}
-			continue
-		}
-		v := views[slot]
-		rails = append(rails, ClientRailEntry{Label: v.Label, Slot: slot, Devices: v.Devices, Behind: v.Behind, Selected: v.Selected})
-	}
-
-	data := map[string]any{
-		"Title":      "Clients",
-		"ActivePage": "clients",
-		"Slots":      slots,
-		"Rails":      rails,
-		"Selected":   sel,
-		"ServerURL":  h.baseURL(r),
-	}
-	// Picking a client swaps the rail + detail rather than reloading the page, so the
-	// header, dock and scroll position survive. withRole because the fragment renders
-	// the same role-gated actions the full page does.
-	if r.URL.Query().Get("partial") == "1" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.tmpl.ExecuteTemplate(w, "clients-split", h.withRole(r, data))
-		return
-	}
-	// Device keys (device-key plan): how many devices still identify with the shared
-	// key, which is public, against those with their own.
-	data["KeysOwn"], data["KeysShared"], _ = h.db.DeviceKeyCounts(r.Context())
-	h.render(w, r, "clients.html", data)
+	return sel, true
 }
 
 // knownAgentSlots names the publishable slots, sorted, for the error a build machine
@@ -1867,17 +1735,17 @@ func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
 	sha := strings.TrimSpace(r.FormValue("sha256"))
 	p := agentAPKArchivePath(slot, sha)
 	if p == "" {
-		h.hxDoneToast(w, r, "/clients", "Unknown client or digest", "error")
+		h.hxDoneToast(w, r, "/lineup?client=firmware-qcom", "Unknown client or digest", "error")
 		return
 	}
 	data, err := os.ReadFile(p)
 	if err != nil {
-		h.hxDoneToast(w, r, "/clients?slot="+slot, "That build is not in the archive any more", "error")
+		h.hxDoneToast(w, r, "/lineup?client="+slot, "That build is not in the archive any more", "error")
 		return
 	}
 	sum := sha256.Sum256(data)
 	if hex.EncodeToString(sum[:]) != sha {
-		h.hxDoneToast(w, r, "/clients?slot="+slot, "Archived build does not match its digest — not published", "error")
+		h.hxDoneToast(w, r, "/lineup?client="+slot, "Archived build does not match its digest — not published", "error")
 		return
 	}
 	var name string
@@ -1888,11 +1756,11 @@ func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if _, _, err := h.storeAgentAPK(data, name, slot, "rolled back to this build"); err != nil {
-		h.hxDoneToast(w, r, "/clients?slot="+slot, "Rollback failed: "+err.Error(), "error")
+		h.hxDoneToast(w, r, "/lineup?client="+slot, "Rollback failed: "+err.Error(), "error")
 		return
 	}
 	h.audit(r, "clients.agent_apk_rollback", slot, "sha256 "+sha)
-	h.hxDoneToast(w, r, "/clients?slot="+slot, "Rolled back — this build is what devices install now", "success")
+	h.hxDoneToast(w, r, "/lineup?client="+slot, "Rolled back — this build is what devices install now", "success")
 }
 
 // SettingsAgentAPKUpload stores an uploaded agent APK and records its SHA-256 (URL-safe
@@ -2100,12 +1968,6 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 			h.pushGuestToDevices(r.Context(), []uuid.UUID{device.ID})
 		}
 	}
-	if c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class"))); c != "" && product.IsClass(c) {
-		if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-	}
 	if err := h.db.MarkOnboarded(r.Context(), device.ID); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2117,28 +1979,6 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 		from = "/enrollment?tab=inbox"
 	}
 	h.hxDoneToast(w, r, from, "Device onboarded", "success")
-}
-
-// DeviceSetClass overrides the form factor for one device.
-func (h *Handler) DeviceSetClass(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
-	if c != "" && !product.IsClass(c) {
-		http.Error(w, "Unknown class", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "device.class", serial, c)
-	h.hub.PublishDeviceUpdate(device.ID)
-	h.hxDoneToast(w, r, "/devices/"+serial, "Class updated", "success")
 }
 
 // DeviceRetire takes a device out of the active fleet (lists, alerts, policy coverage)
@@ -2235,4 +2075,65 @@ func dischargeSeriesJSON(pts []db.DischargePoint, err error) template.JS {
 		return template.JS("[]")
 	}
 	return template.JS(b)
+}
+
+// clientSlotSummaries counts, per client slot, the devices on it and where they stand
+// against the hosted build (shared by the Clients page and Releases).
+func (h *Handler) clientSlotSummaries(r *http.Request, devices []db.Device) (map[string]*ClientSlotView, map[string]map[int64]*ClientVersionCount) {
+	order := clientSlotOrder
+	labels := clientSlotLabels
+	// One firmware client, one build: no variants.
+	variants := map[string]string{}
+	notes := map[string]string{
+		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
+		"firmware-qcom": "Our own hardware — T7 and the kiosks — on the v2.1.x build line. Published from the AOSP tree that signs it, and the only firmware line that is built.",
+	}
+
+	views := map[string]*ClientSlotView{}
+	counts := map[string]map[int64]*ClientVersionCount{}
+	for _, slot := range order {
+		b, hosted := h.cfg.AgentAPKSlot(slot)
+		v := &ClientSlotView{Slot: slot, Label: labels[slot], Variant: variants[slot], Note: notes[slot], Hosted: hosted, Build: b,
+			Auto: h.cfg.ClientAutoUpdate(slot)}
+		if hosted {
+			v.URL = h.baseURL(r) + "/agent/" + AgentAPKSlots[slot]
+		}
+		views[slot] = v
+		counts[slot] = map[int64]*ClientVersionCount{}
+	}
+
+	for i := range devices {
+		d := &devices[i]
+		real := agentSlotFor(d)
+		v := views[clientDisplaySlot(real)]
+		if v == nil {
+			continue
+		}
+		v.Devices++
+		name, code := clientVersionOf(d)
+		switch {
+		case real != v.Slot:
+			// Folded in from a slot with nothing published: counted, never offered.
+			v.NoBuild++
+		case code == 0 || !versionComparable(d, v.Build.Package):
+			v.Unknown++
+		case v.Hosted && code >= v.Build.VersionCode:
+			v.UpToDate++
+		case v.Hosted:
+			v.Behind++
+		}
+		_ = name
+		if code == 0 && name == "" {
+			continue
+		}
+		c := counts[v.Slot][code]
+		if c == nil {
+			c = &ClientVersionCount{Version: name, Code: code}
+			counts[v.Slot][code] = c
+		}
+		c.Count++
+		c.Current = v.Hosted && code == v.Build.VersionCode
+	}
+
+	return views, counts
 }

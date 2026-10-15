@@ -139,12 +139,16 @@
 .cs b{display:block;font-size:12.5px}.cs span{font-size:11.5px;color:var(--muted);line-height:1.45}
 </style>
 
+<template id="page-island">
+  <span class="isl-t">Settings</span>
+  <span class="isl-s">Server-wide. Per-device and per-venue settings live on their own pages.</span>
+</template>
 <div class="cc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Settings</div>
-    <h1 class="cc-h1">Settings</h1>
-    <div class="cc-sub">Server-wide settings. Per-device and per-venue settings live on their own pages.</div>
+    <div class="cc-eyebrow isl-dup">Settings</div>
+    <h1 class="cc-h1 isl-dup-sr">Settings</h1>
+    <div class="cc-sub isl-dup">Server-wide settings. Per-device and per-venue settings live on their own pages.</div>
   </div>
 </div>
 
@@ -174,7 +178,7 @@
   <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><h2>Getting started</h2><span class="m">{{if $keyOK}}1{{else}}0{{end}}{{if $apkOK}}+1{{end}}{{if $scanOK}}+1{{end}} of 3 done</span></div>
   <div class="st-steps">
     <a class="cs {{if $keyOK}}ok{{else}}on{{end}}" href="/settings#fleet-adb-key"><span class="n">{{if $keyOK}}✓{{else}}1{{end}}</span><div><b>Upload the fleet adb key</b><span>{{if $keyOK}}Uploaded — scouts can open devices that trust it.{{else}}The key our images trust. Scouts cannot open a device without it.{{end}}</span></div></a>
-    <a class="cs {{if $apkOK}}ok{{else if $keyOK}}on{{end}}" href="/clients?slot=dpc"><span class="n">{{if $apkOK}}✓{{else}}2{{end}}</span><div><b>Host the standard client</b><span>{{if $apkOK}}Hosted — QR and scout enrolment have something to install.{{else}}Publish an APK to the dpc slot so QR and scout enrolment have something to install.{{end}}</span></div></a>
+    <a class="cs {{if $apkOK}}ok{{else if $keyOK}}on{{end}}" href="/lineup?client=dpc"><span class="n">{{if $apkOK}}✓{{else}}2{{end}}</span><div><b>Host the standard client</b><span>{{if $apkOK}}Hosted — QR and scout enrolment have something to install.{{else}}Publish an APK to the dpc slot so QR and scout enrolment have something to install.{{end}}</span></div></a>
     <a class="cs {{if $scanOK}}ok{{else if and $keyOK $apkOK}}on{{end}}" href="/restaurants"><span class="n">{{if $scanOK}}✓{{else}}3{{end}}</span><div><b>Turn scanning on for a venue</b><span>{{if $scanOK}}At least one venue is swept every 15 minutes.{{else}}Restaurant → Scout. Until then the scheduler sweeps nothing.{{end}}</span></div></a>
   </div>
 </div>

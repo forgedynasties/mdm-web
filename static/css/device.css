@@ -8,7 +8,11 @@
    widens the page to match the 1280px cc-wrap used by Overview. */
 .device-detail.cc-wrap{max-width:1280px}
 .dd-cc .ddc-hero--ribbon{margin-bottom:16px}
+.dd-cc .ddc-idw{flex:1;min-width:0;display:flex;gap:16px;align-items:center}
 .dd-cc .ddc-id{flex:1;min-width:0}
+/* the model's product shot (static/img/models), when it has one */
+.dd-cc .ddc-pic{width:72px;height:72px;flex:none;object-fit:contain;border-radius:12px;background:var(--surface2)}
+@media(max-width:720px){.dd-cc .ddc-pic{width:52px;height:52px;border-radius:10px}}
 .dd-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}
 .dd-title-row .cc-h1{margin:0}
 /* #ws-badge's class list is fully replaced by JS on presence changes

@@ -108,6 +108,9 @@ func (d *DB) ProductRole(ctx context.Context, key string) (string, error) {
 	if err != nil {
 		return "", nil // no row: no default
 	}
+	if !prod.IsClass(role) {
+		return "", nil // attached to a class that has since been retired
+	}
 	return role, nil
 }
 
@@ -124,11 +127,36 @@ func (d *DB) SetProductRole(ctx context.Context, key, role, by string) (int64, e
 		return 0, err
 	}
 	if role == "" {
-		return 0, nil
+		// Detached: its devices lose the class it gave them; the next check-in fills a
+		// guess from the model they report, if there is one.
+		tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = '' WHERE product = $1 AND device_class <> ''`, key)
+		if err != nil {
+			return 0, err
+		}
+		return tag.RowsAffected(), nil
 	}
 	tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2 WHERE product = $1 AND device_class <> $2`, key, role)
 	if err != nil {
 		return 0, err
 	}
 	return tag.RowsAffected(), nil
+}
+
+// AttachedModels lists every stock model attached to a class, devices or not: a model can
+// be attached before any device of it has enrolled.
+func (d *DB) AttachedModels(ctx context.Context) ([]ProductRow, error) {
+	rows, err := d.pool.Query(ctx, `SELECT product, name, role, updated_by FROM product_names WHERE role <> '' ORDER BY product`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ProductRow
+	for rows.Next() {
+		var r ProductRow
+		if err := rows.Scan(&r.Key, &r.Name, &r.Role, &r.UpdatedBy); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }

@@ -54,10 +54,10 @@ func TestResolveUnknownNonEmpty(t *testing.T) {
 }
 
 func TestResolveNormalizes(t *testing.T) {
-	for _, key := range []string{"kiosk27", "KIOSK27", " Kiosk27 "} {
+	for _, key := range []string{"kiosk22", "KIOSK22", " Kiosk22 "} {
 		p, known := Resolve(key)
-		if !known || p.Key != KeyKiosk27 {
-			t.Errorf("Resolve(%q): got (%q, %v), want kiosk27 known", key, p.Key, known)
+		if !known || p.Key != KeyKiosk22 {
+			t.Errorf("Resolve(%q): got (%q, %v), want kiosk22 known", key, p.Key, known)
 		}
 	}
 }
@@ -66,7 +66,7 @@ func TestCaps(t *testing.T) {
 	if c := CapsFor(KeyT7); !c.HasWLC || !c.HasCharging || !c.HasBattery {
 		t.Errorf("T7 caps: got %+v, want all true", c)
 	}
-	for _, k := range []string{KeyKiosk18, KeyKiosk22, KeyKiosk27} {
+	for _, k := range []string{KeyKiosk22} {
 		if c := CapsFor(k); c.HasWLC || c.HasCharging || c.HasBattery {
 			t.Errorf("%s caps: got %+v, want all false", k, c)
 		}
@@ -90,7 +90,7 @@ func TestCatalogClasses(t *testing.T) {
 	if p, _ := Resolve(""); p.Class != ClassT7 {
 		t.Errorf("legacy empty class: got %q, want %q", p.Class, ClassT7)
 	}
-	for _, k := range []string{KeyKiosk18, KeyKiosk22, KeyKiosk27} {
+	for _, k := range []string{KeyKiosk22} {
 		if p, _ := Resolve(k); p.Class != ClassKiosk {
 			t.Errorf("%s class: got %q, want %q", k, p.Class, ClassKiosk)
 		}
@@ -121,11 +121,11 @@ func TestClassForModel(t *testing.T) {
 	for _, tc := range []struct {
 		productKey, mfr, model, want string
 	}{
-		{"d3_pro", "SUNMI", "D3 PRO", ClassMPOS},
+		{"d3_pro", "SUNMI", "D3 PRO", ""}, // handheld, payment and tablet are retired: no guess
 		{"rk3399_android11", "telpo", "K20", ClassKiosk},
-		{"a14xmtfn", "samsung", "SM-S146VL", ClassMPOS},
+		{"a14xmtfn", "samsung", "SM-S146VL", ""},
 		{"kiosk_x", "vendor", "Self Service 21", ClassKiosk},
-		{"sm-x200", "samsung", "Galaxy Tab A8", ClassTablet},
+		{"sm-x200", "samsung", "Galaxy Tab A8", ""},
 		{"rockchip029", "Google", "HK1 RBOX D8", ClassDongle},
 		{"sdk_gphone64_x86_64", "Google", "sdk_gphone64_x86_64", ""},
 		{"", "", "", ""},
@@ -176,7 +176,7 @@ func TestClassIsBatteryPowered(t *testing.T) {
 
 func TestBatteryPredicateSQL(t *testing.T) {
 	got := BatteryPredicateSQL("d")
-	for _, want := range []string{"d.device_class NOT IN (", "'dongle'", "'kds'", "'kiosk'", "'pos'", "'kiosk18'", "'kiosk22'", "'kiosk27'", "'" + DefaultKey + "')"} {
+	for _, want := range []string{"d.device_class NOT IN (", "'dongle'", "'kds'", "'kiosk'", "'pos'", "'kiosk22'", "'" + DefaultKey + "')"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("BatteryPredicateSQL: %q missing %q", got, want)
 		}

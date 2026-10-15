@@ -45,8 +45,8 @@ func TestProductKeysForClass(t *testing.T) {
 		t.Errorf("productKeysForClass(t7) = %q, want both t7 and the legacy empty key", t7)
 	}
 	kiosks := productKeysForClass(prod.ClassKiosk)
-	if len(kiosks) != 3 {
-		t.Errorf("productKeysForClass(kiosk) = %q, want the three kiosk products", kiosks)
+	if len(kiosks) != 1 || kiosks[0] != prod.KeyKiosk22 {
+		t.Errorf("productKeysForClass(kiosk) = %q, want the Kiosk 22", kiosks)
 	}
 	if got := productKeysForClass(prod.ClassMPOS); len(got) != 0 {
 		t.Errorf("productKeysForClass(mpos) = %q, want none (no catalog product is an mPOS)", got)

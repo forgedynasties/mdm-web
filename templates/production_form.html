@@ -2,7 +2,6 @@
 {{template "header" .}}
 
 <div class="cc-wrap">
-<a href="/productions" class="back-link">← Productions</a>
 <div class="cc-top" style="margin-top:10px">
   <div>
     <div class="cc-eyebrow">Fleet · Productions</div>
@@ -19,6 +18,15 @@
       <input type="text" name="name" id="f-name" class="form-input" placeholder="e.g. AT07-prod-04-26-900pc" required aria-required="true"
              oninput="nameEdited=true; refreshPreview()">
       <span class="muted small">Auto-generated from fields below — edit to override.</span>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label" for="f-hwmodel">Hardware model</label>
+      <select name="model" id="f-hwmodel" class="form-input">
+        <option value="">Not linked</option>
+        {{range .Models}}<option value="{{.Key}}">{{.Label}} · {{.Key}}</option>{{end}}
+      </select>
+      <span class="muted small">The model this run builds, as on the Hardware page.</span>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">

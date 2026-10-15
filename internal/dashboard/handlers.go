@@ -1112,6 +1112,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// catalog does not know ("Sunmi D3 PRO", not the wire key "d3_pro").
 		"productLabel": productLabel,
 		"productName":  productName, // admin-set display name for a stock product, "" if none
+		"modelPic":     modelPic,    // a model's product shot, nil if none
 		// clFormat makes a changelog line scannable: the lead sentence (up to the
 		// first ". ") becomes a bold headline, the rest stays as body text. Input is
 		// HTML-escaped first, so entries are plain text authored in version.go.
@@ -1318,6 +1319,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return time.Since(t) <= time.Duration(thresholdSecs)*time.Second
 		},
 		"batteryTemp": batteryTempStr,
+		"vitalCols":   vitalColumns, // the device pane's vitals as columns
 		// micGain parses latest_extra.mic_gain for templates that only have the
 		// device (vitals partial); nil when the device reports no mic gain.
 		"micGain": micGainPtr,
@@ -2127,17 +2129,10 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	role := h.role(r)
 	data["Role"] = role
-	// Fleet cards layout the viewer picked (Layout toggle on the fleet page). One cookie
-	// holds the choice and the card list switches on it. Two layouts remain: the
-	// serial-led cards (shown as "New") and the classic ones. Anything else — the
-	// retired "new" and "table" values still sitting in year-old cookies, or a
-	// hand-edited one — falls through to serial rather than rendering nothing.
-	layout := "serial"
-	if c, err := r.Cookie("fleet_layout"); err == nil && c.Value == "classic" {
-		layout = "classic"
-	}
-	data["FleetLayout"] = layout
-	data["ClassicCards"] = layout == "classic"
+	// Fleet cards have one layout, the serial-led one (Classic removed 15 Oct); an old
+	// fleet_layout cookie is ignored. The keys stay for the templates that pass them on.
+	data["FleetLayout"] = "serial"
+	data["ClassicCards"] = false
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
@@ -2235,7 +2230,7 @@ var prefetchableTemplates = map[string]bool{
 	// navigation in the dashboard, and the rail warms the next page on hover.
 	"alerts.html": true, "alert_config.html": true, "report_alerts.html": true,
 	"apps.html": true, "app_detail.html": true, "jobs.html": true,
-	"command_history.html": true, "clients.html": true, "manage.html": true,
+	"command_history.html": true, "manage.html": true,
 	"enrollment.html": true, "groups.html": true, "restaurants.html": true,
 	"settings.html": true, "updates_rollouts.html": true, "releases.html": true,
 	"packages.html": true, "users.html": true, "activity.html": true,
@@ -2960,7 +2955,7 @@ func (h *Handler) deliveryNicknames(ctx context.Context, ds []db.CommandDelivery
 	return m
 }
 
-// DeviceSetNickname stores a friendly name for a device ("Table 4"), shown to
+// DeviceSetNickname stores a friendly name for a device ("Host stand"), shown to
 // restaurant owners and next to the serial on the device page.
 func (h *Handler) DeviceSetNickname(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
@@ -3924,7 +3919,7 @@ func sneakPeekDevices() ([]db.Device, map[uuid.UUID]bool) {
 		"Mission Rock", "Noe Valley", "Hayes Valley", "Bayview", "Potrero", "Chinatown",
 		"Union Square", "Financial", "Bernal", "Cole Valley", "Nob Hill", "Russian Hill",
 		"Sunset", "Harbor Café"}
-	prods := []string{"kiosk22", "kiosk27", "t7", "kiosk18"}
+	prods := []string{"kiosk22", "t7"}
 	devices := make([]db.Device, 0, len(names))
 	online := map[uuid.UUID]bool{}
 	now := time.Now()
@@ -4104,9 +4099,9 @@ func sneakPeekFleet() (db.Summary, []db.GroupHealth, int, []db.FleetDailyStat, i
 	v4 := total - vLatest - v2 - v3
 	versions := []db.FleetVersion{
 		{Version: "2026.06.01-release", Product: "kiosk22", DeviceCount: vLatest, ReleaseID: intPtr(90000), ReleaseStatus: "published"},
-		{Version: "2026.05.14-release", Product: "kiosk27", DeviceCount: v2, ReleaseID: intPtr(89000), ReleaseStatus: "published"},
+		{Version: "2026.05.14-release", Product: "kiosk22", DeviceCount: v2, ReleaseID: intPtr(89000), ReleaseStatus: "published"},
 		{Version: "2026.04.02-release", Product: "t7", DeviceCount: v3, ReleaseID: intPtr(88000), ReleaseStatus: "published"},
-		{Version: "2026.03.10-release", Product: "kiosk18", DeviceCount: v4},
+		{Version: "2026.03.10-release", Product: "kiosk22", DeviceCount: v4},
 	}
 
 	now := time.Now()
@@ -4116,14 +4111,12 @@ func sneakPeekFleet() (db.Summary, []db.GroupHealth, int, []db.FleetDailyStat, i
 			DeviceDownloading: total * 9 / 100, DeviceFailed: total * 1 / 100,
 			Release: &db.Release{ID: 90000, Version: "2026.06.01-release", Product: "kiosk22", Status: "published"}},
 		{ID: 9002, Status: "active", RebootBehavior: "manual", CreatedAt: now.Add(-3 * time.Hour),
-			Product: "kiosk27", DeviceTotal: 48, DeviceInstalled: 48, DeviceAwaiting: 6,
-			Release: &db.Release{ID: 89000, Version: "2026.05.14-release", Product: "kiosk27", Status: "published"}},
+			Product: "kiosk22", DeviceTotal: 48, DeviceInstalled: 48, DeviceAwaiting: 6,
+			Release: &db.Release{ID: 89000, Version: "2026.05.14-release", Product: "kiosk22", Status: "published"}},
 	}
 
-	k22 := total * 43 / 100
-	k27 := total * 28 / 100
 	t7 := total * 17 / 100
-	prodCounts := map[string]int{"kiosk22": k22, "kiosk27": k27, "t7": t7, "kiosk18": total - k22 - k27 - t7}
+	prodCounts := map[string]int{"kiosk22": total - t7, "t7": t7}
 
 	return summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts
 }
@@ -4134,13 +4127,13 @@ func sneakPeekMapJSON() template.JS {
 	pts := []deviceMapPoint{
 		{Serial: "DEMO-0041", Name: "Harbor Grill", Lat: 37.8087, Lon: -122.4098, Online: true, Product: "kiosk22", Battery: 84, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Harbor Grill"},
 		{Serial: "DEMO-0042", Name: "Harbor Grill", Lat: 37.8090, Lon: -122.4102, Online: true, Product: "kiosk22", Battery: 79, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Harbor Grill"},
-		{Serial: "DEMO-0117", Name: "Sausalito", Lat: 37.8591, Lon: -122.4853, Online: false, Product: "kiosk27", Battery: 61, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
-		{Serial: "DEMO-0119", Name: "Sausalito", Lat: 37.8570, Lon: -122.4840, Online: true, Product: "kiosk27", Battery: 88, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
+		{Serial: "DEMO-0117", Name: "Sausalito", Lat: 37.8591, Lon: -122.4853, Online: false, Product: "kiosk22", Battery: 61, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
+		{Serial: "DEMO-0119", Name: "Sausalito", Lat: 37.8570, Lon: -122.4840, Online: true, Product: "kiosk22", Battery: 88, Kiosk: true, Build: "2026.05.14-release", Restaurant: "Sausalito"},
 		{Serial: "DEMO-0071", Name: "Marina Point", Lat: 37.8060, Lon: -122.4330, Online: true, Product: "t7", Battery: 92, Build: "2026.06.01-release", Restaurant: "Marina Point"},
 		{Serial: "DEMO-0093", Name: "Ferry Plaza", Lat: 37.7955, Lon: -122.3937, Online: true, Product: "t7", Battery: 67, Build: "2026.06.01-release", Restaurant: "Ferry Plaza"},
 		{Serial: "DEMO-0060", Name: "Embarcadero", Lat: 37.7929, Lon: -122.3968, Online: true, Product: "kiosk22", Battery: 90, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Embarcadero"},
 		{Serial: "DEMO-0055", Name: "North Beach", Lat: 37.8003, Lon: -122.4104, Online: true, Product: "kiosk22", Battery: 85, Kiosk: true, Build: "2026.06.01-release", Restaurant: "North Beach"},
-		{Serial: "DEMO-0080", Name: "Presidio", Lat: 37.7989, Lon: -122.4662, Online: true, Product: "kiosk27", Battery: 87, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Presidio"},
+		{Serial: "DEMO-0080", Name: "Presidio", Lat: 37.7989, Lon: -122.4662, Online: true, Product: "kiosk22", Battery: 87, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Presidio"},
 		{Serial: "DEMO-0102", Name: "Mission Rock", Lat: 37.7716, Lon: -122.3893, Online: true, Product: "kiosk22", Battery: 93, Kiosk: true, Build: "2026.06.01-release", Restaurant: "Mission Rock"},
 	}
 	b, err := json.Marshal(pts)
@@ -5021,7 +5014,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Friendly names ("Table 4") so the roster leads with the name and shows the
+	// Friendly names ("Host stand") so the roster leads with the name and shows the
 	// serial as the subtle line.
 	nickIDs := make([]uuid.UUID, 0, len(devices))
 	for _, d := range devices {
@@ -5147,6 +5140,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		data["Queries"] = enabled
+	}
+	if view == "restaurants" || view == "groups" || view == "releases" {
+		data["CollRows"], data["CollSummary"] = h.collRows(r, view)
 	}
 	h.render(w, r, "devices.html", data)
 }
@@ -6417,9 +6413,19 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	if kioskRule == nil {
 		kioskOverride = false
 	}
+	labSess, _ := h.db.GetLabSession(r.Context(), device.ID)
+	fwModes, _ := h.db.FirmwareModes(r.Context())
 	h.render(w, r, "device.html", map[string]any{
 		"Title":  device.SerialNumber,
 		"Device": device,
+		// Lab session (lab.go): the banner, the entry dialog and the lab view link.
+		"Lab":          labSess,
+		// At a venue and not in lab: the device runs its role's app, so the lab tools
+		// (install, uninstall, shell) are not offered here. Their routes stay.
+		"Restricted":   false, // installs are by hand again (roles no longer carry an app)
+		"CanLab":       canLab(h.role(r)),
+		"LabDurations": labDurations,
+		"FirmwareMode": db.FirmwareModeOf(fwModes, modelKey(device)),
 		"IsDPC":  device.IsDPC(),
 		// The hosted agent build vs. the one this device reports, so the menu can
 		// offer an update only when there is actually a newer one to install.
@@ -6470,7 +6476,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"NuggetIDsJSON":     nuggetIDsJSON(nuggetAndroidIDs(device.LatestExtra)),
 		"NuggetIDByPackage": nuggetIDByPackage(device.LatestExtra),
 		// The table guests are told they are at (home and lock screen on a T7).
-		"TableLabel":          func() string { g, _ := h.db.GuestForDevice(ctx, device.ID); return g.Guest.TableLabel }(),
 		"BuildChanges":        buildChanges,
 		"Activity":            activity,
 		"Commands":            commands,
@@ -8833,6 +8838,8 @@ func (h *Handler) DeviceShellPage(w http.ResponseWriter, r *http.Request) {
 		"Title":  "Shell · " + serial,
 		"Device": device,
 		"Online": h.hub.IsConnected(device.ID),
+		"ShellSession": supportsShellSession(device),
+		"ShellQueue":   h.shellQueue(r, device.ID),
 	})
 }
 
@@ -9367,7 +9374,11 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
-	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
+	tpl := "device-vitals"
+	if r.URL.Query().Get("cols") == "1" {
+		tpl = "device-vitals-cols" // the device pane's columns (Overview)
+	}
+	h.renderCachedHTML(w, r, tpl, map[string]any{
 		"Device": device,
 		// Same rule as the full page. Missing here, every live refresh fell through to the
 		// "no reading yet" chip, so the battery flipped from "100% ⚡" to "—" a moment
@@ -9841,23 +9852,33 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 	// Venues is a place of its own again. Sending it to the Fleet shell meant the
 	// rail's "Venues" opened a page headed "9 of 20 devices online" with a Collections
 	// rail — the nav said one thing and the page said another.
-	restaurants, err := h.db.ListRestaurants(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	health := make(map[uuid.UUID]db.GroupHealth)
-	if rhs, err := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7); err == nil {
-		for _, rh := range rhs {
-			health[rh.GroupID] = rh // GroupHealth.GroupID carries the restaurant id
-		}
-	}
+	// One row per venue (venues-demos.html, L1), built by collRows, which Fleet's
+	// Restaurants, Groups and Releases views share.
+	rows, sum := h.collRows(r, "restaurants")
 	h.render(w, r, "restaurants.html", map[string]any{
-		"Title":       "Restaurants",
-		"Restaurants": restaurants,
-		"Health":      health,
+		"Title":   "Venues",
+		"Venues":  rows,
+		"Summary": sum,
 	})
 }
+
+// venueRow is one venue on the Venues list.
+type venueRow struct {
+	ID, Name, Sub, Href, Text string // the collection: a venue, group or release
+	H                         db.GroupHealth
+	HasH                      bool
+	Devices                   int
+	Online, Offline, Dormant  int
+	Pips                      []string // on | off | dormant, problems first, at most 20
+	More                      int      // devices past the 20 squares
+	Last                      time.Time
+	Class                     string // ok | warn | danger | empty
+	NeedsLook                 bool
+}
+
+type venueSummary struct{ Devices, Offline, Critical, NeedLook, WithOffline, Empty int }
+
+var pipRank = map[string]int{"off": 0, "dormant": 1, "on": 2}
 
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
@@ -9964,11 +9985,21 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	devices = h.access(r).keepVisible(devices)
 	win, hasOwn, _ := h.db.GetRestaurantServiceWindow(r.Context(), id)
+	// Online the way the Venues list counts it: connected, or checked in within three
+	// check-in intervals, so the two pages agree.
+	online := h.onlineMap()
+	onCount, stale := 0, time.Duration(h.cfg.CheckinInterval()*3)*time.Second
+	for _, d := range devices {
+		if online[d.ID] || time.Since(d.LastSeenAt) < stale {
+			onCount++
+		}
+	}
 	data := map[string]any{
 		"Title":               rest.Name,
 		"Restaurant":          rest,
 		"Devices":             devices,
-		"Online":              h.onlineMap(),
+		"Online":              online,
+		"OnlineCount":         onCount,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}
@@ -11151,35 +11182,6 @@ func (h *Handler) BulkNickname(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.hxDoneToastEvents(w, r, "/devices", msg, typ, "refresh-devices")
-}
-
-// BulkClass sets the device type (tablet, panel, kiosk, ...) on the selection.
-func (h *Handler) BulkClass(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	serials := parseSerialsField(r.Form["serials"])
-	if len(serials) == 0 {
-		http.Redirect(w, r, "/devices", http.StatusSeeOther)
-		return
-	}
-	c := strings.ToLower(strings.TrimSpace(r.FormValue("device_class")))
-	if c != "" && !product.IsClass(c) {
-		http.Error(w, "Unknown class", http.StatusBadRequest)
-		return
-	}
-	done := 0
-	for _, serial := range serials {
-		device, err := h.db.GetDevice(r.Context(), serial)
-		if err != nil {
-			continue
-		}
-		if err := h.db.SetDeviceClass(r.Context(), device.ID, c); err != nil {
-			continue
-		}
-		h.hub.PublishDeviceUpdate(device.ID)
-		done++
-	}
-	h.audit(r, "device.bulk_class", strings.Join(serials, ","), fmt.Sprintf("%d devices: %s", done, c))
-	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("Set type on %d device%s", done, plural(done)), "success", "refresh-devices")
 }
 
 // BulkRetire takes the selection out of the active fleet (lists, alerts, policy
@@ -21296,7 +21298,7 @@ func (h *Handler) ProductionList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ProductionNew(w http.ResponseWriter, r *http.Request) {
-	h.render(w, r, "production_form.html", nil)
+	h.render(w, r, "production_form.html", map[string]any{"Models": h.modelOptions(r.Context())})
 }
 
 func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
@@ -21323,6 +21325,11 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 	startSeq, _ := strconv.Atoi(r.FormValue("start_sequence"))
 	quantity, _ := strconv.Atoi(r.FormValue("quantity"))
 	notes := r.FormValue("notes")
+	model := product.Normalize(r.FormValue("model"))
+	if model != "" && !h.isModelOption(r.Context(), model) {
+		http.Error(w, "Unknown model", http.StatusBadRequest)
+		return
+	}
 
 	if name == "" || productCode == "" || modelCode == "" ||
 		batchMonth < 1 || batchMonth > 12 || batchYear < 0 || batchYear > 99 ||
@@ -21364,6 +21371,7 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 		StartSequence: startSeq,
 		EndSequence:   endSeq,
 		Notes:         notes,
+		Model:         model,
 	}
 	prod, err := h.db.CreateProduction(r.Context(), params)
 	if err != nil {
@@ -21391,6 +21399,7 @@ func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, "production_detail.html", map[string]any{
 		"Production":          prod,
+		"Models":              h.modelOptions(r.Context()),
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
@@ -21993,6 +22002,22 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.deviceRoute("query", h.DeviceAIAnalysis)))
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.deviceRoute("view", h.DeviceAIAnalysesList)))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireReleaseAdmin(h.deviceRoute("shell", h.DeviceShellPage)))
+	// Interactive shell sessions (shell_session.go).
+	mux.HandleFunc("GET /devices/{serial}/shell/session", h.requireReleaseAdmin(drainable(h.deviceRoute("shell", h.ShellSessionStream))))
+	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.ShellSessionInput)))
+	// Releases (pipeline.go): what every role runs, and the per-model firmware.
+	mux.HandleFunc("GET /lineup", h.requireAuth(h.Pipeline))
+	mux.HandleFunc("GET /pipeline", h.requireAuth(h.PipelineRedirect))
+	post("POST /pipeline/channel", h.requireLab(h.PipelineChannel))
+	post("POST /pipeline/firmware", h.requireLab(h.PipelineFirmware))
+	post("POST /pipeline/rollout", h.requireLab(h.PipelineRollout))
+	post("POST /pipeline/fetch", h.requireLab(h.PipelineFetch))
+	// Lab sessions (lab.go): the timed lab view and its actions.
+	mux.HandleFunc("GET /devices/{serial}/lab", h.requireLab(h.deviceRoute("shell", h.LabView)))
+	post("POST /devices/{serial}/lab/open", h.requireLab(h.deviceRoute("shell", h.LabOpen)))
+	post("POST /devices/{serial}/lab/extend", h.requireLab(h.deviceRoute("shell", h.LabExtend)))
+	post("POST /devices/{serial}/lab/end", h.requireLab(h.deviceRoute("shell", h.LabEnd)))
+	post("POST /devices/{serial}/lab/install", h.requireLab(h.deviceRoute("shell", h.LabInstall)))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.deviceRoute("view", h.DeviceCommandsPartial)))
 	mux.HandleFunc("GET /devices/{serial}/alerts-panel", h.requireAuth(h.deviceRoute("view", h.DeviceAlertsPanel)))
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.deviceRoute("view", h.DeviceQueuePartial)))
@@ -22012,7 +22037,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/key-reset", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceKeyReset)))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceNotesUpdate)))
 	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetNickname)))
-	post("POST /devices/{serial}/table", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetTableLabel)))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskUpdate)))
 	post("POST /devices/{serial}/kiosk/relock", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskRelock)))
 	post("POST /devices/{serial}/kiosk/leave-out", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceKioskLeaveOut)))
@@ -22029,7 +22053,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/views/{id}/delete", h.requireAuth(h.FleetViewDelete))
 	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-nickname", h.requireAdminOrOperator(h.BulkNickname))
-	post("POST /devices/bulk-class", h.requireStrictAdmin(h.BulkClass))
 	post("POST /devices/bulk-retire", h.requireStrictAdmin(h.BulkRetire))
 	post("POST /devices/bulk-kiosk", h.requireAdminOrOperator(h.BulkKioskUpdate))
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
@@ -22129,6 +22152,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /productions/{id}", h.requireAdminOrOperator(h.fleetWide(h.ProductionDetail)))
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrOperator(h.fleetWide(h.ProductionExportCSV)))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
+	post("POST /productions/{id}/model", h.requireAdminOrOperator(h.ProductionSetModel))
 
 	// The console is gone. Every verb it owned now starts from the thing it acts on — an
 	// install from the app in the library, diagnostics and the destructive pair from a
@@ -22172,7 +22196,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/delete-expired", h.requireStrictAdmin(h.EnrollmentProfilesDeleteExpired))
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
-	post("POST /devices/{serial}/class", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetClass)))
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
@@ -22239,7 +22262,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// re-add it to the directory without asking.
 	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
-	mux.HandleFunc("GET /products", h.requireStrictAdmin(h.ProductsPage))
+	mux.HandleFunc("GET /products", h.requireAuth(h.ProductsPage))
 	mux.HandleFunc("GET /settings/google-usage", h.requireStrictAdmin(h.GoogleUsageJSON))
 	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
 	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))
@@ -22262,6 +22285,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
 	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
 	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
+	// Roles & hardware (products.go): what each role runs, and each model's firmware mode.
+	// Super admins only — Releases shows both read-only.
+	post("POST /products/attach", h.requireStrictAdmin(h.ProductAttach))
+	post("POST /products/firmware-mode", h.requireStrictAdmin(h.PipelineFirmwareMode))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.
 	mux.HandleFunc("GET /clients", h.requireAuth(h.fleetWide(h.ClientsPage)))
@@ -22461,21 +22488,84 @@ func (h *Handler) CommandOutputStream(w http.ResponseWriter, r *http.Request) {
 	ch, unsub := h.shell.SubscribeCommandOutput(cmdID, device.ID)
 	defer unsub()
 
+	// A command can end without streaming anything: the firmware client streams stdout
+	// but reports stderr (and the failure) only in its final acknowledgement, and a fast
+	// command can finish before this stream subscribes. So the stream also watches the
+	// stored outcome, and when the command is over it sends whatever output the stream
+	// did not carry, then a done event that says how it ended.
+	streamed := false
+	finish := func() {
+		// The ack can land a moment after the last chunk; give it a beat.
+		// The firmware client marks the end over the socket and sends what it printed
+		// on stderr in a separate HTTP ack, which can land seconds later. So once it is
+		// over, keep waiting (up to 15s) for that output if none was streamed.
+		var status, out string
+		for i := 0; i < 30; i++ {
+			status, out, _ = h.db.CommandOutcome(r.Context(), cmdID, device.ID)
+			if isTerminalCommandStatus(status) && (streamed || out != "" || i >= 10 && status == "completed") {
+				break
+			}
+			select {
+			case <-r.Context().Done():
+				return
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+		if !streamed && out != "" {
+			data, _ := json.Marshal(out)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+		}
+		done, _ := json.Marshal(map[string]string{"status": status})
+		fmt.Fprintf(w, "event: done\ndata: %s\n\n", done)
+		flusher.Flush()
+	}
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
 	for {
 		select {
 		case chunk, open := <-ch:
 			if !open {
-				fmt.Fprintf(w, "event: done\ndata: {}\n\n")
-				flusher.Flush()
+				finish()
 				return
 			}
+			streamed = true
 			data, _ := json.Marshal(chunk)
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
+		case <-tick.C:
+			if status, _, err := h.db.CommandOutcome(r.Context(), cmdID, device.ID); err == nil && isTerminalCommandStatus(status) {
+				// Give in-flight chunks a moment to arrive before closing.
+				time.Sleep(300 * time.Millisecond)
+				for drained := false; !drained; {
+					select {
+					case chunk, open := <-ch:
+						if !open {
+							drained = true
+							break
+						}
+						streamed = true
+						data, _ := json.Marshal(chunk)
+						fmt.Fprintf(w, "data: %s\n\n", data)
+					default:
+						drained = true
+					}
+				}
+				finish()
+				return
+			}
 		case <-r.Context().Done():
 			return
 		}
 	}
+}
+
+// isTerminalCommandStatus reports whether a device's command status is final.
+func isTerminalCommandStatus(s string) bool {
+	switch s {
+	case "completed", "failed", "unsupported", "cancelled", "canceled", "expired", "rejected", "timeout":
+		return true
+	}
+	return false
 }
 
 // LogcatLivePage renders the live logcat console for a device.

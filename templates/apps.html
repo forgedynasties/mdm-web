@@ -58,45 +58,28 @@
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 
   .st-empty{font-size:12.5px;color:var(--muted);padding:12px 2px}
-  .st-all{border-top:1px solid var(--border-soft);margin-top:10px;padding-top:22px}
+  .st-all{margin-top:6px}
   /* The dock floats over the bottom of every page; without room for it the last shelf
      sits underneath it. */
   .st-wrap{padding-bottom:96px}
 </style>
+<template id="page-island">
+  <span class="isl-t">App library</span>
+  <span class="isl-s"><b>{{len .Families}}</b> app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} upload{{if ne (len .Apps) 1}}s{{end}}</span>
+  {{if canAppLibrary .Role}}<span class="isl-acts"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></span>{{end}}
+</template>
 <div class="st-wrap">
   <div class="st-top">
-    <h1>Apps</h1>
+    <h1 class="isl-dup-sr">App library</h1>
     <label class="st-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
       <input id="st-q" type="search" placeholder="Search apps, packages, versions" autocomplete="off" oninput="stFilter(this.value)">
     </label>
-    {{if canAppLibrary .Role}}<button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button>{{end}}
+    {{if canAppLibrary .Role}}<button type="button" class="cc-btn primary isl-dup" onclick="libAddOpen()">Add apps</button>{{end}}
   </div>
 
-  {{with .Store}}
-  <div class="st-chips">
-    <a class="st-chip on" href="#st-all">All apps</a>
-    {{range .Shelves}}<a class="st-chip" href="#st-{{.ID}}">{{.Title}}<span class="c">{{len .Cards}}</span></a>{{end}}
-  </div>
-
-  {{range .Shelves}}
-    <div class="st-shelf" id="st-{{.ID}}" data-shelf>
-      <div class="st-sh"><h2>{{.Title}}</h2><span class="cnt">{{len .Cards}}</span>{{if .Note}}<span class="note">{{.Note}}</span>{{end}}</div>
-      <div class="st-row">
-        {{range .Cards}}
-        {{/* The card is the link — a filled button on every one emphasised nothing. */}}
-        <a class="st-card" href="/apps/{{.Package}}" data-card data-search="{{.Search}}">
-          <span class="st-tile">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}<span class="st-ini">{{.Initial}}</span>{{end}}</span>
-          <div class="st-nm">{{.Name}}</div>
-          <div class="st-mt">{{.Meta}}</div>
-        </a>
-        {{end}}
-      </div>
-      <div class="st-empty" data-shelf-empty hidden>Nothing here matches.</div>
-    </div>
-  {{end}}
-  {{end}}
-
+  {{/* The library is the page (role model, 14 Oct): what devices run is decided on
+       Releases, so the "recently added" and other shelves went. */}}
   <div class="st-all" id="st-all">
     {{template "app-library" .}}
   </div>

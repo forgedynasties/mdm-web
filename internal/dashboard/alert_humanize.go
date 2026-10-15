@@ -202,6 +202,12 @@ func humanizeAlert(a db.Alert) humanAlert {
 		}
 		s = fmt.Sprintf("%s reported %s %s recently%s.", place, b(fmt.Sprintf("%d", n)), word, crashTail(str("summary")))
 		h.PackageName = extractPackageName(str("summary"))
+	case "role_app_stuck":
+		h.Headline = "Stuck behind its prod build"
+		s = place + ": " + html.EscapeString(a.Summary)
+	case "role_unlocked":
+		h.Headline = "Unlocked for too long"
+		s = place + ": " + html.EscapeString(a.Summary)
 	default:
 		h.Headline = alertTypeLabel(a.Type)
 		s = html.EscapeString(a.Summary)

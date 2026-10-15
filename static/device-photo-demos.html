@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device model photo demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1280px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede{color:var(--muted);font-size:13.5px;max-width:980px;line-height:1.6}.lede b{color:var(--text);font-weight:650}
+h2.opt{font-size:16px;margin:36px 0 4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.now{font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface2);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.tgl{position:fixed;top:14px;right:16px;z-index:5}
+.stage{border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:10px;background:var(--bg)}
+.stage .below{height:46px;margin:12px 16px 14px;border-radius:12px;background:var(--surface2);border:1px solid var(--border)}
+/* the bar */
+.bar{display:flex;align-items:center;gap:14px;height:64px;padding:0 20px;background:rgba(255,255,255,.6);border-bottom:1px solid var(--border-soft)}
+html[data-theme=dark] .bar{background:rgba(10,10,20,.4)}
+.logo{font-size:24px;font-weight:500;letter-spacing:-.02em;flex:none;color:var(--text-2)}.logo b{background:linear-gradient(90deg,#8a7cf0,#f0607a);-webkit-background-clip:text;color:transparent;font-weight:600}
+.glob{display:flex;gap:10px;align-items:center;flex:none;margin-left:auto}
+.gb{width:38px;height:38px;border-radius:11px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;color:var(--text-2);position:relative}
+.gb svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.gb .n{position:absolute;top:-5px;right:-5px;font-size:10px;font-weight:700;background:#b91c1c;color:#fff;border-radius:99px;padding:1px 5px}
+.acct{display:flex;gap:10px;align-items:center;height:38px;padding:0 6px 0 12px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font-size:13px;font-weight:600;color:var(--text)}
+.acct i{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#f08060,#8a7cf0);display:grid;place-items:center;color:#fff;font-style:normal;font-size:12px}
+.glob.quiet .gb,.glob.quiet .acct{border-color:transparent;background:transparent}
+.glob.quiet .acct span{display:none}
+.isl{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.dv{width:1px;height:22px;background:var(--border);flex:none}
+.dot{width:8px;height:8px;border-radius:99px;background:var(--ok);flex:none}.dot.off{background:var(--text-faint)}
+.cls{width:18px;height:18px;fill:none;stroke:var(--text-2);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.t{font-size:13px;font-weight:650;color:var(--text);white-space:nowrap}
+.s{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.acts{display:flex;gap:6px;margin-left:auto;align-items:center;flex:none}
+.b{font-size:12.5px;font-weight:600;border:1px solid var(--border);border-radius:99px;padding:6px 13px;color:var(--text-2);background:var(--surface);white-space:nowrap;display:inline-flex;gap:6px;align-items:center}
+.b svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.b.p{background:var(--accent);color:#fff;border-color:transparent}
+/* D1 capsule */
+.cap{display:flex;align-items:center;gap:10px;flex:1;min-width:0;height:46px;padding:0 6px 0 14px;border-radius:14px;background:var(--surface2);border:1px solid var(--border)}
+.cap .b{background:transparent;border-color:transparent;border-radius:10px}
+.cap .b:hover{background:var(--surface)}
+.cap .b.p{background:var(--accent);color:#fff}
+/* D2 segmented tray */
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:11px;overflow:hidden;background:var(--surface)}
+.seg .b{border:0;border-radius:0;background:transparent;padding:8px 13px}
+.seg .b+.b{border-left:1px solid var(--border)}
+.seg2{display:inline-flex;gap:4px;padding:3px;border-radius:12px;background:var(--surface2);border:1px solid var(--border)}
+.seg2 .b{border:0;border-radius:9px;background:transparent;padding:6px 12px}
+.seg2 .b:hover{background:var(--surface)}
+.seg2 .b.p{background:var(--accent);color:#fff}
+/* D3 identity block */
+.idt{display:flex;align-items:center;gap:11px;min-width:0}
+.tile{width:38px;height:38px;border-radius:11px;background:var(--accent-soft);display:grid;place-items:center;flex:none;position:relative}
+.tile .cls{stroke:var(--accent-text);width:20px;height:20px}
+.tile .dot{position:absolute;right:-2px;bottom:-2px;border:2px solid var(--bg);width:11px;height:11px}
+.stack b{display:block;font-size:14px;font-weight:650;color:var(--text);line-height:1.2}
+.stack small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.vsep{width:1px;align-self:stretch;margin:12px 4px;background:var(--border)}
+/* D4 tinted band */
+.band{display:flex;align-items:center;gap:10px;flex:1;min-width:0;height:64px;margin:0 -2px;padding:0 14px;background:linear-gradient(90deg,var(--accent-soft),transparent 70%);border-left:3px solid var(--accent)}
+@media(max-width:900px){.pros{grid-template-columns:1fr}body{padding:16px}.s,.glob .acct span,.logo{display:none}.stage{overflow-x:auto}}
+
+.cap{display:flex;align-items:center;gap:10px;flex:1;min-width:0;height:46px;padding:0 6px 0 14px;border-radius:14px}
+.cap .b{background:transparent;border-color:transparent;border-radius:10px}
+.cap .b.p{background:var(--accent);color:#fff}
+.cap .acts{gap:2px}
+/* A tinted */
+.cA{background:var(--surface2);border:1px solid var(--border)}
+.cA .b:hover{background:var(--surface)}
+/* B raised */
+.cB{background:var(--surface);border:1px solid var(--border-soft);box-shadow:0 1px 2px rgba(0,0,0,.05),0 6px 18px -8px rgba(0,0,0,.18)}
+html[data-theme=dark] .cB{box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 8px 20px -10px rgba(0,0,0,.6)}
+.cB .b:hover{background:var(--surface2)}
+.cB .gap{width:1px;height:20px;background:var(--border);margin:0 4px}
+/* C outline */
+.cC{background:transparent;border:1.5px solid var(--accent-edge,var(--accent));border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+/* D identity segment */
+.cD{background:var(--surface);border:1px solid var(--border);padding:0 6px 0 0;overflow:hidden}
+.cD .id{display:flex;align-items:center;gap:10px;height:100%;padding:0 14px;background:var(--surface2);border-right:1px solid var(--border);min-width:0}
+.cD .b:hover{background:var(--surface2)}
+/* E state tint */
+.cE{border:1px solid transparent}
+.cE.ok{background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 25%,transparent)}
+.cE.warn{background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.cE.lab{background:color-mix(in srgb,#8a5cf6 12%,transparent);border-color:color-mix(in srgb,#8a5cf6 35%,transparent)}
+.cE .b:hover{background:rgba(255,255,255,.5)}
+.pg{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin:12px 0 4px}
+.stage+.pg{margin-top:12px}
+.s b{color:var(--text);font-weight:650}.s .w{color:var(--warn);font-weight:650}.s .d{color:var(--danger);font-weight:650}
+.dot.warn{background:var(--warn)}.dot.danger{background:var(--danger)}
+.tg{font-size:10px;font-weight:800;letter-spacing:.06em;border-radius:6px;padding:2px 6px;background:#8a5cf6;color:#fff}
+
+.page{padding:14px 16px 16px}
+.facts{display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap;min-height:46px;padding:7px 14px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.facts b{color:var(--text);font-weight:650}
+.split{display:grid;grid-template-columns:55fr 45fr;gap:14px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;min-width:0}
+.card h3{font-size:13.5px;margin:0 0 10px;font-weight:650}
+.chart{height:150px;border-radius:10px;background:linear-gradient(180deg,transparent 60%,var(--accent-soft)),repeating-linear-gradient(90deg,transparent 0 79px,var(--border-soft) 79px 80px);border:1px solid var(--border-soft)}
+.tabs{display:inline-flex;gap:3px;padding:4px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap}
+.tabs span{font-size:12.5px;font-weight:650;padding:7px 12px;border-radius:9px;color:var(--text-2)}.tabs span.on{background:var(--surface);color:var(--accent-text)}
+.kv{display:flex;justify-content:space-between;font-size:12.5px;padding:7px 0;border-top:1px solid var(--border-soft);color:var(--muted)}.kv b{color:var(--text);font-weight:600}
+.pic{object-fit:contain;flex:none;border-radius:10px;background:var(--surface2)}
+.cap .pic{width:34px;height:34px;border-radius:9px;margin:-2px 0}
+.facts .pic{width:40px;height:40px;margin:-4px 2px -4px -6px}
+.hw{display:flex;gap:16px;align-items:center;margin-bottom:6px}
+.hw .pic{width:112px;height:112px;border-radius:14px}
+.hw b{font-size:15px;display:block}.hw small{color:var(--muted);font-size:12px;line-height:1.5;display:block;margin-top:3px}
+.spec{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.spec span{font-size:11px;font-weight:650;border-radius:6px;padding:2px 8px;background:var(--surface2);color:var(--text-2)}
+.idc{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.idc .pic{width:84px;height:84px;border-radius:14px}
+.idc b{font-size:17px;display:block}.idc small{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.hov{position:relative;display:inline-flex}
+.hov .pop{position:absolute;top:38px;left:-10px;z-index:4;width:200px;padding:10px;border-radius:14px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-pop);font-size:12px;color:var(--text-2);white-space:normal}
+.hov .pop img{width:180px;height:180px;object-fit:contain;display:block;border-radius:10px;background:var(--surface2);margin-bottom:6px}
+.cmp{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+.cmp .card{padding:10px}
+.stage{overflow:visible}
+@media(max-width:900px){.split,.cmp{grid-template-columns:1fr}.stage{overflow-x:auto}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="t7" viewBox="0 0 24 24"><path d="M7.5 3.5h9.5c.6 0 1 .5.9 1.1L16.3 17.2c-.1.5-.5.8-1 .8H6.8c-.6 0-1-.5-.9-1.1L7.5 3.5z"/><path d="M8.6 15.5h6.2"/><path d="M5 21h13.5"/><path d="M6.6 18 5.2 21M15.8 18l1.2 3"/></symbol>
+  <symbol id="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="rem" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="rb" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="lab" viewBox="0 0 24 24"><path d="M9 3h6M10 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2h12.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></symbol>
+</svg>
+<button type="button" class="b tgl" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
+<div class="wrap">
+<h1>Model photo on the device page</h1>
+<p class="lede">The model photos (T7, POS, KDS, HK1) show on Lineup; the device top bar now carries the class icon. Where should the photo live on the device page? Each mock is the wide layout: top bar capsule, facts bar, graph left, tabs right.</p>
+<h2 class="opt">Today <span class="now">on stage</span></h2><div class="stage"><div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="cap cB"><span class="dot"></span><svg class="cls"><use href="#t7"/></svg><span class="t">TSAI · AT070AABU00231</span><span class="s">Flights Vegas · v2.1.031</span><span class="acts"><span class="b"><svg><use href="#rem"/></svg>Remote</span><span class="b"><svg><use href="#rb"/></svg>Reboot</span><span class="gap"></span><span class="b p"><svg><use href="#lab"/></svg>Open in lab</span><span class="b">⋯</span></span></div><div class="glob"><span class="gb"><svg><use href="#moon"/></svg></span><span class="gb"><svg><use href="#bell"/></svg><span class="n">1</span></span><span class="acct"><span>tester@example.com</span><i>T</i></span></div></div><div class="page"><div class="facts"><span>● <b>Firmware MDM</b> 1.9.9</span><span>Battery <b>82%</b></span><span>Restaurant <b>Flights Vegas</b></span><span>Groups <b>Window tables</b></span></div><div class="split"><div><div class="card"><h3>Vitals</h3><div class="chart"></div></div></div><div><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts</span><span>Settings</span></div><div class="card"><h3>Hardware</h3><div class="kv"><span>Model</span><b>T7</b></div><div class="kv"><span>Storage free</span><b>21 GB</b></div><div class="kv"><span>Total RAM</span><b>4 GB</b></div></div></div></div></div></div><p class="lede">Class icon in the top bar; no picture on a wide screen (the phone header has one).</p><h2 class="opt">M1 · Photo in the top bar capsule</h2><div class="stage"><div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="cap cB"><span class="dot"></span><img class="pic" src="/static/img/models/t7.webp" alt=""><span class="t">TSAI · AT070AABU00231</span><span class="s">Flights Vegas · v2.1.031</span><span class="acts"><span class="b"><svg><use href="#rem"/></svg>Remote</span><span class="b"><svg><use href="#rb"/></svg>Reboot</span><span class="gap"></span><span class="b p"><svg><use href="#lab"/></svg>Open in lab</span><span class="b">⋯</span></span></div><div class="glob"><span class="gb"><svg><use href="#moon"/></svg></span><span class="gb"><svg><use href="#bell"/></svg><span class="n">1</span></span><span class="acct"><span>tester@example.com</span><i>T</i></span></div></div><div class="page"><div class="facts"><span>● <b>Firmware MDM</b> 1.9.9</span><span>Battery <b>82%</b></span><span>Restaurant <b>Flights Vegas</b></span><span>Groups <b>Window tables</b></span></div><div class="split"><div><div class="card"><h3>Vitals</h3><div class="chart"></div></div></div><div><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts</span><span>Settings</span></div><div class="card"><h3>Hardware</h3><div class="kv"><span>Model</span><b>T7</b></div><div class="kv"><span>Storage free</span><b>21 GB</b></div><div class="kv"><span>Total RAM</span><b>4 GB</b></div></div></div></div></div></div><div class="pros"><div>The photo replaces the class icon at 34 px: always in view, even when scrolled.</div><div class="bad">At 34 px a photo is a blur next to text; the KDS and POS shots are wide, the kiosk is tall, so they never line up.</div></div><h2 class="opt">M2 · Photo leads the facts bar</h2><div class="stage"><div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="cap cB"><span class="dot"></span><svg class="cls"><use href="#t7"/></svg><span class="t">TSAI · AT070AABU00231</span><span class="s">Flights Vegas · v2.1.031</span><span class="acts"><span class="b"><svg><use href="#rem"/></svg>Remote</span><span class="b"><svg><use href="#rb"/></svg>Reboot</span><span class="gap"></span><span class="b p"><svg><use href="#lab"/></svg>Open in lab</span><span class="b">⋯</span></span></div><div class="glob"><span class="gb"><svg><use href="#moon"/></svg></span><span class="gb"><svg><use href="#bell"/></svg><span class="n">1</span></span><span class="acct"><span>tester@example.com</span><i>T</i></span></div></div><div class="page"><div class="facts"><img class="pic" src="/static/img/models/t7.webp" alt=""><span>● <b>Firmware MDM</b> 1.9.9</span><span>Battery <b>82%</b></span><span>Restaurant <b>Flights Vegas</b></span><span>Groups <b>Window tables</b></span></div><div class="split"><div><div class="card"><h3>Vitals</h3><div class="chart"></div></div></div><div><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts</span><span>Settings</span></div><div class="card"><h3>Hardware</h3><div class="kv"><span>Model</span><b>T7</b></div><div class="kv"><span>Storage free</span><b>21 GB</b></div><div class="kv"><span>Total RAM</span><b>4 GB</b></div></div></div></div></div></div><div class="pros"><div>A 40 px photo starts the facts bar: the hardware sits with the hardware facts (client, battery).</div><div class="bad">Same small size; the facts bar gets taller than the tab bar beside it.</div></div><h2 class="opt">M3 · Photo in the Overview tab&#8217;s Hardware card <span class="pick">my pick</span></h2><div class="stage"><div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="cap cB"><span class="dot"></span><svg class="cls"><use href="#t7"/></svg><span class="t">TSAI · AT070AABU00231</span><span class="s">Flights Vegas · v2.1.031</span><span class="acts"><span class="b"><svg><use href="#rem"/></svg>Remote</span><span class="b"><svg><use href="#rb"/></svg>Reboot</span><span class="gap"></span><span class="b p"><svg><use href="#lab"/></svg>Open in lab</span><span class="b">⋯</span></span></div><div class="glob"><span class="gb"><svg><use href="#moon"/></svg></span><span class="gb"><svg><use href="#bell"/></svg><span class="n">1</span></span><span class="acct"><span>tester@example.com</span><i>T</i></span></div></div><div class="page"><div class="facts"><span>● <b>Firmware MDM</b> 1.9.9</span><span>Battery <b>82%</b></span><span>Restaurant <b>Flights Vegas</b></span><span>Groups <b>Window tables</b></span></div><div class="split"><div><div class="card"><h3>Vitals</h3><div class="chart"></div></div></div><div><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts</span><span>Settings</span></div><div class="card"><div class="hw"><img class="pic" src="/static/img/models/t7.webp" alt=""><div><b>TSAI (T7)</b><small>Our tablet, on a wireless-charging guest pad.<br>Model key t7 · built in</small><div class="spec"><span>8&#8243; screen</span><span>Battery + pad</span><span>Firmware MDM</span></div></div></div><div class="kv"><span>Storage free</span><b>21 GB</b></div><div class="kv"><span>Total RAM</span><b>4 GB</b></div></div></div></div></div></div><div class="pros"><div>Big enough to recognise (112 px), next to what the model is and its key specs, where people look when they ask which box this is.</div><div class="bad">Only on the Overview tab; not visible while on Applications or Activity.</div></div><h2 class="opt">M4 · Identity card above the vitals</h2><div class="stage"><div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="cap cB"><span class="dot"></span><svg class="cls"><use href="#t7"/></svg><span class="t">TSAI · AT070AABU00231</span><span class="s">Flights Vegas · v2.1.031</span><span class="acts"><span class="b"><svg><use href="#rem"/></svg>Remote</span><span class="b"><svg><use href="#rb"/></svg>Reboot</span><span class="gap"></span><span class="b p"><svg><use href="#lab"/></svg>Open in lab</span><span class="b">⋯</span></span></div><div class="glob"><span class="gb"><svg><use href="#moon"/></svg></span><span class="gb"><svg><use href="#bell"/></svg><span class="n">1</span></span><span class="acct"><span>tester@example.com</span><i>T</i></span></div></div><div class="page"><div class="facts"><span>● <b>Firmware MDM</b> 1.9.9</span><span>Battery <b>82%</b></span><span>Restaurant <b>Flights Vegas</b></span><span>Groups <b>Window tables</b></span></div><div class="split"><div><div class="card"><div class="idc"><img class="pic" src="/static/img/models/t7.webp" alt=""><div><b>TSAI</b><small>AT070AABU00231</small><div class="spec"><span>Flights Vegas</span><span>Online</span></div></div></div><h3>Vitals</h3><div class="chart"></div></div></div><div><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts</span><span>Settings</span></div><div class="card"><h3>Hardware</h3><div class="kv"><span>Model</span><b>T7</b></div><div class="kv"><span>Storage free</span><b>21 GB</b></div><div class="kv"><span>Total RAM</span><b>4 GB</b></div></div></div></div></div></div><div class="pros"><div>The left pane opens with photo, name and serial, like a product page.</div><div class="bad">Repeats the top bar (name, serial, state) and pushes the graph down on every device.</div></div><h2 class="opt">M5 · Hover the class icon for the photo</h2><div class="stage"><div class="bar"><span class="logo"><b>AIO</b> MDM</span><div class="cap cB"><span class="dot"></span><span class="hov"><img class="pic" src="/static/img/models/t7.webp" alt=""><span class="pop"><img src="/static/img/models/t7.webp" alt="">TSAI (T7): our tablet on its guest pad</span></span><span class="t">TSAI · AT070AABU00231</span><span class="s">Flights Vegas · v2.1.031</span><span class="acts"><span class="b"><svg><use href="#rem"/></svg>Remote</span><span class="b"><svg><use href="#rb"/></svg>Reboot</span><span class="gap"></span><span class="b p"><svg><use href="#lab"/></svg>Open in lab</span><span class="b">⋯</span></span></div><div class="glob"><span class="gb"><svg><use href="#moon"/></svg></span><span class="gb"><svg><use href="#bell"/></svg><span class="n">1</span></span><span class="acct"><span>tester@example.com</span><i>T</i></span></div></div><div class="page"><div class="facts"><span>● <b>Firmware MDM</b> 1.9.9</span><span>Battery <b>82%</b></span><span>Restaurant <b>Flights Vegas</b></span><span>Groups <b>Window tables</b></span></div><div class="split"><div><div class="card"><h3>Vitals</h3><div class="chart"></div></div></div><div><div class="tabs"><span class="on">Overview</span><span>Applications</span><span>Activity</span><span>Alerts</span><span>Settings</span></div><div class="card"><h3>Hardware</h3><div class="kv"><span>Model</span><b>T7</b></div><div class="kv"><span>Storage free</span><b>21 GB</b></div><div class="kv"><span>Total RAM</span><b>4 GB</b></div></div></div></div></div></div><div class="pros"><div>Nothing changes until asked: hover the top-bar picture to see the shot (shown open here).</div><div class="bad">Hidden: nobody knows it is there, and touch screens never hover.</div></div><h2 class="opt">M3 across our models</h2><div class="cmp"><div class="card"><img class="pic" src="/static/img/models/t7.webp" alt="" style="width:100%;height:150px;display:block;margin-bottom:8px"><b style="font-size:13.5px">TSAI (T7)</b><div style="font-size:12px;color:var(--muted)">tablet on a guest pad</div></div><div class="card"><img class="pic" src="/static/img/models/trinket.webp" alt="" style="width:100%;height:150px;display:block;margin-bottom:8px"><b style="font-size:13.5px">POS</b><div style="font-size:12px;color:var(--muted)">15.6&#8243; touchscreen, Qualcomm</div></div><div class="card"><img class="pic" src="/static/img/models/d2s_kds_stgl.webp" alt="" style="width:100%;height:150px;display:block;margin-bottom:8px"><b style="font-size:13.5px">Sunmi D2s KDS</b><div style="font-size:12px;color:var(--muted)">kitchen display</div></div><div class="card"><img class="pic" src="/static/img/models/rockchip029.webp" alt="" style="width:100%;height:150px;display:block;margin-bottom:8px"><b style="font-size:13.5px">HK1 RBOX D8</b><div style="font-size:12px;color:var(--muted)">menu board stick</div></div></div><p class="lede">A model with no photo yet shows its class icon in the same square.</p>
+<p class="lede" style="margin-top:30px"><b>Pick M3.</b> A photo only helps when it is big enough to recognise, and the Hardware card is where "what is this box" gets asked. The top bar keeps the crisp class icon.</p>
+</div></body></html>

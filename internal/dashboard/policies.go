@@ -80,7 +80,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		idx[p.ID] = i
 	}
 	scopes, _ := h.db.DeviceScopes(ctx)
-	locked, notCovered, byHand := 0, 0, 0
+	locked, notCovered, byHand, byRole, byRoleLocked := 0, 0, 0, 0, 0
 	seenRule := map[uuid.UUID]bool{}
 	for _, k := range devs {
 		if !acc.visible(k.Dev.ID) {
@@ -93,7 +93,16 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 			}
 			continue
 		}
-		v := &views[idx[k.Rule.ID]]
+		ri, isListed := idx[k.Rule.ID]
+		if !isListed {
+			// Locked by its role (set on Releases), not by a rule on this page.
+			byRole++
+			if k.Status() == "locked" {
+				byRoleLocked++
+			}
+			continue
+		}
+		v := &views[ri]
 		seenRule[k.Rule.ID] = true
 		v.Devices++
 		switch k.Status() {
@@ -146,6 +155,8 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"Locked":     locked,
 		"NotCovered": notCovered,
 		"ByHand":     byHand,
+		"ByRole":       byRole,
+		"ByRoleLocked": byRoleLocked,
 		"CanEdit":    roleCanOperate(h.role(r)),
 		"Flash":      r.URL.Query().Get("flash"),
 	})

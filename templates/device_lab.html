@@ -1,0 +1,127 @@
+{{define "device_lab.html"}}
+{{template "header" .}}
+
+<div class="cc-wrap lab-page">
+<template id="page-island" data-live>
+  <span class="isl-tag">LAB</span>
+  <span class="isl-t">{{.Device.SerialNumber}}</span>
+  <span class="isl-s">until {{.Session.Until.Local.Format "Mon 2 Jan, 15:04"}} · {{dur .Session.RemainingSec}} left · “{{.Session.Reason}}”</span>
+  <span class="isl-acts">
+    <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/extend"><select name="hours" aria-label="Extend by">{{range .Durations}}<option value="{{.}}"{{if eq . 24}} selected{{end}}>{{.}} h</option>{{end}}</select><button class="cc-btn" type="submit">Extend</button></form>
+    <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/end" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')"><button class="cc-btn primary" type="submit">End lab</button></form>
+  </span>
+</template>
+<div class="lab-bar isl-dup" role="status">
+  <span class="lab-tag">LAB</span>
+  <div class="lab-bar-text">
+    <b class="mono">{{.Device.SerialNumber}}</b>{{if .Device.RestaurantName}} · {{.Device.RestaurantName}}{{end}}
+    · until <b>{{.Session.Until.Local.Format "Mon 2 Jan, 15:04"}}</b> ({{dur .Session.RemainingSec}} left)
+    · opened by {{.Session.OpenedBy}} · “{{.Session.Reason}}”
+  </div>
+  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/extend" class="lab-inline">
+    <select name="hours" aria-label="Extend by">{{range .Durations}}<option value="{{.}}"{{if eq . 24}} selected{{end}}>{{.}} h from now</option>{{end}}</select>
+    <button class="cc-btn sm" type="submit">Extend</button>
+  </form>
+  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/end" class="lab-inline" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')">
+    <button class="cc-btn sm primary" type="submit">End lab now</button>
+  </form>
+</div>
+
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Devices · Lab</div>
+    <h1 class="cc-h1 isl-dup-sr">{{.Device.SerialNumber}} in lab</h1>
+    <div class="cc-sub">{{.RoleLabel}} · {{if .Online}}<span style="color:var(--ok)">online</span>{{else}}offline{{end}} · build <span class="mono">{{.Device.BuildID}}</span>. While in lab it does not follow prod firmware, it is not locked, and it raises no restaurant alerts.</div>
+  </div>
+</div>
+
+{{if .Flash}}<div class="cc-card lab-flash">{{if eq .Flash "extended"}}Lab extended.{{else if eq .Flash "package"}}Build choice saved. The device moves to it now.{{else if eq .Flash "installing"}}Install queued. It is removed again when lab ends.{{end}}</div>{{end}}
+
+<div class="lab-grid">
+  <div class="lab-col">
+    {{if .ShellEnabled}}{{template "shell_console" .}}{{else}}<div class="cc-card"><h2>Shell</h2><p class="muted">Shell commands are switched off by an administrator.</p></div>{{end}}
+    <div class="cc-card">
+      <h2>Look and collect</h2>
+      <div class="lab-actions">
+        <a class="cc-btn sm" href="/devices/{{.Device.SerialNumber}}/remote">Remote screen</a>
+        <a class="cc-btn sm" href="/devices/{{.Device.SerialNumber}}/logcat/live">Logcat</a>
+        <form method="post" action="/devices/{{.Device.SerialNumber}}/commands"><input type="hidden" name="type" value="screenshot"><button class="cc-btn sm" type="submit">Screenshot</button></form>
+        <form method="post" action="/devices/{{.Device.SerialNumber}}/commands"><input type="hidden" name="type" value="collect_logs"><button class="cc-btn sm" type="submit">Collect logs</button></form>
+      </div>
+    </div>
+  </div>
+
+  <div class="lab-col">
+    <div class="cc-card">
+      <h2>Firmware</h2>
+      {{if eq .FirmwareMode "off"}}
+        <p class="muted">Firmware is off for this model: it runs its maker's firmware.</p>
+      {{else if .AtVenue}}
+        <p>Running <span class="mono">{{.Device.BuildID}}</span>.</p>
+        <p class="muted small">Firmware changes in lab are off-venue only. Remove the device from its venue first.</p>
+      {{else}}
+        <p>Running <span class="mono">{{.Device.BuildID}}</span> · firmware for this model is <b>{{if eq .FirmwareMode "prod"}}prod{{else}}lab only{{end}}</b>.</p>
+        <a class="cc-btn sm" href="/releases">Push a lab build…</a>
+      {{end}}
+    </div>
+
+    <div class="cc-card">
+      <h2>Lab apps</h2>
+      {{if .LabApps}}<ul class="lab-list">{{range .LabApps}}<li><span class="mono">{{.}}</span><span class="muted small">removed when lab ends</span></li>{{end}}</ul>{{else}}<p class="muted small">Nothing installed in this session.</p>{{end}}
+      {{if .Installable}}
+      <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/install" class="lab-inline">
+        <select name="app_id" aria-label="App from the library">{{range .Installable}}<option value="{{.ID}}">{{.Name}} {{.VersionName}}</option>{{end}}</select>
+        <button class="cc-btn sm" type="submit">Install</button>
+      </form>
+      {{end}}
+    </div>
+
+    <div class="cc-card">
+      <h2>Lock <span class="cc-tag {{if .Device.KioskEnabled}}ok{{else}}warn{{end}}">{{if .Device.KioskEnabled}}locked{{else}}released{{end}}</span></h2>
+      <p class="muted small">Released while in lab. When lab ends, the lock rule that covers it applies again.</p>
+    </div>
+
+    {{if and (canAdmin .Role) (or (supports .Device "unenroll") (supports .Device "wipe"))}}
+    <div class="cc-card">
+      <h2>Hand back</h2>
+      <p class="muted small">Takes the device out of the fleet. Admins only.</p>
+      <div class="lab-actions">
+        {{if supports .Device "unenroll"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Unenroll {{.Device.SerialNumber}}? It stops being managed from here and keeps everything on it.')"><input type="hidden" name="type" value="unenroll"><button type="submit" class="cc-btn sm">Unenroll</button></form>{{end}}
+        {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone.')"><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm danger">Factory reset</button></form>{{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+</div>
+
+<style>
+  /* Below the sticky top bar, which floats as a ~72px pill once the page scrolls. */
+  .lab-bar { position: static; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 14px; margin: 10px 0 14px; border-radius: 12px; border: 1px solid var(--warn);
+    background: repeating-linear-gradient(135deg, var(--warn-bg) 0 14px, transparent 14px 28px), var(--surface); font-size: 13px; }
+  .lab-tag { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #1a1205; background: var(--warn); padding: 3px 8px; border-radius: 6px; }
+  .lab-bar-text { flex: 1; min-width: 220px; }
+  .lab-inline { display: inline-flex; gap: 6px; align-items: center; margin: 0; flex-wrap: wrap; }
+  .lab-inline select { font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 100%; }
+  .lab-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; align-items: start; }
+  .lab-col { display: grid; gap: 14px; min-width: 0; }
+  .lab-page .lab-col > .cc-card, .lab-flash { padding: 16px 18px; }
+  .lab-page .cc-card h2 { font-size: 14px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+  .lab-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .lab-actions form { margin: 0; }
+  .lab-radio { display: grid; gap: 6px; }
+  .lab-radio label { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 9px; font-size: 12.5px; cursor: pointer; }
+  .lab-radio label.on { border-color: var(--accent); background: var(--accent-soft); }
+  .lab-radio label.off { opacity: .55; cursor: default; }
+  .lab-radio .v { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); text-align: right; }
+  .lab-radio button { justify-self: start; margin-top: 4px; }
+  .lab-list { list-style: none; margin: 0 0 10px; padding: 0; }
+  .lab-list li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; }
+  .lab-list li:first-child { border-top: 0; }
+  .lab-flash { margin-bottom: 14px; }
+  @media (max-width: 1024px) { .lab-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 720px) { .lab-bar { position: sticky; top: 76px; } } /* below the top bar; the island is hidden on phones */
+</style>
+{{template "footer" .}}
+{{end}}

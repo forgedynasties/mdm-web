@@ -6,17 +6,15 @@ import (
 	"errors"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
 
 // ── Guest info ────────────────────────────────────────────────────────────────
 //
-// What a guest at the table sees on a T7: the venue's name, the table the tablet sits
-// on, and the venue's guest Wi-Fi. The firmware client keeps it and hands it to the
-// launcher and lock screen through its status provider (com.aioapp.status). The venue
-// owns the Wi-Fi (restaurants.guest_wifi_*); the table label belongs to the device.
+// What a guest sees on a T7: the venue's name and its guest Wi-Fi. The firmware client
+// keeps it and hands it to the launcher and lock screen through its status provider
+// (com.aioapp.status). The venue owns the Wi-Fi (restaurants.guest_wifi_*).
 
 // Guest Wi-Fi security values, as the Wi-Fi QR format spells them (WIFI:T:…).
 const (
@@ -25,16 +23,12 @@ const (
 	GuestWifiNoPass = "nopass"
 )
 
-// MaxTableLabel is the longest table label kept, in characters. It has to fit a
-// one-line chip on the tablet's home screen.
-const MaxTableLabel = 40
-
 // GuestInfo is the "guest" object the server sends to the firmware client. Every
 // field is always present (empty when unset) so a value cleared on the dashboard
-// clears on the device too.
+// clears on the device too. There is no table label any more (removed 14 Oct): the
+// firmware client reads a missing table_label as cleared.
 type GuestInfo struct {
 	RestaurantName string `json:"restaurant_name"`
-	TableLabel     string `json:"table_label"`
 	WifiSSID       string `json:"wifi_ssid"`
 	WifiPassword   string `json:"wifi_password"`
 	WifiSecurity   string `json:"wifi_security"`
@@ -68,7 +62,7 @@ type RestaurantGuestWifi struct {
 
 // One query shape for every caller: the device row, its venue (if any), nothing else.
 const guestSelect = `
-	SELECT d.id, d.agent_kind, COALESCE(r.name, ''), d.table_label,
+	SELECT d.id, d.agent_kind, COALESCE(r.name, ''),
 	       COALESCE(r.guest_wifi_ssid, ''), COALESCE(r.guest_wifi_password, ''),
 	       COALESCE(r.guest_wifi_security, 'WPA'), COALESCE(r.guest_app_package, '')
 	FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id`
@@ -82,7 +76,7 @@ func (d *DB) queryGuests(ctx context.Context, where string, arg any) ([]DeviceGu
 	var out []DeviceGuest
 	for rows.Next() {
 		var g DeviceGuest
-		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName, &g.Guest.TableLabel,
+		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName,
 			&g.Guest.WifiSSID, &g.Guest.WifiPassword, &g.Guest.WifiSecurity, &g.Guest.AppPackage); err != nil {
 			return nil, err
 		}
@@ -120,13 +114,6 @@ func (d *DB) GuestForRestaurant(ctx context.Context, restaurantID uuid.UUID) ([]
 	return d.queryGuests(ctx, "d.restaurant_id = $1 AND NOT d.hidden", restaurantID)
 }
 
-// SetTableLabel sets the table a device sits on ("" clears it). The label is
-// normalised by NormalizeTableLabel first.
-func (d *DB) SetTableLabel(ctx context.Context, deviceID uuid.UUID, label string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET table_label = $2 WHERE id = $1`, deviceID, NormalizeTableLabel(label))
-	return err
-}
-
 // GetRestaurantGuestWifi returns a venue's guest Wi-Fi.
 func (d *DB) GetRestaurantGuestWifi(ctx context.Context, restaurantID uuid.UUID) (RestaurantGuestWifi, error) {
 	var w RestaurantGuestWifi
@@ -147,16 +134,6 @@ func (d *DB) SetRestaurantGuestWifi(ctx context.Context, restaurantID uuid.UUID,
 			guest_wifi_security = $4, guest_app_package = $5
 		WHERE id = $1`, restaurantID, w.SSID, w.Password, w.Security, w.AppPackage)
 	return err
-}
-
-// NormalizeTableLabel trims a table label and cuts it to MaxTableLabel characters
-// (never through the middle of one).
-func NormalizeTableLabel(s string) string {
-	s = strings.TrimSpace(s)
-	if utf8.RuneCountInString(s) > MaxTableLabel {
-		s = strings.TrimSpace(string([]rune(s)[:MaxTableLabel]))
-	}
-	return s
 }
 
 var (

@@ -1,0 +1,474 @@
+{{define "pipeline.html"}}
+{{template "header" .}}
+
+<div class="cc-wrap pl-wrap">
+  <div class="cc-top">
+    <div>
+      <h1 class="cc-h1 isl-dup-sr">Lineup</h1>
+      <div class="cc-sub">Each kind of device: the models that are it, the firmware they run and the MDM client on them. A device at a venue follows its model's prod firmware by itself, inside its quiet window.</div>
+    </div>
+  </div>
+
+  {{if .Flash}}<div class="pl-flash">{{if eq .Flash "channel"}}Saved. Devices move to it in their window.{{else if eq .Flash "app"}}App saved for this role.{{else if eq .Flash "firmware"}}Prod firmware saved.{{else if eq .Flash "mode"}}Firmware mode saved.{{else if eq .Flash "rollout"}}Rollout saved.{{end}}</div>{{end}}
+
+  {{/* Lineup (static/lineup-merge-demos.html, M1, picked 14 Oct): Releases and Hardware in
+       one page. The side list swaps the pane in place. */}}
+  <div class="pl-split" id="pl-split">
+<template id="page-island">
+  {{if eq .View "none"}}<span class="isl-t">Lineup · Not attached</span>
+  {{else if eq .View "runs"}}<span class="isl-t">Lineup · Production runs</span>
+  {{else if .Client}}{{with .Client}}<span class="isl-t">Lineup · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
+  {{else}}<span class="isl-t">Lineup · {{.RoleLabel}}</span><span class="isl-s">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}} · {{len .HWModels}} model{{if ne (len .HWModels) 1}}s{{end}}</span>{{end}}
+</template>
+
+    <nav class="pl-side" aria-label="Lineup">
+      <div class="pl-side-cap">Roles</div>
+      {{range .Roles}}
+      <a href="/lineup?role={{.Key}}" hx-get="/lineup?role={{.Key}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#dk-{{.Key}}"/></svg><span><b>{{.Label}}</b><small class="tone-{{.Tone}}">{{.Status}}</small></span>
+        <i class="dot tone-{{.Tone}}"></i>
+      </a>
+      {{end}}
+      <div class="pl-side-cap">MDM clients</div>
+      {{range .Clients}}
+      <a href="/lineup?client={{.Slot}}" hx-get="/lineup?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg><span><b>{{.Label}}</b><small class="tone-{{.Tone}}">{{.Status}}</small></span>
+        <i class="dot tone-{{.Tone}}"></i>
+      </a>
+      {{end}}
+      <div class="pl-side-cap">Setup</div>
+      {{if .NoneCount}}
+      <a href="/lineup?role=none" hx-get="/lineup?role=none" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if eq .View "none"}} on{{end}}">
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#lu-unattached"/></svg><span><b>Not attached</b><small class="tone-warn">{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} without a role</small></span>
+        <i class="dot tone-warn"></i>
+      </a>
+      {{end}}
+      <a href="/lineup?view=runs" hx-get="/lineup?view=runs" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="pl-role{{if eq .View "runs"}} on{{end}}">
+        <svg class="pl-role-ic" aria-hidden="true"><use href="#lu-runs"/></svg><span><b>Production runs</b><small class="tone-muted">{{.RunCount}} run{{if ne .RunCount 1}}s{{end}}</small></span>
+      </a>
+    </nav>
+
+    <div class="pl-main">
+    {{if eq .View "none"}}
+      {{template "lu-none" .}}
+    {{else if eq .View "runs"}}
+      {{template "lu-runs" .}}
+    {{else if .Client}}
+      {{template "clients-detail" .}}
+      {{if or .KeysOwn .KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling. <a href="/static/device-key-plan.html" hx-boost="false">The plan</a></div>{{end}}
+    {{else}}
+      {{if .RolePic}}{{with .RolePic}}
+      {{/* A role with one model wears that model's picture (model-images-demos.html, M3). */}}
+      <div class="lu-hero"><img src="{{.Img}}" alt="" width="120" height="120" decoding="async"><div>
+        <h2>{{$.RoleLabel}}</h2>
+        <div class="lu-hero-s">{{if .Tagline}}{{.Tagline}} {{end}}{{$.HWDevices}} device{{if ne $.HWDevices 1}}s{{end}}</div>
+        {{if .Specs}}<div class="lu-spec">{{range .Specs}}<span>{{.}}</span>{{end}}</div>{{end}}
+      </div></div>
+      {{end}}{{else}}
+      <div class="lu-head"><h2>{{.RoleLabel}}</h2><span class="pl-faint">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}}</span></div>
+      {{end}}
+
+      {{/* ── Hardware ── */}}
+      {{template "lu-hardware" .}}
+
+      <div class="pl-lanehead" style="margin-top:22px">
+        <h2>Firmware</h2><span class="pl-faint">per model of ours · its mode is set under Hardware</span>
+      </div>
+      {{if not .Models}}<div class="pl-empty">No hardware model serves {{.RoleLabel}} yet.</div>{{end}}
+      {{if .Models}}
+      <div class="pl-chips" role="tablist">
+        {{range $i, $m := .Models}}<button type="button" role="tab" class="pl-chip{{if eq $i 0}} on{{end}}{{if eq $m.Mode "off"}} off{{end}}" data-model="{{$m.Key}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}">{{$m.Label}}{{if eq $m.Mode "lab"}} · lab{{else if eq $m.Mode "off"}} · off{{end}}</button>{{end}}
+      </div>
+      {{range $i, $m := .Models}}
+      <div class="pl-model" data-model="{{$m.Key}}"{{if ne $i 0}} hidden{{end}}>
+        <div class="pl-lanehead">
+          <span class="pl-faint">{{$m.Label}}{{if $m.Maker}} · made by {{$m.Maker}}{{end}} · {{$m.Firmware}} on the Firmware client{{if $m.Std}} · {{$m.Std}} on the Standard client{{end}}</span>
+          <span class="pl-right"><span class="cc-tag {{if eq $m.Mode "prod"}}ok{{else if eq $m.Mode "lab"}}info{{end}}">Firmware: {{if eq $m.Mode "prod"}}prod{{else if eq $m.Mode "lab"}}lab only{{else}}off{{end}}</span></span>
+        </div>
+        {{if eq $m.Mode "off"}}
+          <div class="pl-empty">Firmware is off for this model. It runs its maker's firmware and follows the app lane only.</div>
+        {{else}}
+        <div class="pl-lane fw">
+          <div class="pl-col">
+            <div class="pl-ct">{{if eq $m.Mode "prod"}}Newer than prod{{else}}Published builds{{end}}<span>{{if eq $m.Mode "prod"}}{{len $m.Newer}}{{else}}{{len $m.Releases}}{{end}}</span></div>
+            {{if eq $m.Mode "prod"}}{{if $m.Channel}}{{range $m.Newer}}
+              <div class="pl-bk"><span class="v">{{.Version}}</span>{{if .IsDev}} <span class="cc-tag">dev</span>{{end}}
+                {{if $.CanEdit}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?\n\nDeployed devices on the same line move to it in their quiet window, and reboot.')"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs primary" type="submit">Promote to prod</button></form>{{end}}</div>
+            {{else}}<div class="pl-none">Nothing newer on this line</div>{{end}}{{else}}
+              {{range $m.Releases}}<div class="pl-bk"><span class="v">{{.Version}}</span>
+                {{if $.CanEdit}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?')"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs" type="submit">Set as prod</button></form>{{end}}</div>
+              {{else}}<div class="pl-none">No published release</div>{{end}}
+            {{end}}{{else}}
+              {{range $m.Releases}}<div class="pl-bk"><span class="v">{{.Version}}</span><div class="m"><a href="/releases/{{.ID}}">open</a></div></div>{{else}}<div class="pl-none">No published release yet</div>{{end}}
+            {{end}}
+          </div>
+          <div class="pl-col">
+            <div class="pl-ct">Lab</div>
+            <div class="pl-none">Lab devices take any published build from the release page, off-venue only. <a href="/releases">Releases list</a></div>
+          </div>
+          <div class="pl-col prod">
+            <div class="pl-ct">Prod</div>
+            {{if eq $m.Mode "lab"}}
+              <div class="pl-none">Lab only for now. No prod firmware and no gating: deployed devices keep the firmware they have.</div>
+            {{else if $m.Channel}}
+              <div class="pl-bk"><span class="v">{{$m.Channel.Version}}</span> <span class="pl-faint">since {{shortDate $m.Channel.SetAt}}</span>
+                {{if $m.Total}}<div class="pl-bar"><i style="width:{{pct $m.On $m.Total}}%;background:var(--ok)"></i><i style="width:{{pct $m.Behind $m.Total}}%;background:var(--accent-2)"></i><i style="width:{{pct $m.OtherLine $m.Total}}%;background:var(--warn)"></i></div>{{end}}
+                <div class="m">{{$m.On}} of {{$m.Total}} deployed on it{{if $m.Behind}} · {{$m.Behind}} waiting{{end}}</div>
+                {{if $m.Channel.DeploymentID}}<div class="m"><a href="/rollouts">rollout progress</a></div>{{end}}
+              </div>
+              {{if $m.OtherLine}}<div class="pl-note">{{$m.OtherLine}} deployed device{{if ne $m.OtherLine 1}}s are{{else}} is{{end}} on another firmware line. Prod only moves devices already on the v{{$m.Line}} line; migrate the rest with rollouts you watch, after which they follow prod by themselves.</div>{{end}}
+            {{else}}
+              <div class="pl-none">No prod firmware yet. Deployed devices are left alone until one is set{{if $m.Releases}}: pick one under Published builds{{end}}.</div>
+            {{end}}
+          </div>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+      {{end}}
+
+      {{if .RoleClients}}
+      <div class="pl-lanehead" style="margin-top:22px"><h2>MDM client</h2><span class="pl-faint">the agent on this role's devices · counts are this role's devices</span></div>
+      {{range .RoleClients}}{{template "pl-client" (dict "C" . "Root" $ "InRole" true)}}{{end}}
+      {{end}}
+      <details class="pl-rollouts">
+        <summary>When devices move</summary>
+        <p class="pl-faint">Deployed devices move to a new prod firmware only while present and inside this window, in their own timezone.</p>
+        {{range $k, $p := dict "firmware" .FwRollout}}
+        <form class="pl-inline" method="post" action="/pipeline/rollout">
+          <input type="hidden" name="kind" value="{{$k}}"><input type="hidden" name="role" value="{{$.RoleKey}}">
+          <b style="min-width:70px">{{if eq $k "apps"}}Apps{{else}}Firmware{{end}}</b>
+          <label>from <input type="time" name="window_start" value="{{$p.WindowStart}}"></label>
+          <label>to <input type="time" name="window_end" value="{{$p.WindowEnd}}"></label>
+          <label><input type="checkbox" name="paused" value="1"{{if $p.Paused}} checked{{end}}> paused</label>
+          {{if $.CanEdit}}<button class="cc-btn sm" type="submit">Save</button>{{end}}
+        </form>
+        {{end}}
+      </details>
+    {{end}}
+    </div>
+  </div>
+</div>
+
+{{template "clients-style" .}}
+{{template "clients-script" .}}
+<script>
+// + Add model popover on the Hardware section.
+window.luAddToggle = function (e) {
+  e.preventDefault(); e.stopPropagation();
+  var pop = document.getElementById('lu-add'), btn = e.currentTarget; if (!pop) return;
+  var open = pop.hasAttribute('hidden');
+  if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+if (!window.__luPopHook) {
+  window.__luPopHook = true;
+  document.addEventListener('click', function (e) { var p = document.getElementById('lu-add'); if (p && !p.hidden && !e.target.closest('.lu-pop-wrap')) p.setAttribute('hidden', ''); });
+  document.addEventListener('keydown', function (e) { var p = document.getElementById('lu-add'); if (e.key === 'Escape' && p && !p.hidden) p.setAttribute('hidden', ''); });
+}
+// Delegated, so the chips keep working after the side list swaps the lanes in place.
+if (!window.__plChips) {
+  window.__plChips = true;
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.pl-chip'); if (!b) return;
+    document.querySelectorAll('.pl-chip').forEach(function (x) { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+    document.querySelectorAll('.pl-model').forEach(function (m) { m.hidden = m.dataset.model !== b.dataset.model; });
+  });
+}
+</script>
+
+<style>
+  .pl-wrap { max-width: 1280px; }
+  .pl-flash { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--ok-bg); color: var(--ok); font-size: 13px; font-weight: 600; }
+  .pl-intake { display: flex; gap: 8px; align-items: center; border: 1px dashed var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pl-intake input[type=url] { flex: 1; min-width: 220px; font: inherit; font-size: 12.5px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .pl-fetch { font-size: 12px; color: var(--text-2); margin: 0 0 6px 4px; overflow-wrap: anywhere; }
+  .pl-faint { font-size: 11.5px; color: var(--text-faint); }
+  .pl-split { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
+  .pl-side { display: grid; gap: 4px; position: sticky; top: 84px; }
+  .pl-side-cap { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin: 12px 10px 2px; }
+  .pl-role { display: flex; gap: 9px; align-items: center; padding: 8px 10px; border-radius: 10px; color: var(--text-2); text-decoration: none; font-size: 12.5px; }
+  .pl-role:hover { background: var(--surface-3, var(--surface2)); }
+  .pl-role.on { background: var(--accent-soft); color: var(--text); }
+  .pl-role span { flex: 1; min-width: 0; }
+  .pl-role b { display: block; font-weight: 650; color: var(--text); }
+  .pl-role small { display: block; font-size: 11px; }
+  .pl-role .dot { width: 8px; height: 8px; border-radius: 99px; flex: none; }
+  .tone-ok { color: var(--ok); } .tone-warn { color: var(--warn); } .tone-bad { color: var(--danger); } .tone-muted { color: var(--text-faint); }
+  .dot.tone-ok { background: var(--ok); } .dot.tone-warn { background: var(--warn); } .dot.tone-bad { background: var(--danger); } .dot.tone-muted { background: var(--muted); }
+  .pl-main { min-width: 0; }
+  .pl-lanehead { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; flex-wrap: wrap; }
+  .pl-lanehead h2 { font-size: 14px; margin: 0; }
+  .pl-right { margin-left: auto; }
+  .pl-h3 { font-size: 13px; margin: 6px 0 0; }
+  .pl-inline { display: inline-flex; gap: 6px; align-items: center; margin: 0; flex-wrap: wrap; font-size: 12.5px; }
+  .pl-inline select, .pl-inline input[type=time] { font: inherit; font-size: 12.5px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 100%; }
+  .pl-lane { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)) minmax(0, 1.25fr); gap: 10px; }
+  .pl-lane.fw { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); }
+  .pl-col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-height: 110px; min-width: 0; }
+  .pl-col.prod { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+  .pl-ct { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 6px; display: flex; gap: 6px; }
+  .pl-col.prod .pl-ct { color: var(--ok); }
+  .pl-ct span { margin-left: auto; letter-spacing: 0; text-transform: none; font-weight: 700; }
+  .pl-pkg { font-size: 11px; color: var(--text-faint); margin: -2px 0 8px; overflow-wrap: anywhere; }
+  .pl-bk { background: var(--bg); border: 1px solid var(--border-soft); border-radius: 10px; padding: 9px 10px; margin-bottom: 8px; font-size: 12px; color: var(--text-2); }
+  .pl-bk .v { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--text); }
+  .pl-bk .m { font-size: 11px; color: var(--text-faint); margin-top: 3px; line-height: 1.45; overflow-wrap: anywhere; }
+  .pl-bk form { margin: 8px 0 0; }
+  .pl-bk.old { opacity: .6; padding: 6px 10px; }
+  .pl-bar { height: 5px; border-radius: 9px; background: var(--surface2); margin: 6px 0 3px; overflow: hidden; display: flex; }
+  .pl-bar i { display: block; height: 100%; }
+  .pl-none { font-size: 11.5px; color: var(--text-faint); padding: 6px 2px; line-height: 1.5; }
+  .pl-note { font-size: 11.5px; color: var(--warn); margin-top: 8px; line-height: 1.5; }
+  .pl-empty { font-size: 12.5px; color: var(--text-faint); padding: 12px 14px; border: 1px dashed var(--border); border-radius: 12px; }
+  .pl-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; }
+  .pl-chip { font: inherit; font-size: 11.5px; font-weight: 650; padding: 5px 11px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; }
+  .pl-chip.on { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+  .pl-chip.off { color: var(--text-faint); }
+  .pl-rollouts { margin-top: 22px; font-size: 12.5px; }
+  .pl-rollouts summary { cursor: pointer; font-weight: 650; }
+  .pl-rollouts form { display: flex; margin: 8px 0; }
+  .cc-btn.xs { font-size: 11px; padding: 4px 9px; box-shadow: none; }
+  .lu-head { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+  .lu-head h2 { font-size: 18px; font-weight: 650; margin: 0; }
+  .lu-hero { display: flex; gap: 18px; align-items: center; margin: 0 0 16px; }
+  .lu-hero img { width: 120px; height: 120px; flex: none; object-fit: contain; border-radius: 16px; background: var(--surface2); }
+  .lu-hero h2 { font-size: 20px; font-weight: 650; margin: 0; }
+  .lu-hero-s { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .lu-spec { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .lu-spec span { font-size: 11px; font-weight: 650; border-radius: 6px; padding: 2px 8px; background: var(--surface2); color: var(--text-2); }
+  .lu-mn { display: flex; gap: 12px; align-items: center; min-width: 0; }
+  .lu-mn-b { min-width: 0; flex: 1; }
+  .lu-pic { width: 44px; height: 44px; flex: none; object-fit: contain; border-radius: 10px; background: var(--surface2); }
+  .lu-pic.none { display: grid; place-items: center; }
+  .lu-pic.none svg { width: 18px; height: 18px; fill: none; stroke: var(--text-faint); stroke-width: 1.6; }
+  .pl-role-ic { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--text-faint); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .pl-role.on .pl-role-ic { stroke: var(--accent-text); }
+  @media (max-width: 720px) { .lu-hero img { width: 84px; height: 84px; } }
+  .lu-appname { font-size: 13px; }
+  .lu-sel { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 100%; }
+  .pl-lanehead .pl-inline { min-width: 0; max-width: 100%; }
+  .pl-lanehead .lu-sel { width: 100%; text-overflow: ellipsis; }
+  @media (min-width: 721px) { .pl-lanehead .lu-sel { width: auto; } }
+  .lu-sel.unset { border-color: var(--warn); color: var(--warn); }
+  .lu-tbl { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0 12px; }
+  .lu-th, .lu-tr { display: grid; grid-template-columns: minmax(180px,1.4fr) minmax(110px,1fr) minmax(140px,1fr) 130px 60px; column-gap: 14px; align-items: center; }
+  .lu-th.lu-4, .lu-tr.lu-4 { grid-template-columns: minmax(180px,1.4fr) minmax(140px,1fr) minmax(140px,1fr) 60px; }
+  .lu-th { height: 32px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+  .lu-tr { padding: 9px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; }
+  .lu-name { font-weight: 650; color: var(--text); }
+  .lu-key-t { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .lu-runs { color: var(--muted); text-decoration: none; font-family: var(--font, inherit); }
+  .lu-runs:hover { color: var(--accent-text); }
+  .lu-tag { font-size: 10px; font-weight: 700; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 1px 6px; margin-left: 4px; }
+  .lu-rep { color: var(--text-2); }
+  .lu-agents { display: flex; gap: 6px; flex-wrap: wrap; }
+  .lu-ag { font-size: 11px; border-radius: 6px; padding: 2px 7px; background: var(--surface2); color: var(--text-2); white-space: nowrap; }
+  .lu-ag b { color: var(--text); }
+  .lu-n { text-align: right; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .lu-n.zero { color: var(--text-faint); }
+  .lu-acts { display: flex; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .lu-acts form { margin: 0; }
+  .lu-ren summary, .lu-x { font: inherit; font-size: 11.5px; color: var(--muted); cursor: pointer; background: none; border: 0; padding: 0; list-style: none; }
+  .lu-ren summary::-webkit-details-marker { display: none; }
+  .lu-ren summary:hover, .lu-x:hover { color: var(--accent-text); }
+  .lu-form { display: flex; gap: 6px; margin-top: 6px; max-width: 320px; }
+  .lu-form input { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; padding: 5px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .lu-pop-wrap { position: relative; }
+  .lu-pop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 45; width: min(340px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow-pop); padding: 12px; }
+  .lu-pop[hidden] { display: none; }
+  .lu-pop form { display: grid; gap: 8px; }
+  .lu-pop-t { font-weight: 650; font-size: 13px; }
+  .lu-pop-list { display: grid; gap: 2px; max-height: 240px; overflow: auto; }
+  .lu-opt { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; font-size: 12.5px; cursor: pointer; }
+  .lu-opt:hover { background: var(--surface2); }
+  .lu-opt small { grid-column: 2; color: var(--muted); font-size: 11px; }
+  .lu-opt .mono { font-size: 11px; color: var(--muted); }
+  .lu-key { font: inherit; font-size: 12.5px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  @media (max-width: 900px) { .lu-th { display: none; } .lu-tr, .lu-tr.lu-4 { grid-template-columns: 1fr auto; row-gap: 6px; } .lu-tr > :not(.lu-mn):not(.lu-n) { grid-column: 1 / -1; } }
+  @media (max-width: 1024px) { .pl-lane, .pl-lane.fw { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 720px) {
+    .pl-split { grid-template-columns: minmax(0, 1fr); }
+    .pl-side { position: static; grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; }
+    .pl-side-cap { display: none; }
+    .pl-side, .pl-main { min-width: 0; max-width: 100%; }
+    .pl-lane, .pl-lane.fw { grid-template-columns: 1fr; }
+  }
+</style>
+{{template "footer" .}}
+{{end}}
+
+{{define "pl-client"}}
+      <div class="pl-lanehead">{{if $.InRole}}<h3 class="pl-h3">{{$.C.Label}}</h3>{{else}}<h2>MDM client · {{$.C.Label}}</h2>{{end}}<span class="pl-faint">{{$.C.Note}}</span></div>
+      <div class="pl-lane fw">
+        <div class="pl-col">
+          <div class="pl-ct">How it ships</div>
+          <div class="pl-none">{{if eq $.C.Slot "dpc"}}Built and published from the Standard client repo with tools/publish-agent.sh.{{else}}Built in the AOSP tree that signs it and published with tools/release-client.sh; every device checks the signature against its own image.{{end}}</div>
+        </div>
+        <div class="pl-col">
+          <div class="pl-ct">Keep devices on it</div>
+          {{if $.C.Auto.On}}
+            <div class="pl-bk"><span class="v">{{if $.C.Auto.Paused}}Paused{{else}}On{{end}}</span>
+              <div class="m">{{if and $.C.Auto.WindowStart $.C.Auto.WindowEnd}}{{$.C.Auto.WindowStart}}–{{$.C.Auto.WindowEnd}} in each device's own timezone{{else}}any time of day{{end}}{{if $.C.Auto.By}} · set by {{$.C.Auto.By}}{{end}}</div></div>
+          {{else}}<div class="pl-none">Off — devices stay on the client they have.</div>{{end}}
+          {{if canAdmin $.Root.Role}}
+          <form method="POST" action="/clients/auto-update" class="pl-inline">
+            <input type="hidden" name="back" value="pipeline"><input type="hidden" name="slot" value="{{$.C.Slot}}">
+            <input type="hidden" name="on" value="{{if $.C.Auto.On}}0{{else}}1{{end}}">
+            <input type="hidden" name="window_start" value="{{$.C.Auto.WindowStart}}"><input type="hidden" name="window_end" value="{{$.C.Auto.WindowEnd}}">
+            <button class="cc-btn xs" type="submit">{{if $.C.Auto.On}}Switch off{{else}}Switch on{{end}}</button>
+          </form>
+          {{if $.C.Auto.On}}
+          <form method="POST" action="/clients/auto-update" class="pl-inline" style="margin-top:6px">
+            <input type="hidden" name="back" value="pipeline"><input type="hidden" name="slot" value="{{$.C.Slot}}"><input type="hidden" name="on" value="1">
+            <input type="hidden" name="paused" value="{{if $.C.Auto.Paused}}0{{else}}1{{end}}">
+            <input type="hidden" name="window_start" value="{{$.C.Auto.WindowStart}}"><input type="hidden" name="window_end" value="{{$.C.Auto.WindowEnd}}">
+            <button class="cc-btn xs" type="submit">{{if $.C.Auto.Paused}}Resume{{else}}Pause{{end}}</button>
+          </form>
+          {{end}}{{end}}
+        </div>
+        <div class="pl-col prod">
+          <div class="pl-ct">Hosted build</div>
+          {{if $.C.Hosted}}
+          <div class="pl-bk"><span class="v">{{$.C.Build.Version}}</span> <span class="pl-faint">code {{$.C.Build.VersionCode}}</span>
+            {{if $.C.Devices}}<div class="pl-bar"><i style="width:{{pct $.C.UpToDate $.C.Devices}}%;background:var(--ok)"></i><i style="width:{{pct $.C.Behind $.C.Devices}}%;background:var(--accent-2)"></i><i style="width:{{pct $.C.NoBuild $.C.Devices}}%;background:var(--warn)"></i><i style="width:{{pct $.C.Unknown $.C.Devices}}%;background:var(--muted)"></i></div>{{end}}
+            <div class="m">{{$.C.UpToDate}} of {{$.C.Devices}} on it{{if $.C.Behind}} · {{$.C.Behind}} behind{{end}}{{if $.C.NoBuild}} · {{$.C.NoBuild}} on an image that cannot take it{{end}}{{if $.C.Unknown}} · {{$.C.Unknown}} not reporting a version{{end}}</div>
+            <div class="m"><a href="/lineup?client={{$.C.Slot}}">Devices and release history →</a></div>
+          </div>
+          {{else}}<div class="pl-none">Nothing hosted for this client yet.</div>{{end}}
+        </div>
+      </div>
+{{end}}
+
+{{/* ── Lineup: the Hardware section of a role ── */}}
+{{define "lu-hardware"}}
+      <div class="pl-lanehead" style="margin-top:22px" id="hardware">
+        <h2>Hardware</h2><span class="pl-faint">a device's role is its model's role</span>
+        {{if canAdmin $.Role}}
+        <span class="lu-pop-wrap pl-right">
+          <button type="button" class="cc-btn xs" onclick="luAddToggle(event)" aria-haspopup="dialog" aria-expanded="false">+ Add model</button>
+          <div class="lu-pop" id="lu-add" hidden>
+            <form method="POST" action="/products/attach" hx-boost="false">
+              <input type="hidden" name="role" value="{{.RoleKey}}"><input type="hidden" name="back" value="{{.RoleKey}}">
+              <div class="lu-pop-t">Attach a model to {{.RoleLabel}}</div>
+              {{if .Candidates}}<div class="lu-pop-list">
+                {{range .Candidates}}<label class="lu-opt"><input type="radio" name="model" value="{{.Key}}"><span><b>{{.Display}}</b> <span class="mono">{{.Key}}</span></span><small>{{if .Role}}in {{classLabel .Role}}{{else}}not attached{{end}} · {{.Devices}}</small></label>{{end}}
+              </div>{{end}}
+              <input type="text" name="model_key" class="lu-key" placeholder="or type a model key, e.g. rk3566_box" autocomplete="off" spellcheck="false">
+              <div class="pl-faint">Its devices take this role now and at every later enrollment.</div>
+              <button type="submit" class="cc-btn sm primary">Attach</button>
+            </form>
+          </div>
+        </span>
+        {{end}}
+      </div>
+      {{if .HWModels}}
+      <div class="lu-tbl">
+        <div class="lu-th"><span>Model</span><span>Devices report</span><span>Client</span><span>Firmware</span><span style="text-align:right">Devices</span></div>
+        {{range .HWModels}}
+        <div class="lu-tr" id="model-{{.Key}}">
+          {{template "lu-model-name" (dict "M" . "Root" $ "Class" $.RoleKey)}}
+          <div class="lu-rep">{{if .Reported}}{{.Reported}}{{else}}<span class="pl-faint">—</span>{{end}}</div>
+          {{template "lu-agents" .}}
+          <div>
+            {{if and .CanFw (canAdmin $.Role)}}
+            <form method="POST" action="/products/firmware-mode" class="pl-inline">
+              <input type="hidden" name="model" value="{{.Key}}">
+              <select name="mode" class="lu-sel" aria-label="Firmware for {{.Display}}" onchange="this.form.requestSubmit()">
+                <option value="prod"{{if eq .FwMode "prod"}} selected{{end}}>Prod</option>
+                <option value="lab"{{if eq .FwMode "lab"}} selected{{end}}>Lab only</option>
+                <option value="off"{{if eq .FwMode "off"}} selected{{end}}>Off</option>
+              </select>
+            </form>
+            {{else if .CanFw}}<span class="lu-rep">{{if eq .FwMode "prod"}}Prod{{else if eq .FwMode "lab"}}Lab only{{else}}Off{{end}}</span>
+            {{else}}<span class="pl-faint">Off · maker's firmware</span>{{end}}
+          </div>
+          <div class="lu-n{{if not .Devices}} zero{{end}}">{{.Devices}}</div>
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="pl-empty">No models in {{.RoleLabel}} yet.{{if canAdmin $.Role}} <b>+ Add model</b> attaches one, also before any device of it has enrolled.{{end}}</div>
+      {{end}}
+{{end}}
+
+{{define "lu-model-name"}}{{$m := .M}}
+  <div class="lu-mn">
+  {{with modelPic $m.Key}}<img class="lu-pic" src="{{.Img}}" alt="" width="44" height="44" decoding="async">{{else}}<span class="lu-pic none" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#dk-{{if $m.Role}}{{$m.Role}}{{else}}other{{end}}"/></svg></span>{{end}}
+  <div class="lu-mn-b">
+    <div class="lu-name">{{$m.Display}}{{if $m.Known}} <span class="lu-tag">built in</span>{{end}}</div>
+    <div class="lu-key-t mono">{{$m.Key}}{{if $m.Runs}} · <a href="/lineup?view=runs" class="lu-runs">{{$m.Runs}} production run{{if ne $m.Runs 1}}s{{end}}</a>{{end}}</div>
+    {{if and (not $m.Known) (canAdmin .Root.Role)}}
+    <div class="lu-acts">
+      <details class="lu-ren"><summary>Rename</summary>
+        <form class="lu-form" method="POST" action="/products/{{$m.Key}}/name" hx-post="/products/{{$m.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
+          <input type="text" name="name" value="{{$m.Name}}" maxlength="60" placeholder="Display name" aria-label="Display name for {{$m.Key}}">
+          <button type="submit" class="cc-btn xs primary">Save</button>{{if $m.Name}}<button type="submit" name="reset" value="1" class="cc-btn xs">Reset</button>{{end}}
+        </form>
+      </details>
+      {{if .Class}}<form method="POST" action="/products/attach" hx-boost="false" onsubmit="return confirm('Detach {{$m.Display}} from this role? Its devices lose the role.')">
+        <input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="role" value=""><input type="hidden" name="back" value="{{.Class}}">
+        <button type="submit" class="lu-x" title="Detach from this role">Detach</button>
+      </form>{{end}}
+    </div>
+    {{end}}
+  </div>
+  </div>
+{{end}}
+
+{{define "lu-agents"}}<span class="lu-agents">{{if .Firmware}}<span class="lu-ag">Firmware MDM <b>{{.Firmware}}</b></span>{{end}}{{if .DPC}}<span class="lu-ag">Standard MDM <b>{{.DPC}}</b></span>{{end}}{{if .Lite}}<span class="lu-ag">MDM Lite <b>{{.Lite}}</b></span>{{end}}</span>{{end}}
+
+{{/* ── Lineup: models attached to no role ── */}}
+{{define "lu-none"}}
+      <div class="lu-head"><h2>Not attached</h2></div>
+      <p class="pl-faint" style="font-size:12.5px;margin:0 0 10px">Models the fleet reported that no role has yet. Their devices have no role (or a guess from the model name) until the model is attached.</p>
+      <div class="lu-tbl">
+        <div class="lu-th lu-4"><span>Model</span><span>Attach to</span><span>Client</span><span style="text-align:right">Devices</span></div>
+        {{range .None}}
+        <div class="lu-tr lu-4" id="model-{{.Key}}">
+          {{template "lu-model-name" (dict "M" . "Root" $)}}
+          <div>{{if canAdmin $.Role}}<form method="POST" action="/products/attach" class="pl-inline" hx-boost="false">
+            <input type="hidden" name="model" value="{{.Key}}"><input type="hidden" name="back" value="none">
+            <select name="role" class="lu-sel unset" aria-label="Role for {{.Display}}" onchange="this.form.requestSubmit()">
+              <option value="">Attach to…</option>
+              {{range $.ClassKeys}}<option value="{{.}}">{{classLabel .}}</option>{{end}}
+            </select>
+          </form>{{else}}<span class="pl-faint">—</span>{{end}}</div>
+          {{template "lu-agents" .}}
+          <div class="lu-n">{{.Devices}}</div>
+        </div>
+        {{end}}
+      </div>
+{{end}}
+
+{{/* ── Lineup: production runs ── */}}
+{{define "lu-runs"}}
+      <div class="lu-head"><h2>Production runs</h2>{{if canOperate .Role}}<a href="/productions/new" class="cc-btn xs primary pl-right">New production</a>{{end}}</div>
+      {{if not .Productions}}
+      <div class="pl-empty">No production runs yet. A run tracks a serial number range of our own hardware and which units have connected.</div>
+      {{else}}
+      <div class="scroll-x"><table class="table lu-runs-t">
+        <thead><tr><th>Name</th><th>Model</th><th>Serial range</th><th class="text-right">Total</th><th class="text-right">Connected</th><th class="text-right">Online</th><th class="text-right">Never</th><th></th></tr></thead>
+        <tbody>
+        {{range .Productions}}
+        <tr>
+          <td><a href="/productions/{{.ID}}" class="link-detail">{{.Name}}</a></td>
+          <td>{{$pm := .Model}}{{if canOperate $.Role}}<form method="POST" action="/productions/{{.ID}}/model" hx-boost="false" style="margin:0">
+            <input type="hidden" name="back" value="/lineup?view=runs">
+            <select name="model" class="lu-sel{{if not .Model}} unset{{end}}" onchange="this.form.submit()" aria-label="Model for {{.Name}}">
+              <option value="">Link a model…</option>
+              {{range $.Models}}<option value="{{.Key}}"{{if eq .Key $pm}} selected{{end}}>{{.Label}}</option>{{end}}
+            </select>
+          </form>{{else}}{{if .Model}}{{productLabel .Model}}{{else}}<span class="pl-faint">—</span>{{end}}{{end}}</td>
+          <td class="mono small">{{.FirstSerial}} → {{.LastSerial}}</td>
+          <td class="text-right">{{.Total}}</td>
+          <td class="text-right">{{.EverConnected}}</td>
+          <td class="text-right">{{.Online}}</td>
+          <td class="text-right">{{sub .Total .EverConnected}}</td>
+          <td style="text-align:right"><a href="/productions/{{.ID}}/export.csv" hx-boost="false" class="cc-btn xs">CSV</a></td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table></div>
+      {{end}}
+{{end}}

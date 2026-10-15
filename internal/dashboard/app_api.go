@@ -13,7 +13,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"mdm/internal/db"
-	prod "mdm/internal/product"
 	"mdm/internal/ratelimit"
 )
 
@@ -201,9 +200,11 @@ func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, _ *db.
 	appJSON(w, http.StatusOK, map[string]any{"devices": out})
 }
 
-// AppEnrollToken: POST /api/v1/app/enroll-token {"device_class","restaurant_id"?} →
+// AppEnrollToken: POST /api/v1/app/enroll-token {"restaurant_id"?} →
 // {"token","server_url","device_class","restaurant","expires_at"}.
-// Hands back the live token of this person's profile for the class (and restaurant), minting
+// A device's class follows its model (the Hardware page), so a "device_class" in the body,
+// still sent by older apps, is accepted and ignored, and "device_class" comes back "".
+// Hands back the live token of this person's profile (for the restaurant), minting
 // one (30 days) when none is active. A profile with a restaurant places each device it enrolls
 // straight into that restaurant, so it skips the onboarding inbox.
 func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.Session) {
@@ -215,12 +216,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 		appErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	class := strings.ToLower(strings.TrimSpace(body.DeviceClass))
-	if class == "" || !prod.IsClass(class) {
-		appErr(w, http.StatusBadRequest, "unknown device_class")
-		return
-	}
-	name := appEnrollProfilePrefix + class + " · " + s.Username
+	name := appEnrollProfilePrefix + s.Username
 	var site *db.Restaurant
 	if rid := strings.TrimSpace(body.RestaurantID); rid != "" {
 		id, err := uuid.Parse(rid)
@@ -232,7 +228,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 			appErr(w, http.StatusBadRequest, "unknown restaurant")
 			return
 		}
-		name = appEnrollProfilePrefix + class + " · " + site.Name + " · " + s.Username
+		name = appEnrollProfilePrefix + site.Name + " · " + s.Username
 	}
 	sameSite := func(p db.EnrollmentProfile) bool {
 		if site == nil {
@@ -261,7 +257,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 	}
 	exp := time.Now().Add(appEnrollTokenDays * 24 * time.Hour)
 	in := db.EnrollmentProfileInput{
-		Name: name, Token: "enr_" + hex.EncodeToString(raw), DeviceClass: class, ExpiresAt: &exp,
+		Name: name, Token: "enr_" + hex.EncodeToString(raw), ExpiresAt: &exp,
 		Notes: "Minted by the AIO Enroll desktop app for " + s.Username, CreatedBy: s.Username,
 	}
 	if site != nil {

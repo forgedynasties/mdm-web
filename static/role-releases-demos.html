@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Role releases demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 26px 34px 140px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 23px; margin: 0 0 6px; }
+  .lede, p.q { color: var(--muted); font-size: 13.5px; max-width: 900px; line-height: 1.6; }
+  .lede b, p.q b { color: var(--text); font-weight: 650; }
+  h2.opt { font-size: 16px; margin: 40px 0 4px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .pick { font-size: 10.5px; font-weight: 800; color: var(--accent-text); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; }
+  .now  { font-size: 10.5px; font-weight: 800; color: var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 2px 8px; }
+  .pros { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+  .pros div { border-left: 3px solid var(--ok); padding: 4px 12px; }
+  .pros div.bad { border-color: var(--danger); }
+  .page { border: 1px solid var(--border); border-radius: 14px; background: var(--bg); padding: 16px 20px 20px; margin-top: 12px; }
+  .ptop { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .ptop .h { font-size: 20px; font-weight: 750; margin-right: auto; }
+  .intake { display: flex; gap: 8px; align-items: center; border: 1px dashed var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .intake input { flex: 1; min-width: 220px; font: inherit; font-size: 12.5px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .intake .lbl { font-size: 12px; font-weight: 700; color: var(--text); }
+  .ico { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; font-weight: 800; color: #fff; flex: none;
+    background: linear-gradient(135deg, hsl(var(--h) 62% 56%), hsl(calc(var(--h) + 26) 58% 44%)); }
+  .mono { font-family: var(--mono); font-size: 11.5px; }
+  .faint { color: var(--text-faint); font-size: 11.5px; }
+
+  /* option 1: role board */
+  .roles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .role .rh { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+  .role .rh b { font-size: 14.5px; display: block; }
+  .ch { display: grid; grid-template-columns: 74px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; color: var(--text-2); }
+  .ch .k { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+  .ch.prod .k { color: var(--ok); }
+  .bar { height: 5px; border-radius: 9px; background: var(--surface2); margin-top: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--ok); }
+  .inbox { margin-bottom: 14px; }
+  .inbox .row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; flex-wrap: wrap; }
+  .inbox .row:first-of-type { border-top: 0; }
+
+  /* option 2: pipeline */
+  .relpipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .pcol { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; min-height: 200px; }
+  .pcol .pct { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px; }
+  .pbc { background: var(--bg); border: 1px solid var(--border-soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: 12px; }
+  .pbc b { display: block; font-size: 12.5px; }
+
+  /* option 3: library */
+  .lib .row { display: flex; align-items: center; gap: 12px; padding: 10px 6px; border-top: 1px solid var(--border-soft); flex-wrap: wrap; }
+  .lib .row:first-child { border-top: 0; }
+  .lib .grow { flex: 1; min-width: 180px; }
+  .lib .vers { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* nav */
+  .dmock { display: inline-flex; gap: 4px; padding: 5px; border: 1px solid var(--border); border-radius: 99px; background: var(--surface); margin: 6px 0; flex-wrap: wrap; }
+  .dmock span { font-size: 12px; font-weight: 650; padding: 6px 12px; border-radius: 99px; color: var(--text-2); }
+  .dmock span.on { background: var(--accent-soft); color: var(--accent-text); }
+  .dmock span.gone { text-decoration: line-through; color: var(--text-faint); }
+  @media (max-width: 1024px) { .relpipe { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 720px) { body { padding: 20px 16px 100px; } .roles, .pros, .relpipe { grid-template-columns: 1fr; } }
+  .page .cc-card { padding: 14px 16px; margin: 0; border-radius: 13px; }
+  .sub { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
+  .stock { font-size: 12px; color: var(--text-faint); margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .kind { font-size: 9.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 1px 6px; border-radius: 5px; background: var(--surface2); color: var(--muted); margin-left: 4px; }
+  .fwset { margin-left: auto; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--text-2); white-space: nowrap; }
+  .fwset.on { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+  .rh { flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Role releases: where builds become what venues run</h1>
+<p class="lede">Today the Apps page is a library of every APK, with an <b>Install</b> button on each row. In the role model nobody installs by hand on a restaurant device. Each role has <b>one app</b>, a <b>prod</b> channel that every deployed device follows, and <b>lab slots</b> the testing team puts builds on. Builds arrive as a link from the software team, so the page starts with <b>"Add build from link"</b>: paste it, and MDM downloads the APK, reads its package and version, and works out the role. Names here (prod, slot, deployed) are placeholders. <b>Firmware releases are a per-role setting</b> (the switch on each card). When it is on, firmware applies only to the role's devices on the <b>Firmware client</b>, which is our in-house hardware. Devices on the <b>Standard client</b>, which is stock hardware, follow the app channel only, even inside a role that has firmware switched on. Deployed devices follow prod firmware, and lab devices follow a slot. Version numbers and counts are made up. See <a href="/static/device-role-model-plan.html">the plan</a>.</p>
+
+<!-- ───────────────────────── option 1 ───────────────────────── -->
+<h2 class="opt">1 · Role board</h2>
+<p class="q">One card per role. Each card answers the two questions the testing team has: <b>what is prod, and how much of the fleet is on it</b>, and <b>what is on each lab slot</b>. New builds wait in an inbox at the top until someone puts them on a slot or promotes them.</p>
+<div class="page">
+  <div class="ptop"><div class="h">Releases</div><button class="cc-btn sm">Role table</button></div>
+  <div class="intake"><span class="lbl">Add build from link</span><input placeholder="https://… .apk  — paste what the software team sent"><button class="cc-btn primary sm">Fetch</button></div>
+  <div class="cc-card inbox">
+    <h2 style="font-size:13.5px;margin:0 0 6px">New builds <span class="cc-tag info">3</span></h2>
+    <div class="row"><div class="ico" style="--h:265;width:30px;height:30px;font-size:12px">T7</div><div style="flex:1;min-width:160px"><b>Firmware v2.1.033</b><span class="kind">firmware</span> <span class="mono faint">T7 · user · full + 2 incrementals</span><div class="faint">Tableside AI · published by the OTA console 09:15</div></div><button class="cc-btn sm">Put on slot ▾</button><button class="cc-btn primary sm">Promote to prod</button></div>
+    <div class="row"><div class="ico" style="--h:265;width:30px;height:30px;font-size:12px">N</div><div style="flex:1;min-width:160px"><b>Nugget 4.3.0</b><span class="kind">app</span> <span class="mono faint">aio.app.nugget · 128 MB</span><div class="faint">Tableside AI · added 10:42 from link</div></div><button class="cc-btn sm">Put on slot ▾</button><button class="cc-btn primary sm">Promote to prod</button></div>
+    <div class="row"><div class="ico" style="--h:150;width:30px;height:30px;font-size:12px">K</div><div style="flex:1;min-width:160px"><b>KDS 2.8.0-uatv2</b><span class="kind">app</span> <span class="mono faint">aio.app.kds.uatv2 · 41 MB</span><div class="faint">Kitchen display · added yesterday</div></div><button class="cc-btn sm">Put on slot ▾</button><button class="cc-btn primary sm">Promote to prod</button></div>
+  </div>
+  <div class="roles">
+    <div class="cc-card role">
+      <div class="rh"><div class="ico" style="--h:265">N</div><div><b>Tableside AI</b><span class="faint">Nugget · T7</span></div><span class="fwset on">Firmware releases: on</span></div>
+      <div class="sub" style="margin-top:0;border-top:0;padding-top:0">App · Nugget</div>
+      <div class="ch prod"><span class="k">Prod</span><div><span class="mono">4.2.1</span> <span class="faint">since 9 Oct</span><div class="bar"><i style="width:94%"></i></div><span class="faint">142 of 151 deployed on it · 9 waiting for their window</span></div><button class="cc-btn sm">History</button></div>
+      <div class="ch"><span class="k">Slot 1</span><div><span class="mono">4.3.0-rc2</span> <span class="faint">· 4 lab devices</span></div><button class="cc-btn sm">Change</button></div>
+      <div class="ch"><span class="k">Slot 2</span><div><span class="mono">uatv2 4.3.0</span> <span class="faint">· 2 lab devices</span></div><button class="cc-btn sm">Change</button></div>
+      <div class="sub">Firmware · 151 devices on the Firmware client</div>
+      <div class="ch prod"><span class="k">Prod</span><div><span class="mono">v2.1.031</span> <span class="faint">since 6 Oct</span><div class="bar"><i style="width:88%"></i></div><span class="faint">44 of 50 on the v2.1 line on it · 6 waiting</span><div class="faint" style="color:var(--warn)">101 deployed on the old v2.0 line · not offered v2.1 (see the open question)</div></div><button class="cc-btn sm">History</button></div>
+      <div class="ch"><span class="k">Slot 1</span><div><span class="mono">v2.1.033</span> <span class="faint">userdebug · 3 lab devices</span></div><button class="cc-btn sm">Change</button></div>
+    </div>
+    <div class="cc-card role">
+      <div class="rh"><div class="ico" style="--h:150">K</div><div><b>Kitchen display</b><span class="faint">KDS app · Sunmi D2s</span></div><span class="fwset">Firmware releases: off</span></div>
+      <div class="sub" style="margin-top:0;border-top:0;padding-top:0">App · KDS app</div>
+      <div class="ch prod"><span class="k">Prod</span><div><span class="mono">2.7.4</span> <span class="faint">since 2 Oct</span><div class="bar"><i style="width:100%"></i></div><span class="faint">All 12 deployed on it</span></div><button class="cc-btn sm">History</button></div>
+      <div class="ch"><span class="k">Slot 1</span><div class="faint">empty · lab devices stay where they are</div><button class="cc-btn sm">Set</button></div>
+      <div class="ch"><span class="k">Slot 2</span><div class="faint">empty</div><button class="cc-btn sm">Set</button></div>
+      <div class="stock">Firmware releases are off for this role. All 12 devices are on the Standard client.</div>
+    </div>
+    <div class="cc-card role">
+      <div class="rh"><div class="ico" style="--h:200">K</div><div><b>Self-order kiosk</b><span class="faint">Kiosk app · Kiosk 18/22/27, ZC-3568K</span></div><span class="fwset on">Firmware releases: on</span></div>
+      <div class="sub" style="margin-top:0;border-top:0;padding-top:0">App · Kiosk app</div>
+      <div class="ch prod"><span class="k">Prod</span><div><span class="mono">3.4.0</span><div class="bar"><i style="width:100%"></i></div><span class="faint">All 18 deployed on it</span></div><button class="cc-btn sm">History</button></div>
+      <div class="sub">Firmware · 17 devices on the Firmware client</div>
+      <div class="ch prod"><span class="k">Prod</span><div><span class="mono">v2.1.029</span><div class="bar"><i style="width:94%"></i></div><span class="faint">16 of 17 on it</span></div><button class="cc-btn sm">History</button></div>
+      <div class="ch"><span class="k">Slot 1</span><div class="faint">empty</div><button class="cc-btn sm">Set</button></div>
+      <div class="stock">1 device on the Standard client (ZC-3568K) follows the app channel only.</div>
+    </div>
+    <div class="cc-card role">
+      <div class="rh"><div class="ico" style="--h:20">M</div><div><b>Menu board</b><span class="faint">Menu board app · HK1 box</span></div><span class="fwset">Firmware releases: off</span></div>
+      <div class="sub" style="margin-top:0;border-top:0;padding-top:0">App · Menu board app</div>
+      <div class="ch prod"><span class="k">Prod</span><div><span class="mono">1.9.0</span> <div class="bar"><i style="width:60%;background:var(--warn)"></i></div><span class="faint">3 of 5 · <span style="color:var(--warn)">2 failing to install</span></span></div><button class="cc-btn sm">History</button></div>
+      <div class="ch"><span class="k">Slot 1</span><div class="faint">empty</div><button class="cc-btn sm">Set</button></div>
+      <div class="stock">Firmware releases are off for this role. All devices are on the Standard client.</div>
+    </div>
+    <div class="cc-card role">
+      <div class="rh"><div class="ico" style="--h:330">P</div><div><b>POS terminal</b><span class="faint">POS app · Sunmi D3 Pro</span></div><span class="fwset">Firmware releases: off</span></div>
+      <div class="sub" style="margin-top:0;border-top:0;padding-top:0">App · POS app</div>
+      <div class="ch prod"><span class="k">Prod</span><div class="faint">No prod build yet · deployed POS devices are left alone</div><button class="cc-btn primary sm">Set prod</button></div>
+      <div class="stock">Firmware releases are off for this role. All devices are on the Standard client.</div>
+    </div>
+  </div>
+</div>
+<div class="pros"><div><b>Good:</b> role is the unit, exactly as the model says. App and firmware for a role are on one card, so a T7 prod change and a Nugget prod change are decided in the same place. Fleet progress and lab slots sit side by side, so "is it safe to promote" and "did it land" are one glance. The inbox turns the link-in-a-chat process into a visible queue.</div><div class="bad"><b>Bad:</b> older builds are one click away (History), not on the page. Eight roles means eight cards; roles with no devices yet need hiding.</div></div>
+
+<!-- ───────────────────────── option 2 ───────────────────────── -->
+<h2 class="opt">2 · Pipeline <span class="pick">chosen 14 Oct</span></h2>
+<p class="q"><a href="/static/releases-pipeline-demos.html">Worked out in full →</a></p>
+<p class="q">Builds as cards moving left to right: <b>Inbox → Slot 1 → Slot 2 → Prod</b>, filtered to one role at a time. Firmware is a second row of lanes under the app for roles on our hardware.</p>
+<div class="page">
+  <div class="ptop"><div class="h">Releases</div><span class="cc-tag info">Tableside AI ▾</span></div>
+  <div class="relpipe">
+    <div class="pcol"><div class="pct">Inbox</div><div class="pbc"><b>4.3.0</b><span class="faint">from link · 10:42</span></div></div>
+    <div class="pcol"><div class="pct">Slot 1</div><div class="pbc"><b>4.3.0-rc2</b><span class="faint">4 lab devices</span></div></div>
+    <div class="pcol"><div class="pct">Slot 2</div><div class="pbc"><b>uatv2 4.3.0</b><span class="faint">2 lab devices</span></div></div>
+    <div class="pcol"><div class="pct">Prod</div><div class="pbc"><b>4.2.1</b><span class="faint">142 / 151 deployed</span></div><div class="pbc" style="opacity:.6"><b>4.2.0</b><span class="faint">previous</span></div></div>
+  </div>
+  <div class="faint" style="margin:12px 0 6px;font-weight:700">Firmware · T7</div>
+  <div class="relpipe">
+    <div class="pcol" style="min-height:0"><div class="pct">Inbox</div><div class="pbc"><b>v2.1.033</b><span class="faint">OTA console · 09:15</span></div></div>
+    <div class="pcol" style="min-height:0"><div class="pct">Slot 1</div><div class="pbc"><b>v2.1.033</b><span class="faint">3 lab devices</span></div></div>
+    <div class="pcol" style="min-height:0"><div class="pct">Slot 2</div></div>
+    <div class="pcol" style="min-height:0"><div class="pct">Prod</div><div class="pbc"><b>v2.1.031</b><span class="faint">44 / 50 on v2.1</span></div></div>
+  </div>
+</div>
+<div class="pros"><div><b>Good:</b> shows the process itself, which is the part that is crude today. Moving a card is an obvious gesture.</div><div class="bad"><b>Bad:</b> one role at a time, so there is no fleet-wide view. Slots are not stages: a build can go straight from inbox to prod, and slot 2 is not "after" slot 1. The left-to-right order implies a process you do not have.</div></div>
+
+<!-- ───────────────────────── option 3 ───────────────────────── -->
+<h2 class="opt">3 · Library with channel tags <span class="now">closest to today</span></h2>
+<p class="q">Today's Apps library, unchanged in shape. Each version gets a tag for the channel it is on, and <b>Install</b> becomes <b>Set channel</b>. Firmware stays where it is today, under its own Firmware entry with Updates, Releases and Packages tabs.</p>
+<div class="page lib">
+  <div class="ptop"><div class="h">Apps</div><button class="cc-btn primary sm">Add app</button></div>
+  <div class="row"><div class="ico" style="--h:265">N</div><div class="grow"><b>Nugget</b> <span class="faint">Tableside AI</span><div class="vers"><span class="cc-tag ok">4.2.1 · prod</span><span class="cc-tag info">4.3.0-rc2 · slot 1</span><span class="cc-tag info">uatv2 4.3.0 · slot 2</span><span class="cc-tag">4.3.0</span><span class="cc-tag">4.2.0</span></div></div><button class="cc-btn sm">Set channel</button></div>
+  <div class="row"><div class="ico" style="--h:150">K</div><div class="grow"><b>KDS app</b> <span class="faint">Kitchen display</span><div class="vers"><span class="cc-tag ok">2.7.4 · prod</span><span class="cc-tag">2.8.0-uatv2</span></div></div><button class="cc-btn sm">Set channel</button></div>
+  <div class="row"><div class="ico" style="--h:200">T</div><div class="grow"><b>Thermobench</b> <span class="faint">no role · lab tool</span><div class="vers"><span class="cc-tag">1.0.3</span></div></div><button class="cc-btn sm">Install on debug devices</button></div>
+</div>
+<div class="pros"><div><b>Good:</b> smallest change, and it keeps a home for lab tools that belong to no role.</div><div class="bad"><b>Bad:</b> still a list of APKs, not of what venues run. Firmware prod and app prod are set on two different pages for the same device. Fleet progress on prod is nowhere, and nothing says "new build waiting".</div></div>
+
+<!-- ───────────────────────── nav ───────────────────────── -->
+<h2 class="opt">Where it sits in the dock</h2>
+<p class="q">Today the dock has <b>Apps</b> for APKs and a separate <b>Firmware</b> entry whose tabs are Updates, Releases and Packages. The MDM client has its own <b>Clients</b> page. Option 1 puts app and firmware on one card per role, so two dock entries become one. Lock no longer needs a dock entry either, because a deployed device is locked by its role. It stays reachable from More for debug devices.</p>
+<div><b style="font-size:12.5px">A · Apps + Firmware become Releases</b> <span class="pick">my pick</span><br><span class="dmock"><span>Overview</span><span>Fleet</span><span class="on">Releases</span><span class="gone">Apps</span><span class="gone">Firmware</span><span>Jobs</span><span>Alerts</span><span class="gone">Lock</span><span>More</span></span></div>
+<p class="q">Releases gets tabs: <b>Roles</b> (the board), <b>Library</b> (every APK, including lab tools with no role such as Thermobench), and <b>Packages</b> (today's OTA packages: full and incremental per source build). Today's firmware Releases tab becomes the firmware half of each role card, so the name moves up a level instead of colliding. The Clients page for the MDM client stays separate: it is our agent, not a restaurant app, and its auto-update policy already works.</p>
+<div style="margin-top:10px"><b style="font-size:12.5px">B · Keep Apps and Firmware, add channels to each</b><br><span class="dmock"><span>Overview</span><span>Fleet</span><span class="on">Apps</span><span>Firmware</span><span>Jobs</span><span>Alerts</span><span class="gone">Lock</span><span>More</span></span></div>
+<p class="q">No relearning, but a role's prod app and prod firmware are set on two pages. "Apps" also suggests a store you install from, which is the habit this refactor removes.</p>
+
+<h2 class="opt">Open question this raises</h2>
+<p class="q"><b>Deployed T7s on the old v2.0 line.</b> 101 of the 188 live devices run a v2.0.x image, signed with the GMS key. "Deployed follows prod firmware" cannot apply to them: a v2.1 build is signed with a key they do not trust, and the migration OTA is what left the bad abl in a slot before. Should they (a) be shown as "old line, no firmware updates" and follow the app channel only, (b) get a separate frozen prod pointer on the v2.0 line, or (c) be migrated to v2.1 as a planned project of its own? My lean: (a) now, (c) as its own decision later.</p>
+
+<h2 class="opt">My recommendation</h2>
+<p class="q"><b>Option 1 with dock A.</b> The model's unit is the role, and option 1 is the only one where a role, its prod app, its prod firmware and fleet progress for both are one card. The pipeline (2) draws an order that slots do not have. The library (3) keeps the APK-store framing that this refactor is meant to retire. Lab-only tools keep a home as a Library tab, so nothing is lost.</p>
+</div>
+</body>
+</html>

@@ -609,6 +609,7 @@ type Production struct {
 	StartSequence int       `json:"start_sequence"`
 	EndSequence   int       `json:"end_sequence"`
 	Notes         string    `json:"notes"`
+	Model         string    `json:"model"` // hardware model (product key) the run built; "" = not linked
 	CreatedAt     time.Time `json:"created_at"`
 	// Computed stats
 	Total         int `json:"total"`
@@ -1544,6 +1545,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, productNamesSchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, roleModelSchema); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -1585,13 +1589,17 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		}
 		if err := json.Unmarshal(extra, &ident); err == nil && prod.IsStockAgent(ident.AgentType) {
 			guessedClass = prod.ClassForModel(product, ident.Manufacturer, ident.Model)
-			// An admin-set role for this model (Products page) beats the guess.
-			if product != "" {
-				if role, _ := d.ProductRole(ctx, product); role != "" {
-					guessedClass = role
-				}
-			}
 		}
+	}
+	// The class a model is attached to on the Hardware page is the device's class, always:
+	// it replaces whatever the device had, where the guess above only fills an empty one.
+	var modelClass string
+	if product != "" {
+		modelClass, _ = d.ProductRole(ctx, product)
+	}
+	insertClass := guessedClass
+	if modelClass != "" {
+		insertClass = modelClass
 	}
 
 	tx, err := d.pool.Begin(ctx)
@@ -1662,10 +1670,11 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Only overwrite product when the device actually reported one; an empty
 			    -- value (delta frame / legacy client) keeps whatever was last learned.
 			    product            = COALESCE(NULLIF(EXCLUDED.product, ''), devices.product),
-			    -- A stock device's category cannot be derived from its product, so we
-			    -- guess it from the model it reports. Only ever fills an EMPTY class:
-			    -- an admin's assignment (inbox, device page, bulk) always wins.
-			    device_class       = CASE WHEN devices.device_class = '' THEN EXCLUDED.device_class
+			    -- The class follows the model: the class its model is attached to on the
+			    -- Hardware page ($7) when it has one, else a guess from the model it reports
+			    -- that only ever fills an EMPTY class.
+			    device_class       = CASE WHEN $7 <> '' THEN $7
+			                              WHEN devices.device_class = '' THEN EXCLUDED.device_class
 			                              ELSE devices.device_class END,
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
@@ -1690,7 +1699,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    custody_source     = '',
 			    custody_set_at     = NULL
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra, NOW()
-	`, extraExpr), serial, buildID, batteryPct, extra, product, guessedClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged, &at)
+	`, extraExpr), serial, buildID, batteryPct, extra, product, insertClass, modelClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged, &at)
 	if err != nil {
 		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
@@ -2388,7 +2397,7 @@ func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt, &dev.EnrolledBy); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus, &dev.EnrolledAt, &dev.KeyRotatedAt, &dev.OnboardedAt, &dev.EnrolledBy, &dev.RestaurantID, &dev.DeployedEffective); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -2639,7 +2648,8 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			d.discharge_total_pct, d.discharge_backfilled,
 			d.product,
 			d.agent_kind, d.device_class, d.capabilities, d.capabilities_degraded,
-			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at, d.enrolled_by
+			d.enrollment_status, d.enrolled_at, d.key_rotated_at, d.onboarded_at, d.enrolled_by,
+			d.restaurant_id, (d.restaurant_id IS NOT NULL)
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id`
@@ -4263,17 +4273,18 @@ type ProductionParams struct {
 	StartSequence int
 	EndSequence   int
 	Notes         string
+	Model         string
 }
 
 func (d *DB) CreateProduction(ctx context.Context, p ProductionParams) (*Production, error) {
 	var prod Production
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO productions (name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-		RETURNING id, name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes, created_at
-	`, p.Name, p.ProductCode, p.ModelCode, p.Variant, p.SKU, p.Batch, p.BatchMonth, p.BatchYear, p.StartSequence, p.EndSequence, p.Notes).
+		INSERT INTO productions (name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes, model)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		RETURNING id, name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes, model, created_at
+	`, p.Name, p.ProductCode, p.ModelCode, p.Variant, p.SKU, p.Batch, p.BatchMonth, p.BatchYear, p.StartSequence, p.EndSequence, p.Notes, p.Model).
 		Scan(&prod.ID, &prod.Name, &prod.ProductCode, &prod.ModelCode, &prod.Variant, &prod.SKU,
-			&prod.Batch, &prod.BatchMonth, &prod.BatchYear, &prod.StartSequence, &prod.EndSequence, &prod.Notes, &prod.CreatedAt)
+			&prod.Batch, &prod.BatchMonth, &prod.BatchYear, &prod.StartSequence, &prod.EndSequence, &prod.Notes, &prod.Model, &prod.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -4287,7 +4298,7 @@ func (d *DB) ListProductions(ctx context.Context, connected []uuid.UUID) ([]Prod
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
-			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
+			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.model, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
 			COUNT(d.id) FILTER (WHERE d.id = ANY($1::uuid[])) AS online
@@ -4309,7 +4320,7 @@ func (d *DB) ListProductions(ctx context.Context, connected []uuid.UUID) ([]Prod
 	for rows.Next() {
 		var p Production
 		if err := rows.Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
-			&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
+			&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.Model, &p.CreatedAt,
 			&p.Total, &p.EverConnected, &p.Online); err != nil {
 			return nil, err
 		}
@@ -4323,7 +4334,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, connected []uuid.U
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
-			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
+			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.model, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
 			COUNT(d.id) FILTER (WHERE d.id = ANY($2::uuid[])) AS online
@@ -4336,12 +4347,18 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, connected []uuid.U
 		WHERE p.id = $1
 		GROUP BY p.id
 	`, id, connected).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
-		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
+		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.Model, &p.CreatedAt,
 		&p.Total, &p.EverConnected, &p.Online)
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+// SetProductionModel links a production run to the hardware model it built ("" unlinks).
+func (d *DB) SetProductionModel(ctx context.Context, id uuid.UUID, model string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE productions SET model = $2 WHERE id = $1`, id, model)
+	return err
 }
 
 func (d *DB) DeleteProduction(ctx context.Context, id uuid.UUID) error {
@@ -9479,6 +9496,12 @@ type alertUpsert struct {
 // upsertAlert is CreateAlertIfAbsent that also reports the row id and whether an open
 // alert was escalated to critical by this pass.
 func (d *DB) upsertAlert(ctx context.Context, ruleID *uuid.UUID, typ string, deviceID uuid.UUID, severity, summary string, detail any) (alertUpsert, error) {
+	// A device in a lab session raises no restaurant alerts (role model, 14 Oct): it is
+	// unlocked, off prod and being worked on by someone who already knows.
+	var inLab bool
+	if err := d.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM device_lab WHERE device_id = $1 AND until > now())`, deviceID).Scan(&inLab); err == nil && inLab {
+		return alertUpsert{}, nil
+	}
 	detailJSON := []byte("{}")
 	if detail != nil {
 		b, err := json.Marshal(detail)
@@ -9616,6 +9639,18 @@ func (d *DB) ResolveOpenAlert(ctx context.Context, typ string, deviceID uuid.UUI
 		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
 		WHERE type = $1 AND device_id = $2 AND status <> 'resolved'
 	`, typ, deviceID)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// ResolveOpenAlertsOfType resolves every open alert of one type, on any device.
+func (d *DB) ResolveOpenAlertsOfType(ctx context.Context, typ string) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE type = $1 AND status <> 'resolved'
+	`, typ)
 	if err != nil {
 		return 0, err
 	}
@@ -12230,6 +12265,9 @@ CREATE TABLE IF NOT EXISTS productions (
 );
 CREATE INDEX IF NOT EXISTS idx_productions_batch ON productions(batch);
 CREATE INDEX IF NOT EXISTS idx_productions_prefix ON productions(product_code, model_code, variant, sku, batch);
+-- The hardware model a production run built (a product key, as on the Hardware page);
+-- '' = not linked.
+ALTER TABLE productions ADD COLUMN IF NOT EXISTS model TEXT NOT NULL DEFAULT '';
 
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS changelog TEXT NOT NULL DEFAULT '';
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS status    TEXT NOT NULL DEFAULT 'active';
@@ -16741,6 +16779,50 @@ func (d *DB) ListDeviceCrashesPage(ctx context.Context, deviceID uuid.UUID, limi
 	return out, total, rows.Err()
 }
 
+// AgentUpdateGiveUps names the devices the auto-update job should stop offering a build
+// to: those that refused it for its signing key (a different key never installs, however
+// often it is sent) and those it has failed on autoUpdateMaxFails times. Keyed to the
+// build's SHA-256, so publishing a new build gives every device a fresh start.
+func (d *DB) AgentUpdateGiveUps(ctx context.Context, deviceIDs []uuid.UUID, sha256Hex string, maxFails int) (map[uuid.UUID]string, error) {
+	out := map[uuid.UUID]string{}
+	if len(deviceIDs) == 0 || sha256Hex == "" {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT ct.target_id,
+		       COUNT(*) FILTER (WHERE cs.status = 'failed'),
+		       BOOL_OR(r.output ILIKE '%signed with a different key%' OR r.output ILIKE '%INSTALL_FAILED_UPDATE_INCOMPATIBLE%')
+		FROM commands c
+		JOIN command_targets ct ON ct.command_id = c.id
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
+		LEFT JOIN command_results r ON r.command_id = c.id AND r.device_id = ct.target_id
+		WHERE c.type = 'app_update'
+		  AND c.created_by = 'auto-update'
+		  AND ct.target_id = ANY($1)
+		  AND c.payload->>'sha256' = $2
+		  AND c.created_at > NOW() - INTERVAL '30 days'
+		GROUP BY ct.target_id`, deviceIDs, sha256Hex)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var fails int
+		var key *bool
+		if err := rows.Scan(&id, &fails, &key); err != nil {
+			return nil, err
+		}
+		switch {
+		case key != nil && *key:
+			out[id] = "signed with a different key"
+		case fails >= maxFails:
+			out[id] = "failed " + strconv.Itoa(fails) + " times"
+		}
+	}
+	return out, rows.Err()
+}
+
 // ListDeviceActiveAlerts returns the non-resolved alerts for a single device, worst
 // severity first then newest — the alert feed for that device's Alerts tab.
 // InFlightAgentUpdates reports, per device, the state of an agent update that is
@@ -17384,20 +17466,18 @@ type EnrollResult struct {
 
 // EnrollDevice registers (or re-registers, e.g. after factory reset) a device under an
 // enrollment profile: upserts the device row as a DPC device, stores the new key hash
-// (rotating out any previous key), applies the profile's intent (class, site, group),
+// (rotating out any previous key), applies the profile's intent (site, group),
 // and bumps the profile counter. A profile that names a site auto-onboards the device;
 // otherwise it waits in the onboarding inbox (onboarded_at NULL). Re-enrolling keeps
-// the device's existing site/class/onboarded state unless the profile overrides them.
+// the device's existing site/onboarded state unless the profile overrides them.
 func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, serial, product, keyHash string) (EnrollResult, error) {
 	var res EnrollResult
-	// The model's role (Products page) beats the profile's blanket class: one token
-	// often enrolls several kinds of hardware, and a TV box must not become whatever
-	// the profile was made for.
-	class := profile.DeviceClass
+	// The class comes from the model alone (the class it is attached to on the Hardware
+	// page); nobody picks one at enrollment. A model not attached yet leaves it empty and
+	// the first check-in fills a guess from the model it reports.
+	var class string
 	if product != "" {
-		if role, _ := d.ProductRole(ctx, product); role != "" {
-			class = role
-		}
+		class, _ = d.ProductRole(ctx, product)
 	}
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
@@ -17454,13 +17534,6 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 func (d *DB) MarkOnboarded(ctx context.Context, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE devices SET onboarded_at = COALESCE(onboarded_at, NOW()) WHERE id = $1`, id)
-	return err
-}
-
-// SetDeviceClass overrides the form factor for one device ("" = back to the product
-// default / unset).
-func (d *DB) SetDeviceClass(ctx context.Context, id uuid.UUID, class string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2 WHERE id = $1`, id, class)
 	return err
 }
 

@@ -137,7 +137,7 @@
       <span class="word {{.State}}">{{.Word}}</span>
       {{if not .Online}}<div class="batt mains">last seen {{timeSince .LastSeen}}</div>
       {{else if .HasBattery}}<div class="batt{{if lt .Battery 20}} low{{else if lt .Battery 50}} mid{{end}}" style="--p:{{.Battery}}%"><i></i>{{.Battery}}%</div>
-      {{else}}<div class="batt mains">mains powered</div>{{end}}
+      {{else}}<div class="batt mains">AC powered</div>{{end}}
       <div class="do">{{.Do}}</div>
     </a>
     {{end}}

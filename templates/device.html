@@ -40,28 +40,18 @@
      re-fetched on each "device-updated" SSE event (and a 60s fallback), so battery,
      charging, temperature, RAM, uptime and Wi-Fi refresh without a page reload. */}}
 {{define "device-vitals"}}
-    {{if batteryMissing .Device.LatestExtra}}<span class="ddc-chip battery-low" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or the pack is unplugged). Charging is suspended in this state; any percentage would be read off the rail, not a pack.">
-      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><path d="M6 4l12 8M18 4L6 12" stroke="currentColor" stroke-width="1.5"/></svg>No battery
-    </span>{{else if .ShowBattery}}<span class="ddc-chip battery-{{if lt .Device.BatteryPct 20}}low{{else if lt .Device.BatteryPct 50}}mid{{else}}ok{{end}}" title="Battery">
-      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if .ChargerFlapping}} <span class="vitals-flap" title="Charger flapping — charging toggling ~{{.ChargerFlapRate}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if charging .Device.LatestExtra}} ⚡{{end}}
-    </span>{{else if .Device.HasBattery}}<span class="ddc-chip" title="This device has a battery but has not reported a reading yet">
-      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/></svg>—
-    </span>{{else if eq .Device.DeviceClass "dongle"}}<span class="ddc-chip" title="TV box / HDMI dongle — mains powered, no battery">
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m17 2-5 5-5-5"/></svg>TV
-    </span>{{else}}<span class="ddc-chip" role="img" aria-label="Mains powered" title="Mains powered — no battery">
-      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><circle cx="8.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15.5" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>
-    </span>{{end}}
-    {{/* wlc_status: 1 = device placed, 0 = vacant, 2 = flapping (gpio27 kept disagreeing
-         instead of settling — a real hardware symptom, e.g. a loose connector or failing
-         pad; see the client's classifyWlc + tools/wlc-gpio-matrix.sh). */}}
-    {{/* Wireless-charging status moved to the "Charging pad" sidebar card, combined
-         with its enable/disable control. */}}
-    {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
-    {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
-    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
-    {{/* The Android ID the Nugget app uses to identify this tablet (reported by client 1.8.6+ on firmware with the settings_ssaid sepolicy). */}}
-    {{if .NuggetIDs}}{{$n := index .NuggetIDs 0}}{{if or (eq (len .NuggetIDs) 1) .NuggetIDsSame}}<button type="button" class="ddc-chip ddc-aid" onclick="aidCopy(this,'{{$n.AndroidID}}')" title="{{if gt (len .NuggetIDs) 1}}The same Android ID for all {{len .NuggetIDs}} Nugget apps ({{range $i, $x := .NuggetIDs}}{{if $i}}, {{end}}{{$x.Package}}{{end}}). {{else}}The Android ID {{$n.Package}} uses to identify this tablet. {{end}}Click to copy."><span class="k">Nugget ID</span><span class="mono">{{$n.AndroidID}}</span>{{if gt (len .NuggetIDs) 1}}<span class="k">&times;{{len .NuggetIDs}}</span>{{end}}</button>{{else}}<button type="button" class="ddc-chip ddc-aid" onclick="aidList(this)" data-ids="{{.NuggetIDsJSON}}" aria-haspopup="dialog" title="The Nugget apps on this tablet have different Android IDs. Click to see them."><span class="k">Nugget IDs</span><span class="mono">{{len .NuggetIDs}}</span></button>{{end}}{{end}}
-    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
+    {{/* The facts bar's live cells (static/device-tabrow-demos.html, T2): a label over each
+         value, swapped in place every few minutes by GET /devices/{serial}/vitals. */}}
+    {{if batteryMissing .Device.LatestExtra}}<span class="dfc bad" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or the pack is unplugged). Charging is suspended in this state; any percentage would be read off the rail, not a pack."><span class="dfk">Battery</span><span class="dfv">No battery</span></span>
+    {{else if .ShowBattery}}<span class="dfc{{if lt .Device.BatteryPct 20}} bad{{else if lt .Device.BatteryPct 50}} mid{{else}} good{{end}}" title="Battery"><span class="dfk">Battery</span><span class="dfv"><svg class="dfi" viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if .ChargerFlapping}} <span class="vitals-flap" title="Charger flapping — charging toggling ~{{.ChargerFlapRate}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if charging .Device.LatestExtra}} ⚡{{end}}</span></span>
+    {{else if .Device.HasBattery}}<span class="dfc" title="This device has a battery but has not reported a reading yet"><span class="dfk">Battery</span><span class="dfv muted">—</span></span>
+    {{else if eq .Device.DeviceClass "dongle"}}<span class="dfc dfc-bare" title="TV box / HDMI dongle — AC powered, no battery"><span class="dfk">Power</span><span class="dfv">AC powered · TV</span></span>
+    {{else}}<span class="dfc dfc-bare" title="AC powered — no battery"><span class="dfk">Power</span><span class="dfv">AC powered</span></span>{{end}}
+    {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="dfc"><span class="dfk">Temp</span><span class="dfv">{{$t}}</span></span>{{end}}
+    {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="dfc"><span class="dfk">RAM</span><span class="dfv">{{ramPct $ram}}%</span></span>{{end}}
+    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="dfc"><span class="dfk">Up</span><span class="dfv">{{$up}}</span></span>{{end}}
+    {{/* The Nugget ID chip was here; the ID stays on the app row in Applications (14 Oct). */}}
+    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="dfc dfc-wide" onclick="wifiModalOpen()" aria-haspopup="dialog" title="{{if and $wifi (ne $wifi "—")}}{{$wifi}} · {{end}}Nearby Wi-Fi networks"><span class="dfk">Wi-Fi</span><span class="dfv">{{if and $rssi (ne $rssi "—")}}{{$rssi}}dBm{{end}}{{if and $wifi (ne $wifi "—")}} <span class="dfm">{{$wifi}}</span>{{end}}</span></button>{{end}}
 {{end}}
 
 {{define "device-commands"}}
@@ -204,19 +194,19 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 
 <div class="device-detail cc-wrap dd-cc">
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
-<a href="/devices" class="back-link">← Fleet</a>
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero ddc-hero--ribbon">
   <div class="ddc-ribbon">
   <div class="ddc-top">
+    <div class="ddc-idw">{{with modelPic .Device.Product}}<img class="ddc-pic" src="{{.Img}}" alt="" width="72" height="72" decoding="async">{{end}}
     <div class="ddc-id">
-      <div class="cc-eyebrow">Fleet · Devices · {{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
+      <div class="cc-eyebrow isl-dup">Fleet · Devices · {{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
       <div class="dd-title-row">
         {{/* Title leads with what the device is (nickname, else the reported model, else
              its product), serial beside it — the same identity order as the fleet rows. */}}
         {{$hwModel := .Device.ProductLabel}}{{$rm := extraField .Device.LatestExtra "model"}}{{if and (ne $rm "") (ne $rm "—")}}{{$hwModel = $rm}}{{$rmf := extraField .Device.LatestExtra "manufacturer"}}{{if and (ne $rmf "") (ne $rmf "—")}}{{$hwModel = printf "%s %s" $rmf $rm}}{{end}}{{end}}{{with productName .Device.Product}}{{$hwModel = .}}{{end}}
-        <h1 class="cc-h1">{{if .Nickname}}{{.Nickname}}{{else}}{{$hwModel}}{{end}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span>{{if .HardwareSerial}} <span class="muted" style="font-weight:500;font-size:.5em;font-family:var(--mono);" title="The chip's own serial. Set by the hardware, it never changes, even if the AIO serial does.">HW {{.HardwareSerial}}</span>{{end}}</h1>
-        {{if not .IsOwner}}<details class="dd-nick{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><summary title="Friendly name shown to restaurant owners, e.g. Table 4"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{{if .Nickname}}Rename{{else}}Name{{end}}</summary><form action="/devices/{{.Device.SerialNumber}}/nickname" method="POST" class="dd-nick-pop" hx-boost="true"><input type="text" name="nickname" class="form-input" placeholder="e.g. Table 4" value="{{.Nickname}}" maxlength="40" style="width:170px;" autofocus><button type="submit" class="cc-btn sm primary">Save</button>{{if .Nickname}}<button type="submit" name="nickname" value="" class="cc-btn sm" title="Remove the name">Clear</button>{{end}}</form></details>
+        <h1 class="cc-h1 isl-dup-sr">{{if .Nickname}}{{.Nickname}}{{else}}{{$hwModel}}{{end}} <span class="muted" style="font-weight:500;font-size:.6em;font-family:var(--mono);">{{.Device.SerialNumber}}</span>{{if .HardwareSerial}} <span class="muted" style="font-weight:500;font-size:.5em;font-family:var(--mono);" title="The chip's own serial. Set by the hardware, it never changes, even if the AIO serial does.">HW {{.HardwareSerial}}</span>{{end}}</h1>
+        {{if not .IsOwner}}<details class="dd-nick{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><summary title="Friendly name shown to restaurant owners, e.g. Host stand"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{{if .Nickname}}Rename{{else}}Name{{end}}</summary><form action="/devices/{{.Device.SerialNumber}}/nickname" method="POST" class="dd-nick-pop" hx-boost="true"><input type="text" name="nickname" class="form-input" placeholder="e.g. Host stand" value="{{.Nickname}}" maxlength="40" style="width:170px;" autofocus><button type="submit" class="cc-btn sm primary">Save</button>{{if .Nickname}}<button type="submit" name="nickname" value="" class="cc-btn sm" title="Remove the name">Clear</button>{{end}}</form></details>
         <style>
         .dd-nick{position:relative;display:inline-block;vertical-align:middle;margin-left:6px}
         .dd-nick>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:3px 9px;background:var(--surface);line-height:1.4}
@@ -239,24 +229,24 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         .cmdch-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.55;color:var(--text-2)}
         .cmdch-ban .t b{color:var(--text)}
         </style>{{end}}
-        {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
+        {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}<span class="isl-dup">{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}</span>
         {{/* Hardware model, as reported by the agent (e.g. "samsung SM-S146VL"); legacy
              clients don't report it so the tag simply doesn't render for them. */}}
         {{$model := extraField .Device.LatestExtra "model"}}{{$manu := extraField .Device.LatestExtra "manufacturer"}}
         {{if and .Nickname (ne $model "") (ne $model "—")}}<span class="cc-tag" title="Hardware model">{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$model}}</span>{{end}}
-        {{if .Device.BuildID}}<span class="cc-tag">{{.Device.BuildID}}</span>{{end}}
+        {{if .Device.BuildID}}<span class="cc-tag isl-dup">{{.Device.BuildID}}</span>{{end}}
         {{if isLegacyBuild .Device.BuildID}}<span class="ddc-legacy-tag cc-tag warn" tabindex="0" role="note" aria-label="Legacy device — appears offline by design" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. &#10;&#10;'Last seen' reflects their most recent check-in.">Legacy device<svg class="ddc-info-ic" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
         {{if .Device.Class}}<span class="cc-tag" title="Product">{{.Device.ClassLabel}}</span>{{end}}
         {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if and .Device.Retired (ne .Device.EnrollmentStatus "unenrolled")}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
-      <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}} · {{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}{{if .EnrolledByName}} by {{.EnrolledByName}}{{end}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .ShowBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
-    </div>
+      <div class="cc-sub"><span class="ddc-build isl-dup">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}}<span class="isl-dup"> · </span>{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}{{if .EnrolledByName}} by {{.EnrolledByName}}{{end}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span></div>
+    </div></div>
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <style>.ddc-aid{cursor:pointer;font:inherit}.ddc-aid .mono{font-family:var(--mono);font-size:11px}.ai-copy{border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:6px;font:inherit;font-size:11px;font-weight:650;padding:1px 8px;margin-left:6px;cursor:pointer}</style>
     <div class="ddc-actions cc-actions">
-      {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
+      {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="isl-dup ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
            Placed next to Analyze per the chosen "Identity Ribbon" layout. */}}
       {{/* The pill reports what the DEVICE is doing, not only what the server asked
@@ -275,44 +265,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </button>{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
-      <div class="ddc-menu-wrap" id="ddc-actions-wrap">
-        <button type="button" class="ddc-btn cc-btn" id="ddc-actions-btn" onclick="ddActionsToggle(event)" aria-haspopup="true" aria-expanded="false">Actions <svg class="ddc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
-        <div class="ddc-menu" id="ddc-actions-menu" hidden>
-          <div class="ddc-mcap">Diagnostics</div>
-          {{if supports .Device "logcat"}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat/live"{{if degraded .Device "logcat"}} title="App-scoped logs only on Standard MDM"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Realtime logs{{if degraded .Device "logcat"}} <span class="cc-tag">limited</span>{{end}}</a>{{else}}<span class="ddc-mi is-disabled" role="note" title="This agent does not report logs."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/></svg>Realtime logs</span>{{end}}
-          {{if not (supports .Device "screenshot")}}<span class="ddc-mi is-disabled" role="note" title="Not available on this agent — use Remote Control for a live screen."><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</span>{{else}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="screenshot"><button type="submit" class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</button></form>{{end}}
-          {{if and .CanCollectLogs (supports .Device "collect_logs")}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="collect_logs"><button type="submit" class="ddc-mi" title="logcat, dumpsys, getprop and the OTA log, as a file to download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>Collect logs</button></form>{{end}}
-          <div class="ddc-msep"></div>
-          <div class="ddc-mcap">Device</div>
-          {{if and .ShellEnabled .CanShell (supports .Device "shell")}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on Standard MDM"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
-          {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}} danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
-          {{if supports .Device "app_reload"}}
-          {{/* MDM Lite: control the app that hosts it (the menu board). */}}
-          <div class="ddc-msep"></div>
-          <div class="ddc-mcap">App</div>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_reload"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Reload page</button></form>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_clear_cache"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m7 21-4-4 11-11 4 4z"/><path d="M11 21h10"/></svg>Clear web cache</button></form>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_update_check"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Check for update</button></form>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Restart the app on {{.Device.SerialNumber}}? The screen goes blank for a few seconds."><input type="hidden" name="type" value="app_restart"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v8"/><path d="M7.5 6.3a7 7 0 1 0 9 0"/></svg>Restart app</button></form>
-          {{end}}
-          {{if .AgentUpdate}}{{if .AgentUpdate.Hosted}}{{if supports .Device "self_update"}}
-          {{/* Agent OTA: the APK is always the build this server hosts, so the form
-               sends no URL — DeviceCommandCreate fills it in and attaches the digest
-               the agent verifies before it replaces itself. */}}
-          <div class="ddc-msep"></div>
-          <div class="ddc-mcap">Agent</div>
-          {{if .AgentUpdate.Available}}
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Update the agent on {{.Device.SerialNumber}} to {{.AgentUpdate.Version}}? It restarts itself and reconnects."><input type="hidden" name="type" value="app_update"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/></svg>Update agent to {{.AgentUpdate.Version}}</button></form>
-          {{else}}
-          <span class="ddc-mi is-disabled" role="note" title="This device already runs the hosted agent build"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6 9 17l-5-5"/></svg>Agent up to date{{if .AgentUpdate.Current}} ({{.AgentUpdate.Current}}){{end}}</span>
-          {{end}}
-          {{end}}{{end}}{{end}}
-          {{if and (supports .Device "unenroll") (canAdmin .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Unenroll {{.Device.SerialNumber}}? It stops being managed from here and keeps everything on it."><input type="hidden" name="type" value="unenroll"><button type="submit" class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>Unenroll</button></form>{{end}}
-          {{if and (supports .Device "wipe") (canAdmin .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="ddc-mi danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>Wipe device</button></form>{{end}}
-          <div class="ddc-msep"></div>
-          <a class="ddc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</a>
-        </div>
-      </div>
+      {{if .CanLab}}{{if .Lab}}<a href="/devices/{{.Device.SerialNumber}}/lab" class="isl-dup ddc-btn cc-btn warn" title="In lab until {{.Lab.Until.Local.Format "Mon 15:04"}}">Lab view ↗</a>{{else}}<button type="button" class="isl-dup ddc-btn cc-btn" onclick="labDlgOpen()" aria-haspopup="dialog" title="Take this device out of its restaurant behaviour for a set time">Open in lab</button>{{end}}{{end}}
+      {{/* Diagnostics, shell, screenshots and log collection live in the lab view now
+           (static/device-lab-view-demos.html); a device page keeps the two everyday acts. */}}
+      {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="isl-dup ddc-btn cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
+      <a class="ddc-btn cc-btn" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Export</a>
     </div>
   </div>
   </div>{{/* /ddc-ribbon */}}
@@ -332,13 +289,346 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .ddc-mi.is-disabled{opacity:.42;cursor:not-allowed;pointer-events:none;}
   .cpill-ic{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px;margin-right:1px;}
   </style>
-  <div class="ddc-vitals ddc-vitals--ribbon">
+
+</div>
+<script>
+// Hero "Actions ▾" dropdown: toggle, close on outside-click / Escape.
+(function () {
+  var menu = document.getElementById('ddc-actions-menu');
+  var btn = document.getElementById('ddc-actions-btn');
+  if (!menu || !btn) return;
+  window.ddActionsToggle = function (e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    var open = menu.hasAttribute('hidden');
+    if (open) menu.removeAttribute('hidden'); else menu.setAttribute('hidden', '');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.classList.toggle('open', open);
+  };
+  document.addEventListener('click', function (e) {
+    var wrap = document.getElementById('ddc-actions-wrap');
+    if (wrap && !wrap.contains(e.target) && !menu.hasAttribute('hidden')) {
+      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !menu.hasAttribute('hidden')) {
+      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
+    }
+  });
+})();
+</script>
+
+<template id="page-island"{{if .Lab}} data-live{{end}}>
+  <span class="isl-dot{{if .Online}} on{{end}}"></span>
+  {{if .Device.Class}}<svg class="isl-cls" aria-hidden="true"><use href="#dk-{{.Device.Class}}"/></svg>{{end}}
+  {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
+  <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
+  {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">needs a site</span>{{end}}
+  <span class="isl-s">{{if .Lab}}in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
+  <span class="isl-acts">
+    {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
+    {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
+    {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
+    <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
+      <div class="isl-menu">
+        {{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/nickname"><label>Name<input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Host stand"></label><button class="cc-btn sm primary" type="submit">Save</button></form>{{end}}
+        {{if supports .Device "kiosk_set"}}<button type="button" class="isl-mi" onclick="this.closest('details').open=false; kioskModalOpen()">Kiosk · {{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</button>{{end}}
+        {{/* Agent OTA (restored 15 Oct): the server fills in the hosted APK and its digest. */}}
+        {{if .AgentUpdate}}{{if .AgentUpdate.Hosted}}{{if supports .Device "self_update"}}
+        {{if .AgentUpdate.Available}}{{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Update the agent on {{.Device.SerialNumber}} to {{.AgentUpdate.Version}}? It restarts itself and reconnects.')"><input type="hidden" name="type" value="app_update"><button type="submit" class="isl-mi">Update agent to {{.AgentUpdate.Version}}</button></form>{{end}}
+        {{else}}<span class="isl-mi" style="color:var(--text-faint);cursor:default">Agent up to date{{if .AgentUpdate.Current}} ({{.AgentUpdate.Current}}){{end}}</span>{{end}}
+        {{end}}{{end}}{{end}}
+        <a class="isl-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}">Export</a>
+      </div>
+    </details>
+  </span>
+</template>
+<script>
+// The hero's Online/Offline badge is the live one (updated over the socket); the island
+// repeats it, so keep the island's dot and word in step with it.
+(function () {
+  var b = document.getElementById('ws-badge'); if (!b) return;
+  function sync() {
+    var on = b.classList.contains('on');
+    var d = document.querySelector('#appbar-island .isl-dot'), w = document.querySelector('#appbar-island .isl-on');
+    if (d) d.classList.toggle('on', on);
+    if (w) w.textContent = on ? 'online' : 'offline';
+  }
+  new MutationObserver(sync).observe(b, { attributes: true, attributeFilter: ['class'] });
+  setTimeout(sync, 0);
+})();
+</script>
+{{with .Lab}}
+<div class="cmdch-ban" id="lab-notice" role="status" style="flex-wrap:wrap;margin-bottom:14px">
+  <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
+  <div class="t"><b>In lab until {{.Until.Local.Format "Mon 2 Jan, 15:04"}}</b> ({{dur .RemainingSec}} left) · opened by {{.OpenedBy}} · “{{.Reason}}”.
+    It does not follow prod firmware, it is not locked, and it raises no restaurant alerts. When lab ends it goes back to prod firmware and its lock rule.</div>
+  {{if $.CanLab}}<a class="cc-btn sm" href="/devices/{{$.Device.SerialNumber}}/lab">Open lab view</a>
+  <form method="post" action="/devices/{{$.Device.SerialNumber}}/lab/end" style="margin:0" onsubmit="return confirm('End lab now? The device goes back to prod and locks again.')"><button class="cc-btn sm primary" type="submit">End lab now</button></form>{{end}}
+</div>
+{{end}}
+{{if and .CanLab (not .Lab)}}
+<dialog id="lab-dlg" class="lab-dlg" aria-labelledby="lab-dlg-h">
+  <form method="post" action="/devices/{{.Device.SerialNumber}}/lab/open">
+    <h2 id="lab-dlg-h">Open {{.Device.SerialNumber}} in lab</h2>
+    <p>While it is in lab, this device:</p>
+    <ul>
+      <li>stops following prod for its app{{if eq .FirmwareMode "prod"}} and firmware{{end}}</li>
+      <li>is <b>unlocked</b>{{if .Device.DeployedEffective}}, so guests at {{.Device.RestaurantName}} could leave the app{{end}}</li>
+      <li>does not raise restaurant alerts</li>
+    </ul>
+    <fieldset class="lab-dur"><legend>For how long</legend>
+      {{range .LabDurations}}<label><input type="radio" name="hours" value="{{.}}"{{if eq . 24}} checked{{end}}><span>{{if eq . 72}}3 days{{else}}{{.}} h{{end}}</span></label>{{end}}
+    </fieldset>
+    <label class="lab-why">Why <span>shown on the device and venue pages, and in the audit log</span>
+      <input type="text" name="reason" required maxlength="300" placeholder="e.g. Nugget freezing after payment, ticket from the venue"></label>
+    <div class="lab-dlg-foot"><button type="button" class="cc-btn sm" onclick="document.getElementById('lab-dlg').close()">Cancel</button><button type="submit" class="cc-btn sm primary">Open lab</button></div>
+  </form>
+</dialog>
+<style>
+  /* The global reset zeroes margins, which undoes the browser centring a modal dialog. */
+  .lab-dlg { margin: auto; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); padding: 0; width: 520px; max-width: calc(100vw - 32px); box-shadow: var(--shadow-pop); }
+  .lab-dlg::backdrop { background: rgba(8,9,14,.55); }
+  .lab-dlg form { padding: 18px 20px 16px; font-size: 13px; color: var(--text-2); line-height: 1.55; }
+  .lab-dlg h2 { font-size: 15px; margin: 0 0 8px; color: var(--text); }
+  .lab-dlg ul { margin: 4px 0 12px; padding-left: 18px; }
+  .lab-dur { border: 0; padding: 0; margin: 0 0 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .lab-dur legend { font-weight: 700; color: var(--text); margin-bottom: 6px; padding: 0; }
+  .lab-dur label input { position: absolute; opacity: 0; }
+  .lab-dur label span { display: inline-block; font-size: 12px; font-weight: 650; padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border); cursor: pointer; }
+  .lab-dur label input:checked + span { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+  .lab-dur label input:focus-visible + span { outline: 2px solid var(--accent); }
+  .lab-why { display: block; font-weight: 700; color: var(--text); }
+  .lab-why span { font-weight: 400; color: var(--text-faint); font-size: 11.5px; }
+  .lab-why input { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; font: inherit; font-size: 13px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+  .lab-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+</style>
+<script>
+  function labDlgOpen() { var d = document.getElementById('lab-dlg'); if (d && d.showModal) d.showModal(); }
+  if (new URLSearchParams(location.search).get('lab') === 'open') { document.addEventListener('DOMContentLoaded', labDlgOpen); if (document.readyState !== 'loading') labDlgOpen(); }
+</script>
+{{end}}
+{{with .CommandChannel}}
+<div class="cmdch-ban{{if not .Reachable}} bad{{end}}" id="command-channel-notice" role="status">
+  <span class="i">{{if .Reachable}}<svg viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>{{end}}</span>
+  <div class="t">
+    {{if .Reachable}}
+      <b>Commands are going over its check-in</b>, not over a live connection — no WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span>. It is reachable, about a minute behind, and
+      its socket is not reconnecting on its own. Remote screen and the adb tunnel need that socket
+      and will not work until it comes back.
+    {{else}}
+      <b>Reporting, but nothing can be sent to it.</b> No WebSocket for
+      <span data-rel="{{timeISO .Since}}">{{.For}}</span> while it kept checking in. This client takes
+      commands over the socket only, so anything queued for it will sit at "sent to device" and never
+      run — it is alive and cannot be controlled. Its reconnect loop is gone; a reboot is what brings
+      it back.
+    {{end}}
+    {{if .RoundTrip.IsZero}}No command has ever completed on this device.{{else}}Last command that
+    actually completed: <span data-rel="{{timeISO .RoundTrip}}">{{timeSince .RoundTrip}}</span>.{{end}}
+  </div>
+</div>
+{{end}}
+
+{{with .KioskExit}}
+<div class="kx-ban" id="kiosk-exit-notice" role="status">
+  <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
+  <div class="t"><b>Unlocked on the device</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
+  {{if canAdminOrOperator $.Role}}<div class="a">
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
+  </div>{{end}}
+</div>
+{{end}}
+
+<div class="ddc-body">
+<style>
+/* Device page, A5 + P3 (static/device-side-demos.html) and T2 (static/device-tabrow-demos.html),
+   picked 14 Oct: one column; the tab row carries the tabs and Notes, and under it one facts bar
+   of labelled cells holds the vitals and the placement. */
+.ddc-body{display:block!important}
+.ddc-body .ddc-main{width:100%;max-width:none}
+/* The tabs start right under the top bar (the island already names the device). */
+@media (min-width:721px){main:has(.dd-tabrow){padding-top:10px}}
+.dd-tabrow{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin-bottom:12px}
+.dd-tabrow .dd-tabs{margin:0}
+.dd-tabrow-r{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+/* Facts line (static/device-facts-demos.html, F1, picked 14 Oct): no boxes, one quiet line
+   under the tabs: what the device is doing on the left, where it is on the right after a
+   divider. It wraps in order on narrow screens. */
+/* In a bar like the tab row under it (14 Oct). */
+.dd-facts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;margin:0 0 12px;padding:7px 14px;min-height:46px;box-sizing:border-box;font-size:12.5px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:12px}
+.dd-facts>.ddc-vitals,.dd-facts>.dd-place,.dd-facts .ddc-vitals-live,.dd-facts .ddc-kpop-wrap{display:contents}
+.dd-facts .dfc,.dd-facts .ddc-kv{flex:none;min-width:0;display:inline-flex;align-items:center;gap:5px;padding:0;margin:0;background:none;border:0;font:inherit;color:inherit;text-align:left;min-height:0}
+.dd-facts button.dfc{cursor:pointer}
+.dd-facts button.dfc:hover .dfv{color:var(--accent-text)}
+.dfk,.dd-facts .ddc-kv .k{font-size:12.5px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted)}
+.dd-facts .dfc-bare .dfk,.dd-facts .cpill-wrap .dfk{display:none}
+.dfv,.dd-facts .ddc-kv .v{font-size:12.5px;font-weight:650;color:var(--text);display:inline-flex;align-items:center;gap:5px;min-width:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dd-facts .ddc-kv .v{justify-content:flex-start;text-align:left}
+.dd-facts .ddc-kv .v.tags{flex-wrap:wrap;white-space:normal}
+.dd-facts .ddc-kv .v a{background:none;padding:0;border:0;color:var(--text);font-weight:650;white-space:nowrap}
+.dd-facts .ddc-kv .v a:hover{color:var(--accent-text);text-decoration:underline}
+.dd-facts .ddc-kv .v .muted{font-weight:500}
+/* The placement group sits at the right, after a divider. */
+.dd-facts .dfc-first{margin-left:auto;padding-left:18px;border-left:1px solid var(--border)}
+@media (max-width:720px){.dd-facts .dfc-first{margin-left:0;padding-left:0;border-left:0}}
+.dfm{font-size:12px;font-weight:500;color:var(--muted)}
+.dfv.muted{color:var(--muted);font-weight:500}
+.dfc.good .dfv{color:var(--ok)} .dfc.mid .dfv{color:var(--warn)} .dfc.bad .dfv{color:var(--danger)}
+.dfi{flex:none}
+.dd-facts .cpill{padding:0;border:0;background:none;font-size:12.5px;font-weight:650;color:var(--text);box-shadow:none;white-space:nowrap}
+/* Popovers are placed fixed under their item by ddFactsPop. */
+.dd-facts .cpill-pop,.dd-facts .pl-pop{position:fixed;right:auto}
+.dd-pad-wrap{position:relative}
+.dd-pad-chip{gap:6px}
+.dd-pad-dot{width:7px;height:7px;border-radius:99px;background:var(--muted);display:inline-block}
+.dd-pad-chip[data-st="on"] .dd-pad-dot{background:var(--ok)}
+.dd-pad-chip[data-st="flapping"],.dd-pad-chip[data-st="bad"]{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-bg)}
+.dd-pad-chip[data-st="flapping"] .dd-pad-dot,.dd-pad-chip[data-st="bad"] .dd-pad-dot{background:var(--warn)}
+.dd-pad-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(380px,calc(100vw - 32px));box-shadow:var(--shadow-pop);border-radius:14px}
+.dd-pad-pop .ddc-card{margin:0}
+.dd-notes-wrap{position:relative}
+.dd-notes-btn svg{flex:none}
+.dd-notes-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--accent);margin-left:2px}
+.dd-notes-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(360px,calc(100vw - 32px));box-shadow:var(--shadow-pop);border-radius:14px}
+.dd-notes-pop .ddc-card{margin:0}
+/* On wide screens the island carries name, status and the main buttons, so the hero's
+   ribbon goes; what stays in the hero is only what is unusual (charger, OTA). */
+@media (min-width:721px){
+  body.has-island .ddc-hero{background:none;border:0;box-shadow:none;padding:0;margin:0}
+  body.has-island .ddc-ribbon{display:none}
+}
+</style>
+<script>
+// A popover inside the facts bar is fixed-positioned under its cell (the bar clips), and
+// any scroll closes it rather than leaving it floating away from its cell.
+window.ddFactsPop = function (pop, anchor) {
+  if (!pop || !anchor || !pop.closest('.dd-facts')) return;
+  var cell = anchor.closest('.dfc, .ddc-kv') || anchor, r = cell.getBoundingClientRect();
+  pop.style.top = (r.bottom + 6) + 'px';
+  pop.style.left = Math.max(12, Math.min(r.left, window.innerWidth - pop.offsetWidth - 12)) + 'px';
+};
+if (!window.__ddFactsScroll) {
+  window.__ddFactsScroll = true;
+  window.addEventListener('scroll', function () {
+    document.querySelectorAll('.dd-facts .pl-pop:not([hidden])').forEach(function (p) { p.setAttribute('hidden', ''); });
+    var c = document.querySelector('.dd-facts .cpill-pop:not([hidden])'); if (c) { var b = document.getElementById('cpill-btn'); if (b) b.click(); }
+  }, { passive: true });
+}
+window.ddPadToggle = function (e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var pop = document.getElementById('dd-pad-pop'), btn = e && e.currentTarget;
+  if (!pop) return;
+  var open = pop.hasAttribute('hidden');
+  if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+// Mirror the pad state onto the chip: na (charging off) | on | vacant | flapping | bad.
+window.ddPadChip = function (st) {
+  var c = document.getElementById('pad-chip'), t = document.getElementById('pad-chip-t');
+  if (!c || !t) return;
+  c.setAttribute('data-st', st);
+  t.textContent = { na: 'off', on: 'phone on', vacant: 'vacant', flapping: 'misplaced' }[st] || 'unreadable';
+};
+if (!window.__ddPadHook) {
+  window.__ddPadHook = true;
+  document.addEventListener('click', function (e) { var p = document.getElementById('dd-pad-pop'); if (p && !p.hidden && !e.target.closest('.dd-pad-wrap')) p.setAttribute('hidden', ''); });
+  document.addEventListener('keydown', function (e) { var p = document.getElementById('dd-pad-pop'); if (e.key === 'Escape' && p && !p.hidden) p.setAttribute('hidden', ''); });
+}
+window.ddNotesToggle = function (e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var pop = document.getElementById('dd-notes-pop'), btn = e && e.currentTarget;
+  if (!pop) return;
+  var open = pop.hasAttribute('hidden');
+  if (open) { pop.removeAttribute('hidden'); var ta = pop.querySelector('textarea'); if (ta) ta.focus(); } else pop.setAttribute('hidden', '');
+  if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+};
+if (!window.__ddNotesHook) {
+  window.__ddNotesHook = true;
+  document.addEventListener('click', function (e) { var p = document.getElementById('dd-notes-pop'); if (p && !p.hidden && !e.target.closest('.dd-notes-wrap')) p.setAttribute('hidden', ''); });
+  document.addEventListener('keydown', function (e) { var p = document.getElementById('dd-notes-pop'); if (e.key === 'Escape' && p && !p.hidden) p.setAttribute('hidden', ''); });
+}
+</script>
+
+
+<div class="ddc-main">
+<div class="dd-tabrow">
+<div class="dd-tabs" role="tablist" aria-label="Device details">
+  <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>{{end}}
+  {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
+  <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)">Location</button>
+  <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
+  {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
+</div>
+<div class="dd-tabrow-r">
+  {{/* Charging pad (static/device-pad-demos.html, W2, picked 14 Oct): a chip beside Notes
+       that says what the pad is doing; its popover holds the on/off switch and the reason. */}}
+  {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
+  {{if and .WlcApplicable $wlcS (ne $wlcS "—")}}
+  {{$pst := "bad"}}{{if not .KioskConfig.WlcChargingEnabled}}{{$pst = "na"}}{{else if eq $wlcS "1"}}{{$pst = "on"}}{{else if eq $wlcS "0"}}{{$pst = "vacant"}}{{else if eq $wlcS "2"}}{{$pst = "flapping"}}{{end}}
+  <span class="dd-pad-wrap">
+    <button type="button" class="cc-btn sm dd-pad-chip" id="pad-chip" data-st="{{$pst}}" onclick="ddPadToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="Wireless charging pad">
+      <i class="dd-pad-dot" aria-hidden="true"></i>Pad<span class="dd-pad-sep"> · </span><span id="pad-chip-t">{{if eq $pst "na"}}off{{else if eq $pst "on"}}phone on{{else if eq $pst "vacant"}}vacant{{else if eq $pst "flapping"}}misplaced{{else}}unreadable{{end}}</span>
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="dd-pad-pop" id="dd-pad-pop" hidden>
+  <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
+    <div class="ddc-card-t pad-card-t cc-ch">
+      <span style="display:flex;align-items:center;gap:9px;"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg></span><h2>Charging pad</h2></span>
+      {{if true}}
+      <button type="button" id="wlc-chip" class="ddc-swpill pad-swpill{{if .KioskConfig.WlcChargingEnabled}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}
+              data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
+              data-serial="{{.Device.SerialNumber}}"
+              title="Enable or disable wireless charging on this pad" onclick="wlcToggle(this)">
+        <span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span><span class="ddc-sw"></span>
+      </button>
+      {{else}}
+      <span class="{{if .KioskConfig.WlcChargingEnabled}}pad-en{{else}}muted{{end}}">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span>
+      {{end}}
+    </div>
+    {{/* gpio27 only carries a real placed/vacant reading while charging is ON. With
+         charging disabled the line is meaningless, so show "Not available" rather than a
+         misleading placed/vacant. */}}
+    <div class="ddc-kv"><span class="k">Status</span><span class="v">
+      {{if .KioskConfig.WlcChargingEnabled}}
+      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status">
+        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Wireless charging active{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Charging pad misplaced{{else}}Unreadable{{end}}</span>
+      </span>
+      {{else}}
+      <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
+      {{end}}
+    </span></div>
+    {{/* Flapping = gpio27 kept disagreeing instead of settling — a real hardware symptom
+         (loose connector, failing pad), not a transient misread. Only meaningful while
+         charging is on, matching the status pill above. */}}
+    <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
+  </div>
+    </div>
+  </span>
+  {{end}}
+  <span class="dd-notes-wrap">
+    <button type="button" class="cc-btn sm dd-notes-btn{{if .Notes}} has{{end}}" onclick="ddNotesToggle(event)" aria-haspopup="dialog" aria-expanded="false" title="{{if .Notes}}Notes on this device{{else}}Add a note{{end}}">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+      <span class="dd-notes-t">Notes</span>{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
+    </button>
+    <div class="dd-notes-pop" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
+  </span>
+</div>
+</div>
+{{/* Facts bar (static/device-tabrow-demos.html, T2, picked 14 Oct): labelled cells, what the
+     device is doing, then where it is. Each child of the two display:contents wrappers is a cell. */}}
+<div class="dd-facts" aria-label="Device facts">
+  <div class="ddc-vitals">
     {{/* Client pill — first in the vitals ribbon, ahead of the battery pill, for every
          client kind alike. Carries the client version and a dot for "is it the hosted
          build?"; clicking it opens every client with its hosted version and this
          client's changelog, so the question is answered without leaving the device. */}}
     {{with .ClientPill}}
-    <span class="cpill-wrap">
+    <span class="cpill-wrap dfc dfc-wide"><span class="dfk">Client</span>
       <button type="button" class="cpill" id="cpill-btn" aria-expanded="false" aria-controls="cpill-pop"
               title="{{.Title}}" onclick="toggleClientPill(event)">
         {{if .Hosted}}<span class="cpill-dot{{if .Behind}} behind{{end}}" aria-hidden="true"></span>{{end}}
@@ -366,7 +656,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{end}}
         <div class="cpill-foot">
           <span class="vv">{{if not .Hosted}}No build hosted{{else if .Behind}}{{.Latest}} available{{else if .Version}}Up to date{{else}}Version not reported{{end}}</span>
-          <a href="/clients{{if .Slot}}?slot={{.Slot}}{{end}}">Open Clients page →</a>
+          <a href="/lineup?client={{if .Slot}}{{.Slot}}{{else}}firmware-qcom{{end}}">Open in Lineup →</a>
         </div>
       </div>
     </span>
@@ -509,6 +799,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         // placed/vacant.
         var ps = document.getElementById('pad-status');
         if (ps && !v) { ps.className = 'pad-stat pad-stat-na'; var t = ps.querySelector('.pad-txt'); if (t) t.textContent = 'Not available'; }
+        if (!v && window.ddPadChip) window.ddPadChip('na');
       };
       apply(next); // optimistic
       btn.disabled = true;
@@ -524,75 +815,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     </script>
     {{end}}
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
+    <span class="dfc"><span class="dfk">Lock</span><span class="dfv ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
-</div>
-<script>
-// Hero "Actions ▾" dropdown: toggle, close on outside-click / Escape.
-(function () {
-  var menu = document.getElementById('ddc-actions-menu');
-  var btn = document.getElementById('ddc-actions-btn');
-  if (!menu || !btn) return;
-  window.ddActionsToggle = function (e) {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    var open = menu.hasAttribute('hidden');
-    if (open) menu.removeAttribute('hidden'); else menu.setAttribute('hidden', '');
-    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    btn.classList.toggle('open', open);
-  };
-  document.addEventListener('click', function (e) {
-    var wrap = document.getElementById('ddc-actions-wrap');
-    if (wrap && !wrap.contains(e.target) && !menu.hasAttribute('hidden')) {
-      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
-    }
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !menu.hasAttribute('hidden')) {
-      menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
-    }
-  });
-})();
-</script>
-
-{{with .CommandChannel}}
-<div class="cmdch-ban{{if not .Reachable}} bad{{end}}" id="command-channel-notice" role="status">
-  <span class="i">{{if .Reachable}}<svg viewBox="0 0 24 24"><path d="M12 20h.01"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5.5 5.5 0 0 1 7 0"/><path d="M2 9a15 15 0 0 1 20 0"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>{{end}}</span>
-  <div class="t">
-    {{if .Reachable}}
-      <b>Commands are going over its check-in</b>, not over a live connection — no WebSocket for
-      <span data-rel="{{timeISO .Since}}">{{.For}}</span>. It is reachable, about a minute behind, and
-      its socket is not reconnecting on its own. Remote screen and the adb tunnel need that socket
-      and will not work until it comes back.
-    {{else}}
-      <b>Reporting, but nothing can be sent to it.</b> No WebSocket for
-      <span data-rel="{{timeISO .Since}}">{{.For}}</span> while it kept checking in. This client takes
-      commands over the socket only, so anything queued for it will sit at "sent to device" and never
-      run — it is alive and cannot be controlled. Its reconnect loop is gone; a reboot is what brings
-      it back.
-    {{end}}
-    {{if .RoundTrip.IsZero}}No command has ever completed on this device.{{else}}Last command that
-    actually completed: <span data-rel="{{timeISO .RoundTrip}}">{{timeSince .RoundTrip}}</span>.{{end}}
-  </div>
-</div>
-{{end}}
-
-{{with .KioskExit}}
-<div class="kx-ban" id="kiosk-exit-notice" role="status">
-  <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
-  <div class="t"><b>Unlocked on the device</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
-  {{if canAdminOrOperator $.Role}}<div class="a">
-    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
-    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
-  </div>{{end}}
-</div>
-{{end}}
-
-<div class="ddc-body">
-<aside class="ddc-side">
-  <div class="ddc-card">
-    <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Placement</h2></div>
-    <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">Lab</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
+  <div class="dd-place" aria-label="Placement">
+    <div class="ddc-kv dfc-first"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">Lab</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
       <button type="button" class="kv-edit" title="Change restaurant" onclick="plTogglePop('pl-rest-pop', this)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
       <div class="pl-pop" id="pl-rest-pop" hidden>
         <div class="pl-pop-h">Move to venue</div>
@@ -602,18 +829,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             {{$rid := printf "%s" .Device.RestaurantID}}{{range .Restaurants}}<label class="pl-pop-opt"><input type="radio" name="restaurant_id" value="{{.ID}}"{{if eq (printf "%s" .ID) $rid}} checked{{end}}> {{.Name}}</label>{{end}}
           </div>
           <button type="submit" class="btn-primary pl-pop-save">Save</button>
-        </form>
-      </div>
-    </span>{{end}}</span></div>
-    {{/* The table guests are told they are at, on the tablet's home and lock screens. */}}
-    <div class="ddc-kv"><span class="k">Table</span><span class="v">{{if .TableLabel}}{{.TableLabel}}{{else}}<span class="muted">Not set</span>{{end}}{{if not (canOperate .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the operator role" data-role-need="operator"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{else}}<span class="pl-pop-wrap">
-      <button type="button" class="kv-edit" title="Set the table guests see" onclick="plTogglePop('pl-table-pop', this)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
-      <div class="pl-pop" id="pl-table-pop" hidden>
-        <div class="pl-pop-h">Table guests see</div>
-        <form action="/devices/{{.Device.SerialNumber}}/table" method="POST">
-          <input type="text" name="table_label" class="form-input" placeholder="e.g. Table 12" value="{{.TableLabel}}" maxlength="40" aria-label="Table label" style="width:100%;">
-          <button type="submit" class="btn-primary pl-pop-save">Save</button>
-          {{if .TableLabel}}<button type="submit" name="clear" value="1" class="cc-btn sm" style="width:100%;justify-content:center;margin-top:6px;">Clear</button>{{end}}
         </form>
       </div>
     </span>{{end}}</span></div>
@@ -628,94 +843,114 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
     </span>{{else if not .DeviceGroups}}<span class="muted">None</span>{{end}}</span></div>
   </div>
-  {{/* Charging pad — one widget combining the live occupancy status and the
-       enable/disable control. Rendered only for devices that report a pad. */}}
-  {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
-  {{if and .WlcApplicable $wlcS (ne $wlcS "—")}}
-  <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
-    <div class="ddc-card-t pad-card-t cc-ch">
-      <span style="display:flex;align-items:center;gap:9px;"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg></span><h2>Charging pad</h2></span>
-      {{if true}}
-      <button type="button" id="wlc-chip" class="ddc-swpill pad-swpill{{if .KioskConfig.WlcChargingEnabled}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}
-              data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
-              data-serial="{{.Device.SerialNumber}}"
-              title="Enable or disable wireless charging on this pad" onclick="wlcToggle(this)">
-        <span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span><span class="ddc-sw"></span>
-      </button>
-      {{else}}
-      <span class="{{if .KioskConfig.WlcChargingEnabled}}pad-en{{else}}muted{{end}}">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span>
-      {{end}}
-    </div>
-    {{/* gpio27 only carries a real placed/vacant reading while charging is ON. With
-         charging disabled the line is meaningless, so show "Not available" rather than a
-         misleading placed/vacant. */}}
-    <div class="ddc-kv"><span class="k">Status</span><span class="v">
-      {{if .KioskConfig.WlcChargingEnabled}}
-      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status">
-        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Wireless charging active{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Charging pad misplaced{{else}}Unreadable{{end}}</span>
-      </span>
-      {{else}}
-      <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
-      {{end}}
-    </span></div>
-    {{/* Flapping = gpio27 kept disagreeing instead of settling — a real hardware symptom
-         (loose connector, failing pad), not a transient misread. Only meaningful while
-         charging is on, matching the status pill above. */}}
-    <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
-  </div>
-  {{end}}
-  {{template "device-notes" .}}
-</aside>
-<div class="ddc-main">
-<div class="dd-tabs" role="tablist" aria-label="Device details">
-  <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-queue" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-queue" data-dd-tab="queue" onclick="setDeviceTab('queue', this)">Queue{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n">{{len .Queue}}</span>{{end}}</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-history" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-history" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
-  <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
-  {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
 </div>
+
 
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
 
+<style>
+/* Vitals card: stacked charts, range dropdown, navigator (see the comment in the card). */
+.chart-card .vt-head{flex-wrap:nowrap;align-items:center;gap:10px}
+.chart-card .vt-head .gcontrols.vt-tools{flex:1 1 auto;justify-content:flex-end;gap:6px;flex-wrap:nowrap;min-width:0}
+.chart-card .vt-head .vt-tools>.vt-range-wrap:first-of-type{min-width:0}
+.vt-range{max-width:100%;min-width:0}
+.vt-range .chart-wlabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.vt-range-wrap{position:relative}
+.vt-range{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:10px;border:1px solid transparent;background:var(--accent-soft);color:var(--accent-text);font:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
+.vt-range .chart-wlabel{font-size:12.5px;font-weight:650;color:inherit;opacity:1}
+.vt-ib{width:32px;height:32px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:inherit;font-size:15px;cursor:pointer;display:inline-grid;place-items:center}
+.vt-ib:hover{color:var(--text)}
+.vt-chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font:inherit;font-size:12px;font-weight:650;cursor:pointer;text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.vt-chip.active{color:var(--text-2);text-decoration:none}
+.vt-chip:disabled{opacity:.45;cursor:default}
+.vt-chip i{width:2px;height:12px;border-radius:1px;display:inline-block}
+.vt-chip i.vt-c{background:rgba(160,170,190,.9)}
+.vt-chip i.vt-b{background:#a78bfa}
+.vt-menu[hidden]{display:none!important}
+.vt-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:46;min-width:230px;display:grid;gap:1px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop)}
+.vt-menu.vt-menu-r{left:auto;right:0}
+.vt-mh{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 10px 3px}
+.vt-menu .vt-mi,.vt-menu .dur-btn.vt-mi{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 10px;border-radius:8px;border:0;background:none;color:var(--text);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:none}
+.vt-menu .vt-mi:hover{background:var(--surface2)}
+.vt-menu .vt-mi.active{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+.vt-menu .vt-mi small{margin-left:auto;color:var(--muted);font-size:11px;font-weight:500}
+.vt-menu .vt-tz{display:grid;gap:1px;background:none;border:0;padding:0}
+.vt-sep{height:1px;background:var(--border-soft);margin:4px 2px}
+.vt-note{font-size:11.5px;color:var(--muted);padding:6px 10px;line-height:1.45;max-width:240px}
+.vt-range-wrap .cr-pop{left:0;right:auto}
+.chart-card .chart-tabs{display:none}
+.chart-card .chart-readout{display:none}
+.chart-card .chart-split{display:block}
+.vt-panel{position:relative;padding-top:20px}
+.vt-panel+.vt-panel{border-top:1px solid var(--border-soft)}
+.vt-lbl{position:absolute;top:5px;left:16px;z-index:1;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--text-2)}
+.vt-lbl i{width:8px;height:8px;border-radius:99px}
+.vt-legend{padding:0 16px;height:58px;display:flex;align-items:center;overflow:hidden;margin:10px 0 0}
+@media (max-width:720px){.vt-legend{height:96px}}
+.vt-lg-row{display:flex;align-items:center;flex-wrap:wrap;gap:3px 14px;width:100%}
+.vt-lg-k{min-width:52px}
+.vt-lg{display:flex;align-items:center;flex-wrap:wrap;gap:5px 14px;font-size:11.5px;color:var(--text-2);width:100%}
+.vt-lg[hidden]{display:none}
+.vt-lg .chart-legend-item{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.vt-lg-k{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.vt-lg-sep{width:1px;height:14px;background:var(--border)}
+.vt-tabs{display:inline-flex;gap:2px;background:var(--surface2);border-radius:10px;padding:3px}
+.vt-tab{font:inherit;font-size:12.5px;font-weight:650;padding:5px 12px;border-radius:8px;border:0;background:none;color:var(--muted);cursor:pointer}
+.vt-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.chart-card .vt-lbl{display:none}
+.chart-card .vt-panel{padding-top:0}
+.chart-card .vt-panel+.vt-panel{border-top:0}
+.chart-card .vt-panel .chart-wrap--tall{height:260px;padding:10px 14px 2px 6px}
+.vt-navw{padding:6px 16px 12px;border-top:1px solid var(--border-soft)}
+.vt-nav{position:relative;height:34px;border-radius:8px;background:var(--surface2);overflow:hidden;cursor:pointer;touch-action:none;color:var(--text-faint);user-select:none}
+.vt-nav svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.vt-win{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 16%,transparent);border:1.5px solid var(--accent);border-radius:7px;cursor:grab;min-width:6px}
+.vt-nav.drag .vt-win{cursor:grabbing}
+.vt-h{position:absolute;top:0;bottom:0;width:12px;cursor:ew-resize}
+.vt-h.l{left:-6px}.vt-h.r{right:-6px}
+.vt-h::after{content:"";position:absolute;top:9px;bottom:9px;left:4px;width:4px;border-radius:2px;background:var(--accent)}
+.vt-navcap{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);padding-top:4px;font-variant-numeric:tabular-nums}
+@media (max-width:720px){.chart-card .vt-head{flex-wrap:wrap}.chart-card .vt-head .gcontrols.vt-tools{flex-basis:100%;justify-content:flex-start}}
+</style>
 <div class="card chart-card">
   <div class="chart-zoom-hint" id="chart-zoom-hint" aria-hidden="true">Zoom with Ctrl + scroll</div>
-  <div class="card-header cc-ch" style="align-items:flex-start;">
+  {{/* Vitals (static/device-graph-demos.html G1 + T2/T4, static/device-graph-hover-demos.html
+       V2; picked 14 Oct): the three charts stacked on one timeline, time in one dropdown,
+       a navigator strip under them in place of ‹ › and zoom buttons, values as a bubble
+       on each chart at the pointer. */}}
+  <div class="card-header cc-ch vt-head">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><h2 style="flex:none;">Vitals</h2>
-    <div class="gcontrols">
-      <span id="chart-info" class="muted small gc-info"></span>
+    <div class="vt-tabs" role="tablist" aria-label="Vitals">
+      {{if .ShowBattery}}<button type="button" role="tab" class="vt-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery</button>{{end}}
+      <button type="button" role="tab" class="vt-tab{{if not .ShowBattery}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">Temp</button>
+      <button type="button" role="tab" class="vt-tab" data-chart-tab="ram" onclick="setChartTab('ram')">RAM</button>
+    </div>
+    <div class="gcontrols vt-tools">
+      <span id="chart-info" class="muted small gc-info" hidden></span>
       {{$devtz := extraField .Device.LatestExtra "timezone"}}
-      {{/* Timezone control as a segment: the active option is the timezone the graph
-           is currently showing, so there's no "does this label mean now or after I
-           click" ambiguity the old single-button toggle had. UTC is here because the
-           CSV export is UTC-only — this is where you line a graph up against a sheet.
-           The Device half is dropped when the device never reported a usable zone. */}}
-      <div class="gc-tzseg" id="tz-seg" role="group" aria-label="Graph timezone"
-           title="Show graph times in your timezone{{if and $devtz (ne $devtz "—") (ne $devtz "")}}, the device's ({{$devtz}}){{end}} or UTC">
-        <span class="gc-tzlbl"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-        <button type="button" class="gc-tzb active" data-tz="browser">You</button>
-        {{if and $devtz (ne $devtz "—") (ne $devtz "")}}<button type="button" class="gc-tzb" data-tz="device">Device</button>{{end}}
-        <button type="button" class="gc-tzb" data-tz="utc">UTC</button>
-      </div>
-      <div class="dur-btns">
-        <button class="dur-btn" data-ms="3600000">1h</button>
-        <button class="dur-btn active" data-ms="21600000">6h</button>
-        <button class="dur-btn" data-ms="43200000">12h</button>
-        <button class="dur-btn" data-ms="86400000">24h</button>
-        <button class="dur-btn" data-ms="172800000">48h</button>
-        <button class="dur-btn" id="custom-range-btn">Custom</button>
-      </div>
-      <div class="dur-btns" role="group" aria-label="Shift window">
-        <button type="button" class="dur-btn" id="chart-shift-prev" title="Shift window earlier" aria-label="Shift window earlier">&lsaquo;</button>
-        <button type="button" class="dur-btn" id="chart-shift-next" title="Shift window later" aria-label="Shift window later">&rsaquo;</button>
-      </div>
-      {{/* Overlay toggles: command markers (dashed, badge at top) and build-change
-           markers (solid, build pill at the bottom). Each remembers its state per device. */}}
-      <div class="dur-btns gc-overlays" role="group" aria-label="Chart overlays">
-        <button type="button" class="dur-btn" id="toggle-markers-btn" aria-pressed="false" title="Show when commands were sent to this device">Commands</button>
-        <button type="button" class="dur-btn" id="toggle-builds-btn" aria-pressed="false" title="Show when the device switched to a different build">Builds</button>
-      </div>
+      <div class="vt-range-wrap">
+        <button type="button" class="vt-range" id="vt-range-btn" aria-haspopup="menu" aria-expanded="false" onclick="vtMenu(event,'vt-range-menu')" data-vt-trig>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span class="chart-wlabel" id="chart-window-label">Last 6 hours</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="vt-menu" id="vt-range-menu" role="menu" hidden>
+          <div class="vt-mh">Range</div>
+          <button type="button" class="dur-btn vt-mi" data-ms="3600000">Last hour</button>
+          <button type="button" class="dur-btn vt-mi active" data-ms="21600000">Last 6 hours</button>
+          <button type="button" class="dur-btn vt-mi" data-ms="43200000">Last 12 hours</button>
+          <button type="button" class="dur-btn vt-mi" data-ms="86400000">Last 24 hours</button>
+          <button type="button" class="dur-btn vt-mi" data-ms="172800000">Last 48 hours</button>
+          <button type="button" class="dur-btn vt-mi" data-ms="604800000">Last 7 days</button>
+          <button type="button" class="dur-btn vt-mi" id="custom-range-btn">Custom dates…</button>
+          <div class="vt-sep"></div>
+          <div class="vt-mh">Time zone</div>
+          <div class="gc-tzseg vt-tz" id="tz-seg" role="group" aria-label="Graph timezone">
+            <button type="button" class="gc-tzb vt-mi active" data-tz="browser">Your time</button>
+            {{if and $devtz (ne $devtz "—") (ne $devtz "")}}<button type="button" class="gc-tzb vt-mi" data-tz="device">Device time <small>{{$devtz}}</small></button>{{end}}
+            <button type="button" class="gc-tzb vt-mi" data-tz="utc">UTC <small>as in the CSV export</small></button>
+          </div>
+        </div>
       <div id="custom-range-inputs" class="cr-pop" hidden>
         <div class="cr-pop-head">
           <span class="cr-pop-title">Custom range</span>
@@ -756,24 +991,19 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <button type="button" class="cr-reset" id="reset-range-btn">Reset to 6h</button>
         </div>
       </div>
-      <span class="gc-div" aria-hidden="true"></span>
-      <div class="gc-tools">
-        <button type="button" class="dur-btn gc-tool gc-zoom" title="Zoom out" aria-label="Zoom out" onclick="chartZoom(-1)">−</button>
-        <button type="button" class="dur-btn gc-tool gc-zoom" title="Zoom in" aria-label="Zoom in" onclick="chartZoom(1)">+</button>
-        <button type="button" id="chart-export-btn" class="dur-btn gc-tool" title="Download this chart as a PNG" aria-label="Download PNG">⤓</button>
-        <button type="button" id="chart-reset-btn" class="dur-btn gc-tool" title="Reset the graph to the default window" aria-label="Reset graph">↺</button>
-        <button type="button" id="chart-fs-btn" class="dur-btn gc-tool" title="View graphs full screen" aria-label="View graphs full screen">⤢</button>
+      </div>
+      <button type="button" id="chart-fs-btn" class="vt-ib" title="View graphs full screen" aria-label="View graphs full screen">⤢</button>
+      <div class="vt-range-wrap">
+        <button type="button" class="vt-ib" aria-label="More" aria-haspopup="menu" aria-expanded="false" onclick="vtMenu(event,'vt-more-menu')" data-vt-trig>⋯</button>
+        <div class="vt-menu vt-menu-r" id="vt-more-menu" role="menu" hidden>
+          <button type="button" id="chart-export-btn" class="vt-mi">Download PNG</button>
+          <button type="button" id="chart-reset-btn" class="vt-mi">Reset to the last 6 hours</button>
+          <div class="vt-sep"></div>
+          <div class="vt-note">Drag across a chart to zoom in · double-click to reset · Ctrl + scroll zooms around the pointer</div>
+        </div>
       </div>
     </div>
   </div>
-  <div class="chart-tabs">
-    {{if .ShowBattery}}<button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery</button>{{end}}
-    <button class="chart-tab{{if not .ShowBattery}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">Temp</button>
-    <button class="chart-tab" data-chart-tab="ram" onclick="setChartTab('ram')">RAM</button>
-    <button class="chart-tab" data-chart-tab="all" onclick="setChartTab('all')">All</button>
-    <span class="chart-hint muted small" title="Drag to zoom to a span · Ctrl+drag to pan · Ctrl+scroll to zoom in/out · double-click to reset">drag: zoom · ctrl+drag: pan · dbl-click: reset</span>
-  </div>
-
 
   <!-- Battery — omitted entirely for devices with no battery (kiosks) -->
   {{/* Readout panel beside the plot (was a sentence in the footer): the values of the
@@ -784,48 +1014,21 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <div class="chart-body" id="chart-body">
     <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
   {{if .ShowBattery}}
-  <div id="chart-panel-battery">
-    {{/* The pad legend only makes sense on hardware with a wireless charging pad;
-         MDM DPC devices and products without a pad get the plain battery chart. */}}
-    {{if .Device.HasWLC}}
-    <div class="wlc-bar">
-      <div class="chart-legend" id="wlc-legend">
-        {{if .Device.HasWLC}}
-        {{/* Two different things are drawn here and they were both called "charging".
-             The LINE colour is the wireless pad — a customer's phone on the tablet.
-             The STRIP is the tablet charging itself from mains. Naming both of them
-             "charging" made the chart unreadable, so the line says wireless
-             throughout and the strip says what is being charged. */}}
-        <span class="chart-legend-item" title="Line colour: a phone is on the tablet's wireless pad"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless charging in use</span>
-        <span class="chart-legend-item" title="Line colour: pad powered, nothing on it"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Wireless pad vacant</span>
-        <span class="chart-legend-item" title="Line colour: the phone is off-centre on the pad"><span class="chart-legend-line" style="background:#e8a13a;"></span> Wireless pad misplaced</span>
-        <span class="chart-legend-item" title="Line colour: the pad did not report a readable state"><span class="chart-legend-line" style="background:#b2bec3;"></span> Wireless pad unreadable</span>
-        {{end}}
-      </div>
-    </div>
-    {{end}}
+  <div id="chart-panel-battery" class="vt-panel">
+    <div class="vt-lbl"><i style="background:#f9674e"></i>Battery</div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
-    {{if .Device.HasCharging}}
-    {{/* The strip's legend sits under the strip it explains (chargeStripPlugin draws it
-         along the chart's bottom edge); the line-colour legend stays above the chart. */}}
-    <div class="wlc-bar wlc-bar--strip">
-      <div class="chart-legend" id="charge-strip-legend">
-        <span class="chart-legend-item" title="Strip under the chart: the tablet itself drawing power from mains"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> Tablet charging</span>
-        <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> Tablet on battery</span>
-        <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> Charger flapping</span>
-      </div>
-    </div>
-    {{end}}
   </div>
   {{end}}
 
   <!-- Temp -->
-  <div id="chart-panel-temp" style="display:none;">
+  <div id="chart-panel-temp" class="vt-panel">
+    <div class="vt-lbl"><i style="background:#e8a13a"></i>Temp</div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="tempChart"></canvas></div>
   </div>
 
   <!-- RAM -->
-  <div id="chart-panel-ram" style="display:none;">
+  <div id="chart-panel-ram" class="vt-panel">
+    <div class="vt-lbl"><i style="background:#7a80f6"></i>RAM</div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="ramChart"></canvas></div>
   </div>
 
@@ -866,66 +1069,69 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{end}}
   </aside>
   </div><!-- /chart-split -->
-  <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-    <span id="chart-footer-text" hidden></span><span class="wlabel-hint">Hover the graph — values show on the right</span>
-    {{/* Visible-window label — subtle, below the graph. A wide custom/shifted range
-         lives here so it can never wrap the toolbar. */}}
-    <span class="chart-wlabel" id="chart-window-label"></span>
+  {{/* Navigator: the last days at a glance with the window on screen drawn on it. Drag the
+       window to move through time, pull an edge to widen or narrow it. */}}
+  <div class="vt-navw">
+    <div class="vt-nav" id="vt-nav" title="Drag to move the window · pull an edge to zoom">
+      <svg viewBox="0 0 1000 34" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="vt-nav-clip"><rect id="vt-nav-clip-r" x="0" y="0" width="1000" height="34"/></clipPath></defs><path id="vt-nav-line" d="" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" clip-path="url(#vt-nav-clip)"/></svg>
+      <div class="vt-win" id="vt-nav-win"><span class="vt-h l" data-edge="l"></span><span class="vt-h r" data-edge="r"></span></div>
+    </div>
+    <div class="vt-navcap"><span id="vt-nav-from"></span><span id="vt-nav-to"></span></div>
   </div>
 </div>
 
-{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
-     themed) so it can follow the dashboard's dark mode like the Overview
-     fleet map does. Rendered only when the device has resolved WiFi-
-     geolocation coordinates AND a browser-facing Maps key is configured
-     (MapsEmbedKey, referrer-restricted). */}}
-{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
-{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
-<div class="card dev-map-card" id="dev-map-card">
-  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
-    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
+{{/* Legend, in its own pane under the graph card: the same height on every tab, saying
+     what the colours on the chart in view mean. */}}
+<div class="card vt-legend" id="vt-legend">
+    {{if .ShowBattery}}<div class="vt-lg" data-lg="battery">
+      {{if .Device.HasWLC}}<div class="vt-lg-row"><span class="vt-lg-k" title="The battery line's colour: the wireless charging pad">Pad</span>
+      <span class="chart-legend-item" title="Line colour: a phone is on the tablet's wireless pad"><span class="chart-legend-line" style="background:#e84393;"></span> phone on it</span>
+      <span class="chart-legend-item" title="Line colour: pad powered, nothing on it"><span class="chart-legend-line" style="background:#6c5ce7;"></span> vacant</span>
+      <span class="chart-legend-item" title="Line colour: the phone is off-centre on the pad"><span class="chart-legend-line" style="background:#e8a13a;"></span> misplaced</span>
+      <span class="chart-legend-item" title="Line colour: the pad did not report a readable state"><span class="chart-legend-line" style="background:#b2bec3;"></span> unreadable</span></div>{{end}}
+      {{if .Device.HasCharging}}<div class="vt-lg-row"><span class="vt-lg-k" title="The strip under the chart: the tablet itself">Tablet</span>
+      <span class="chart-legend-item" title="Strip under the chart: the tablet itself charging from AC power"><span class="chart-legend-line" style="background:#00b894;height:6px;border-radius:1px;"></span> charging</span>
+      <span class="chart-legend-item" title="Strip under the chart: the tablet is on battery"><span class="chart-legend-line" style="background:rgba(122,127,154,0.22);height:6px;border-radius:1px;"></span> on battery</span>
+      <span class="chart-legend-item" title="Strip under the chart: the charger is toggling on and off every second or two — a faulty cable, port or supply"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,#fdcb6e 0 3px,#e0a93a 3px 5px);height:6px;border-radius:1px;"></span> charger flapping</span></div>{{end}}
+      {{if not (or .Device.HasWLC .Device.HasCharging)}}<span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.35);height:8px"></span> Shaded: under 20%</span>{{end}}
+    </div>{{end}}
+    <div class="vt-lg" data-lg="temp"{{if .ShowBattery}} hidden{{end}}>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(232,161,58,.35);height:8px"></span> 40–45 °C warm</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.4);height:8px"></span> over 45 °C hot</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,rgba(128,128,128,.5) 0 2px,transparent 2px 4px);height:8px"></span> no data</span>
+    </div>
+    <div class="vt-lg" data-lg="ram" hidden>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.4);height:8px"></span> over 85% used</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,rgba(128,128,128,.5) 0 2px,transparent 2px 4px);height:8px"></span> no data</span>
+    </div>
   </div>
-  <div id="dev-map" class="dev-map"></div>
-  <div class="dev-map-foot">
-    {{$maddr := extraField .Device.LatestExtra "location_address"}}
-    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
-    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
-  </div>
-</div>
+
+
 <script>
-{{/* Same dark palette as the Overview fleet map (templates/overview.html
-     OV_MAP_DARK) — kept in sync there; duplicated here since each page loads
-     the Maps JS API independently. */}}
-var DEV_MAP_DARK = [
-  {elementType:'geometry',stylers:[{color:'#212a37'}]},
-  {elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
-  {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},
-  {featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
-  {featureType:'poi',stylers:[{visibility:'off'}]},
-  {featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
-  {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
-  {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
-  {featureType:'transit',stylers:[{visibility:'off'}]},
-  {featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
-  {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
-];
-function devMapStyles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? DEV_MAP_DARK : []; }
-function devInitMap(){
-  var el = document.getElementById('dev-map');
-  if (!el || !window.google || !google.maps) return;
-  var pos = {lat: parseFloat("{{$mlat}}"), lng: parseFloat("{{$mlon}}")};
-  var map = new google.maps.Map(el, {
-    zoom: 16, center: pos, mapTypeControl:false, streetViewControl:false,
-    fullscreenControl:false, keyboardShortcuts:false, styles: devMapStyles()
-  });
-  window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: devMapStyles()}); });
-  new google.maps.Marker({ position: pos, map: map, title: '{{.Device.SerialNumber}}' });
+// Vitals toolbar menus (range, ⋯): one open at a time; any item, outside click or Escape
+// closes them.
+window.vtMenu = function (e, id) {
+  e.stopPropagation();
+  var m = document.getElementById(id); if (!m) return;
+  var open = m.hasAttribute('hidden');
+  document.querySelectorAll('.vt-menu').forEach(function (x) { x.setAttribute('hidden', ''); });
+  document.querySelectorAll('[data-vt-trig]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+  if (open) { m.removeAttribute('hidden'); e.currentTarget.setAttribute('aria-expanded', 'true'); }
+};
+if (!window.__vtMenuHook) {
+  window.__vtMenuHook = true;
+  var vtCloseAll = function () {
+    document.querySelectorAll('.vt-menu').forEach(function (x) { x.setAttribute('hidden', ''); });
+    document.querySelectorAll('[data-vt-trig]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+  };
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-vt-trig]')) return;
+    if (e.target.closest('.vt-menu .vt-mi')) { setTimeout(vtCloseAll, 0); return; }
+    if (!e.target.closest('.vt-menu')) vtCloseAll();
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') vtCloseAll(); });
 }
-</script>
-<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
-{{end}}
 
-<script>
 function mdmBootCharts() {
   // Theme-aware chart colors (grid/ticks) read from CSS tokens.
   const _cs = getComputedStyle(document.documentElement);
@@ -1074,11 +1280,13 @@ function mdmBootCharts() {
           // Reassigns (not mutates) allTemp/allRam — window.mdmChart holds the old
           // (empty) reference for the live-SSE pusher, so repoint it here too or
           // live updates would keep appending to an array nothing renders from.
-          if (metric === 'temp' && d.temp) {
+          // One response carries both series, and the stacked charts show both, so
+          // take whichever is still missing rather than fetching twice.
+          if (d.temp && (metric === 'temp' || !tempLoaded)) {
             allTemp = d.temp; markLoaded('temp');
             if (window.mdmChart) window.mdmChart.allTemp = allTemp;
           }
-          if (metric === 'ram' && d.ram) {
+          if (d.ram && (metric === 'ram' || !ramLoaded)) {
             allRam = d.ram; markLoaded('ram');
             if (window.mdmChart) window.mdmChart.allRam = allRam;
           }
@@ -1236,6 +1444,8 @@ function mdmBootCharts() {
           updateCharts();
           if (activeTab === 'all' && unifiedChart) applyUnifiedData();
         }
+        // The navigator shows the last two days: draw what just arrived.
+        if (window.vtNavSync) window.vtNavSync();
         setTimeout(function () { next(i + 1); }, 400);
       });
     })(0);
@@ -1498,10 +1708,11 @@ function mdmBootCharts() {
   let customMin = null, customMax = null;
   let batteryChart, tempChart, ramChart, unifiedChart;
   let storedMarkerPref = localStorage.getItem(markerStorageKey);
-  let showMarkers = storedMarkerPref === null ? false : storedMarkerPref === 'visible';
+  // Commands are not marked on the graph; build changes always are (14 Oct).
+  let showMarkers = false;
   let storedBuildPref = null;
   try { storedBuildPref = localStorage.getItem(buildStorageKey); } catch (e) {}
-  let showBuilds = storedBuildPref === null ? true : storedBuildPref === 'visible';
+  let showBuilds = true;
   // Wireless-charging-state colouring is always on: the raw battery line is
   // coloured by WLC state with the legend shown (no per-device toggle).
   // The chart tab is driven by context (a ?focus deep-link), not remembered across
@@ -1733,17 +1944,23 @@ function mdmBootCharts() {
     });
   }
 
+  // One chart at a time, picked with the Battery / Temp / RAM tabs in the card header.
   window.setChartTab = function setChartTab(tab) {
+    if (tab === 'all' || CHART_TABS.indexOf(tab) < 0) tab = HAS_BATTERY ? 'battery' : 'temp';
     activeTab = tab;
-    CHART_TABS.forEach(function(t) {
-      document.getElementById('chart-panel-' + t).style.display = t === tab ? '' : 'none';
-      var btn = document.querySelector('[data-chart-tab="' + t + '"]');
-      if (btn) btn.classList.toggle('active', t === tab);
+    CHART_TABS.forEach(function (t) {
+      var el = document.getElementById('chart-panel-' + t);
+      if (el) el.style.display = t === tab ? '' : 'none';
+      var btn = document.querySelector('.vt-tab[data-chart-tab="' + t + '"]');
+      if (btn) { btn.classList.toggle('active', t === tab); btn.setAttribute('aria-selected', t === tab ? 'true' : 'false'); }
     });
-    if (tab === 'temp') loadMetricLazy('temp');
-    if (tab === 'ram') loadMetricLazy('ram');
-    if (tab === 'all') { loadMetricLazy('temp'); loadMetricLazy('ram'); }
-    if (tab === 'all' && unifiedChart) applyUnifiedData();
+    function nav() { if (window.vtNavSync) window.vtNavSync(); }
+    if (tab === 'temp') loadMetricLazy('temp', false, nav);
+    if (tab === 'ram') loadMetricLazy('ram', false, nav);
+    nav();
+    var c = tab === 'temp' ? tempChart : tab === 'ram' ? ramChart : batteryChart;
+    if (c) setTimeout(function () { try { c.resize(); } catch (e) {} }, 0);
+    document.querySelectorAll('#vt-legend .vt-lg').forEach(function (l) { l.hidden = l.getAttribute('data-lg') !== tab; });
   };
 
   function applyData(chart, all) {
@@ -1774,17 +1991,27 @@ function mdmBootCharts() {
     unifiedChart.update('none');
   }
 
+  // A custom window, short enough for the range button: "Oct 14, 09:52–15:52" within a
+  // day, "Oct 13 09:06 – Oct 14 09:06" across days, dates only for long spans.
+  function vtRangeLabel(a, b) {
+    var day = function (ms) { return new Date(ms).toLocaleDateString([], tzArg({ month: 'short', day: 'numeric' })); };
+    var hm = function (ms) { return new Date(ms).toLocaleTimeString([], tzArg({ hour: '2-digit', minute: '2-digit', hour12: false })); };
+    if (day(a) === day(b)) return day(a) + ', ' + hm(a) + '\u2013' + hm(b);
+    if (b - a >= 3 * 86400e3) return day(a) + ' \u2013 ' + day(b);
+    return day(a) + ' ' + hm(a) + ' \u2013 ' + day(b) + ' ' + hm(b);
+  }
+
   function updateCharts() {
     const { pts } = filterWindow(srcBattery());
-    const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
+    const labels = {3600000: "Last hour", 21600000: "Last 6 hours", 43200000: "Last 12 hours", 86400000: "Last 24 hours", 172800000: "Last 48 hours", 604800000: "Last 7 days"};
     // The window label renders on the graph (#chart-window-label), not in the control
     // row, so a wide custom/shifted range can't wrap the toolbar. The old #chart-info
     // slot is kept empty to hold the row's layout stable.
     var _wtext = (customMin !== null && customMax !== null)
-      ? fmtDate(customMin) + " \u2013 " + fmtDate(customMax)
-      : "Last " + (labels[currentDuration] || "");
+      ? vtRangeLabel(customMin, customMax)
+      : (labels[currentDuration] || "Last " + Math.round(currentDuration / 3600000) + " hours");
     var _wl = document.getElementById("chart-window-label");
-    if (_wl) _wl.textContent = _wtext;
+    if (_wl) { _wl.textContent = _wtext; _wl.title = _wtext; }
     var _ci = document.getElementById("chart-info");
     if (_ci) _ci.textContent = "";
 
@@ -1796,6 +2023,7 @@ function mdmBootCharts() {
     syncMarkerToggle();
     refreshTabVals();
     updateFooter(null);
+    if (window.vtNavSync) window.vtNavSync();
   }
 
   // Live per-tab value badges (Design-1 style): show each metric's latest reading on
@@ -2041,7 +2269,8 @@ function mdmBootCharts() {
   function evenTimeTicks(axis) {
     const min = axis.min, max = axis.max;
     if (min == null || max == null || max <= min) return;
-    const span = max - min, target = 7;
+    // About one label per 95px of chart, at most 7, so a narrow chart doesn't overlap them.
+    const span = max - min, target = Math.max(3, Math.min(7, Math.floor(((axis.chart && axis.chart.width) || 700) / 95)));
     // Spans beyond what a 14-day step can cover with ~7 ticks switch to calendar
     // months (1st of the month, every 1/2/3/6 months), which a fixed millisecond
     // step can't express. fmtTimeAxis reads axis._tickStep to pick the label form.
@@ -2220,7 +2449,82 @@ function mdmBootCharts() {
     },
   };
 
-  // Crosshair plugin — draws vertical line at cursor, no snap
+  // The stacked charts, top to bottom. They share one time axis, so a pointer on any
+  // of them is one moment on all of them.
+  const VT_COLOR = { battery: '#f9674e', temp: '#e8a13a', ram: '#7a80f6' };
+  function vtStack() { return [batteryChart, tempChart, ramChart].filter(Boolean); }
+  // Same y-axis width on every chart, so their plots (and the pointer line) line up.
+  function vtYFit(scale) { scale.width = 46; }
+  function vtCss(name, fb) { return (getComputedStyle(document.documentElement).getPropertyValue(name) || '').trim() || fb; }
+  function vtNearestIdx(data, ms) {
+    let best = -1, bd = Infinity;
+    for (let i = 0; i < data.length; i++) {
+      const p = data[i]; if (!p || p.y == null) continue;
+      const d = Math.abs(p.x - ms); if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  }
+  function vtNearest(data, ms) { const i = vtNearestIdx(data, ms); return i < 0 ? null : data[i]; }
+  function vtRound(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+  }
+  // The value bubble (static/device-graph-hover-demos.html, V2): a dot where the line is
+  // read and the value beside the pointer in the line's colour; the bottom chart also
+  // carries the time on its axis.
+  function vtBubble(chart) {
+    const ca = chart.chartArea, xs = chart.scales.x, ys = chart.scales.y;
+    if (!ca || !xs || !ys) return;
+    const px = chart._crosshairX, ms = xs.getValueForPixel(px);
+    // Read the raw check-ins, not the drawn line: the battery line is drawn from the
+    // points where the value changed, which can be hours apart.
+    const data = chart._accent === 'battery' ? (chart.$wlcPts || []) : ((chart.data.datasets[0] && chart.data.datasets[0].data) || []);
+    const idx = vtNearestIdx(data, ms), pt = idx < 0 ? null : data[idx];
+    const ctx = chart.ctx, col = VT_COLOR[chart._accent] || '#7a80f6';
+    ctx.save();
+    // Shown wherever there is a reading nearby; hidden in an offline gap.
+    if (pt && Math.abs(pt.x - ms) <= (xs.max - xs.min) * 0.04) {
+      let txt;
+      if (chart._accent === 'battery') {
+        txt = Math.round(pt.y) + '%';
+        // Not every check-in carries the pad state: use the last one reported.
+        let w = null;
+        for (let k = idx; k >= 0 && k > idx - 500; k--) { const v = data[k] && data[k].wlc; if (v !== undefined && v !== null) { w = v; break; } }
+        if (w === 1) txt += ' · phone on pad';
+        else if (w === 0) txt += ' · pad vacant';
+        else if (w === 2) txt += ' · pad misplaced';
+      } else if (chart._accent === 'temp') txt = pt.y.toFixed(1) + '°C';
+      else txt = Math.round(pt.y) + '%';
+      const py = ys.getPixelForValue(pt.y);
+      ctx.beginPath(); ctx.arc(px, py, 4, 0, Math.PI * 2);
+      ctx.fillStyle = col; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = vtCss('--surface', '#fff'); ctx.stroke();
+      ctx.font = '700 11.5px ' + (Chart.defaults.font.family || 'system-ui, sans-serif');
+      ctx.textBaseline = 'middle';
+      const w = ctx.measureText(txt).width + 14, h = 20;
+      let bx = px + 8; if (bx + w > ca.right) bx = px - 8 - w;
+      const by = ca.top + 2;
+      vtRound(ctx, bx, by, w, h, 7);
+      ctx.fillStyle = vtCss('--bg', '#fff'); ctx.fill();
+      ctx.lineWidth = 1.2; ctx.strokeStyle = col; ctx.stroke();
+      ctx.fillStyle = vtCss('--text', '#111'); ctx.fillText(txt, bx + 7, by + h / 2 + 0.5);
+    }
+    // The time of the pointer, on the chart's time axis.
+    {
+      const span = xs.max - xs.min;
+      const t = span > 36 * 3600e3 ? fmtDate(ms) : fmtTime(ms);
+      ctx.font = '700 10.5px ' + (Chart.defaults.font.family || 'system-ui, sans-serif');
+      ctx.textBaseline = 'middle';
+      const w = ctx.measureText(t).width + 12, h = 17;
+      const bx = Math.max(ca.left, Math.min(ca.right - w, px - w / 2)), by = ca.bottom + 5;
+      vtRound(ctx, bx, by, w, h, 5);
+      ctx.fillStyle = vtCss('--text', '#111'); ctx.fill();
+      ctx.fillStyle = vtCss('--bg', '#fff'); ctx.fillText(t, bx + 6, by + h / 2 + 0.5);
+    }
+    ctx.restore();
+  }
+
+  // Crosshair plugin — the pointer line, drawn on every stacked chart at the same moment.
   const crosshairPlugin = {
     id: 'crosshair',
     afterEvent(chart, args) {
@@ -2231,7 +2535,15 @@ function mdmBootCharts() {
         chart._crosshairX = (x >= ca.left && x <= ca.right) ? x : null;
       } else if (evt.type === 'mouseout') {
         chart._crosshairX = null;
-      }
+      } else return;
+      args.changed = true;
+      if (chart._isUnified) return;
+      const v = chart._crosshairX == null ? null : chart.scales.x.getValueForPixel(chart._crosshairX);
+      vtStack().forEach(function (c) {
+        if (c === chart || !c.scales || !c.scales.x) return;
+        c._crosshairX = v == null ? null : c.scales.x.getPixelForValue(v);
+        c.draw();
+      });
     },
     afterDraw(chart) {
       if (chart._crosshairX == null) return;
@@ -2239,12 +2551,14 @@ function mdmBootCharts() {
       const ca = chart.chartArea;
       ctx.save();
       ctx.beginPath();
+      ctx.setLineDash([3, 3]);
       ctx.moveTo(chart._crosshairX, ca.top);
       ctx.lineTo(chart._crosshairX, ca.bottom);
       ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(122,127,154,0.5)';
+      ctx.strokeStyle = 'rgba(122,127,154,0.6)';
       ctx.stroke();
       ctx.restore();
+      if (!chart._isUnified) vtBubble(chart);
     },
   };
 
@@ -2473,7 +2787,7 @@ function mdmBootCharts() {
       },
       scales: {
         x: {{if .Device.HasCharging}}chargeStripXScale(){{else}}sharedXScale(){{end}},
-        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
+        y: { min: 0, max: 100, afterFit: vtYFit, ticks: { color: TICK, callback: v => v + "%", stepSize: 50, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
     plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin{{if .Device.HasCharging}}, chargeStripPlugin{{end}}],
@@ -2529,7 +2843,7 @@ function mdmBootCharts() {
       },
       scales: {
         x: sharedXScale(),
-        y: { ticks: { color: TICK, callback: v => v + "°C", padding: 6 }, grid: { color: GRID }, border: { display: false } },
+        y: { afterFit: vtYFit, ticks: { color: TICK, callback: v => v + "°C", padding: 6, maxTicksLimit: 4 }, grid: { color: GRID }, border: { display: false } },
       },
     },
     plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
@@ -2577,7 +2891,7 @@ function mdmBootCharts() {
       },
       scales: {
         x: sharedXScale(),
-        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
+        y: { min: 0, max: 100, afterFit: vtYFit, ticks: { color: TICK, callback: v => v + "%", stepSize: 50, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
     plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
@@ -3149,18 +3463,20 @@ function mdmBootCharts() {
 
   var _exportBtn = document.getElementById('chart-export-btn');
   if (_exportBtn) _exportBtn.addEventListener('click', function () {
-    var c = activeChartObj(); if (!c) return;
-    // Composite onto a solid theme background — the canvas itself is transparent,
-    // which would export as a see-through PNG.
-    var src = c.canvas, tmp = document.createElement('canvas');
-    tmp.width = src.width; tmp.height = src.height;
+    var cs = vtStack(); if (!cs.length) return;
+    // The whole stack, top to bottom, composited onto a solid theme background — the
+    // canvases themselves are transparent, which would export as a see-through PNG.
+    var tmp = document.createElement('canvas');
+    tmp.width = Math.max.apply(null, cs.map(function (c) { return c.canvas.width; }));
+    tmp.height = cs.reduce(function (h, c) { return h + c.canvas.height; }, 0);
     var tctx = tmp.getContext('2d');
     tctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#ffffff';
     tctx.fillRect(0, 0, tmp.width, tmp.height);
-    tctx.drawImage(src, 0, 0);
+    var oy = 0;
+    cs.forEach(function (c) { tctx.drawImage(c.canvas, 0, oy); oy += c.canvas.height; });
     var a = document.createElement('a');
     a.href = tmp.toDataURL('image/png');
-    a.download = '{{.Device.SerialNumber}}-' + activeTab + '-' + new Date().toISOString().slice(0, 10) + '.png';
+    a.download = '{{.Device.SerialNumber}}-vitals-' + new Date().toISOString().slice(0, 10) + '.png';
     document.body.appendChild(a); a.click(); a.remove();
   });
 
@@ -3200,6 +3516,105 @@ function mdmBootCharts() {
     document.getElementById("range-end").value = toLocalISO(new Date(customMax));
     return f === "battery" ? "battery" : f === "ram" ? "ram" : "temp";
   }
+
+  // ── Navigator strip (static/device-graph-demos.html, T4) ─────────────────────
+  // Under the charts: the last two days (or more, around an older window) as one thin
+  // line, with the window on screen drawn over it. Drag the window to move through
+  // time, pull an edge to widen or narrow it, click elsewhere to jump there. It replaces
+  // the ‹ › and − + buttons; drag-to-zoom on the charts still works.
+  (function () {
+    var nav = document.getElementById('vt-nav'), win = document.getElementById('vt-nav-win'), line = document.getElementById('vt-nav-line');
+    if (!nav || !win) return;
+    var navA = 0, navB = 1, curA = 0, curB = 1, drag = null, navFloor = CHART_MIN_X;
+    function place(a, b) {
+      var span = (navB - navA) || 1;
+      var l = Math.max(0, (a - navA) / span * 100), r = Math.min(100, (b - navA) / span * 100);
+      win.style.left = l + '%';
+      win.style.width = Math.max(0.8, r - l) + '%';
+    }
+    // The line draws itself in: a clip sweeps out to the points that just arrived (older
+    // history loads in chunks), rather than the line jumping a chunk at a time.
+    var clipR = document.getElementById('vt-nav-clip-r'), shown = { l: 0, r: 0, n: 0, tab: null }, anim = 0;
+    function setClip(l, r) { if (clipR) { clipR.setAttribute('x', l.toFixed(1)); clipR.setAttribute('width', Math.max(0, r - l).toFixed(1)); } }
+    function navReveal(l, r, n) {
+      var fresh = shown.tab !== activeTab || shown.n === 0;
+      var grew = n > shown.n;
+      var from = fresh ? { l: l, r: l } : { l: shown.l, r: shown.r };
+      shown.tab = activeTab; shown.n = n; shown.l = l; shown.r = r;
+      cancelAnimationFrame(anim);
+      if (!fresh && !grew) { setClip(l, r + 2); return; }
+      var t0 = performance.now(), dur = fresh ? 1400 : 900;
+      (function step(now) {
+        var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+        setClip(from.l + (l - from.l) * e, from.r + (r + 2 - from.r) * e);
+        if (k < 1) anim = requestAnimationFrame(step);
+      })(t0);
+    }
+    window.vtNavSync = function () {
+      var c = vtStack()[0]; if (!c) return;
+      var a = c.options.scales.x.min, b = c.options.scales.x.max;
+      if (a == null || b == null) return;
+      curA = a; curB = b;
+      var now = Date.now(), w = curB - curA;
+      navB = Math.max(now, curB);
+      navA = Math.min(curA - w * 0.5, navB - 48 * 3600e3);
+      if (navA < CHART_MIN_X) navA = Math.min(CHART_MIN_X, curA);
+      navFloor = Math.min(CHART_MIN_X, curA);
+      // The strip draws the metric on screen: battery and RAM on 0–100, temperature
+      // scaled to what it covers.
+      var src = activeTab === 'ram' ? allRam : activeTab === 'temp' ? allTemp : allBattery;
+      var pct = activeTab !== 'temp';
+      var pts = src.filter(function (p) { return p.y != null && p.x >= navA && p.x <= navB; });
+      var lo = pct ? 0 : Infinity, hi = pct ? 100 : -Infinity;
+      if (!pct) pts.forEach(function (p) { lo = Math.min(lo, p.y); hi = Math.max(hi, p.y); });
+      if (!(hi - lo >= 1)) hi = lo + 1;
+      var step = Math.max(1, Math.floor(pts.length / 300)), d = '';
+      for (var i = 0; i < pts.length; i += step) {
+        var x = (pts[i].x - navA) / (navB - navA) * 1000, y = 31 - (pts[i].y - lo) / (hi - lo) * 28;
+        d += (d ? ' L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+      }
+      if (line) line.setAttribute('d', d);
+      if (pts.length) navReveal((pts[0].x - navA) / (navB - navA) * 1000, (pts[pts.length - 1].x - navA) / (navB - navA) * 1000, pts.length);
+      if (!drag) place(curA, curB);
+      var f = document.getElementById('vt-nav-from'), t = document.getElementById('vt-nav-to');
+      if (f) f.textContent = fmtDate(navA);
+      if (t) t.textContent = navB - now < 60000 ? 'now' : fmtDate(navB);
+    };
+    function move(e) {
+      if (!drag) return;
+      var dv = (e.clientX - drag.x) * drag.per, now = Date.now(), a = drag.a0, b = drag.b0;
+      if (drag.mode === 'move') {
+        var w = b - a; a += dv; b += dv;
+        if (b > now) { b = now; a = b - w; }
+        if (a < navFloor) { a = navFloor; b = a + w; }
+      } else if (drag.mode === 'l') a = Math.max(navFloor, Math.min(a + dv, b - 60000));
+      else b = Math.min(now, Math.max(b + dv, a + 60000));
+      drag.a = a; drag.b = b; place(a, b);
+    }
+    nav.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0) return;
+      var rect = nav.getBoundingClientRect(), per = (navB - navA) / Math.max(1, rect.width);
+      var a0 = curA, b0 = curB, jumped = false;
+      if (!e.target.closest('#vt-nav-win')) {          // jump: centre the window on the click
+        var cx = navA + (e.clientX - rect.left) * per, w = b0 - a0;
+        a0 = cx - w / 2; b0 = cx + w / 2; jumped = true;
+      }
+      drag = { mode: e.target.getAttribute('data-edge') || 'move', x: e.clientX, a0: a0, b0: b0, per: per, a: a0, b: b0, jumped: jumped };
+      try { nav.setPointerCapture(e.pointerId); } catch (err) {}
+      nav.classList.add('drag');
+      move(e);
+      e.preventDefault();
+    });
+    nav.addEventListener('pointermove', move);
+    function end() {
+      if (!drag) return;
+      var d = drag; drag = null; nav.classList.remove('drag');
+      if (!d.jumped && Math.abs(d.a - curA) < 1000 && Math.abs(d.b - curB) < 1000) { place(curA, curB); return; }
+      applyZoomWindow(d.a, d.b);
+    }
+    nav.addEventListener('pointerup', end);
+    nav.addEventListener('pointercancel', end);
+  })();
 
   var focusTab = applyFocusFromURL();
   // Populate/render after a paint so the "Loading graphs…" overlay is visible while
@@ -3284,65 +3699,34 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
 });
 </script>
 
-<div class="ddc-actsec">
-  <div class="ddc-act-h">Recent activity</div>
-  {{if .Commands}}
-  <div class="ddc-activity">
-    {{range $i, $c := .Commands}}{{if lt $i 6}}
-    <a class="ddc-tl ddc-tl-link" href="/commands/{{$c.ID}}">
-      <span class="dot {{if eq $c.Status "success"}}ok{{else if eq $c.Status "failed"}}err{{else if eq $c.Status "expired"}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
-      <span class="ddc-tl-main"><b>{{cmdTitle $c}}</b> · {{cmdStatusLabel $c.Status $.Online}}</span>
-      <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}">{{timeSince $c.CreatedAt}}</span>
-    </a>
-    {{end}}{{end}}
-  </div>
-  {{else}}
-  <div class="muted small" style="padding:8px 0;">No actions sent to this device yet.</div>
-  {{end}}
-</div>
-
 </section><!-- /summary -->
 
 <section class="dd-panel" data-dd-panel="about" id="dd-panel-about" role="tabpanel" aria-labelledby="dd-tab-about" tabindex="0" hidden>
   <div class="about-grid">
-    {{if .WhoHasAccess}}
-    <div class="ddc-card" id="dd-who">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Who has access</h2><span class="m muted small">rules that cover this device</span></div>
-      {{range .WhoHasAccess}}
-      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
-        {{template "ubub" .Bubble}}
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><a href="{{userURL .Username}}" class="link-detail" style="font-weight:650;">{{.Name}}</a><span class="cc-pill" style="font-size:10px;">{{.Role}}</span>{{if .Sensitive}}<span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-size:11px;font-weight:700;">● sessions</span>{{end}}</div>
-          <div class="muted" style="font-size:12px;line-height:1.45;margin-top:3px;">{{range $i, $s := .Rules}}{{if $i}}<br>{{end}}{{$s}}{{end}}</div>
-        </div>
-      </div>
-      {{end}}
-    </div>
-    {{end}}
     {{/* Who changed what on this device. Commands live in "Action history" on the
          Overview tab; this is the settings side — kiosk, charging, placement, naming
          — which was previously recorded only in the global audit log and could not be
          traced back to a device at all. */}}
-    <div class="ddc-card" id="dd-activity">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Activity</h2>{{if and .Activity (canManageUsers .Role)}}<span class="m muted small"><a href="/activity?device={{.Device.SerialNumber}}" class="link-detail">all activity</a></span>{{end}}</div>
-      {{if .Activity}}
-      {{range .Activity}}
-      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
-        {{template "ubub" (userBubble .ActorKey)}}
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;line-height:1.45;">{{$u := userURL .ActorKey}}{{if $u}}<a href="{{$u}}" class="link-detail" style="font-weight:650;">{{.Actor}}</a>{{else}}<b>{{.Actor}}</b>{{end}} {{.Did}}</div>
-          <div class="muted" style="font-size:11.5px;margin-top:2px;" title="{{.At}}">{{.At.Format "2 Jan 2006, 15:04"}} UTC</div>
+    {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
+    <div class="ddc-card dd-devpane" id="dd-hw">
+      {{/* The model's photo (device-photo-demos.html, M3, picked 15 Oct); its class icon when
+           there is none. */}}
+      {{$hwp := modelPic .Device.Product}}{{$hwrm := extraField .Device.LatestExtra "model"}}{{$hwmf := extraField .Device.LatestExtra "manufacturer"}}
+      <div class="ddc-hw">
+        {{if $hwp}}<img class="ddc-hw-pic" src="{{$hwp.Img}}" alt="" width="112" height="112" loading="lazy" decoding="async">{{else}}<span class="ddc-hw-pic ic-only"><svg aria-hidden="true"><use href="#dk-{{if .Device.Class}}{{.Device.Class}}{{else}}other{{end}}"/></svg></span>{{end}}
+        <div class="ddc-hw-t">
+          <b>{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}</b>
+          <small>{{if and $hwrm (ne $hwrm "—")}}{{if and $hwmf (ne $hwmf "—")}}{{$hwmf}} {{end}}{{$hwrm}} · {{end}}{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}no role{{end}}{{if $hwp}}{{if $hwp.Tagline}}<br>{{$hwp.Tagline}}{{end}}{{end}}</small>
+          <small class="dd-hw-st">{{if .Online}}<span class="cc-tag ok">Online</span>{{else}}<span class="cc-tag">Offline</span> <span class="muted">last seen {{timeSince .Device.LastSeenAt}}</span>{{end}}</small>
+          {{if $hwp}}{{if $hwp.Specs}}<div class="ddc-hw-spec">{{range $hwp.Specs}}<span>{{.}}</span>{{end}}</div>{{end}}{{end}}
         </div>
       </div>
-      {{end}}
-      {{else}}
-      <div class="muted" style="padding:12px 14px;font-size:12.5px;border-top:1px solid var(--border-soft);">
-        Nothing recorded yet. Changes made from this page — locked mode, wireless charging, placement, naming — will appear here with who made them.
-      </div>
-      {{end}}
-    </div>
-    <div class="ddc-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg></span><h2>Hardware</h2></div>
+      {{/* Vitals as columns (device-meters-demos.html, Me, picked 15 Oct); the same live
+           refresh as the facts cells. */}}
+      <div class="dd-vcols" id="device-vitals-cols" data-diff-guard data-morph
+           hx-get="/devices/{{.Device.SerialNumber}}/vitals?cols=1" hx-select="unset"
+           hx-trigger="device-updated from:body, every 300s" hx-target="this" hx-swap="innerHTML">{{template "device-vitals-cols" .}}</div>
+      <div class="dd-hwkv">
       {{$ram := ramUsage .Device.LatestExtra}}
       <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
@@ -3368,10 +3752,22 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="ddc-kv" id="mic-gain-row" title="Mic gain not reported by this device — client predates the mic_gain field, or the device has no mixer config."><span class="k">Mic gain</span><span class="v"><span class="muted">Not available</span></span></div>
       {{end}}
       <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-      <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
+      </div>
     </div>
-    <div class="ddc-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></span><h2>Software</h2></div>
+    {{/* What needs a look on this device (device-overview-demos.html, O5). */}}
+    {{$sx := .Security}}{{$lowBat := and .ShowBattery (lt .Device.BatteryPct 20)}}
+    {{if or (eq $sx.USBDebugging "On") (eq $sx.DevOptions "On") (eq $sx.UnknownSources "On") $sx.AdbOn $lowBat .ChargerFlapping}}
+    <div class="dd-needs" id="dd-needs"><b>Needs a look</b>
+      {{if $lowBat}}<span class="cc-tag">Battery {{.Device.BatteryPct}}%</span>{{end}}
+      {{if .ChargerFlapping}}<span class="cc-tag">Charger flapping</span>{{end}}
+      {{if eq $sx.USBDebugging "On"}}<span class="cc-tag">USB debugging on</span>{{end}}
+      {{if $sx.AdbOn}}<span class="cc-tag">Wireless adb open</span>{{end}}
+      {{if eq $sx.DevOptions "On"}}<span class="cc-tag">Developer options on</span>{{end}}
+      {{if eq $sx.UnknownSources "On"}}<span class="cc-tag">Unknown sources on</span>{{end}}
+    </div>
+    {{end}}
+    <div class="ddc-card dd-fold-card">
+      <details class="dd-fold"><summary>Software<span class="sum">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}build not reported{{end}}{{$scv := extraField .Device.LatestExtra "agent_version"}}{{if and $scv (ne $scv "—")}} · client {{$scv}}{{end}}</span></summary>
       <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
       {{/* The MDM client itself. Shown for every agent kind — firmware, DPC and Lite —
@@ -3385,6 +3781,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
         {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
       </span></div>
       <div class="ddc-kv"><span class="k">Locked app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
+      </details>
     </div>
     {{/* Security posture as the client reports it (a dash = never reported), and the
          wireless adb switch on the row it changes. The switch is the adb_tcp command:
@@ -3400,8 +3797,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     .sec-seg input:checked+span{background:var(--accent-soft);color:var(--accent-text);font-weight:700}
     .sec-seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
     </style>
-    <div class="ddc-card" id="security-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Security</h2>{{if $s.AdbOn}}<span class="cc-tag warn">adb open</span>{{end}}</div>
+    <div class="ddc-card dd-fold-card" id="security-card">
+      {{$son := or (eq $s.USBDebugging "On") (eq $s.DevOptions "On") (eq $s.UnknownSources "On") $s.AdbOn}}<details class="dd-fold"{{if $son}} open{{end}}><summary>Security<span class="sum">{{if $son}}<span class="cc-tag warn">needs a look</span>{{else}}nothing open{{end}}</span></summary>
       <div class="ddc-kv"><span class="k">USB debugging</span><span class="v">{{$s.USBDebugging}}</span></div>
       <div class="ddc-kv" id="adb-tcp-row"><span class="k">Wireless adb</span><span class="v wrap">
         {{if $s.AdbOn}}<span class="cc-tag warn">On</span>{{if $s.AdbPort}} <span class="mono">{{if $s.IP}}{{$s.IP}}{{end}}:{{$s.AdbPort}}</span>{{end}}{{if $s.AdbOffIn}} <span class="muted small">· off in {{$s.AdbOffIn}}</span>{{else if $s.AdbStaysOn}} <span class="muted small">· stays on</span>{{end}}{{else if $s.AdbKnown}}Off{{else}}—{{end}}
@@ -3409,6 +3806,21 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       </span></div>
       <div class="ddc-kv"><span class="k">Developer options</span><span class="v">{{$s.DevOptions}}</span></div>
       <div class="ddc-kv"><span class="k">Unknown sources</span><span class="v">{{$s.UnknownSources}}</span></div>
+      </details>
+    </div>
+    {{end}}
+    {{if .WhoHasAccess}}
+    <div class="ddc-card" id="dd-who">
+      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Who has access</h2><span class="m muted small">rules that cover this device</span></div>
+      {{range .WhoHasAccess}}
+      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
+        {{template "ubub" .Bubble}}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><a href="{{userURL .Username}}" class="link-detail" style="font-weight:650;">{{.Name}}</a><span class="cc-pill" style="font-size:10px;">{{.Role}}</span>{{if .Sensitive}}<span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-size:11px;font-weight:700;">● sessions</span>{{end}}</div>
+          <div class="muted" style="font-size:12px;line-height:1.45;margin-top:3px;">{{range $i, $s := .Rules}}{{if $i}}<br>{{end}}{{$s}}{{end}}</div>
+        </div>
+      </div>
+      {{end}}
     </div>
     {{end}}
   </div>
@@ -3453,13 +3865,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
 
     <div class="en-grp">Settings</div>
-    <div class="ddc-kv"><span class="k">Product</span><span class="v">{{if canAdminOrOperator .Role}}
-      <form method="POST" action="/devices/{{.Device.SerialNumber}}/class" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;margin:0">
-        <select name="device_class" class="en-sel" onchange="this.form.submit()">
-          <option value="" {{if not .Device.DeviceClass}}selected{{end}}>{{if .Device.Class}}{{.Device.ClassLabel}} (product default){{else}}— not set —{{end}}</option>
-          {{range .Classes}}<option value="{{.}}" {{if eq . $.Device.DeviceClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
-        </select>
-      </form>{{else}}{{.Device.ClassLabel}}{{end}}</span></div>
+    {{/* The class follows the model: set on the Hardware page, never per device. */}}
+    <div class="ddc-kv"><span class="k">Class</span><span class="v">{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}<span class="muted">none</span>{{end}} <span class="muted small">· from the model{{if canAdmin .Role}} · <a href="/lineup?role={{if .Device.Class}}{{.Device.Class}}{{else}}none{{end}}#model-{{.Device.Product}}" class="link-detail">Lineup</a>{{end}}</span></span></div>
     {{if .Device.NeedsOnboarding}}
     <div class="ddc-kv"><span class="k">Onboarding</span><span class="v">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/onboard" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0">
@@ -3569,7 +3976,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <h2>Installed applications</h2>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
-{{if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its role's app from Lineup">Installs come from <a href="/lineup?role={{.Device.Class}}">Lineup</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
         Install app</button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
@@ -3667,7 +4074,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{/* hx-post + hx-swap="none" + close the popup after: fire the uninstall without
            navigating; the drawer refreshes (device-updated) to show "Uninstalling…". */}}
       <input type="hidden" id="ai-uninstall-pkg" value="">
-      {{if supports .Device "uninstall"}}<button type="button" class="btn-danger-sm" id="ai-uninstall-btn" onclick="var t=window.__aiTile; appInfoClose(); if(t){doUninstall(t);}">Uninstall</button>{{else}}<span class="muted small">This device's agent ({{.Device.KindLabel}}) can't uninstall apps.</span>{{end}}
+      {{if .Restricted}}<span class="muted small">At a venue: apps are kept by its role. Open lab to remove one by hand.</span>{{else if supports .Device "uninstall"}}<button type="button" class="btn-danger-sm" id="ai-uninstall-btn" onclick="var t=window.__aiTile; appInfoClose(); if(t){doUninstall(t);}">Uninstall</button>{{else}}<span class="muted small">This device's agent ({{.Device.KindLabel}}) can't uninstall apps.</span>{{end}}
     </div>
     {{end}}
   </div>
@@ -4067,16 +4474,23 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 
 
 {{if not .IsOwner}}
-<section class="dd-panel" data-dd-panel="queue" id="dd-panel-queue" role="tabpanel" aria-labelledby="dd-tab-queue" tabindex="0" hidden>
-  {{template "device-queue" .}}
-</section><!-- /queue -->
+<section class="dd-panel dd-activity" data-dd-panel="activity" id="dd-panel-activity" role="tabpanel" aria-labelledby="dd-tab-activity" tabindex="0" hidden>
+  <div class="dd-act-queue">{{template "device-queue" .}}</div>
+  {{/* Who changed what from this page (moved here from Overview, 15 Oct). */}}
+  <div class="dd-act-audit">{{template "dd-audit" .}}</div>
+  {{/* History renders on first open: the partial returns the "device-commands" root with
+       its own live-refresh attributes, so after the outerHTML swap it keeps updating. */}}
+  <div hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
+       class="muted small" style="padding:26px;text-align:center;">Loading history…</div>
+</section><!-- /activity -->
+<style>.dd-activity .dd-act-queue{margin-bottom:16px}</style>
 {{end}}
 <script>
   // Keep the Queue tab's count badge in sync as the queue drains/morphs live.
   document.body.addEventListener('htmx:afterSwap', function (e) {
     if (!e.target || e.target.id !== 'device-queue') return;
     var n = e.target.querySelectorAll('.dq-item').length;
-    var tab = document.getElementById('dd-tab-queue');
+    var tab = document.getElementById('dd-tab-activity');
     var badge = document.getElementById('dd-queue-n');
     if (n > 0) {
       if (!badge && tab) { badge = document.createElement('span'); badge.className = 'dd-tab-n'; badge.id = 'dd-queue-n'; tab.appendChild(document.createTextNode(' ')); tab.appendChild(badge); }
@@ -4085,14 +4499,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   });
 </script>
 
-{{if not .IsOwner}}
-<section class="dd-panel" data-dd-panel="history" id="dd-panel-history" role="tabpanel" aria-labelledby="dd-tab-history" tabindex="0" hidden>
-  {{/* Rendered on first open: the partial returns the "device-commands" root with its own
-       live-refresh attributes, so after the outerHTML swap it keeps updating as before. */}}
-  <div hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
-       class="muted small" style="padding:26px;text-align:center;">Loading history…</div>
-</section><!-- /history -->
-{{end}}
+
 
 {{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="alerts" id="dd-panel-alerts" role="tabpanel" aria-labelledby="dd-tab-alerts" tabindex="0" hidden
@@ -4100,6 +4507,65 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   <div class="muted small" style="padding:26px;text-align:center;">Loading alerts…</div>
 </section><!-- /alerts -->
 {{end}}
+
+{{/* Location (15 Oct): the map and the address, out of Overview and Hardware. */}}
+<section class="dd-panel" data-dd-panel="location" id="dd-panel-location" role="tabpanel" aria-labelledby="dd-tab-location" tabindex="0" hidden>
+{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
+     themed) so it can follow the dashboard's dark mode like the Overview
+     fleet map does. Rendered only when the device has resolved WiFi-
+     geolocation coordinates AND a browser-facing Maps key is configured
+     (MapsEmbedKey, referrer-restricted). */}}
+{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
+{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
+<div class="card dev-map-card" id="dev-map-card">
+  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
+    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
+  </div>
+  <div id="dev-map" class="dev-map"></div>
+  <div class="dev-map-foot">
+    {{$maddr := extraField .Device.LatestExtra "location_address"}}
+    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
+    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
+  </div>
+</div>
+<script>
+{{/* Same dark palette as the Overview fleet map (templates/overview.html
+     OV_MAP_DARK) — kept in sync there; duplicated here since each page loads
+     the Maps JS API independently. */}}
+var DEV_MAP_DARK = [
+  {elementType:'geometry',stylers:[{color:'#212a37'}]},
+  {elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+  {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},
+  {featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
+  {featureType:'poi',stylers:[{visibility:'off'}]},
+  {featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
+  {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+  {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
+  {featureType:'transit',stylers:[{visibility:'off'}]},
+  {featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
+  {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
+];
+function devMapStyles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? DEV_MAP_DARK : []; }
+function devInitMap(){
+  var el = document.getElementById('dev-map');
+  if (!el || !window.google || !google.maps) return;
+  var pos = {lat: parseFloat("{{$mlat}}"), lng: parseFloat("{{$mlon}}")};
+  var map = new google.maps.Map(el, {
+    zoom: 16, center: pos, mapTypeControl:false, streetViewControl:false,
+    fullscreenControl:false, keyboardShortcuts:false, styles: devMapStyles()
+  });
+  window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: devMapStyles()}); });
+  new google.maps.Marker({ position: pos, map: map, title: '{{.Device.SerialNumber}}' });
+}
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
+{{end}}
+<div class="ddc-card" style="margin-top:12px">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2></div>
+  <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
+  <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
+</div>
+</section><!-- /location -->
 <script>
 (function () {
   var SERIAL = '{{.Device.SerialNumber}}';
@@ -4151,6 +4617,195 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 })();
 </script>
 </div><!-- /ddc-main -->
+<style>
+/* Split view (static/device-split-demos.html, S4 with split on by default, picked 14 Oct):
+   on wide screens the Vitals graph is a pane on the left that stays in view on every
+   tab, and the tabs with their panels are the right pane. ⇆ on the graph puts it back
+   into Overview; the choice is kept per browser. */
+.dd-split{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:14px;align-items:start}
+.dd-split-l{position:sticky;top:76px;min-width:0}
+/* Fitted to the window: the page stays put, the panes scroll. */
+html.dd-fit{overflow:hidden}
+html.dd-fit .dd-split{align-items:stretch}
+html.dd-fit .dd-split-l,html.dd-fit .dd-split-r{position:static;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:12px}
+html.dd-fit .dd-split-r{padding-right:4px}
+.dd-split-l .chart-card{margin:0}
+.dd-split-r #dev-map-card{margin-top:0}
+.dd-split-r{min-width:0}
+.dd-split-r .dd-tabrow .dd-tabs{flex-wrap:wrap}
+.dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
+.dd-tab[hidden]{display:none!important}
+/* The facts open Overview in the split (15 Oct): a card like the ones under it. */
+#dd-panel-summary .dd-facts{background:var(--surface);border-radius:16px;margin:0;padding:10px 16px}
+#dd-panel-summary .dd-facts .dfc-first{margin-left:0;padding-left:0;border-left:0}
+.ddc-hw{display:flex;gap:16px;align-items:center;padding:4px 0 12px}
+/* Device pane (device-overview-demos.html O5 + meters Me, picked 15 Oct): untitled, the
+   photo and name, the vitals as columns, the hardware facts in two columns. */
+.dd-devpane{padding-top:14px}
+.dd-hw-st{margin-top:6px!important}
+.dd-vcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:end;margin:4px 0 6px}
+.vc{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:end;min-width:0}
+.vc[role=button]{cursor:pointer}.vc[role=button]:hover .vc-v{color:var(--accent-text)}
+.vc-tube{height:64px;border-radius:7px;background:var(--surface2);position:relative;overflow:hidden}
+.vc-tube i{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:var(--text-faint)}
+.vc.t-ok .vc-tube i{background:var(--ok)}.vc.t-warn .vc-tube i{background:var(--warn)}.vc.t-danger .vc-tube i{background:var(--danger)}
+.vc.t-ok .vc-v{color:var(--ok)}.vc.t-warn .vc-v{color:var(--warn)}.vc.t-danger .vc-v{color:var(--danger)}
+.vc-v{font-size:17px;font-weight:650;color:var(--text);line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vc-t{min-width:0}.vc-t small{display:block;font-size:11px;color:var(--muted);line-height:1.3;margin-top:2px}
+.vc-up{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:2px}.vc-up b{color:var(--text);font-weight:650}
+.dd-hwkv{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;margin-top:6px}
+.dd-hwkv .ddc-kv{min-width:0}
+.dd-needs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-radius:14px;background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent);font-size:12.5px}
+.dd-needs b{color:var(--warn);font-weight:700;margin-right:4px}.dd-needs .cc-tag{background:var(--surface)}
+.dd-fold-card{padding-top:4px;padding-bottom:4px}
+.dd-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 0;font-size:13.5px;font-weight:650;color:var(--text)}
+.dd-fold>summary::-webkit-details-marker{display:none}
+.dd-fold>summary .sum{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted);display:flex;gap:6px;align-items:center}
+.dd-fold>summary::after{content:"›";color:var(--text-faint);transform:rotate(90deg);transition:transform .15s}
+.dd-fold[open]>summary::after{transform:rotate(270deg)}
+/* the facts in Overview keep only what the pane does not show */
+#dd-panel-summary .dd-facts #device-vitals-live{display:none!important}
+.ddc-hw-pic{width:112px;height:112px;flex:none;object-fit:contain;border-radius:14px;background:var(--surface2)}
+.ddc-hw-pic.ic-only{display:grid;place-items:center}
+.ddc-hw-pic.ic-only svg{width:44px;height:44px;fill:none;stroke:var(--text-faint);stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.ddc-hw-t{min-width:0}.ddc-hw-t b{display:block;font-size:15px;font-weight:650;color:var(--text)}
+.ddc-hw-t small{display:block;font-size:12px;color:var(--muted);line-height:1.5;margin-top:3px}
+.ddc-hw-spec{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ddc-hw-spec span{font-size:11px;font-weight:650;border-radius:6px;padding:2px 8px;background:var(--surface2);color:var(--text-2)}
+@media(max-width:720px){.ddc-hw-pic{width:84px;height:84px}}
+.dd-facts>.dd-tabrow-r{margin-left:auto}
+/* In the split the chips share the facts line, so they go compact: Notes is its icon,
+   the pad says only "Pad" unless something is wrong, and the Wi-Fi name moves to the
+   tooltip. */
+.dd-facts.is-split .dd-notes-t{display:none}
+.dd-facts.is-split .dd-pad-chip:not([data-st="flapping"]):not([data-st="bad"]) .dd-pad-sep,
+.dd-facts.is-split .dd-pad-chip:not([data-st="flapping"]):not([data-st="bad"]) #pad-chip-t{display:none}
+.dd-facts.is-split .dfc-wide .dfm{display:none}
+.dd-facts.is-split .dd-tabrow-r .cc-btn{padding-left:9px;padding-right:9px}
+
+</style>
+<script>
+(function () {
+  // Split is the only wide-screen layout (14 Oct): graph on the left, tabs on the right.
+  // Narrower windows stack them, as before.
+  var WIDE = window.matchMedia('(min-width: 1100px)');
+  // Markers remember where the graph and the tab row live in the normal layout, so
+  // undocking puts them back exactly.
+  function apply() {
+    var main = document.querySelector('.ddc-main'), card = document.querySelector('.chart-card'),
+        tabrow = document.querySelector('.ddc-main .dd-tabrow'), facts = document.querySelector('.ddc-main .dd-facts');
+    if (!main || !card || !tabrow || !facts) return;
+    var on = WIDE.matches, split = document.getElementById('dd-split');
+    // The toggle lives in the top bar (copied there from the page's island template),
+    // so its pressed look is driven by a body class rather than by the button itself.
+    document.body.classList.toggle('dd-is-split', on);
+    if (on && !split) {
+      if (!card.__home) { card.__home = document.createComment('chart-home'); card.parentNode.insertBefore(card.__home, card); }
+      if (!tabrow.__home) { tabrow.__home = document.createComment('tabs-home'); tabrow.parentNode.insertBefore(tabrow.__home, tabrow); }
+      split = document.createElement('div'); split.id = 'dd-split'; split.className = 'dd-split';
+      var l = document.createElement('div'); l.className = 'dd-split-l';
+      var r = document.createElement('div'); r.className = 'dd-split-r';
+      split.appendChild(l); split.appendChild(r);
+      facts.parentNode.insertBefore(split, facts.nextSibling);
+      // Facts line above both panes; the tab row heads the right pane.
+      tabrow.parentNode.insertBefore(facts, split);
+      facts.classList.add('is-split');
+      l.appendChild(card);
+      var lg = document.getElementById('vt-legend'); if (lg) l.appendChild(lg);
+      r.appendChild(tabrow);
+      // Pad and Notes join the end of the facts line, so the tabs keep one row.
+      var chips = tabrow.querySelector('.dd-tabrow-r'); if (chips) facts.appendChild(chips);
+      Array.prototype.slice.call(main.querySelectorAll(':scope > .dd-panel')).forEach(function (p) { r.appendChild(p); });
+      // The facts (client, battery, vitals, venue, groups, pad, notes) open Overview rather
+      // than spanning both panes (15 Oct); undocking puts them back above the tabs.
+      var sum = document.getElementById('dd-panel-summary'); if (sum) sum.insertBefore(facts, sum.firstChild);
+    } else if (!on && split) {
+      var rr = split.querySelector('.dd-split-r');
+      Array.prototype.slice.call(rr.querySelectorAll(':scope > .dd-panel')).forEach(function (p) { main.insertBefore(p, split); });
+      if (tabrow.__home) tabrow.__home.parentNode.insertBefore(tabrow, tabrow.__home);
+      var ch = facts.querySelector(':scope > .dd-tabrow-r'); if (ch) tabrow.appendChild(ch);
+      facts.classList.remove('is-split');
+      if (tabrow.__home) tabrow.parentNode.insertBefore(facts, tabrow.nextSibling);
+      if (card.__home) card.__home.parentNode.insertBefore(card, card.__home);
+      var lg2 = document.getElementById('vt-legend'); if (lg2) card.parentNode.insertBefore(lg2, card.nextSibling);
+      split.remove();
+    } else return;
+    aboutIntoOverview(on);
+    // In Overview the facts follow the device pane (and what needs a look).
+    if (on) { var anc = document.getElementById('dd-needs') || document.getElementById('dd-hw'); if (anc) anc.parentNode.insertBefore(facts, anc.nextSibling); }
+    overviewTab(on);
+    fit();
+    // Charts follow their new container width.
+    setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 30);
+    setTimeout(function () { if (window.ddSyncMap) window.ddSyncMap(); }, 80);
+  }
+  // In the split the graph has left Overview; what stays there is the map and the pad
+  // card, and a device with neither (a mains-powered stock device) would open on an empty
+  // tab. Hide it then, and open the next tab instead.
+  function aboutIntoOverview(on) {
+    var about = document.getElementById('dd-panel-about'), ov = document.getElementById('dd-panel-summary'),
+        tab = document.getElementById('dd-tab-about'), grid = document.querySelector('#dd-panel-about > .about-grid, #dd-panel-summary > .about-grid');
+    if (!about || !ov || !grid) return;
+    if (on && grid.parentNode === about) {
+      ov.appendChild(grid);
+      if (tab) {
+        tab.hidden = true;
+        if (tab.classList.contains('active') && window.setDeviceTab) window.setDeviceTab('summary', document.getElementById('dd-tab-summary'));
+      }
+    } else if (!on && grid.parentNode === ov) {
+      about.appendChild(grid);
+      if (tab) tab.hidden = false;
+    }
+  }
+  function overviewTab(on) {
+    var t = document.getElementById('dd-tab-summary'), p = document.getElementById('dd-panel-summary');
+    if (!t || !p) return;
+    var empty = !Array.prototype.some.call(p.children, function (c) {
+      return !/^(SCRIPT|STYLE|TEMPLATE|LINK)$/.test(c.tagName) && !c.hidden && getComputedStyle(c).display !== 'none';
+    });
+    t.hidden = on && empty;
+    function away() {
+      if (!t.hidden || !t.classList.contains('active') || !window.setDeviceTab) return;
+      var alt = document.getElementById('dd-tab-apps') || document.getElementById('dd-tab-about');
+      if (alt) window.setDeviceTab(alt.getAttribute('data-dd-tab'), alt);
+    }
+    // On first load setDeviceTab is defined further down the page.
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', away); else away();
+  }
+  // In the split the page itself does not scroll: the split fills the window above the
+  // dock, and each pane scrolls on its own (the tabs pane, and the graph pane when the
+  // window is short). Too short a window falls back to an ordinary scrolling page.
+  function fit() {
+    var split = document.getElementById('dd-split');
+    var root = document.documentElement;
+    if (!split) { root.classList.remove('dd-fit'); return; }
+    split.style.height = '';
+    var top = split.getBoundingClientRect().top + (window.scrollY || 0);
+    var h = window.innerHeight - top - 100;            // clear of the floating dock
+    var ok = h >= 420;
+    root.classList.toggle('dd-fit', ok);
+    if (ok) { split.style.height = h + 'px'; window.scrollTo(0, 0); }
+  }
+  window.addEventListener('resize', function () { requestAnimationFrame(fit); });
+
+  // The map used to fill Overview down to the graph's end; it has its own Location tab now
+  // (15 Oct), so it keeps its own height.
+  function syncMap() {
+    var map = document.getElementById('dev-map');
+    if (map) map.style.height = '';
+  }
+  window.ddSyncMap = syncMap;
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(function () { requestAnimationFrame(syncMap); });
+    var cc = document.querySelector('.chart-card'); if (cc) ro.observe(cc);
+  }
+  window.addEventListener('resize', function () { requestAnimationFrame(syncMap); });
+  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.dd-tab')) setTimeout(syncMap, 30); });
+
+  if (WIDE.addEventListener) WIDE.addEventListener('change', apply); else if (WIDE.addListener) WIDE.addListener(apply);
+  apply();
+})();
+</script>
 </div><!-- /ddc-body -->
 </div><!-- /device-detail -->
 
@@ -4158,7 +4813,6 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // Device-detail tab switching. The active tab is remembered per device so a
   // server-triggered reload (e.g. after sending a reboot from Controls) re-opens
   // the same tab instead of snapping back to the summary.
-  var ddTabKey = 'dd-tab:{{.Device.SerialNumber}}';
   function setDeviceTab(name, btn) {
     document.querySelectorAll('.dd-tab').forEach(function (t) { var sel = t === btn; t.classList.toggle('active', sel); t.setAttribute('aria-selected', sel ? 'true' : 'false'); });
     document.querySelectorAll('.dd-panel').forEach(function (p) {
@@ -4167,10 +4821,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
         // Lazy panels (Alerts, History) fetch their content on first open; the
         // "once" in their hx-trigger makes repeat opens a no-op.
         var lazy = p.hasAttribute('hx-get') ? p : p.querySelector(':scope > [hx-trigger^="dd-show"]');
-        if (lazy) { window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); }
+        // process() first: on a deep-link or remembered tab this runs before htmx has wired
+        // the element up, and the trigger would go to nothing. It is a no-op when already done.
+        if (lazy) { window.htmx.process(lazy); window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); }
       }
     });
-    try { localStorage.setItem(ddTabKey, name); } catch (e) {}
     // Charts may have been laid out while hidden; nudge a resize when summary shows.
     if (name === 'summary' && window.mdmChart) {
       requestAnimationFrame(function () { window.dispatchEvent(new Event('resize')); });
@@ -4191,6 +4846,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     if (!pop) return;
     var open = pop.hidden;
     pop.hidden = !open;
+    if (open) window.ddFactsPop(pop, btn);
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     btn.closest('.cpill-wrap').classList.toggle('open', open);
     if (!open) return;
@@ -4252,14 +4908,15 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   })();
 
   // On load, honor a ?tab= deep-link (a crash link from the fleet views points at
-  // ?tab=alerts), else fall back to the per-device remembered tab. The query param
-  // wins so a shared link always lands on the tab it names.
+  // ?tab=alerts). Nothing else: the page opens on Overview every time.
   (function () {
     var want = null;
     try { var qp = new URLSearchParams(location.search); if (qp.get('tab')) want = qp.get('tab'); } catch (e) {}
-    if (!want) { try { want = localStorage.getItem(ddTabKey); } catch (e) {} }
+    // A device page always opens on Overview; only a link that names a tab opens another.
+    if (want === 'queue' || want === 'history') want = 'activity'; // the two tabs merged
     if (!want || want === 'summary') return;
     var btn = document.getElementById('dd-tab-' + want);
+    if (btn && btn.hidden) return;   // About lives in Overview in the split view
     if (btn) setDeviceTab(want, btn);
   })();
 
@@ -4280,7 +4937,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     if (!pop) return;
     var opening = pop.hasAttribute('hidden');
     document.querySelectorAll('.pl-pop').forEach(function (p) { p.setAttribute('hidden', ''); });
-    if (opening) { pop.removeAttribute('hidden'); }
+    if (opening) { pop.removeAttribute('hidden'); window.ddFactsPop(pop, btn); }
   };
   window.ddAddGroup = function (gid, btn) {
     // URLSearchParams -> application/x-www-form-urlencoded. Must NOT be FormData: that
@@ -4501,6 +5158,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       el.className = 'pad-stat pad-stat-na';
       var tn = el.querySelector('.pad-txt'); if (tn) tn.textContent = 'Not available';
       if (warn) warn.hidden = true;
+      if (window.ddPadChip) window.ddPadChip('na');
       return;
     }
     var map = { 1: ['on', 'Wireless charging active'], 0: ['vacant', 'Vacant'], 2: ['flapping', 'Charging pad misplaced'] };
@@ -4508,6 +5166,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     el.className = 'pad-stat pad-stat-' + m[0];
     var t = el.querySelector('.pad-txt'); if (t) t.textContent = m[1];
     if (warn) warn.hidden = (wlc !== 2);
+    if (window.ddPadChip) window.ddPadChip(m[0]);
   };
 
   window.chShowAll = function () {
@@ -5145,7 +5804,7 @@ async function saveNewApp() {
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{else}}{{with index $.NuggetIDByPackage $p.PackageName}}<div class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</div>{{end}}{{end}}
-    {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall")}}
+    {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall") (not $.Restricted)}}
     {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
          server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app
          shows "Uninstalling…" until the device confirms removal. */}}
@@ -5181,8 +5840,6 @@ async function saveNewApp() {
 
 {{define "device_history.html"}}
 {{template "header" .}}
-
-<a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
 <div class="ov-greet">
   <h1 class="ov-title">History</h1>
   <span class="ov-date">check-in and action history for this device</span>
@@ -5339,3 +5996,26 @@ document.addEventListener('keydown', function (e) {
 
 {{template "footer" .}}
 {{end}}
+
+{{define "dd-audit"}}
+    <div class="ddc-card" id="dd-activity">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Activity</h2>{{if and .Activity (canManageUsers .Role)}}<span class="m muted small"><a href="/activity?device={{.Device.SerialNumber}}" class="link-detail">all activity</a></span>{{end}}</div>
+  {{if .Activity}}
+  {{range .Activity}}
+  <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
+    {{template "ubub" (userBubble .ActorKey)}}
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;line-height:1.45;">{{$u := userURL .ActorKey}}{{if $u}}<a href="{{$u}}" class="link-detail" style="font-weight:650;">{{.Actor}}</a>{{else}}<b>{{.Actor}}</b>{{end}} {{.Did}}</div>
+      <div class="muted" style="font-size:11.5px;margin-top:2px;" title="{{.At}}">{{.At.Format "2 Jan 2006, 15:04"}} UTC</div>
+    </div>
+  </div>
+  {{end}}
+  {{else}}
+  <div class="muted" style="padding:12px 14px;font-size:12.5px;border-top:1px solid var(--border-soft);">
+    Nothing recorded yet. Changes made from this page — locked mode, wireless charging, placement, naming — will appear here with who made them.
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "device-vitals-cols"}}{{range vitalCols .Device .ShowBattery .ChargerFlapping}}<div class="vc t-{{.Tone}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}

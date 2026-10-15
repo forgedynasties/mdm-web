@@ -457,7 +457,7 @@ func main() {
 			}
 			_ = json.Unmarshal(raw, &p)
 			hub.SignalPong(p.Nonce)
-		case "logcat_stream", "logcat_stream_end":
+		case "logcat_stream", "logcat_stream_end", "shell_data", "shell_end":
 			logMgr.HandleDeviceMessage(raw)
 		case "net_sighting":
 			scoutSvc.IngestSighting(context.Background(), deviceID, raw)
@@ -557,7 +557,6 @@ func main() {
 	mux.Handle("POST /api/v1/restaurants", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.CreateRestaurant))))
 	mux.Handle("POST /api/v1/restaurants/{id}/devices", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.AssignRestaurantDevices))))
 	mux.Handle("POST /api/v1/restaurants/{id}/guest-wifi", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetRestaurantGuestWifi))))
-	mux.Handle("POST /api/v1/devices/{serial}/table", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.SetDeviceTable))))
 	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("GET /api/v1/devices/{serial}/temp-fast", adminAuth(http.HandlerFunc(apiHandler.GetTempFast)))
@@ -820,6 +819,13 @@ func main() {
 				// where that was switched on. A device that was away collects it the
 				// first minute it is seen again — see client_autoupdate.go.
 				runJob(bgCtx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
+				// The role model (static/device-role-model-plan.html): close lab sessions
+				// whose time is up, then keep each device on its role's app build. Both
+				// act only where a lab session or a prod build exists.
+				runJob(bgCtx, "lab-expiry", time.Minute, dash.RunLabExpiry)
+				runJob(bgCtx, "role-firmware", time.Minute, dash.RunRoleFirmware)
+				runJob(bgCtx, "lock-rules", time.Minute, dash.RunLockRules)
+				runJob(bgCtx, "role-alerts", time.Minute, dash.RunRoleAlerts)
 			}
 		}
 	})

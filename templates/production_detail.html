@@ -4,8 +4,6 @@
 <style>.fl-page{max-width:1280px;margin:0 auto}@media(max-width:480px){.fl-page .cc-kpis{grid-template-columns:repeat(2,1fr)}}</style>
 
 <div class="fl-page">
-<a href="/productions" class="back-link">← Productions</a>
-
 <div class="cc-top" style="margin-top:10px">
   <div>
     <div class="cc-eyebrow">Fleet · Productions</div>
@@ -38,7 +36,17 @@
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h2>Production info</h2></div>
   <table class="table table-compact">
     <tr>
-      <td class="muted" style="width:180px;">Product Code</td>
+      <td class="muted" style="width:180px;">Hardware model</td>
+      <td>{{if canOperate .Role}}
+        <form method="POST" action="/productions/{{.Production.ID}}/model" hx-boost="false" style="margin:0;display:inline-flex">
+          <select name="model" class="form-input" style="height:32px;padding:0 8px;width:auto" onchange="this.form.submit()" aria-label="Hardware model">
+            <option value="">Not linked</option>
+            {{$m := .Production.Model}}{{range .Models}}<option value="{{.Key}}"{{if eq .Key $m}} selected{{end}}>{{.Label}} · {{.Key}}</option>{{end}}
+          </select>
+        </form>{{else}}{{if .Production.Model}}{{productLabel .Production.Model}}{{else}}<span class="muted">Not linked</span>{{end}}{{end}}</td>
+    </tr>
+    <tr>
+      <td class="muted">Product Code</td>
       <td class="mono">{{.Production.ProductCode}}</td>
     </tr>
     <tr>

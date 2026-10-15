@@ -35,6 +35,9 @@ const (
 	// autoUpdateSeenFactor × the check-in interval is "present enough to be worth
 	// queuing for" — the same multiple the fleet list calls offline at.
 	autoUpdateSeenFactor = 3
+	// autoUpdateMaxFails is how many failed installs of one build a device gets before
+	// the job stops offering it that build.
+	autoUpdateMaxFails = 3
 )
 
 // RunClientAutoUpdate hands the hosted build to devices that are behind it, for every
@@ -98,6 +101,14 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			log.Printf("[client-auto-update] %s: in-flight: %v", slot, err)
 			continue
 		}
+		// A device that refused this build for its signing key never will take it, and one
+		// it keeps failing on is not helped by a fresh copy every two minutes: stop offering
+		// it until a new build is published (the manual Update button still works).
+		giveUp, err := h.db.AgentUpdateGiveUps(ctx, ids, build.SHA256Hex, autoUpdateMaxFails)
+		if err != nil {
+			log.Printf("[client-auto-update] %s: give-ups: %v", slot, err)
+			continue
+		}
 		payload := agentUpdatePayload(build.Package, build.Version, build.SHA256Hex)
 		sent := 0
 		for _, d := range cand {
@@ -105,6 +116,9 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 				break
 			}
 			if _, busy := inFlight[d.ID]; busy {
+				continue
+			}
+			if _, stop := giveUp[d.ID]; stop {
 				continue
 			}
 			cmd, err := h.db.CreateCommandBy(ctx, "app_update", apkURL, payload, "devices",
@@ -137,7 +151,6 @@ func deviceNow(d *db.Device) time.Time {
 	return time.Now().In(loc)
 }
 
-
 // ClientAutoUpdateSet records the standing instruction for one slot. It changes what the
 // server will do unprompted, so it is admin-only and written to the audit log.
 func (h *Handler) ClientAutoUpdateSet(w http.ResponseWriter, r *http.Request) {
@@ -169,5 +182,5 @@ func (h *Handler) ClientAutoUpdateSet(w http.ResponseWriter, r *http.Request) {
 		what = "paused"
 	}
 	h.audit(r, "settings.client_auto_update", slot, what)
-	http.Redirect(w, r, "/clients?slot="+slot, http.StatusFound)
+	http.Redirect(w, r, "/lineup?client="+slot+"&flash=rollout", http.StatusFound)
 }

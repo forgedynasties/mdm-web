@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"mdm/internal/db"
+	prod "mdm/internal/product"
 )
 
 // Lock rules: the Policies page's kiosk policies, enforced continuously. A device
@@ -77,12 +78,45 @@ func ruleCovers(r db.KioskPolicy, d db.Device, sc db.DeviceScope) bool {
 	return false
 }
 
+// Role lock (static/device-role-model-plan.html): a device at a venue is locked to its
+// role's app, ahead of any rule on the Lock page, once that role has a prod build. Each
+// role gets a virtual rule with a stable id, so the enforcer below does the work it
+// already does for rules — wait for the app, skip agents that can't lock, leave by-hand
+// overrides and staff exits alone, release a device that stops being covered. A device
+// in a lab session is covered by no rule at all, which is what releases it.
+
+// roleRuleNS namespaces the virtual rule ids.
+var roleRuleNS = uuid.MustParse("6f1e5d1c-3b0a-4c55-9a43-2f7d1c0b9e61")
+
+// roleRuleID is the stable id of a role's virtual lock rule.
+func roleRuleID(role string) uuid.UUID { return uuid.NewSHA1(roleRuleNS, []byte("role-lock:"+role)) }
+
+// roleLockRules returns one virtual rule per role that has an app with a prod build.
+func roleLockRules(st *roleAppState) map[string]db.KioskPolicy {
+	out := map[string]db.KioskPolicy{}
+	for role, base := range st.Apps {
+		if st.Channels[role][base] == nil {
+			continue
+		}
+		out[role] = db.KioskPolicy{ID: roleRuleID(role), Name: "Role: " + prod.ClassLabel(role), KioskPackage: base, TargetType: "role", Priority: -1}
+	}
+	return out
+}
+
+// IsRoleRule reports whether a device's recorded rule is a role's virtual rule.
+func IsRoleRule(id *uuid.UUID, role string) bool { return id != nil && *id == roleRuleID(role) }
+
 // kioskSnapshot places every device in the fleet under the rules.
 func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskDevice, error) {
 	rules, err := h.db.ListKioskPolicies(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+	roleSt, err := h.loadRoleAppState(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	roleRules := roleLockRules(roleSt)
 	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 100000, "", "")
 	if err != nil {
 		return nil, nil, err
@@ -99,6 +133,9 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 	for _, r := range rules {
 		pkgs = append(pkgs, r.KioskPackage)
 	}
+	for _, r := range roleRules {
+		pkgs = append(pkgs, r.KioskPackage)
+	}
 	installed, err := h.db.InstalledPackages(ctx, pkgs)
 	if err != nil {
 		return nil, nil, err
@@ -108,6 +145,17 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 	for _, d := range devs {
 		k := kioskDevice{Dev: d, State: states[d.ID], CanLock: d.Supports("kiosk_set")}
 		_, k.Online = online[d.ID]
+		if _, inLab := roleSt.Labs[d.ID]; inLab {
+			out = append(out, k) // in lab: no rule covers it, so a rule's lock is released
+			continue
+		}
+		if rr, ok := roleRules[d.Class()]; ok && d.RestaurantID != nil {
+			rr := rr
+			k.Rule, k.Covering = &rr, 1
+			k.HasApp = installed[d.ID][rr.KioskPackage]
+			out = append(out, k)
+			continue
+		}
 		for i := range rules {
 			if ruleCovers(rules[i], d, scopes[d.ID]) {
 				k.Covering++
@@ -133,8 +181,15 @@ var kioskReconcileMu sync.Mutex
 func (h *Handler) reconcileKiosk(ctx context.Context) int {
 	kioskReconcileMu.Lock()
 	defer kioskReconcileMu.Unlock()
-	if in, err := h.db.KioskRulesInUse(ctx); err != nil || !in {
+	in, err := h.db.KioskRulesInUse(ctx)
+	if err != nil {
 		return 0
+	}
+	if !in {
+		// Role locks count as rules in use.
+		if st, err := h.loadRoleAppState(ctx); err != nil || len(roleLockRules(st)) == 0 {
+			return 0
+		}
 	}
 	_, devs, err := h.kioskSnapshot(ctx)
 	if err != nil {
@@ -189,6 +244,11 @@ func (h *Handler) reconcileKiosk(ctx context.Context) int {
 	}
 	return len(changed)
 }
+
+// RunLockRules is the minute tick for the enforcer above. It was documented as running
+// every minute but was only ever called after a rule change, so a device that joined a
+// restaurant was not locked until someone next saved a rule. Role locks depend on it.
+func (h *Handler) RunLockRules(ctx context.Context) { h.reconcileKiosk(ctx) }
 
 // kioskRuleFor returns the rule that covers one device, if any (for the device page).
 func (h *Handler) kioskRuleFor(ctx context.Context, dev db.Device) *db.KioskPolicy {

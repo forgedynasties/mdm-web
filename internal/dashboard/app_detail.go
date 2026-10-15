@@ -149,6 +149,7 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	// What a send would reach. Resolved now so both buttons carry a count and nothing is
 	// sent blind; the unknown-version devices are excluded by the same rule as the dialog.
+	// Roles no longer carry an app (14 Oct), so apps are sent from here again.
 	v.CanSend = v.InLibrary && h.commandTypeAllowed(h.role(r), "install_apk")
 	if v.CanSend {
 		if t, err := h.db.SerialsMissingPackage(ctx, pkg); err == nil {

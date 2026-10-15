@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit: shell, reboot, and everything else as config</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { padding: 28px 34px 140px; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -.01em; }
+  h2 { font-size: 17px; margin: 38px 0 8px; }
+  h3 { font-size: 14px; margin: 22px 0 6px; }
+  p, li { font-size: 13.5px; line-height: 1.6; color: var(--text-2); }
+  p b, li b { color: var(--text); font-weight: 650; }
+  .lede { max-width: 880px; }
+  .model { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 6px; }
+  .model .m { border: 1px solid var(--border); border-radius: 13px; background: var(--surface); padding: 14px 16px; }
+  .model .m .k { font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); }
+  .model .m .t { font-size: 15px; font-weight: 750; margin: 3px 0 5px; }
+  .model .m p { margin: 0; font-size: 12.5px; }
+  .model .m.cmd .t { color: var(--danger); } .model .m.sess .t { color: var(--accent-2); } .model .m.cfg .t { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 10px 0 4px; }
+  th { text-align: left; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); padding: 8px 9px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 9px; border-bottom: 1px solid var(--border-soft); vertical-align: top; color: var(--text-2); line-height: 1.45; }
+  td:first-child { font-family: var(--mono); font-size: 11.5px; color: var(--text); white-space: nowrap; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+  .tag.cmd { background: var(--danger-bg); color: var(--danger); }
+  .tag.sess { background: var(--accent-2-soft); color: var(--accent-2); }
+  .tag.cfg { background: var(--ok-bg); color: var(--ok); }
+  .tag.drop { background: var(--surface2); color: var(--muted); }
+  .tag.sys { background: var(--warn-bg); color: var(--warn); }
+  .find { border-left: 3px solid var(--warn); background: var(--warn-bg); border-radius: 0 10px 10px 0; padding: 10px 14px; margin: 10px 0; }
+  .find b { color: var(--text); }
+  .find code, td code, p code, li code { font-size: 11.5px; background: var(--surface2); border: 1px solid var(--border-soft); border-radius: 5px; padding: 1px 5px; }
+  .pick { display: inline-block; font-size: 10.5px; font-weight: 800; color: var(--accent-text); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; margin-left: 8px; vertical-align: 1px; }
+  .steps li { margin-bottom: 7px; }
+  .q { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 12px 16px; margin: 10px 0; }
+  .q b { display: block; color: var(--text); margin-bottom: 3px; }
+  .q p { margin: 0; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Audit: shell, reboot, and everything else as configuration</h1>
+  <p class="lede">The model you described: <b>shell</b> is a live session, not a job; <b>reboot</b> is the one
+    imperative command; <b>everything else is desired state</b> declared for a set of devices — "this lot has
+    this app", "this lot is locked to this app" — and reconciled continuously. This audit puts every command
+    type and every existing policy mechanism against that model, says what already fits, what has to change,
+    and what is simply broken today. Inventory is from <code>main</code> at <code>86f485b3</code>, 13 Oct.</p>
+
+  <div class="model">
+    <div class="m cmd"><div class="k">Imperative</div><div class="t">Command</div><p>Happens once, now, and cannot be undone by a config. Only <code>reboot</code> qualifies — plus <code>wipe</code> and <code>unenroll</code>, which are terminal (see below).</p></div>
+    <div class="m sess"><div class="t">Session</div><p>A live, attended connection to one device: shell, screen, logcat. Nothing is queued; if nobody is watching, nothing runs.</p></div>
+    <div class="m cfg"><div class="k">Declarative</div><div class="t">Config</div><p>A rule bound to a scope. The server compares every device against it and closes the gap itself, forever — not once.</p></div>
+  </div>
+
+  <h2>1 · What is wrong today, before the model is even applied</h2>
+  <div class="find"><b>Two command catalogues, and they disagree.</b> <code>internal/command/registry.go</code> (delivery policy: lane, lease, deadline) and <code>internal/product/commands.go</code> (roles, API acceptance, capability). <code>app_reload / app_restart / app_clear_cache / app_update_check</code> exist only in the product table and get the registry's default; <code>config / canary / start_capture / stop_capture</code> exist only in the registry. There is also a third list in the Actions page JS (<code>KIND_FALLBACK</code>, <code>commands.html:1047</code>) and a fourth in <code>cmdtitle.go</code>.</div>
+  <div class="find"><b>Queued commands silently die after an hour.</b> <code>GetPendingCommandsForDevice</code> (<code>db.go:5413</code>) only hands out commands created in the last 60 minutes, whatever the registry says (installs claim a 2h deadline, OTA 6h). A device that was off for an hour never sees the install you queued, and nothing tells you.</div>
+  <div class="find"><b>There is no interactive shell.</b> The page titled "Interactive shell" (<code>device_shell.html</code>) sends each line as a separate one-off <code>shell</code> command and even warns that <code>cd</code> does not persist. The only genuinely live path is the adb tunnel (<code>internal/adbtunnel</code>), which is admin-only and needs <code>adb_tcp</code> switched on first.</div>
+  <div class="find"><b>The config channel is half-built.</b> A <code>config</code> command type exists in the registry and the DPC client handles it — but <b>no server code ever creates one</b>, and the firmware client fails it as unknown. The real config path is the WS <code>config</code> frame plus the check-in response. The fleet-wide <code>device_policy</code> (update policy, Wi-Fi/CA/VPN, managed app configs) is still merged into every check-in and still applied by the DPC client, but its UI pages were deleted in <code>45166d41</code> — it is live, un-editable state.</div>
+  <div class="find"><b>Scope resolution is written thirteen times.</b> <code>resolveTargetDeviceIDs</code>, <code>resolveMixedDeviceIDs</code>, <code>resolveScopeDeviceIDs</code>, <code>CommandCreate</code>'s inline switch, <code>db.ResolveTargetIDs</code>, <code>resolvePolicyTargetIDs</code>, <code>ruleCovers</code>, <code>resolveEligibleDevicesUnscoped</code>, the API's own, the access filter's own, and duplicate DB helpers (<code>GetDeviceIDsInGroups</code> vs <code>GetDeviceIDsByGroupIDs</code>). Every one snapshots to a serial list, so nothing follows membership — a device added to a group tomorrow gets nothing that was "sent to the group" today.</div>
+
+  <h2>2 · Every command type, classified</h2>
+  <p>What it is today → what it becomes. "Scope" is where the rule attaches in the target model.</p>
+  <table>
+    <tr><th>type</th><th>today</th><th>becomes</th><th>in the target model</th></tr>
+    <tr><td>reboot</td><td>AtMostOnce command; issued from 9 places incl. OTA, schedules, move-server</td><td><span class="tag cmd">command</span></td><td>Stays exactly as is. The one button that is allowed to be a button. Its <code>reboot_behavior</code> on deployments (immediate / scheduled / manual) is already the right shape.</td></tr>
+    <tr><td>wipe · unenroll</td><td>AtMostOnce, DPC only, terminal</td><td><span class="tag cmd">command</span></td><td>Also imperative — you cannot "declare" a device wiped. Keep as commands, keep behind the destructive confirmation. Three commands total.</td></tr>
+    <tr><td>shell</td><td>One-off <code>sh -c</code> per line; also fleet-bulk and schedulable</td><td><span class="tag sess">session</span></td><td>Becomes a real PTY over the existing WS (the DPC client already keeps one persistent <code>sh</code>; the firmware client needs the same). Fleet-bulk shell and scheduled shell go. The shell page stops creating command rows.</td></tr>
+    <tr><td>query</td><td>Admin-vetted read-only text, sent as <code>shell</code></td><td><span class="tag drop">fold</span></td><td>Becomes a saved command inside the session ("run a diagnostic" picks from the catalog and types it into the PTY). The catalog stays; the command type goes.</td></tr>
+    <tr><td>collect_logs</td><td>Fixed script as <code>shell</code>, result zipped</td><td><span class="tag sys">internal</span></td><td>Needs its own transport — a <code>collect_logs</code> WS request with the archive uploaded back, like <code>logcat_request</code> already is. Not a user-visible command.</td></tr>
+    <tr><td>canary</td><td>Daily <code>echo</code> as <code>shell</code>, proves control</td><td><span class="tag sys">internal</span></td><td>Keep the probe, lose the shell: a <code>ping_request</code> frame already exists for the firmware client. Round-trip stamp moves to that.</td></tr>
+    <tr><td>screenshot</td><td>Command from grid, menu, fleet bulk</td><td><span class="tag sess">session</span></td><td>It is a session artefact (Remote Control already streams the screen). "Take a screenshot" becomes a button inside the remote session; bulk screenshots go.</td></tr>
+    <tr><td>install_apk · uninstall</td><td>One-off to a serial snapshot; coverage is read-only</td><td><span class="tag cfg">config</span></td><td><b>"This lot has app X at version V."</b> A rule on a scope; a minute job compares inventory to the rule and queues the install/uninstall for whoever is behind, forever. This is option B of <code>app-install-demos.html</code>, which was picked and never built. The coverage code (<code>app_coverage.go</code>) is the diff engine already.</td></tr>
+    <tr><td>app_update</td><td>Auto-update policy per client slot <b>(already a rule)</b></td><td><span class="tag cfg">config</span></td><td>Done. <code>client_autoupdate.go</code> is the template for every other rule: scope, target, window, pause, minute job, 20 per tick, skip in-flight.</td></tr>
+    <tr><td>ota</td><td>Deployment with a snapshotted target set</td><td><span class="tag cfg">config</span></td><td><b>"This lot is on build B."</b> Already reconciles per device until at target; the gap is that the target set is frozen at creation, so new members of a group never get it. Make the deployment's scope live.</td></tr>
+    <tr><td>set_kiosk (device_config)</td><td>Lock rules reconcile every minute <b>(already a rule)</b></td><td><span class="tag cfg">config</span></td><td>Done — <code>kiosk_rules.go</code> is the second working rule engine. Two stale comments still call it "a snapshot, not a live binding" (<code>db.go:12145</code>, <code>handlers.go:17654</code>). Per-device overrides ("Follow the rule again") are the right escape hatch.</td></tr>
+    <tr><td>config</td><td>Registry type with no producer</td><td><span class="tag drop">delete</span></td><td>Remove the type. Config travels as the config frame / check-in response, which is already level-triggered.</td></tr>
+    <tr><td>adb_tcp</td><td>Command that sets a port + auto-off timer</td><td><span class="tag cfg">config</span></td><td>"Wireless adb is on for this device until 18:00" is a setting with an expiry, re-sent in config. The device-side timer stays.</td></tr>
+    <tr><td>mic_gain_set / read</td><td>T7 codec value via shell; set has no UI</td><td><span class="tag cfg">config</span></td><td>A hardware setting on the device page: desired gain in config, current gain in telemetry. The read command disappears into telemetry.</td></tr>
+    <tr><td>update_splash</td><td>Boot-logo partition write (UI retired)</td><td><span class="tag cfg">config</span></td><td>"This lot shows logo L." A rule with a digest; device applies when its reported digest differs. Still not advertised in the UI — that decision stands.</td></tr>
+    <tr><td>app_reload · app_restart · app_clear_cache · app_update_check</td><td>MDM-lite WebView controls, lite only</td><td><span class="tag drop">delete</span></td><td>Lite left the client lineup on 2026-10-05. Delete with the rest of the lite surface.</td></tr>
+    <tr><td>start_capture · stop_capture</td><td>Already WS-only, LiveOnly</td><td><span class="tag sess">session</span></td><td>Already correct — the pattern the shell should copy.</td></tr>
+  </table>
+  <p>End state: <b>3 commands</b> (reboot, wipe, unenroll), <b>3 session kinds</b> (shell, screen, logcat), and <b>config</b> for the rest. The Actions page becomes a list of rules plus a reboot button; the Jobs page shows rule reconciliation and reboots.</p>
+
+  <h2>3 · The rule engines that already exist — and which one to copy</h2>
+  <table>
+    <tr><th>mechanism</th><th>scope</th><th>reconciles drift?</th><th>verdict</th></tr>
+    <tr><td>kiosk lock rules</td><td>all / venue / group / device, ordered, first match</td><td><b>Yes</b> — minute job, waits for the app, honours per-device override</td><td>Keep. The scope model (ordered rules, first match wins, per-device override) is the one every other rule should use.</td></tr>
+    <tr><td>client auto-update</td><td>fleet per slot, time window, pause</td><td><b>Yes</b> — minute job, 20/tick, skips in-flight</td><td>Keep. The job shape (present + behind + inside window → queue, bounded) is the template for app rules.</td></tr>
+    <tr><td>release deployments (OTA)</td><td>snapshot of serials at creation</td><td>Per device yes; membership no</td><td>Fix: store the scope, resolve at tick time.</td></tr>
+    <tr><td>schedules / pins</td><td>recipe target re-resolved at fire time</td><td><b>No</b> — fires a command</td><td>Keep only for reboot (a scheduled reboot is a real need). Scheduled shell and scheduled installs go — installs are rules with a window.</td></tr>
+    <tr><td>fleet device_policy (Wi-Fi, CA, VPN, update policy, managed app configs)</td><td>fleet only</td><td>Level-triggered on DPC; firmware ignores it</td><td>This is the config channel already working. It needs its UI back and a scope narrower than "the whole fleet".</td></tr>
+    <tr><td>guest info (venue Wi-Fi, table, guest app)</td><td>venue + device</td><td>Level-triggered on every check-in</td><td>Already correct — display data pushed as config. Note it is <b>not</b> device Wi-Fi provisioning; that is <code>device_policy.network</code>, DPC only.</td></tr>
+    <tr><td>enrollment profiles</td><td>devices enrolled through it</td><td><b>Fires once</b></td><td>Becomes the thing that puts a device into scopes (venue, group, class). It should not carry settings itself — the rules on those scopes do.</td></tr>
+    <tr><td>app coverage + "standing rule" demo</td><td>—</td><td>Read-only</td><td>Build it. The diff is computed; it only lacks the rule table and the job.</td></tr>
+  </table>
+
+  <h2>4 · One scope, not thirteen</h2>
+  <p>A rule needs a scope that is <b>evaluated, not snapshotted</b>: "all", "venue X", "group G", "class kiosk", "device S" — ordered, first match wins, exactly as kiosk rules do today (<code>ruleCovers</code>). Every command/rule/deployment path should call one <code>Scope.Resolve(ctx)</code> at tick time. The shared picker then outputs a scope (<code>{kind,id}</code> rows) rather than a flattened serial list, with "Choose devices…" producing a <code>device</code> scope per pick. The thirteen resolvers collapse to that one function plus the per-device predicate.</p>
+
+  <h2>5 · Plan</h2>
+  <ol class="steps">
+    <li><b>Stop the bleeding (small, now).</b> Merge the two catalogues into one (registry owns the row; product gets role/caps from it); delete <code>config</code> and the four lite types; make <code>GetPendingCommandsForDevice</code> honour the registry deadline instead of a flat hour; fix the two stale "snapshot" comments.</li>
+    <li><b>One scope type + one resolver.</b> Introduce <code>Scope</code> (ordered rows of kind/id), <code>Resolve</code> and <code>Covers(device)</code>; port kiosk rules onto it (they already have this shape), then deployments (live membership), then the picker's output.</li>
+    <li><b>App rules.</b> New table <code>app_rules</code> (scope, package, version-or-latest, window, paused, by/at) and a minute job cloned from <code>client_autoupdate.go</code> using the coverage diff. "Install on N" on the Apps page creates a rule; the one-off install path becomes "rule with a one-device scope", so nothing is lost. Jobs shows what the rule queued.</li>
+    <li><b>Live shell.</b> A <code>shell_open</code> WS frame opens a PTY on the device (DPC: wrap the existing <code>ShellSession</code>; firmware: a <code>ProcessBuilder</code> PTY), multiplexed over the device socket exactly like <code>start_capture</code>; the browser side is the current SSE page turned into a terminal. Query catalog becomes a dropdown in that terminal. <code>canary</code> → <code>ping_request</code>; <code>collect_logs</code> → its own request frame + upload; legacy OTA probe → the same frame. Then delete the <code>shell</code> command type, fleet-bulk shell and scheduled shell.</li>
+    <li><b>Settings to config.</b> <code>adb_tcp</code>, mic gain, boot logo become fields in config with scopes; bring back the <code>device_policy</code> UI (Wi-Fi/CA/VPN, update policy, managed app configs) as rules on scopes rather than one fleet blob.</li>
+    <li><b>Actions page</b> → "Rules" (app rules, lock rules, firmware, settings) + a Reboot section; Jobs → reconciliation log + reboots. Schedules keep reboot only.</li>
+  </ol>
+  <p>Order matters: 1 and 2 are prerequisites for 3; 3 is the first visible win ("this lot has this app"); 4 is independent of 3 and can run in parallel. 5 and 6 are the long tail.</p>
+
+  <h2>6 · Decisions that are yours</h2>
+  <div class="q"><b>Are wipe and unenroll commands, or do they go behind the enrollment flow?</b><p>They are imperative by nature. Recommendation: keep them as commands next to reboot, destructive-confirmed, so "command" means exactly "cannot be expressed as a rule". <span class="pick">my pick: three commands</span></p></div>
+  <div class="q"><b>Does a one-off install still exist, or is every install a rule?</b><p>Recommendation: every install is a rule; a one-off is a rule with a single-device scope that you may delete afterwards. One code path, and the Jobs history stays complete. The user never has to know the word "rule" — the Apps page says "Install on these 36" and keeps them installed.</p></div>
+  <div class="q"><b>Does a live shell need the global shell switch and the per-device audit trail?</b><p>Today each shell line is a command row with author, time and output. A PTY loses that unless the session transcript is stored. Recommendation: store the transcript per session (who, when, device, bytes), keep the global switch, keep admin-only.</p></div>
+  <div class="q"><b>What happens to bulk screenshot and bulk shell?</b><p>Both are "run X on 40 devices and read the results" — a job, not a session. If that workflow matters, it is one legitimate exception: a bounded "run a diagnostic on a scope" that uses the query catalog only (no free text). Otherwise they go. Recommendation: keep the catalog-only diagnostic as the single exception.</p></div>
+</div>
+</body>
+</html>
