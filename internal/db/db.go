@@ -5731,7 +5731,11 @@ func (d *DB) CompleteDeliveredReboots(ctx context.Context, deviceID uuid.UUID, b
 		  AND cs.device_id = $1
 		  AND c.type = 'reboot'
 		  AND cs.status = 'delivered'
-		  AND cs.updated_at < $2
+		  -- When the device first got it, not when the row was last touched: a reboot is
+		  -- pushed again when the device reconnects after rebooting (the client knows the
+		  -- id and does not reboot twice), which refreshed updated_at past the boot and left
+		  -- the reboot "delivered" for ever, holding up every command queued after it.
+		  AND COALESCE(cs.received_at, cs.updated_at) < $2
 	`, deviceID, bootedAt)
 	return err
 }
@@ -13387,6 +13391,8 @@ CREATE TABLE IF NOT EXISTS compliance_baseline (
     updated_by TEXT NOT NULL DEFAULT '',
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- auto_fix (15 Oct): act on a failure where the check has a fix (see the registry).
+ALTER TABLE compliance_baseline ADD COLUMN IF NOT EXISTS auto_fix BOOLEAN;
 CREATE TABLE IF NOT EXISTS compliance_overrides (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     position   INT  NOT NULL DEFAULT 0,
