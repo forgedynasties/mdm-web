@@ -1522,6 +1522,7 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-ack] AckCommand error: %v", err)
 		return
 	}
+	h.afterWipeAck(ctx, body.CommandID, deviceID, body.Status)
 	if body.Status == "installed" && body.Package != "" {
 		if cmd, err := h.db.GetCommand(ctx, body.CommandID); err == nil && cmd.ApkURL != "" {
 			_ = h.db.LearnApkPackage(ctx, cmd.ApkURL, body.Package)
@@ -2685,6 +2686,7 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
+	h.afterWipeAck(r.Context(), cmdID, device.ID, body.Status)
 	// Learn which package this APK installs, so future stuck installs auto-reconcile.
 	if body.Status == "installed" && body.Package != "" {
 		if cmd, err := h.db.GetCommand(r.Context(), cmdID); err == nil && cmd.ApkURL != "" {
@@ -2935,6 +2937,29 @@ func (h *Handler) DeleteProduction(w http.ResponseWriter, r *http.Request) {
 // deviceCommandType is a thin alias for db.DeviceCommandType (the single source of
 // truth) so the device always sees a type its agent understands.
 func deviceCommandType(t string) string { return db.DeviceCommandType(t) }
+
+// afterWipeAck: a firmware device acks a wipe just before it erases itself, losing its own
+// key with everything else. Forget the key now, so the wiped device's first check-in (on
+// the image's shared key) registers a new one instead of being refused as a device that
+// "uses its own key".
+func (h *Handler) afterWipeAck(ctx context.Context, cmdID, deviceID uuid.UUID, status string) {
+	if status != "completed" {
+		return
+	}
+	cmd, err := h.db.GetCommand(ctx, cmdID)
+	if err != nil || cmd.Type != "wipe" {
+		return
+	}
+	d, err := h.db.GetDeviceByID(ctx, deviceID)
+	if err != nil || d.IsDPC() {
+		return
+	}
+	if cleared, err := h.db.ResetDeviceKey(ctx, d.SerialNumber); err != nil {
+		log.Printf("[wipe] %s: key reset: %v", d.SerialNumber, err)
+	} else if cleared {
+		log.Printf("[wipe] %s: wiping — its own key is forgotten so it can register a new one", d.SerialNumber)
+	}
+}
 
 func marshalCommand(id uuid.UUID, cmdType, apkURL string, payload json.RawMessage) []byte {
 	msg, _ := json.Marshal(map[string]any{
