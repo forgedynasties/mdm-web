@@ -19317,6 +19317,13 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 	} else if n > 0 {
 		log.Printf("[retention] pruned %d fast temperature row(s) older than %dh", n, db.TempFastKeepHours)
 	}
+	// The battery log and charge climbs (client 1.10.1) keep 180 days: enough for a
+	// health trend over seasons, without the table growing for ever.
+	if n, err := h.db.PruneBatteryData(ctx, 180*24*time.Hour); err != nil {
+		log.Printf("[retention] prune battery data: %v", err)
+	} else if n > 0 {
+		log.Printf("[retention] pruned %d battery row(s) older than 180 days", n)
+	}
 	if d := h.cfg.LogcatRetentionDays(); d > 0 {
 		if n, err := h.db.PruneLogcat(ctx, d); err != nil {
 			log.Printf("[retention] prune logcat: %v", err)
