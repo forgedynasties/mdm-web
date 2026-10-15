@@ -224,7 +224,20 @@ func (d Device) CapSet() map[string]bool {
 	for _, c := range d.Capabilities {
 		out[c] = true
 	}
+	// Factory reset is the client's to offer, not the image's: 1.10.0+ says so.
+	if prod.DefaultCaps(d.Product) != nil && extraTrue(d.LatestExtra, "factory_reset") {
+		out[prod.CapWipe] = true
+	}
 	return out
+}
+
+// extraTrue reports whether a latest_extra key holds JSON true.
+func extraTrue(extra json.RawMessage, key string) bool {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(extra, &m) != nil {
+		return false
+	}
+	return string(m[key]) == "true"
 }
 
 // Supports reports whether the device can run a command type (see prod.CommandNeeds).

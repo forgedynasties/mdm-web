@@ -59,3 +59,20 @@ func TestStockDeviceCapabilitiesReplace(t *testing.T) {
 		t.Error("DPC gained a capability it did not advertise — stock devices must not inherit firmware defaults")
 	}
 }
+
+// Factory reset on a firmware device follows the client, not the image: only a client that
+// says it runs "wipe" (1.10.0+) is offered it.
+func TestFirmwareWipeFollowsClientFlag(t *testing.T) {
+	fw := Device{Product: "t7", AgentKind: product.KindFirmware}
+	if fw.Supports("wipe") {
+		t.Error("an older firmware client was offered a wipe it cannot run")
+	}
+	fw.LatestExtra = []byte(`{"factory_reset":true}`)
+	if !fw.Supports("wipe") {
+		t.Error("a client reporting factory_reset was not offered wipe")
+	}
+	fw.LatestExtra = []byte(`{"factory_reset":false}`)
+	if fw.Supports("wipe") {
+		t.Error("factory_reset=false still offered wipe")
+	}
+}
