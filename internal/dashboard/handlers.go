@@ -6504,6 +6504,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"KioskRule":           kioskRule,
 		"KioskOverride":       kioskOverride,
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
+		"PadState":            padState(device, h.cfg.WlcApplies(device.ProductKey()), kioskCfg.WlcChargingEnabled),
 		"MicGain":             micGainPtr(device.LatestExtra),
 		"Security":            h.securityFor(r.Context(), device),
 		"EnrolledByName":      h.displayName(r, device.EnrolledBy),
@@ -9382,6 +9383,10 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("cols") == "1" {
 		tpl = "device-vitals-cols" // the device pane's columns (Overview)
 	}
+	pad := ""
+	if kc, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID); err == nil && kc != nil {
+		pad = padState(device, h.cfg.WlcApplies(device.ProductKey()), kc.WlcChargingEnabled)
+	}
 	h.renderCachedHTML(w, r, tpl, map[string]any{
 		"Device": device,
 		// Same rule as the full page. Missing here, every live refresh fell through to the
@@ -9392,6 +9397,7 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ChargerFlapRate":     flapRate,
 		"ChargerFlapping":     flapRate > 10,
+		"PadState":            pad,
 	})
 }
 

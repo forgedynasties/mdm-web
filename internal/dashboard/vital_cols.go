@@ -28,7 +28,7 @@ func clampPct(v float64) int {
 
 // vitalColumns builds the columns for a device: power, temperature, RAM and Wi-Fi, each
 // only when the device reports it. d is *db.Device or db.Device (both reach templates).
-func vitalColumns(dv any, showBattery, flapping bool) []vitalCol {
+func vitalColumns(dv any, showBattery, flapping bool, pad string) []vitalCol {
 	var d *db.Device
 	switch v := dv.(type) {
 	case *db.Device:
@@ -66,6 +66,25 @@ func vitalColumns(dv any, showBattery, flapping bool) []vitalCol {
 		out = append(out, vitalCol{Key: "battery", Label: "Battery", Value: "—", Sub: "no reading yet", Tone: "muted"})
 	default:
 		out = append(out, vitalCol{Key: "power", Label: "Power", Value: "AC", Sub: "mains powered", Pct: 100, Tone: "muted"})
+	}
+
+	// The charging pad, a vital on a T7 (device-placement-demos.html, P2): clicking the
+	// column opens the pad's popover.
+	if pad != "" {
+		c := vitalCol{Key: "pad", Label: "Pad", Pct: 30, Tone: "muted"}
+		switch pad {
+		case "on":
+			c.Value, c.Sub, c.Pct, c.Tone = "On", "phone on it", 100, "ok"
+		case "vacant":
+			c.Value, c.Sub = "Empty", "no phone"
+		case "flapping":
+			c.Value, c.Sub, c.Tone = "Flapping", "charger", "warn"
+		case "na":
+			c.Value, c.Sub, c.Pct = "Off", "charging off", 0
+		default:
+			c.Value, c.Sub, c.Tone = "?", "unreadable", "warn"
+		}
+		out = append(out, c)
 	}
 
 	if t, src, ok := deviceTempC(raw); ok {
@@ -114,4 +133,46 @@ func vitalColumns(dv any, showBattery, flapping bool) []vitalCol {
 		out = append(out, c)
 	}
 	return out
+}
+
+// padState is the charging pad's state for the vitals: "" when the model has no pad or
+// the device reports none; else on | vacant | flapping | na (charging switched off) | bad.
+func padState(dv any, applicable, enabled bool) string {
+	var d *db.Device
+	switch v := dv.(type) {
+	case *db.Device:
+		d = v
+	case db.Device:
+		d = &v
+	}
+	if d == nil || !applicable {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(d.LatestExtra, &m) != nil {
+		return ""
+	}
+	raw, ok := m["wlc_status"]
+	if !ok {
+		return ""
+	}
+	var st string
+	if json.Unmarshal(raw, &st) != nil {
+		var n json.Number
+		if json.Unmarshal(raw, &n) != nil {
+			return ""
+		}
+		st = n.String()
+	}
+	switch {
+	case !enabled:
+		return "na"
+	case st == "1":
+		return "on"
+	case st == "0":
+		return "vacant"
+	case st == "2":
+		return "flapping"
+	}
+	return "bad"
 }
