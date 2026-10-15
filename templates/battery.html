@@ -1,0 +1,171 @@
+{{define "battery.html"}}
+{{template "header" .}}
+<style>
+/* ── Battery data (D1, picked 15 Oct): devices on the left, one device's curve, rows and
+   climbs on the right. ── */
+.bt-wrap{max-width:1240px;margin:0 auto}
+.bt-head{display:flex;align-items:center;gap:12px;margin:4px 0 4px}
+.bt-head h1{margin:0}
+.bt-lede{color:var(--muted);font-size:13px;margin:0 0 14px;max-width:900px;line-height:1.5}
+.bt-split{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+.bt-card{padding:12px 16px;margin-bottom:12px}
+.bt-ch{display:flex;align-items:center;gap:8px;margin:2px 0 10px;flex-wrap:wrap}
+.bt-ch h2{margin:0;font-size:14px}
+.bt-ch .r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.bt-list{position:sticky;top:76px}
+.bt-devs{max-height:calc(100vh - 260px);overflow:auto}
+.bt-dev{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 8px;border-radius:9px;text-decoration:none;color:var(--text-2);font-size:12.5px}
+.bt-dev:hover{background:var(--hover)}
+.bt-dev.on{background:var(--accent-soft)}
+.bt-dev b{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:650}
+.bt-dev small{grid-column:1/-1;color:var(--muted);font-size:11.5px}
+.bt-dev .n{font-variant-numeric:tabular-nums;color:var(--text-2);text-align:right}
+.bt-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.bt-kpis>.cc-card.bt-kpi{padding:10px 14px;margin:0}
+.bt-kpi b{display:block;font-size:19px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.bt-kpi span{font-size:11.5px;color:var(--muted)}
+.bt-seg{display:inline-flex;gap:2px;padding:3px;border-radius:9px;background:var(--surface2);border:1px solid var(--border)}
+.bt-seg a{font-size:12px;font-weight:650;padding:4px 10px;border-radius:7px;color:var(--text-2);text-decoration:none}
+.bt-seg a.on{background:var(--surface);color:var(--accent-text)}
+#bt-chart{width:100%;height:280px;display:block;color:var(--text)}
+.bt-lg{display:flex;gap:14px;font-size:11.5px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.bt-lg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.bt-raw{max-height:340px;overflow:auto;border:1px solid var(--border-soft);border-radius:10px}
+table.bt-t{width:100%;border-collapse:collapse;font-size:12px}
+.bt-t th{position:sticky;top:0;background:var(--surface);text-align:left;font-size:11px;font-weight:600;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border)}
+.bt-t td{padding:5px 8px;border-bottom:1px solid var(--border-soft);color:var(--text-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bt-t td.m{font-family:var(--mono);font-size:11.5px;color:var(--text)}
+.bt-mu{color:var(--muted)}
+.bt-empty{padding:30px 8px;text-align:center;color:var(--muted);font-size:13px}
+.bt-tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-pop);border-radius:9px;padding:6px 9px;font-size:11.5px;color:var(--text-2);white-space:nowrap;display:none}
+details.bt-climb>summary{cursor:pointer;list-style:none}
+details.bt-climb pre{font-size:11px;white-space:pre-wrap;word-break:break-all;color:var(--muted);margin:6px 0 0}
+</style>
+
+<div class="bt-wrap">
+  <div class="bt-head"><h1>Battery data</h1></div>
+  <p class="bt-lede">What firmware client 1.10.1 collects for the battery health model. Every battery broadcast and screen change on T7s (at most one row per 30 s while nothing changes), and the client's summary of each charge climb. Times are the device's own clock. Kept 180 days.</p>
+
+  <div class="bt-split">
+    <aside class="cc-card bt-card bt-list">
+      <div class="bt-ch"><h2>Devices sending</h2><span class="r"><a class="cc-btn sm" href="/battery/export.csv?range={{.Range}}" hx-boost="false" title="Every device's rows over the range">CSV, all</a></span></div>
+      <div class="bt-devs">
+      {{range .Devices}}
+        <a class="bt-dev{{if and $.Sel (eq $.Sel.Serial .Serial)}} on{{end}}" href="/battery?serial={{.Serial}}&amp;range={{$.Range}}">
+          <b>{{.Serial}}</b><span class="n">{{.Rows}}</span>
+          <small>{{if .Venue}}{{.Venue}} · {{end}}{{if .LastMV}}{{.LastMV}} mV{{end}}{{if .LastPct}} · {{.LastPct}}%{{end}} · last <span class="reltime" data-ts="{{.Last.Unix}}"></span>{{if .Climbs}} · {{.Climbs}} climb{{if ne .Climbs 1}}s{{end}}{{end}}</small>
+        </a>
+      {{else}}
+        <div class="bt-empty">No device has sent battery data in the last 7 days. It comes from firmware client 1.10.1 and newer.</div>
+      {{end}}
+      </div>
+      <p class="bt-mu" style="font-size:11.5px;margin:8px 0 0">Rows in the last 7 days.</p>
+    </aside>
+
+    <div>
+    {{if .Sel}}
+      <div class="bt-ch">
+        <h2 class="mono" style="font-size:15px"><a href="/devices/{{.Sel.Serial}}" style="color:inherit;text-decoration:none">{{.Sel.Serial}}</a></h2>{{if .Sel.Venue}}<span class="bt-mu" style="font-size:12.5px">{{.Sel.Venue}}</span>{{end}}
+        <span class="r">
+          <span class="bt-seg"><a href="/battery?serial={{$.Sel.Serial}}&amp;range=6h"{{if eq $.Range "6h"}} class="on"{{end}}>6h</a><a href="/battery?serial={{$.Sel.Serial}}&amp;range=24h"{{if eq $.Range "24h"}} class="on"{{end}}>24h</a><a href="/battery?serial={{$.Sel.Serial}}&amp;range=7d"{{if eq $.Range "7d"}} class="on"{{end}}>7d</a><a href="/battery?serial={{$.Sel.Serial}}&amp;range=30d"{{if eq $.Range "30d"}} class="on"{{end}}>30d</a></span>
+          <a class="cc-btn sm" href="/battery/export.csv?serial={{.Sel.Serial}}&amp;range={{.Range}}" hx-boost="false">Download CSV</a>
+        </span>
+      </div>
+      <div class="bt-kpis">
+        <div class="cc-card bt-kpi"><b>{{.Rows}}</b><span>rows in range</span></div>
+        <div class="cc-card bt-kpi"><b>{{if .Span}}{{.Span}}{{else}}—{{end}}</b><span>span</span></div>
+        <div class="cc-card bt-kpi"><b>{{if .MVNow}}{{.MVNow}} mV{{else}}—{{end}}</b><span>cell now</span></div>
+        <div class="cc-card bt-kpi"><b>{{if .MVHigh}}{{.MVLow}}–{{.MVHigh}}{{else}}—{{end}}</b><span>mV range</span></div>
+        <div class="cc-card bt-kpi"><b>{{if .Edges}}{{.Edges}}{{else}}0{{end}}</b><span>screen changes</span></div>
+      </div>
+
+      <section class="cc-card bt-card">
+        <div class="bt-ch"><h2>Voltage, charge and state</h2></div>
+        {{if .Rows}}
+        <div style="position:relative"><svg id="bt-chart" preserveAspectRatio="none" role="img" aria-label="Cell voltage and battery percent over time"></svg><div class="bt-tip" id="bt-tip"></div></div>
+        <div class="bt-lg"><span><i style="background:#f97316"></i>cell mV</span><span><i style="background:#60a5fa"></i>battery %</span><span><i style="background:#facc15"></i>temperature</span><span><i style="background:rgba(34,197,94,.3)"></i>charging</span><span><i style="background:rgba(168,85,247,.55)"></i>screen on</span></div>
+        <script type="application/json" id="bt-data">{{.Chart}}</script>
+        {{else}}<div class="bt-empty">No rows from this device in this range.</div>{{end}}
+      </section>
+
+      <section class="cc-card bt-card">
+        <div class="bt-ch"><h2>Raw rows</h2><span class="bt-mu" style="font-size:12px">newest first, up to 300</span>
+          <span class="r"><span class="bt-seg"><a href="/battery?serial={{.Sel.Serial}}&amp;range={{.Range}}"{{if eq .Ev ""}} class="on"{{end}}>all</a><a href="/battery?serial={{.Sel.Serial}}&amp;range={{.Range}}&amp;ev=b"{{if eq .Ev "b"}} class="on"{{end}} title="Battery broadcasts">b</a><a href="/battery?serial={{.Sel.Serial}}&amp;range={{.Range}}&amp;ev=s"{{if eq .Ev "s"}} class="on"{{end}} title="Screen on/off">s</a></span></span></div>
+        {{if .Raw}}
+        <div class="bt-raw"><table class="bt-t">
+          <tr><th>time</th><th>up</th><th>ev</th><th>mV</th><th>%</th><th>status</th><th>plug</th><th>temp</th><th>screen</th><th>ichg</th><th>iin</th><th>flap</th><th>wlc</th><th>wlc_on</th></tr>
+          {{range .Raw}}<tr><td class="m">{{.T.Format "02 Jan 15:04:05"}}</td><td>{{.UpS}}</td><td>{{.Ev}}</td><td>{{with .MV}}{{.}}{{else}}—{{end}}</td><td>{{with .Pct}}{{.}}{{else}}—{{end}}</td><td>{{with .Status}}{{.}}{{else}}—{{end}}</td><td>{{with .Plug}}{{.}}{{else}}—{{end}}</td><td>{{with .TempC}}{{.}}{{else}}—{{end}}</td><td>{{with .Screen}}{{if .}}on{{else}}off{{end}}{{else}}—{{end}}</td><td>{{with .IChgMA}}{{.}}{{else}}—{{end}}</td><td>{{with .IInMA}}{{.}}{{else}}—{{end}}</td><td>{{with .Flap}}{{if .}}1{{else}}0{{end}}{{else}}—{{end}}</td><td>{{with .Wlc}}{{.}}{{else}}—{{end}}</td><td>{{with .WlcOn}}{{.}}{{else}}—{{end}}</td></tr>{{end}}
+        </table></div>
+        <p class="bt-mu" style="font-size:11.5px;margin:8px 0 0">status: 2 charging · 3 discharging · 4 not charging · 5 full. plug: 1 AC · 2 USB · 4 wireless. ichg is the programmed charge current, not a measurement.</p>
+        {{else}}<div class="bt-empty">No rows in this range.</div>{{end}}
+      </section>
+
+      <section class="cc-card bt-card">
+        <div class="bt-ch"><h2>Charge climbs</h2><span class="bt-mu" style="font-size:12px">the client's summary of each constant-current climb</span></div>
+        {{if .Climbs}}
+        <table class="bt-t">
+          <tr><th>at</th><th>end</th><th>from</th><th>rungs</th><th>charge current</th><th>plug</th><th>temp</th><th>samples</th><th>widest gap</th></tr>
+          {{range .Climbs}}<tr><td class="m"><details class="bt-climb"><summary>{{.At.Format "02 Jan 15:04"}}</summary><pre>{{.Raw}}</pre></details></td><td>{{.End}}</td><td>{{.MV0}} mV, {{.Step}} mV steps</td><td>{{.Rungs}}</td><td>{{.IChg}}</td><td>{{.Plug}}</td><td>{{.Temp}}</td><td>{{.N}}</td><td>{{.Gap}} s</td></tr>{{end}}
+        </table>
+        {{else}}<div class="bt-empty" style="padding:14px 8px">None yet. A climb arrives after a charge from low enough to climb the rungs.</div>{{end}}
+      </section>
+    {{else}}
+      <section class="cc-card bt-card"><div class="bt-empty">Pick a device on the left.</div></section>
+    {{end}}
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var el = document.getElementById('bt-chart'), src = document.getElementById('bt-data');
+  if (!el || !src) return;
+  var R; try { R = JSON.parse(src.textContent); } catch (e) { return; }
+  if (!R.length) return;
+  // [ms, ev, mv, pct, status, plug, temp, screen]
+  function draw() {
+    var W = el.clientWidth || 800, H = el.clientHeight || 280, top = 14, bot = 22, h = H - top - bot;
+    var t0 = R[0][0], t1 = R[R.length - 1][0]; if (t1 === t0) t1 = t0 + 1;
+    var mv = R.filter(function (r) { return r[2] > 0; }).map(function (r) { return r[2]; });
+    var lo = Math.min.apply(null, mv) - 15, hi = Math.max.apply(null, mv) + 15;
+    function x(t) { return (t - t0) / (t1 - t0) * W; }
+    function y(v) { return top + h - (v - lo) / (hi - lo) * h; }
+    function yp(p) { return top + h - p / 100 * h; }
+    function yt(c) { return top + h - (c - 15) / 35 * h; }
+    var s = '';
+    for (var i = 0; i < R.length - 1; i++) {
+      var a = x(R[i][0]), b = Math.max(x(R[i + 1][0]) - a, 0.6);
+      if (R[i][4] === 2) s += '<rect x="' + a + '" y="' + top + '" width="' + b + '" height="' + h + '" fill="rgba(34,197,94,.13)"/>';
+      if (R[i][7] === 1) s += '<rect x="' + a + '" y="' + (H - bot + 4) + '" width="' + b + '" height="6" fill="rgba(168,85,247,.6)"/>';
+    }
+    function line(f, get, color, w, dash) {
+      var pts = R.filter(f).map(function (r) { return x(r[0]).toFixed(1) + ',' + get(r).toFixed(1); }).join(' ');
+      return '<polyline fill="none" stroke="' + color + '" stroke-width="' + w + '"' + (dash ? ' stroke-dasharray="' + dash + '"' : '') + ' points="' + pts + '"/>';
+    }
+    s += line(function (r) { return r[3] >= 0; }, function (r) { return yp(r[3]); }, '#60a5fa', 1.4, '4 3');
+    s += line(function (r) { return r[6] > -100; }, function (r) { return yt(r[6]); }, '#facc15', 1.1);
+    s += line(function (r) { return r[2] > 0; }, function (r) { return y(r[2]); }, '#f97316', 1.8);
+    var span = t1 - t0, fmtT = function (t) { var d = new Date(t); return span > 36e5 * 30 ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+    for (var k = 0; k <= 4; k++) { var tv = t0 + span * k / 4; s += '<text x="' + Math.min(Math.max(x(tv) - 20, 0), W - 70) + '" y="' + (H - 2) + '" font-size="11" fill="currentColor" opacity=".55">' + fmtT(tv) + '</text>'; }
+    s += '<text x="4" y="' + (top + 10) + '" font-size="11" fill="#f97316">' + hi + ' mV</text><text x="4" y="' + (top + h - 4) + '" font-size="11" fill="#f97316">' + lo + ' mV</text>';
+    s += '<line id="bt-cur" x1="0" x2="0" y1="' + top + '" y2="' + (top + h) + '" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="3 3" visibility="hidden"/>';
+    el.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    el.innerHTML = s;
+    var tip = document.getElementById('bt-tip'), cur = document.getElementById('bt-cur');
+    el.onmousemove = function (e) {
+      var bx = el.getBoundingClientRect(), t = t0 + (e.clientX - bx.left) / bx.width * span, best = 0;
+      for (var j = 1; j < R.length; j++) { if (Math.abs(R[j][0] - t) < Math.abs(R[best][0] - t)) best = j; }
+      var r = R[best], st = { 2: 'charging', 3: 'discharging', 4: 'not charging', 5: 'full' }[r[4]] || ('status ' + r[4]);
+      tip.innerHTML = new Date(r[0]).toLocaleString() + '<br><b>' + r[2] + ' mV</b> · ' + r[3] + '% · ' + st + (r[6] > -100 ? ' · ' + r[6].toFixed(1) + ' °C' : '') + (r[7] === 1 ? ' · screen on' : '');
+      tip.style.display = 'block';
+      var px = (r[0] - t0) / span * bx.width;
+      tip.style.left = Math.min(px + 12, bx.width - tip.offsetWidth - 4) + 'px'; tip.style.top = '8px';
+      cur.setAttribute('x1', x(r[0])); cur.setAttribute('x2', x(r[0])); cur.setAttribute('visibility', 'visible');
+    };
+    el.onmouseleave = function () { tip.style.display = 'none'; cur.setAttribute('visibility', 'hidden'); };
+  }
+  draw();
+  window.addEventListener('resize', function () { requestAnimationFrame(draw); });
+})();
+</script>
+{{template "footer" .}}
+{{end}}

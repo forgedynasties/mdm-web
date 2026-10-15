@@ -113,3 +113,128 @@ func (d *DB) PruneBatteryData(ctx context.Context, keep time.Duration) (int64, e
 	}
 	return total, err
 }
+
+// ── Reading it back (/battery) ────────────────────────────────────────────────
+
+// BatteryDeviceSummary is one device's battery log over a recent window.
+type BatteryDeviceSummary struct {
+	DeviceID    uuid.UUID
+	Serial      string
+	Venue       string
+	Rows        int
+	First, Last time.Time
+	LastMV      *int32
+	LastPct     *int16
+	Climbs      int
+}
+
+// BatteryDevices lists the devices with battery rows since `since`, most rows first. The
+// window keeps this an index range scan however long the table grows.
+func (d *DB) BatteryDevices(ctx context.Context, since time.Time) ([]BatteryDeviceSummary, error) {
+	rows, err := d.pool.Query(ctx, `
+		WITH s AS (
+			SELECT device_id, COUNT(*) AS n, MIN(t) AS first_t, MAX(t) AS last_t
+			FROM battery_samples WHERE t >= $1 GROUP BY device_id
+		)
+		SELECT s.device_id, d.serial_number, COALESCE(r.name, ''), s.n, s.first_t, s.last_t,
+		       l.mv, l.pct,
+		       (SELECT COUNT(*) FROM battery_climbs c WHERE c.device_id = s.device_id)
+		FROM s
+		JOIN devices d ON d.id = s.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		LEFT JOIN LATERAL (SELECT mv, pct FROM battery_samples b WHERE b.device_id = s.device_id AND b.ev = 'b'
+		                   ORDER BY b.t DESC LIMIT 1) l ON true
+		ORDER BY s.n DESC, d.serial_number`, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BatteryDeviceSummary
+	for rows.Next() {
+		var s BatteryDeviceSummary
+		if err := rows.Scan(&s.DeviceID, &s.Serial, &s.Venue, &s.Rows, &s.First, &s.Last, &s.LastMV, &s.LastPct, &s.Climbs); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// BatterySamplesFor returns a device's rows in [from, to), oldest first.
+func (d *DB) BatterySamplesFor(ctx context.Context, deviceID uuid.UUID, from, to time.Time) ([]BatterySample, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT t, up_s, ev, mv, pct, status, plug, temp_c, screen, ichg_ma, iin_ma, flap, wlc, wlc_on
+		FROM battery_samples WHERE device_id = $1 AND t >= $2 AND t < $3 ORDER BY t, up_s`, deviceID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BatterySample
+	for rows.Next() {
+		var s BatterySample
+		if err := rows.Scan(&s.T, &s.UpS, &s.Ev, &s.MV, &s.Pct, &s.Status, &s.Plug, &s.TempC, &s.Screen, &s.IChgMA, &s.IInMA, &s.Flap, &s.Wlc, &s.WlcOn); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// BatteryExportRow is a sample with its device, for the fleet CSV.
+type BatteryExportRow struct {
+	Serial string
+	TFixMs int64
+	BatterySample
+}
+
+// EachBatterySample streams rows in [from, to) — one device's, or every device's when
+// deviceID is nil — to fn, without holding them all in memory.
+func (d *DB) EachBatterySample(ctx context.Context, deviceID *uuid.UUID, from, to time.Time, fn func(BatteryExportRow) error) error {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number, b.t_fix_ms, b.t, b.up_s, b.ev, b.mv, b.pct, b.status, b.plug, b.temp_c, b.screen,
+		       b.ichg_ma, b.iin_ma, b.flap, b.wlc, b.wlc_on
+		FROM battery_samples b JOIN devices d ON d.id = b.device_id
+		WHERE b.t >= $1 AND b.t < $2 AND ($3::uuid IS NULL OR b.device_id = $3)
+		ORDER BY d.serial_number, b.t, b.up_s`, from, to, deviceID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r BatteryExportRow
+		s := &r.BatterySample
+		if err := rows.Scan(&r.Serial, &r.TFixMs, &s.T, &s.UpS, &s.Ev, &s.MV, &s.Pct, &s.Status, &s.Plug, &s.TempC, &s.Screen,
+			&s.IChgMA, &s.IInMA, &s.Flap, &s.Wlc, &s.WlcOn); err != nil {
+			return err
+		}
+		if err := fn(r); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}
+
+// BatteryClimb is one stored charge-climb summary.
+type BatteryClimb struct {
+	At       time.Time
+	Payload  json.RawMessage
+	Received time.Time
+}
+
+// BatteryClimbsFor returns a device's climbs, newest first.
+func (d *DB) BatteryClimbsFor(ctx context.Context, deviceID uuid.UUID, limit int) ([]BatteryClimb, error) {
+	rows, err := d.pool.Query(ctx, `SELECT at, payload, received_at FROM battery_climbs WHERE device_id = $1 ORDER BY at DESC LIMIT $2`, deviceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BatteryClimb
+	for rows.Next() {
+		var c BatteryClimb
+		if err := rows.Scan(&c.At, &c.Payload, &c.Received); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
