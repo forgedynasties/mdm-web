@@ -32,6 +32,7 @@ type compCheckRow struct {
 	compCheck
 	Setting db.ComplianceSetting
 	Counts  compCounts
+	AutoFix bool
 }
 
 type compGroupView struct {
@@ -139,12 +140,6 @@ func (h *Handler) compNames(ctx context.Context) (map[uuid.UUID]string, map[uuid
 	return venues, groups
 }
 
-// ComplianceIndex is the dock's Compliance entry. The overview page (compliance-page-
-// demos.html) is waiting for a pick; until then the rules are the page.
-func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/compliance/rules", http.StatusFound)
-}
-
 func (h *Handler) ComplianceRulesPage(w http.ResponseWriter, r *http.Request) {
 	if h.role(r) == "owner" {
 		http.Error(w, "Forbidden", http.StatusForbidden)
@@ -199,7 +194,7 @@ func (h *Handler) ComplianceRulesPage(w http.ResponseWriter, r *http.Request) {
 
 	var groupsView []compGroupView
 	for _, c := range complianceChecks {
-		row := compCheckRow{compCheck: c, Setting: rules.baseSetting(c)}
+		row := compCheckRow{compCheck: c, Setting: rules.baseSetting(c), AutoFix: rules.autoFix(c)}
 		if n := counts[c.ID]; n != nil {
 			row.Counts = *n
 		}
@@ -286,6 +281,10 @@ func parseCompSettings(r *http.Request, allowEmpty bool, def func(compCheck) db.
 				}
 			}
 		}
+		if !allowEmpty && c.Fix != "" {
+			on := r.FormValue("autofix_"+c.ID) == "1"
+			s.AutoFix = &on
+		}
 		if allowEmpty && s.Level == "" && s.Param == 0 {
 			continue
 		}
@@ -315,6 +314,9 @@ func (h *Handler) ComplianceBaselineSave(w http.ResponseWriter, r *http.Request)
 		}
 		if c.Unit != "" && was.Param != now.Param {
 			changes = append(changes, fmt.Sprintf("%s: %d → %d %s", c.ID, was.Param, now.Param, c.Unit))
+		}
+		if c.Fix != "" && now.AutoFix != nil && *now.AutoFix != rules.autoFix(c) {
+			changes = append(changes, fmt.Sprintf("%s: auto-fix %s", c.ID, map[bool]string{true: "on", false: "off"}[*now.AutoFix]))
 		}
 	}
 	if len(changes) == 0 {

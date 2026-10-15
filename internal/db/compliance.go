@@ -32,6 +32,9 @@ const (
 type ComplianceSetting struct {
 	Level string `json:"level,omitempty"`
 	Param int    `json:"param,omitempty"`
+	// AutoFix is the baseline's switch for checks that have a fix; nil = the check's
+	// default. Overrides do not carry it.
+	AutoFix *bool `json:"-"`
 }
 
 // ComplianceBaselineRow is the fleet's setting for one check.
@@ -74,7 +77,7 @@ type ComplianceResultKey struct {
 }
 
 func (d *DB) ComplianceBaseline(ctx context.Context) (map[string]ComplianceBaselineRow, error) {
-	rows, err := d.pool.Query(ctx, `SELECT check_id, level, param, updated_by, updated_at FROM compliance_baseline`)
+	rows, err := d.pool.Query(ctx, `SELECT check_id, level, param, auto_fix, updated_by, updated_at FROM compliance_baseline`)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +85,7 @@ func (d *DB) ComplianceBaseline(ctx context.Context) (map[string]ComplianceBasel
 	out := map[string]ComplianceBaselineRow{}
 	for rows.Next() {
 		var r ComplianceBaselineRow
-		if err := rows.Scan(&r.CheckID, &r.Setting.Level, &r.Setting.Param, &r.UpdatedBy, &r.UpdatedAt); err != nil {
+		if err := rows.Scan(&r.CheckID, &r.Setting.Level, &r.Setting.Param, &r.Setting.AutoFix, &r.UpdatedBy, &r.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out[r.CheckID] = r
@@ -99,9 +102,9 @@ func (d *DB) SetComplianceBaseline(ctx context.Context, set map[string]Complianc
 	defer tx.Rollback(ctx)
 	for id, s := range set {
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO compliance_baseline (check_id, level, param, updated_by, updated_at) VALUES ($1, $2, $3, $4, now())
-			ON CONFLICT (check_id) DO UPDATE SET level = EXCLUDED.level, param = EXCLUDED.param,
-				updated_by = EXCLUDED.updated_by, updated_at = now()`, id, s.Level, s.Param, by); err != nil {
+			INSERT INTO compliance_baseline (check_id, level, param, auto_fix, updated_by, updated_at) VALUES ($1, $2, $3, $4, $5, now())
+			ON CONFLICT (check_id) DO UPDATE SET level = EXCLUDED.level, param = EXCLUDED.param, auto_fix = EXCLUDED.auto_fix,
+				updated_by = EXCLUDED.updated_by, updated_at = now()`, id, s.Level, s.Param, s.AutoFix, by); err != nil {
 			return err
 		}
 	}
@@ -329,4 +332,38 @@ func (d *DB) SeedComplianceDefaults(ctx context.Context) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// AdbTcpLast is a device's most recent adb_tcp command: what it asked for and who sent it.
+type AdbTcpLast struct {
+	Port, Hours int
+	By          string
+	At          time.Time
+}
+
+// LastAdbTcpCommands returns the latest adb_tcp command for each of the given devices.
+func (d *DB) LastAdbTcpCommands(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]AdbTcpLast, error) {
+	out := map[uuid.UUID]AdbTcpLast{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ON (t.target_id) t.target_id, COALESCE((c.payload->>'port')::int, 0), COALESCE((c.payload->>'hours')::int, 0),
+		       COALESCE(c.created_by, ''), c.created_at
+		FROM commands c JOIN command_targets t ON t.command_id = c.id
+		WHERE c.type = 'adb_tcp' AND c.target_type = 'devices' AND t.target_id = ANY($1)
+		ORDER BY t.target_id, c.created_at DESC`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var l AdbTcpLast
+		if err := rows.Scan(&id, &l.Port, &l.Hours, &l.By, &l.At); err != nil {
+			return nil, err
+		}
+		out[id] = l
+	}
+	return out, rows.Err()
 }

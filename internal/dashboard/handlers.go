@@ -21886,6 +21886,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/lab/end", h.requireLab(h.deviceRoute("shell", h.LabEnd)))
 	post("POST /devices/{serial}/lab/install", h.requireLab(h.deviceRoute("shell", h.LabInstall)))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.deviceRoute("view", h.DeviceCommandsPartial)))
+	mux.HandleFunc("GET /devices/{serial}/compliance", h.requireAuth(h.deviceRoute("view", h.DeviceCompliancePartial)))
 	mux.HandleFunc("GET /devices/{serial}/alerts-panel", h.requireAuth(h.deviceRoute("view", h.DeviceAlertsPanel)))
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.deviceRoute("view", h.DeviceQueuePartial)))
 	post("POST /devices/{serial}/queue/clear", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceQueueClear)))

@@ -1,0 +1,148 @@
+{{define "compliance.html"}}
+{{template "header" .}}
+<style>
+/* ── Compliance (C1, picked 15 Oct): checks first; Venues and Devices as tabs. ── */
+.cp-wrap{max-width:1180px;margin:0 auto}
+.cp-head{display:flex;align-items:center;gap:12px;margin:4px 0 12px}
+.cp-head h1{margin:0}
+.cp-head .r{margin-left:auto;display:flex;gap:8px}
+.cp-tabs{display:inline-flex;gap:3px;padding:4px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);margin-bottom:12px}
+.cp-tabs a{font-size:12.5px;font-weight:650;padding:6px 13px;border-radius:9px;color:var(--text-2);text-decoration:none}
+.cp-tabs a.on{background:var(--surface);color:var(--accent-text)}
+.cp-kpis{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.cp-kpis>.cc-card{margin:0}
+.cp-kpi{padding:13px 16px}
+.cp-kpi b{display:block;font-size:26px;font-weight:700;line-height:1.2;color:var(--text);font-variant-numeric:tabular-nums}
+.cp-kpi span{font-size:12.5px;color:var(--muted)}
+.cp-kpi.big b{font-size:32px}
+.cp-ok{color:var(--ok)!important}.cp-bad{color:var(--danger)!important}.cp-wa{color:var(--warn)!important}.cp-mu{color:var(--muted)!important}
+.cp-card{padding:6px 18px 10px}
+.cp-ch{display:flex;align-items:center;gap:10px;padding:10px 0 6px}
+.cp-ch h2{margin:0;font-size:14.5px}.cp-ch .m{margin-left:auto;font-size:12px;color:var(--muted)}
+.cp-key i{display:inline-block;width:8px;height:8px;border-radius:2px;margin:0 3px 0 8px;vertical-align:0}
+details.cp-row{border-top:1px solid var(--border-soft)}
+details.cp-row>summary{list-style:none;display:grid;grid-template-columns:minmax(0,2.1fr) 104px minmax(0,1.9fr) 110px 16px;gap:14px;align-items:center;padding:10px 2px;cursor:pointer;font-size:13px}
+details.cp-row>summary::-webkit-details-marker{display:none}
+details.cp-row>summary:hover{background:var(--hover);border-radius:8px}
+.cp-nm b{font-weight:650;color:var(--text)}.cp-nm small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.cp-lv{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 8px;white-space:nowrap;justify-self:start}
+.cp-lv.required{background:var(--danger-bg);color:var(--danger)}.cp-lv.recommended{background:var(--warn-bg);color:var(--warn)}.cp-lv.off{background:var(--surface2);color:var(--muted)}
+.cp-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--surface2)}
+.cp-bar i{display:block;height:100%}.cp-bar .p{background:var(--ok)}.cp-bar .f{background:var(--danger)}.cp-bar .u{background:var(--text-faint);opacity:.45}.cp-bar .n{background:var(--surface2)}
+.cp-cnt{text-align:right;font-weight:650;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cp-chev{color:var(--text-faint);transition:transform .15s}
+details[open]>summary .cp-chev{transform:rotate(90deg)}
+.cp-devs{padding:2px 0 10px 18px}
+.cp-dev{display:grid;grid-template-columns:170px minmax(0,1fr) 220px 110px;gap:12px;padding:6px 4px;font-size:12.5px;color:var(--text-2);border-top:1px dashed var(--border-soft)}
+.cp-dev a{color:var(--text);font-family:var(--mono);font-size:12px;text-decoration:none}.cp-dev a:hover{color:var(--accent-text)}
+.cp-dev .s{color:var(--muted);text-align:right}
+.cp-more{display:block;padding:7px 4px;font-size:12.5px;color:var(--accent-text);text-decoration:none}
+table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
+.cp-t th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--border)}
+.cp-t td{padding:9px 8px;border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:top}
+.cp-t td b{color:var(--text);font-weight:650}
+.cp-t a{color:var(--text);text-decoration:none}.cp-t a:hover{color:var(--accent-text)}
+.cp-t .mono{font-family:var(--mono);font-size:12px}
+.cp-pct{font-weight:700;font-variant-numeric:tabular-nums}
+.cp-chips{display:flex;gap:5px;flex-wrap:wrap}
+.cp-chip{font-size:11px;font-weight:650;border-radius:6px;padding:2px 7px;background:var(--danger-bg);color:var(--danger);white-space:nowrap}
+.cp-chip.w{background:var(--warn-bg);color:var(--warn)}
+.cp-filters{display:flex;gap:6px;margin:4px 0 10px;flex-wrap:wrap;align-items:center}
+.cp-filters a{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);text-decoration:none}
+.cp-filters a.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+.cp-empty{padding:22px 4px;font-size:13px;color:var(--muted)}
+</style>
+<div class="cp-wrap">
+  <div class="cp-head">
+    <h1>Compliance</h1>
+    <div class="r"><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
+  </div>
+  <nav class="cp-tabs" aria-label="Compliance views">
+    <a href="/compliance"{{if eq .Tab "checks"}} class="on" aria-current="page"{{end}}>Checks</a>
+    <a href="/compliance?tab=venues"{{if eq .Tab "venues"}} class="on" aria-current="page"{{end}}>Venues</a>
+    <a href="/compliance?tab=devices"{{if eq .Tab "devices"}} class="on" aria-current="page"{{end}}>Devices</a>
+  </nav>
+
+  <div class="cp-kpis">
+    <div class="cc-card cp-kpi big"><b class="{{if ge .Pct 90}}cp-ok{{else if ge .Pct 70}}cp-wa{{else}}cp-bad{{end}}">{{.Pct}}%</b><span>of {{.InScope}} device{{if ne .InScope 1}}s{{end}} meet every required check</span></div>
+    <a class="cc-card cp-kpi" href="/compliance?tab=devices&amp;show=failing" style="text-decoration:none"><b class="{{if .Failing}}cp-bad{{end}}">{{.Failing}}</b><span>failing a required check</span></a>
+    <div class="cc-card cp-kpi" title="Their client reports none of the device checks (v2.0 images): only the server's checks apply."><b>{{.Partly}}</b><span>partly measurable: server checks only</span></div>
+    <a class="cc-card cp-kpi" href="/compliance?tab=devices&amp;show=recommended" style="text-decoration:none"><b>{{.RecOnly}}</b><span>held to recommendations only (lab, no venue)</span></a>
+  </div>
+
+  {{if eq .Tab "checks"}}
+  <section class="cc-card cp-card">
+    <div class="cp-ch"><h2>Checks</h2><span class="m cp-key">failing first<i style="background:var(--ok)"></i>pass<i style="background:var(--danger)"></i>fail<i style="background:var(--text-faint);opacity:.5"></i>unknown</span></div>
+    {{range .Checks}}
+    <details class="cp-row">
+      <summary>
+        <span class="cp-nm"><b>{{.Name}}</b><small>{{if .Help}}{{.Help}}{{else if .Device}}Reported by the device{{else}}Known to the server{{end}}</small></span>
+        <span class="cp-lv {{.Level}}">{{if eq .Level "required"}}Required{{else if eq .Level "recommended"}}Recommended{{else}}Off{{end}}</span>
+        <span class="cp-bar" aria-hidden="true">{{if .Counts.Pass}}<i class="p" style="flex:{{.Counts.Pass}}"></i>{{end}}{{if .Counts.Fail}}<i class="f" style="flex:{{.Counts.Fail}}"></i>{{end}}{{if .Counts.Unknown}}<i class="u" style="flex:{{.Counts.Unknown}}"></i>{{end}}{{if .Counts.NA}}<i class="n" style="flex:{{.Counts.NA}}"></i>{{end}}</span>
+        <span class="cp-cnt">{{if .Counts.Fail}}<span class="cp-bad">{{.Counts.Fail}} fail</span>{{else if .Counts.Pass}}<span class="cp-ok">all pass</span>{{else if .Counts.Unknown}}<span class="cp-mu">{{.Counts.Unknown}} unknown</span>{{else}}<span class="cp-mu">n/a</span>{{end}}</span>
+        <span class="cp-chev" aria-hidden="true">›</span>
+      </summary>
+      <div class="cp-devs">
+        {{if .Failing}}
+        {{range $i, $f := .Failing}}{{if lt $i 12}}
+        <div class="cp-dev"><a href="/devices/{{$f.Serial}}">{{$f.Serial}}</a><span>{{$f.Detail}}</span><span>{{if $f.Venue}}{{$f.Venue}}{{else}}<span class="cp-mu">no venue</span>{{end}}</span><span class="s">since <span class="reltime" data-ts="{{$f.Since.Unix}}"></span></span></div>
+        {{end}}{{end}}
+        <a class="cp-more" href="/compliance?tab=devices&amp;show=all&amp;check={{.ID}}">{{if gt (len .Failing) 12}}All {{len .Failing}} devices{{else}}Show in Devices{{end}} →</a>
+        {{else}}
+        <div class="cp-empty" style="padding:8px 4px">Nothing failing. {{.Counts.Pass}} pass{{if .Counts.Unknown}}, {{.Counts.Unknown}} unknown (not reported by their client){{end}}{{if .Counts.NA}}, {{.Counts.NA}} not applicable{{end}}.</div>
+        {{end}}
+      </div>
+    </details>
+    {{end}}
+  </section>
+  {{end}}
+
+  {{if eq .Tab "venues"}}
+  <section class="cc-card cp-card">
+    <div class="cp-ch"><h2>Venues</h2><span class="m">worst first</span></div>
+    {{if .Venues}}
+    <table class="cp-t">
+      <tr><th>Venue</th><th>Devices</th><th>Compliant</th><th>Failing</th><th>Most common problem</th><th>Measurable</th></tr>
+      {{range .Venues}}
+      <tr>
+        <td>{{if .ID}}<a href="/restaurants/{{.ID}}"><b>{{.Name}}</b></a>{{else}}<span class="cp-mu">{{.Name}}</span>{{end}}</td>
+        <td>{{.Devices}}</td>
+        <td>{{if lt .Pct 0}}<span class="cp-mu">recommendations only</span>{{else}}<span class="cp-pct {{if ge .Pct 90}}cp-ok{{else if ge .Pct 70}}cp-wa{{else}}cp-bad{{end}}">{{.Pct}}%</span>{{end}}</td>
+        <td>{{if .Fails}}<span class="cp-bad">{{.Fails}}</span>{{else}}0{{end}}</td>
+        <td>{{if .Worst}}{{.Worst}}{{else}}<span class="cp-mu">—</span>{{end}}</td>
+        <td>{{if eq .Partly .Devices}}server checks only{{else if .Partly}}{{.Partly}} of {{.Devices}} partly{{else}}fully{{end}}</td>
+      </tr>
+      {{end}}
+    </table>
+    {{else}}<div class="cp-empty">No device has been scored yet: results appear within a minute of the server starting.</div>{{end}}
+  </section>
+  {{end}}
+
+  {{if eq .Tab "devices"}}
+  <section class="cc-card cp-card">
+    <div class="cp-filters">
+      <a href="/compliance?tab=devices&amp;show=failing{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "failing"}} class="on"{{end}}>Failing {{index .Counts "failing"}}</a>
+      <a href="/compliance?tab=devices&amp;show=unknown{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "unknown"}} class="on"{{end}}>Passing, with unknowns {{index .Counts "unknown"}}</a>
+      <a href="/compliance?tab=devices&amp;show=compliant{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "compliant"}} class="on"{{end}}>Compliant {{index .Counts "compliant"}}</a>
+      <a href="/compliance?tab=devices&amp;show=recommended{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "recommended"}} class="on"{{end}}>Recommendations only {{index .Counts "recommended"}}</a>
+      <a href="/compliance?tab=devices&amp;show=all{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "all"}} class="on"{{end}}>All {{.Scored}}</a>
+      {{if .CheckF}}<a href="/compliance?tab=devices&amp;show={{.Show}}" class="on" title="Clear the check filter">{{.CheckName}} ×</a>{{end}}
+    </div>
+    {{if .List}}
+    <table class="cp-t">
+      <tr><th>Device</th><th>Venue</th><th>Failing</th><th>Since</th></tr>
+      {{range .List}}
+      <tr>
+        <td><a class="mono" href="/devices/{{.Serial}}"><b>{{.Serial}}</b></a></td>
+        <td>{{if .Venue}}{{.Venue}}{{else}}<span class="cp-mu">no venue</span>{{end}}</td>
+        <td><div class="cp-chips">{{range .Fails}}<span class="cp-chip" title="{{.Detail}}">{{.Name}}</span>{{end}}{{range .Warns}}<span class="cp-chip w" title="{{.Detail}} (recommended)">{{.Name}}</span>{{end}}{{if and (not .Fails) (not .Warns)}}<span class="cp-mu">{{if .Partly}}server checks pass; device checks not reported{{else if .Unknown}}{{.Unknown}} unknown{{else}}nothing{{end}}</span>{{end}}</div></td>
+        <td>{{if not .Since.IsZero}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{else}}<span class="cp-mu">—</span>{{end}}</td>
+      </tr>
+      {{end}}
+    </table>
+    {{else}}<div class="cp-empty">No devices here.</div>{{end}}
+  </section>
+  {{end}}
+</div>
+{{template "footer" .}}
+{{end}}

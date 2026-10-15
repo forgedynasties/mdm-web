@@ -12,6 +12,7 @@ var systemActors = map[string]string{
 	"api key":       "Admin API",
 	"claude-code":   "Claude Code",
 	"system":        "System",
+	"compliance":    "Compliance auto-fix",
 }
 
 // SystemActorLabel is how a system actor reads ("Auto-update", "Stage server"), and

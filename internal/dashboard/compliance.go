@@ -48,6 +48,8 @@ type compCheck struct {
 	Param                 int    // default threshold, 0 when the check has none
 	Unit                  string // the threshold's unit ("hours", "days")
 	FixedBy               string // what already acts on a failure, for the editor
+	Fix                   string // what auto-fix does, "" when the check has none
+	AutoFixDefault        bool   // auto-fix on before anyone sets it (decision of 15 Oct)
 	eval                  func(s *compSnapshot, d *db.Device, param int) (state, detail string)
 }
 
@@ -80,6 +82,7 @@ var complianceChecks = []compCheck{
 		eval: evalExtraFalse("adb_enabled", "USB debugging is on")},
 	{ID: "wireless_adb_off", Group: compGroupDebug, Name: "Wireless adb off", Device: true, Level: db.ComplianceRequired,
 		Help: "Nothing listening for adb on the venue network.",
+		Fix:  "turns wireless adb off, unless someone turned it on for a while from the adb page", AutoFixDefault: true,
 		eval: evalExtraFalse("adb_tcp", "adb is listening on the network")},
 	{ID: "dev_options_off", Group: compGroupDebug, Name: "Developer options off", Device: true, Level: db.ComplianceRecommended,
 		eval: evalExtraFalse("dev_options_enabled", "Developer options are on")},
@@ -322,6 +325,17 @@ func (r compRules) baseSetting(c compCheck) db.ComplianceSetting {
 	return set
 }
 
+// autoFix reports whether the baseline has auto-fix on for a check that has a fix.
+func (r compRules) autoFix(c compCheck) bool {
+	if c.Fix == "" {
+		return false
+	}
+	if b, ok := r.baseline[c.ID]; ok && b.Setting.AutoFix != nil {
+		return *b.Setting.AutoFix
+	}
+	return c.AutoFixDefault
+}
+
 // overrideCovers reports whether an override's scope includes the device.
 func overrideCovers(o db.ComplianceOverride, d *db.Device, sc db.DeviceScope, inLab bool) bool {
 	switch o.ScopeType {
@@ -519,7 +533,80 @@ func (h *Handler) RunCompliance(ctx context.Context) {
 	if moved > 0 || len(w.Remove) > 0 {
 		log.Printf("[compliance] %d result(s) changed state, %d removed", moved, len(w.Remove))
 	}
+	h.compAutoFix(ctx, s, rules, fresh)
 	if s.now.Minute() == 0 {
 		_ = h.db.PruneComplianceEvents(ctx, 400*24*time.Hour)
+	}
+}
+
+// ── Auto-fix ──────────────────────────────────────────────────────────────────
+
+const (
+	compFixActor = "compliance" // db.SystemActorLabel: "Compliance auto-fix"
+	compFixBatch = 20           // per tick
+	compFixAgain = 6 * time.Hour
+)
+
+// compAutoFix acts on failures it is allowed to fix. Today that is wireless adb: a device
+// that must have it off (required, so never a lab-session or no-venue device, which the
+// default overrides hold to recommendations) and has it on is sent "adb off" — unless the
+// last adb command was someone turning it on and that window has not run out, or "stays
+// on". At most once per device every few hours, and logged as the Compliance auto-fix.
+func (h *Handler) compAutoFix(ctx context.Context, s *compSnapshot, rules compRules, fresh map[db.ComplianceResultKey]db.ComplianceResult) {
+	c, ok := complianceCheck("wireless_adb_off")
+	if !ok || !rules.autoFix(c) {
+		return
+	}
+	devs := map[uuid.UUID]*db.Device{}
+	for i := range s.devices {
+		devs[s.devices[i].ID] = &s.devices[i]
+	}
+	var cand []uuid.UUID
+	for k, r := range fresh {
+		if k.CheckID != c.ID || r.State != db.ComplianceFail || r.Level != db.ComplianceRequired {
+			continue
+		}
+		d := devs[k.DeviceID]
+		if d == nil {
+			continue
+		}
+		if _, inLab := s.labs[d.ID]; inLab {
+			continue
+		}
+		if _, code := clientVersionOf(d); !d.Supports("adb_tcp") || code < adbTCPMinClientCode {
+			continue
+		}
+		cand = append(cand, d.ID)
+	}
+	if len(cand) == 0 {
+		return
+	}
+	last, err := h.db.LastAdbTcpCommands(ctx, cand)
+	if err != nil {
+		log.Printf("[compliance] auto-fix adb: %v", err)
+		return
+	}
+	payload, _ := json.Marshal(map[string]int{"port": 0, "hours": 0})
+	sent := 0
+	for _, id := range cand {
+		if sent >= compFixBatch {
+			break
+		}
+		if l, ok := last[id]; ok {
+			if l.By == compFixActor && s.now.Sub(l.At) < compFixAgain {
+				continue // asked recently; give the device time to answer
+			}
+			if l.Port > 0 && (l.Hours == 0 || s.now.Before(l.At.Add(time.Duration(l.Hours)*time.Hour))) {
+				continue // someone turned it on on purpose and the window is still open
+			}
+		}
+		cmd, err := h.db.CreateCommandBy(ctx, "adb_tcp", "", payload, "devices", []uuid.UUID{id}, compFixActor)
+		if err != nil {
+			log.Printf("[compliance] auto-fix adb %s: %v", devs[id].SerialNumber, err)
+			continue
+		}
+		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{id})
+		log.Printf("[compliance] auto-fix: wireless adb off for %s", devs[id].SerialNumber)
+		sent++
 	}
 }
