@@ -450,16 +450,11 @@
 
 <div class="cc-wrap dpl-wrap">
 
-{{if .DemoScenario}}
-<div class="alert alert-info" style="margin-bottom:14px;">
-  <b>Demo preview</b> — synthetic data, not a real deployment. Forms on this page point at a fake ID and will 404 if submitted. Use the design tabs below the device list to compare layouts. <a href="/demo/updates">← other scenarios</a>
-</div>
-{{end}}
 
 <div class="cc-top">
   <div>
     <div class="cc-eyebrow">Releases · deployment #{{$dep.ID}}</div>
-    <h1 class="cc-h1">{{if not .DemoScenario}}<a href="/releases/{{$rel.ID}}" class="hl" style="text-decoration:none;">{{$rel.Version}}</a>{{else}}<span class="hl">{{$rel.Version}}</span>{{end}} rollout <span class="cc-tag {{deployStatusClass $dep.Status}}" style="font-size:11px;">{{$dep.Status}}</span></h1>
+    <h1 class="cc-h1"><a href="/releases/{{$rel.ID}}" class="hl" style="text-decoration:none;">{{$rel.Version}}</a> rollout <span class="cc-tag {{deployStatusClass $dep.Status}}" style="font-size:11px;">{{$dep.Status}}</span></h1>
     <div class="cc-sub">Release <b>{{$rel.Version}}</b>{{if $rel.Name}} · {{$rel.Name}}{{end}} · {{productLabel $rel.Product}} · <b style="text-transform:capitalize;">{{$dep.RebootBehavior}}</b> reboot{{if $dep.ScheduledTime}} at {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}} · created {{timeSince $dep.CreatedAt}}{{if $dep.CreatedBy}}{{$by := userBubble $dep.CreatedBy}}{{if not $by.Admin}} · pushed by {{template "ubub" $by}} <b>{{$by.Name}}</b>{{end}}{{end}}</div>
   </div>
   <div class="cc-actions">
@@ -606,15 +601,8 @@
     <span class="m">{{.SummaryTotal}} device{{if ne .SummaryTotal 1}}s{{end}}{{if .LegacyRows}} · {{len $dep.Targets}} agent, {{len .LegacyRows}} legacy{{end}}{{if eq $dep.Status "active"}} · <span style="color:var(--ok);">live</span>{{end}}</span>
     <button type="button" class="cc-btn sm" style="margin-left:auto;" data-copy-serials="#deployment-targets" title="Copy every serial in this rollout, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
   </div>
-  {{if .DemoScenario}}
-  <div class="dpl-design-tabs">
-    <a class="dpl-design-tab{{if ne .Design "b"}}{{if ne .Design "c"}} on{{end}}{{end}}" href="?design=a">A · Table</a>
-    <a class="dpl-design-tab{{if eq .Design "b"}} on{{end}}" href="?design=b">B · Board</a>
-    <a class="dpl-design-tab{{if eq .Design "c"}} on{{end}}" href="?design=c">C · Compact list</a>
-  </div>
-  {{end}}
   <div id="deployment-targets" data-morph
-       {{if and (eq $dep.Status "active") (not .DemoScenario)}}
+       {{if eq $dep.Status "active"}}
        hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets" hx-select="unset" hx-target="this"
        hx-trigger="deployment-updated from:body, every 30s"
        hx-swap="innerHTML"
@@ -636,7 +624,7 @@
   // fires "deployment-update" when OTA progress ticks or anyone acts on the
   // deployment; we dispatch a body event that the targets div refetches on
   // (there's a slow 30s poll as a fallback if the stream drops).
-  {{if and (eq $dep.Status "active") (not .DemoScenario)}}
+  {{if eq $dep.Status "active"}}
   if (window.EventSource) {
     var des = window.mdmStream('/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/events');
     des.addEventListener('deployment-update', function () {

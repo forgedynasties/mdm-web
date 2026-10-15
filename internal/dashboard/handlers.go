@@ -16178,88 +16178,6 @@ func (h *Handler) CommandTargetPackages(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// TargetLivePage renders the working target-picker prototype (/demo/target-live) backed
-// by the real fleet: restaurants, groups and releases with live counts. All three
-// picker concepts share the JSON count endpoint below.
-func (h *Handler) TargetLivePage(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	at := h.cfg.CheckinInterval() * 3
-	rests, _ := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7)
-	groups, _ := h.db.GetGroupHealth(ctx, h.connectedSlice())
-	rels, _ := h.db.ListPublishedReleasesForRail(ctx)
-	rels = visibleRail(h.role(r), rels)
-	all, _ := h.db.ListDevices(ctx, db.DeviceFilter{ActiveThresholdSecs: at}, 0, 20000, "serial", "asc")
-	connected := h.hub.ConnectedIDs()
-	online := 0
-	for _, d := range all {
-		if _, up := connected[d.ID]; up {
-			online++
-		}
-	}
-	h.render(w, r, "target-live.html", map[string]any{
-		"Title":       "Target playground",
-		"Restaurants": rests,
-		"Groups":      groups,
-		"Releases":    rels,
-		"FleetTotal":  len(all),
-		"FleetOnline": online,
-	})
-}
-
-// TargetCountJSON resolves a target spec to a live device count for the target-picker
-// prototypes. mode = all | group | restaurant | build | audience | serials — every
-// non-serial mode is just a DeviceFilter, so audience rules compose into one query.
-func (h *Handler) TargetCountJSON(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	q := r.URL.Query()
-	var devices []db.Device
-	if q.Get("mode") == "serials" {
-		ids, _ := h.db.GetDeviceIDsBySerials(ctx, db.ParseSerials(q.Get("serials")))
-		devices, _ = h.db.GetDevicesByIDs(ctx, ids)
-	} else {
-		f := db.DeviceFilter{ActiveThresholdSecs: h.cfg.CheckinInterval() * 3}
-		if v := q.Get("group"); v != "" {
-			if id, err := uuid.Parse(v); err == nil {
-				f.GroupID = id
-			}
-		}
-		if v := q.Get("restaurant"); v != "" {
-			if id, err := uuid.Parse(v); err == nil {
-				f.RestaurantID = id
-			}
-		}
-		f.BuildID = q.Get("build")
-		f.Battery = q.Get("battery")
-		f.Online = q.Get("status")
-		f.Kiosk = q.Get("kiosk")
-		f.Charging = q.Get("charging")
-		devices, _ = h.db.ListDevices(ctx, f, 0, 20000, "serial", "asc")
-	}
-	devices = h.access(r).keepVisible(devices)
-	connected := h.hub.ConnectedIDs()
-	online := 0
-	type samp struct {
-		Serial  string `json:"serial"`
-		Online  bool   `json:"online"`
-		Battery int    `json:"battery"`
-	}
-	sample := make([]samp, 0, 60)
-	for _, d := range devices {
-		_, up := connected[d.ID]
-		if up {
-			online++
-		}
-		if len(sample) < 60 {
-			sample = append(sample, samp{d.SerialNumber, up, d.BatteryPct})
-		}
-	}
-	eff := len(devices)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"effective": eff, "online": online, "offline": eff - online, "sample": sample,
-	})
-}
-
 // markDeliveryPresence flags each delivery online when the device currently
 // holds a live WebSocket connection in the hub — so the UI can distinguish a
 // device that's about to ack from one that's offline and won't receive the
@@ -19159,63 +19077,6 @@ func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Req
 	h.settingsToggleResponse(w, r, "/settings/legacy-checkin/toggle", h.cfg.LegacyCheckin())
 }
 
-// DemoPage serves a self-contained devices-page UI/UX exploration from
-// templates/demo/<n>.html. Gated behind requireAuth so these design mockups are
-// never exposed unauthenticated (unlike the removed static/preview.html). These
-// are throwaway design demos with synthetic data, not wired to the real fleet.
-func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
-	switch r.PathValue("n") {
-	case "5", "8", "main1", "main2", "merge1", "merge2", "merge3",
-		"index", "report-flagship", "report-revamp", "report-redesign", "report-live", "report-gallery", "fleet-health",
-		"actions", "actions-launchpad", "actions-palette", "actions-flightdeck",
-		"actions-v2-flow", "actions-v2-console", "actions-v2-palette",
-		"actions-stepper", "actions-accordion", "actions-drawer",
-		"actions-pick-pills", "actions-pick-spotlight", "actions-pick-toolbar",
-		"actions-panes-studio", "actions-panes-console", "actions-panes-guided",
-		"actions-target", "actions-target-rail", "actions-target-audience", "actions-target-split",
-		"actions-install-picker", "actions-kiosk-config", "manage-table", "manage-kiosk-dialog", "manage-policy-model",
-		"action-types", "action-rollout", "action-cockpit",
-		"export", "export-builder", "export-compact", "timesel",
-		"health-pulse", "health-triage", "health-grid",
-		"health-command", "health-reliability", "health-stream", "health-icons",
-		"overview-command", "overview-redesign",
-		"alerts-inbox", "alerts-grouped", "notifications", "toasts", "liquid-glass",
-		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home", "action-detail",
-		"fleet-cards", "fleet-rows", "fleet-products":
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	b, err := os.ReadFile("templates/demo/" + r.PathValue("n") + ".html")
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(b)
-}
-
-// InternalPage serves admin/dev-only presenter material — the system audit and the
-// demo runbook — from templates/demo/<n>.html. Kept separate from DemoPage so these
-// candid, internal-facing documents sit behind requireAdmin rather than requireAuth,
-// and so they're never exposed to a viewer/operator/operator or an external guest login.
-func (h *Handler) InternalPage(w http.ResponseWriter, r *http.Request) {
-	name := strings.TrimPrefix(r.URL.Path, "/demo/")
-	switch name {
-	case "audit", "runbook":
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	b, err := os.ReadFile("templates/demo/" + name + ".html")
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(b)
-}
-
 func (h *Handler) SettingsSetCommandExpiry(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	sec := 300
@@ -21982,21 +21843,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/select-serials", h.requireAuth(h.DeviceSelectAllSerials))
 	mux.HandleFunc("GET /devices/search", h.requireAuth(h.DeviceSearch))
 	mux.HandleFunc("GET /cmdk-index", h.requireAuth(h.CmdkIndex))
-	mux.HandleFunc("GET /demo", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/demo/index", http.StatusFound)
-	}))
-	mux.HandleFunc("GET /demos", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/demo/index", http.StatusFound)
-	}))
-	// Working target-picker prototype (real fleet data + live counts), plus the static demos.
-	mux.HandleFunc("GET /demo/target-live", h.requireAuth(h.fleetWide(h.TargetLivePage)))
-	mux.HandleFunc("GET /demo/target-count", h.requireAuth(h.TargetCountJSON))
-	// Internal presenter material (system audit + demo runbook): admin/dev only, and
-	// registered as explicit routes so they take precedence over /demo/{n} — a viewer
-	// or external guest with a login can't reach the candid readiness/security content.
-	mux.HandleFunc("GET /demo/audit", h.requireAdmin(h.InternalPage))
-	mux.HandleFunc("GET /demo/runbook", h.requireAdmin(h.InternalPage))
-	mux.HandleFunc("GET /demo/{n}", h.requireAuth(h.DemoPage))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(drainable(h.FleetEvents)))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.deviceRoute("view", h.DeviceDetail)))
 	mux.HandleFunc("GET /devices/{serial}/history", h.requireAuth(h.deviceRoute("view", h.DeviceHistory)))
@@ -22421,8 +22267,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /test-cases", h.requireReleaseAdmin(h.TestCaseCreate))
 	post("POST /test-cases/{id}/edit", h.requireReleaseAdmin(h.TestCaseUpdate))
 	post("POST /test-cases/{id}/delete", h.requireReleaseAdmin(h.TestCaseDelete))
-	mux.HandleFunc("GET /demo/updates", h.requireAdminOrOperator(h.DemoUpdatesIndex))
-	mux.HandleFunc("GET /demo/updates/{scenario}", h.requireAdminOrOperator(h.DemoUpdatesScenario))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrOperator(h.DeploymentDetail))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrOperator(drainable(h.DeploymentEvents)))
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOTA(h.DeploymentUpdateSettings))

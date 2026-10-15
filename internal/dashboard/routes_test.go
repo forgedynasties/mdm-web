@@ -36,7 +36,7 @@ func TestListRoutesScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(src)
-	handlers := []string{"DeviceList", "DeviceMapData", "DeviceSearch", "DeviceSelectAllSerials", "TargetCountJSON", "AlertList", "AlertNewest", "AlertsRecent", "GroupDetail", "GroupMembers", "RestaurantDetail", "RestaurantMembers", "CommandBrowseDevices", "CommandList", "CommandHistory", "CommandDetail", "FleetEvents", "Overview", "FleetHealth", "OwnerHome"}
+	handlers := []string{"DeviceList", "DeviceMapData", "DeviceSearch", "DeviceSelectAllSerials", "AlertList", "AlertNewest", "AlertsRecent", "GroupDetail", "GroupMembers", "RestaurantDetail", "RestaurantMembers", "CommandBrowseDevices", "CommandList", "CommandHistory", "CommandDetail", "FleetEvents", "Overview", "FleetHealth", "OwnerHome"}
 	for _, name := range handlers {
 		i := strings.Index(s, "func (h *Handler) "+name+"(")
 		if i < 0 {
