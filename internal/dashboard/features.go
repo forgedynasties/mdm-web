@@ -1495,6 +1495,9 @@ var AgentAPKSlots = map[string]string{
 	"dpc":           agentAPKFile,
 	"firmware-qcom": "aio-mdm-firmware-qcom.apk",
 	"firmware-gms":  "aio-mdm-firmware-gms.apk",
+	// Kiosk 22 images come from their own tree (/nvme/A15/kiosk22 on the kiosk build box),
+	// signed with that tree's platform key, not the T7 tree's: they need their own build.
+	"firmware-kiosk22": "aio-mdm-firmware-kiosk22.apk",
 }
 
 // firmwareSlotFor picks which firmware client a device can install. The key that signs
@@ -1629,7 +1632,7 @@ func SeedAgentAPKArchive(cfg *config.Config) (int, error) {
 // it would queue an install Android refuses. That is what the "no build for this image"
 // row state says instead.
 func clientDisplaySlot(slot string) string {
-	if slot == "firmware-gms" {
+	if slot == "firmware-gms" || slot == "firmware-kiosk22" {
 		return "firmware-qcom"
 	}
 	return slot
@@ -1652,6 +1655,11 @@ func agentSlotFor(d *db.Device) string {
 	}
 	if d.IsDPC() {
 		return "dpc"
+	}
+	// A Kiosk 22 (its image is v1.0.x) trusts its own tree's key: the T7 build is never
+	// installable on it (15 Oct: AK270AABU09999 refused 1.9.8 as "signed with a different key").
+	if d.ProductKey() == "kiosk22" || strings.HasPrefix(d.BuildID, "v1.0.") {
+		return "firmware-kiosk22"
 	}
 	return firmwareSlotFor(d.BuildID, extraString(d.LatestExtra, "build_type"))
 }

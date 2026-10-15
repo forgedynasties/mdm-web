@@ -55,8 +55,8 @@ func changelogLead(s string) string {
 func clientVersionRows(sel *ClientSlotView, hosted string) []ClientVersionRow {
 	byVer := map[string]*ClientVersionRow{}
 	var nobuild, unknown ClientVersionRow
-	nobuild = ClientVersionRow{Key: "nobuild", Kind: "nobuild", Title: "On an older firmware image",
-		Detail: "Their image trusts another signing key: a firmware OTA first, then they follow"}
+	nobuild = ClientVersionRow{Key: "nobuild", Kind: "nobuild", Title: "Signed for another firmware tree",
+		Detail: "Older T7 images (v2.0) and Kiosk 22s trust another platform key: they need a build signed for their tree"}
 	unknown = ClientVersionRow{Key: "unknown", Kind: "unknown", Title: "Never reported a version",
 		Detail: "A client older than version reporting: it needs a firmware OTA"}
 	for _, r := range sel.Rows {
