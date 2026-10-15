@@ -4792,6 +4792,12 @@ html.dd-fit .dd-split-r{padding-right:4px}
     if (ok) { split.style.height = h + 'px'; window.scrollTo(0, 0); }
   }
   window.addEventListener('resize', function () { requestAnimationFrame(fit); });
+  // The split's height is worked out from where it starts. The page header above it hides
+  // only when the top bar takes over (body.has-island, set by the layout after this ran),
+  // so measured once it came out ~200 px short and left an empty band above the dock.
+  // Measure again whenever the body's classes change, and once everything has loaded.
+  if (window.MutationObserver) new MutationObserver(function () { requestAnimationFrame(fit); }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  window.addEventListener('load', function () { requestAnimationFrame(fit); });
 
   // The map used to fill Overview down to the graph's end; it has its own Location tab now
   // (15 Oct), so it keeps its own height.
