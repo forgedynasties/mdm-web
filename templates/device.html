@@ -4680,6 +4680,26 @@ html.dd-fit .dd-split-r{padding-right:4px}
 .dd-fold[open]>summary::after{transform:rotate(270deg)}
 /* the facts in Overview keep only what the pane does not show */
 #dd-panel-summary .dd-facts #device-vitals-live{display:none!important}
+/* P2: the facts live in the device pane; their own card has nothing left to show. */
+body.dd-pane-facts #dd-panel-summary .dd-facts{display:contents}
+.dd-devpane{position:relative}
+.dd-pane-corner{position:absolute;top:12px;right:12px;display:flex;gap:6px;align-items:center}
+.dd-pane-corner .dd-pad-chip{display:none}
+.dd-pane-corner .dd-notes-t{display:none}
+.dd-hw-st{display:flex!important;align-items:center;gap:8px;flex-wrap:wrap}
+.dd-hw-st .cpill-wrap .dfk,.dd-hw-st .dfc .dfk{display:none}
+.dd-hw-st .cpill-wrap,.dd-hw-st .dfc{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:650;color:var(--text)}
+.dd-hw-st .cpill{padding:0;border:0;background:none;font-size:12.5px;font-weight:650;color:var(--text);box-shadow:none}
+.dd-where{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin-top:6px;font-size:12.5px;color:var(--muted)}
+.dd-where .dd-place{display:contents}
+.dd-where .ddc-kv{display:inline-flex;align-items:center;gap:6px;border:0;padding:0;min-height:0;margin:0}
+.dd-where .ddc-kv .k{font-size:12.5px;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
+.dd-where .ddc-kv .v{font-size:12.5px;color:var(--text);font-weight:600;display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
+.dd-where .dfc-first{margin-left:0;padding-left:0;border-left:0}
+.dd-vcols{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))!important}
+.dd-where .ddc-kv .v a{background:none;padding:0;border:0;color:var(--text);font-weight:650;white-space:nowrap}
+.dd-where .ddc-kv .v a:hover{color:var(--accent-text);text-decoration:underline}
+body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
 .ddc-hw-pic{width:112px;height:112px;flex:none;object-fit:contain;border-radius:14px;background:var(--surface2)}
 .ddc-hw-pic.ic-only{display:grid;place-items:center}
 .ddc-hw-pic.ic-only svg{width:44px;height:44px;fill:none;stroke:var(--text-faint);stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
@@ -4748,6 +4768,7 @@ html.dd-fit .dd-split-r{padding-right:4px}
     aboutIntoOverview(on);
     // In Overview the facts follow the device pane (and what needs a look).
     if (on) { var anc = document.getElementById('dd-needs') || document.getElementById('dd-hw'); if (anc) anc.parentNode.insertBefore(facts, anc.nextSibling); }
+    paneFacts(on);
     overviewTab(on);
     fit();
     // Charts follow their new container width.
@@ -4757,6 +4778,27 @@ html.dd-fit .dd-split-r{padding-right:4px}
   // In the split the graph has left Overview; what stays there is the map and the pad
   // card, and a device with neither (a mains-powered stock device) would open on an empty
   // tab. Hide it then, and open the next tab instead.
+  // The facts fold into the device pane (device-placement-demos.html, P2, picked 15 Oct):
+  // the client and lock beside Online, the restaurant and groups as a line under the name,
+  // notes (and the pad's popover; its column is in the vitals) in the pane's corner. The
+  // elements move whole, so their popovers and live updates keep working; undocking
+  // puts each back where it came from.
+  function paneFacts(on) {
+    var hw = document.getElementById('dd-hw'); if (!hw) return;
+    var st = hw.querySelector('.dd-hw-st'), t = hw.querySelector('.ddc-hw-t');
+    function mv(el, to) { if (!el || !to) return; if (!el.__home) { el.__home = document.createComment('home'); el.parentNode.insertBefore(el.__home, el); } to.appendChild(el); }
+    function back(el) { if (el && el.__home && el.__home.parentNode) el.__home.parentNode.insertBefore(el, el.__home); }
+    var cp = document.querySelector('.cpill-wrap'), place = document.querySelector('.dd-place'),
+        lock = document.querySelector('.ddc-kstate'), notes = document.querySelector('.dd-notes-wrap'), pad = document.querySelector('.dd-pad-wrap');
+    lock = lock && lock.closest('.dfc');
+    var where = hw.querySelector('.dd-where');
+    if (!where && t) { where = document.createElement('div'); where.className = 'dd-where'; t.appendChild(where); }
+    var corner = hw.querySelector('.dd-pane-corner');
+    if (!corner) { corner = document.createElement('div'); corner.className = 'dd-pane-corner'; hw.appendChild(corner); }
+    if (on) { mv(cp, st); mv(lock, st); mv(place, where); mv(pad, corner); mv(notes, corner); }
+    else [cp, lock, place, pad, notes].forEach(back);
+    document.body.classList.toggle('dd-pane-facts', on);
+  }
   function aboutIntoOverview(on) {
     var about = document.getElementById('dd-panel-about'), ov = document.getElementById('dd-panel-summary'),
         tab = document.getElementById('dd-tab-about'), grid = document.querySelector('#dd-panel-about > .about-grid, #dd-panel-summary > .about-grid');
@@ -6039,4 +6081,4 @@ document.addEventListener('keydown', function (e) {
 </div>
 {{end}}
 
-{{define "device-vitals-cols"}}{{range vitalCols .Device .ShowBattery .ChargerFlapping}}<div class="vc t-{{.Tone}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
+{{define "device-vitals-cols"}}{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{else if eq .Key "pad"}} role="button" tabindex="0" onclick="event.stopPropagation(); var c = document.getElementById('pad-chip'); if (c) c.click()" title="Charging pad"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
