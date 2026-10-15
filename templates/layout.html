@@ -984,6 +984,7 @@
       // Guarded: localStorage throws outright in some privacy modes, and a dock
       // convenience must never be able to break the dock.
       try { syncFrequent(dock, path); } catch (e) {}
+      if (window.mdmSyncDockActive) window.mdmSyncDockActive();
     }
     document.addEventListener('htmx:afterSettle', syncNav);
     window.addEventListener('popstate', syncNav);
@@ -1140,16 +1141,20 @@
   <script>
   // Keep the dock's active highlight in sync after a boosted (main-only) swap:
   // the dock lives outside <main>, so it isn't re-rendered on navigation.
+  // One highlight only (15 Oct): an entry for the page itself (Enrollment in "your three",
+  // say) wins over the one that merely owns it (Fleet owns /enrollment).
   function mdmSyncDockActive(path) {
-    var p = path || location.pathname;
+    var p = path || location.pathname, direct = [], grouped = [];
     document.querySelectorAll('.dock .nav-link').forEach(function (a) {
-      var h = a.getAttribute('href'), on;
-      if (h === '/') on = (p === '/');
-      else if (h === '/devices') on = /^\/(devices|groups|enrollment)(\/|$)/.test(p);
-      else if (h === '/lineup') on = /^\/(lineup|releases)(\/|$)/.test(p);
-      else on = (p === h || p.indexOf(h + '/') === 0);
-      a.classList.toggle('active', on);
+      var h = a.getAttribute('href'), d, g = false;
+      if (h === '/') d = (p === '/');
+      else d = (p === h || p.indexOf(h + '/') === 0);
+      if (!d && h === '/devices') g = /^\/(groups|enrollment)(\/|$)/.test(p);
+      if (!d && h === '/lineup') g = /^\/releases(\/|$)/.test(p);
+      a.classList.toggle('active', d || g);
+      if (d) direct.push(a); else if (g) grouped.push(a);
     });
+    if (direct.length) grouped.forEach(function (a) { a.classList.remove('active'); });
   }
   // Call with no arg so it reads the (now-current) location.pathname — not the event.
   // URL first, content later: only the highlights move now, so the layout holds still
