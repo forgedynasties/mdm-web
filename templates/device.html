@@ -333,6 +333,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <div class="isl-menu">
         {{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/nickname"><label>Name<input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Host stand"></label><button class="cc-btn sm primary" type="submit">Save</button></form>{{end}}
         {{if supports .Device "kiosk_set"}}<button type="button" class="isl-mi" onclick="this.closest('details').open=false; kioskModalOpen()">Kiosk · {{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</button>{{end}}
+        {{/* Agent OTA (restored 15 Oct): the server fills in the hosted APK and its digest. */}}
+        {{if .AgentUpdate}}{{if .AgentUpdate.Hosted}}{{if supports .Device "self_update"}}
+        {{if .AgentUpdate.Available}}{{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Update the agent on {{.Device.SerialNumber}} to {{.AgentUpdate.Version}}? It restarts itself and reconnects.')"><input type="hidden" name="type" value="app_update"><button type="submit" class="isl-mi">Update agent to {{.AgentUpdate.Version}}</button></form>{{end}}
+        {{else}}<span class="isl-mi" style="color:var(--text-faint);cursor:default">Agent up to date{{if .AgentUpdate.Current}} ({{.AgentUpdate.Current}}){{end}}</span>{{end}}
+        {{end}}{{end}}{{end}}
         <a class="isl-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}">Export</a>
       </div>
     </details>
