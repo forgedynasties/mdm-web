@@ -68,16 +68,16 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 		LatestExtra:  json.RawMessage(`{}`),
 	}
 
-	// Anything that is not "classic" renders the serial cards, including the retired
-	// "new" and "table" values still sitting in older cookies.
+	// Every value renders the serial cards: Classic was removed (15 Oct), and "new" and
+	// "table" are retired values still sitting in older cookies.
 	for _, layout := range []string{"classic", "serial", "new", "table"} {
 		var buf bytes.Buffer
 		data := map[string]any{
-			"Devices":            []db.Device{dev},
-			"Online":             map[uuid.UUID]bool{dev.ID: true},
+			"Devices":             []db.Device{dev},
+			"Online":              map[uuid.UUID]bool{dev.ID: true},
 			"ActiveThresholdSecs": 300,
-			"Classic":            layout == "classic",
-			"Layout":             layout,
+			"Classic":             layout == "classic",
+			"Layout":              layout,
 		}
 		if err := tmpl.ExecuteTemplate(&buf, "device-cards", data); err != nil {
 			t.Fatalf("layout %q failed to render: %v", layout, err)
@@ -88,12 +88,10 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 		}
 		// The serial cards exist to make the number takeable, so the copy control is
 		// not decoration — its absence is the feature missing.
-		if layout != "classic" {
-			if !strings.Contains(out, `class="dl-copy"`) {
-				t.Errorf("layout %q renders no copy control", layout)
-			}
+		if !strings.Contains(out, `class="dl-copy"`) {
+			t.Errorf("layout %q renders no copy control", layout)
 		}
-		if layout != "classic" {
+		{
 			// The tail is the last three characters: the split rule is shared with the
 			// browser demo, and a hardware serial of this shape keeps its batch letter.
 			if !strings.Contains(out, `<span class="tail">281</span>`) {

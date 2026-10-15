@@ -2128,17 +2128,10 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	role := h.role(r)
 	data["Role"] = role
-	// Fleet cards layout the viewer picked (Layout toggle on the fleet page). One cookie
-	// holds the choice and the card list switches on it. Two layouts remain: the
-	// serial-led cards (shown as "New") and the classic ones. Anything else — the
-	// retired "new" and "table" values still sitting in year-old cookies, or a
-	// hand-edited one — falls through to serial rather than rendering nothing.
-	layout := "serial"
-	if c, err := r.Cookie("fleet_layout"); err == nil && c.Value == "classic" {
-		layout = "classic"
-	}
-	data["FleetLayout"] = layout
-	data["ClassicCards"] = layout == "classic"
+	// Fleet cards have one layout, the serial-led one (Classic removed 15 Oct); an old
+	// fleet_layout cookie is ignored. The keys stay for the templates that pass them on.
+	data["FleetLayout"] = "serial"
+	data["ClassicCards"] = false
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
