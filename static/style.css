@@ -7602,3 +7602,25 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .appbar-island .isl-mi { text-align: left; font: inherit; font-size: 12.5px; padding: 7px 9px; border-radius: 8px; border: 0; background: none; color: var(--text); text-decoration: none; cursor: pointer; }
 .appbar-island .isl-mi:hover { background: var(--surface2); }
 @media (max-width: 1280px) { .appbar-island .isl-tagn { display: none; } }
+/* Raised capsule (static/top-bar-capsule-demos.html, B, picked 15 Oct): the page's own
+   context is one white capsule, so it stops reading as part of the global controls
+   (theme, alerts, account) beside it. Its buttons lose their borders inside; a hairline
+   keeps the primary apart from the rest. */
+.appbar-island.always, .appbar.is-scrolled .appbar-island {
+  height: 46px; padding: 0 6px 0 14px; border-radius: 14px; background: var(--surface);
+  border: 1px solid var(--border-soft); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 18px -8px rgba(0,0,0,.18); }
+html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.is-scrolled .appbar-island {
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 8px 20px -10px rgba(0,0,0,.6); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .appbar-island.always {
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 8px 20px -10px rgba(0,0,0,.6); } }
+.appbar-island.always::before, .appbar.is-scrolled .appbar-island::before { display: none; }
+.appbar-island .isl-acts { gap: 2px; }
+.appbar-island .isl-acts .cc-btn:not(.primary), .appbar-island .isl-more > summary.cc-btn {
+  background: transparent; border-color: transparent; border-radius: 10px; }
+.appbar-island .isl-acts .cc-btn:not(.primary):hover, .appbar-island .isl-more > summary.cc-btn:hover { background: var(--surface2); }
+.appbar-island .isl-acts .cc-btn.primary { border-radius: 10px; }
+.appbar-island .isl-acts > .cc-btn.primary:not(:first-child), .appbar-island .isl-acts > form:not(:first-child) .cc-btn.primary {
+  position: relative; margin-left: 9px; overflow: visible; }
+.appbar-island .isl-acts > .cc-btn.primary:not(:first-child)::before, .appbar-island .isl-acts > form:not(:first-child) .cc-btn.primary::before {
+  content: ""; position: absolute; left: -6px; top: 5px; bottom: 5px; width: 1px; background: var(--border); }
+
