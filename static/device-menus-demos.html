@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device menus demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1240px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede{color:var(--muted);font-size:13.5px;max-width:1000px;line-height:1.6}.lede b{color:var(--text);font-weight:650}
+h2.opt{font-size:16px;margin:40px 0 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.now{font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface2);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.tgl{position:fixed;top:14px;right:16px;z-index:5}
+.btn{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:5px 12px;color:var(--text-2);background:var(--surface);cursor:pointer}
+.stage{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;padding:18px;border:1px solid var(--border);border-radius:16px;background:var(--bg);align-items:start}
+.cap{font-size:11px;font-weight:700;color:var(--text-faint);margin:0 0 8px;letter-spacing:.02em}
+.trig{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--text);padding:5px 10px;border-radius:9px;border:1px solid var(--border);background:var(--surface);margin-bottom:6px}
+.trig .c{color:var(--text-faint);font-size:10px}
+.mono{font-family:var(--mono);font-size:11.5px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--text-faint);flex:none}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}
+
+/* ── Today (as deployed) ─────────────────────────────────────── */
+.t-pop{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:10px;font-size:13px}
+.t-h4{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 6px 8px}
+.t-row{display:flex;justify-content:space-between;padding:9px 8px;border-radius:8px;font-weight:700;color:var(--text)}.t-row.on{background:var(--surface2)}
+.t-chg{border-top:1px solid var(--border);margin-top:6px;padding-top:8px}
+.t-chg ul{margin:0;padding-left:18px;font-weight:700;font-size:13px;line-height:1.5;white-space:nowrap;overflow:hidden}
+.t-foot{display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:8px;padding:8px 6px 2px;color:var(--muted);font-weight:650}.t-foot b{color:var(--accent-text)}
+.t-pad-h{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--text-2);padding:4px 4px 12px;border-bottom:1px solid var(--border)}
+.t-pill{margin-left:auto;display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:750;color:var(--accent-text);background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px;padding:5px 6px 5px 10px}
+.t-pill i{width:30px;height:18px;border-radius:9px;background:var(--accent);position:relative}.t-pill i::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.t-in{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;margin:4px 0 8px}
+.t-save{display:block;width:100%;padding:8px;border-radius:9px;background:var(--accent);color:#fff;font-weight:750;border:0;text-align:left}
+.t-mi{padding:10px 8px;color:var(--text)}.t-mi.dim{color:var(--text-faint)}
+
+/* ── M1 One menu kit ─────────────────────────────────────────── */
+.m{width:100%;max-width:300px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);padding:6px;font-size:13px;color:var(--text)}
+.m-h{display:flex;align-items:center;gap:8px;padding:8px 10px 6px}
+.m-h b{font-size:13.5px;font-weight:650}.m-h .sub{margin-left:auto;color:var(--muted);font-size:12px}
+.m-st{display:flex;align-items:center;gap:7px;padding:0 10px 8px;color:var(--muted);font-size:12.5px}
+.m-sec{font-size:11.5px;font-weight:600;color:var(--muted);padding:8px 10px 4px}
+.m-i{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 10px;border-radius:8px;cursor:pointer}
+.m-i:hover,.m-i.hov{background:var(--hover)}
+.m-i svg{width:16px;height:16px;flex:none;fill:none;stroke:var(--text-2);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.m-i .rt{margin-left:auto;color:var(--muted);font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.m-i.dis{cursor:default;color:var(--text-faint)}.m-i.dis:hover{background:none}.m-i.dis svg{stroke:var(--text-faint)}
+.m-i.sel .rt::after{content:"✓";color:var(--accent-text);font-weight:700}
+.m-sep{height:1px;background:var(--border-soft);margin:5px 4px}
+.m-log{list-style:none;margin:0;padding:0 10px 4px}
+.m-log li{display:grid;grid-template-columns:44px 1fr;gap:8px;font-size:12.5px;line-height:1.45;color:var(--text-2);padding:4px 0}
+.m-log li .mono{color:var(--muted);padding-top:1px}
+.m-foot{display:flex;align-items:center;gap:8px;padding:8px 10px 6px;border-top:1px solid var(--border-soft);margin-top:4px;font-size:12.5px;color:var(--muted)}
+.m-foot a{margin-left:auto;color:var(--accent-text);font-weight:600;text-decoration:none;white-space:nowrap}
+.sw{width:30px;height:18px;border-radius:9px;background:var(--ok);position:relative;flex:none}.sw::after{content:"";position:absolute;right:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff}
+.sw.off{background:var(--surface2);border:1px solid var(--border)}.sw.off::after{left:2px;right:auto;background:var(--text-faint)}
+.m-note{margin:4px 6px 4px;padding:8px 10px;border-radius:8px;background:var(--warn-bg);color:var(--warn);font-size:12px;line-height:1.45}
+.m-note b{font-weight:650}
+.m-field{display:flex;gap:6px;padding:4px 6px 6px}.m-field input{flex:1;min-width:0;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font:inherit;font-size:12.5px}
+.m-field button{padding:0 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-weight:650;font-size:12.5px}
+
+/* ── M2 Inspector cards ─────────────────────────────────────── */
+.ic{max-width:300px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-pop);overflow:hidden;font-size:13px;color:var(--text)}
+.ic-hd{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.ic-hd .ico{width:30px;height:30px;border-radius:9px;background:var(--surface);display:grid;place-items:center}
+.ic-hd .ico svg{width:16px;height:16px;fill:none;stroke:var(--text-2);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ic-hd b{display:block;font-size:13.5px;font-weight:650}.ic-hd small{display:block;font-size:12px;color:var(--muted)}
+.ic-bd{padding:8px 16px 10px}
+.ic-kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft);font-size:12.5px;color:var(--muted)}.ic-kv:last-child{border:0}
+.ic-kv b{color:var(--text);font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.ic-ft{display:flex;gap:8px;padding:10px 16px 14px}
+.ic-ft .cc-btn{flex:1;justify-content:center}
+
+/* ── M3 Side sheet ──────────────────────────────────────────── */
+.sheet-wrap{grid-column:1/-1;display:grid;grid-template-columns:1fr 360px;gap:0;border:1px solid var(--border);border-radius:14px;overflow:hidden;min-height:330px}
+.sheet-page{background:var(--bg);display:grid;place-items:center;color:var(--text-faint);font-size:12px;opacity:.55}
+.sheet{background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow-lg);padding:16px 18px;font-size:13px}
+.sheet-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}.sheet-h b{font-size:15px;font-weight:650}.sheet-h span{margin-left:auto;color:var(--muted);font-size:18px}
+</style>
+</head>
+<body>
+<button class="btn tgl" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
+<div class="wrap">
+<h1>Device page menus</h1>
+<p class="lede">The device page has <b>11 dropdowns and popovers</b>, and almost every one has its own CSS: <code>isl-menu</code>, <code>cpill-pop</code>, <code>dd-pad-pop</code>, <code>dd-notes-pop</code>, <code>pl-pop</code>, <code>vt-menu</code> and <code>cr-pop</code>. They also open in two different ways (<code>details</code> and JS-toggled <code>hidden</code>). That is why they look unrelated. The client menu shouts in bold caps and its changelog runs off the edge. The pad popover's toggle is a big orange pill. The ⋯ menu mixes a form with menu items and still says "Kiosk", although the feature is now Lock. Each option below redraws the same four menus: <b>client</b>, <b>charging pad</b>, <b>⋯ more</b> and <b>chart range</b>. Whichever option is picked becomes one shared kit, also used by the venue, group, notes and date menus.</p>
+
+<!-- ───────────────────────── Today ───────────────────────── -->
+<h2 class="opt">Today <span class="now">DEPLOYED</span></h2>
+<div class="stage">
+  <div><p class="cap">CLIENT PILL</p><span class="trig">▢ Firmware MDM <span class="mono">1.9.8</span> <span class="c">▲</span></span>
+    <div class="t-pop"><div class="t-h4">Clients</div>
+      <div class="t-row on">Firmware MDM <span class="mono">1.9.8</span></div><div class="t-row">Standard MDM</div>
+      <div class="t-chg"><div class="t-h4">Changelog · Firmware MDM</div><ul><li>1.9.8 — client 1.9.8 (code 81): report the bytes, not just the percent</li><li>1.9.7 — client 1.9.7 (code 80): a download that dies says so</li><li>1.9.4 — client 1.9.4 (code 77): report which adb keys</li></ul></div>
+      <div class="t-foot">Up to date <b>Open in Lin…</b></div></div></div>
+  <div><p class="cap">CHARGING PAD</p><span class="trig">Pad · vacant <span class="c">▼</span></span>
+    <div class="t-pop"><div class="t-pad-h">⏻ Charging pad <span class="t-pill">Enabled <i></i></span></div>
+      <div class="t-row" style="font-weight:500;color:var(--muted)">Status <b style="color:var(--text)">● Vacant</b></div></div></div>
+  <div><p class="cap">⋯ MORE</p><span class="trig">⋯</span>
+    <div class="t-pop"><div style="color:var(--muted);padding:2px 4px">Name</div><input class="t-in" placeholder="e.g. Host stand"><button class="t-save">Save</button>
+      <div class="t-mi">Kiosk · off</div><div class="t-mi dim">Agent up to date (1.9.8)</div><div class="t-mi">Export</div></div></div>
+  <div><p class="cap">CHART RANGE</p><span class="trig">Last 6 hours <span class="c">▼</span></span>
+    <div class="t-pop"><div class="t-h4">Range</div><div class="t-mi">Last hour</div><div class="t-mi" style="color:var(--accent-text)">Last 6 hours</div><div class="t-mi">Last 24 hours</div><div class="t-mi">Custom dates…</div></div></div>
+</div>
+<div class="pros"><div class="bad">There are four looks for four menus. Section titles are bold caps in one menu, a large grey label in another, and missing in the third.</div><div class="bad">The client menu lists "Firmware MDM / Standard MDM" as if you could switch between them, which you can't. Its changelog is bold, doesn't wrap, and runs off the edge.</div></div>
+
+<!-- ───────────────────────── M1 ───────────────────────── -->
+<h2 class="opt">M1 · One menu kit <span class="pick">MY PICK</span></h2>
+<div class="stage">
+  <div><p class="cap">CLIENT PILL</p><span class="trig"><span class="dot ok"></span> Firmware MDM <span class="mono">1.9.8</span> <span class="c">▲</span></span>
+    <div class="m">
+      <div class="m-h"><b>Firmware MDM</b><span class="sub mono">1.9.8 · code 81</span></div>
+      <div class="m-st"><span class="dot ok"></span>Up to date with the hosted build</div>
+      <div class="m-sep"></div>
+      <div class="m-sec">What changed</div>
+      <ul class="m-log">
+        <li><span class="mono">1.9.8</span>Reports the bytes downloaded, not just the percent</li>
+        <li><span class="mono">1.9.7</span>A download that dies says so; a slow one keeps saying it is alive</li>
+        <li><span class="mono">1.9.4</span>Reports which adb keys the scout sees on each device</li>
+      </ul>
+      <div class="m-foot">Auto-update on<a href="#">Lineup →</a></div>
+    </div></div>
+  <div><p class="cap">CHARGING PAD</p><span class="trig"><span class="dot warn"></span> Pad · misplaced <span class="c">▼</span></span>
+    <div class="m">
+      <div class="m-h"><b>Charging pad</b></div>
+      <div class="m-i"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Wireless charging<span class="rt"><span class="sw"></span></span></div>
+      <div class="m-i dis" style="color:var(--text)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Status<span class="rt" style="color:var(--warn)"><span class="dot warn"></span>Misplaced</span></div>
+      <div class="m-note"><b>Place the pad again.</b> The pad and the tablet keep losing contact, so it isn't sitting properly.</div>
+    </div></div>
+  <div><p class="cap">⋯ MORE</p><span class="trig">⋯</span>
+    <div class="m">
+      <div class="m-i hov"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Rename…<span class="rt">Host stand</span></div>
+      <div class="m-field"><input value="Host stand"><button>Save</button></div>
+      <div class="m-i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Lock<span class="rt">Unlocked</span></div>
+      <div class="m-i dis"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Update client<span class="rt">up to date</span></div>
+      <div class="m-sep"></div>
+      <div class="m-i"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export readings<span class="rt">CSV</span></div>
+    </div></div>
+  <div><p class="cap">CHART RANGE</p><span class="trig">Last 6 hours <span class="c">▼</span></span>
+    <div class="m" style="max-width:240px">
+      <div class="m-sec">Range</div>
+      <div class="m-i">Last hour</div><div class="m-i sel">Last 6 hours<span class="rt"></span></div><div class="m-i">Last 24 hours</div><div class="m-i">Last 7 days</div>
+      <div class="m-i">Custom dates…</div>
+      <div class="m-sep"></div><div class="m-sec">Time zone</div>
+      <div class="m-i sel">Device time<span class="rt"></span></div><div class="m-i">Your time</div>
+    </div></div>
+</div>
+<div class="pros"><div>The same panel everywhere: 12 px radius, 34 px rows, icon then label then value or check, section titles in sentence case, a thin rule between groups and a footer for status. The changelog wraps under its version number instead of running off the edge.</div><div class="bad">Every menu has to move to the kit at once, or the page looks worse half-done. The rename moves behind a row (one more click) instead of sitting open.</div></div>
+
+<!-- ───────────────────────── M2 ───────────────────────── -->
+<h2 class="opt">M2 · Inspector cards</h2>
+<div class="stage">
+  <div><p class="cap">CLIENT PILL</p>
+    <div class="ic"><div class="ic-hd"><span class="ico"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/></svg></span><div><b>Firmware MDM</b><small>com.aioapp.mdm</small></div></div>
+      <div class="ic-bd"><div class="ic-kv">Installed<b class="mono">1.9.8</b></div><div class="ic-kv">Hosted<b class="mono">1.9.8</b></div><div class="ic-kv">State<b><span class="dot ok"></span>Up to date</b></div><div class="ic-kv">Auto-update<b>On · 20:00–05:00</b></div></div>
+      <div class="ic-ft"><a class="cc-btn sm">Changelog</a><a class="cc-btn sm">Lineup</a></div></div></div>
+  <div><p class="cap">CHARGING PAD</p>
+    <div class="ic"><div class="ic-hd"><span class="ico"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span><div><b>Charging pad</b><small>Wireless guest pad</small></div><span class="sw" style="margin-left:auto"></span></div>
+      <div class="ic-bd"><div class="ic-kv">Status<b style="color:var(--warn)"><span class="dot warn"></span>Misplaced</b></div><div class="ic-kv">Phone on it<b>No</b></div></div>
+      <div class="m-note" style="margin:0 16px 14px">Place the pad again; it keeps losing contact.</div></div></div>
+  <div><p class="cap">⋯ MORE</p>
+    <div class="ic"><div class="ic-hd"><div><b>AT070AABU00116</b><small>Tableside AI</small></div></div>
+      <div class="ic-bd"><div class="ic-kv">Name<b>Host stand ✎</b></div><div class="ic-kv">Lock<b>Unlocked</b></div><div class="ic-kv">Client<b>Up to date</b></div></div>
+      <div class="ic-ft"><a class="cc-btn sm">Export CSV</a></div></div></div>
+  <div><p class="cap">CHART RANGE</p><div class="m" style="max-width:240px"><div class="m-i">Last hour</div><div class="m-i sel">Last 6 hours<span class="rt"></span></div><div class="m-i">Last 24 hours</div><div class="m-i">Custom dates…</div></div><p class="cap" style="margin-top:8px">(plain lists keep the M1 menu)</p></div>
+</div>
+<div class="pros"><div>Each pill opens a small fact card: easy to scan, with room for detail such as the auto-update window and the hosted build.</div><div class="bad">Two kits instead of one (cards for state, menus for choices). The cards are heavy for a quick toggle, and the changelog drops to a second click.</div></div>
+
+<!-- ───────────────────────── M3 ───────────────────────── -->
+<h2 class="opt">M3 · Side sheet</h2>
+<div class="stage">
+  <div class="sheet-wrap"><div class="sheet-page">device page, dimmed</div>
+    <div class="sheet"><div class="sheet-h"><b>Firmware MDM</b><span>×</span></div>
+      <div class="m-st" style="padding:0 0 10px"><span class="dot ok"></span>1.9.8 · up to date · auto-update on</div>
+      <div class="m-sec" style="padding-left:0">What changed</div>
+      <ul class="m-log" style="padding:0"><li><span class="mono">1.9.8</span>Reports the bytes downloaded, not just the percent</li><li><span class="mono">1.9.7</span>A download that dies says so</li><li><span class="mono">1.9.4</span>Reports which adb keys the scout sees</li><li><span class="mono">1.9.1</span>Patient port probe, second pass discovery</li></ul>
+      <div class="m-foot" style="padding-left:0">All versions<a href="#">Lineup →</a></div></div></div>
+</div>
+<div class="pros"><div>Long content (changelog, notes, venue list) has room, and one place handles every "more about this" panel.</div><div class="bad">It covers the page for a two-second toggle (the pad switch, rename). It's a modal pattern for things that are menus today.</div></div>
+
+<h2 class="opt">Recommendation</h2>
+<p class="lede"><b>M1.</b> These are menus and small toggles, not documents, so they should open where you clicked and close as fast. One kit (<code>.cc-menu</code>, <code>.cc-mi</code>, <code>.cc-msec</code>, <code>.cc-msep</code>, <code>.cc-mfoot</code>) and one way of opening fit the "one vocabulary per job" rule. It replaces the seven private popover styles on this page, and the account and fleet menus can follow later. Changes that come with it: "Kiosk" becomes <b>Lock</b>; the client menu stops listing clients you can't switch to; changelog entries lose the "client 1.9.8 (code 81):" prefix, since the version is already in its own column.</p>
+</div>
+</body>
+</html>

@@ -1789,7 +1789,16 @@
       var tag = from.tagName;
       if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && document.activeElement === from) return;
       var fa = from.attributes, i;
-      for (i = fa.length - 1; i >= 0; i--) { if (!to.hasAttribute(fa[i].name)) from.removeAttribute(fa[i].name); }
+      for (i = fa.length - 1; i >= 0; i--) {
+        if (to.hasAttribute(fa[i].name)) continue;
+        // Losing its request attribute does not unbind an element: htmx keeps the old
+        // triggers, and the next one fires with no hx-target left, so it inherits the
+        // body's "main" and the fragment replaces the whole page (the Action history card
+        // did this once its last pending command finished). Swap such a node for a clone
+        // afterwards; a clone carries no htmx bindings.
+        if (/^(data-)?hx-(get|post|put|patch|delete)$/.test(fa[i].name) && staleNodes.indexOf(from) < 0) staleNodes.push(from);
+        from.removeAttribute(fa[i].name);
+      }
       var ta = to.attributes, hxGained = false;
       for (i = 0; i < ta.length; i++) {
         if (from.getAttribute(ta[i].name) !== ta[i].value) {
@@ -1807,6 +1816,7 @@
       morphChildren(from, to);
     }
     var freshNodes = []; // element nodes newly inserted this morph (for htmx to activate)
+    var staleNodes = []; // elements that lost hx-get/post/…: re-created so htmx forgets them
     function morphChildren(from, to) {
       var keyed = {}, c;
       for (c = from.firstChild; c; c = c.nextSibling) { var k = keyOf(c); if (k) keyed[k] = c; }
@@ -1852,7 +1862,7 @@
     // Returns the element nodes freshly inserted (so the caller can htmx.process ONLY those —
     // never the preserved region root, whose hx-trigger bindings must not be duplicated).
     window.mdmMorph = function (from, html) {
-      freshNodes = [];
+      freshNodes = []; staleNodes = [];
       var tpl = document.createElement('template');
       tpl.innerHTML = html;
       // Elements marked hx-swap-oob (e.g. roster-meta-oob's heading/toolbar/pills) are meant
@@ -1875,6 +1885,13 @@
       // an innerHTML partial is a child list → morph the children.
       if (root && !root.nextElementSibling && root.id && root.id === from.id) morphEl(from, root);
       else morphChildren(from, tpl.content);
+      staleNodes.forEach(function (n) {
+        if (!n.parentNode) return;
+        var c = n.cloneNode(true);
+        n.parentNode.replaceChild(c, n);
+        freshNodes = freshNodes.filter(function (f) { return !n.contains(f); });
+        freshNodes.push(c);
+      });
       return freshNodes;
     };
     document.body.addEventListener('htmx:beforeSwap', function (e) {
@@ -1895,6 +1912,7 @@
         // Fire a synthetic afterSwap so each region's existing post-swap listener still runs
         // (apps recolor + kiosk picker, fleet column/density/selection, overview layout,
         // relative-time tick) — htmx skips its own afterSwap when we suppress the swap.
+        if (!t.isConnected && t.id) t = document.getElementById(t.id) || t; // re-created above
         t.dispatchEvent(new CustomEvent('htmx:afterSwap', { bubbles: true, detail: { target: t, elt: t } }));
       } catch (err) { try { console.warn('[mdmMorph] fell back to innerHTML:', (t && t.id) || t, err && (err.stack || err.message || err)); } catch (e3) {} /* leave shouldSwap true → htmx does its normal swap (no regression) */ }
     });
