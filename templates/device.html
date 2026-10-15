@@ -3721,24 +3721,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
          Overview tab; this is the settings side — kiosk, charging, placement, naming
          — which was previously recorded only in the global audit log and could not be
          traced back to a device at all. */}}
-    <div class="ddc-card" id="dd-activity">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Activity</h2>{{if and .Activity (canManageUsers .Role)}}<span class="m muted small"><a href="/activity?device={{.Device.SerialNumber}}" class="link-detail">all activity</a></span>{{end}}</div>
-      {{if .Activity}}
-      {{range .Activity}}
-      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
-        {{template "ubub" (userBubble .ActorKey)}}
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;line-height:1.45;">{{$u := userURL .ActorKey}}{{if $u}}<a href="{{$u}}" class="link-detail" style="font-weight:650;">{{.Actor}}</a>{{else}}<b>{{.Actor}}</b>{{end}} {{.Did}}</div>
-          <div class="muted" style="font-size:11.5px;margin-top:2px;" title="{{.At}}">{{.At.Format "2 Jan 2006, 15:04"}} UTC</div>
-        </div>
-      </div>
-      {{end}}
-      {{else}}
-      <div class="muted" style="padding:12px 14px;font-size:12.5px;border-top:1px solid var(--border-soft);">
-        Nothing recorded yet. Changes made from this page — locked mode, wireless charging, placement, naming — will appear here with who made them.
-      </div>
-      {{end}}
-    </div>
+    {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
     <div class="ddc-card">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg></span><h2>Hardware</h2></div>
       {{/* The model's photo (device-photo-demos.html, M3, picked 15 Oct); its class icon when
@@ -4472,6 +4455,8 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 {{if not .IsOwner}}
 <section class="dd-panel dd-activity" data-dd-panel="activity" id="dd-panel-activity" role="tabpanel" aria-labelledby="dd-tab-activity" tabindex="0" hidden>
   <div class="dd-act-queue">{{template "device-queue" .}}</div>
+  {{/* Who changed what from this page (moved here from Overview, 15 Oct). */}}
+  <div class="dd-act-audit">{{template "dd-audit" .}}</div>
   {{/* History renders on first open: the partial returns the "device-commands" root with
        its own live-refresh attributes, so after the outerHTML swap it keeps updating. */}}
   <div hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
@@ -5961,4 +5946,25 @@ document.addEventListener('keydown', function (e) {
 </script>
 
 {{template "footer" .}}
+{{end}}
+
+{{define "dd-audit"}}
+    <div class="ddc-card" id="dd-activity">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Activity</h2>{{if and .Activity (canManageUsers .Role)}}<span class="m muted small"><a href="/activity?device={{.Device.SerialNumber}}" class="link-detail">all activity</a></span>{{end}}</div>
+  {{if .Activity}}
+  {{range .Activity}}
+  <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
+    {{template "ubub" (userBubble .ActorKey)}}
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;line-height:1.45;">{{$u := userURL .ActorKey}}{{if $u}}<a href="{{$u}}" class="link-detail" style="font-weight:650;">{{.Actor}}</a>{{else}}<b>{{.Actor}}</b>{{end}} {{.Did}}</div>
+      <div class="muted" style="font-size:11.5px;margin-top:2px;" title="{{.At}}">{{.At.Format "2 Jan 2006, 15:04"}} UTC</div>
+    </div>
+  </div>
+  {{end}}
+  {{else}}
+  <div class="muted" style="padding:12px 14px;font-size:12.5px;border-top:1px solid var(--border-soft);">
+    Nothing recorded yet. Changes made from this page — locked mode, wireless charging, placement, naming — will appear here with who made them.
+  </div>
+  {{end}}
+</div>
 {{end}}
