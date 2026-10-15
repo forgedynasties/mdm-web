@@ -787,6 +787,9 @@ func main() {
 				// Same, for OTA: a download that stops acking leaves the deployment active
 				// and blocks the reboot that would clear it (RebootBlockedFor).
 				runJob(bgCtx, "expire-stalled-otas", time.Minute, apiHandler.ExpireStalledOTAs)
+				// A shell line that hangs on the device must not hold its queue: fail it
+				// once it is past its deadline (counted from when the device got it).
+				runJob(bgCtx, "fail-overdue-shell", time.Minute, apiHandler.FailOverdueShellCommands)
 				// Re-push commands (any type) wedged at 'delivered' on a half-open socket to
 				// devices that are connected now, so an action can't silently never run.
 				runJob(bgCtx, "redrive-stuck-deliveries", time.Minute, apiHandler.RedriveStuckDeliveries)
