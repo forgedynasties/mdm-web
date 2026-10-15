@@ -55,7 +55,7 @@
       {{template "lu-runs" .}}
     {{else if .Client}}
       {{template "clients-detail" .}}
-      {{if or .KeysOwn .KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling. <a href="/static/device-key-plan.html" hx-boost="false">The plan</a></div>{{end}}
+      {{if or .KeysOwn .KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling.</div>{{end}}
     {{else}}
       {{if .RolePic}}{{with .RolePic}}
       {{/* A role with one model wears that model's picture (model-images-demos.html, M3). */}}
