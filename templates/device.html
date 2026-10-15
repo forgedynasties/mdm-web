@@ -4658,9 +4658,20 @@ html.dd-fit .dd-split-r{padding-right:4px}
    photo and name, the vitals as columns, the hardware facts in two columns. */
 .dd-devpane{padding-top:14px}
 .dd-hw-st{margin-top:6px!important}
-.dd-vcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:end;margin:4px 0 6px}
+/* All vitals in one row (uptime under it); columns size to their text. */
+.dd-vcols{margin:4px 0 6px}
+.vc-row{display:flex;gap:12px;align-items:end}
+.vc-row>.vc{flex:1 1 auto;min-width:min-content;grid-template-columns:10px 1fr;gap:8px}
+.vc-row .vc-v{font-size:15.5px}
+.vc-row .vc-t{min-width:min-content}
 .vc{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:end;min-width:0}
-.vc[role=button]{cursor:pointer}.vc[role=button]:hover .vc-v{color:var(--accent-text)}
+/* A column that opens something says so: a chevron after the value, and the column
+   lifts on hover. */
+.vc[role=button]{cursor:pointer;border-radius:10px;margin:-4px;padding:4px;transition:background .12s}
+.vc[role=button]:hover,.vc[role=button]:focus-visible{background:var(--surface2)}
+.vc[role=button]:hover .vc-tube{background:var(--surface)}
+.vc-go{display:inline-block;width:12px;height:12px;margin-left:3px;vertical-align:1px;fill:none;stroke:var(--text-faint);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.vc[role=button]:hover .vc-go{stroke:var(--accent-text)}
 .vc-tube{height:64px;border-radius:7px;background:var(--surface2);position:relative;overflow:hidden}
 .vc-tube i{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:var(--text-faint)}
 .vc.t-ok .vc-tube i{background:var(--ok)}.vc.t-warn .vc-tube i{background:var(--warn)}.vc.t-danger .vc-tube i{background:var(--danger)}
@@ -4696,7 +4707,6 @@ body.dd-pane-facts #dd-panel-summary .dd-facts{display:contents}
 .dd-where .ddc-kv .k{font-size:12.5px;color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0}
 .dd-where .ddc-kv .v{font-size:12.5px;color:var(--text);font-weight:600;display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
 .dd-where .dfc-first{margin-left:0;padding-left:0;border-left:0}
-.dd-vcols{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))!important}
 .dd-where .ddc-kv .v a{background:none;padding:0;border:0;color:var(--text);font-weight:650;white-space:nowrap}
 .dd-where .ddc-kv .v a:hover{color:var(--accent-text);text-decoration:underline}
 body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
@@ -6081,4 +6091,4 @@ document.addEventListener('keydown', function (e) {
 </div>
 {{end}}
 
-{{define "device-vitals-cols"}}{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{else if eq .Key "pad"}} role="button" tabindex="0" onclick="event.stopPropagation(); var c = document.getElementById('pad-chip'); if (c) c.click()" title="Charging pad"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
+{{define "device-vitals-cols"}}<div class="vc-row">{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{else if eq .Key "pad"}} role="button" tabindex="0" onclick="event.stopPropagation(); var c = document.getElementById('pad-chip'); if (c) c.click()" title="Charging pad"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}{{if or (eq .Key "wifi") (eq .Key "pad")}}<svg class="vc-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{{end}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}</div>{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}

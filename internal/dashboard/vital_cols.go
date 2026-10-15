@@ -78,7 +78,7 @@ func vitalColumns(dv any, showBattery, flapping bool, pad string) []vitalCol {
 		case "vacant":
 			c.Value, c.Sub = "Empty", "no phone"
 		case "flapping":
-			c.Value, c.Sub, c.Tone = "Flapping", "charger", "warn"
+			c.Value, c.Sub, c.Tone = "Misplaced", "place it again", "warn"
 		case "na":
 			c.Value, c.Sub, c.Pct = "Off", "charging off", 0
 		default:
