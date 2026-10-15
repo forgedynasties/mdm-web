@@ -196,7 +196,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
      would paint in the stacked layout for a moment. Keep it hidden on wide screens until
      the split is in place (and never longer than 1.5 s). */}}
 <style>html.dd-pending .device-detail{visibility:hidden}</style>
-<script>(function(){var r=document.documentElement;if(!window.matchMedia||!matchMedia('(min-width: 1100px)').matches)return;r.classList.add('dd-pending');setTimeout(function(){r.classList.remove('dd-pending')},1500);})();</script>
+<script>(function(){
+  // Shown when the whole page is in place (the split, and the top bar the layout fills
+  // in last): the end of the first load, or the end of the swap on an in-app visit. A
+  // big page arrives in pieces, so a fixed timer revealed the stacked layout mid-load.
+  var r=document.documentElement;if(!window.matchMedia||!matchMedia('(min-width: 1100px)').matches)return;
+  r.classList.add('dd-pending');
+  function show(){r.classList.remove('dd-pending');}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',show,{once:true});
+  else document.addEventListener('htmx:afterSettle',show,{once:true});
+  setTimeout(show,6000);
+})();</script>
 <div class="device-detail cc-wrap dd-cc">
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
@@ -4815,7 +4825,6 @@ html.dd-fit .dd-split-r{padding-right:4px}
 
   if (WIDE.addEventListener) WIDE.addEventListener('change', apply); else if (WIDE.addListener) WIDE.addListener(apply);
   apply();
-  document.documentElement.classList.remove('dd-pending');
 })();
 </script>
 </div><!-- /ddc-body -->
