@@ -77,8 +77,8 @@
     <a class="cc-btn" href="/restaurants/{{.Restaurant.ID}}/report">Weekly report</a>
     {{if canAdminOrOperator .Role}}<a class="cc-btn" href="/restaurants/{{.Restaurant.ID}}/edit">Edit</a>
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
-      <div class="isl-menu">
-        <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST" onsubmit="return confirm('Delete {{.Restaurant.Name}}? Its devices stop being at a venue.')"><button type="submit" class="isl-mi" style="color:var(--danger)">Delete venue</button></form>
+      <div class="isl-menu cc-menu" role="menu">
+        <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST" onsubmit="return confirm('Delete {{.Restaurant.Name}}? Its devices stop being at a venue.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete venue</button></form>
       </div>
     </details>{{end}}
   </span>

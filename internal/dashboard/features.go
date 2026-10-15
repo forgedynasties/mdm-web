@@ -1288,7 +1288,15 @@ type ClientPillView struct {
 	Behind      bool
 	Clients     []ClientPillRow
 	Changelog   []config.AgentAPKBuild
+	// For the menu (device-menus-demos.html, M1): the version code, the slot's standing
+	// update policy, and the changelog as version + text without the publisher's prefix.
+	Code       int64
+	AutoUpdate string
+	Log        []ClientPillLog
 }
+
+// ClientPillLog is one release line in the client menu.
+type ClientPillLog struct{ Version, Text string }
 
 // ClientPillRow is one client in the pill's popover.
 type ClientPillRow struct {
@@ -1324,9 +1332,9 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 		v.Kind = "Standard MDM"
 		v.Title = "Managed by the AIO MDM standard client (Device Owner) on a stock device."
 	}
-	v.Version, _ = clientVersionOf(d)
+	v.Version, v.Code = clientVersionOf(d)
 	if frameworkVersionReported(v.Version, clientPackageOf(d)) {
-		v.Version, v.Misreported = "", true
+		v.Version, v.Code, v.Misreported = "", 0, true
 	}
 	v.Slot = agentSlotFor(d)
 	// The label and the "this one" marker follow the row the Clients page shows, so a
@@ -1354,6 +1362,23 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 	v.Changelog = h.cfg.AgentAPKHistory(v.Slot)
 	if len(v.Changelog) > 4 {
 		v.Changelog = v.Changelog[:4]
+	}
+	for _, b := range v.Changelog {
+		ver := b.Version
+		if ver == "" {
+			ver = b.Name
+		}
+		v.Log = append(v.Log, ClientPillLog{Version: ver, Text: changelogText(b.Changelog)})
+	}
+	switch pol := h.cfg.ClientAutoUpdate(v.Slot); {
+	case pol.Active() && pol.WindowStart != "" && pol.WindowEnd != "":
+		v.AutoUpdate = "Auto-update on · " + pol.WindowStart + "–" + pol.WindowEnd
+	case pol.Active():
+		v.AutoUpdate = "Auto-update on"
+	case pol.On:
+		v.AutoUpdate = "Auto-update paused"
+	default:
+		v.AutoUpdate = "Auto-update off"
 	}
 	return v
 }

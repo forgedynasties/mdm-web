@@ -154,15 +154,17 @@
      in with a "Saved" flash. Rendered inline in the sidebar and returned by
      POST /devices/{serial}/notes. */}}
 {{define "device-notes"}}
-<div class="ddc-card" id="device-notes-card">
-  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z" opacity="0"/><path d="M6 4h9l5 5v11H6z"/><path d="M15 4v5h5M9 12h6M9 16h6"/></svg></span><h2>Notes</h2>{{if .Saved}} <span class="dn-saved">Saved</span>{{end}}</div>
+{{/* Notes, in the menu kit (device-menus-demos.html, M1). Returned whole by POST
+     /devices/{serial}/notes, which swaps it back in with "Saved". */}}
+<div id="device-notes-card">
+  <div class="cc-mh">Notes{{if .Saved}}<span class="sub dn-saved">Saved</span>{{end}}</div>
   {{if canOperate .Role}}
-  <form hx-post="/devices/{{.Device.SerialNumber}}/notes" hx-target="#device-notes-card" hx-swap="outerHTML">
-    <textarea name="notes" class="dn-ta" rows="4" maxlength="4000" placeholder="Add a note about this device — e.g. cracked screen, reserved for QA…">{{.Notes}}</textarea>
-    <div class="dn-actions"><button type="submit" class="btn-primary dn-save">Save</button></div>
+  <form hx-post="/devices/{{.Device.SerialNumber}}/notes" hx-target="#device-notes-card" hx-swap="outerHTML" class="dn-form">
+    <textarea name="notes" class="dn-ta" rows="4" maxlength="4000" placeholder="e.g. cracked screen, reserved for QA…">{{.Notes}}</textarea>
+    <div class="cc-mfoot"><span>Everyone who can see this device sees its notes</span><button type="submit" class="cc-btn sm primary dn-save">Save</button></div>
   </form>
   {{else}}
-    {{if .Notes}}<div class="dn-view">{{.Notes}}</div>{{else}}<div class="muted small">No notes.</div>{{end}}
+    <div class="dn-form">{{if .Notes}}<div class="dn-view">{{.Notes}}</div>{{else}}<div class="muted small">No notes.</div>{{end}}</div>
   {{end}}
 </div>
 {{end}}
@@ -345,15 +347,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if and (supports .Device "reboot") (canOperate .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-btn">Reboot</button></form>{{end}}
     {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
-      <div class="isl-menu">
-        {{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/nickname"><label>Name<input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Host stand"></label><button class="cc-btn sm primary" type="submit">Save</button></form>{{end}}
-        {{if supports .Device "kiosk_set"}}<button type="button" class="isl-mi" onclick="this.closest('details').open=false; kioskModalOpen()">Kiosk · {{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</button>{{end}}
+      <div class="isl-menu cc-menu" role="menu">
+        {{if canOperate .Role}}<button type="button" class="cc-mi" aria-expanded="false" onclick="var f=this.nextElementSibling; f.hidden=!f.hidden; this.setAttribute('aria-expanded', !f.hidden); if (!f.hidden) f.querySelector('input').focus()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Rename…{{if .Nickname}}<span class="rt">{{.Nickname}}</span>{{end}}</button>
+        <form class="cc-mfield" method="POST" action="/devices/{{.Device.SerialNumber}}/nickname" hidden><input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Host stand" aria-label="Name"><button type="submit">Save</button></form>{{end}}
+        {{if supports .Device "kiosk_set"}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; kioskModalOpen()"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Lock<span class="rt">{{if .KioskConfig.KioskEnabled}}Locked{{else}}Unlocked{{end}}</span></button>{{end}}
         {{/* Agent OTA (restored 15 Oct): the server fills in the hosted APK and its digest. */}}
         {{if .AgentUpdate}}{{if .AgentUpdate.Hosted}}{{if supports .Device "self_update"}}
-        {{if .AgentUpdate.Available}}{{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Update the agent on {{.Device.SerialNumber}} to {{.AgentUpdate.Version}}? It restarts itself and reconnects.')"><input type="hidden" name="type" value="app_update"><button type="submit" class="isl-mi">Update agent to {{.AgentUpdate.Version}}</button></form>{{end}}
-        {{else}}<span class="isl-mi" style="color:var(--text-faint);cursor:default">Agent up to date{{if .AgentUpdate.Current}} ({{.AgentUpdate.Current}}){{end}}</span>{{end}}
+        {{if .AgentUpdate.Available}}{{if canOperate .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Update the client on {{.Device.SerialNumber}} to {{.AgentUpdate.Version}}? It restarts itself and reconnects.')"><input type="hidden" name="type" value="app_update"><button type="submit" class="cc-mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Update client<span class="rt">to {{.AgentUpdate.Version}}</span></button></form>{{end}}
+        {{else}}<span class="cc-mi is-off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Update client<span class="rt">up to date{{if .AgentUpdate.Current}} · {{.AgentUpdate.Current}}{{end}}</span></span>{{end}}
         {{end}}{{end}}{{end}}
-        <a class="isl-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}">Export</a>
+        <div class="cc-msep"></div>
+        <a class="cc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export data…</a>
       </div>
     </details>
   </span>
@@ -501,12 +505,14 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .dd-pad-chip[data-st="on"] .dd-pad-dot{background:var(--ok)}
 .dd-pad-chip[data-st="flapping"],.dd-pad-chip[data-st="bad"]{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:var(--warn-bg)}
 .dd-pad-chip[data-st="flapping"] .dd-pad-dot,.dd-pad-chip[data-st="bad"] .dd-pad-dot{background:var(--warn)}
-.dd-pad-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(380px,calc(100vw - 32px));box-shadow:var(--shadow-pop);border-radius:14px}
+.dd-pad-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(300px,calc(100vw - 32px))}
 .dd-pad-pop .ddc-card{margin:0}
 .dd-notes-wrap{position:relative}
 .dd-notes-btn svg{flex:none}
 .dd-notes-dot{display:inline-block;width:7px;height:7px;border-radius:99px;background:var(--accent);margin-left:2px}
-.dd-notes-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(360px,calc(100vw - 32px));box-shadow:var(--shadow-pop);border-radius:14px}
+.dd-notes-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:45;width:min(340px,calc(100vw - 32px))}
+.dd-notes-pop .dn-form{padding:0 6px 2px}.dd-notes-pop .cc-mfoot{margin:6px -6px 0;padding-bottom:0}.dd-notes-pop .cc-mfoot button{margin-left:auto}
+.dd-notes-pop .dn-saved{color:var(--ok);font-family:inherit;font-weight:650}
 .dd-notes-pop .ddc-card{margin:0}
 /* On wide screens the island carries name, status and the main buttons, so the hero's
    ribbon goes; what stays in the hero is only what is unusual (charger, OTA). */
@@ -519,17 +525,22 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 // A popover inside the facts bar is fixed-positioned under its cell (the bar clips), and
 // any scroll closes it rather than leaving it floating away from its cell.
 window.ddFactsPop = function (pop, anchor) {
-  if (!pop || !anchor || !pop.closest('.dd-facts')) return;
-  var cell = anchor.closest('.dfc, .ddc-kv') || anchor, r = cell.getBoundingClientRect();
+  if (!pop || !anchor) return;
+  // Fixed under its anchor wherever it sits, so a card's overflow cannot clip it.
+  pop.style.position = 'fixed'; pop.style.right = 'auto';
+  var cell = (pop.closest('.dd-facts') && anchor.closest('.dfc, .ddc-kv')) || anchor, r = cell.getBoundingClientRect();
   pop.style.top = (r.bottom + 6) + 'px';
   pop.style.left = Math.max(12, Math.min(r.left, window.innerWidth - pop.offsetWidth - 12)) + 'px';
 };
 if (!window.__ddFactsScroll) {
   window.__ddFactsScroll = true;
-  window.addEventListener('scroll', function () {
-    document.querySelectorAll('.dd-facts .pl-pop:not([hidden])').forEach(function (p) { p.setAttribute('hidden', ''); });
-    var c = document.querySelector('.dd-facts .cpill-pop:not([hidden])'); if (c) { var b = document.getElementById('cpill-btn'); if (b) b.click(); }
-  }, { passive: true });
+  // Fixed menus do not follow what scrolls under them: close them on any scroll (the
+  // panes scroll on their own in the split, so listen in the capture phase).
+  window.addEventListener('scroll', function (e) {
+    if (e.target && e.target.closest && e.target.closest('.cc-menu')) return; // a long list scrolling inside the menu
+    document.querySelectorAll('.pl-pop:not([hidden])').forEach(function (p) { p.setAttribute('hidden', ''); });
+    var c = document.querySelector('.cpill-pop:not([hidden])'); if (c) { var b = document.getElementById('cpill-btn'); if (b) b.click(); }
+  }, { passive: true, capture: true });
 }
 window.ddPadToggle = function (e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
@@ -590,38 +601,30 @@ if (!window.__ddNotesHook) {
       <i class="dd-pad-dot" aria-hidden="true"></i>Pad<span class="dd-pad-sep"> · </span><span id="pad-chip-t">{{if eq $pst "na"}}off{{else if eq $pst "on"}}phone on{{else if eq $pst "vacant"}}vacant{{else if eq $pst "flapping"}}misplaced{{else}}unreadable{{end}}</span>
       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </button>
-    <div class="dd-pad-pop" id="dd-pad-pop" hidden>
-  <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
-    <div class="ddc-card-t pad-card-t cc-ch">
-      <span style="display:flex;align-items:center;gap:9px;"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg></span><h2>Charging pad</h2></span>
-      {{if true}}
-      <button type="button" id="wlc-chip" class="ddc-swpill pad-swpill{{if .KioskConfig.WlcChargingEnabled}} on{{end}}{{if not (canAdminOrOperator .Role)}} role-locked{{end}}"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}
-              data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
-              data-serial="{{.Device.SerialNumber}}"
-              title="Enable or disable wireless charging on this pad" onclick="wlcToggle(this)">
-        <span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span><span class="ddc-sw"></span>
-      </button>
-      {{else}}
-      <span class="{{if .KioskConfig.WlcChargingEnabled}}pad-en{{else}}muted{{end}}">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span>
-      {{end}}
-    </div>
-    {{/* gpio27 only carries a real placed/vacant reading while charging is ON. With
-         charging disabled the line is meaningless, so show "Not available" rather than a
-         misleading placed/vacant. */}}
-    <div class="ddc-kv"><span class="k">Status</span><span class="v">
-      {{if .KioskConfig.WlcChargingEnabled}}
-      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status">
-        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Wireless charging active{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Charging pad misplaced{{else}}Unreadable{{end}}</span>
-      </span>
-      {{else}}
-      <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
-      {{end}}
-    </span></div>
-    {{/* Flapping = gpio27 kept disagreeing instead of settling — a real hardware symptom
-         (loose connector, failing pad), not a transient misread. Only meaningful while
-         charging is on, matching the status pill above. */}}
-    <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
-  </div>
+    <div class="dd-pad-pop cc-menu" id="dd-pad-pop" hidden>
+      <div id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
+        <div class="cc-mh">Charging pad</div>
+        {{$canPad := canAdminOrOperator .Role}}
+        <button type="button" id="wlc-chip" role="switch" aria-checked="{{if .KioskConfig.WlcChargingEnabled}}true{{else}}false{{end}}"
+                class="cc-mi{{if .KioskConfig.WlcChargingEnabled}} on{{end}}{{if not $canPad}} role-locked{{end}}"{{if not $canPad}} data-role-need="operator"{{end}}
+                data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}" data-serial="{{.Device.SerialNumber}}"
+                title="{{if $canPad}}Switch wireless charging on this pad{{else}}Requires the operator role{{end}}" onclick="wlcToggle(this)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>Wireless charging<span class="rt"><span class="cc-msw"></span></span>
+        </button>
+        {{/* gpio27 only carries a real placed/vacant reading while charging is ON. With
+             charging disabled the line is meaningless, so show "Not available" rather than a
+             misleading placed/vacant. */}}
+        <div class="cc-mi is-static"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Status<span class="rt">
+          {{if .KioskConfig.WlcChargingEnabled}}
+          <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Phone on it{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Misplaced{{else}}Unreadable{{end}}</span></span>
+          {{else}}
+          <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
+          {{end}}
+        </span></div>
+        {{/* Misplaced = gpio27 kept disagreeing instead of settling: the pad and the tablet
+             keep losing contact. Only meaningful while charging is on. */}}
+        <div class="cc-mnote" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Place the pad again.</b> The pad and the tablet keep losing contact, so it isn't sitting properly.</div>
+      </div>
     </div>
   </span>
   {{end}}
@@ -630,7 +633,7 @@ if (!window.__ddNotesHook) {
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
       <span class="dd-notes-t">Notes</span>{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
     </button>
-    <div class="dd-notes-pop" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
+    <div class="dd-notes-pop cc-menu" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
   </span>
 </div>
 </div>
@@ -653,26 +656,15 @@ if (!window.__ddNotesHook) {
         {{else if .Misreported}}<span class="cpill-sep" aria-hidden="true"></span><span class="cpill-ver muted">pre-1.0.2</span>{{end}}
         <svg class="cpill-caret" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
       </button>
-      <div class="cpill-pop" id="cpill-pop" hidden>
-        <h4>Clients</h4>
-        {{$this := .Slot}}
-        {{range .Clients}}
-        <div class="cpill-row{{if .This}} on{{end}}">
-          <span class="nm">{{.Label}}</span>
-          <span class="vv">{{if .Version}}{{.Version}}{{else}}—{{end}}</span>
-          {{if .This}}<span class="cc-tag ok">this device</span>{{end}}
-        </div>
+      <div class="cpill-pop cc-menu" id="cpill-pop" hidden>
+        <div class="cc-mh">{{.Kind}}{{if .Version}}<span class="sub">{{.Version}}{{if .Code}} · code {{.Code}}{{end}}</span>{{end}}</div>
+        <div class="cc-mst"><span class="cc-mdot{{if and .Hosted .Version (not .Behind)}} ok{{else if .Behind}} warn{{end}}"></span>{{if .Misreported}}Version unreadable (client older than 1.0.2){{else if not .Hosted}}No build hosted for this device's firmware{{else if .Behind}}{{.Latest}} is hosted; this device is behind{{else if .Version}}Up to date with the hosted build{{else}}Version not reported{{end}}</div>
+        {{if .Log}}
+        <div class="cc-msep"></div>
+        <div class="cc-msec">What changed</div>
+        <ul class="cc-mlog">{{range .Log}}<li><span class="v">{{.Version}}</span><span>{{.Text}}</span></li>{{end}}</ul>
         {{end}}
-        {{if .Changelog}}
-        <div class="cpill-chg">
-          <div class="t">Changelog · {{if .SlotLabel}}{{.SlotLabel}}{{else}}{{.Kind}}{{end}}</div>
-          <ul>{{range .Changelog}}<li><span class="v">{{if .Version}}{{.Version}}{{else}}{{.Name}}{{end}}</span>{{if .Changelog}} — {{.Changelog}}{{end}}</li>{{end}}</ul>
-        </div>
-        {{end}}
-        <div class="cpill-foot">
-          <span class="vv">{{if not .Hosted}}No build hosted{{else if .Behind}}{{.Latest}} available{{else if .Version}}Up to date{{else}}Version not reported{{end}}</span>
-          <a href="/lineup?client={{if .Slot}}{{.Slot}}{{else}}firmware-qcom{{end}}">Open in Lineup →</a>
-        </div>
+        <div class="cc-mfoot">{{if .Hosted}}{{.AutoUpdate}}{{end}}<a href="/lineup?client={{if .Slot}}{{.Slot}}{{else}}firmware-qcom{{end}}">Lineup →</a></div>
       </div>
     </span>
     {{end}}
@@ -803,6 +795,7 @@ if (!window.__ddNotesHook) {
       var st = btn.querySelector('.ddc-kstate');
       var apply = function (v) {
         btn.setAttribute('data-on', v ? '1' : '0');
+        btn.setAttribute('aria-checked', v ? 'true' : 'false');
         btn.classList.toggle('on', v);
         if (st) st.textContent = v ? 'enabled' : 'disabled';
         // Keep the card's charging flag in sync so the live SSE updater (mdmSyncPadStatus)
@@ -836,24 +829,24 @@ if (!window.__ddNotesHook) {
   <div class="dd-place" aria-label="Placement">
     <div class="ddc-kv dfc-first"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">Lab</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
       <button type="button" class="kv-edit" title="Change restaurant" onclick="plTogglePop('pl-rest-pop', this)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
-      <div class="pl-pop" id="pl-rest-pop" hidden>
-        <div class="pl-pop-h">Move to venue</div>
+      <div class="pl-pop cc-menu" id="pl-rest-pop" hidden>
+        <div class="cc-mh">Move to venue</div>
         <form action="/devices/{{.Device.SerialNumber}}/restaurant" method="POST">
           <div class="pl-pop-list">
-            <label class="pl-pop-opt"><input type="radio" name="restaurant_id" value=""{{if not .Device.DeployedEffective}} checked{{end}}> Lab (unassigned)</label>
-            {{$rid := printf "%s" .Device.RestaurantID}}{{range .Restaurants}}<label class="pl-pop-opt"><input type="radio" name="restaurant_id" value="{{.ID}}"{{if eq (printf "%s" .ID) $rid}} checked{{end}}> {{.Name}}</label>{{end}}
+            <label class="pl-pop-opt cc-mi"><input type="radio" name="restaurant_id" value=""{{if not .Device.DeployedEffective}} checked{{end}}> Lab (unassigned)</label>
+            {{$rid := printf "%s" .Device.RestaurantID}}{{range .Restaurants}}<label class="pl-pop-opt cc-mi"><input type="radio" name="restaurant_id" value="{{.ID}}"{{if eq (printf "%s" .ID) $rid}} checked{{end}}> {{.Name}}</label>{{end}}
           </div>
-          <button type="submit" class="btn-primary pl-pop-save">Save</button>
+          <div class="cc-mfoot"><button type="submit" class="cc-btn sm primary pl-pop-save">Move</button></div>
         </form>
       </div>
     </span>{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Groups</span><span class="v tags">{{range .DeviceGroups}}<span class="ddc-gtag">{{.Name}}{{if canAdminOrOperator $.Role}}<button type="button" class="gtag-x" title="Remove from {{.Name}}" onclick="ddRemoveGroup(this,'{{.ID}}','{{$.Device.SerialNumber}}')">×</button>{{end}}</span>{{end}}{{if canAdminOrOperator .Role}}<span class="pl-pop-wrap">
       <button type="button" class="kv-add" onclick="plTogglePop('pl-group-pop', this)">+ group</button>
-      <div class="pl-pop" id="pl-group-pop" hidden>
-        <div class="pl-pop-h">Add to group</div>
+      <div class="pl-pop cc-menu" id="pl-group-pop" hidden>
+        <div class="cc-mh">Add to group</div>
         <div class="pl-pop-list" id="pl-group-list">
-          {{range .AddableGroups}}<button type="button" class="pl-pop-opt" onclick="ddAddGroup('{{.ID}}', this)">{{.Name}}</button>{{end}}
-          {{if not .AddableGroups}}<div class="muted small" style="padding:7px 10px;">Already in every group.</div>{{end}}
+          {{range .AddableGroups}}<button type="button" class="pl-pop-opt cc-mi" onclick="ddAddGroup('{{.ID}}', this)">{{.Name}}</button>{{end}}
+          {{if not .AddableGroups}}<div class="cc-mi is-off">Already in every group</div>{{end}}
         </div>
       </div>
     </span>{{else if not .DeviceGroups}}<span class="muted">None</span>{{end}}</span></div>
@@ -882,15 +875,17 @@ if (!window.__ddNotesHook) {
 .vt-chip i.vt-c{background:rgba(160,170,190,.9)}
 .vt-chip i.vt-b{background:#a78bfa}
 .vt-menu[hidden]{display:none!important}
-.vt-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:46;min-width:230px;display:grid;gap:1px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop)}
+/* Chart menus: placed here, drawn by the menu kit (.cc-menu). */
+.vt-menu{position:absolute;left:0;top:calc(100% + 6px);z-index:46;min-width:230px}
 .vt-menu.vt-menu-r{left:auto;right:0}
-.vt-mh{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 10px 3px}
-.vt-menu .vt-mi,.vt-menu .dur-btn.vt-mi{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 10px;border-radius:8px;border:0;background:none;color:var(--text);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;box-shadow:none}
-.vt-menu .vt-mi:hover{background:var(--surface2)}
-.vt-menu .vt-mi.active{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
-.vt-menu .vt-mi small{margin-left:auto;color:var(--muted);font-size:11px;font-weight:500}
-.vt-menu .vt-tz{display:grid;gap:1px;background:none;border:0;padding:0}
-.vt-sep{height:1px;background:var(--border-soft);margin:4px 2px}
+/* The chart card clips its plot; an open menu may hang below it. */
+.chart-card:has(.vt-menu:not([hidden]), .cr-pop:not([hidden])){overflow:visible}
+.vt-menu .vt-tz{display:grid;gap:0;background:none;border:0;padding:0;box-shadow:none;border-radius:0}
+/* .dur-btn / .gc-tzb carry their old segmented-control look; inside the menu the kit wins. */
+.vt-menu .cc-mi{background:none;box-shadow:none;border:0;border-radius:8px;padding:0 10px;font-size:13px;font-weight:500;line-height:normal;color:var(--text)}
+.vt-menu .cc-mi:hover{background:var(--hover);color:var(--text)}
+.vt-menu .cc-mi.active{background:none;box-shadow:none;color:var(--accent-text);font-weight:600}
+.vt-menu .cc-mi.active:hover{background:var(--hover)}
 .vt-note{font-size:11.5px;color:var(--muted);padding:6px 10px;line-height:1.45;max-width:240px}
 .vt-range-wrap .cr-pop{left:0;right:auto}
 .chart-card .chart-tabs{display:none}
@@ -949,21 +944,21 @@ if (!window.__ddNotesHook) {
           <span class="chart-wlabel" id="chart-window-label">Last 6 hours</span>
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
         </button>
-        <div class="vt-menu" id="vt-range-menu" role="menu" hidden>
-          <div class="vt-mh">Range</div>
-          <button type="button" class="dur-btn vt-mi" data-ms="3600000">Last hour</button>
-          <button type="button" class="dur-btn vt-mi active" data-ms="21600000">Last 6 hours</button>
-          <button type="button" class="dur-btn vt-mi" data-ms="43200000">Last 12 hours</button>
-          <button type="button" class="dur-btn vt-mi" data-ms="86400000">Last 24 hours</button>
-          <button type="button" class="dur-btn vt-mi" data-ms="172800000">Last 48 hours</button>
-          <button type="button" class="dur-btn vt-mi" data-ms="604800000">Last 7 days</button>
-          <button type="button" class="dur-btn vt-mi" id="custom-range-btn">Custom dates…</button>
-          <div class="vt-sep"></div>
-          <div class="vt-mh">Time zone</div>
+        <div class="vt-menu cc-menu" id="vt-range-menu" role="menu" hidden>
+          <div class="vt-mh cc-msec">Range</div>
+          <button type="button" class="dur-btn vt-mi cc-mi" data-ms="3600000">Last hour</button>
+          <button type="button" class="dur-btn vt-mi cc-mi active" data-ms="21600000">Last 6 hours</button>
+          <button type="button" class="dur-btn vt-mi cc-mi" data-ms="43200000">Last 12 hours</button>
+          <button type="button" class="dur-btn vt-mi cc-mi" data-ms="86400000">Last 24 hours</button>
+          <button type="button" class="dur-btn vt-mi cc-mi" data-ms="172800000">Last 48 hours</button>
+          <button type="button" class="dur-btn vt-mi cc-mi" data-ms="604800000">Last 7 days</button>
+          <button type="button" class="dur-btn vt-mi cc-mi" id="custom-range-btn">Custom dates…</button>
+          <div class="vt-sep cc-msep"></div>
+          <div class="vt-mh cc-msec">Time zone</div>
           <div class="gc-tzseg vt-tz" id="tz-seg" role="group" aria-label="Graph timezone">
-            <button type="button" class="gc-tzb vt-mi active" data-tz="browser">Your time</button>
-            {{if and $devtz (ne $devtz "—") (ne $devtz "")}}<button type="button" class="gc-tzb vt-mi" data-tz="device">Device time <small>{{$devtz}}</small></button>{{end}}
-            <button type="button" class="gc-tzb vt-mi" data-tz="utc">UTC <small>as in the CSV export</small></button>
+            <button type="button" class="gc-tzb vt-mi cc-mi active" data-tz="browser">Your time</button>
+            {{if and $devtz (ne $devtz "—") (ne $devtz "")}}<button type="button" class="gc-tzb vt-mi cc-mi" data-tz="device">Device time <small>{{$devtz}}</small></button>{{end}}
+            <button type="button" class="gc-tzb vt-mi cc-mi" data-tz="utc">UTC <small>as in the CSV export</small></button>
           </div>
         </div>
       <div id="custom-range-inputs" class="cr-pop" hidden>
@@ -1010,10 +1005,10 @@ if (!window.__ddNotesHook) {
       <button type="button" id="chart-fs-btn" class="vt-ib" title="View graphs full screen" aria-label="View graphs full screen">⤢</button>
       <div class="vt-range-wrap">
         <button type="button" class="vt-ib" aria-label="More" aria-haspopup="menu" aria-expanded="false" onclick="vtMenu(event,'vt-more-menu')" data-vt-trig>⋯</button>
-        <div class="vt-menu vt-menu-r" id="vt-more-menu" role="menu" hidden>
-          <button type="button" id="chart-export-btn" class="vt-mi">Download PNG</button>
-          <button type="button" id="chart-reset-btn" class="vt-mi">Reset to the last 6 hours</button>
-          <div class="vt-sep"></div>
+        <div class="vt-menu vt-menu-r cc-menu" id="vt-more-menu" role="menu" hidden>
+          <button type="button" id="chart-export-btn" class="vt-mi cc-mi">Download PNG</button>
+          <button type="button" id="chart-reset-btn" class="vt-mi cc-mi">Reset to the last 6 hours</button>
+          <div class="vt-sep cc-msep"></div>
           <div class="vt-note">Drag across a chart to zoom in · double-click to reset · Ctrl + scroll zooms around the pointer</div>
         </div>
       </div>
@@ -5215,7 +5210,7 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
       if (window.ddPadChip) window.ddPadChip('na');
       return;
     }
-    var map = { 1: ['on', 'Wireless charging active'], 0: ['vacant', 'Vacant'], 2: ['flapping', 'Charging pad misplaced'] };
+    var map = { 1: ['on', 'Phone on it'], 0: ['vacant', 'Vacant'], 2: ['flapping', 'Misplaced'] };
     var m = map[wlc] || ['bad', 'Unreadable'];
     el.className = 'pad-stat pad-stat-' + m[0];
     var t = el.querySelector('.pad-txt'); if (t) t.textContent = m[1];
