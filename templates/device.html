@@ -560,6 +560,7 @@ if (!window.__ddNotesHook) {
   {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
+  <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)">Location</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
   {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
 </div>
@@ -1105,56 +1106,6 @@ if (!window.__ddNotesHook) {
     </div>
   </div>
 
-{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
-     themed) so it can follow the dashboard's dark mode like the Overview
-     fleet map does. Rendered only when the device has resolved WiFi-
-     geolocation coordinates AND a browser-facing Maps key is configured
-     (MapsEmbedKey, referrer-restricted). */}}
-{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
-{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
-<div class="card dev-map-card" id="dev-map-card">
-  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
-    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
-  </div>
-  <div id="dev-map" class="dev-map"></div>
-  <div class="dev-map-foot">
-    {{$maddr := extraField .Device.LatestExtra "location_address"}}
-    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
-    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
-  </div>
-</div>
-<script>
-{{/* Same dark palette as the Overview fleet map (templates/overview.html
-     OV_MAP_DARK) — kept in sync there; duplicated here since each page loads
-     the Maps JS API independently. */}}
-var DEV_MAP_DARK = [
-  {elementType:'geometry',stylers:[{color:'#212a37'}]},
-  {elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
-  {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},
-  {featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
-  {featureType:'poi',stylers:[{visibility:'off'}]},
-  {featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
-  {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
-  {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
-  {featureType:'transit',stylers:[{visibility:'off'}]},
-  {featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
-  {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
-];
-function devMapStyles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? DEV_MAP_DARK : []; }
-function devInitMap(){
-  var el = document.getElementById('dev-map');
-  if (!el || !window.google || !google.maps) return;
-  var pos = {lat: parseFloat("{{$mlat}}"), lng: parseFloat("{{$mlon}}")};
-  var map = new google.maps.Map(el, {
-    zoom: 16, center: pos, mapTypeControl:false, streetViewControl:false,
-    fullscreenControl:false, keyboardShortcuts:false, styles: devMapStyles()
-  });
-  window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: devMapStyles()}); });
-  new google.maps.Marker({ position: pos, map: map, title: '{{.Device.SerialNumber}}' });
-}
-</script>
-<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
-{{end}}
 
 <script>
 // Vitals toolbar menus (range, ⋯): one open at a time; any item, outside click or Escape
@@ -3790,6 +3741,17 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     </div>
     <div class="ddc-card">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg></span><h2>Hardware</h2></div>
+      {{/* The model's photo (device-photo-demos.html, M3, picked 15 Oct); its class icon when
+           there is none. */}}
+      {{$hwp := modelPic .Device.Product}}{{$hwrm := extraField .Device.LatestExtra "model"}}{{$hwmf := extraField .Device.LatestExtra "manufacturer"}}
+      <div class="ddc-hw">
+        {{if $hwp}}<img class="ddc-hw-pic" src="{{$hwp.Img}}" alt="" width="112" height="112" loading="lazy" decoding="async">{{else}}<span class="ddc-hw-pic ic-only"><svg aria-hidden="true"><use href="#dk-{{if .Device.Class}}{{.Device.Class}}{{else}}other{{end}}"/></svg></span>{{end}}
+        <div class="ddc-hw-t">
+          <b>{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}</b>
+          <small>{{if and $hwrm (ne $hwrm "—")}}{{if and $hwmf (ne $hwmf "—")}}{{$hwmf}} {{end}}{{$hwrm}} · {{end}}{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}no role{{end}}{{if $hwp}}{{if $hwp.Tagline}}<br>{{$hwp.Tagline}}{{end}}{{end}}</small>
+          {{if $hwp}}{{if $hwp.Specs}}<div class="ddc-hw-spec">{{range $hwp.Specs}}<span>{{.}}</span>{{end}}</div>{{end}}{{end}}
+        </div>
+      </div>
       {{$ram := ramUsage .Device.LatestExtra}}
       <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
@@ -3815,7 +3777,6 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="ddc-kv" id="mic-gain-row" title="Mic gain not reported by this device — client predates the mic_gain field, or the device has no mixer config."><span class="k">Mic gain</span><span class="v"><span class="muted">Not available</span></span></div>
       {{end}}
       <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-      <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
     </div>
     <div class="ddc-card">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></span><h2>Software</h2></div>
@@ -4540,6 +4501,65 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   <div class="muted small" style="padding:26px;text-align:center;">Loading alerts…</div>
 </section><!-- /alerts -->
 {{end}}
+
+{{/* Location (15 Oct): the map and the address, out of Overview and Hardware. */}}
+<section class="dd-panel" data-dd-panel="location" id="dd-panel-location" role="tabpanel" aria-labelledby="dd-tab-location" tabindex="0" hidden>
+{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
+     themed) so it can follow the dashboard's dark mode like the Overview
+     fleet map does. Rendered only when the device has resolved WiFi-
+     geolocation coordinates AND a browser-facing Maps key is configured
+     (MapsEmbedKey, referrer-restricted). */}}
+{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
+{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
+<div class="card dev-map-card" id="dev-map-card">
+  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
+    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
+  </div>
+  <div id="dev-map" class="dev-map"></div>
+  <div class="dev-map-foot">
+    {{$maddr := extraField .Device.LatestExtra "location_address"}}
+    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
+    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
+  </div>
+</div>
+<script>
+{{/* Same dark palette as the Overview fleet map (templates/overview.html
+     OV_MAP_DARK) — kept in sync there; duplicated here since each page loads
+     the Maps JS API independently. */}}
+var DEV_MAP_DARK = [
+  {elementType:'geometry',stylers:[{color:'#212a37'}]},
+  {elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+  {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},
+  {featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
+  {featureType:'poi',stylers:[{visibility:'off'}]},
+  {featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
+  {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+  {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
+  {featureType:'transit',stylers:[{visibility:'off'}]},
+  {featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
+  {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
+];
+function devMapStyles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? DEV_MAP_DARK : []; }
+function devInitMap(){
+  var el = document.getElementById('dev-map');
+  if (!el || !window.google || !google.maps) return;
+  var pos = {lat: parseFloat("{{$mlat}}"), lng: parseFloat("{{$mlon}}")};
+  var map = new google.maps.Map(el, {
+    zoom: 16, center: pos, mapTypeControl:false, streetViewControl:false,
+    fullscreenControl:false, keyboardShortcuts:false, styles: devMapStyles()
+  });
+  window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: devMapStyles()}); });
+  new google.maps.Marker({ position: pos, map: map, title: '{{.Device.SerialNumber}}' });
+}
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
+{{end}}
+<div class="ddc-card" style="margin-top:12px">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2></div>
+  <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
+  <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
+</div>
+</section><!-- /location -->
 <script>
 (function () {
   var SERIAL = '{{.Device.SerialNumber}}';
@@ -4609,6 +4629,15 @@ html.dd-fit .dd-split-r{padding-right:4px}
 .dd-split-r .dd-tabrow .dd-tabs{flex-wrap:wrap}
 .dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
 .dd-tab[hidden]{display:none!important}
+.ddc-hw{display:flex;gap:16px;align-items:center;padding:4px 0 12px}
+.ddc-hw-pic{width:112px;height:112px;flex:none;object-fit:contain;border-radius:14px;background:var(--surface2)}
+.ddc-hw-pic.ic-only{display:grid;place-items:center}
+.ddc-hw-pic.ic-only svg{width:44px;height:44px;fill:none;stroke:var(--text-faint);stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.ddc-hw-t{min-width:0}.ddc-hw-t b{display:block;font-size:15px;font-weight:650;color:var(--text)}
+.ddc-hw-t small{display:block;font-size:12px;color:var(--muted);line-height:1.5;margin-top:3px}
+.ddc-hw-spec{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ddc-hw-spec span{font-size:11px;font-weight:650;border-radius:6px;padding:2px 8px;background:var(--surface2);color:var(--text-2)}
+@media(max-width:720px){.ddc-hw-pic{width:84px;height:84px}}
 .dd-facts>.dd-tabrow-r{margin-left:auto}
 /* In the split the chips share the facts line, so they go compact: Notes is its icon,
    the pad says only "Pad" unless something is wrong, and the Wi-Fi name moves to the
@@ -4719,15 +4748,11 @@ html.dd-fit .dd-split-r{padding-right:4px}
   }
   window.addEventListener('resize', function () { requestAnimationFrame(fit); });
 
-  // In the split, Overview's location map grows or shrinks so its card ends where the
-  // graph ends; outside the split (or on another tab) it keeps its own height.
+  // The map used to fill Overview down to the graph's end; it has its own Location tab now
+  // (15 Oct), so it keeps its own height.
   function syncMap() {
-    var card = document.getElementById('vt-legend') || document.querySelector('.chart-card'), m = document.getElementById('dev-map-card'), map = document.getElementById('dev-map');
-    if (!map) return;
-    if (!document.getElementById('dd-split') || !card || !m || m.offsetParent === null) { map.style.height = ''; return; }
-    var diff = card.getBoundingClientRect().bottom - m.getBoundingClientRect().bottom;
-    if (Math.abs(diff) < 1) return;
-    map.style.height = Math.max(180, Math.round(map.getBoundingClientRect().height + diff)) + 'px';
+    var map = document.getElementById('dev-map');
+    if (map) map.style.height = '';
   }
   window.ddSyncMap = syncMap;
   if (window.ResizeObserver) {
