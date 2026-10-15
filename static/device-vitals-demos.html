@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device vitals demos</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{padding:26px 34px 140px}.wrap{max-width:1180px;margin:0 auto}h1{font-size:23px;margin:0 0 6px}
+.lede{color:var(--muted);font-size:13.5px;max-width:980px;line-height:1.6}.lede b{color:var(--text);font-weight:650}
+h2.opt{font-size:16px;margin:38px 0 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pick{font-size:10.5px;font-weight:800;color:var(--accent-text);background:var(--accent-soft);border-radius:6px;padding:2px 8px}
+.now{font-size:10.5px;font-weight:800;color:var(--text-2);background:var(--surface2);border-radius:6px;padding:2px 8px}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.5}
+.pros div{border-left:3px solid var(--ok);padding:4px 12px}.pros div.bad{border-color:var(--danger)}
+.tgl{position:fixed;top:14px;right:16px;z-index:5}
+.btn{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:5px 12px;color:var(--text-2);background:var(--surface)}
+.stage{display:grid;grid-template-columns:55fr 45fr;gap:14px;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--bg)}
+.graph{border-radius:16px;background:var(--surface);border:1px solid var(--border);min-height:380px;display:grid;place-items:center;color:var(--text-faint);font-size:12px}
+.tabs{display:inline-flex;gap:3px;padding:4px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap}
+.tabs span{font-size:12px;font-weight:650;padding:7px 8px;border-radius:9px;color:var(--text-2)}.tabs span.on{background:var(--surface);color:var(--accent-text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 16px;margin-bottom:12px;min-width:0}
+.ch{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:650;color:var(--text);margin:2px 0 8px}
+.ch .r{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--accent-text)}
+.kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:7px 0;border-top:1px solid var(--border-soft);color:var(--muted)}
+.kv b{color:var(--text);font-weight:600;text-align:right}.kv .mono{font-family:var(--mono);font-size:12px}
+.tag{font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
+.tag.w{background:var(--warn-bg);color:var(--warn)}.tag.g{background:var(--ok-bg);color:var(--ok)}.tag.d{background:var(--danger-bg);color:var(--danger)}
+.facts{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;font-size:12.5px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 16px;margin-bottom:12px}
+.facts b{color:var(--text);font-weight:650}
+.hw{display:flex;gap:14px;align-items:center;padding:2px 0 10px}
+.hw img{width:96px;height:96px;object-fit:contain;border-radius:14px;background:var(--surface2);flex:none}
+.hw b{font-size:15px;display:block}.hw small{font-size:12px;color:var(--muted);display:block;margin-top:2px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 12px;min-width:0}
+.tile .k{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}
+.tile .v{font-size:19px;font-weight:650;color:var(--text);margin-top:3px;font-variant-numeric:tabular-nums}
+.tile .v.ok{color:var(--ok)}.tile small{font-size:11px;color:var(--muted)}
+.place{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}
+.place .kv:nth-child(-n+2){border-top:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.att{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-radius:14px;background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent);margin-bottom:12px;font-size:12.5px;color:var(--text-2)}
+.att b{color:var(--warn);font-weight:700;margin-right:4px}
+.att .tag{background:var(--surface)}
+details.sec{border-top:1px solid var(--border-soft)}details.sec:first-of-type{border-top:0}
+details.sec summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 0;font-size:13px;font-weight:650;color:var(--text)}
+details.sec summary::-webkit-details-marker{display:none}
+details.sec summary .sum{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted);display:flex;gap:6px;align-items:center}
+details.sec summary::after{content:"›";color:var(--text-faint);transform:rotate(90deg);transition:transform .15s}
+details.sec[open] summary::after{transform:rotate(270deg)}
+.lab{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);padding:12px 0 2px}
+.lab:first-child{padding-top:0}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.tiles.in{margin:4px 0 10px}.tiles.in .tile{background:var(--surface2);border-color:transparent}
+.kvg{display:grid;grid-template-columns:1fr 1fr;column-gap:16px}
+.hwx{display:grid;grid-template-columns:120px 1fr;gap:14px;align-items:start;padding:2px 0 10px}
+.hwx img{width:120px;height:150px;object-fit:contain;border-radius:14px;background:var(--surface2)}
+.hwx b{font-size:15px;display:block}.hwx small{font-size:12px;color:var(--muted);display:block;margin-top:2px}
+.tiles.two2{grid-template-columns:1fr 1fr;margin-top:10px}
+@media(max-width:900px){.stage,.two,.pros{grid-template-columns:1fr}.tiles{grid-template-columns:1fr 1fr}body{padding:16px}}
+
+.vwrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(520px,100%),1fr));gap:18px;margin-top:10px}
+.pane{max-width:560px}
+.lbl{font-size:12px;font-weight:700;color:var(--text-2);margin:0 0 6px}
+/* V1 stat strip */
+.strip{display:grid;grid-template-columns:repeat(4,1fr);margin:6px 0 10px;border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft)}
+.strip>div{padding:9px 0 9px 12px;border-left:1px solid var(--border-soft)}.strip>div:first-child{border-left:0;padding-left:0}
+.strip .k{font-size:11px;color:var(--muted)}.strip .v{font-size:17px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums;margin-top:1px}
+.strip .v.ok{color:var(--ok)}.strip small{font-size:11px;color:var(--text-faint)}
+/* V2 meters */
+.mt{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:6px 0 12px}
+.m .top{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}.m .top b{color:var(--text);font-weight:650}
+.m .bar{height:6px;border-radius:99px;background:var(--surface2);margin-top:5px;overflow:hidden}.m .bar i{display:block;height:100%;border-radius:99px;background:var(--text-faint)}
+.m .bar i.ok{background:var(--ok)}.m .bar i.w{background:var(--warn)}
+/* V4 sentence */
+.sent{font-size:13px;color:var(--text-2);line-height:1.7;margin:4px 0 10px}
+.sent b{color:var(--text);font-weight:650}.sent .ok{color:var(--ok);font-weight:650}.sent .sep{color:var(--text-faint);margin:0 6px}
+/* V5 pills */
+.pills{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+.pills span{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--muted);border:1px solid var(--border);border-radius:99px;padding:4px 10px}
+.pills b{color:var(--text);font-weight:650}.pills .ok b{color:var(--ok)}
+.pills svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</head>
+<body>
+<button type="button" class="btn tgl" onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">Light / dark</button>
+<div class="wrap">
+<h1>O5 device pane: the vitals without cards</h1>
+<p class="lede">O5 stays (photo and name, then the vitals, then the hardware facts, no title). These are the ways to show battery, temperature, RAM, uptime and Wi-Fi without the four boxed tiles. Each is the pane at its real width.</p>
+<div class="vwrap"><div><div class="lbl">Tiles (O5 as shown) <span class="now">from O5</span></div><div class="card pane"><div class="hw"><img src="/static/img/models/t7.webp" alt=""><div><b>TSAI</b><small>QUALCOMM T7 · Tableside AI</small><small style="margin-top:6px"><span class="tag g">Online</span> <span class="tag">Firmware MDM 1.9.9 ▾</span></small></div></div><div class="tiles in"><div class="tile"><div class="k">Battery</div><div class="v ok">65%</div><small>charging on pad</small></div><div class="tile"><div class="k">Temp</div><div class="v">28.1°</div><small>normal</small></div><div class="tile"><div class="k">RAM</div><div class="v">49%</div><small>of 3.7 GB</small></div><div class="tile"><div class="k">Up</div><div class="v">5d 16h</div><small>Wi-Fi −33 dBm</small></div></div><div class="kvg"><div class="kv"><span>Storage free</span><b>21.4 GB</b></div><div class="kv"><span>Total RAM</span><b>3.7 GB</b></div><div class="kv"><span>Battery cycles</span><b>41.2</b></div><div class="kv"><span>Timezone</span><b>Los Angeles</b></div><div class="kv"><span>IP</span><b class="mono">10.32.1.88</b></div></div></div></div><div><div class="lbl">V1 · Stat strip <span class="pick">my pick</span></div><div class="card pane"><div class="hw"><img src="/static/img/models/t7.webp" alt=""><div><b>TSAI</b><small>QUALCOMM T7 · Tableside AI</small><small style="margin-top:6px"><span class="tag g">Online</span> <span class="tag">Firmware MDM 1.9.9 ▾</span></small></div></div><div class="strip"><div><div class="k">Battery</div><div class="v ok">65%</div><small>charging</small></div><div><div class="k">Temp</div><div class="v">28.1°C</div><small>normal</small></div><div><div class="k">RAM</div><div class="v">49%</div><small>of 3.7 GB</small></div><div><div class="k">Up</div><div class="v">5d 16h</div><small>Wi-Fi −33 dBm</small></div></div><div class="kvg"><div class="kv"><span>Storage free</span><b>21.4 GB</b></div><div class="kv"><span>Total RAM</span><b>3.7 GB</b></div><div class="kv"><span>Battery cycles</span><b>41.2</b></div><div class="kv"><span>Timezone</span><b>Los Angeles</b></div><div class="kv"><span>IP</span><b class="mono">10.32.1.88</b></div></div></div><p class="lede" style="font-size:12.5px;margin:6px 0 0">The same four numbers in one row, split by hairlines, no boxes; a small word under each.</p></div><div><div class="lbl">V2 · Meters</div><div class="card pane"><div class="hw"><img src="/static/img/models/t7.webp" alt=""><div><b>TSAI</b><small>QUALCOMM T7 · Tableside AI</small><small style="margin-top:6px"><span class="tag g">Online</span> <span class="tag">Firmware MDM 1.9.9 ▾</span></small></div></div><div class="mt"><div class="m"><div class="top"><span>Battery · charging</span><b style="color:var(--ok)">65%</b></div><div class="bar"><i class="ok" style="width:65%"></i></div></div><div class="m"><div class="top"><span>RAM</span><b>49%</b></div><div class="bar"><i style="width:49%"></i></div></div><div class="m"><div class="top"><span>Temp · normal</span><b>28.1°C</b></div><div class="bar"><i style="width:47%"></i></div></div><div class="m"><div class="top"><span>Wi-Fi · strong</span><b>−33 dBm</b></div><div class="bar"><i class="ok" style="width:90%"></i></div></div></div><div class="sent" style="margin-top:-4px"><span style="color:var(--muted)">Up</span> <b>5d 16h</b></div><div class="kvg"><div class="kv"><span>Storage free</span><b>21.4 GB</b></div><div class="kv"><span>Total RAM</span><b>3.7 GB</b></div><div class="kv"><span>Battery cycles</span><b>41.2</b></div><div class="kv"><span>Timezone</span><b>Los Angeles</b></div><div class="kv"><span>IP</span><b class="mono">10.32.1.88</b></div></div></div><p class="lede" style="font-size:12.5px;margin:6px 0 0">Each vital as a thin bar with its value: the level reads before the number. Uptime has no level, so it is plain text.</p></div><div><div class="lbl">V3 · Rows with the hardware facts</div><div class="card pane"><div class="hw"><img src="/static/img/models/t7.webp" alt=""><div><b>TSAI</b><small>QUALCOMM T7 · Tableside AI</small><small style="margin-top:6px"><span class="tag g">Online</span> <span class="tag">Firmware MDM 1.9.9 ▾</span></small></div></div><div class="kvg"><div class="kv"><span>Battery</span><b style="color:var(--ok)">65% · charging</b></div><div class="kv"><span>Temp</span><b>28.1°C</b></div><div class="kv"><span>RAM</span><b>49% of 3.7 GB</b></div><div class="kv"><span>Up</span><b>5d 16h</b></div><div class="kv"><span>Wi-Fi</span><b>−33 dBm</b></div><div class="kv"><span>Storage free</span><b>21.4 GB</b></div><div class="kv"><span>Battery cycles</span><b>41.2</b></div><div class="kv"><span>Timezone</span><b>Los Angeles</b></div><div class="kv"><span>IP</span><b class="mono">10.32.1.88</b></div></div></div><p class="lede" style="font-size:12.5px;margin:6px 0 0">No separate vitals at all: they become the first rows of the two-column facts.</p></div><div><div class="lbl">V4 · One sentence</div><div class="card pane"><div class="hw"><img src="/static/img/models/t7.webp" alt=""><div><b>TSAI</b><small>QUALCOMM T7 · Tableside AI</small><small style="margin-top:6px"><span class="tag g">Online</span> <span class="tag">Firmware MDM 1.9.9 ▾</span></small></div></div><div class="sent"><span class="ok">65% charging</span><span class="sep">·</span><b>28.1°C</b><span class="sep">·</span>RAM <b>49%</b><span class="sep">·</span>up <b>5d 16h</b><span class="sep">·</span>Wi-Fi <b>−33 dBm</b></div><div class="kvg"><div class="kv"><span>Storage free</span><b>21.4 GB</b></div><div class="kv"><span>Total RAM</span><b>3.7 GB</b></div><div class="kv"><span>Battery cycles</span><b>41.2</b></div><div class="kv"><span>Timezone</span><b>Los Angeles</b></div><div class="kv"><span>IP</span><b class="mono">10.32.1.88</b></div></div></div><p class="lede" style="font-size:12.5px;margin:6px 0 0">The vitals as one line under the name, like a status message.</p></div><div><div class="lbl">V5 · Icon pills</div><div class="card pane"><div class="hw"><img src="/static/img/models/t7.webp" alt=""><div><b>TSAI</b><small>QUALCOMM T7 · Tableside AI</small><small style="margin-top:6px"><span class="tag g">Online</span> <span class="tag">Firmware MDM 1.9.9 ▾</span></small></div></div><div class="pills"><span class="ok"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/></svg><b>65%</b> charging</span><span><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg><b>28.1°C</b></span><span><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 10v4M12 10v4M16 10v4"/></svg>RAM <b>49%</b></span><span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>up <b>5d 16h</b></span><span><svg viewBox="0 0 24 24"><path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/></svg><b>−33 dBm</b></span></div><div class="kvg"><div class="kv"><span>Storage free</span><b>21.4 GB</b></div><div class="kv"><span>Total RAM</span><b>3.7 GB</b></div><div class="kv"><span>Battery cycles</span><b>41.2</b></div><div class="kv"><span>Timezone</span><b>Los Angeles</b></div><div class="kv"><span>IP</span><b class="mono">10.32.1.88</b></div></div></div><p class="lede" style="font-size:12.5px;margin:6px 0 0">Each vital a small pill with its icon, wrapping as the pane narrows.</p></div></div>
+<p class="lede" style="margin-top:30px"><b>Pick V1.</b> It keeps the numbers big enough to read at a glance and in the same place on every device, without four boxes inside a box. V2 is the runner-up if the level matters more than the number.</p>
+</div></body></html>
