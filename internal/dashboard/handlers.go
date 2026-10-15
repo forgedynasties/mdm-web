@@ -712,6 +712,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	type bubble struct {
 		Initial, Name, URL string
 		Admin              bool // author has the admin/dev role (or is the env dashboard admin)
+		System             bool // the server's own work (auto-update, the admin API, a peer server)
 	}
 	var ubMu sync.Mutex
 	var ubMap map[string]bubble
@@ -727,6 +728,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		}
 		if name == "" {
 			return fallback
+		}
+		if label, ok := db.SystemActorLabel(name); ok {
+			return bubble{Initial: "⚙", Name: label, System: true}
 		}
 		ubMu.Lock()
 		defer ubMu.Unlock()
