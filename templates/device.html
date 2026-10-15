@@ -4629,6 +4629,9 @@ html.dd-fit .dd-split-r{padding-right:4px}
 .dd-split-r .dd-tabrow .dd-tabs{flex-wrap:wrap}
 .dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
 .dd-tab[hidden]{display:none!important}
+/* The facts open Overview in the split (15 Oct): a card like the ones under it. */
+#dd-panel-summary>.dd-facts{background:var(--surface);border-radius:16px;margin:0 0 12px;padding:10px 16px}
+#dd-panel-summary>.dd-facts .dfc-first{margin-left:0;padding-left:0;border-left:0}
 .ddc-hw{display:flex;gap:16px;align-items:center;padding:4px 0 12px}
 .ddc-hw-pic{width:112px;height:112px;flex:none;object-fit:contain;border-radius:14px;background:var(--surface2)}
 .ddc-hw-pic.ic-only{display:grid;place-items:center}
@@ -4681,6 +4684,9 @@ html.dd-fit .dd-split-r{padding-right:4px}
       // Pad and Notes join the end of the facts line, so the tabs keep one row.
       var chips = tabrow.querySelector('.dd-tabrow-r'); if (chips) facts.appendChild(chips);
       Array.prototype.slice.call(main.querySelectorAll(':scope > .dd-panel')).forEach(function (p) { r.appendChild(p); });
+      // The facts (client, battery, vitals, venue, groups, pad, notes) open Overview rather
+      // than spanning both panes (15 Oct); undocking puts them back above the tabs.
+      var sum = document.getElementById('dd-panel-summary'); if (sum) sum.insertBefore(facts, sum.firstChild);
     } else if (!on && split) {
       var rr = split.querySelector('.dd-split-r');
       Array.prototype.slice.call(rr.querySelectorAll(':scope > .dd-panel')).forEach(function (p) { main.insertBefore(p, split); });
