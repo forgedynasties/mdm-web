@@ -2192,6 +2192,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "restaurants"
 	case strings.HasPrefix(path, "/productions"):
 		data["ActivePage"] = "productions"
+	case strings.HasPrefix(path, "/compliance"):
+		data["ActivePage"] = "compliance"
 	case strings.HasPrefix(path, "/lock"), strings.HasPrefix(path, "/kiosk"), strings.HasPrefix(path, "/manage"):
 		data["ActivePage"] = "manage"
 	case strings.HasPrefix(path, "/commands"):
@@ -2289,8 +2291,10 @@ func (h *Handler) frequentPaths(r *http.Request) []string {
 	// or release detail pages (/devices/AT070AABU00044), which are not navigation
 	// destinations and have no entry in the page index — the dock drops those when
 	// it resolves them, and asking for exactly three would leave empty slots.
+	// Jobs left the dock on 15 Oct and is not to come back as a shortcut either; it
+	// stays in More.
 	paths, err := h.db.TopPagesForUser(r.Context(), user, 30*24*time.Hour, 10,
-		[]string{"/", "/devices", "/commands", "/alerts"})
+		[]string{"/", "/devices", "/commands", "/alerts", "/jobs"})
 	if err != nil {
 		return nil
 	}
@@ -21882,6 +21886,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/lab/end", h.requireLab(h.deviceRoute("shell", h.LabEnd)))
 	post("POST /devices/{serial}/lab/install", h.requireLab(h.deviceRoute("shell", h.LabInstall)))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.deviceRoute("view", h.DeviceCommandsPartial)))
+	mux.HandleFunc("GET /devices/{serial}/compliance", h.requireAuth(h.deviceRoute("view", h.DeviceCompliancePartial)))
 	mux.HandleFunc("GET /devices/{serial}/alerts-panel", h.requireAuth(h.deviceRoute("view", h.DeviceAlertsPanel)))
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.deviceRoute("view", h.DeviceQueuePartial)))
 	post("POST /devices/{serial}/queue/clear", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceQueueClear)))
@@ -22038,6 +22043,17 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// keep their names: they are the wire protocol to clients in the field and the
 	// product's own taxonomy, neither of which is a label.
 	mux.HandleFunc("GET /lock", h.requireAuth(h.Manage))
+	// Compliance (static plan of 15 Oct; rules editor B1): read by anyone with fleet
+	// access, changed by admins only, every change audited.
+	mux.HandleFunc("GET /compliance", h.requireAuth(h.ComplianceIndex))
+	mux.HandleFunc("GET /compliance/rules", h.requireAuth(h.ComplianceRulesPage))
+	post("POST /compliance/rules", h.requireStrictAdmin(h.ComplianceBaselineSave))
+	post("POST /compliance/rules/preview", h.requireStrictAdmin(h.ComplianceBaselinePreview))
+	mux.HandleFunc("GET /compliance/overrides/new", h.requireStrictAdmin(h.ComplianceOverrideForm))
+	mux.HandleFunc("GET /compliance/overrides/{id}/edit", h.requireStrictAdmin(h.ComplianceOverrideForm))
+	post("POST /compliance/overrides", h.requireStrictAdmin(h.ComplianceOverrideSave))
+	post("POST /compliance/overrides/{id}/delete", h.requireStrictAdmin(h.ComplianceOverrideDelete))
+	post("POST /compliance/overrides/{id}/move", h.requireStrictAdmin(h.ComplianceOverrideMove))
 	mux.HandleFunc("GET /kiosk", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/lock", http.StatusMovedPermanently)
 	}))

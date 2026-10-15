@@ -787,6 +787,9 @@ func main() {
 				// Same, for OTA: a download that stops acking leaves the deployment active
 				// and blocks the reboot that would clear it (RebootBlockedFor).
 				runJob(bgCtx, "expire-stalled-otas", time.Minute, apiHandler.ExpireStalledOTAs)
+				// A shell line that hangs on the device must not hold its queue: fail it
+				// once it is past its deadline (counted from when the device got it).
+				runJob(bgCtx, "fail-overdue-shell", time.Minute, apiHandler.FailOverdueShellCommands)
 				// Re-push commands (any type) wedged at 'delivered' on a half-open socket to
 				// devices that are connected now, so an action can't silently never run.
 				runJob(bgCtx, "redrive-stuck-deliveries", time.Minute, apiHandler.RedriveStuckDeliveries)
@@ -821,6 +824,9 @@ func main() {
 				// where that was switched on. A device that was away collects it the
 				// first minute it is seen again — see client_autoupdate.go.
 				runJob(bgCtx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
+				// Score every device against the compliance baseline and overrides; only
+				// changed results are written, each change kept as an event (compliance.go).
+				runJob(bgCtx, "compliance", time.Minute, dash.RunCompliance)
 				// The role model (static/device-role-model-plan.html): close lab sessions
 				// whose time is up, then keep each device on its role's app build. Both
 				// act only where a lab session or a prod build exists.

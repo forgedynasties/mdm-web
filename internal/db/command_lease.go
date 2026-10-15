@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,8 +45,8 @@ func (d *DB) LeaseCommand(ctx context.Context, commandID, deviceID uuid.UUID, du
 		return uuid.Nil, err
 	}
 	d.AppendCommandEvent(ctx, commandID, deviceID, "leased", map[string]any{
-		"transport": transport,
-		"lease_id":  leaseID,
+		"transport":  transport,
+		"lease_id":   leaseID,
 		"expires_in": dur.String(),
 	})
 	return leaseID, nil
@@ -200,6 +201,69 @@ func (d *DB) ListAllCommandEvents(ctx context.Context, commandID uuid.UUID) ([]C
 			return nil, err
 		}
 		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// ── Operator tools that never finish ──────────────────────────────────────────
+//
+// The per-device queue runs one command at a time and does not expire what it holds, so a
+// shell line that hangs on the device held up everything queued after it: re-handed on
+// every reconnect (a fresh socket releases the lease), "running" refreshed each time, it
+// sat for 40 minutes across three reboots on 15 Oct. Two rules close that, for the shell
+// lane only (shell, query, logs, screenshot, mic gain, adb switch: short tools that answer
+// or not at all). Installs, OTA and reboots keep their own sweeps.
+
+// StuckCommand is a command failed by one of the rules below.
+type StuckCommand struct {
+	CommandID, DeviceID uuid.UUID
+}
+
+// FailOverdueShellCommands fails shell-lane commands that reached the device but did not
+// finish within the type's deadline, counted from when the device first got them.
+func (d *DB) FailOverdueShellCommands(ctx context.Context) ([]StuckCommand, error) {
+	return d.failShellCommands(ctx, `cs.received_at + (c.deadline_at - c.created_at) < NOW()`,
+		"Did not finish on the device in time, so the queue moved on.")
+}
+
+// FailShellCommandsBeforeBoot fails a device's shell-lane commands it received before its
+// current boot: whatever they were doing ended with the reboot.
+func (d *DB) FailShellCommandsBeforeBoot(ctx context.Context, deviceID uuid.UUID, bootedAt time.Time) ([]StuckCommand, error) {
+	return d.failShellCommands(ctx, `cs.device_id = $1 AND cs.received_at < $2`,
+		"The device restarted while this was running.", deviceID, bootedAt)
+}
+
+func (d *DB) failShellCommands(ctx context.Context, cond, why string, args ...any) ([]StuckCommand, error) {
+	n := len(args)
+	rows, err := d.pool.Query(ctx, `
+		WITH f AS (
+			UPDATE command_status cs
+			SET status = 'failed', updated_at = NOW(), lease_id = NULL, lease_expires_at = NULL
+			FROM commands c
+			WHERE c.id = cs.command_id
+			  AND c.lane = 'shell'
+			  AND cs.status IN ('delivered', 'running')
+			  AND cs.received_at IS NOT NULL
+			  AND c.deadline_at IS NOT NULL
+			  AND `+cond+`
+			RETURNING cs.command_id, cs.device_id
+		), r AS (
+			INSERT INTO command_results (command_id, device_id, output)
+			SELECT command_id, device_id, $`+strconv.Itoa(n+1)+` FROM f
+			ON CONFLICT DO NOTHING
+		)
+		SELECT command_id, device_id FROM f`, append(args, why)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StuckCommand
+	for rows.Next() {
+		var s StuckCommand
+		if err := rows.Scan(&s.CommandID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
 	}
 	return out, rows.Err()
 }

@@ -3321,19 +3321,10 @@ input[type="checkbox"]:hover {
 }
 
 /* ── Form Submit Feedback ─────────────────────── */
+/* One spinner per busy button: the .is-busy one (motion.css), which every form post and
+   htmx request gets. This class only dims and guards against a second press; it used to
+   draw its own spinner too, which put one on each side of the label. */
 .btn-submitting { opacity: 0.72; pointer-events: none; position: relative; }
-.btn-submitting::after {
-  content: "";
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-left: 8px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: btn-spin 0.7s linear infinite;
-  vertical-align: -2px;
-}
 @keyframes btn-spin { to { transform: rotate(360deg); } }
 
 .shell-spinner {
@@ -7593,6 +7584,8 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .appbar-island .isl-menu form.cc-mfield { display: flex; }
 .appbar-island .isl-menu form.cc-mfield[hidden] { display: none; }
 @media (max-width: 1280px) { .appbar-island .isl-tagn { display: none; } }
+/* The build stays: it is the one tag that says which firmware you are looking at. */
+.appbar-island .isl-tagn.isl-build { display: inline-block; font-family: var(--mono); font-weight: 600; letter-spacing: 0; }
 /* Raised capsule (static/top-bar-capsule-demos.html, B, picked 15 Oct): the page's own
    context is one white capsule, so it stops reading as part of the global controls
    (theme, alerts, account) beside it. Its buttons lose their borders inside; a hairline

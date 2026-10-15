@@ -1,0 +1,86 @@
+{{define "compliance_override.html"}}
+{{template "header" .}}
+<style>
+.co-wrap{max-width:900px;margin:0 auto}
+.co-wrap h1{margin:4px 0 4px}
+.co-lede{color:var(--muted);font-size:13px;margin:0 0 14px}
+.co-card{padding:14px 18px}
+.co-q{font-size:12px;font-weight:600;color:var(--muted);margin:0 0 6px}
+.co-f{display:grid;gap:14px}
+.co-f input[type=text],.co-f select{font:inherit;font-size:13px;padding:7px 10px;border-radius:9px;border:1px solid var(--border);background:var(--bg);color:var(--text);min-width:260px}
+.co-scope{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.co-scope label{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--text-2);padding:6px 11px;border:1px solid var(--border);border-radius:99px;cursor:pointer}
+.co-scope label:has(input:checked){border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+.co-scope input{margin:0;accent-color:var(--accent)}
+.co-pick[hidden]{display:none}
+.co-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 120px;gap:14px;align-items:center;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.co-row b{font-weight:650;color:var(--text)}.co-row small{display:block;color:var(--muted);font-size:12px}
+.co-row select,.co-row input{font:inherit;font-size:12.5px;padding:5px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);width:100%;box-sizing:border-box}
+.co-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+</style>
+<div class="co-wrap">
+  <h1>{{if .New}}New override{{else}}Edit override{{end}}</h1>
+  <p class="co-lede">An override changes the baseline for some devices. Overrides apply in order: for each check, the first one that covers a device and says something about that check decides.</p>
+  <form method="POST" action="/compliance/overrides" class="co-f">
+    {{if not .New}}<input type="hidden" name="id" value="{{.O.ID}}">{{end}}
+    <section class="cc-card co-card">
+      <p class="co-q">Which devices?</p>
+      <div class="co-scope" id="co-scope">
+        {{$t := .O.ScopeType}}
+        <label><input type="radio" name="scope_type" value="venue"{{if eq $t "venue"}} checked{{end}}>A venue</label>
+        <label><input type="radio" name="scope_type" value="group"{{if eq $t "group"}} checked{{end}}>A group</label>
+        <label><input type="radio" name="scope_type" value="role"{{if eq $t "role"}} checked{{end}}>A role</label>
+        <label><input type="radio" name="scope_type" value="unassigned"{{if eq $t "unassigned"}} checked{{end}}>Not at a venue</label>
+        <label><input type="radio" name="scope_type" value="lab"{{if eq $t "lab"}} checked{{end}}>In a lab session</label>
+      </div>
+      <div style="margin-top:10px">
+        <select name="scope_venue" class="co-pick" data-for="venue" aria-label="Venue">{{$sid := ""}}{{with .O.ScopeID}}{{$sid = printf "%s" .}}{{end}}
+          <option value="">Choose a venue…</option>{{range .Restaurants}}<option value="{{.ID}}"{{if eq (printf "%s" .ID) $sid}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+        <select name="scope_group" class="co-pick" data-for="group" aria-label="Group">
+          <option value="">Choose a group…</option>{{range .Groups}}<option value="{{.ID}}"{{if eq (printf "%s" .ID) $sid}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+        <select name="scope_role" class="co-pick" data-for="role" aria-label="Role">
+          <option value="">Choose a role…</option>{{range .Roles}}<option value="{{.Key}}"{{if eq .Key $.O.ScopeKey}} selected{{end}}>{{.Label}}</option>{{end}}</select>
+      </div>
+    </section>
+    <section class="cc-card co-card">
+      <p class="co-q">Name</p>
+      <input type="text" name="name" value="{{.O.Name}}" maxlength="80" placeholder="Defaults to the devices it covers">
+    </section>
+    <section class="cc-card co-card">
+      <p class="co-q">For the checks below left at "As the baseline"</p>
+      <select name="cap" aria-label="Every other check">
+        <option value=""{{if eq .O.Cap ""}} selected{{end}}>Leave them as the baseline has them</option>
+        <option value="recommended"{{if eq .O.Cap "recommended"}} selected{{end}}>Required becomes recommended</option>
+        <option value="off"{{if eq .O.Cap "off"}} selected{{end}}>Turn them off</option>
+      </select>
+    </section>
+    <section class="cc-card co-card">
+      <p class="co-q">Checks</p>
+      {{range .Rows}}
+      <div class="co-row">
+        <div><b>{{.Name}}</b><small>Baseline: {{.Base.Level}}{{if .Unit}} · {{.Base.Param}} {{.Unit}}{{end}}</small></div>
+        <select name="level_{{.ID}}" aria-label="{{.Name}}">
+          <option value=""{{if eq .Set.Level ""}} selected{{end}}>As the baseline</option>
+          <option value="required"{{if eq .Set.Level "required"}} selected{{end}}>Required</option>
+          <option value="recommended"{{if eq .Set.Level "recommended"}} selected{{end}}>Recommended</option>
+          <option value="off"{{if eq .Set.Level "off"}} selected{{end}}>Off</option>
+        </select>
+        {{if .Unit}}<input type="number" name="param_{{.ID}}" min="1" max="8760" value="{{if .Set.Param}}{{.Set.Param}}{{end}}" placeholder="{{.Base.Param}} {{.Unit}}" aria-label="{{.Name}} in {{.Unit}}">{{else}}<span></span>{{end}}
+      </div>
+      {{end}}
+    </section>
+    {{if .CanEdit}}<div class="co-foot"><a class="cc-btn" href="/compliance/rules">Cancel</a><button type="submit" class="cc-btn primary">Save override</button></div>{{end}}
+  </form>
+</div>
+<script>
+(function () {
+  var box = document.getElementById('co-scope');
+  function sync() {
+    var on = box.querySelector('input:checked'), v = on ? on.value : '';
+    document.querySelectorAll('.co-pick').forEach(function (s) { s.hidden = s.getAttribute('data-for') !== v; });
+  }
+  box.addEventListener('change', sync); sync();
+})();
+</script>
+{{template "footer" .}}
+{{end}}

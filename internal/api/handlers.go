@@ -1192,6 +1192,16 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		if err := h.db.CompleteDeliveredReboots(ctx, deviceID, bootedAt); err != nil {
 			log.Printf("[%s] CompleteDeliveredReboots error: %v", tag, err)
 		}
+		// A shell line it got before this boot is not running any more: fail it so the
+		// queue behind it moves (see db.FailShellCommandsBeforeBoot).
+		if stuck, err := h.db.FailShellCommandsBeforeBoot(ctx, deviceID, bootedAt); err != nil {
+			log.Printf("[%s] FailShellCommandsBeforeBoot error: %v", tag, err)
+		} else {
+			for _, sc := range stuck {
+				log.Printf("[%s] %s restarted while command %s ran: failed it", tag, req.SerialNumber, sc.CommandID)
+				h.hub.PublishCommandUpdate(sc.CommandID)
+			}
+		}
 	}
 
 	deviceCfg, err := h.db.GetOrCreateDeviceConfig(ctx, deviceID)
@@ -1823,6 +1833,23 @@ func (h *Handler) ExpireStalledInstalls(ctx context.Context) {
 // keeps its deployment 'active', and RebootBlockedFor then refuses the reboot that
 // would clear it — the device is stuck until someone cancels the deployment by hand.
 // The window is wider than the install sweep: an OTA package is far larger, and a slow
+// FailOverdueShellCommands fails shell-lane commands that reached a device and never
+// finished within their deadline, so one hung shell line cannot hold up the device's
+// queue (db.FailOverdueShellCommands). Safe every minute.
+func (h *Handler) FailOverdueShellCommands(ctx context.Context) {
+	stuck, err := h.db.FailOverdueShellCommands(ctx)
+	if err != nil {
+		log.Printf("[shell-sweep] %v", err)
+		return
+	}
+	for _, sc := range stuck {
+		log.Printf("[shell-sweep] command %s on device %s did not finish in time: failed it", sc.CommandID, sc.DeviceID)
+		h.hub.PublishCommandUpdate(sc.CommandID)
+		h.hub.PublishDeviceUpdate(sc.DeviceID)
+		h.FlushPendingCommands(ctx, sc.DeviceID)
+	}
+}
+
 // link can legitimately go minutes between percent acks.
 func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
 	const stallMinutes = 30

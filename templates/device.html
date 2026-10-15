@@ -340,7 +340,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   {{if .Device.Class}}<svg class="isl-cls" aria-hidden="true"><use href="#dk-{{.Device.Class}}"/></svg>{{end}}
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
   <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
-  {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">needs a site</span>{{end}}
+  {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.BuildID}}<span class="isl-tagn isl-build mono" title="Firmware build">{{.Device.BuildID}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">needs a site</span>{{end}}
   <span class="isl-s">{{if .Lab}}in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
   <span class="isl-acts">
     {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote">Remote</a>{{end}}
@@ -582,10 +582,11 @@ if (!window.__ddNotesHook) {
 <div class="dd-tabrow">
 <div class="dd-tabs" role="tablist" aria-label="Device details">
   <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Apps</button>{{end}}
   {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-compliance" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-compliance" data-dd-tab="compliance" onclick="setDeviceTab('compliance', this)">Compliance</button>{{end}}
   <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)">Location</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
   {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
@@ -3757,23 +3758,6 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       {{if eq $sx.UnknownSources "On"}}<span class="cc-tag">Unknown sources on</span>{{end}}
     </div>
     {{end}}
-    <div class="ddc-card dd-fold-card">
-      <details class="dd-fold"><summary>Software<span class="sum">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}build not reported{{end}}{{$scv := extraField .Device.LatestExtra "agent_version"}}{{if and $scv (ne $scv "—")}} · client {{$scv}}{{end}}</span></summary>
-      <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
-      {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
-      {{/* The MDM client itself. Shown for every agent kind — firmware, DPC and Lite —
-           because "which client is on it" decides what the device can be told to do.
-           A client that reports no version predates version reporting and cannot be
-           updated over the air; it needs a firmware OTA. */}}
-      {{$cv := extraField .Device.LatestExtra "agent_version"}}{{$cc := extraField .Device.LatestExtra "agent_version_code"}}{{$cp := extraField .Device.LatestExtra "agent_package"}}
-      <div class="ddc-kv"><span class="k">MDM client</span><span class="v"{{if and $cp (ne $cp "—")}} title="{{$cp}}"{{end}}>
-        {{if and $cv (ne $cv "—")}}{{if misreportedVersion $cv $cp}}<span class="muted">pre-1.0.2</span> <span class="muted small">· reported the platform release ({{$cv}}), not its own — fixed in client 1.0.2</span>{{else}}<span class="mono">{{$cv}}</span>{{if and $cc (ne $cc "—")}} <span class="muted small">({{$cc}})</span>{{end}}{{end}}
-          <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}Standard MDM{{else}}Firmware MDM{{end}}</span>
-        {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
-      </span></div>
-      <div class="ddc-kv"><span class="k">Locked app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
-      </details>
-    </div>
     {{/* Security posture as the client reports it (a dash = never reported), and the
          wireless adb switch on the row it changes. The switch is the adb_tcp command:
          admin-only, one device, off by itself after the chosen time. Port and time left
@@ -3788,17 +3772,6 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     .sec-seg input:checked+span{background:var(--accent-soft);color:var(--accent-text);font-weight:700}
     .sec-seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
     </style>
-    <div class="ddc-card dd-fold-card" id="security-card">
-      {{$son := or (eq $s.USBDebugging "On") (eq $s.DevOptions "On") (eq $s.UnknownSources "On") $s.AdbOn}}<details class="dd-fold"{{if $son}} open{{end}}><summary>Security<span class="sum">{{if $son}}<span class="cc-tag warn">needs a look</span>{{else}}nothing open{{end}}</span></summary>
-      <div class="ddc-kv"><span class="k">USB debugging</span><span class="v">{{$s.USBDebugging}}</span></div>
-      <div class="ddc-kv" id="adb-tcp-row"><span class="k">Wireless adb</span><span class="v wrap">
-        {{if $s.AdbOn}}<span class="cc-tag warn">On</span>{{if $s.AdbPort}} <span class="mono">{{if $s.IP}}{{$s.IP}}{{end}}:{{$s.AdbPort}}</span>{{end}}{{if $s.AdbOffIn}} <span class="muted small">· off in {{$s.AdbOffIn}}</span>{{else if $s.AdbStaysOn}} <span class="muted small">· stays on</span>{{end}}{{else if $s.AdbKnown}}Off{{else}}—{{end}}
-        {{if and (canAdmin .Role) $s.CanAdbTCP}} <a href="#settings" class="link-detail small" onclick="setDeviceTab('settings', document.getElementById('dd-tab-settings')); return false;">Change in Settings</a>{{end}}
-      </span></div>
-      <div class="ddc-kv"><span class="k">Developer options</span><span class="v">{{$s.DevOptions}}</span></div>
-      <div class="ddc-kv"><span class="k">Unknown sources</span><span class="v">{{$s.UnknownSources}}</span></div>
-      </details>
-    </div>
     {{end}}
     {{if .WhoHasAccess}}
     <div class="ddc-card" id="dd-who">
@@ -4499,6 +4472,15 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 </section><!-- /alerts -->
 {{end}}
 
+{{if not .IsOwner}}
+{{/* Compliance (15 Oct): this device against the compliance rules — every check with its
+     state, level, what was seen and since when. Replaces the Software and Security folds. */}}
+<section class="dd-panel" data-dd-panel="compliance" id="dd-panel-compliance" role="tabpanel" aria-labelledby="dd-tab-compliance" tabindex="0" hidden
+         hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+  <div class="muted small" style="padding:26px;text-align:center;">Loading compliance…</div>
+</section><!-- /compliance -->
+{{end}}
+
 {{/* Location (15 Oct): the map and the address, out of Overview and Hardware. */}}
 <section class="dd-panel" data-dd-panel="location" id="dd-panel-location" role="tabpanel" aria-labelledby="dd-tab-location" tabindex="0" hidden>
 {{/* Location map — the JS Maps API (not the Embed iframe, which can't be
@@ -4623,8 +4605,9 @@ html.dd-fit .dd-split-r{padding-right:4px}
 .dd-split-l .chart-card{margin:0}
 .dd-split-r #dev-map-card{margin-top:0}
 .dd-split-r{min-width:0}
-.dd-split-r .dd-tabrow .dd-tabs{flex-wrap:wrap}
-.dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
+/* Seven tabs in one row of the right pane (Compliance joined 15 Oct). */
+.dd-split-r .dd-tabrow .dd-tabs{flex-wrap:nowrap}
+.dd-split-r .dd-tab{padding-left:6px;padding-right:6px;font-size:13px;white-space:nowrap}
 .dd-tab[hidden]{display:none!important}
 /* The facts open Overview in the split (15 Oct): a card like the ones under it. */
 #dd-panel-summary .dd-facts{background:var(--surface);border-radius:16px;margin:0;padding:10px 16px}
@@ -4852,7 +4835,11 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.dd-tab')) setTimeout(syncMap, 30); });
 
   if (WIDE.addEventListener) WIDE.addEventListener('change', apply); else if (WIDE.addListener) WIDE.addListener(apply);
-  apply();
+  // After an action reloads the page (a boosted form post: Reboot, wireless adb…) htmx
+  // inserts the new <main> before it removes the old one and runs this in between, so
+  // apply() found the old page's split, thought the work was done, and the new page
+  // came up without one. Wait for the swap to finish when the old page is still here.
+  if (document.querySelectorAll('.ddc-main').length > 1) setTimeout(apply, 0); else apply();
 })();
 </script>
 </div><!-- /ddc-body -->
@@ -5305,6 +5292,7 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
         if (_b && _b.textContent.trim() !== d.build_id) _b.textContent = d.build_id;
         var _bk = document.querySelector('.ddc-build-kv');
         if (_bk && _bk.textContent.trim() !== d.build_id) _bk.textContent = d.build_id;
+        document.querySelectorAll('.isl-build').forEach(function (el) { if (el.textContent.trim() !== d.build_id) el.textContent = d.build_id; });
       }
       if (d.ts_ms) {
         window.__lastCheckinSec = Math.floor(d.ts_ms / 1000);
