@@ -357,6 +357,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{else}}<span class="cc-mi is-off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Update client<span class="rt">up to date{{if .AgentUpdate.Current}} · {{.AgentUpdate.Current}}{{end}}</span></span>{{end}}
         {{end}}{{end}}{{end}}
         <div class="cc-msep"></div>
+        {{if and .Device.HasBattery (not .IsDPC) (or (canAdmin .Role) (eq .Role "dev"))}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
         <a class="cc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export data…</a>
       </div>
     </details>
