@@ -2291,8 +2291,10 @@ func (h *Handler) frequentPaths(r *http.Request) []string {
 	// or release detail pages (/devices/AT070AABU00044), which are not navigation
 	// destinations and have no entry in the page index — the dock drops those when
 	// it resolves them, and asking for exactly three would leave empty slots.
+	// Jobs left the dock on 15 Oct and is not to come back as a shortcut either; it
+	// stays in More.
 	paths, err := h.db.TopPagesForUser(r.Context(), user, 30*24*time.Hour, 10,
-		[]string{"/", "/devices", "/commands", "/alerts"})
+		[]string{"/", "/devices", "/commands", "/alerts", "/jobs"})
 	if err != nil {
 		return nil
 	}
