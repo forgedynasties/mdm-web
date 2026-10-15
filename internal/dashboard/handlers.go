@@ -1319,6 +1319,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return time.Since(t) <= time.Duration(thresholdSecs)*time.Second
 		},
 		"batteryTemp": batteryTempStr,
+		"vitalCols":   vitalColumns, // the device pane's vitals as columns
 		// micGain parses latest_extra.mic_gain for templates that only have the
 		// device (vitals partial); nil when the device reports no mic gain.
 		"micGain": micGainPtr,
@@ -9370,7 +9371,11 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
-	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
+	tpl := "device-vitals"
+	if r.URL.Query().Get("cols") == "1" {
+		tpl = "device-vitals-cols" // the device pane's columns (Overview)
+	}
+	h.renderCachedHTML(w, r, tpl, map[string]any{
 		"Device": device,
 		// Same rule as the full page. Missing here, every live refresh fell through to the
 		// "no reading yet" chip, so the battery flipped from "100% ⚡" to "—" a moment

@@ -3703,27 +3703,12 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
 
 <section class="dd-panel" data-dd-panel="about" id="dd-panel-about" role="tabpanel" aria-labelledby="dd-tab-about" tabindex="0" hidden>
   <div class="about-grid">
-    {{if .WhoHasAccess}}
-    <div class="ddc-card" id="dd-who">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Who has access</h2><span class="m muted small">rules that cover this device</span></div>
-      {{range .WhoHasAccess}}
-      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
-        {{template "ubub" .Bubble}}
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><a href="{{userURL .Username}}" class="link-detail" style="font-weight:650;">{{.Name}}</a><span class="cc-pill" style="font-size:10px;">{{.Role}}</span>{{if .Sensitive}}<span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-size:11px;font-weight:700;">● sessions</span>{{end}}</div>
-          <div class="muted" style="font-size:12px;line-height:1.45;margin-top:3px;">{{range $i, $s := .Rules}}{{if $i}}<br>{{end}}{{$s}}{{end}}</div>
-        </div>
-      </div>
-      {{end}}
-    </div>
-    {{end}}
     {{/* Who changed what on this device. Commands live in "Action history" on the
          Overview tab; this is the settings side — kiosk, charging, placement, naming
          — which was previously recorded only in the global audit log and could not be
          traced back to a device at all. */}}
     {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
-    <div class="ddc-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 10h8M8 14h4"/></svg></span><h2>Hardware</h2></div>
+    <div class="ddc-card dd-devpane" id="dd-hw">
       {{/* The model's photo (device-photo-demos.html, M3, picked 15 Oct); its class icon when
            there is none. */}}
       {{$hwp := modelPic .Device.Product}}{{$hwrm := extraField .Device.LatestExtra "model"}}{{$hwmf := extraField .Device.LatestExtra "manufacturer"}}
@@ -3732,9 +3717,16 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
         <div class="ddc-hw-t">
           <b>{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}</b>
           <small>{{if and $hwrm (ne $hwrm "—")}}{{if and $hwmf (ne $hwmf "—")}}{{$hwmf}} {{end}}{{$hwrm}} · {{end}}{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}no role{{end}}{{if $hwp}}{{if $hwp.Tagline}}<br>{{$hwp.Tagline}}{{end}}{{end}}</small>
+          <small class="dd-hw-st">{{if .Online}}<span class="cc-tag ok">Online</span>{{else}}<span class="cc-tag">Offline</span> <span class="muted">last seen {{timeSince .Device.LastSeenAt}}</span>{{end}}</small>
           {{if $hwp}}{{if $hwp.Specs}}<div class="ddc-hw-spec">{{range $hwp.Specs}}<span>{{.}}</span>{{end}}</div>{{end}}{{end}}
         </div>
       </div>
+      {{/* Vitals as columns (device-meters-demos.html, Me, picked 15 Oct); the same live
+           refresh as the facts cells. */}}
+      <div class="dd-vcols" id="device-vitals-cols" data-diff-guard data-morph
+           hx-get="/devices/{{.Device.SerialNumber}}/vitals?cols=1" hx-select="unset"
+           hx-trigger="device-updated from:body, every 300s" hx-target="this" hx-swap="innerHTML">{{template "device-vitals-cols" .}}</div>
+      <div class="dd-hwkv">
       {{$ram := ramUsage .Device.LatestExtra}}
       <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
@@ -3760,9 +3752,22 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="ddc-kv" id="mic-gain-row" title="Mic gain not reported by this device — client predates the mic_gain field, or the device has no mixer config."><span class="k">Mic gain</span><span class="v"><span class="muted">Not available</span></span></div>
       {{end}}
       <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
+      </div>
     </div>
-    <div class="ddc-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></span><h2>Software</h2></div>
+    {{/* What needs a look on this device (device-overview-demos.html, O5). */}}
+    {{$sx := .Security}}{{$lowBat := and .ShowBattery (lt .Device.BatteryPct 20)}}
+    {{if or (eq $sx.USBDebugging "On") (eq $sx.DevOptions "On") (eq $sx.UnknownSources "On") $sx.AdbOn $lowBat .ChargerFlapping}}
+    <div class="dd-needs" id="dd-needs"><b>Needs a look</b>
+      {{if $lowBat}}<span class="cc-tag">Battery {{.Device.BatteryPct}}%</span>{{end}}
+      {{if .ChargerFlapping}}<span class="cc-tag">Charger flapping</span>{{end}}
+      {{if eq $sx.USBDebugging "On"}}<span class="cc-tag">USB debugging on</span>{{end}}
+      {{if $sx.AdbOn}}<span class="cc-tag">Wireless adb open</span>{{end}}
+      {{if eq $sx.DevOptions "On"}}<span class="cc-tag">Developer options on</span>{{end}}
+      {{if eq $sx.UnknownSources "On"}}<span class="cc-tag">Unknown sources on</span>{{end}}
+    </div>
+    {{end}}
+    <div class="ddc-card dd-fold-card">
+      <details class="dd-fold"><summary>Software<span class="sum">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}build not reported{{end}}{{$scv := extraField .Device.LatestExtra "agent_version"}}{{if and $scv (ne $scv "—")}} · client {{$scv}}{{end}}</span></summary>
       <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
       {{/* The MDM client itself. Shown for every agent kind — firmware, DPC and Lite —
@@ -3776,6 +3781,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
         {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
       </span></div>
       <div class="ddc-kv"><span class="k">Locked app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
+      </details>
     </div>
     {{/* Security posture as the client reports it (a dash = never reported), and the
          wireless adb switch on the row it changes. The switch is the adb_tcp command:
@@ -3791,8 +3797,8 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     .sec-seg input:checked+span{background:var(--accent-soft);color:var(--accent-text);font-weight:700}
     .sec-seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
     </style>
-    <div class="ddc-card" id="security-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Security</h2>{{if $s.AdbOn}}<span class="cc-tag warn">adb open</span>{{end}}</div>
+    <div class="ddc-card dd-fold-card" id="security-card">
+      {{$son := or (eq $s.USBDebugging "On") (eq $s.DevOptions "On") (eq $s.UnknownSources "On") $s.AdbOn}}<details class="dd-fold"{{if $son}} open{{end}}><summary>Security<span class="sum">{{if $son}}<span class="cc-tag warn">needs a look</span>{{else}}nothing open{{end}}</span></summary>
       <div class="ddc-kv"><span class="k">USB debugging</span><span class="v">{{$s.USBDebugging}}</span></div>
       <div class="ddc-kv" id="adb-tcp-row"><span class="k">Wireless adb</span><span class="v wrap">
         {{if $s.AdbOn}}<span class="cc-tag warn">On</span>{{if $s.AdbPort}} <span class="mono">{{if $s.IP}}{{$s.IP}}{{end}}:{{$s.AdbPort}}</span>{{end}}{{if $s.AdbOffIn}} <span class="muted small">· off in {{$s.AdbOffIn}}</span>{{else if $s.AdbStaysOn}} <span class="muted small">· stays on</span>{{end}}{{else if $s.AdbKnown}}Off{{else}}—{{end}}
@@ -3800,6 +3806,21 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       </span></div>
       <div class="ddc-kv"><span class="k">Developer options</span><span class="v">{{$s.DevOptions}}</span></div>
       <div class="ddc-kv"><span class="k">Unknown sources</span><span class="v">{{$s.UnknownSources}}</span></div>
+      </details>
+    </div>
+    {{end}}
+    {{if .WhoHasAccess}}
+    <div class="ddc-card" id="dd-who">
+      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Who has access</h2><span class="m muted small">rules that cover this device</span></div>
+      {{range .WhoHasAccess}}
+      <div style="display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--border-soft);align-items:flex-start;">
+        {{template "ubub" .Bubble}}
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><a href="{{userURL .Username}}" class="link-detail" style="font-weight:650;">{{.Name}}</a><span class="cc-pill" style="font-size:10px;">{{.Role}}</span>{{if .Sensitive}}<span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-size:11px;font-weight:700;">● sessions</span>{{end}}</div>
+          <div class="muted" style="font-size:12px;line-height:1.45;margin-top:3px;">{{range $i, $s := .Rules}}{{if $i}}<br>{{end}}{{$s}}{{end}}</div>
+        </div>
+      </div>
+      {{end}}
     </div>
     {{end}}
   </div>
@@ -4615,9 +4636,35 @@ html.dd-fit .dd-split-r{padding-right:4px}
 .dd-split-r .dd-tab{padding-left:11px;padding-right:11px}
 .dd-tab[hidden]{display:none!important}
 /* The facts open Overview in the split (15 Oct): a card like the ones under it. */
-#dd-panel-summary>.dd-facts{background:var(--surface);border-radius:16px;margin:0 0 12px;padding:10px 16px}
-#dd-panel-summary>.dd-facts .dfc-first{margin-left:0;padding-left:0;border-left:0}
+#dd-panel-summary .dd-facts{background:var(--surface);border-radius:16px;margin:0;padding:10px 16px}
+#dd-panel-summary .dd-facts .dfc-first{margin-left:0;padding-left:0;border-left:0}
 .ddc-hw{display:flex;gap:16px;align-items:center;padding:4px 0 12px}
+/* Device pane (device-overview-demos.html O5 + meters Me, picked 15 Oct): untitled, the
+   photo and name, the vitals as columns, the hardware facts in two columns. */
+.dd-devpane{padding-top:14px}
+.dd-hw-st{margin-top:6px!important}
+.dd-vcols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:end;margin:4px 0 6px}
+.vc{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:end;min-width:0}
+.vc[role=button]{cursor:pointer}.vc[role=button]:hover .vc-v{color:var(--accent-text)}
+.vc-tube{height:64px;border-radius:7px;background:var(--surface2);position:relative;overflow:hidden}
+.vc-tube i{position:absolute;left:0;right:0;bottom:0;border-radius:7px;background:var(--text-faint)}
+.vc.t-ok .vc-tube i{background:var(--ok)}.vc.t-warn .vc-tube i{background:var(--warn)}.vc.t-danger .vc-tube i{background:var(--danger)}
+.vc.t-ok .vc-v{color:var(--ok)}.vc.t-warn .vc-v{color:var(--warn)}.vc.t-danger .vc-v{color:var(--danger)}
+.vc-v{font-size:17px;font-weight:650;color:var(--text);line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap}
+.vc-t{min-width:0}.vc-t small{display:block;font-size:11px;color:var(--muted);line-height:1.3;margin-top:2px}
+.vc-up{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:2px}.vc-up b{color:var(--text);font-weight:650}
+.dd-hwkv{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;margin-top:6px}
+.dd-hwkv .ddc-kv{min-width:0}
+.dd-needs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-radius:14px;background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent);font-size:12.5px}
+.dd-needs b{color:var(--warn);font-weight:700;margin-right:4px}.dd-needs .cc-tag{background:var(--surface)}
+.dd-fold-card{padding-top:4px;padding-bottom:4px}
+.dd-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 0;font-size:13.5px;font-weight:650;color:var(--text)}
+.dd-fold>summary::-webkit-details-marker{display:none}
+.dd-fold>summary .sum{margin-left:auto;font-size:12px;font-weight:500;color:var(--muted);display:flex;gap:6px;align-items:center}
+.dd-fold>summary::after{content:"›";color:var(--text-faint);transform:rotate(90deg);transition:transform .15s}
+.dd-fold[open]>summary::after{transform:rotate(270deg)}
+/* the facts in Overview keep only what the pane does not show */
+#dd-panel-summary .dd-facts #device-vitals-live{display:none!important}
 .ddc-hw-pic{width:112px;height:112px;flex:none;object-fit:contain;border-radius:14px;background:var(--surface2)}
 .ddc-hw-pic.ic-only{display:grid;place-items:center}
 .ddc-hw-pic.ic-only svg{width:44px;height:44px;fill:none;stroke:var(--text-faint);stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
@@ -4684,6 +4731,8 @@ html.dd-fit .dd-split-r{padding-right:4px}
       split.remove();
     } else return;
     aboutIntoOverview(on);
+    // In Overview the facts follow the device pane (and what needs a look).
+    if (on) { var anc = document.getElementById('dd-needs') || document.getElementById('dd-hw'); if (anc) anc.parentNode.insertBefore(facts, anc.nextSibling); }
     overviewTab(on);
     fit();
     // Charts follow their new container width.
@@ -5968,3 +6017,5 @@ document.addEventListener('keydown', function (e) {
   {{end}}
 </div>
 {{end}}
+
+{{define "device-vitals-cols"}}{{range vitalCols .Device .ShowBattery .ChargerFlapping}}<div class="vc t-{{.Tone}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
