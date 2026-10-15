@@ -1793,6 +1793,11 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// this transaction's NOW(), so a queued write lands at the instant it described, the
 	// same instant hist_at records, however long it waited.
 	shaped = ShapedTelemetry{DeviceID: deviceID, At: at, Prev: histPrev, Cur: histCur, Battery: battery, Stored: stored}
+	// A charge-climb summary (client 1.10.1) is kept as history in battery_climbs; the key
+	// itself is stripped from check-in rows. Keyframes repeat it, which the key dedupes.
+	if err := insertBatteryClimb(ctx, tx, deviceID, extra); err != nil {
+		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
@@ -2057,7 +2062,7 @@ func jsonFloat(raw json.RawMessage) *float64 {
 // battery_temp_c and ram_usage_mb deliberately stay: they feed the device chart, the
 // live SSE payload, a CSV column, the temp_elevated/memory_low rules and the daily
 // rollup. They are quantised on the device instead.
-const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address'`
+const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address' - 'battery_cc'`
 
 // checkinVolatileKeys are readings that drift every frame without meaning a state
 // change; two rows equal on everything else within the sample window are one sample.
@@ -13660,6 +13665,40 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via_serial TEXT NOT NULL D
 
 -- One row per real state change. Nothing is written while a state holds, so an idle
 -- device costs nothing at all.
+-- Battery data from the firmware client (1.10.1+, T7): every battery broadcast and screen
+-- edge the device logged, sent in batches to /api/v1/battery-log, and the client's own
+-- summary of each constant-current charge climb (extra.battery_cc). Raw material for a
+-- battery health model; nothing reads them for alerts yet. t is the device's own clock
+-- (part of the key, so a resent batch dedupes exactly); t_fix_ms is how far that clock
+-- was from the server's when the batch arrived.
+CREATE TABLE IF NOT EXISTS battery_samples (
+    device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    t         TIMESTAMPTZ NOT NULL,
+    up_s      BIGINT NOT NULL,
+    ev        CHAR(1) NOT NULL,
+    mv        INT,
+    pct       SMALLINT,
+    status    SMALLINT,
+    plug      SMALLINT,
+    temp_c    REAL,
+    screen    BOOLEAN,
+    ichg_ma   INT,
+    iin_ma    INT,
+    flap      BOOLEAN,
+    wlc       SMALLINT,
+    wlc_on    SMALLINT,
+    t_fix_ms  BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (device_id, t, up_s, ev)
+);
+CREATE INDEX IF NOT EXISTS idx_battery_samples_t ON battery_samples(t);
+CREATE TABLE IF NOT EXISTS battery_climbs (
+    device_id   UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    at          TIMESTAMPTZ NOT NULL,        -- battery_cc.at, the device's clock
+    payload     JSONB NOT NULL,
+    received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (device_id, at)
+);
+
 CREATE TABLE IF NOT EXISTS device_state_events (
     device_id UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
     at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
