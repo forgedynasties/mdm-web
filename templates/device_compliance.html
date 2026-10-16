@@ -21,7 +21,7 @@
 <div class="dco">
   {{if .Scored}}
   <div class="dco-say{{if not .Compliant}} bad{{end}}"><i class="dot" aria-hidden="true"></i>
-    <div><b>{{if .Compliant}}Compliant.{{else}}Not compliant.{{end}}</b>{{range .Lines}} {{.}}{{end}}{{if canAdmin .Role}}{{range .Rows}}{{if and (eq .ID "wireless_adb_off") .Scored (eq .Result.State "fail")}} <a href="#settings" onclick="setDeviceTab('settings', document.getElementById('dd-tab-settings')); return false;">Change wireless adb in Settings</a>.{{end}}{{end}}{{end}}</div>
+    <div><b>{{if .Compliant}}Compliant.{{else}}Not compliant.{{end}}</b>{{range .Lines}} {{.}}{{end}}{{if canAdmin .Role}}{{range .Rows}}{{if and (eq .ID "wireless_adb_off") .Scored (eq .Result.State "fail")}} <a href="#" onclick="var d=document.getElementById('wadb-dlg'); if (d) d.showModal(); return false;">Turn wireless adb off</a>.{{end}}{{end}}{{end}}</div>
     <a class="cc-btn sm r" href="/compliance/rules">Rules</a>
   </div>
   {{else}}

@@ -395,6 +395,19 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <div class="cc-msep"></div>
         {{if and .Device.HasBattery (not .IsDPC) (or (canAdmin .Role) (eq .Role "dev"))}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
         <a class="cc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export data…</a>
+        {{if canAdmin .Role}}{{$sm := .Security}}
+        {{/* What the Settings tab held (E3, picked 16 Oct): each opens a dialog or confirms. */}}
+        <div class="cc-msep"></div>
+        {{if $sm.CanAdbTCP}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('wadb-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.05a6 6 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Wireless adb…<span class="rt">{{if $sm.AdbOn}}On{{else if $sm.AdbKnown}}Off{{end}}</span></button>{{end}}
+        {{if not .IsDPC}}<div class="cc-msec">Enrollment</div>
+        {{if .KeyCred}}{{if .KeyCred.Own}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('key-reset-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></svg>Reset device key…</button>{{end}}{{end}}
+        <button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('move-server-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Move to another server…</button>{{end}}
+        <div class="cc-msep"></div>
+        {{if .Device.Retired}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/unretire" hx-boost="false"><button type="submit" class="cc-mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Back to the fleet</button></form>
+        {{else}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/retire" hx-boost="false" onsubmit="return confirm('Retire {{.Device.SerialNumber}}? It leaves lists, alerts and policy coverage but keeps its history. A later check-in brings it back.')"><button type="submit" class="cc-mi danger"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg>Retire</button></form>{{end}}
+        {{if supports .Device "unenroll"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Unenroll {{.Device.SerialNumber}}? It stops being managed from here and keeps everything on it. Enrolling it again means starting from a factory reset.')"><input type="hidden" name="type" value="unenroll"><button type="submit" class="cc-mi danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Unenroll…</button></form>{{end}}
+        {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone.')"><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-mi danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Factory wipe…</button></form>{{end}}
+        {{end}}
       </div>
     </details>
   </span>
@@ -626,7 +639,6 @@ if (!window.__ddNotesHook) {
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-compliance" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-compliance" data-dd-tab="compliance" onclick="setDeviceTab('compliance', this)">Compliance</button>{{end}}
   <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)">Location</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
-  {{if canAdmin .Role}}<button class="dd-tab" id="dd-tab-settings" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-settings" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Settings</button>{{end}}
 </div>
 <div class="dd-tabrow-r">
   {{/* Charging pad (static/device-pad-demos.html, W2, picked 14 Oct): a chip beside Notes
@@ -3810,6 +3822,49 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     .sec-seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
     </style>
     {{end}}
+    {{if not .IsOwner}}
+    {{/* Enrollment facts: how this device got here. Its actions (key, server, retire,
+         unenroll, wipe, wireless adb) are in the ⋯ menu. */}}
+    <div class="ddc-card en-card" id="enrollment-card">
+      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">needs a site</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else if eq .Device.EnrollmentStatus "unenrolled"}}unenrolled{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
+    {{with .Custody}}{{if .Server}}
+    {{/* The device is not here. Said plainly and at the top, because every action on
+         this page is about a device this server can reach, and this one it cannot. */}}
+    <div class="dd-custody{{if .Suspect}} suspect{{end}}">
+      <strong>{{if .Suspect}}Moving to {{.Server}}{{else}}Reporting to {{.Server}}{{end}}</strong>
+      <span>{{if .Suspect}}The move was issued from here; nothing has confirmed it arrived yet. Until it does, silence from this device is expected.{{else}}Last seen there {{timeSince .SeenAt}}. It is not offline — commands and client updates come from that server now.{{end}}</span>
+      {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">Open on {{.Server}} ↗</a>{{end}}
+    </div>
+    {{end}}{{end}}
+    {{/* Summary line: what manages this device, before any row is read. */}}
+    <div class="en-hero">
+      <span class="en-hero-t">{{if .Device.IsMDMLite}}MDM Lite{{else}}{{.Device.KindLabel}}{{end}}</span>
+      {{$hv := extraField .Device.LatestExtra "agent_version"}}{{$hp := extraField .Device.LatestExtra "agent_package"}}
+      {{if and $hv (ne $hv "—")}}{{if misreportedVersion $hv $hp}}<span class="mono en-hero-v muted" title="Reported the platform release as its own version — the pre-1.0.2 client bug.">pre-1.0.2</span>{{else}}<span class="mono en-hero-v">{{$hv}}</span>{{end}}{{end}}
+      <span class="cc-tag">{{if .Device.IsMDMLite}}in app, no device owner{{else if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
+    </div>
+    {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
+    {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
+    <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if and .IsDPC .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
+    {{/* Who enrolled it: recorded by AIO Enroll (devices.enrolled_by). Older devices and ones
+         moved by hand have nothing, which must read as "not recorded", not as a blank. */}}
+    {{if .IsDPC}}<div class="ddc-kv"><span class="k">Enrolled by</span><span class="v">{{if .Device.EnrolledBy}}{{template "ubub" (userBubble .Device.EnrolledBy)}} {{if userURL .Device.EnrolledBy}}<a href="{{userURL .Device.EnrolledBy}}" class="link-detail">{{if .EnrolledByName}}{{.EnrolledByName}}{{else}}{{.Device.EnrolledBy}}{{end}}</a>{{else}}{{if .EnrolledByName}}{{.EnrolledByName}}{{else}}{{.Device.EnrolledBy}}{{end}}{{end}} <span class="cc-tag accent" title="Enrolled with the AIO Enroll desktop app">AIO Enroll</span>{{else}}<span class="muted" title="Enrolled before AIO Enroll recorded this, or moved from another server by hand.">not recorded</span>{{end}}</span></div>{{end}}
+    <div class="ddc-kv" id="credential-row"><span class="k">Credential</span><span class="v wrap">{{if .IsDPC}}Per-device key{{else}}{{with .KeyCred}}{{if .Own}}<span class="en-key"><span class="dot"></span>Own key</span>{{if .Since}} <span class="muted small">· since {{shortDate .Since}}</span>{{end}}{{else if .CanReg}}<span class="en-key warn"><span class="dot"></span>Shared key</span> <span class="muted small">· {{if .ResetAt}}reset {{timeSince .ResetAt}}; {{end}}registers its own at the next check-in</span>{{else}}<span class="en-key mut"><span class="dot"></span>Shared key</span> <span class="muted small">· needs client 1.6.0</span>{{if and $.AgentUpdate.Available (canOperate $.Role)}} <form method="POST" action="/devices/{{$.Device.SerialNumber}}/commands" style="display:inline;margin:0" hx-confirm="Update the agent on {{$.Device.SerialNumber}} to {{$.AgentUpdate.Version}}? It restarts itself and reconnects."><input type="hidden" name="type" value="app_update"><button type="submit" class="cc-btn sm">Update agent</button></form>{{end}}{{end}}{{else}}Fleet device key{{end}}{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
+
+    {{/* The class follows the model: set on the Hardware page, never per device. */}}
+    <div class="ddc-kv"><span class="k">Class</span><span class="v">{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}<span class="muted">none</span>{{end}} <span class="muted small">· from the model{{if canAdmin .Role}} · <a href="/lineup?role={{if .Device.Class}}{{.Device.Class}}{{else}}none{{end}}#model-{{.Device.Product}}" class="link-detail">Lineup</a>{{end}}</span></span></div>
+    {{if .Device.NeedsOnboarding}}
+    <div class="ddc-kv"><span class="k">Onboarding</span><span class="v">
+      <form method="POST" action="/devices/{{.Device.SerialNumber}}/onboard" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0">
+        <input type="hidden" name="from" value="/devices/{{.Device.SerialNumber}}">
+        {{if not .Device.DeployedEffective}}<select name="restaurant_id" class="en-sel"><option value="">Site…</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>{{end}}
+        <button type="submit" class="cc-btn primary sm"{{if not (canAdminOrOperator .Role)}} disabled{{end}}>Mark onboarded</button>
+      </form></span></div>
+    {{end}}
+
+    </div>
+    {{end}}
     {{if .WhoHasAccess}}
     <div class="ddc-card" id="dd-who">
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Who has access</h2><span class="m muted small">rules that cover this device</span></div>
@@ -3828,79 +3883,37 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
 </section><!-- /about -->
 
 {{if canAdmin .Role}}
-{{/* Settings — admin-only: how the device is enrolled, moving it to another server, and
-     wireless adb. Kept off the side column and the Overview, where every role works. */}}
-<section class="dd-panel" data-dd-panel="settings" id="dd-panel-settings" role="tabpanel" aria-labelledby="dd-tab-settings" tabindex="0" hidden>
-  <div class="about-grid">
-  {{/* Enrollment — how this device got here and where it is in its lifecycle.
-       Same card for both kinds: firmware devices are "auto-enrolled" with the
-       fleet key, DPC devices carry a per-device key from a profile. */}}
-  <div class="ddc-card en-card" id="enrollment-card">
-    <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">needs a site</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else if eq .Device.EnrollmentStatus "unenrolled"}}unenrolled{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
-
-    {{with .Custody}}{{if .Server}}
-    {{/* The device is not here. Said plainly and at the top, because every action on
-         this page is about a device this server can reach, and this one it cannot. */}}
-    <div class="dd-custody{{if .Suspect}} suspect{{end}}">
-      <strong>{{if .Suspect}}Moving to {{.Server}}{{else}}Reporting to {{.Server}}{{end}}</strong>
-      <span>{{if .Suspect}}The move was issued from here; nothing has confirmed it arrived yet. Until it does, silence from this device is expected.{{else}}Last seen there {{timeSince .SeenAt}}. It is not offline — commands and client updates come from that server now.{{end}}</span>
-      {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener">Open on {{.Server}} ↗</a>{{end}}
-    </div>
-    {{end}}{{end}}
-    {{/* Summary line: what manages this device, before any row is read. */}}
-    <div class="en-hero">
-      <span class="en-hero-t">{{if .Device.IsMDMLite}}MDM Lite{{else}}{{.Device.KindLabel}}{{end}}</span>
-      {{$hv := extraField .Device.LatestExtra "agent_version"}}{{$hp := extraField .Device.LatestExtra "agent_package"}}
-      {{if and $hv (ne $hv "—")}}{{if misreportedVersion $hv $hp}}<span class="mono en-hero-v muted" title="Reported the platform release as its own version — the pre-1.0.2 client bug.">pre-1.0.2</span>{{else}}<span class="mono en-hero-v">{{$hv}}</span>{{end}}{{end}}
-      <span class="cc-tag">{{if .Device.IsMDMLite}}in app, no device owner{{else if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
-    </div>
-
-    <div class="en-grp">Identity</div>
-    {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
-    {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
-    <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if and .IsDPC .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
-    {{/* Who enrolled it: recorded by AIO Enroll (devices.enrolled_by). Older devices and ones
-         moved by hand have nothing, which must read as "not recorded", not as a blank. */}}
-    {{if .IsDPC}}<div class="ddc-kv"><span class="k">Enrolled by</span><span class="v">{{if .Device.EnrolledBy}}{{template "ubub" (userBubble .Device.EnrolledBy)}} {{if userURL .Device.EnrolledBy}}<a href="{{userURL .Device.EnrolledBy}}" class="link-detail">{{if .EnrolledByName}}{{.EnrolledByName}}{{else}}{{.Device.EnrolledBy}}{{end}}</a>{{else}}{{if .EnrolledByName}}{{.EnrolledByName}}{{else}}{{.Device.EnrolledBy}}{{end}}{{end}} <span class="cc-tag accent" title="Enrolled with the AIO Enroll desktop app">AIO Enroll</span>{{else}}<span class="muted" title="Enrolled before AIO Enroll recorded this, or moved from another server by hand.">not recorded</span>{{end}}</span></div>{{end}}
-    <div class="ddc-kv" id="credential-row"><span class="k">Credential</span><span class="v wrap">{{if .IsDPC}}Per-device key{{else}}{{with .KeyCred}}{{if .Own}}<span class="en-key"><span class="dot"></span>Own key</span>{{if .Since}} <span class="muted small">· since {{shortDate .Since}}</span>{{end}}{{else if .CanReg}}<span class="en-key warn"><span class="dot"></span>Shared key</span> <span class="muted small">· {{if .ResetAt}}reset {{timeSince .ResetAt}}; {{end}}registers its own at the next check-in</span>{{else}}<span class="en-key mut"><span class="dot"></span>Shared key</span> <span class="muted small">· needs client 1.6.0</span>{{if and $.AgentUpdate.Available (canOperate $.Role)}} <form method="POST" action="/devices/{{$.Device.SerialNumber}}/commands" style="display:inline;margin:0" hx-confirm="Update the agent on {{$.Device.SerialNumber}} to {{$.AgentUpdate.Version}}? It restarts itself and reconnects."><input type="hidden" name="type" value="app_update"><button type="submit" class="cc-btn sm">Update agent</button></form>{{end}}{{end}}{{else}}Fleet device key{{end}}{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
-
-    <div class="en-grp">Settings</div>
-    {{/* The class follows the model: set on the Hardware page, never per device. */}}
-    <div class="ddc-kv"><span class="k">Class</span><span class="v">{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}<span class="muted">none</span>{{end}} <span class="muted small">· from the model{{if canAdmin .Role}} · <a href="/lineup?role={{if .Device.Class}}{{.Device.Class}}{{else}}none{{end}}#model-{{.Device.Product}}" class="link-detail">Lineup</a>{{end}}</span></span></div>
-    {{if .Device.NeedsOnboarding}}
-    <div class="ddc-kv"><span class="k">Onboarding</span><span class="v">
-      <form method="POST" action="/devices/{{.Device.SerialNumber}}/onboard" hx-boost="false" style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0">
-        <input type="hidden" name="from" value="/devices/{{.Device.SerialNumber}}">
-        {{if not .Device.DeployedEffective}}<select name="restaurant_id" class="en-sel"><option value="">Site…</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>{{end}}
-        <button type="submit" class="cc-btn primary sm"{{if not (canAdminOrOperator .Role)}} disabled{{end}}>Mark onboarded</button>
-      </form></span></div>
-    {{end}}
-
-    {{/* Everything that changes where this device lives, or ends its life, in one
-         band — so a factory wipe can never again read like a preference sitting in
-         the same kind of row as the product class. */}}
-    <div class="en-danger">
-      <div class="en-danger-t">Careful</div>
-      <div class="en-danger-btns">
-        {{if and (canAdmin .Role) (not .IsDPC)}}<button type="button" class="cc-btn sm" onclick="document.getElementById('move-server-dlg').showModal()">Move to another server…</button>{{end}}
-        {{if and (canAdmin .Role) .KeyCred}}{{if .KeyCred.Own}}<button type="button" class="cc-btn sm danger" onclick="document.getElementById('key-reset-dlg').showModal()">Reset device key…</button>{{end}}{{end}}
-        {{if .Device.Retired}}
-        <form method="POST" action="/devices/{{.Device.SerialNumber}}/unretire" hx-boost="false" style="margin:0"><button type="submit" class="cc-btn sm">Back to the fleet</button></form>
+{{/* Device-page dialogs for admins (E3, picked 16 Oct: no Settings tab). The ⋯ menu opens
+     them; they sit outside every tab panel so showModal works whichever tab is open. */}}
+<div id="dd-admin-dlgs">
+    {{$s := .Security}}{{if $s.CanAdbTCP}}
+    <dialog id="wadb-dlg" class="en-dlg wadb-dlg">
+      <h4>Wireless adb{{if $s.AdbOn}} <span class="cc-tag warn">open</span>{{end}}</h4>
+      <p class="muted small" style="margin:0 0 10px">Opens adb on port 5555 so a bench machine can connect without USB. Only machines whose adb key this device already trusts can connect. It switches itself off after the chosen time, across reboots. Needs firmware v2.1.022+.</p>
+      <div class="ddc-kv" id="wadb-row"><span class="k">State</span><span class="v">
+        {{if $s.AdbOn}}
+          <span class="cc-tag warn">On</span>{{if $s.AdbPort}} <span class="mono">{{if $s.IP}}{{$s.IP}}{{end}}:{{$s.AdbPort}}</span>{{end}}{{if $s.AdbOffIn}} <span class="muted small">· off in {{$s.AdbOffIn}}</span>{{else if $s.AdbStaysOn}} <span class="muted small">· stays on</span>{{end}}
+          {{if $s.CanAdbTCP}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" class="sec-adb"><input type="hidden" name="type" value="adb_tcp"><input type="hidden" name="port" value="0"><button type="submit" class="cc-btn sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{else}} title="Turn wireless adb off (USB only)"{{end}}>Turn off</button></form>{{end}}
         {{else}}
-        <form method="POST" action="/devices/{{.Device.SerialNumber}}/retire" hx-boost="false" style="margin:0" onsubmit="return confirm('Retire {{.Device.SerialNumber}}? It leaves lists, alerts and policy coverage but keeps its history. A later check-in brings it back.')"><button type="submit" class="cc-btn sm">Retire</button></form>
+          {{if $s.AdbKnown}}Off{{else}}—{{end}}
+          {{if and $s.CanAdbTCP (not $s.ClientTooOld)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" class="sec-adb"><input type="hidden" name="type" value="adb_tcp"><input type="hidden" name="port" value="5555">
+            <span class="sec-seg" role="radiogroup" aria-label="Turn off after"><label><input type="radio" name="hours" value="2"><span>2 h</span></label><label><input type="radio" name="hours" value="24" checked><span>24 h</span></label><label><input type="radio" name="hours" value="0"><span>Stay on</span></label></span>
+            <button type="submit" class="cc-btn sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{else}} title="Open adb on port 5555. Only machines whose adb key this device already trusts can connect. Needs firmware v2.1.022+."{{end}}>Turn on</button></form>{{end}}
         {{end}}
-        {{if and (supports .Device "unenroll") (canAdmin .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0" hx-confirm="Unenroll {{.Device.SerialNumber}}? It stops being managed from here and keeps everything on it. Enrolling it again means starting from a factory reset."><input type="hidden" name="type" value="unenroll"><button type="submit" class="cc-btn sm">Unenroll</button></form>{{end}}
-        {{if supports .Device "wipe"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0" hx-confirm="FACTORY RESET {{.Device.SerialNumber}}? This erases all data on the device and cannot be undone."><input type="hidden" name="type" value="wipe"><button type="submit" class="cc-btn sm en-wipe">Factory wipe</button></form>{{end}}
-      </div>
-      <div class="en-danger-note">Retiring keeps the history.{{if and (canAdmin .Role) .KeyCred}}{{if .KeyCred.Own}} Resetting the key lets the device register a new one; until it does, the shared key works for it again.{{end}}{{end}} Unenrolling hands the device back with its data intact — it stops reporting, and only a factory reset can enrol it again. A wipe erases the device and cannot be undone{{if and (canAdmin .Role) (not .IsDPC)}}; moving writes <code>persist.sys.mdm.url</code> and reboots, after which the device reports there, not here{{end}}.</div>
-    </div>
-
-    {{if and (canAdmin .Role) (not .IsDPC)}}
-    {{/* Move a device between MDM servers: the firmware client reads
-         persist.sys.mdm.url at startup, so this writes the property and reboots into
-         it. After that the device reports THERE, not here — hence admin-only and a
-         confirm that says so. */}}
+      </span></div>
+      {{if $s.ClientTooOld}}
+      <div class="ddc-kv" id="wadb-need"><span class="k">Needs</span><span class="v">MDM client 1.4.9 or later — this device runs {{if $s.Client}}{{$s.Client}}{{else}}an older client{{end}}. Update the client first (⋯ menu → Update client).</span></div>
+      {{else if and $s.AdbError (not $s.AdbOn)}}
+      <div class="ddc-kv" id="wadb-err"><span class="k">Last try</span><span class="v"><span class="cc-tag bad">failed</span> <span class="small">{{$s.AdbError}}</span></span></div>
+      {{end}}
+      {{if and $s.AdbOn $s.IP}}{{$cmd := printf "adb connect %s:%d" $s.IP (or $s.AdbPort 5555)}}
+      <div class="ddc-kv" id="wadb-connect"><span class="k">Connect</span><span class="v"><code class="mono">{{$cmd}}</code>
+        <button type="button" class="cc-btn sm" data-cmd="{{$cmd}}" onclick="copyText(this.dataset.cmd, this)" title="Copy the adb connect command">Copy</button></span></div>
+      {{end}}
+      <div class="en-dlg-btns"><button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Close</button></div>
+    </dialog>
+    {{end}}
+    {{if not .IsDPC}}
     {{if .KeyCred}}{{if .KeyCred.Own}}
     <dialog id="key-reset-dlg" class="en-dlg">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/key-reset" hx-boost="false">
@@ -3938,35 +3951,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       </form>
     </dialog>
     {{end}}
-  </div>
-    {{$s := .Security}}{{if $s.CanAdbTCP}}
-    <div class="ddc-card" id="wadb-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.05a6 6 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg></span><h2>Wireless adb</h2>{{if $s.AdbOn}}<span class="cc-tag warn">open</span>{{end}}</div>
-      <p class="muted small" style="margin:0 0 10px">Opens adb on port 5555 so a bench machine can connect without USB. Only machines whose adb key this device already trusts can connect. It switches itself off after the chosen time, across reboots. Needs firmware v2.1.022+.</p>
-      <div class="ddc-kv" id="wadb-row"><span class="k">State</span><span class="v">
-        {{if $s.AdbOn}}
-          <span class="cc-tag warn">On</span>{{if $s.AdbPort}} <span class="mono">{{if $s.IP}}{{$s.IP}}{{end}}:{{$s.AdbPort}}</span>{{end}}{{if $s.AdbOffIn}} <span class="muted small">· off in {{$s.AdbOffIn}}</span>{{else if $s.AdbStaysOn}} <span class="muted small">· stays on</span>{{end}}
-          {{if $s.CanAdbTCP}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" class="sec-adb"><input type="hidden" name="type" value="adb_tcp"><input type="hidden" name="port" value="0"><button type="submit" class="cc-btn sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{else}} title="Turn wireless adb off (USB only)"{{end}}>Turn off</button></form>{{end}}
-        {{else}}
-          {{if $s.AdbKnown}}Off{{else}}—{{end}}
-          {{if and $s.CanAdbTCP (not $s.ClientTooOld)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" class="sec-adb"><input type="hidden" name="type" value="adb_tcp"><input type="hidden" name="port" value="5555">
-            <span class="sec-seg" role="radiogroup" aria-label="Turn off after"><label><input type="radio" name="hours" value="2"><span>2 h</span></label><label><input type="radio" name="hours" value="24" checked><span>24 h</span></label><label><input type="radio" name="hours" value="0"><span>Stay on</span></label></span>
-            <button type="submit" class="cc-btn sm{{if not (canAdmin .Role)}} role-locked{{end}}"{{if not (canAdmin .Role)}} title="Requires the admin role" data-role-need="admin"{{else}} title="Open adb on port 5555. Only machines whose adb key this device already trusts can connect. Needs firmware v2.1.022+."{{end}}>Turn on</button></form>{{end}}
-        {{end}}
-      </span></div>
-      {{if $s.ClientTooOld}}
-      <div class="ddc-kv" id="wadb-need"><span class="k">Needs</span><span class="v">MDM client 1.4.9 or later — this device runs {{if $s.Client}}{{$s.Client}}{{else}}an older client{{end}}. Update the agent first (⋯ menu → Update agent).</span></div>
-      {{else if and $s.AdbError (not $s.AdbOn)}}
-      <div class="ddc-kv" id="wadb-err"><span class="k">Last try</span><span class="v"><span class="cc-tag bad">failed</span> <span class="small">{{$s.AdbError}}</span></span></div>
-      {{end}}
-      {{if and $s.AdbOn $s.IP}}{{$cmd := printf "adb connect %s:%d" $s.IP (or $s.AdbPort 5555)}}
-      <div class="ddc-kv" id="wadb-connect"><span class="k">Connect</span><span class="v"><code class="mono">{{$cmd}}</code>
-        <button type="button" class="cc-btn sm" data-cmd="{{$cmd}}" onclick="copyText(this.dataset.cmd, this)" title="Copy the adb connect command">Copy</button></span></div>
-      {{end}}
-    </div>
-    {{end}}
-  </div>
-</section><!-- /settings -->
+</div>
 {{end}}
 
 {{if not .IsOwner}}
@@ -4911,10 +4896,10 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
     }
   }
   window.setDeviceTab = setDeviceTab;
-  // "Reset its key…" on an impersonation alert lands here: open Settings and the dialog.
+  // "Reset its key…" on an impersonation alert lands here: open the dialog.
   if (location.hash === '#reset-key') {
-    var kd = document.getElementById('key-reset-dlg'), kt = document.getElementById('dd-tab-settings');
-    if (kd && kt) { setDeviceTab('settings', kt); kd.showModal(); }
+    var kd = document.getElementById('key-reset-dlg');
+    if (kd) kd.showModal();
   }
 
   // Client pill popover: open on click, close on the next click outside or Escape.

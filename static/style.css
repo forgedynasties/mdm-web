@@ -7638,6 +7638,7 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .cc-mi.is-off, .cc-mi:disabled { cursor: default; color: var(--text-faint); }
 .cc-mi.is-off:hover, .cc-mi:disabled:hover { background: none; }
 .cc-mi.is-off > svg { stroke: var(--text-faint); }
+.cc-mi.danger { color: var(--danger); } .cc-mi.danger > svg { stroke: var(--danger); }
 .cc-mi.is-danger { color: var(--danger); } .cc-mi.is-danger > svg { stroke: var(--danger); }
 .cc-menu form { margin: 0; }
 .cc-msep { height: 1px; margin: 5px 4px; border: 0; background: var(--border-soft); }
