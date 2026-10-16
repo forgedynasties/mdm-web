@@ -790,6 +790,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	funcMap := template.FuncMap{
 		"userURL":       userURL,
 		"userBubble":    userBubble,
+		// systemActorLabel names a sender the server writes itself ("Control probe",
+		// "Auto-update"), "" for a person.
+		"systemActorLabel": func(n string) string { l, _ := db.SystemActorLabel(n); return l },
 		"auditSentence": humanizeAudit,
 		"authorIsAdmin": authorIsAdmin,
 		// msLoginEnabled reports whether Microsoft sign-in is configured, so
@@ -6224,37 +6227,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[device] ListAuditForDevice %s: %v", device.SerialNumber, err)
 			return
 		}
-		names := h.actorDisplayNames(ctx)
-		// Admin activity is for admins: the built-in admin login, the admin API key and any
-		// admin account. Everyone else sees what operators and the device itself did.
-		adminActors := map[string]bool{"admin": true, "api": true}
-		if role != "admin" {
-			if users, err := h.db.ListUsers(ctx); err == nil {
-				for _, u := range users {
-					if u.Role == "admin" {
-						adminActors[u.Username] = true
-					}
-				}
-			}
-		}
-		const activityShown = 5 // the card is a glance; "all activity" has the rest
-		items := make([]deviceActivityItem, 0, activityShown)
-		for _, e := range entries {
-			if len(items) == activityShown {
-				break
-			}
-			if role != "admin" && adminActors[e.Actor] {
-				continue
-			}
-			actor := e.Actor
-			if dn, ok := names[actor]; ok && dn != "" {
-				actor = dn
-			}
-			items = append(items, deviceActivityItem{
-				At: e.CreatedAt, Actor: actor, ActorKey: e.Actor,
-				Did: humanizeAudit(e), Action: e.Action,
-			})
-		}
+		items := h.deviceActivityItems(ctx, role, entries, 5) // the card is a glance; "all activity" has the rest
 		mu.Lock()
 		activity = items
 		mu.Unlock()
@@ -21386,6 +21359,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/lab/end", h.requireLab(h.deviceRoute("shell", h.LabEnd)))
 	post("POST /devices/{serial}/lab/install", h.requireLab(h.deviceRoute("shell", h.LabInstall)))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.deviceRoute("view", h.DeviceCommandsPartial)))
+	mux.HandleFunc("GET /devices/{serial}/timeline", h.requireAuth(h.deviceRoute("view", h.DeviceTimelinePartial)))
 	mux.HandleFunc("GET /devices/{serial}/compliance", h.requireAuth(h.deviceRoute("view", h.DeviceCompliancePartial)))
 	mux.HandleFunc("GET /devices/{serial}/alerts-panel", h.requireAuth(h.deviceRoute("view", h.DeviceAlertsPanel)))
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.deviceRoute("view", h.DeviceQueuePartial)))
