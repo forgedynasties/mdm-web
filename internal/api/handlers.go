@@ -2114,51 +2114,9 @@ type qaTestDataRow struct {
 // testing team works within a specific lab group or site, not the whole fleet, and
 // there's no reason to ship rows they're going to throw away client-side anyway.
 func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
-	filter := db.DeviceFilter{
-		// Scoped to firmware-client devices (T7/Kiosk) only — that's what the testing
-		// team is actually running test cycles against right now. Drop this (or make
-		// it a query param) once they need DPC-agent devices too.
-		AgentKind: product.KindFirmware,
-	}
-
-	if name := strings.TrimSpace(r.URL.Query().Get("group")); name != "" {
-		groupList, err := h.db.ListGroups(r.Context())
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-			return
-		}
-		id, ok := uuid.Nil, false
-		for _, g := range groupList {
-			if strings.EqualFold(g.Name, name) {
-				id, ok = g.ID, true
-				break
-			}
-		}
-		if !ok {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "group not found"})
-			return
-		}
-		filter.GroupID = id
-	}
-
-	if name := strings.TrimSpace(r.URL.Query().Get("restaurant")); name != "" {
-		restaurants, err := h.db.ListRestaurants(r.Context())
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-			return
-		}
-		id, ok := uuid.Nil, false
-		for _, rest := range restaurants {
-			if strings.EqualFold(rest.Name, name) {
-				id, ok = rest.ID, true
-				break
-			}
-		}
-		if !ok {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "restaurant not found"})
-			return
-		}
-		filter.RestaurantID = id
+	filter, ok := h.qaDeviceFilter(w, r)
+	if !ok {
+		return
 	}
 
 	devices, err := h.db.ListDevices(r.Context(), filter, 0, 10000, "", "")
@@ -2199,6 +2157,60 @@ func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
 		out = append(out, row)
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// qaDeviceFilter is the scope every testdata list shares: firmware devices, narrowed by
+// ?group=<name> and ?restaurant=<name> (case-insensitive). It answers the request itself
+// (404 for an unknown name) and returns false when it did.
+func (h *Handler) qaDeviceFilter(w http.ResponseWriter, r *http.Request) (db.DeviceFilter, bool) {
+	filter := db.DeviceFilter{
+		// Scoped to firmware-client devices (T7/Kiosk) only — that's what the testing
+		// team is actually running test cycles against right now. Drop this (or make
+		// it a query param) once they need DPC-agent devices too.
+		AgentKind: product.KindFirmware,
+	}
+
+	if name := strings.TrimSpace(r.URL.Query().Get("group")); name != "" {
+		groupList, err := h.db.ListGroups(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return filter, false
+		}
+		id, ok := uuid.Nil, false
+		for _, g := range groupList {
+			if strings.EqualFold(g.Name, name) {
+				id, ok = g.ID, true
+				break
+			}
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "group not found"})
+			return filter, false
+		}
+		filter.GroupID = id
+	}
+
+	if name := strings.TrimSpace(r.URL.Query().Get("restaurant")); name != "" {
+		restaurants, err := h.db.ListRestaurants(r.Context())
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return filter, false
+		}
+		id, ok := uuid.Nil, false
+		for _, rest := range restaurants {
+			if strings.EqualFold(rest.Name, name) {
+				id, ok = rest.ID, true
+				break
+			}
+		}
+		if !ok {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "restaurant not found"})
+			return filter, false
+		}
+		filter.RestaurantID = id
+	}
+
+	return filter, true
 }
 
 // ListTestDataFilters gives the testing team's dashboard the group/restaurant names it

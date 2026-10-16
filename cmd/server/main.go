@@ -93,7 +93,7 @@ func main() {
 		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
 	}
 	// QA_API_KEY (optional): a separate, read-only key for the testing team's own
-	// dashboard — GET /api/v1/testdata/devices only, never the admin-key surface.
+	// dashboard — GET /api/v1/testdata/* only, never the admin-key surface.
 	// Unset disables the route entirely rather than falling back to the admin key.
 	qaAPIKey := strings.TrimSpace(getEnv("QA_API_KEY", ""))
 	if qaAPIKey != "" && (len(qaAPIKey) < 32 || qaAPIKey == deviceAPIKey || qaAPIKey == adminAPIKey || qaAPIKey == sessionSecret || qaAPIKey == deviceEnrollKey) {
@@ -502,7 +502,7 @@ func main() {
 	// counters. Scrape as JSON; not exposed to devices or the public.
 	mux.Handle("GET /debug/vars", adminAuth(expvar.Handler()))
 
-	// Testing team's own read-only key — GET /api/v1/testdata/devices only, so a leaked
+	// Testing team's own read-only key — GET /api/v1/testdata/* only, so a leaked
 	// key can't reach anything the admin key can (reboot, wipe, kiosk unlock, ...).
 	// CORS is wide open (*) rather than an allowlist: the dashboard calling this is a
 	// static page that can be hosted/moved anywhere, and the route is already gated by
@@ -527,6 +527,13 @@ func main() {
 		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/history", qaCORS(http.NotFoundHandler()))
 		mux.Handle("GET /api/v1/testdata/filters", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataFilters))))
 		mux.Handle("OPTIONS /api/v1/testdata/filters", qaCORS(http.NotFoundHandler()))
+		// Battery data (the /battery page's): who is sending, a device's rows, its climbs.
+		mux.Handle("GET /api/v1/testdata/battery", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataBattery))))
+		mux.Handle("OPTIONS /api/v1/testdata/battery", qaCORS(http.NotFoundHandler()))
+		mux.Handle("GET /api/v1/testdata/devices/{serial}/battery", qaCORS(qaAuth(http.HandlerFunc(apiHandler.GetTestDataDeviceBattery))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/battery", qaCORS(http.NotFoundHandler()))
+		mux.Handle("GET /api/v1/testdata/devices/{serial}/battery/climbs", qaCORS(qaAuth(http.HandlerFunc(apiHandler.GetTestDataDeviceBatteryClimbs))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/battery/climbs", qaCORS(http.NotFoundHandler()))
 	}
 
 	// WebSocket — device connects here for server-push command delivery

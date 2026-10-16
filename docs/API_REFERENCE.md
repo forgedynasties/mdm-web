@@ -17,6 +17,7 @@ The server exposes one `http.ServeMux` (`cmd/server/main.go`) carrying four coex
 |---|---|---|---|
 | Device API | `/api/v1/checkin`, `/commands/{id}/ack`, `/logcat`, `/ota/status`, `/ws` | `X-API-Key: <DEVICE_API_KEY>` | Used by fleet devices |
 | Admin REST API | `/api/v1/devices`, `/groups`, `/productions`, `/commands` | `X-API-Key: <ADMIN_API_KEY>` | Machine-to-machine admin |
+| Testing team API | `/api/v1/testdata/…` (GET only) | `X-API-Key: <QA_API_KEY>` | Read-only; see §3b |
 | Remote-control WS | `/api/v1/remote/{serial}` | **Single-use token in query string** (no API key) | Screen mirror / input |
 | HTMX dashboard | `/`, `/login`, `/devices`, `/settings`, … | Cookie session + RBAC | See `AUTH_MODEL.md` |
 | Unauthenticated | `/health`, `/static/…`, `/splash-img/…` | none | See §6 |
@@ -235,6 +236,73 @@ Response `201`: `{ "command": {…}, "skipped": ["serial", …] }`. If every tar
 `GET /commands/{id}` → `{ "command": {…}, "deliveries": [ { "device_id","serial_number","status","progress","updated_at","output","last_seen_at","online" } ] }`.
 
 > ⚠ **Security note — `type: "shell"` and `screenshot`/`ota`/`update_splash`** are all reachable with the single admin key. `shell` yields arbitrary command execution on every targeted device. This is the highest-value target on the admin surface: compromise of `ADMIN_API_KEY` = fleet-wide RCE.
+
+---
+
+## 3b. Testing team API (`X-API-Key: <QA_API_KEY>`, read-only)
+
+A separate key for the testing team's own tools. It reaches the `GET /api/v1/testdata/…`
+routes and nothing else, so a leaked key can read data but cannot command a device.
+Unset `QA_API_KEY` and the routes do not exist (404). It is set on **live**
+(`https://mdm.dev.aioapp.com`), not on stage. CORS is open (`*`), so a static page can call it
+from a browser.
+
+**Scope:** firmware devices (T7, Kiosk) only. A serial outside that scope answers 404, like an
+unknown one. Lists take `?group=<name>` and/or `?restaurant=<name>` (exact name, any case;
+404 when there is no such name).
+
+| Method | Path | What |
+|---|---|---|
+| GET | `/api/v1/testdata/filters` | `{"groups":[…],"restaurants":[…]}`: the names the filters accept |
+| GET | `/api/v1/testdata/devices` | One row per device: latest snapshot, plus `extra` (the whole last report, as sent) |
+| GET | `/api/v1/testdata/devices/{serial}/history` | Check-in history: `start`, `end` (RFC 3339, default the last 7 days), `interval_sec` (default 300), `cycles=true` |
+| GET | `/api/v1/testdata/battery` | Devices that sent battery rows in the last 7 days, most rows first |
+| GET | `/api/v1/testdata/devices/{serial}/battery` | That device's battery rows, oldest first. `?format=csv` for CSV |
+| GET | `/api/v1/testdata/devices/{serial}/battery/climbs` | Its charge climbs, newest first. `?limit=` (default 50, max 500) |
+
+`/devices` row: `serial_number, device_class, restaurant_name, groups[], last_seen_at, battery_pct,
+battery_temp_c, charging, wlc_state, charging_pad, ram_used_pct, storage_free_pct,
+discharge_total_pct, discharge_backfilled, extra`. `discharge_total_pct / 100` = equivalent
+full cycles. New fields the client starts sending show up under `extra` without a server change.
+
+`/history` row: `serial_number, battery_pct, build_id, extra, timestamp, sample_at, last_seen_at, empty`.
+
+**Battery data** (the dashboard's `/battery` page; T7 firmware client 1.10.1+). The client logs
+every battery broadcast and screen edge, at most one row per 30 s while nothing changes, and
+uploads them in batches. Battery rows can therefore arrive minutes to hours after they were taken.
+
+`/battery` row: `serial_number, restaurant_name, rows, first_at, last_at, last_mv, last_pct, climbs`.
+
+`/devices/{serial}/battery`: choose the window with `?range=6h|24h|7d|30d` (default 24h) or
+`?start=&end=` (RFC 3339, at most 31 days; 400 otherwise). The answer is
+`{serial_number, start, end, count, rows:[…]}`. Each row has these fields; `null` means the
+device did not read that value:
+
+| Field | Meaning |
+|---|---|
+| `t`, `t_ms` | When the row was taken, by the **device's** clock |
+| `t_fix_ms` | Server clock minus device clock when the batch arrived; `t_ms + t_fix_ms` ≈ server time |
+| `up_s` | Device uptime, seconds (resets on reboot) |
+| `ev` | `b` battery broadcast, `s` screen on/off edge |
+| `mv`, `pct` | Cell voltage (mV), charge (%) |
+| `status` | Android `BatteryManager` status: 1 unknown, 2 charging, 3 discharging, 4 not charging, 5 full |
+| `plug` | 0 none, 1 AC, 2 USB, 4 wireless |
+| `temp_c` | Battery temperature, °C |
+| `screen` | Screen on |
+| `ichg_ma`, `iin_ma` | Charge current and charger input current, mA (while charging) |
+| `flap` | The charger was toggling on and off (a faulty cable, port or supply) |
+| `wlc`, `wlc_on` | Guest charging pad: its state as last read, and its saved on/off switch |
+
+`?format=csv` returns the same columns as the page's Download CSV (`serial, t_ms, up_s, ev, mv,
+pct, status, plug, temp_c, screen, ichg_ma, iin_ma, flap, wlc, wlc_on, t_fix_ms`). Unknown values
+are empty cells.
+
+`/climbs` item: `{at, received_at, payload}`. `payload` is the client's `battery_cc` object as
+sent: `mv0` start mV, `step` mV per rung, `s[]` seconds per rung, `end`, `plug`, `ichg_ma[2]`,
+`temp_c[2]`, `gap_s`, `n`.
+
+Errors are JSON `{"error":"…"}`: 401 bad or missing key, 404 unknown device/group/restaurant,
+400 bad window.
 
 ---
 
