@@ -11465,7 +11465,7 @@ func (h *Handler) ReleaseSetDev(w http.ResponseWriter, r *http.Request) {
 	if dev {
 		msg = "Marked dev · only devs and admins can see it"
 	}
-	h.hxDoneToast(w, r, fmt.Sprintf("/releases/%d", id), msg, "success")
+	h.hxDoneToast(w, r, releaseBack(r, id), msg, "success")
 }
 
 // productLabels holds the model names learned from what devices report, keyed by
@@ -12718,7 +12718,16 @@ func (h *Handler) ReleasePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.publish", strconv.Itoa(id), "")
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, releaseBack(r, id), http.StatusSeeOther)
+}
+
+// releaseBack is where a release action returns to: the form's redirect when it is a
+// release path (the Releases pane sends /releases?release=N), else the release's page.
+func releaseBack(r *http.Request, id int) string {
+	if v := strings.TrimSpace(r.FormValue("redirect")); strings.HasPrefix(v, "/releases") && !strings.HasPrefix(v, "//") {
+		return v
+	}
+	return fmt.Sprintf("/releases/%d", id)
 }
 
 // ReleaseSignOff records the current dev's smoke-test sign-off on a release

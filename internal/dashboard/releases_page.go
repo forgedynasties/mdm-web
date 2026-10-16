@@ -193,6 +193,17 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 			}
 			data["CanPush"] = canPush && rel.Status == "published"
 			data["Rollouts"] = byRelease[rel.ID]
+			// The release page's own actions, so the pane can offer them too: dev / everyone,
+			// publish (warned when there is no full package), the flashing bundle, delete.
+			hasFull := false
+			for _, p := range pkgs {
+				if p.Status == "active" && p.Type == "full" {
+					hasFull = true
+				}
+			}
+			data["HasFull"] = hasFull
+			data["QFILPackages"], _ = h.db.ListQFILPackagesByRelease(ctx, rel.ID)
+			data["DevicesCount"], _ = h.db.CountDevicesByVersion(ctx, rel.Version, rel.Product)
 		}
 	}
 	h.render(w, r, "releases.html", data)

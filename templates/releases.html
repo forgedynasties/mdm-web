@@ -29,6 +29,17 @@
 .ro-dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 .ro-dh h2{margin:0;font-family:var(--mono);font-size:18px}
 .ro-dh .r{margin-left:auto;display:flex;gap:8px}
+.ro-acts{align-items:center;gap:6px!important}
+.ro-acts form{margin:0;display:inline-flex}
+.ro-acts .cc-btn{height:28px;box-sizing:border-box;line-height:1}
+/* The card clips its content; an open ⋯ menu hangs below it. */
+.ro-det:has(.ro-more[open]){overflow:visible}
+.ro-ib{padding:6px 7px}
+.ro-ib svg{width:14px;height:14px}
+.ro-more{position:relative}
+.ro-more>summary{list-style:none}
+.ro-more>summary::-webkit-details-marker{display:none}
+.ro-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40}
 .ro-name{font-size:13px;color:var(--muted);margin:0 0 10px}
 .ro-kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 14px;align-items:center;font-size:13px;color:var(--text-2);padding:10px 0;border-top:1px solid var(--border-soft)}
 .ro-kv .k{color:var(--muted);font-size:12.5px}
@@ -92,7 +103,34 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
         {{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}
         {{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}
         {{if .ReleasedAt}}<span class="cc-tag" title="{{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
-        <span class="r"><a class="cc-btn" href="/releases/{{.ReleaseID}}">Open release</a>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}</span>
+        {{/* The release page's own actions, compact (16 Oct): dev / everyone and publish as
+             buttons, the rarer ones in ⋯, the full page behind the arrow. Each form comes
+             back here (redirect), not to the release page. */}}
+        <span class="r ro-acts">
+          {{if canRelease $.Role}}
+          <form action="/releases/{{.ReleaseID}}/dev" method="POST"{{if .IsDev}} hx-confirm="Release {{.Version}} to everyone? It stops being folded away behind the dev toggle."{{end}}>
+            <input type="hidden" name="dev" value="{{if .IsDev}}0{{else}}1{{end}}"><input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
+            <button type="submit" class="cc-btn sm" title="{{if .IsDev}}Only super admins can see this release now{{else}}Everyone can see this release now{{end}}">{{if .IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
+          </form>
+          {{if ne .Status "published"}}<form action="/releases/{{.ReleaseID}}/publish" method="POST"{{if not $.HasFull}} hx-confirm="No full update package added yet. Publish {{.Version}} anyway?"{{end}}>
+            <input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
+            <button type="submit" class="cc-btn sm primary">Publish</button>
+          </form>{{end}}
+          {{end}}
+          {{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn sm primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}
+          <details class="ro-more">
+            <summary class="cc-btn sm ro-ib" title="More" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></summary>
+            <div class="cc-menu ro-menu">
+              <a class="cc-mi" href="/devices?build={{urlquery .Version}}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Show devices<small>{{.DeviceCount}}</small></a>
+              {{if and $.QFILPackages (or (eq $.Role "admin") (eq $.Role "operator"))}}<a class="cc-mi" href="{{(index $.QFILPackages 0).URL}}" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Flashing bundle</a>{{end}}
+              {{if and (canRelease $.Role) (eq $.DevicesCount 0)}}<hr class="cc-msep">
+              <form action="/releases/{{.ReleaseID}}/delete" method="POST" hx-confirm="Delete release {{.Version}}? No devices are running it. This removes the release and its packages and updates.">
+                <button type="submit" class="cc-mi danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Delete release</button>
+              </form>{{end}}
+            </div>
+          </details>
+          <a class="cc-btn sm ro-ib" href="/releases/{{.ReleaseID}}" title="Open the release page" aria-label="Open the release page"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
+        </span>
       </div>
       {{if .Name}}<p class="ro-name">{{.Name}}</p>{{end}}
       <div class="ro-kv"><span class="k">On devices</span><span class="ro-cov"><span class="cc-meter"><i class="{{if eq .Status "published"}}ok{{else}}warn{{end}}" style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></span>{{if .DeviceCount}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}{{if .Crash}} <a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}</span></div>
