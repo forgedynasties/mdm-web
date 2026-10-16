@@ -501,24 +501,7 @@ window.addEventListener('load', flMapSync);
     <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
     {{end}}
 
-    {{/* Releases: the roles that push firmware (super admin, super op) only. */}}
-    {{if canOTA .Role}}
-    <div class="fleet-rail-cap"><a href="/devices?view=releases"{{if eq .View "releases"}} class="on"{{end}}>Releases</a></div>
-    {{/* Only releases with at least one device on them — 0-device releases are noise here;
-         manage all of them on /releases. All rows are listed; the section scrolls. */}}
-    <div class="fleet-rail-list" data-sec="releases">
-    {{range .RailReleases}}{{if gt .DeviceCount 0}}
-    <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Version}}">
-      <a class="ri-main" href="/devices?build={{.Version}}"><span class="dot ok"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span></a>
-      <a class="ri-go" href="/releases/{{.ID}}" title="Manage {{.Version}}" aria-label="Manage {{.Version}}">→</a>
-      <span class="ct">{{.DeviceCount}}</span>
-    </div>
-    {{end}}{{end}}
-    </div>
-    {{if not .RailReleases}}
-    <div class="fleet-rail-empty">None published</div>
-    {{end}}
-    {{end}}
+    {{/* No Releases section (16 Oct): releases live on /releases; filter by one with + Filter → Release. */}}
   </aside>
   <script>
   (function () {
