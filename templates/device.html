@@ -89,12 +89,52 @@
 </div>
 {{end}}
 
+{{/* The Activity tab's timeline (A1, picked 16 Oct): commands and page changes in one list,
+     newest first; the control-probe canary hidden unless asked for. Refreshes itself while
+     a command in it is unfinished. */}}
+{{define "device-timeline"}}{{$q := printf "show=%s%s" .Show (or (and .Probe "&probe=1") "")}}
+<div class="ddc-card" id="device-timeline" data-diff-guard data-morph
+  {{if .Pending}}hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}" hx-select="unset" hx-target="this" hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML"{{end}}>
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Activity</h2><span class="m muted small">{{.NCmd}} command{{if ne .NCmd 1}}s{{end}} · {{.NChange}} change{{if ne .NChange 1}}s{{end}}{{if and .NChange (canManageUsers .Role)}} · <a href="/activity?device={{.Device.SerialNumber}}" class="link-detail">all activity</a>{{end}}</span></div>
+  <div class="dtl-pills">
+    {{$base := printf "/devices/%s/timeline" .Device.SerialNumber}}{{$pq := or (and .Probe "&probe=1") ""}}
+    <button type="button" class="dtl-pill{{if eq .Show "all"}} on{{end}}" hx-get="{{$base}}?show=all{{$pq}}" hx-target="#device-timeline" hx-swap="outerHTML">All</button>
+    <button type="button" class="dtl-pill{{if eq .Show "commands"}} on{{end}}" hx-get="{{$base}}?show=commands{{$pq}}" hx-target="#device-timeline" hx-swap="outerHTML">Commands</button>
+    <button type="button" class="dtl-pill{{if eq .Show "changes"}} on{{end}}" hx-get="{{$base}}?show=changes{{$pq}}" hx-target="#device-timeline" hx-swap="outerHTML">Changes</button>
+    {{if .NProbe}}<button type="button" class="dtl-pill{{if .Probe}} on{{end}}" hx-get="{{$base}}?show={{.Show}}{{if not .Probe}}&probe=1{{end}}" hx-target="#device-timeline" hx-swap="outerHTML" title="The daily control probe: a no-op command that proves the device still answers">Control probe {{.NProbe}}</button>{{end}}
+  </div>
+  {{if .Items}}
+  <div class="dtl-list">
+  {{range .Items}}
+    {{if .Cmd}}{{$c := .Cmd}}
+    <a class="ddc-tl ddc-tl-link" data-cmd-id="{{$c.ID}}" href="/commands/{{$c.ID}}">
+      <span class="dot {{if or (eq $c.Status "completed") (eq $c.Status "installed")}}ok{{else if or (eq $c.Status "failed") (eq $c.Status "expired")}}err{{else if eq $c.Status "cancelled"}}{{else}}warn{{end}}"></span>
+      <span class="ddc-tl-main"><b>{{cmdTitle $c}}</b>{{with cmdHint $c}}{{if ne $c.Type "shell"}} <span class="muted">{{.}}</span>{{end}}{{end}} · {{cmdStatusLabel $c.Status $.Online}}{{if $c.CreatedBy}} <span class="muted">· {{$lbl := systemActorLabel $c.CreatedBy}}{{if $lbl}}{{$lbl}}{{else}}{{$c.CreatedBy}}{{end}}</span>{{end}}</span>
+      <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>
+    </a>
+    {{else}}{{$e := .Change}}
+    <div class="ddc-tl dtl-chg">
+      <span class="dot chg"></span>
+      <span class="ddc-tl-main">{{$u := userURL $e.ActorKey}}{{if $u}}<a href="{{$u}}" class="link-detail" style="font-weight:650;">{{$e.Actor}}</a>{{else}}<b>{{$e.Actor}}</b>{{end}} {{$e.Did}}</span>
+      <span class="when reltime" data-ts="{{$e.At.Unix}}" title="{{$e.At.Format "2 Jan 2006, 15:04"}} UTC"></span>
+    </div>
+    {{end}}
+  {{end}}
+  </div>
+  {{if .More}}<button type="button" class="app-more" hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}&n={{.Next}}" hx-target="#device-timeline" hx-swap="outerHTML">Show more</button>{{end}}
+  {{else}}
+  <div class="muted small" style="padding:10px 14px">{{if eq .Show "changes"}}No changes made from this page yet: locking, wireless charging, placement and naming show here with who did them.{{else if eq .Show "commands"}}No commands sent to this device yet.{{else}}Nothing done to this device yet.{{end}}</div>
+  {{end}}
+</div>
+{{end}}
+
 {{/* Per-device command QUEUE — non-terminal commands (FIFO). Refetched live on
      device-updated so it drains in place. Remove drops one entry from THIS device. */}}
 {{define "device-queue"}}
 <div id="device-queue" data-diff-guard data-morph
      hx-get="/devices/{{.Device.SerialNumber}}/queue" hx-select="unset" hx-target="this"
      hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML">
+  {{if .Queue}}
   <div class="dq-bar">
     <div class="dq-bar-l">
       <span class="ic mut" style="width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--muted);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
@@ -109,7 +149,6 @@
     </button>
     {{end}}
   </div>
-  {{if .Queue}}
   <ol class="dq-list">
     {{range $i, $c := .Queue}}
     <li class="dq-row{{if and (eq $i 0) $.Online}} dq-active{{end}}{{if or (eq $c.Status "installed") (eq $c.Status "completed") (eq $c.Status "failed") (eq $c.Status "cancelled")}} dq-done{{end}}" data-cmd-id="{{$c.ID}}">
@@ -141,11 +180,8 @@
     {{end}}
   </ol>
   {{else}}
-  <div class="dq-empty cc-empty tall">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-    <span class="dq-empty-t">Nothing queued</span>
-    <span class="muted small">Commands you send line up here and run one at a time.</span>
-  </div>
+  {{/* Empty, the queue is a line, not a card (Activity tab A1, 16 Oct). */}}
+  <div class="dq-strip"><span class="dq-dot{{if .Online}} on{{end}}"></span>Nothing queued<span class="muted"> · {{if .Online}}the device runs commands one at a time{{else}}waiting for the device to come online{{end}}</span></div>
   {{end}}
 </div>
 {{end}}
@@ -4441,14 +4477,20 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 {{if not .IsOwner}}
 <section class="dd-panel dd-activity" data-dd-panel="activity" id="dd-panel-activity" role="tabpanel" aria-labelledby="dd-tab-activity" tabindex="0" hidden>
   <div class="dd-act-queue">{{template "device-queue" .}}</div>
-  {{/* Who changed what from this page (moved here from Overview, 15 Oct). */}}
-  <div class="dd-act-audit">{{template "dd-audit" .}}</div>
-  {{/* History renders on first open: the partial returns the "device-commands" root with
-       its own live-refresh attributes, so after the outerHTML swap it keeps updating. */}}
-  <div hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
-       class="muted small" style="padding:26px;text-align:center;">Loading history…</div>
+  {{/* One timeline of commands and page changes (A1, 16 Oct). Renders on first open; the
+       partial carries its own live-refresh attributes while a command is unfinished. */}}
+  <div hx-get="/devices/{{.Device.SerialNumber}}/timeline" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
+       class="muted small" style="padding:26px;text-align:center;">Loading activity…</div>
 </section><!-- /activity -->
-<style>.dd-activity .dd-act-queue{margin-bottom:16px}</style>
+<style>.dd-activity .dd-act-queue{margin-bottom:12px}
+.dq-strip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);padding:9px 14px;border:1px dashed var(--border);border-radius:12px}
+.dq-strip .dq-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none}.dq-strip .dq-dot.on{background:var(--ok)}
+.dtl-pills{display:flex;gap:5px;flex-wrap:wrap;padding:0 14px 8px}
+.dtl-pill{font:inherit;font-size:11.5px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:3px 10px;color:var(--text-2);background:var(--surface);cursor:pointer}
+.dtl-pill.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+.dtl-list{padding:0 14px 8px}
+.ddc-tl .dot.chg{background:var(--accent)}
+#device-timeline .app-more{margin:4px 14px 12px;width:calc(100% - 28px)}</style>
 {{end}}
 <script>
   // Keep the Queue tab's count badge in sync as the queue drains/morphs live.
