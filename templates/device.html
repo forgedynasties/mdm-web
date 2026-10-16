@@ -6097,7 +6097,7 @@ document.addEventListener('keydown', function (e) {
      leads with four numbers; each other installed variant is one line. */}}
 {{define "dd-host-app"}}
 <div class="ddc-card ha-card" id="dd-host-app">
-  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M10 18.5h4"/></svg></span><h2>Host app</h2><span class="m muted small"><span class="mono">{{.Pattern}}</span> · {{.Count}} installed</span></div>
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M10 18.5h4"/></svg></span><h2>Host app</h2><span class="m muted small ha-meta"><span class="mono">{{.Pattern}}</span> · {{.Count}} installed</span></div>
   {{if not .Count}}
   <p class="muted small ha-none">Nothing matching <span class="mono">{{.Pattern}}</span> is installed.</p>
   {{else}}

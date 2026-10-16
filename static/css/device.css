@@ -519,6 +519,8 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
    numbers beside the facts, then one line per other installed variant. */
 .ha-card{margin-top:12px}
 .ha-none{margin:0}
+/* The header meta names a package: never uppercased with the card title. */
+.ha-meta{text-transform:none;letter-spacing:0;font-weight:500}
 .ha-top{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
 .ha-hero{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 0 12px}
 .ha-nm{font-size:15px;font-weight:750}
