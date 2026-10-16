@@ -298,8 +298,12 @@ pct, status, plug, temp_c, screen, ichg_ma, iin_ma, flap, wlc, wlc_on, t_fix_ms`
 are empty cells.
 
 `/climbs` item: `{at, received_at, payload}`. `payload` is the client's `battery_cc` object as
-sent: `mv0` start mV, `step` mV per rung, `s[]` seconds per rung, `end`, `plug`, `ichg_ma[2]`,
-`temp_c[2]`, `gap_s`, `n`.
+sent. One climb is one charge, read as a ladder of voltage rungs: `mv0` is the first rung (mV),
+`step` the mV between rungs, and `s[i]` the seconds from the start until the cell reached
+`mv0 + i·step`, so a slower climb shows as larger gaps. `scr[i]` is whether the screen was on
+at that rung. `end` is how the climb ended (`top` = reached full), `plug` the charger, `ichg_ma` and
+`temp_c` the [min, max] over the climb, `iin_ma` the input current (-1 = not read), `gap_s` the
+longest gap between samples, `n` the samples behind it, and `at` the time (device ms).
 
 Errors are JSON `{"error":"…"}`: 401 bad or missing key, 404 unknown device/group/restaurant,
 400 bad window.
