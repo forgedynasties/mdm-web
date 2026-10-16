@@ -517,7 +517,6 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .kx-ban form{margin:0}
 /* Host app card (dd-host-app, App card A, picked 16 Oct): the variant in use and its four
    numbers beside the facts, then one line per other installed variant. */
-.ha-card{margin-top:12px}
 .ha-none{margin:0}
 /* The header meta names a package: never uppercased with the card title. */
 .ha-meta{text-transform:none;letter-spacing:0;font-weight:500}

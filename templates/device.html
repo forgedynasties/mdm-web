@@ -393,7 +393,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         {{else}}<span class="cc-mi is-off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Update client<span class="rt">up to date{{if .AgentUpdate.Current}} · {{.AgentUpdate.Current}}{{end}}</span></span>{{end}}
         {{end}}{{end}}{{end}}
         <div class="cc-msep"></div>
-        {{if and .Device.HasBattery (not .IsDPC) (or (canAdmin .Role) (eq .Role "dev"))}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
+        {{if and .Device.HasBattery (not .IsDPC) (or (canAdmin .Role) (eq .Role "dev") (eq .Role "super_op"))}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
         <a class="cc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export data…</a>
         <a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=classic" hx-boost="false" title="Back to the device page as it was before the redesign. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Classic view</a>
         {{if canAdmin .Role}}{{$sm := .Security}}
@@ -633,6 +633,7 @@ if (!window.__ddNotesHook) {
 <div class="dd-tabrow">
 <div class="dd-tabs" role="tablist" aria-label="Device details">
   <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
+  {{if and .HostApp (not .IsOwner)}}<button class="dd-tab" id="dd-tab-hostapp" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-hostapp" data-dd-tab="hostapp" onclick="setDeviceTab('hostapp', this)">Host app</button>{{end}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Apps</button>{{end}}
   {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
@@ -1173,8 +1174,6 @@ if (!window.__ddNotesHook) {
       <span class="chart-legend-item"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,rgba(128,128,128,.5) 0 2px,transparent 2px 4px);height:8px"></span> no data</span>
     </div>
   </div>
-
-{{with .HostApp}}{{template "dd-host-app" .}}{{end}}
 
 <script>
 // Vitals toolbar menus (range, ⋯): one open at a time; any item, outside click or Escape
@@ -3985,6 +3984,11 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
 {{end}}
 
 {{if not .IsOwner}}
+{{/* Host app: its own tab (16 Oct), the card that first sat under the chart. */}}
+{{if and .HostApp (not .IsOwner)}}<section class="dd-panel" data-dd-panel="hostapp" id="dd-panel-hostapp" role="tabpanel" aria-labelledby="dd-tab-hostapp" tabindex="0" hidden>
+{{template "dd-host-app" .HostApp}}
+</section>{{end}}
+
 <section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
   <div class="card">
     <div class="card-header cc-ch">
@@ -6092,9 +6096,10 @@ document.addEventListener('keydown', function (e) {
 {{template "footer" .}}
 {{end}}
 
-{{/* Host app (App card, A — picked 16 Oct): the app this device is there to run, read by
-     the firmware client from outside it (extra.host_app, client 1.11.0+). The variant in use
-     leads with four numbers; each other installed variant is one line. */}}
+{{/* Host app (App card, A — picked 16 Oct; its own tab since the same day): the app this
+     device is there to run, read by the firmware client from outside it (extra.host_app,
+     client 1.11.0+). The variant in use leads with four numbers; each other installed
+     variant is one line. */}}
 {{define "dd-host-app"}}
 <div class="ddc-card ha-card" id="dd-host-app">
   <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M10 18.5h4"/></svg></span><h2>Host app</h2><span class="m muted small ha-meta"><span class="mono">{{.Pattern}}</span> · {{.Count}} installed</span></div>
