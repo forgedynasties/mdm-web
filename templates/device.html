@@ -1174,6 +1174,7 @@ if (!window.__ddNotesHook) {
     </div>
   </div>
 
+{{with .HostApp}}{{template "dd-host-app" .}}{{end}}
 
 <script>
 // Vitals toolbar menus (range, ⋯): one open at a time; any item, outside click or Escape
@@ -6089,6 +6090,49 @@ document.addEventListener('keydown', function (e) {
 </script>
 
 {{template "footer" .}}
+{{end}}
+
+{{/* Host app (App card, A — picked 16 Oct): the app this device is there to run, read by
+     the firmware client from outside it (extra.host_app, client 1.11.0+). The variant in use
+     leads with four numbers; each other installed variant is one line. */}}
+{{define "dd-host-app"}}
+<div class="ddc-card ha-card" id="dd-host-app">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M10 18.5h4"/></svg></span><h2>Host app</h2><span class="m muted small"><span class="mono">{{.Pattern}}</span> · {{.Count}} installed</span></div>
+  {{if not .Count}}
+  <p class="muted small ha-none">Nothing matching <span class="mono">{{.Pattern}}</span> is installed.</p>
+  {{else}}
+  <div class="ha-top">
+    <div class="ha-main">
+      <div class="ha-hero">
+        <span class="ha-dot {{.Active.Dot}}"></span><span class="ha-nm">{{.Active.Name}}</span><span class="cc-tag {{.Active.EnvTone}}">{{.Active.Env}}</span>
+        <span class="mono small">{{.Active.Version}}</span>{{if .Active.Code}}<span class="muted small">(code {{.Active.Code}})</span>{{end}}
+        {{if .Active.Disabled}}<span class="cc-tag">disabled</span>{{end}}
+      </div>
+      <div class="ha-stats">
+        <div class="ha-st"><div class="l">Now</div><div class="v{{if .StateTone}} {{.StateTone}}{{end}}">{{.State}}</div></div>
+        <div class="ha-st"><div class="l">On screen today</div><div class="v">{{.Today}}</div></div>
+        <div class="ha-st"><div class="l">Memory</div><div class="v">{{.Memory}}</div></div>
+        <div class="ha-st" title="{{.ExitsAll}}"><div class="l">Problems 24 h</div><div class="v{{if .Problems}} bad{{end}}">{{.Problems}}{{if .ProbLabel}} <span class="small muted">{{.ProbLabel}}</span>{{end}}</div></div>
+      </div>
+    </div>
+    <div class="ha-facts">
+      {{if .Network}}<div class="ddc-kv"><span class="k">Wi-Fi today</span><span class="v">{{.Network}}</span></div>{{end}}
+      <div class="ddc-kv"><span class="k">Last exit</span><span class="v">{{if .LastExit}}{{.LastExit}} <span class="cc-tag{{if .LastTone}} {{.LastTone}}{{end}}"{{if .LastDesc}} title="{{.LastDesc}}"{{end}}>{{.LastWhy}}</span>{{else}}<span class="muted">none on record</span>{{end}}</span></div>
+      <div class="ddc-kv"><span class="k">Installed</span><span class="v">{{.Installed}}</span></div>
+      {{if .Updated}}<div class="ddc-kv"><span class="k">Updated</span><span class="v">{{.Updated}}</span></div>{{end}}
+      <div class="ddc-kv"><span class="k">Package</span><span class="v mono small">{{.Active.Package}}</span></div>
+    </div>
+  </div>
+  {{if .Others}}
+  <div class="ha-others">
+    <div class="ha-oh">Also installed · {{len .Others}}</div>
+    {{range .Others}}
+    <div class="ha-row" title="{{.Package}}"><span class="ha-dot {{.Dot}}"></span><span class="cc-tag {{.EnvTone}}">{{.Env}}</span><span class="mono small">{{.Version}}</span><span class="ha-gap"></span>{{if .NoteTone}}<span class="cc-tag {{.NoteTone}}">{{.Note}}</span>{{else}}<span class="muted small">{{.Note}}</span>{{end}}</div>
+    {{end}}
+  </div>
+  {{end}}
+  {{end}}
+</div>
 {{end}}
 
 {{define "dd-audit"}}

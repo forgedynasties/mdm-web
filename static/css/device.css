@@ -515,3 +515,26 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .kx-ban .t b{color:var(--text)}
 .kx-ban .a{display:flex;gap:6px;flex-wrap:wrap;align-self:center}
 .kx-ban form{margin:0}
+/* Host app card (dd-host-app, App card A, picked 16 Oct): the variant in use and its four
+   numbers beside the facts, then one line per other installed variant. */
+.ha-card{margin-top:12px}
+.ha-none{margin:0}
+.ha-top{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+.ha-hero{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 0 12px}
+.ha-nm{font-size:15px;font-weight:750}
+.ha-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--border)}
+.ha-dot.on{background:var(--ok)}
+.ha-dot.run{background:var(--info)}
+.ha-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.ha-st{background:var(--surface2);border-radius:10px;padding:9px 11px;min-width:0}
+.ha-st .l{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ha-st .v{font-size:15px;font-weight:750;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ha-st .v.ok{color:var(--ok)}
+.ha-st .v.info{color:var(--info)}
+.ha-st .v.bad{color:var(--danger)}
+.ha-others{margin-top:14px;border-top:1px solid var(--border-soft);padding-top:10px}
+.ha-oh{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:2px}
+.ha-row{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:12.5px}
+.ha-row + .ha-row{border-top:1px solid var(--border-soft)}
+.ha-gap{flex:1}
+@media (max-width:1024px){.ha-top{grid-template-columns:1fr}}

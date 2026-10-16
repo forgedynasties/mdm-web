@@ -6425,6 +6425,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// offer an update only when there is actually a newer one to install.
 		"AgentUpdate": h.agentUpdateFor(r, device),
 		"KeyCred":     h.keyCredentialFor(r.Context(), device),
+		// The app this device is there to run, reported from outside it (host_app.go).
+		"HostApp": hostAppView(device.LatestExtra),
 		// Lifetime battery wear by day, so hovering the graph can read out cycles as of
 		// that moment — the same measure as the "Battery cycles" card, which is what
 		// anyone comparing the two expects.
