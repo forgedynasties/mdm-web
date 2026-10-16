@@ -140,6 +140,37 @@
 {{end}}
 
 {{define "device_classic.html"}}
+{{/* Classic's own copy of the client-pill and placement popover rules, which the shared
+     sheets dropped when the New view moved to the menu kit (15 Oct). */}}
+<style>
+.cpill-pop{position:absolute;z-index:50;left:0;top:calc(100% + 6px);width:min(430px,92vw);
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  box-shadow:var(--shadow-pop,0 16px 46px rgba(20,22,40,.18));overflow:hidden;}
+.cpill-pop h4{margin:0;padding:10px 14px;font-size:11px;font-weight:800;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--text-faint);border-bottom:1px solid var(--border-soft);}
+.cpill-row{display:flex;align-items:center;gap:10px;padding:8px 14px;font-size:12.5px;
+  border-bottom:1px solid var(--border-soft);}
+.cpill-row .nm{font-weight:700;flex:1;}
+.cpill-row .vv{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--text-faint);}
+.cpill-row.on{background:var(--surface-3,rgba(0,0,0,.03));}
+.cpill-chg{padding:11px 14px;border-top:1px solid var(--border);background:var(--surface-2,rgba(0,0,0,.015));}
+.cpill-chg .t{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--text-faint);margin-bottom:6px;}
+.cpill-chg ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.6;}
+.cpill-chg li .v{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:750;color:var(--text);}
+.cpill-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:9px 14px;border-top:1px solid var(--border);font-size:12px;}
+.cpill-foot .vv{color:var(--text-faint);font-weight:650;}
+.cpill-foot a{font-weight:700;color:var(--accent-text,var(--accent));text-decoration:none;}
+.pl-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; width: 230px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 11px; box-shadow: var(--shadow-lg); padding: 8px; }
+.pl-pop-h { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); padding: 4px 8px 8px; }
+.pl-pop-list { display: flex; flex-direction: column; gap: 1px; max-height: 240px; overflow: auto; }
+.pl-pop-opt { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border-radius: 8px; font: inherit; font-size: 13px;
+  font-weight: 500; color: var(--text); text-align: left; background: none; border: 0; cursor: pointer; width: 100%; }
+.pl-pop-opt:hover { background: var(--hover); }
+.pl-pop-save { width: 100%; margin-top: 8px; font-size: 13px; padding: 8px; }
+</style>
 {{template "header" .}}
 
 {{/* Chart.js is loaded here rather than in layout.html so pages without charts
@@ -3418,6 +3449,14 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     {{/* Everything that changes where this device lives, or ends its life, in one
          band — so a factory wipe can never again read like a preference sitting in
          the same kind of row as the product class. */}}
+    {{/* Classic's own copy of the danger band rules: the shared ones went with the New view's Settings tab. */}}
+    <style>
+    .en-danger{border-top:1px solid rgba(217,79,61,.3);background:rgba(217,79,61,.05);padding:10px 14px;}
+    .en-danger-t{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--danger,#d94f3d);margin-bottom:8px;}
+    .en-danger-btns{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+    .en-danger-note{font-size:11.5px;color:var(--text-faint);line-height:1.5;margin-top:8px;}
+    .en-wipe{color:var(--danger,#d94f3d);border-color:rgba(217,79,61,.35);}
+    </style>
     <div class="en-danger">
       <div class="en-danger-t">Careful</div>
       <div class="en-danger-btns">
