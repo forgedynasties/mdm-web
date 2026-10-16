@@ -477,17 +477,13 @@
 html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .en-card .en-sel{font:inherit;font-size:12.5px;padding:4px 8px;border:1px solid var(--border);
   border-radius:7px;background:var(--surface);color:var(--text);}
-.en-danger{border-top:1px solid rgba(217,79,61,.3);background:rgba(217,79,61,.05);padding:10px 14px;}
-.en-danger-t{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--danger,#d94f3d);margin-bottom:8px;}
-.en-danger-btns{display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
-.en-danger-note{font-size:11.5px;color:var(--text-faint);line-height:1.5;margin-top:8px;}
-.en-wipe{color:var(--danger,#d94f3d);border-color:rgba(217,79,61,.35);}
 .en-dlg{border:1px solid var(--border);border-radius:13px;background:var(--surface);color:var(--text);
   padding:16px 18px;width:min(420px,92vw);box-shadow:var(--shadow-pop,0 16px 46px rgba(20,22,40,.18));}
 .en-dlg::backdrop{background:rgba(16,18,32,.45);}
 /* The global reset zeroes every margin, which drops a modal <dialog>'s auto centring. */
 .en-dlg[open]{margin:auto;}
+.wadb-dlg{width:min(520px,92vw)}
+.wadb-dlg h4{display:flex;align-items:center;gap:8px}
 /* Credential row: which key the device uses (own / shared, waiting / shared, too old). */
 .en-key{display:inline-flex;align-items:center;gap:6px}
 .en-key .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
