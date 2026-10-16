@@ -15,7 +15,7 @@ import (
 // Checks first: what is failing and on how many devices, each opening onto the devices
 // that fail it. Venues and Devices are tabs of the same page. The numbers count devices
 // held to at least one required check; devices only held to recommendations (in a lab
-// session, not at a venue) are counted apart, and "partly measurable" devices (whose
+// session) are counted apart; devices with no venue are not scored at all, and "partly measurable" devices (whose
 // client reports none of the device checks, e.g. v2.0 images) are said to be so.
 
 type compFailView struct {

@@ -80,8 +80,6 @@ func compScopeLabel(o db.ComplianceOverride, venues map[uuid.UUID]string, groups
 		return "A group that no longer exists"
 	case "role":
 		return prod.ClassLabel(o.ScopeKey) + "s"
-	case "unassigned":
-		return "Devices not at a venue"
 	case "lab":
 		return "Devices in a lab session"
 	}
@@ -451,7 +449,7 @@ func (h *Handler) ComplianceOverrideSave(w http.ResponseWriter, r *http.Request)
 			http.Error(w, "Choose a role", http.StatusBadRequest)
 			return
 		}
-	case "unassigned", "lab":
+	case "lab":
 	default:
 		http.Error(w, "Choose who this applies to", http.StatusBadRequest)
 		return

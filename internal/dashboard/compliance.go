@@ -20,8 +20,7 @@ import (
 // static/compliance-plan.html (15 Oct); the rules editor is static/compliance-
 // baseline-demos.html, B1. One registry of checks, each a fixed question with a default
 // level. The fleet baseline sets each check's level and threshold; ordered overrides
-// change that for a venue, group, role, the devices with no venue or those in a lab
-// session — first override that covers the device and says something about the check
+// change that for a venue, group, role, or the devices in a lab session — first override that covers the device and says something about the check
 // wins, as lock rules do. A device is compliant when no required check fails. Unknown
 // (the device does not report it) and n/a (it does not apply) never count either way.
 //
@@ -72,9 +71,6 @@ var complianceChecks = []compCheck{
 	{ID: "checked_in", Group: compGroupSetup, Name: "Checked in recently", Level: db.ComplianceRequired, Param: 24, Unit: "hours",
 		Help: "Seen by the server within the time below.",
 		eval: evalCheckedIn},
-	{ID: "has_venue", Group: compGroupSetup, Name: "Assigned to a venue", Level: db.ComplianceRecommended,
-		Help: "Placed at a restaurant.",
-		eval: evalHasVenue},
 	{ID: "own_key", Group: compGroupSetup, Name: "Own device key", Level: db.ComplianceRecommended,
 		Help: "Registered its own key, so the shared key no longer works for it (firmware client 1.6.2+).",
 		eval: evalOwnKey},
@@ -174,13 +170,6 @@ func evalCheckedIn(s *compSnapshot, d *db.Device, hours int) (string, string) {
 		return db.CompliancePass, "Seen " + compAgo(ago) + " ago"
 	}
 	return db.ComplianceFail, "Last seen " + compAgo(ago) + " ago"
-}
-
-func evalHasVenue(_ *compSnapshot, d *db.Device, _ int) (string, string) {
-	if d.RestaurantID != nil {
-		return db.CompliancePass, d.RestaurantName
-	}
-	return db.ComplianceFail, "Not at a venue"
 }
 
 func evalOwnKey(s *compSnapshot, d *db.Device, _ int) (string, string) {
@@ -352,8 +341,6 @@ func overrideCovers(o db.ComplianceOverride, d *db.Device, sc db.DeviceScope, in
 		}
 	case "role":
 		return o.ScopeKey != "" && d.Class() == o.ScopeKey
-	case "unassigned":
-		return d.RestaurantID == nil
 	case "lab":
 		return inLab
 	}
@@ -401,7 +388,9 @@ func compEvaluate(s *compSnapshot, r compRules) map[db.ComplianceResultKey]db.Co
 	out := map[db.ComplianceResultKey]db.ComplianceResult{}
 	for i := range s.devices {
 		d := &s.devices[i]
-		if d.Hidden || d.Retired() {
+		// Only devices at a venue are held to the rules (15 Oct): a unit in the office or
+		// on a bench is not something a restaurant relies on, so it is not scored at all.
+		if d.Hidden || d.Retired() || d.RestaurantID == nil {
 			continue
 		}
 		_, inLab := s.labs[d.ID]
@@ -548,8 +537,8 @@ const (
 )
 
 // compAutoFix acts on failures it is allowed to fix. Today that is wireless adb: a device
-// that must have it off (required, so never a lab-session or no-venue device, which the
-// default overrides hold to recommendations) and has it on is sent "adb off" — unless the
+// that must have it off (required, so never a lab-session device, which the default
+// override holds to recommendations; devices with no venue are not scored at all) and has it on is sent "adb off" — unless the
 // last adb command was someone turning it on and that window has not run out, or "stays
 // on". At most once per device every few hours, and logged as the Compliance auto-fix.
 func (h *Handler) compAutoFix(ctx context.Context, s *compSnapshot, rules compRules, fresh map[db.ComplianceResultKey]db.ComplianceResult) {

@@ -28,7 +28,7 @@
     <a class="cc-btn sm" href="/compliance/rules">Rules</a>
   </div>
   {{else}}
-  <div class="dco-head none"><i class="dot" aria-hidden="true"></i><div><b>Not scored yet</b><span> · devices are checked every minute</span></div><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
+  <div class="dco-head none"><i class="dot" aria-hidden="true"></i><div><b>{{if .Device.RestaurantID}}Not scored yet{{else}}Not checked{{end}}</b><span>{{if .Device.RestaurantID}} · devices are checked every minute{{else}} · only devices at a venue are held to the compliance rules{{end}}</span></div><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
   {{end}}
   <div class="dco-list">
     {{range .Rows}}

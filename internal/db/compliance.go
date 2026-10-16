@@ -50,7 +50,7 @@ type ComplianceOverride struct {
 	ID        uuid.UUID
 	Position  int
 	Name      string
-	ScopeType string     // venue | group | role | unassigned | lab
+	ScopeType string     // venue | group | role | lab
 	ScopeID   *uuid.UUID // venue or group
 	ScopeKey  string     // role
 	Cap       string     // "" | recommended | off
@@ -312,9 +312,10 @@ func (d *DB) PruneComplianceEvents(ctx context.Context, keep time.Duration) erro
 	return err
 }
 
-// SeedComplianceDefaults adds, once, the two overrides the plan starts from: devices in a
-// lab session and devices with no venue are held only to recommendations, so the fleet's
-// number is about devices in service. Deleting them later is respected.
+// SeedComplianceDefaults adds, once, the override the plan starts from: devices in a lab
+// session are held only to recommendations. (Devices with no venue are not scored at all
+// since 15 Oct, so the "Not at a venue" override that used to be seeded is removed.)
+// Deleting the seeded override later is respected.
 func (d *DB) SeedComplianceDefaults(ctx context.Context) error {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
@@ -322,14 +323,27 @@ func (d *DB) SeedComplianceDefaults(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `INSERT INTO app_flags (flag) VALUES ('compliance_seed_v1') ON CONFLICT DO NOTHING`)
-	if err != nil || tag.RowsAffected() == 0 {
+	if err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO compliance_overrides (position, name, scope_type, cap, created_by) VALUES
-			(1, 'In a lab session', 'lab', 'recommended', 'system'),
-			(2, 'Not at a venue', 'unassigned', 'recommended', 'system')`); err != nil {
+	if tag.RowsAffected() == 1 {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO compliance_overrides (position, name, scope_type, cap, created_by)
+			VALUES (1, 'In a lab session', 'lab', 'recommended', 'system')`); err != nil {
+			return err
+		}
+	}
+	tag, err = tx.Exec(ctx, `INSERT INTO app_flags (flag) VALUES ('compliance_venue_only_v1') ON CONFLICT DO NOTHING`)
+	if err != nil {
 		return err
+	}
+	if tag.RowsAffected() == 1 {
+		if _, err := tx.Exec(ctx, `DELETE FROM compliance_overrides WHERE scope_type = 'unassigned'`); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM compliance_baseline WHERE check_id = 'has_venue'`); err != nil {
+			return err
+		}
 	}
 	return tx.Commit(ctx)
 }

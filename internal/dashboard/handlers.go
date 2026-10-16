@@ -2201,7 +2201,9 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	case strings.HasPrefix(path, "/releases"):
 		// One dock entry ("Updates") covers releases and rollouts alike.
 		data["ActivePage"] = "updates"
-	case strings.HasPrefix(path, "/updates"):
+	case strings.HasPrefix(path, "/updates"), strings.HasPrefix(path, "/rollouts"), strings.HasPrefix(path, "/packages"):
+		// Rollouts has its own dock entry (16 Oct); the pages it used to share tabs with
+		// light it up too.
 		data["ActivePage"] = "updates"
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
@@ -2294,7 +2296,7 @@ func (h *Handler) frequentPaths(r *http.Request) []string {
 	// Jobs left the dock on 15 Oct and is not to come back as a shortcut either; it
 	// stays in More.
 	paths, err := h.db.TopPagesForUser(r.Context(), user, 30*24*time.Hour, 10,
-		[]string{"/", "/devices", "/commands", "/alerts", "/jobs"})
+		[]string{"/", "/devices", "/commands", "/alerts", "/jobs", "/rollouts", "/updates"})
 	if err != nil {
 		return nil
 	}
