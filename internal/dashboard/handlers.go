@@ -4688,6 +4688,15 @@ func (h *Handler) DeviceSelectAllSerials(w http.ResponseWriter, r *http.Request)
 	_ = json.NewEncoder(w).Encode(map[string]any{"serials": serials})
 }
 
+// defaultSortDir is the direction DeviceList uses when the URL names no sort: time
+// newest first, everything else ascending.
+func defaultSortDir(sort string) string {
+	if sort == "last_seen" || sort == "created_at" {
+		return "desc"
+	}
+	return "asc"
+}
+
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// A ?page_size=N from the main-page selector persists to config (survives
 	// restarts) so the choice sticks across sessions and machines. Capped at 200 to
@@ -5073,6 +5082,8 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Summary":              summary,
 		"Sort":                 sort,
 		"SortDir":              dir,
+		"DefaultSort":          h.cfg.DefaultSort(),
+		"DefaultSortDir":       defaultSortDir(h.cfg.DefaultSort()),
 		"Online":               online,
 		"Groups":               groups,
 		"Restaurants":          restaurants,
@@ -21325,6 +21336,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.Root)
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/select-serials", h.requireAuth(h.DeviceSelectAllSerials))
+	mux.HandleFunc("GET /devices/filter-counts", h.requireAuth(h.FleetFilterCounts))
 	mux.HandleFunc("GET /devices/search", h.requireAuth(h.DeviceSearch))
 	mux.HandleFunc("GET /cmdk-index", h.requireAuth(h.CmdkIndex))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(drainable(h.FleetEvents)))

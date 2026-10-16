@@ -113,15 +113,6 @@ if (!window.__dlRowNav) {
 </div>
 {{end}}
 
-{{/* Quick-view filter pills — shared by the inline roster and the OOB refresh
-     that a rail collection switch performs (counts come from the scoped summary). */}}
-{{define "fleet-view-pills"}}
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
-      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
-{{end}}
-
-
 {{/* Collection toolbar next to the roster heading: manage/rename/delete the
      group/restaurant/release currently scoping the roster. Its own template so
      the rail-click partial swap (scopeRoster → roster-meta-oob) can re-render it
@@ -201,10 +192,10 @@ if (!window.__dlRowNav) {
       {{range .RailClasses}}{{$ik := .Class}}{{if eq $ik "panel"}}{{$ik = "kiosk"}}{{end}}<button type="button" class="ptab{{if eq .Class $.FilterClass}} on{{end}}{{if not .N}} zero{{end}}" role="tab" aria-selected="{{if eq .Class $.FilterClass}}true{{else}}false{{end}}" onclick="setProductTab('{{.Class}}')"><span class="ptab-ic dl-ic {{$ik}}"><svg><use href="#dk-{{$ik}}"/></svg></span>{{classLabel .Class}} <span class="n">{{.N}}</span></button>{{end}}
 {{end}}{{end}}
 
-{{/* A filter changes the headline, the product tabs AND the quick-view counts under
-     them — the pills are scoped to the same roster, so they have to ride along or they
-     keep showing the fleet-wide numbers until the page is reloaded. */}}
-{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div><div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>{{end}}
+{{/* A filter changes the headline and the product tabs' counts — both are scoped to the
+     same roster, so they ride along or they keep showing the fleet-wide numbers until
+     the page is reloaded. */}}
+{{define "fleet-headline-oob"}}<div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div><div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>{{end}}
 
 {{define "roster-meta-oob"}}
 <div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>
@@ -212,155 +203,15 @@ if (!window.__dlRowNav) {
 <span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 <span id="coll-tools-wrap" hx-swap-oob="true">{{template "coll-tools-block" .}}</span>
 <div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>
-<div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
+
 
 {{end}}
 
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduct .FilterProduction .FilterBuild .FilterBattery .FilterRAM .FilterTemp .FilterKiosk .FilterCharging .FilterTimezone .FilterKind .FilterOnboarding .FilterEnrolledBy .FilterLifecycle .FilterHygiene}}
-<div class="fleet-chips">
-  {{/* A clean-up job from the Overview's checklist: only ever arrives by link. */}}
-  {{if .FilterHygiene}}<span class="fchip"><span class="k">Clean up</span> {{.FilterHygiene}} <button type="button" class="x" onclick="navigateDevices({page: '1', hygiene: ''})" aria-label="Clear clean-up filter">×</button></span>{{end}}
-  {{if .FilterKind}}<span class="fchip"><span class="k">Agent</span> {{if eq .FilterKind "dpc"}}Standard MDM{{else if eq .FilterKind "mdm-lite"}}MDM Lite{{else}}Firmware MDM{{end}} <button type="button" class="x" onclick="clearOne('filter-kind')" aria-label="Clear kind">×</button></span>{{end}}
-  {{if .FilterOnboarding}}<span class="fchip"><span class="k">Onboarding</span> {{if eq .FilterOnboarding "pending"}}Waiting for a site{{else}}Placed{{end}} <button type="button" class="x" onclick="clearOne('filter-onboarding')" aria-label="Clear onboarding">×</button></span>{{end}}
-  {{if .FilterEnrolledBy}}<span class="fchip"><span class="k">Enrolled by</span> {{(userBubble .FilterEnrolledBy).Name}} <button type="button" class="x" onclick="clearOne('filter-enrolled-by')" aria-label="Clear enrolled by">×</button></span>{{end}}
-  {{if .FilterLifecycle}}<span class="fchip"><span class="k">Lifecycle</span> {{if eq .FilterLifecycle "retired"}}Retired / wiped{{else}}Everything{{end}} <button type="button" class="x" onclick="clearOne('filter-lifecycle')" aria-label="Clear lifecycle">×</button></span>{{end}}
-  {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
-  {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
-  {{if .FilterProduct}}<span class="fchip"><span class="k">Model</span> {{productLabel .FilterProduct}} <button type="button" class="x" onclick="clearOne('filter-product')" aria-label="Clear product">×</button></span>{{end}}
-  {{if .FilterProduction}}<span class="fchip"><span class="k">Production</span> {{range $.Productions}}{{if eq (printf "%s" .ID) $.FilterProduction}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-production')" aria-label="Clear production">×</button></span>{{end}}
-  {{if .FilterBuild}}<span class="fchip"><span class="k">Release</span> {{.FilterBuild}} <button type="button" class="x" onclick="clearOne('filter-build')" aria-label="Clear release">×</button></span>{{end}}
-  {{if .FilterBattery}}<span class="fchip"><span class="k">Battery</span> {{if eq .FilterBattery "low"}}Critical &lt;20%{{else if eq .FilterBattery "mid"}}Low 20–49%{{else}}Healthy 50%+{{end}} <button type="button" class="x" onclick="clearOne('filter-battery')" aria-label="Clear battery">×</button></span>{{end}}
-  {{if .FilterRAM}}<span class="fchip"><span class="k">RAM</span> {{if eq .FilterRAM "high"}}High 80%+{{else}}Elevated 60%+{{end}} <button type="button" class="x" onclick="clearOne('filter-ram')" aria-label="Clear RAM">×</button></span>{{end}}
-  {{if .FilterTemp}}<span class="fchip"><span class="k">Temperature</span> {{if eq .FilterTemp "hot"}}Hot{{else}}Warm or hotter{{end}} <button type="button" class="x" onclick="clearOne('filter-temp')" aria-label="Clear temperature">×</button></span>{{end}}
-  {{if .FilterKiosk}}<span class="fchip"><span class="k">Kiosk</span> {{if eq .FilterKiosk "enabled"}}Enabled{{else}}Disabled{{end}} <button type="button" class="x" onclick="clearOne('filter-kiosk')" aria-label="Clear kiosk">×</button></span>{{end}}
-  {{if .FilterCharging}}<span class="fchip"><span class="k">Charging</span> {{if eq .FilterCharging "yes"}}Charging{{else}}Not charging{{end}} <button type="button" class="x" onclick="clearOne('filter-charging')" aria-label="Clear charging">×</button></span>{{end}}
-  {{if .FilterTimezone}}<span class="fchip"><span class="k">Timezone</span> {{.FilterTimezone}} <button type="button" class="x" onclick="clearOne('filter-timezone')" aria-label="Clear timezone">×</button></span>{{end}}
-  <button type="button" class="fchip-clear" onclick="clearFilters()">Clear all</button>
-</div>
-{{end}}
 <div class="table-toolbar selbar">
   <label class="checkbox-label selbar-check">
     <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" data-page-total="{{len .Devices}}" data-filter-total="{{.Total}}"> Select all
   </label>
-  {{/* Shown only once every checkbox on the current page is checked and more devices
-       match the active filter than fit on this page — lets a bulk action reach the
-       full filtered set instead of silently stopping at the current page. */}}
-  <div class="bulk-actions" id="bulk-bar" style="display:none;">
-    <span class="bulk-count" id="bulk-count">0 selected</span>
-    <button type="button" id="select-all-matching" class="selbar-match" style="display:none;" onclick="selectAllMatching()"></button>
-    <button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button>
-    <span class="selbar-sep"></span>
-
-    {{/* ── What this selection is for ────────────────────────────────────────
-         Fourteen actions used to sit here as fourteen identical buttons in four
-         labelled grids. Nothing was hidden, but nothing was ranked either: the
-         composer that can perform any of them looked exactly like "Copy
-         serials", and Retire sat in the same grid one row below — often below
-         the fold on a laptop, which is the worst place to keep the most
-         dangerous button in the product.
-
-         So: one primary, the two or three shortcuts worth a click, and the rest
-         behind More, with the destructive ones at the bottom of it behind a
-         rule. Nothing is removed — Reboot and Screenshot are themselves only
-         the Action composer pre-filled, so this mostly admits what the panel
-         already was.
-
-         More expands in place rather than opening a floating menu: #sel-sheet
-         sets overflow-y:auto, so an absolutely-positioned menu inside it would
-         be clipped, and portalling one to <body> is exactly the machinery that
-         made this panel render itself twice. */}}
-    {{if canAdminOrOperator .Role}}
-    <button type="button" class="cc-btn sm primary ss-primary" onclick="bulkAction()"><span class="ui-icon" style="width:13px;height:13px;margin-right:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>More actions</button>
-    <div class="ss-grid">
-      {{if canOTA .Role}}<button type="button" class="cc-btn sm" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</button>{{end}}
-      <button type="button" class="cc-btn sm" onclick="bulkRun('reboot', null, 'Reboot {n} device(s)? Anyone using one right now loses what is on screen.')" title="Reboot the selected devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
-      <button type="button" class="cc-btn sm" onclick="bulkRun('screenshot')" title="Capture a screenshot on the selected devices"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
-    </div>
-    {{else}}
-    {{/* A viewer has no Send group at all, so the two things they can always do
-         take the promoted slots instead of leaving the panel headed by More. */}}
-    <div class="ss-grid">
-      <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
-      <button type="button" class="cc-btn sm" onclick="bulkCopySerials()" title="Copy the serial numbers, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
-    </div>
-    {{end}}
-
-    <button type="button" class="cc-btn sm ss-more-btn" id="ss-more-btn" aria-expanded="false" aria-controls="ss-more" onclick="ssToggleMore(this)">More<svg class="ss-chev" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
-
-    <div class="ss-more" id="ss-more" hidden>
-      {{if canAdminOrOperator .Role}}
-      <div class="ss-lbl">Send</div>
-      <div class="ss-grid">
-        <button type="button" class="cc-btn sm ss-w" onclick="bulkShell()" title="Run a shell command on the selected devices">Shell…</button>
-        {{if $.Queries}}
-        {{/* The vetted checks: the only multi-device verb left that the console still owned.
-             Its payload is rebuilt server-side from the catalog, so nothing here can send
-             an arbitrary command under the Query name. */}}
-        <select id="bulk-query" class="form-input ss-w" style="font-size:12px" aria-label="Run a check on the selected devices"
-                onchange="if(this.value){bulkRun('query',{query_id:this.value});this.value='';}">
-          <option value="">Run a check…</option>
-          {{range $.Queries}}<option value="{{.ID}}">{{.Label}}</option>{{end}}
-        </select>
-        {{end}}
-        <button type="button" class="cc-btn sm ss-w" onclick="bulkRun('collect_logs')" title="Collect a log bundle from the selected devices">Collect logs</button>
-        {{/* Install starts from the app, not from a device set: the store knows which
-             devices are missing it and which are on another version, so it can target
-             better than a selection can. */}}
-        <button type="button" class="cc-btn sm ss-w" onclick="window.location.href='/apps'" title="Install an app from the library — the store targets by coverage"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="m8 9 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Install app</button>
-      </div>
-      {{end}}
-
-      {{if canAdmin $.Role}}
-      <div class="ss-lbl">Danger</div>
-      <div class="ss-grid">
-        {{/* Typed confirmation, not a yes/no: these are the two actions in the product that
-             cannot be undone, and a selection can carry hundreds of devices. */}}
-        <button type="button" class="cc-btn sm ss-w" onclick="bulkDestructive('wipe','WIPE')" style="color:var(--danger)">Wipe…</button>
-        <button type="button" class="cc-btn sm ss-w" onclick="bulkDestructive('unenroll','UNENROLL')" style="color:var(--danger)">Unenroll…</button>
-      </div>
-      {{end}}
-
-      <div class="ss-lbl">Organize</div>
-      <div class="ss-grid">
-        <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkGroupModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to group</button>
-        <button type="button" class="cc-btn sm{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" onclick="openBulkRestaurantModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}>Add to restaurant</button>
-        {{if canAdminOrOperator .Role}}
-        <button type="button" class="cc-btn sm" onclick="bulkSaveAsGroup()" title="Create a new group from this selection so you can reuse it">Save as group</button>
-        <button type="button" class="cc-btn sm" onclick="openBulkRenameModal()" title="Nickname the selection from a pattern, e.g. Register {n}">Rename</button>
-        {{end}}
-      </div>
-
-      <div class="ss-lbl">Data</div>
-      <div class="ss-grid">
-        {{if canAdminOrOperator .Role}}
-        <button type="button" class="cc-btn sm" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
-        <button type="button" class="cc-btn sm" onclick="bulkCopySerials()" title="Copy the serial numbers, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
-        {{end}}
-        <button type="button" class="cc-btn sm" onclick="bulkGo('/export/visualize')" title="Chart the last 7 days of these devices side by side"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg>Compare</button>
-        <button type="button" class="cc-btn sm" onclick="bulkGo('/map')" title="Show only these devices on the map"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>Show on map</button>
-      </div>
-
-      {{if canAdmin .Role}}
-      <div class="ss-lbl">Admin</div>
-      <div class="ss-grid">
-      </div>
-      {{end}}
-
-      {{/* Everything below the rule changes the fleet in a way that is awkward or
-           impossible to undo. Separated on purpose, and last on purpose. */}}
-      {{if or .ActiveGroup (canAdmin .Role)}}
-      <div class="ss-danger">
-        {{if .ActiveGroup}}
-        <button type="button" class="cc-btn sm selbar-danger ss-w" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')">Remove from group</button>
-        {{end}}
-        {{if canAdmin .Role}}
-        <button type="button" class="cc-btn sm selbar-danger ss-w" onclick="bulkRetire()" title="Take these devices out of the active fleet; history stays">Retire</button>
-        {{end}}
-      </div>
-      {{end}}
-    </div>
-  </div>
   <div class="cols-seg" role="group" aria-label="Column layout">
     <button type="button" data-cols="1" onclick="setCols(1)" title="1 column" aria-label="One column"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/></svg></button>
     <button type="button" data-cols="2" onclick="setCols(2)" title="2 columns" aria-label="Two columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="6.5" height="14" rx="1"/><rect x="13.5" y="5" width="6.5" height="14" rx="1"/></svg></button>
@@ -517,9 +368,13 @@ a.fleet-rail-item{min-height:40px}
 .ptab.on .n{color:var(--accent-text)}
 .ptab-ic{width:20px;height:20px;border-radius:6px;flex:none}
 .ptab-ic svg{width:12px;height:12px}
-/* serial sort, outside the Sort menu */
-.fleet-fbtn.sort-serial.on{border-color:var(--accent-edge);color:var(--accent-text);background:var(--accent-soft)}
-.fleet-fbtn .dir{font-family:var(--mono);font-size:12px;margin-left:2px}
+/* Sort (S1): the button names the order; the menu ends in a direction switch. */
+.sort-cur{font-weight:500;color:var(--text);white-space:nowrap}
+.fl-sortmenu{right:0;width:240px}
+.sort-dir{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin:2px 4px 4px;padding:2px;border-radius:9px;background:var(--surface2);border:1px solid var(--border-soft)}
+.sort-dir button{height:30px;border:0;border-radius:7px;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer}
+.sort-dir button:hover{color:var(--text)}
+.sort-dir button.on{background:var(--surface);color:var(--accent-text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 /* rail: device-type entries use a tiny tinted type icon as their bullet */
 .fleet-rail-cls .rc-ic{width:22px;height:22px;border-radius:6px;flex:none;margin-right:2px}
 .fleet-rail-cls .rc-ic svg{width:13px;height:13px}
@@ -535,6 +390,42 @@ a.fleet-rail-item{min-height:40px}
   .fleet-md{grid-template-columns:1fr!important}
   .fleet-rail{position:static!important;max-height:none!important;margin-bottom:14px}
 }
+/* Selection bar (B1, picked 16 Oct): takes the toolbar row while devices are ticked, and
+   sticks under the top bar so the actions stay in reach while scrolling the list. */
+.fleet-bar #fl-selbar{display:none}
+.fleet-bar.is-sel > :not(#fl-selbar){display:none}
+.fleet-bar.is-sel{position:sticky;top:80px;z-index:45}
+.fleet-bar.is-sel #fl-selbar{display:flex}
+.fl-selbar{flex:1;align-items:center;gap:8px;min-width:0;height:40px;box-sizing:border-box;padding:0 4px 0 6px;border:1px solid var(--accent-edge);border-radius:11px;background:var(--surface);box-shadow:var(--shadow-sm,0 1px 2px rgba(0,0,0,.06))}
+.fl-selbar .fl-sel-sp{flex:1}
+.fl-selbar .fleet-fbtn{height:32px;padding:0 12px;border-radius:8px;font-size:12.5px;gap:7px}
+.fl-selbar .fleet-fbtn svg{width:14px;height:14px}
+.fl-selbar .fleet-fbtn.fl-more{width:34px;padding:0;justify-content:center}
+.fl-selbar .bulk-count{white-space:nowrap}
+/* Toolbar menus: menu-kit panels hung under their button. */
+.fl-menu{position:absolute;top:calc(100% + 6px);z-index:60;width:264px}
+.fl-selmenu{right:0}
+.fl-ffmenu{left:0;width:288px}
+.fl-menu .cc-mi[hidden]{display:none}
+.fl-mback{font-weight:650}
+.fl-mback > svg{width:15px;height:15px}
+.fl-mlist{max-height:300px;overflow-y:auto}
+.fl-mfind{display:flex;align-items:center;gap:8px;height:34px;margin:0 0 4px;padding:0 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--muted)}
+.fl-mfind:focus-within{border-color:var(--accent-edge);box-shadow:var(--ring)}
+.fl-mfind svg{width:14px;height:14px;flex:none}
+.fl-mfind input{flex:1;min-width:0;border:0;background:none;outline:none;box-shadow:none;font:inherit;font-size:13px;color:var(--text)}
+.fl-cur{font-weight:600;color:var(--accent-text);max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.ff-n{font-family:var(--mono);font-size:11.5px}
+/* Filter chips (F2, picked 16 Oct): what is set, then "+ Filter". */
+.fl-fchips{position:relative;z-index:39;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px}
+.fl-chip-list{display:contents}
+.fl-fchips .fchip{padding-left:0}
+.fchip-b{display:inline-flex;align-items:center;gap:5px;height:100%;padding:0 2px 0 11px;border:0;border-radius:999px 0 0 999px;background:none;font:inherit;color:inherit;cursor:pointer}
+.fchip-b.is-static{cursor:default}
+.fchip-b:hover .k{opacity:1}
+.fl-fadd{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px 0 9px;border:1px dashed var(--rule-2,var(--border));border-radius:999px;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer}
+.fl-fadd svg{width:13px;height:13px}
+.fl-fadd:hover,.fl-fadd[aria-expanded="true"]{border-style:solid;border-color:var(--accent-edge);color:var(--accent-text);background:var(--accent-soft)}
 @media(max-width:480px){
   .fl-h1{font-size:21px!important}
   .fleet-fbtn,.btn-outline,.btn-primary{min-height:40px}
@@ -723,9 +614,9 @@ window.addEventListener('load', flMapSync);
       <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
     </div>
 
-    {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
+    {{/* ── Product tabs. The old All/Online/Offline quick views are values of Status
+         in "+ Filter" now (F2, picked 16 Oct). ── */}}
     <div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product">{{template "fleet-product-tabs" .}}</div>
-    <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
 
     {{/* ── Saved views ───────────────────────────────────────────────────────────
          The quick views above are the four the product ships with. These are the
@@ -738,7 +629,9 @@ window.addEventListener('load', flMapSync);
       <span class="fs-cap">Saved</span>
       {{range .SavedViews}}
       <span class="fs-view{{if eq .Query $.CurrentQuery}} on{{end}}">
-        <a href="/devices{{if .Query}}?{{.Query}}{{end}}">{{.Name}}</a>
+        {{/* The whole URL as one value: a query spliced in after "?" is escaped as one
+             parameter, which turned "a=1&b=2" into a single key that matched nothing. */}}
+        <a href="{{if .Query}}{{printf "/devices?%s" .Query}}{{else}}/devices{{end}}">{{.Name}}</a>
         <button type="button" class="x" title="Delete this view"
                 aria-label="Delete saved view {{.Name}}"
                 onclick="deleteSavedView('{{.ID}}', this.previousElementSibling.textContent)">&times;</button>
@@ -758,203 +651,170 @@ window.addEventListener('load', flMapSync);
     <input type="search" id="search-input" name="q" value="{{.Query}}" placeholder="Search name, serial, venue…" aria-label="Search devices by name, serial, venue or group">
   </div>
 
-  {{/* ── Filters popover: the seven dropdowns live here, grouped ── */}}
-  <div class="fleet-fwrap" id="filters-wrap">
-    <button type="button" class="fleet-fbtn{{if .FilterCount}} has{{end}}" id="filters-btn" onclick="toggleFilters(event)" aria-expanded="false" aria-haspopup="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
-      Filters <span class="cnt"{{if not .FilterCount}} hidden{{end}}>{{.FilterCount}}</span>
-    </button>
-    <div class="fleet-pop" id="filters-pop" hidden>
-      <div class="fp-cap">Identity</div>
-      <div class="fp-grid">
-        <label class="fp-field"><span>Status</span>
-          <select id="filter-status" onchange="applyFilters()">
-            <option value="">Any status</option>
-            <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
-            <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
-          </select></label>
-        {{if canAdmin .Role}}<label class="fp-field"><span>Agent</span>
-          <select id="filter-kind" onchange="applyFilters()">
-            <option value="">Any agent</option>
-            <option value="firmware" {{if eq .FilterKind "firmware"}}selected{{end}}>Firmware MDM (our hardware)</option>
-            <option value="dpc" {{if eq .FilterKind "dpc"}}selected{{end}}>Standard MDM</option>
-            <option value="mdm-lite" {{if eq .FilterKind "mdm-lite"}}selected{{end}}>MDM Lite (in-app)</option>
-          </select></label>{{end}}
-        <label class="fp-field"><span>Product</span>
-          <select id="filter-class" onchange="applyFilters()">
-            <option value="">Any product</option>
-            {{range .Classes}}<option value="{{.}}" {{if eq . $.FilterClass}}selected{{end}}>{{classLabel .}}</option>{{end}}
-          </select></label>
-        <label class="fp-field"><span>Model</span>
-          <select id="filter-product" onchange="applyFilters()">
-            <option value="">Any model</option>
-            {{range .Products}}<option value="{{.Key}}" {{if eq .Key $.FilterProduct}}selected{{end}}>{{.Label}}</option>{{end}}
-          </select></label>
-        <label class="fp-field"><span>Production</span>
-          <select id="filter-production" onchange="applyFilters()">
-            <option value="">Any production</option>
-            {{range .Productions}}<option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterProduction}}selected{{end}}>{{.Name}}</option>{{end}}
-          </select></label>
-        <label class="fp-field"><span>Release</span>
-          <select id="filter-build" onchange="applyFilters()">
-            <option value="">Any release</option>
-            {{range .Builds}}<option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>{{end}}
-          </select></label>
-      </div>
-      <div class="fp-cap">Health</div>
-      <div class="fp-grid">
-        <label class="fp-field"><span>Battery</span>
-          <select id="filter-battery" onchange="applyFilters()">
-            <option value="">Any battery</option>
-            <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical &lt;20%</option>
-            <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low 20–49%</option>
-            <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Healthy 50%+</option>
-          </select></label>
-        <label class="fp-field"><span>RAM</span>
-          <select id="filter-ram" onchange="applyFilters()">
-            <option value="">Any RAM</option>
-            <option value="high" {{if eq .FilterRAM "high"}}selected{{end}}>High 80%+</option>
-            <option value="warn" {{if eq .FilterRAM "warn"}}selected{{end}}>Elevated 60%+</option>
-          </select></label>
-        <label class="fp-field"><span>Temperature</span>
-          <select id="filter-temp" onchange="applyFilters()">
-            <option value="">Any temperature</option>
-            <option value="hot" {{if eq .FilterTemp "hot"}}selected{{end}}>Hot</option>
-            <option value="warm" {{if eq .FilterTemp "warm"}}selected{{end}}>Warm or hotter</option>
-          </select></label>
-        <label class="fp-field"><span>Kiosk</span>
-          <select id="filter-kiosk" onchange="applyFilters()">
-            <option value="">Any</option>
-            <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Enabled</option>
-            <option value="disabled" {{if eq .FilterKiosk "disabled"}}selected{{end}}>Disabled</option>
-          </select></label>
-        <label class="fp-field"><span>Charging</span>
-          <select id="filter-charging" onchange="applyFilters()">
-            <option value="">Any</option>
-            <option value="yes" {{if eq .FilterCharging "yes"}}selected{{end}}>Charging</option>
-            <option value="no" {{if eq .FilterCharging "no"}}selected{{end}}>Not charging</option>
-          </select></label>
-        <label class="fp-field"><span>Timezone</span>
-          <select id="filter-timezone" onchange="applyFilters()">
-            <option value="">Any timezone</option>
-            {{range .Timezones}}<option value="{{.}}" {{if eq . $.FilterTimezone}}selected{{end}}>{{.}}</option>{{end}}
-          </select></label>
-      </div>
-      <div class="fp-cap">Lifecycle</div>
-      <div class="fp-grid">
-        <label class="fp-field"><span>Onboarding</span>
-          <select id="filter-onboarding" onchange="applyFilters()">
-            <option value="">Any</option>
-            <option value="pending" {{if eq .FilterOnboarding "pending"}}selected{{end}}>Waiting for a site</option>
-            <option value="done" {{if eq .FilterOnboarding "done"}}selected{{end}}>Placed</option>
-          </select></label>
-        <label class="fp-field"><span>Enrolled by</span>
-          <select id="filter-enrolled-by" onchange="applyFilters()">
-            <option value="">Anyone</option>
-            {{range .Enrollers}}<option value="{{.Username}}" {{if eq .Username $.FilterEnrolledBy}}selected{{end}}>{{(userBubble .Username).Name}} · {{.Count}}</option>{{end}}
-          </select></label>
-        <label class="fp-field"><span>Status</span>
-          <select id="filter-lifecycle" onchange="applyFilters()">
-            <option value="">In the fleet</option>
-            <option value="retired" {{if eq .FilterLifecycle "retired"}}selected{{end}}>Retired / wiped</option>
-            <option value="all" {{if eq .FilterLifecycle "all"}}selected{{end}}>Everything</option>
-          </select></label>
-      </div>
-      <div class="fp-foot">
-        <button type="button" class="fp-clear" onclick="clearFilters()">Clear all filters</button>
-        <button type="button" class="btn-primary fp-done" onclick="toggleFilters(event)">Done</button>
+  {{/* ── Selection bar (B1, picked 16 Oct): while devices are ticked it takes this row's
+       place — count, "select all N", the three verbs used most, and one ⋯ menu with the
+       rest, destructive last. It lives here, outside the swapped device list, so a
+       roster refresh never closes the menu or duplicates the bar. ── */}}
+  <div class="fl-selbar" id="fl-selbar" role="toolbar" aria-label="Selected devices">
+    <span class="bulk-count" id="bulk-count">0 selected</span>
+    <button type="button" id="select-all-matching" class="selbar-match" hidden onclick="selectAllMatching()"></button>
+    <button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button>
+    <span class="fl-sel-sp"></span>
+    {{if canAdminOrOperator .Role}}
+    <button type="button" class="fleet-fbtn" onclick="bulkRun('reboot', null, 'Reboot {n} device(s)? Anyone using one right now loses what is on screen.')" title="Reboot the selected devices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/></svg>Reboot</button>
+    {{if canOTA .Role}}<button type="button" class="fleet-fbtn" id="push-update-btn" onclick="pushUpdateSel()" title="Open Deploy with these devices pre-ticked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Update</button>{{end}}
+    <button type="button" class="fleet-fbtn" onclick="openBulkGroupModal()" title="Add the selected devices to a group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>Add to group</button>
+    {{else}}
+    <button type="button" class="fleet-fbtn" onclick="bulkExport()" title="Export the selected devices as CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</button>
+    <button type="button" class="fleet-fbtn" onclick="bulkCopySerials()" title="Copy the serial numbers, one per line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
+    {{end}}
+    <div class="fleet-fwrap" id="sel-wrap">
+      <button type="button" class="fleet-fbtn fl-more" id="sel-more-btn" onclick="selMenuToggle(event)" aria-haspopup="menu" aria-expanded="false" aria-label="More actions for the selection" title="More actions"><svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+      <div class="cc-menu fl-menu fl-selmenu" id="sel-menu" role="menu" hidden>
+        <div class="fl-mpane" data-pane="main">
+          {{if canAdminOrOperator .Role}}
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkShell()"><svg viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell…</button>
+          {{if .Queries}}<button type="button" class="cc-mi" role="menuitem" onclick="flPane('sel-menu','checks')"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Run a check<span class="rt">›</span></button>{{end}}
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkRun('screenshot')"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkRun('collect_logs')"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Collect logs</button>
+          <div class="cc-msep"></div>
+          {{end}}
+          <button type="button" class="cc-mi{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" role="menuitem" onclick="selMenuClose();openBulkRestaurantModal()"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M12 21s-6-5.3-6-10a6 6 0 0 1 12 0c0 4.7-6 10-6 10z"/><circle cx="12" cy="11" r="2"/></svg>Move to venue…</button>
+          {{if canAdminOrOperator .Role}}
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkSaveAsGroup()"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>Save as group…</button>
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();openBulkRenameModal()"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Rename…</button>
+          {{else}}
+          <button type="button" class="cc-mi role-locked" role="menuitem" onclick="selMenuClose();openBulkGroupModal()" title="Requires the operator role" data-role-need="operator"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg>Add to group…</button>
+          {{end}}
+          <div class="cc-msep"></div>
+          {{if canAdminOrOperator .Role}}
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkExport()"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</button>
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkCopySerials()"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy serials</button>
+          {{end}}
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkGo('/export/visualize')" title="Chart the last 7 days of these devices side by side"><svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-8"/><path d="M14 8h6v6"/></svg>Compare</button>
+          <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkGo('/map')" title="Show only these devices on the map"><svg viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Show on map</button>
+          {{/* Everything below the rule is awkward or impossible to undo: last, and red. */}}
+          {{if canAdminOrOperator .Role}}
+          <div class="fl-seldanger">
+          <div class="cc-msep"></div>
+          <button type="button" class="cc-mi danger" role="menuitem" id="sel-rm-group" hidden onclick="selMenuClose();bulkRemoveFromGroup(getFilterVals().group)"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 17.5h7"/></svg>Remove from group</button>
+          {{if canAdmin .Role}}
+          <button type="button" class="cc-mi danger" role="menuitem" onclick="selMenuClose();bulkRetire()" title="Take these devices out of the active fleet; history stays"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg>Retire</button>
+          <button type="button" class="cc-mi danger" role="menuitem" onclick="selMenuClose();bulkDestructive('unenroll','UNENROLL')"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>Unenroll…</button>
+          <button type="button" class="cc-mi danger" role="menuitem" onclick="selMenuClose();bulkDestructive('wipe','WIPE')"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Wipe…</button>
+          {{end}}
+          </div>
+          {{end}}
+        </div>
+        {{if and (canAdminOrOperator .Role) .Queries}}
+        {{/* The vetted checks. Their payload is rebuilt server-side from the catalog, so
+             nothing here can send an arbitrary command under the Query name. */}}
+        <div class="fl-mpane" data-pane="checks" hidden>
+          <button type="button" class="cc-mi fl-mback" onclick="flPane('sel-menu','main')"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Run a check</button>
+          <div class="cc-msep"></div>
+          {{range .Queries}}<button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkRun('query',{query_id:'{{.ID}}'})">{{.Label}}</button>{{end}}
+        </div>
+        {{end}}
       </div>
     </div>
   </div>
 
-  {{/* ── Serial sort, one click (A→Z, again for Z→A), outside the Sort menu ── */}}
-  <button type="button" class="fleet-fbtn sort-serial" id="sort-serial" aria-pressed="false" onclick="sortBy('serial')" title="Sort by serial (click again to reverse)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h7M4 12h7M4 17h7"/><path d="M17 5v14"/><path d="m14 16 3 3 3-3"/></svg>
-    Serial<span class="dir"></span>
-  </button>
-  {{/* ── Sort control (replaces the sortable column headers) ── */}}
+  {{/* ── Sort (S1, picked 16 Oct): one button that names the order, and one menu — the
+       fields, then a direction switch whose words follow the field. ── */}}
   <div class="fleet-fwrap" id="sort-wrap">
-    <button type="button" class="fleet-fbtn" id="sort-btn" onclick="toggleSort(event)" aria-haspopup="true" aria-expanded="false">
+    <button type="button" class="fleet-fbtn" id="sort-btn" onclick="toggleSort(event)" aria-haspopup="menu" aria-expanded="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"/></svg>
-      Sort
+      Sort<span class="sort-cur" id="sort-cur"></span>
     </button>
-    <div class="fleet-pop fleet-sortpop" id="sort-pop" hidden>
-      <div class="fp-cap">Sort devices by</div>
-      <div class="sortpop">
-        <button type="button" class="sortopt" aria-pressed="false" data-sort="last_seen" onclick="sortBy('last_seen')"><span>Last seen</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" aria-pressed="false" data-sort="battery" onclick="sortBy('battery')"><span>Battery</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" aria-pressed="false" data-sort="cycles" onclick="sortBy('cycles')"><span>Battery cycles</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" aria-pressed="false" data-sort="temp" onclick="sortBy('temp')"><span>Temperature</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" aria-pressed="false" data-sort="ram" onclick="sortBy('ram')"><span>RAM</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" aria-pressed="false" data-sort="serial" onclick="sortBy('serial')"><span>Serial</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" aria-pressed="false" data-sort="created_at" onclick="sortBy('created_at')"><span>Onboarded</span><span class="dir"></span></button>
+    <div class="cc-menu fl-menu fl-sortmenu" id="sort-pop" role="menu" hidden>
+      <div class="cc-msec">Sort devices by</div>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="last_seen" onclick="sortBy('last_seen')">Last seen</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="battery" onclick="sortBy('battery')">Battery</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="cycles" onclick="sortBy('cycles')">Battery cycles</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="temp" onclick="sortBy('temp')">Temperature</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="ram" onclick="sortBy('ram')">RAM</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="serial" onclick="sortBy('serial')">Serial</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="created_at" onclick="sortBy('created_at')">Onboarded</button>
+      <div class="cc-msep"></div>
+      <div class="sort-dir" role="radiogroup" aria-label="Direction">
+        <button type="button" data-dir="desc" role="radio" aria-checked="false" onclick="sortDir('desc')"></button>
+        <button type="button" data-dir="asc" role="radio" aria-checked="false" onclick="sortDir('asc')"></button>
       </div>
     </div>
   </div>
 </div>
 
+{{/* ── Filters (F2, picked 16 Oct): only what is set shows, as chips; "+ Filter" opens one
+     menu — a field, then its values with how many devices each would show. Rendered from
+     the URL (ffRender), so the query string, saved views and pasted links work as they
+     always did. The class filter is the product tabs' job and has no chip here. ── */}}
+<div class="fl-fchips" id="fl-fchips">
+  <span class="fl-chip-list" id="fl-chip-list"></span>
+  <button type="button" class="fl-fadd" id="ff-add" onclick="ffOpen(event, this)" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Filter</button>
+  <button type="button" class="fchip-clear" id="ff-clear" hidden onclick="clearFilters()">Clear</button>
+  <div class="cc-menu fl-menu fl-ffmenu" id="ff-menu" role="menu" hidden>
+    <div class="fl-mpane" data-pane="fields">
+      <div class="fl-mfind"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="ff-find" placeholder="Filter by…" autocomplete="off" aria-label="Find a filter or a value" oninput="ffFind(this.value)" onkeydown="ffFindKey(event)"></div>
+      <div id="ff-fields"></div>
+    </div>
+    <div class="fl-mpane" data-pane="values" hidden>
+      <button type="button" class="cc-mi fl-mback" id="ff-back" onclick="ffBack()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg><span id="ff-vtitle"></span></button>
+      <div class="cc-msep"></div>
+      <div id="ff-values"></div>
+    </div>
+  </div>
+</div>
 <script>
+// The filter fields, their groups and the values each can take. Lists that come from the
+// fleet (models, releases, time zones, enrollers) are as of this page load.
+window.FLEET_FIELDS = [
+  {k: 'status', label: 'Status', grp: 'Identity', vals: [['online', 'Online'], ['offline', 'Offline']]},
+  {{if canAdmin .Role}}{k: 'kind', label: 'Agent', grp: 'Identity', vals: [['firmware', 'Firmware MDM'], ['dpc', 'Standard MDM'], ['mdm-lite', 'MDM Lite']]},{{end}}
+  {k: 'product', label: 'Model', grp: 'Identity', vals: [{{range .Products}}[{{.Key}}, {{.Label}}],{{end}}]},
+  {k: 'production', label: 'Production', grp: 'Identity', vals: [{{range .Productions}}[{{printf "%s" .ID}}, {{.Name}}],{{end}}]},
+  {k: 'build', label: 'Release', grp: 'Identity', vals: [{{range .Builds}}[{{.}}, {{.}}],{{end}}]},
+  {k: 'battery', label: 'Battery', grp: 'Health', vals: [['low', 'Critical <20%'], ['mid', 'Low 20–49%'], ['ok', 'Healthy 50%+']]},
+  {k: 'temp', label: 'Temperature', grp: 'Health', vals: [['hot', 'Hot'], ['warm', 'Warm or hotter']]},
+  {k: 'ram', label: 'RAM', grp: 'Health', vals: [['high', 'High 80%+'], ['warn', 'Elevated 60%+']]},
+  {k: 'charging', label: 'Charging', grp: 'Health', vals: [['yes', 'Charging'], ['no', 'Not charging']]},
+  {k: 'kiosk', label: 'Lock', grp: 'Health', vals: [['enabled', 'Locked'], ['disabled', 'Unlocked']]},
+  {k: 'timezone', label: 'Timezone', grp: 'Health', vals: [{{range .Timezones}}[{{.}}, {{.}}],{{end}}]},
+  {k: 'onboarding', label: 'Onboarding', grp: 'Lifecycle', vals: [['pending', 'Waiting for a site'], ['done', 'Placed']]},
+  {k: 'enrolled_by', label: 'Enrolled by', grp: 'Lifecycle', vals: [{{range .Enrollers}}[{{.Username}}, {{(userBubble .Username).Name}}],{{end}}]},
+  {k: 'lifecycle', label: 'Lifecycle', grp: 'Lifecycle', any: 'In the fleet', vals: [['retired', 'Retired / wiped'], ['all', 'Everything']]}
+];
+// The order the server uses when the URL names none.
+window.FLEET_DEFAULT_SORT = {sort: {{.DefaultSort}}, dir: {{.DefaultSortDir}}};
+// A clean-up job from the Overview's checklist only ever arrives by link; its chip label.
+window.FLEET_HYGIENE = {{.FilterHygiene}};
+</script>
+
+<script>
+// Every roster parameter, read from the URL (the chips and "+ Filter" write the URL, so it
+// is the single source of truth), with the live search box and any overrides on top.
+var FLEET_PARAMS = ['q', 'sort', 'dir', 'page', 'group', 'restaurant', 'production', 'product', 'status', 'build',
+  'battery', 'ram', 'temp', 'kiosk', 'charging', 'timezone', 'hidden', 'hygiene', 'enrolled_by', 'kind', 'class',
+  'onboarding', 'lifecycle'];
 function getFilterVals(overrides) {
   var p = new URLSearchParams(location.search);
-  var vals = {
-    q: p.get('q') || '',
-    sort: p.get('sort') || '',
-    dir: p.get('dir') || '',
-    page: p.get('page') || '1',
-    group: p.get('group') || '',
-    restaurant: p.get('restaurant') || '',
-    production: p.get('production') || '',
-    product: p.get('product') || '',
-    status: p.get('status') || '',
-    build: p.get('build') || '',
-    battery: p.get('battery') || '',
-    ram: p.get('ram') || '',
-    temp: p.get('temp') || '',
-    kiosk: p.get('kiosk') || '',
-    charging: p.get('charging') || '',
-    timezone: p.get('timezone') || '',
-    hidden: p.get('hidden') || '',
-    hygiene: p.get('hygiene') || '',
-    enrolled_by: p.get('enrolled_by') || ''
-  };
-  var fg = document.getElementById('filter-group');
-  var fp = document.getElementById('filter-production');
-  var fpr = document.getElementById('filter-product');
-  var fs = document.getElementById('filter-status');
-  var fb = document.getElementById('filter-build');
-  var fbt = document.getElementById('filter-battery');
-  var fk = document.getElementById('filter-kiosk');
-  var fch = document.getElementById('filter-charging');
-  var ftz = document.getElementById('filter-timezone');
-  var fkind = document.getElementById('filter-kind');
-  var fclass = document.getElementById('filter-class');
-  var fonb = document.getElementById('filter-onboarding');
-  var fenb = document.getElementById('filter-enrolled-by');
-  var flife = document.getElementById('filter-lifecycle');
+  var vals = {};
+  FLEET_PARAMS.forEach(function (k) { vals[k] = p.get(k) || ''; });
+  if (!vals.page) vals.page = '1';
   var sq = document.getElementById('search-input');
-  if (fkind) vals.kind = fkind.value;
-  if (fclass) vals.class = fclass.value;
-  if (fonb) vals.onboarding = fonb.value;
-  if (fenb) vals.enrolled_by = fenb.value;
-  if (flife) vals.lifecycle = flife.value;
-  if (fg) vals.group = fg.value;
-  if (fp) vals.production = fp.value;
-  if (fpr) vals.product = fpr.value;
-  if (fs) vals.status = fs.value;
-  if (fb) vals.build = fb.value;
-  if (fbt) vals.battery = fbt.value;
-  var fram = document.getElementById('filter-ram');
-  var ftemp = document.getElementById('filter-temp');
-  if (fram) vals.ram = fram.value;
-  if (ftemp) vals.temp = ftemp.value;
-  if (fk) vals.kiosk = fk.value;
-  if (fch) vals.charging = fch.value;
-  if (ftz) vals.timezone = ftz.value;
   if (sq) vals.q = sq.value;
   if (overrides) {
     for (var k in overrides) vals[k] = overrides[k];
   }
   return vals;
+}
+
+// The roster URL for a set of values: empty ones are left out, so the address bar (and a
+// view saved from it) carries only what is actually set.
+function fleetURL(vals) {
+  var q = new URLSearchParams();
+  Object.keys(vals).forEach(function (k) { if (vals[k] !== '' && vals[k] != null && !(k === 'page' && vals[k] === '1')) q.set(k, vals[k]); });
+  var qs = q.toString();
+  return '/devices' + (qs ? '?' + qs : '');
 }
 
 // Signature of the active filters, excluding page/page_size — used to tell a
@@ -970,7 +830,7 @@ function filterSig(vals) {
 function navigateDevices(overrides) {
   var vals = getFilterVals(overrides);
   if (selectAllMatchingSet && filterSig(vals) !== selectAllMatchingSig) clearSelectAllMatching();
-  var url = '/devices?' + new URLSearchParams(vals).toString();
+  var url = fleetURL(vals);
   // Explicit innerHTML swap: a bare target string would inherit the <body>'s
   // hx-swap="outerHTML" (hx-boost), which replaces the container itself and
   // spills the fragment into the flex .dv-split as a broken horizontal row.
@@ -983,6 +843,11 @@ function navigateDevices(overrides) {
 
 function applyFilters() {
   navigateDevices({page: '1'});
+}
+// Set (or with '' clear) one filter.
+function setFilter(k, v) {
+  var o = {page: '1'}; o[k] = v;
+  navigateDevices(o);
 }
 
 // Skeleton rows for the device list, shown while a rail collection switch loads.
@@ -997,16 +862,15 @@ function mdmDevSkeleton() {
 // and inspector stay put. Switching collection resets the search + popover filters.
 function scopeRoster(anchor, u) {
   clearSelectAllMatching();
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-enrolled-by', 'filter-lifecycle'].forEach(function (id) { setSel(id, ''); });
   setSel('search-input', '');
   var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: '' };
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
-  else if (u.searchParams.get('product')) { ov.product = u.searchParams.get('product'); setSel('filter-product', ov.product); }
+  else if (u.searchParams.get('product')) { ov.product = u.searchParams.get('product'); }
   // The product tab stacks with the collection: keep it across rail clicks.
   var curClass = new URLSearchParams(location.search).get('class');
-  if (curClass) { ov.class = curClass; setSel('filter-class', curClass); }
+  if (curClass) ov.class = curClass;
 
   // Instant heading + rail highlight from the clicked item (before data lands).
   var item = anchor.closest('.fleet-rail-item');
@@ -1021,7 +885,7 @@ function scopeRoster(anchor, u) {
 
   var tc = document.getElementById('device-table-container');
   if (tc) tc.innerHTML = mdmDevSkeleton();
-  var url = '/devices?' + new URLSearchParams(getFilterVals(ov)).toString();
+  var url = fleetURL(getFilterVals(ov));
   htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML', headers: { 'X-Roster-Meta': '1' } }).then(function () {
     history.pushState(null, '', url);
     syncFilterUI();
@@ -1032,10 +896,9 @@ function scopeRoster(anchor, u) {
 
 function setSel(id, val) { var el = document.getElementById(id); if (el) el.value = val; }
 
-// Clear a single dropdown filter (called from a chip's ✕).
+// Clear one filter by its old select id ('filter-build'); kept for callers outside the chips.
 function clearOne(id) {
-  setSel(id, '');
-  applyFilters();
+  setFilter(String(id).replace(/^filter-/, '').replace(/-/g, '_'), '');
 }
 
 function clearSearch() {
@@ -1044,17 +907,15 @@ function clearSearch() {
 }
 
 function clearFilters() {
-  // Clears the popover filters + search + visibility, but keeps the rail
-  // collection (group/restaurant) in scope.
-  ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-ram', 'filter-temp', 'filter-kiosk', 'filter-charging', 'filter-timezone', 'filter-kind', 'filter-class', 'filter-onboarding', 'filter-enrolled-by', 'filter-lifecycle'].forEach(function(id) { setSel(id, ''); });
-  setSel('search-input', '');
-  navigateDevices({page: '1', q: '', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', class: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: ''});
+  // Clears the filter chips, but keeps the rail collection (group/restaurant), the
+  // product tab and the search in scope — Clear sits with the chips, so it clears those.
+  ffClose();
+  navigateDevices({page: '1', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
 // Product tabs: one product at a time; keeps the Filters panel's Product select in sync.
 function setProductTab(cls) {
-  setSel('filter-class', cls);
   navigateDevices({page: '1', class: cls});
 }
 
@@ -1065,9 +926,6 @@ function selectCollection(type, id) {
   navigateDevices(ov);
 }
 
-// Quick views are mutually-exclusive shortcuts: each clears the other view
-// params (status/battery/kiosk/hidden) but keeps group/production/release/
-// timezone/search intact.
 // ── Saved views ──────────────────────────────────────────────────────────────
 // "+ Save this view" turns itself into a name field rather than opening a dialog:
 // naming a filter set is a one-word decision and a modal is heavier than the act.
@@ -1109,22 +967,7 @@ function deleteSavedView(id, name) {
   });
 }
 
-function setView(view) {
-  var ov = {page: '1', status: '', battery: '', kiosk: '', hidden: ''};
-  if (view === 'online') ov.status = 'online';
-  else if (view === 'offline') ov.status = 'offline';
-  else if (view === 'lowbatt') ov.battery = 'low';
-  else if (view === 'nokiosk') ov.kiosk = 'disabled';
-  setSel('filter-status', ov.status);
-  setSel('filter-battery', ov.battery);
-  setSel('filter-kiosk', ov.kiosk);
-  navigateDevices(ov);
-}
 
-// Toggle the Filters popover; close on outside-click or Escape. Opening Filters
-// closes Sort (only one popover at a time). __fOpen is tracked on window so the
-// popover can be re-opened after an htmx re-render — applying one filter swaps the
-// whole toolbar, and we want it to stay open so several filters can be stacked.
 // Keep an open popover inside the window, above the floating bottom nav: cap its
 // height to the room below its top edge and let it scroll inside.
 function fitFleetPop(pop) {
@@ -1138,25 +981,6 @@ window.addEventListener('resize', function () {
   document.querySelectorAll('.fleet-pop:not([hidden])').forEach(fitFleetPop);
 });
 
-function toggleFilters(e) {
-  if (e) { e.preventDefault(); e.stopPropagation(); }
-  var pop = document.getElementById('filters-pop');
-  var btn = document.getElementById('filters-btn');
-  if (!pop) return;
-  var willOpen = pop.hasAttribute('hidden');
-  if (willOpen) closeSort();
-  window.__fOpen = willOpen;
-  if (willOpen) { pop.removeAttribute('hidden'); fitFleetPop(pop); } else { pop.setAttribute('hidden', ''); }
-  if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
-}
-function closeFilters() {
-  window.__fOpen = false;
-  var pop = document.getElementById('filters-pop');
-  if (!pop || pop.hasAttribute('hidden')) return;
-  pop.setAttribute('hidden', '');
-  var btn = document.getElementById('filters-btn');
-  if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
-}
 // Sort control: a popover next to Filters that sets sort/dir (replaces the
 // old sortable column headers). Opening Sort closes Filters.
 function toggleSort(e) {
@@ -1165,7 +989,7 @@ function toggleSort(e) {
   var btn = document.getElementById('sort-btn');
   if (!pop) return;
   var willOpen = pop.hasAttribute('hidden');
-  if (willOpen) closeFilters();
+  if (willOpen) { ffClose(); selMenuClose(); }
   if (willOpen) { pop.removeAttribute('hidden'); fitFleetPop(pop); } else { pop.setAttribute('hidden', ''); }
   if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
 }
@@ -1176,31 +1000,49 @@ function closeSort() {
   var btn = document.getElementById('sort-btn');
   if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
 }
+// The order on screen: the URL's, else the server's default (DeviceList).
+function curSort() {
+  var p = new URLSearchParams(location.search), d = window.FLEET_DEFAULT_SORT || {sort: 'last_seen', dir: 'desc'};
+  var sort = p.get('sort') || d.sort;
+  var dir = p.get('dir') || (p.get('sort') ? ((sort === 'last_seen' || sort === 'created_at') ? 'desc' : 'asc') : d.dir);
+  return {sort: sort, dir: dir};
+}
+var SORT_NAMES = {last_seen: 'Last seen', battery: 'Battery', cycles: 'Battery cycles', temp: 'Temperature', ram: 'RAM', serial: 'Serial', created_at: 'Onboarded'};
+// What each direction is called for a field: time reads newest/oldest, numbers high/low,
+// the serial A→Z.
+function sortDirWords(sort) {
+  if (sort === 'serial') return {asc: 'A→Z', desc: 'Z→A'};
+  if (sort === 'last_seen' || sort === 'created_at') return {desc: 'Newest first', asc: 'Oldest first'};
+  return {desc: 'High first', asc: 'Low first'};
+}
 function sortBy(key) {
-  var p = new URLSearchParams(location.search);
-  var cur = p.get('sort') || 'last_seen';
-  var dir = p.get('dir') || 'desc';
+  var c = curSort();
   // Re-selecting the active field flips direction; a new field defaults to a
   // sensible direction (serial A→Z, everything else high→low).
-  var nextDir = (cur === key) ? (dir === 'desc' ? 'asc' : 'desc') : (key === 'serial' ? 'asc' : 'desc');
+  var nextDir = (c.sort === key) ? (c.dir === 'desc' ? 'asc' : 'desc') : (key === 'serial' ? 'asc' : 'desc');
   navigateDevices({page: '1', sort: key, dir: nextDir});
   closeSort();
 }
+function sortDir(dir) {
+  var c = curSort();
+  if (c.dir !== dir) navigateDevices({page: '1', sort: c.sort, dir: dir});
+  closeSort();
+}
 function syncSortUI() {
-  var p = new URLSearchParams(location.search);
-  var sort = p.get('sort') || 'last_seen', dir = p.get('dir') || 'desc';
-  var sb = document.getElementById('sort-serial');
-  if (sb) {
-    sb.classList.toggle('on', sort === 'serial');
-    sb.setAttribute('aria-pressed', sort === 'serial' ? 'true' : 'false');
-    var sd = sb.querySelector('.dir'); if (sd) sd.textContent = sort === 'serial' ? (dir === 'asc' ? '↑' : '↓') : '';
-  }
-  document.querySelectorAll('.sortopt').forEach(function(b) {
-    var on = b.dataset.sort === sort;
+  var c = curSort();
+  var cur = document.getElementById('sort-cur');
+  if (cur) cur.textContent = '· ' + (SORT_NAMES[c.sort] || c.sort) + ' ' + (c.dir === 'asc' ? '↑' : '↓');
+  document.querySelectorAll('#sort-pop .cc-mi[data-sort]').forEach(function (b) {
+    var on = b.dataset.sort === c.sort;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  var w = sortDirWords(c.sort);
+  document.querySelectorAll('#sort-pop .sort-dir button').forEach(function (b) {
+    b.textContent = w[b.dataset.dir];
+    var on = b.dataset.dir === c.dir;
     b.classList.toggle('on', on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    var d = b.querySelector('.dir');
-    if (d) d.textContent = on ? (dir === 'asc' ? '↑' : '↓') : '';
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
   });
 }
 
@@ -1209,12 +1051,14 @@ function syncSortUI() {
 if (!window.__fleetDocBound) {
   window.__fleetDocBound = true;
   document.addEventListener('click', function(e) {
-    var fw = document.getElementById('filters-wrap');
-    if (fw && !fw.contains(e.target)) closeFilters();
+    var fw = document.getElementById('fl-fchips');
+    if (fw && !fw.contains(e.target) && !(e.target.closest && e.target.closest('#fl-map-chips'))) ffClose();
+    var slw = document.getElementById('sel-wrap');
+    if (slw && !slw.contains(e.target)) selMenuClose();
     var sw = document.getElementById('sort-wrap');
     if (sw && !sw.contains(e.target)) closeSort();
   });
-  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeFilters(); closeSort(); } });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { ffClose(); closeSort(); selMenuClose(); } });
 
   // Rail collection switch → re-scope in place instead of a full boosted reload.
   // Capture phase so we preempt hx-boost on the anchor. Only intercept collection
@@ -1233,38 +1077,169 @@ if (!window.__fleetDocBound) {
   }, true);
 }
 
-// Recompute the lightweight filter UI (view pills, Filters badge, visibility
-// segment) from the URL after each navigation. Chips + table are server-rendered.
+// Recompute the filter chips and the sort marks from the URL after each navigation.
 function syncFilterUI() {
-  var p = new URLSearchParams(location.search);
-  var status = p.get('status') || '', battery = p.get('battery') || '', kiosk = p.get('kiosk') || '';
-  var view = 'all';
-  if (battery === 'low') view = 'lowbatt';
-  else if (kiosk === 'disabled') view = 'nokiosk';
-  else if (status === 'online') view = 'online';
-  else if (status === 'offline') view = 'offline';
-  document.querySelectorAll('#fleet-views .fleet-view').forEach(function(b) { var sel = b.dataset.view === view; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
-  // Filters badge: popover filters only (group/restaurant are the rail's job).
-  var cnt = 0; ['status', 'production', 'product', 'build', 'battery', 'kiosk', 'charging', 'timezone', 'kind', 'class', 'onboarding', 'enrolled_by', 'lifecycle'].forEach(function(k) { if (p.get(k)) cnt++; });
-  var btn = document.getElementById('filters-btn');
-  if (btn) {
-    btn.classList.toggle('has', cnt > 0);
-    var badge = btn.querySelector('.cnt');
-    if (badge) { badge.textContent = cnt; if (cnt > 0) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', ''); }
-  }
+  ffRender();
   syncSortUI();
-  // Applying a filter swaps the whole toolbar (this partial), which would close the
-  // Filters popover. Re-open it when it was open, so several filters can be picked
-  // and stacked in a row without re-opening between each.
-  if (window.__fOpen) {
-    var fpop = document.getElementById('filters-pop'), fbtn = document.getElementById('filters-btn');
-    if (fpop) fpop.removeAttribute('hidden');
-    if (fbtn) { fbtn.classList.add('open'); fbtn.setAttribute('aria-expanded', 'true'); }
-  }
-  // The collections rail + roster heading are server-rendered (the rail uses
-  // plain links and full-page navigation), so nothing to sync here.
 }
-document.addEventListener('DOMContentLoaded', syncFilterUI);
+// ── Menus on the toolbar (F2 filters, B1 selection) ─────────────────────────────
+// Both are menu-kit panels with panes: a list, and a second step (a field's values, the
+// checks) that replaces it with a back row, so nothing nests or flies out.
+function flPane(menuId, name) {
+  var m = document.getElementById(menuId); if (!m) return;
+  m.querySelectorAll('.fl-mpane').forEach(function (p) { p.hidden = p.dataset.pane !== name; });
+  var first = m.querySelector('.fl-mpane[data-pane="' + name + '"] input, .fl-mpane[data-pane="' + name + '"] .cc-mi:not(.fl-mback)');
+  if (first && first.focus) first.focus({preventScroll: true});
+}
+function selMenuToggle(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var m = document.getElementById('sel-menu'), b = document.getElementById('sel-more-btn');
+  if (!m) return;
+  if (!m.hidden) { selMenuClose(); return; }
+  ffClose(); closeSort();
+  var rm = document.getElementById('sel-rm-group');
+  if (rm) rm.hidden = !getFilterVals().group;
+  m.hidden = false; flPane('sel-menu', 'main'); fitFleetPop(m);
+  if (b) { b.setAttribute('aria-expanded', 'true'); b.classList.add('open'); }
+}
+function selMenuClose() {
+  var m = document.getElementById('sel-menu'), b = document.getElementById('sel-more-btn');
+  if (m && !m.hidden) m.hidden = true;
+  if (b) { b.setAttribute('aria-expanded', 'false'); b.classList.remove('open'); }
+}
+
+function ffEsc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function ffField(k) { return (window.FLEET_FIELDS || []).filter(function (f) { return f.k === k; })[0]; }
+function ffValLabel(f, v) {
+  var hit = (f.vals || []).filter(function (x) { return x[0] === v; })[0];
+  return hit ? hit[1] : v;
+}
+// Chips: one per filter set in the URL, in the menu's order. The chip opens that field's
+// values; its ✕ clears it.
+function ffRender() {
+  var list = document.getElementById('fl-chip-list'); if (!list) return;
+  var p = new URLSearchParams(location.search), html = '', n = 0;
+  var hy = p.get('hygiene');
+  if (hy) { n++; html += '<span class="fchip"><span class="fchip-b is-static"><span class="k">Clean up</span> ' + ffEsc(window.FLEET_HYGIENE || hy) + '</span><button type="button" class="x" onclick="setFilter(\'hygiene\', \'\')" aria-label="Clear clean-up filter">×</button></span>'; }
+  (window.FLEET_FIELDS || []).forEach(function (f) {
+    var v = p.get(f.k); if (!v) return;
+    n++;
+    html += '<span class="fchip" data-k="' + f.k + '"><button type="button" class="fchip-b" onclick="ffChip(event, this, \'' + f.k + '\')" title="Change ' + ffEsc(f.label.toLowerCase()) + '"><span class="k">' + ffEsc(f.label) + '</span> ' + ffEsc(ffValLabel(f, v)) + '</button>'
+      + '<button type="button" class="x" onclick="setFilter(\'' + f.k + '\', \'\')" aria-label="Clear ' + ffEsc(f.label.toLowerCase()) + '">×</button></span>';
+  });
+  list.innerHTML = html;
+  var clr = document.getElementById('ff-clear'); if (clr) clr.hidden = n < 2;
+  var row = document.getElementById('fl-fchips'); if (row) row.classList.toggle('has', n > 0);
+}
+var ffState = { k: null };
+function ffPlace(anchor) {
+  var m = document.getElementById('ff-menu'), row = document.getElementById('fl-fchips');
+  if (!m || !row || !anchor) return;
+  var left = 0;
+  if (row.contains(anchor)) {
+    var a = anchor.getBoundingClientRect(), r = row.getBoundingClientRect();
+    left = Math.max(0, Math.min(a.left - r.left, r.width - 280));
+  }
+  m.style.left = left + 'px';
+}
+function ffOpen(e, anchor, field) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var m = document.getElementById('ff-menu'); if (!m) return;
+  var add = document.getElementById('ff-add');
+  if (!m.hidden && !field && ffState.anchor === anchor) { ffClose(); return; }
+  closeSort(); selMenuClose();
+  ffState.anchor = anchor;
+  m.hidden = false;
+  ffPlace(anchor);
+  if (add) add.setAttribute('aria-expanded', 'true');
+  if (field) { ffShowField(field); }
+  else {
+    var q = document.getElementById('ff-find'); if (q) q.value = '';
+    ffFind('');
+    flPane('ff-menu', 'fields');
+  }
+  fitFleetPop(m);
+}
+function ffChip(e, btn, k) { ffOpen(e, btn.closest('#fl-fchips') ? btn : document.getElementById('ff-add'), k); }
+function ffClose() {
+  var m = document.getElementById('ff-menu'); if (m) m.hidden = true;
+  var add = document.getElementById('ff-add'); if (add) add.setAttribute('aria-expanded', 'false');
+  ffState.anchor = null;
+}
+function ffBack() { ffFind((document.getElementById('ff-find') || {}).value || ''); flPane('ff-menu', 'fields'); }
+// The field list, or — while something is typed — the matching fields plus the values
+// that match, so "v2.1.03" or "offline" is one Enter away.
+function ffFind(q) {
+  var box = document.getElementById('ff-fields'); if (!box) return;
+  var p = new URLSearchParams(location.search), html = '', grp = '';
+  q = (q || '').trim().toLowerCase();
+  var fields = (window.FLEET_FIELDS || []).filter(function (f) { return f.vals && f.vals.length; });
+  fields.forEach(function (f) {
+    if (q && f.label.toLowerCase().indexOf(q) < 0) return;
+    if (!q && f.grp !== grp) { grp = f.grp; html += '<div class="cc-msec">' + ffEsc(grp) + '</div>'; }
+    var cur = p.get(f.k);
+    html += '<button type="button" class="cc-mi" role="menuitem" data-ff="' + f.k + '" onclick="ffShowField(\'' + f.k + '\')">' + ffEsc(f.label)
+      + '<span class="rt">' + (cur ? '<b class="fl-cur">' + ffEsc(ffValLabel(f, cur)) + '</b>' : '') + '›</span></button>';
+  });
+  if (q) {
+    var hits = [];
+    fields.forEach(function (f) { f.vals.forEach(function (v) { if (String(v[1]).toLowerCase().indexOf(q) >= 0) hits.push([f, v]); }); });
+    if (hits.length) {
+      html += '<div class="cc-msec">Values</div>';
+      hits.slice(0, 10).forEach(function (h) {
+        html += '<button type="button" class="cc-mi" role="menuitem" data-ffk="' + h[0].k + '" data-ffv="' + ffEsc(h[1][0]) + '" onclick="ffPick(this.dataset.ffk, this.dataset.ffv)">' + ffEsc(h[1][1]) + '<span class="rt">' + ffEsc(h[0].label) + '</span></button>';
+      });
+    }
+    if (!html) html = '<div class="cc-mi is-off is-static">Nothing matches “' + ffEsc(q) + '”</div>';
+  }
+  box.innerHTML = html;
+}
+function ffFindKey(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    var b = document.querySelector('#ff-fields .cc-mi:not(.is-off)'); if (b) b.click();
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    var f = document.querySelector('#ff-fields .cc-mi:not(.is-off)'); if (f) f.focus();
+  }
+}
+// A field's values, each with how many devices it would show in the current scope.
+// Counts come from the server once per opening; a value that would show nothing is
+// greyed out rather than offered as a dead end.
+function ffShowField(k) {
+  var f = ffField(k); if (!f) return;
+  ffState.k = k;
+  var p = new URLSearchParams(location.search), cur = p.get(k) || '';
+  document.getElementById('ff-vtitle').textContent = f.label;
+  var box = document.getElementById('ff-values');
+  var rows = (f.vals || []).map(function (v) {
+    return '<button type="button" class="cc-mi' + (v[0] === cur ? ' active' : '') + '" role="menuitemradio" aria-checked="' + (v[0] === cur) + '" data-v="' + ffEsc(v[0]) + '" onclick="ffPick(\'' + k + '\', this.dataset.v)">' + ffEsc(v[1]) + '<small class="ff-n">…</small></button>';
+  }).join('');
+  var any = '<button type="button" class="cc-mi' + (cur ? '' : ' active') + '" role="menuitemradio" aria-checked="' + (!cur) + '" onclick="ffPick(\'' + k + '\', \'\')">' + ffEsc(f.any || ('Any ' + f.label.toLowerCase())) + '</button>';
+  box.innerHTML = '<div class="fl-mlist">' + rows + '</div><div class="cc-msep"></div>' + any;
+  flPane('ff-menu', 'values');
+  var q = new URLSearchParams(getFilterVals());
+  q.delete(k); q.delete('page'); q.delete('sort'); q.delete('dir');
+  q.set('field', k); q.set('vals', (f.vals || []).map(function (v) { return v[0]; }).join(','));
+  fetch('/devices/filter-counts?' + q.toString(), { headers: { 'HX-Request': 'true' } })
+    .then(function (r) { return r.ok ? r.json() : {}; })
+    .then(function (n) {
+      if (ffState.k !== k) return;
+      box.querySelectorAll('.cc-mi[data-v]').forEach(function (b) {
+        var c = n[b.dataset.v], el = b.querySelector('.ff-n');
+        if (el) el.textContent = c == null ? '' : c;
+        if (c === 0 && b.dataset.v !== cur) { b.classList.add('is-off'); b.disabled = true; }
+      });
+    })
+    .catch(function () { box.querySelectorAll('.ff-n').forEach(function (el) { el.textContent = ''; }); });
+}
+function ffPick(k, v) {
+  ffClose();
+  setFilter(k, v);
+}
+window.addEventListener('resize', function () { var m = document.getElementById('ff-menu'); if (m && !m.hidden && ffState.anchor) ffPlace(ffState.anchor); });
+// A boosted navigation runs this script again without a DOMContentLoaded, so draw now too.
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncFilterUI); else syncFilterUI();
 
 // Column-count control (1/2/3, persisted). The chosen count is remembered, but
 // only takes effect when the list is wide enough (container queries) — a wider
@@ -1339,7 +1314,7 @@ function getSelectedSerials() {
 function clearSelectAllMatching() {
   selectAllMatchingSet = null;
   var btn = document.getElementById('select-all-matching');
-  if (btn) { btn.style.display = 'none'; btn.disabled = false; btn.textContent = ''; }
+  if (btn) { btn.hidden = true; btn.disabled = false; btn.textContent = ''; }
 }
 
 function selectAllMatching() {
@@ -1352,34 +1327,14 @@ function selectAllMatching() {
     .then(function (data) {
       selectAllMatchingSet = new Set(data.serials || []);
       selectAllMatchingSig = filterSig();
-      if (btn) { btn.disabled = false; btn.style.display = 'none'; }
+      if (btn) { btn.disabled = false; btn.hidden = true; }
+      // Tick this page's boxes too, so the rows match the count.
+      document.querySelectorAll('.device-cb').forEach(function (box) { box.checked = selectAllMatchingSet.has(box.value); });
       updateBulkBar();
     })
     .catch(function () {
-      if (btn) { btn.disabled = false; btn.textContent = 'Select all ' + total + ' matching →'; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Select all ' + total; }
     });
-}
-
-// More: expands in place. The open/closed state is remembered for the session, so
-// someone doing a run of the same organise-y task is not re-opening it on every
-// selection — but it starts closed, because the point of the panel is the primary.
-function ssToggleMore(btn) {
-  var box = document.getElementById('ss-more');
-  if (!box) return;
-  var open = box.hasAttribute('hidden');
-  if (open) box.removeAttribute('hidden'); else box.setAttribute('hidden', '');
-  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-  btn.classList.toggle('open', open);
-  try { sessionStorage.setItem('mdm-sel-more', open ? '1' : '0'); } catch (e) {}
-}
-// The panel is re-rendered on every roster refresh, so restore the state rather
-// than letting it snap shut under someone mid-task.
-function ssRestoreMore() {
-  var box = document.getElementById('ss-more'), btn = document.getElementById('ss-more-btn');
-  if (!box || !btn) return;
-  var want = false;
-  try { want = sessionStorage.getItem('mdm-sel-more') === '1'; } catch (e) {}
-  if (want) { box.removeAttribute('hidden'); btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open'); }
 }
 
 function clearSelection() {
@@ -1391,14 +1346,12 @@ function clearSelection() {
 function updateBulkBar() {
   var serials = getSelectedSerials();
   try { syncPushUpdateBtn(); } catch (_) {}
-  var bar = document.getElementById('bulk-bar');
   // Export lives in the page header and only makes sense with a selection.
   var exportBtn = document.getElementById('export-btn');
   if (exportBtn) {
     exportBtn.disabled = serials.length === 0;
     exportBtn.title = serials.length ? 'Export ' + serials.length + ' selected device' + (serials.length === 1 ? '' : 's') : 'Select devices to export them';
   }
-  var count = document.getElementById('bulk-count');
   var allCb = document.getElementById('select-all');
   var allBoxes = document.querySelectorAll('.device-cb');
   var matchBtn = document.getElementById('select-all-matching');
@@ -1413,75 +1366,31 @@ function updateBulkBar() {
     serials = getSelectedSerials();
   }
 
-  bar.style.display = serials.length > 0 ? 'flex' : 'none';
-  // Floating side panel: with a selection, the count and the actions float at
-  // the right edge of the viewport. It lives under <body> because a fixed element
-  // inside the (transformed) page container would be anchored to the container.
-  var sheet = document.getElementById('sel-sheet');
-  if (serials.length > 0) {
-    if (!sheet) {
-      sheet = document.createElement('aside'); sheet.id = 'sel-sheet'; sheet.setAttribute('aria-label', 'Selected devices');
-      sheet.innerHTML = '<div class="ss-head"><span class="bulk-count" id="ss-count"></span><button type="button" class="selbar-clear" onclick="clearSelection()" title="Clear selection" aria-label="Clear selection">&times;</button></div><div class="ss-acts" id="ss-acts"></div>';
-      document.body.appendChild(sheet);
+  // The selection bar takes the toolbar row while anything is ticked (B1).
+  var bar = document.querySelector('.fleet-bar');
+  if (bar) bar.classList.toggle('is-sel', serials.length > 0);
+  if (!serials.length) selMenuClose();
+  var count = document.getElementById('bulk-count');
+  if (count) count.textContent = serials.length + ' selected' + (selectAllMatchingSet ? ' · all matching' : '');
+
+  if (allCb) {
+    if (selectAllMatchingSet || (allBoxes.length > 0 && serials.length === allBoxes.length)) {
+      allCb.checked = true; allCb.indeterminate = false;
+    } else if (serials.length > 0) {
+      allCb.checked = false; allCb.indeterminate = true;
+    } else {
+      allCb.checked = false; allCb.indeterminate = false;
     }
-    var acts = document.getElementById('ss-acts');
-    if (bar.parentElement !== acts) {
-      // The sheet lives under <body>, so it survives a roster refresh — but that
-      // refresh re-renders the table and with it a SECOND #bulk-bar. Moving the
-      // new one in without clearing the old left the panel showing every section
-      // twice. getElementById returns the first in document order, which is the
-      // freshly rendered one (the sheet is appended after <main>), so the one
-      // being dropped here is always the stale copy.
-      while (acts.firstChild) acts.removeChild(acts.firstChild);
-      acts.appendChild(bar);
-      ssRestoreMore();
-    }
-    document.getElementById('ss-count').textContent = serials.length + ' selected';
-    sheet.hidden = false;
-  } else if (sheet) {
-    sheet.hidden = true;
-  }
-  sheetCleanupOnce();
-  count.textContent = serials.length + ' selected' + (selectAllMatchingSet ? ' (all matching)' : '');
-
-
-  if (allBoxes.length > 0 && serials.length === allBoxes.length && !selectAllMatchingSet) {
-    allCb.checked = true; allCb.indeterminate = false;
-  } else if (selectAllMatchingSet) {
-    allCb.checked = true; allCb.indeterminate = false;
-  } else if (serials.length > 0) {
-    allCb.checked = false; allCb.indeterminate = true;
-  } else {
-    allCb.checked = false; allCb.indeterminate = false;
   }
 
-  // Offer "Select all N matching" only once this page is fully checked (by hand
-  // or via the header box) and the filter has more devices than fit on this page.
-  if (matchBtn && !selectAllMatchingSet) {
-    var pageTotal = parseInt(allCb.dataset.pageTotal || '0', 10);
-    var filterTotal = parseInt(allCb.dataset.filterTotal || '0', 10);
-    var showIt = allBoxes.length > 0 && serials.length === allBoxes.length && filterTotal > pageTotal;
-    matchBtn.style.display = showIt ? '' : 'none';
-    if (showIt) matchBtn.textContent = 'Select all ' + filterTotal + ' matching →';
+  // "Select all N" reaches past this page: offered while the filter matches more
+  // devices than are ticked, and not once the whole matching set is selected.
+  if (matchBtn) {
+    var filterTotal = allCb ? parseInt(allCb.dataset.filterTotal || '0', 10) : 0;
+    var showIt = !selectAllMatchingSet && serials.length > 0 && filterTotal > serials.length;
+    matchBtn.hidden = !showIt;
+    if (showIt && !matchBtn.disabled) matchBtn.textContent = 'Select all ' + filterTotal;
   }
-}
-
-// The sheet is appended to <body>, outside anything a boosted navigation swaps, so
-// leaving the fleet page would otherwise leave it floating over the next page. Drop
-// it as soon as a swap lands on a page that has no device roster. Registered once,
-// because this script runs again on every boosted return to /devices.
-function dropSelSheetIfAway() {
-  if (document.querySelector('.device-cb') || document.getElementById('device-table-container')) return;
-  var s = document.getElementById('sel-sheet');
-  if (s) s.remove();
-}
-function sheetCleanupOnce() {
-  if (window.__selSheetCleanup) return;
-  window.__selSheetCleanup = true;
-  ['htmx:afterSwap', 'htmx:afterSettle', 'htmx:historyRestore'].forEach(function (ev) {
-    document.body.addEventListener(ev, dropSelSheetIfAway);
-  });
-  window.addEventListener('popstate', dropSelSheetIfAway);
 }
 
 function toggleSelectAll(cb) {
@@ -1500,17 +1409,6 @@ document.addEventListener('click', function (e) {
   e.preventDefault();
   navigateDevices({ page: b.dataset.page });
 });
-
-// Every verb the console owned now runs from here or from the thing it acts on, so the
-// primary button opens the rest of them rather than another page.
-function bulkAction() {
-  var serials = getSelectedSerials();
-  if (serials.length === 0) return;
-  var more = document.getElementById('ss-more-btn');
-  if (more && more.getAttribute('aria-expanded') !== 'true') ssToggleMore(more);
-  var panel = document.getElementById('ss-more');
-  if (panel && panel.scrollIntoView) panel.scrollIntoView({block: 'nearest'});
-}
 
 function bulkExport() {
   var serials = getSelectedSerials();
@@ -2207,7 +2105,7 @@ document.addEventListener('keydown', function(e) {
   // above the map; their buttons call the same clearOne/clearFilters the list uses.
   function syncChips(){
     var bar = document.getElementById('fl-map-bar'), box = document.getElementById('fl-map-chips');
-    var src = document.querySelector('#device-table-container .fleet-chips');
+    var src = document.getElementById('fl-chip-list');
     var html = '';
     var v = (typeof getFilterVals === 'function') ? getFilterVals() : {}, kind = v.restaurant ? 'restaurant' : v.group ? 'group' : '', id = v.restaurant || v.group || '';
     var a = kind ? document.querySelector('.fleet-rail-list[data-sec="'+kind+'s"] a[href*="'+kind+'='+id+'"]') : null;
