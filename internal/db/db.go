@@ -13249,6 +13249,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (lower(email)) WHE
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar BYTEA;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ;
 
+-- Device page view per user (16 Oct): '' is the classic page (the default), 'new' the
+-- revamped one. Set from the page's own switch and kept across sessions.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS device_view TEXT NOT NULL DEFAULT '';
+
 -- (Historical) The dev role was once retired here with "DELETE FROM users WHERE
 -- role = 'dev'". Dev is a real role again (operator + releases + OTA), and this
 -- script runs on every boot, so that statement would have erased every dev

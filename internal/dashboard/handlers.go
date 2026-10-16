@@ -6398,7 +6398,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	labSess, _ := h.db.GetLabSession(r.Context(), device.ID)
 	fwModes, _ := h.db.FirmwareModes(r.Context())
-	h.render(w, r, "device.html", map[string]any{
+	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
 		"Title":  device.SerialNumber,
 		"Device": device,
 		// Lab session (lab.go): the banner, the entry dialog and the lab view link.
