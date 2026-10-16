@@ -21533,7 +21533,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /lock", h.requireAuth(h.Manage))
 	// Compliance (static plan of 15 Oct; rules editor B1): read by anyone with fleet
 	// access, changed by admins only, every change audited.
-	// Battery data from firmware client 1.10.1 (admins and devs; checked in the handler).
+	// Battery data from firmware client 1.10.1 (admins, devs and super ops; checked in the handler).
 	mux.HandleFunc("GET /battery", h.requireAuth(h.BatteryPage))
 	mux.HandleFunc("GET /battery/export.csv", h.requireAuth(h.BatteryExport))
 	mux.HandleFunc("GET /compliance", h.requireAuth(h.ComplianceIndex))
