@@ -1,8 +1,8 @@
 {{define "releases.html"}}
 {{template "header" .}}
 <style>
-/* ── Releases and rollouts (O2, picked 16 Oct): the release list beside the selected
-   release, rollouts in flight pinned on top. ── */
+/* ── Releases (O2, picked 16 Oct): the release list beside the selected release,
+   updates in flight pinned on top. ── */
 .ro-wrap{max-width:1240px;margin:0 auto}
 .ro-head{display:flex;align-items:center;gap:12px;margin:4px 0 12px;flex-wrap:wrap}
 .ro-head h1{margin:0}
@@ -52,15 +52,15 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
 </style>
 <div class="ro-wrap">
   <div class="ro-head">
-    <h1>Releases</h1><span class="cp-mu" style="font-size:12.5px;color:var(--muted);margin-top:6px">and the rollouts carrying them</span>
+    <h1>Releases</h1><span class="cp-mu" style="font-size:12.5px;color:var(--muted);margin-top:6px">and the updates carrying them to devices</span>
     <span class="r">
       {{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
-      {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">Roll out…</a>{{end}}
+      {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}
     </span>
   </div>
 
   {{range .Active}}
-  <a class="ro-live" href="{{.URL}}"><b>Rolling out</b><span class="mono">{{.Version}} · #{{.ID}}</span>
+  <a class="ro-live" href="{{.URL}}"><b>Updating</b><span class="mono">{{.Version}} · #{{.ID}}</span>
     <span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span>
     <span>{{.Installed}}/{{.Total}} installed{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</span><span class="cc-btn sm">Open</span></a>
   {{end}}
@@ -77,7 +77,7 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
       {{range .Versions}}{{$c := index $.RolloutCounts .Version}}
       <a class="ro-it{{if .IsDev}} dev{{end}}{{if not .Tracked}} rep{{end}}{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}{{if $.FilterProduct}}&amp;product={{$.FilterProduct}}{{end}}">
         <b title="{{.Version}}">{{.Version}}</b><span class="d">{{if .ReleasedAt}}{{shortDate (deref .ReleasedAt)}}{{else}}reported{{end}}</span>
-        <small>{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if $c.N}} · {{$c.N}} rollout{{if ne $c.N 1}}s{{end}}{{end}}{{if $c.Active}} · <span class="live">rolling out</span>{{end}}</small>
+        <small>{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if $c.N}} · {{$c.N}} update{{if ne $c.N 1}}s{{end}}{{end}}{{if $c.Active}} · <span class="live">updating</span>{{end}}</small>
       </a>
       {{else}}<div class="ro-empty">No releases{{if .FilterProduct}} for this product{{end}} yet.</div>{{end}}
       {{if .HiddenReleases}}<div class="ro-sep">Hidden</div>{{range .HiddenReleases}}<a class="ro-it{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}"><b>{{.Version}}</b><span class="d">hidden</span></a>{{end}}{{end}}
@@ -92,7 +92,7 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
         {{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}
         {{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}
         {{if .ReleasedAt}}<span class="cc-tag" title="{{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
-        <span class="r"><a class="cc-btn" href="/releases/{{.ReleaseID}}">Open release</a>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn primary" href="/updates/new?release={{.ReleaseID}}">Roll out</a>{{end}}</span>
+        <span class="r"><a class="cc-btn" href="/releases/{{.ReleaseID}}">Open release</a>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}</span>
       </div>
       {{if .Name}}<p class="ro-name">{{.Name}}</p>{{end}}
       <div class="ro-kv"><span class="k">On devices</span><span class="ro-cov"><span class="cc-meter"><i class="{{if eq .Status "published"}}ok{{else}}warn{{end}}" style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></span>{{if .DeviceCount}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}{{if .Crash}} <a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}</span></div>
@@ -100,22 +100,22 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
       <div class="ro-kv"><span class="k">Packages</span><span>{{if $.Packages}}{{range $i, $p := $.Packages}}{{if $i}} · {{end}}{{if eq $p.Type "incremental"}}incremental from <span class="mono">{{$p.SourceBuildID}}</span>{{else}}full{{end}}{{if $p.Wipe}} (wipes){{end}}{{if ne $p.Status "active"}} <span class="ro-bad">{{$p.Status}}</span>{{end}}{{end}}{{else}}<span class="ro-bad">none yet</span> · <a href="/releases/{{.ReleaseID}}?tab=packages">add one</a>{{end}}</span></div>
       <div class="ro-kv" style="align-items:start"><span class="k">Changes</span>{{if .Changelog}}<p class="ro-chg">{{.Changelog}}</p>{{else}}<span class="ro-empty" style="padding:0;text-align:left">No changelog.</span>{{end}}</div>
 
-      <div class="ro-sec">Rollouts</div>
+      <div class="ro-sec">Updates</div>
       {{if $.Rollouts}}
       <table class="ro-t">
-        <tr><th>Rollout</th><th>Started</th><th>Progress</th><th></th><th>State</th></tr>
+        <tr><th>Update</th><th>Started</th><th>Progress</th><th></th><th>State</th></tr>
         {{range $.Rollouts}}
         <tr><td><a href="{{.URL}}">#{{.ID}}</a>{{if .Legacy}} <span class="cc-tag" title="Includes devices on the legacy (otautil) path">legacy</span>{{end}}</td>
           <td>{{shortDate .CreatedAt}}{{if .CreatedBy}} · {{.CreatedBy}}{{end}}</td>
           <td><span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span></td>
           <td>{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</td>
-          <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}rolling out{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
+          <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}updating{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
         {{end}}
       </table>
-      {{else}}<p class="ro-empty" style="text-align:left;padding:6px 0">Not rolled out yet.{{if and (canOTA $.Role) $.CanPush}} <a href="/updates/new?release={{.ReleaseID}}">Roll it out</a>.{{end}}</p>{{end}}
+      {{else}}<p class="ro-empty" style="text-align:left;padding:6px 0">No updates sent yet.{{if and (canOTA $.Role) $.CanPush}} <a href="/updates/new?release={{.ReleaseID}}">Update devices</a>.{{end}}</p>{{end}}
       {{else}}
       <div class="ro-dh"><h2>{{.Version}}</h2><span class="cc-tag">reported</span>{{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}</div>
-      <p class="ro-name">Seen on devices, not a release yet: there is no changelog, package or rollout for it.</p>
+      <p class="ro-name">Seen on devices, not a release yet: there is no changelog, package or update for it.</p>
       <div class="ro-kv"><span class="k">On devices</span><span class="ro-cov"><span class="cc-meter"><i style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></span>{{if .DeviceCount}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}</span></div>
       {{if canRelease $.Role}}<form action="/releases/track" method="POST" style="margin-top:12px"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="cc-btn primary">Add as release</button></form>{{end}}
       {{end}}

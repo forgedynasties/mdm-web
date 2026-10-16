@@ -63,6 +63,7 @@ jobs:
       branch: ${{ steps.t.outputs.branch }}
       app_dir: ${{ steps.t.outputs.app_dir }}
       sha: ${{ steps.sha.outputs.sha }}
+      tree: ${{ steps.sha.outputs.tree }}
     steps:
       - id: t
         run: |
@@ -91,6 +92,9 @@ jobs:
             full=$(git rev-parse HEAD)
           fi
           echo "sha=$full" >> "$GITHUB_OUTPUT"
+          # The tree names the code itself: a merge of stage into main has a new commit
+          # but, usually, exactly the tree stage already built and tested.
+          echo "tree=$(git rev-parse "$full^{tree}")" >> "$GITHUB_OUTPUT"
           echo "Deploying $TARGET: ${{ steps.t.outputs.branch }} @ $full"
 
       - name: Configure AWS credentials (OIDC)
@@ -100,10 +104,24 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - id: exists
+        # An image for this commit, or for the same code under another commit (stage's
+        # commit, when main is a merge of it): then it is re-tagged, not rebuilt. The
+        # image is byte for byte what stage built and deployed.
+        env:
+          REPO: ${{ vars.ECR_REPOSITORY }}
+          SHA: ${{ steps.sha.outputs.sha }}
+          TREE: ${{ steps.sha.outputs.tree }}
         run: |
-          if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}" \
-               --image-ids imageTag="${{ steps.sha.outputs.sha }}" --region "$AWS_REGION" >/dev/null 2>&1; then
+          if aws ecr describe-images --repository-name "$REPO" --image-ids imageTag="$SHA" --region "$AWS_REGION" >/dev/null 2>&1; then
             echo "found=true" >> "$GITHUB_OUTPUT"; echo "Image already in ECR"
+          elif M=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="tree-$TREE" --region "$AWS_REGION" \
+                     --accepted-media-types application/vnd.oci.image.index.v1+json application/vnd.docker.distribution.manifest.list.v2+json \
+                       application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json \
+                     --query 'images[0].[imageManifestMediaType,imageManifest]' --output json 2>/dev/null) \
+               && [ "$(echo "$M" | jq -r '.[1] // empty')" != "" ]; then
+            aws ecr put-image --repository-name "$REPO" --region "$AWS_REGION" --image-tag "$SHA" \
+              --image-manifest-media-type "$(echo "$M" | jq -r '.[0]')" --image-manifest "$(echo "$M" | jq -r '.[1]')" >/dev/null
+            echo "found=true" >> "$GITHUB_OUTPUT"; echo "Same code already built (tree $TREE): re-tagged, not rebuilt"
           else
             echo "found=false" >> "$GITHUB_OUTPUT"; echo "No image yet: building it"
           fi
@@ -146,6 +164,7 @@ jobs:
           push: true
           tags: |
             ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ steps.sha.outputs.sha }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:tree-${{ steps.sha.outputs.tree }}
             ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ steps.t.outputs.branch }}
           cache-from: type=gha,scope=runtime
           cache-to: type=gha,scope=runtime,mode=max
@@ -156,6 +175,10 @@ jobs:
     name: Test
     if: inputs.sha == ''
     runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       sha: ${{ steps.sha.outputs.sha }}
     steps:
@@ -163,12 +186,29 @@ jobs:
         with:
           ref: ${{ github.event_name == 'push' && github.sha || (inputs.target == 'live' && 'main' || 'stage') }}
       - id: sha
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - uses: actions/setup-go@v5
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      # The same code already passed this gate (deploy tags it tested-<tree> after a
+      # green run): a merge of a tested stage into main is not tested twice.
+      - id: done
+        run: |
+          if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}" \
+               --image-ids imageTag="tested-${{ steps.sha.outputs.tree }}" --region "$AWS_REGION" >/dev/null 2>&1; then
+            echo "tested=true" >> "$GITHUB_OUTPUT"; echo "This code already passed the tests (tree ${{ steps.sha.outputs.tree }})"
+          fi
+      - if: steps.done.outputs.tested != 'true'
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Test
+        if: steps.done.outputs.tested != 'true'
         # Same gate as build.yml.
         run: go build ./... && go test ./...
 
@@ -302,12 +342,15 @@ jobs:
           # HEALTHCHECK's own --start-period=30s means the first pass can land before
           # the startup peak is even over.
           #
-          # So soak for 90s: health must stay healthy AND RestartCount must not move.
+          # So soak: health must stay healthy AND RestartCount must not move. 20s since
+          # 16 Oct (was 90s): the image reports healthy within seconds (start-interval=2s)
+          # and the box has the memory headroom it lacked on 23 Sep; the soak only
+          # reports, it rolls nothing back, and it was most of a 3-minute deploy.
           # A restart is the signal a kill happened, since the container comes back and
           # looks healthy again afterwards.
           r0=\$(docker inspect -f '{{.RestartCount}}' "\$cid")
-          for i in \$(seq 1 18); do
-            sleep 5
+          for i in \$(seq 1 10); do
+            sleep 2
             s=\$(docker inspect -f '{{.State.Health.Status}}' "\$cid" 2>/dev/null || echo gone)
             r=\$(docker inspect -f '{{.RestartCount}}' "\$cid" 2>/dev/null || echo -1)
             if [ "\$s" != "healthy" ] || [ "\$r" != "\$r0" ]; then
@@ -319,7 +362,7 @@ jobs:
               exit 1
             fi
           done
-          echo "stable for 90s (restarts=\$r0, mem=\$(docker stats --no-stream --format '{{.MemUsage}}' "\$cid" 2>/dev/null))"
+          echo "stable for 20s (restarts=\$r0, mem=\$(docker stats --no-stream --format '{{.MemUsage}}' "\$cid" 2>/dev/null))"
 
           # The container being healthy is not the same as the front door working: the
           # proxy could be down, or pointed at a stale address. Check the host port the
@@ -348,14 +391,14 @@ jobs:
           # timing out left STATUS as InProgress, which reads as a failed deploy even
           # when the deploy was fine. 10 minutes is the cap here.
           STATUS=Pending
-          for i in $(seq 1 60); do
+          for i in $(seq 1 300); do
             STATUS=$(aws ssm get-command-invocation \
               --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" \
               --region "$AWS_REGION" --query "Status" --output text 2>/dev/null || echo Pending)
             case "$STATUS" in
               Success|Failed|Cancelled|TimedOut) break ;;
             esac
-            sleep 10
+            sleep 2
           done
 
           echo "----- STDOUT -----"
@@ -367,6 +410,24 @@ jobs:
 
           echo "Final SSM status: $STATUS"
           [ "$STATUS" = "Success" ] || exit 1
+
+      # Record that this code passed the gate, so deploying the same tree again (main
+      # after merging a tested stage) re-uses the image and skips the test run.
+      - name: Mark the code tested
+        if: needs.test.result == 'success'
+        env:
+          REPO: ${{ vars.ECR_REPOSITORY }}
+        run: |
+          M=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="${{ needs.build.outputs.sha }}" --region "$AWS_REGION" \
+                --accepted-media-types application/vnd.oci.image.index.v1+json application/vnd.docker.distribution.manifest.list.v2+json \
+                  application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json \
+                --query 'images[0].[imageManifestMediaType,imageManifest]' --output json)
+          for tag in "tested-${{ needs.build.outputs.tree }}" "tree-${{ needs.build.outputs.tree }}"; do
+            aws ecr put-image --repository-name "$REPO" --region "$AWS_REGION" --image-tag "$tag" \
+              --image-manifest-media-type "$(echo "$M" | jq -r '.[0]')" --image-manifest "$(echo "$M" | jq -r '.[1]')" >/dev/null 2>&1 \
+              || echo "($tag already there)"
+          done
+          echo "tested-${{ needs.build.outputs.tree }}"
 
       - name: Summary
         if: always()

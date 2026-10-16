@@ -114,7 +114,7 @@
               <div class="pl-bk"><span class="v">{{$m.Channel.Version}}</span> <span class="pl-faint">since {{shortDate $m.Channel.SetAt}}</span>
                 {{if $m.Total}}<div class="pl-bar"><i style="width:{{pct $m.On $m.Total}}%;background:var(--ok)"></i><i style="width:{{pct $m.Behind $m.Total}}%;background:var(--accent-2)"></i><i style="width:{{pct $m.OtherLine $m.Total}}%;background:var(--warn)"></i></div>{{end}}
                 <div class="m">{{$m.On}} of {{$m.Total}} deployed on it{{if $m.Behind}} · {{$m.Behind}} waiting{{end}}</div>
-                {{if $m.Channel.DeploymentID}}<div class="m"><a href="/releases">rollout progress</a></div>{{end}}
+                {{if $m.Channel.DeploymentID}}<div class="m"><a href="/releases">update progress</a></div>{{end}}
               </div>
               {{if $m.OtherLine}}<div class="pl-note">{{$m.OtherLine}} deployed device{{if ne $m.OtherLine 1}}s are{{else}} is{{end}} on another firmware line. Prod only moves devices already on the v{{$m.Line}} line; migrate the rest with rollouts you watch, after which they follow prod by themselves.</div>{{end}}
             {{else}}
