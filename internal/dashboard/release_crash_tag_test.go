@@ -9,8 +9,9 @@ import (
 	"testing"
 )
 
-// TestReleasesCrashTagRenders executes releases.html with one release carrying crash
-// issues: the tag must link to that release's crashes and name the apps.
+// TestReleasesCrashTagRenders executes releases.html (the release list and the selected
+// release) with one release carrying crash issues: the tag must link to that release's
+// crashes and name the apps.
 func TestReleasesCrashTagRenders(t *testing.T) {
 	src, err := os.ReadFile("handlers.go")
 	if err != nil {
@@ -29,8 +30,8 @@ func TestReleasesCrashTagRenders(t *testing.T) {
 	rows := []versionRow{{Version: "v2.0.96l", ReleaseID: &id, Tracked: true, Status: "published", DeviceCount: 59,
 		Crash: &releaseCrashTag{Issues: 2, Devices: 34, Apps: "com.google.android.permissioncontroller crash (34 devices), com.qti.phone crash (4 devices)"}}}
 	var buf bytes.Buffer
-	err = tmpl.ExecuteTemplate(&buf, "releases.html", map[string]any{"Versions": rows, "FleetTotal": 181, "Role": "admin",
-		"LatestPublishedPct": 0, "NotTrackedCount": 0, "TrackedCount": 1, "PublishedCount": 1, "DraftCount": 0, "UnderTestCount": 0, "DevCount": 0})
+	err = tmpl.ExecuteTemplate(&buf, "releases.html", map[string]any{"Versions": rows, "Sel": &rows[0], "FleetTotal": 181, "Role": "admin",
+		"RolloutCounts": map[string]rolloutCount{}})
 	if err != nil {
 		t.Fatalf("render: %v", err)
 	}
