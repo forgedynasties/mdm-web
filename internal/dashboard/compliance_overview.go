@@ -1,8 +1,10 @@
 package dashboard
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -377,28 +379,50 @@ func (h *Handler) DeviceCompliancePartial(w http.ResponseWriter, r *http.Request
 			unknown++
 		}
 	}
-	// Failing first, then unknown, then the rest; registry order within each.
-	rank := func(x compDeviceRow) int {
-		switch {
-		case !x.Scored:
-			return 5
-		case x.Result.State == db.ComplianceFail && x.Result.Level == db.ComplianceRequired:
-			return 0
-		case x.Result.State == db.ComplianceFail:
-			return 1
-		case x.Result.State == db.ComplianceUnknown:
-			return 2
-		case x.Result.State == db.CompliancePass:
-			return 3
+	// K3 (picked 16 Oct): one sentence that says where the device stands, then the checks
+	// as a checklist in registry order; the detail of each is on hover.
+	var reqFails, recFails []string
+	for _, x := range rows {
+		if !x.Scored || x.Result.State != db.ComplianceFail {
+			continue
 		}
-		return 4
+		what := x.Name
+		if d := x.Result.Detail; d != "" {
+			what += " (" + strings.ToLower(d[:1]) + d[1:] + ")"
+		}
+		if x.Result.Level == db.ComplianceRequired {
+			reqFails = append(reqFails, what)
+		} else {
+			recFails = append(recFails, what)
+		}
 	}
-	sort.SliceStable(rows, func(i, j int) bool { return rank(rows[i]) < rank(rows[j]) })
+	var lines []string
+	if len(reqFails) > 0 {
+		lines = append(lines, "Fails: "+strings.Join(reqFails, ", ")+".")
+	}
+	switch len(recFails) {
+	case 0:
+	case 1:
+		lines = append(lines, "One recommended fix: "+recFails[0]+".")
+	default:
+		lines = append(lines, "Recommended fixes: "+strings.Join(recFails, ", ")+".")
+	}
+	if unknown > 0 {
+		why := "its client does not report them"
+		if !device.IsDPC() && firmwareLine(device.BuildID) == "2.0" {
+			why = "its client does not report them until its firmware is on v2.1"
+		}
+		lines = append(lines, fmt.Sprintf("%d check%s can't be measured: %s.", unknown, map[bool]string{true: "s", false: ""}[unknown != 1], why))
+	}
+	if len(lines) == 0 {
+		lines = append(lines, "Every check it can be measured on passes.")
+	}
 	h.renderCachedHTML(w, r, "device-compliance", h.withRole(r, map[string]any{
 		"Device":    device,
 		"Rows":      rows,
 		"Scored":    len(rs) > 0,
 		"Compliant": compliant,
+		"Lines":     lines,
 		"Fails":     fails,
 		"Warns":     warns,
 		"Unknown":   unknown,

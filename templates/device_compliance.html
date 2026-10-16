@@ -1,45 +1,40 @@
 {{define "device-compliance"}}
+{{/* The device page's Compliance tab (K3, picked 16 Oct): one sentence on where the
+     device stands, then the checks as a two-column checklist. Each check's level, what
+     was seen and since when are on hover. */}}
 <style>
 .dco{padding:4px 0}
-.dco-head{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:14px;margin-bottom:12px;background:var(--surface);border:1px solid var(--border)}
-.dco-head b{font-size:14.5px;font-weight:700}
-.dco-head span{font-size:12.5px;color:var(--muted)}
-.dco-head a{margin-left:auto}
-.dco-head .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ok)}
-.dco-head.bad .dot{background:var(--danger)}.dco-head.none .dot{background:var(--text-faint)}
-.dco-list{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:4px 16px}
-.dco-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:12px;align-items:start;padding:10px 0;border-top:1px solid var(--border-soft);font-size:13px}
-.dco-row:first-child{border-top:0}
-.dco-st{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:800;margin-top:1px}
-.dco-st.pass{background:var(--ok-bg);color:var(--ok)}.dco-st.fail{background:var(--danger-bg);color:var(--danger)}
-.dco-st.warn{background:var(--warn-bg);color:var(--warn)}.dco-st.unknown,.dco-st.na,.dco-st.off{background:var(--surface2);color:var(--muted)}
-.dco-row b{font-weight:650;color:var(--text)}
-.dco-row small{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
-.dco-row small a{color:var(--accent-text)}
-.dco-r{text-align:right;font-size:12px;color:var(--muted);white-space:nowrap}
-.dco-lv{display:inline-block;font-size:10.5px;font-weight:700;border-radius:6px;padding:2px 7px;margin-bottom:3px}
-.dco-lv.required{background:var(--danger-bg);color:var(--danger)}.dco-lv.recommended{background:var(--warn-bg);color:var(--warn)}
+.dco-say{padding:14px 16px;border-radius:14px;background:var(--surface);border:1px solid var(--border);margin-bottom:12px;font-size:13.5px;line-height:1.6;color:var(--text-2);display:flex;gap:12px;align-items:flex-start}
+.dco-say b{color:var(--text);font-weight:700}
+.dco-say .dot{width:10px;height:10px;border-radius:50%;flex:none;margin-top:6px;background:var(--ok)}
+.dco-say.bad .dot{background:var(--danger)}.dco-say.none .dot{background:var(--text-faint)}
+.dco-say a.r{margin-left:auto;flex:none}
+.dco-list{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 16px;column-count:2;column-gap:22px}
+.dco-it{break-inside:avoid;display:flex;gap:8px;align-items:baseline;font-size:13px;line-height:1.5;padding:5px 0;color:var(--text-2);cursor:default}
+.dco-it i{font-style:normal;font-weight:800;width:14px;flex:none;text-align:center}
+.dco-it.pass i{color:var(--ok)}.dco-it.fail i{color:var(--danger)}.dco-it.warn i{color:var(--warn)}.dco-it.unknown i,.dco-it.na i,.dco-it.off i{color:var(--muted)}
+.dco-it.fail,.dco-it.warn{color:var(--text);font-weight:600}
+.dco-it.off{opacity:.55}
+.dco-key{font-size:11.5px;color:var(--muted);margin:8px 2px 0;display:flex;gap:14px;flex-wrap:wrap}
+.dco-key b{font-weight:800}
 </style>
 <div class="dco">
   {{if .Scored}}
-  <div class="dco-head{{if not .Compliant}} bad{{end}}"><i class="dot" aria-hidden="true"></i>
-    <div><b>{{if .Compliant}}Compliant{{else}}Not compliant{{end}}</b>
-      <span>{{if .Fails}} · {{.Fails}} required check{{if ne .Fails 1}}s{{end}} failing{{end}}{{if .Warns}} · {{.Warns}} recommended{{end}}{{if .Unknown}} · {{.Unknown}} not reported by its client{{end}}</span></div>
-    <a class="cc-btn sm" href="/compliance/rules">Rules</a>
+  <div class="dco-say{{if not .Compliant}} bad{{end}}"><i class="dot" aria-hidden="true"></i>
+    <div><b>{{if .Compliant}}Compliant.{{else}}Not compliant.{{end}}</b>{{range .Lines}} {{.}}{{end}}{{if canAdmin .Role}}{{range .Rows}}{{if and (eq .ID "wireless_adb_off") .Scored (eq .Result.State "fail")}} <a href="#settings" onclick="setDeviceTab('settings', document.getElementById('dd-tab-settings')); return false;">Change wireless adb in Settings</a>.{{end}}{{end}}{{end}}</div>
+    <a class="cc-btn sm r" href="/compliance/rules">Rules</a>
   </div>
   {{else}}
-  <div class="dco-head none"><i class="dot" aria-hidden="true"></i><div><b>{{if .Device.RestaurantID}}Not scored yet{{else}}Not checked{{end}}</b><span>{{if .Device.RestaurantID}} · devices are checked every minute{{else}} · only devices at a venue are held to the compliance rules{{end}}</span></div><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
+  <div class="dco-say none"><i class="dot" aria-hidden="true"></i><div><b>{{if .Device.RestaurantID}}Not scored yet.{{else}}Not checked.{{end}}</b> {{if .Device.RestaurantID}}Devices are checked every minute.{{else}}Only devices at a venue are held to the compliance rules.{{end}}</div><a class="cc-btn sm r" href="/compliance/rules">Rules</a></div>
   {{end}}
+  {{if .Scored}}
   <div class="dco-list">
     {{range .Rows}}
     {{$st := "off"}}{{if .Scored}}{{$st = .Result.State}}{{if and (eq .Result.State "fail") (eq .Result.Level "recommended")}}{{$st = "warn"}}{{end}}{{end}}
-    <div class="dco-row">
-      <span class="dco-st {{$st}}" aria-label="{{$st}}">{{if eq $st "pass"}}✓{{else if or (eq $st "fail") (eq $st "warn")}}!{{else if eq $st "unknown"}}?{{else}}–{{end}}</span>
-      <div><b>{{.Name}}</b>
-        <small>{{if not .Scored}}Off for this device{{else if eq .Result.State "na"}}Not applicable: {{.Result.Detail}}{{else if eq .Result.State "unknown"}}{{.Result.Detail}}{{else}}{{.Result.Detail}}{{end}}{{if and (eq .ID "wireless_adb_off") (canAdmin $.Role)}} · <a href="#settings" onclick="setDeviceTab('settings', document.getElementById('dd-tab-settings')); return false;">Change in Settings</a>{{end}}</small></div>
-      <div class="dco-r">{{if .Scored}}<span class="dco-lv {{.Result.Level}}">{{if eq .Result.Level "required"}}Required{{else}}Recommended{{end}}</span><br>{{if or (eq .Result.State "fail") (eq .Result.State "pass")}}since <span class="reltime" data-ts="{{.Result.Since.Unix}}"></span>{{end}}{{end}}</div>
-    </div>
+    <div class="dco-it {{$st}}" title="{{if .Scored}}{{if eq .Result.Level "required"}}Required{{else}}Recommended{{end}} · {{if eq .Result.State "na"}}not applicable: {{end}}{{.Result.Detail}}{{if or (eq .Result.State "pass") (eq .Result.State "fail")}} · since {{.Result.Since.Format "2 Jan 15:04"}}{{end}}{{else}}Off for this device{{end}}"><i aria-hidden="true">{{if eq $st "pass"}}✓{{else if or (eq $st "fail") (eq $st "warn")}}!{{else if eq $st "unknown"}}?{{else}}–{{end}}</i>{{.Name}}</div>
     {{end}}
   </div>
+  <div class="dco-key"><span><b style="color:var(--ok)">✓</b> passes</span><span><b style="color:var(--danger)">!</b> fails</span><span><b>?</b> not reported</span><span><b>–</b> not applicable or off</span><span>Hover a check for what was seen.</span></div>
+  {{end}}
 </div>
 {{end}}
