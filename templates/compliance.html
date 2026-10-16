@@ -54,7 +54,7 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
 </style>
 <div class="cp-wrap">
   <div class="cp-head">
-    <h1>Compliance</h1>
+    <h1>Compliance</h1><span class="cp-mu" style="font-size:12.5px;margin-top:6px">devices at a venue</span>
     <div class="r"><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
   </div>
   <nav class="cp-tabs" aria-label="Compliance views">
@@ -67,7 +67,7 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
     <div class="cc-card cp-kpi big"><b class="{{if ge .Pct 90}}cp-ok{{else if ge .Pct 70}}cp-wa{{else}}cp-bad{{end}}">{{.Pct}}%</b><span>of {{.InScope}} device{{if ne .InScope 1}}s{{end}} meet every required check</span></div>
     <a class="cc-card cp-kpi" href="/compliance?tab=devices&amp;show=failing" style="text-decoration:none"><b class="{{if .Failing}}cp-bad{{end}}">{{.Failing}}</b><span>failing a required check</span></a>
     <div class="cc-card cp-kpi" title="Their client reports none of the device checks (v2.0 images): only the server's checks apply."><b>{{.Partly}}</b><span>partly measurable: server checks only</span></div>
-    <a class="cc-card cp-kpi" href="/compliance?tab=devices&amp;show=recommended" style="text-decoration:none"><b>{{.RecOnly}}</b><span>held to recommendations only (lab, no venue)</span></a>
+    <a class="cc-card cp-kpi" href="/compliance?tab=devices&amp;show=recommended" style="text-decoration:none"><b>{{.RecOnly}}</b><span>held to recommendations only (in a lab session)</span></a>
   </div>
 
   {{if eq .Tab "checks"}}
@@ -85,7 +85,7 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
       <div class="cp-devs">
         {{if .Failing}}
         {{range $i, $f := .Failing}}{{if lt $i 12}}
-        <div class="cp-dev"><a href="/devices/{{$f.Serial}}">{{$f.Serial}}</a><span>{{$f.Detail}}</span><span>{{if $f.Venue}}{{$f.Venue}}{{else}}<span class="cp-mu">no venue</span>{{end}}</span><span class="s">since <span class="reltime" data-ts="{{$f.Since.Unix}}"></span></span></div>
+        <div class="cp-dev"><a href="/devices/{{$f.Serial}}">{{$f.Serial}}</a><span>{{$f.Detail}}</span><span>{{$f.Venue}}</span><span class="s">since <span class="reltime" data-ts="{{$f.Since.Unix}}"></span></span></div>
         {{end}}{{end}}
         <a class="cp-more" href="/compliance?tab=devices&amp;show=all&amp;check={{.ID}}">{{if gt (len .Failing) 12}}All {{len .Failing}} devices{{else}}Show in Devices{{end}} →</a>
         {{else}}
@@ -134,7 +134,7 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
       {{range .List}}
       <tr>
         <td><a class="mono" href="/devices/{{.Serial}}"><b>{{.Serial}}</b></a></td>
-        <td>{{if .Venue}}{{.Venue}}{{else}}<span class="cp-mu">no venue</span>{{end}}</td>
+        <td>{{.Venue}}</td>
         <td><div class="cp-chips">{{range .Fails}}<span class="cp-chip" title="{{.Detail}}">{{.Name}}</span>{{end}}{{range .Warns}}<span class="cp-chip w" title="{{.Detail}} (recommended)">{{.Name}}</span>{{end}}{{if and (not .Fails) (not .Warns)}}<span class="cp-mu">{{if .Partly}}server checks pass; device checks not reported{{else if .Unknown}}{{.Unknown}} unknown{{else}}nothing{{end}}</span>{{end}}</div></td>
         <td>{{if not .Since.IsZero}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{else}}<span class="cp-mu">—</span>{{end}}</td>
       </tr>

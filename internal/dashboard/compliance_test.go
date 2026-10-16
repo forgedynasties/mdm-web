@@ -67,7 +67,6 @@ func TestComplianceServerChecks(t *testing.T) {
 		{"checked_in", cur, db.CompliancePass},
 		{"locked", old, db.ComplianceFail},
 		{"locked", cur, db.CompliancePass},
-		{"has_venue", old, db.ComplianceFail},
 		{"own_key", cur, db.ComplianceFail},
 	}
 	for _, tc := range cases {
@@ -93,7 +92,6 @@ func TestComplianceResolution(t *testing.T) {
 			{ScopeType: "lab", Cap: db.ComplianceRecommended},
 			{ScopeType: "group", ScopeID: &group, Checks: map[string]db.ComplianceSetting{"adb_off": {Level: db.ComplianceOff}}},
 			{ScopeType: "venue", ScopeID: &venue, Checks: map[string]db.ComplianceSetting{"checked_in": {Param: 2}}},
-			{ScopeType: "unassigned", Cap: db.ComplianceRecommended},
 		},
 	}
 	atVenue := &db.Device{RestaurantID: &venue}
@@ -109,8 +107,8 @@ func TestComplianceResolution(t *testing.T) {
 	if set, _ := r.settingFor(adb, atVenue, db.DeviceScope{Groups: []uuid.UUID{group}}, false); set.Level != db.ComplianceOff {
 		t.Errorf("adb in the group: %+v, want off", set)
 	}
-	if set, _ := r.settingFor(adb, &db.Device{}, db.DeviceScope{}, false); set.Level != db.ComplianceRecommended {
-		t.Errorf("adb with no venue: %+v, want recommended", set)
+	if set, _ := r.settingFor(adb, &db.Device{}, db.DeviceScope{}, false); set.Level != db.ComplianceRequired {
+		t.Errorf("adb with no override covering it: %+v, want the baseline's required", set)
 	}
 }
 
@@ -124,5 +122,20 @@ func TestComplianceVerdict(t *testing.T) {
 	v := compCompliant(res)
 	if !v[a] || v[b] {
 		t.Errorf("verdict %v: unknown and recommended failures must not break compliance; a required failure must", v)
+	}
+}
+
+// Devices with no venue are not scored at all (15 Oct).
+func TestComplianceVenueOnly(t *testing.T) {
+	venue := uuid.New()
+	s := &compSnapshot{now: time.Now(), lock: map[uuid.UUID]string{}, ownKey: map[uuid.UUID]bool{},
+		devices: []db.Device{{ID: uuid.New(), RestaurantID: &venue}, {ID: uuid.New()}}}
+	res := compEvaluate(s, compRules{})
+	seen := map[uuid.UUID]bool{}
+	for k := range res {
+		seen[k.DeviceID] = true
+	}
+	if !seen[s.devices[0].ID] || seen[s.devices[1].ID] {
+		t.Errorf("scored %v; want only the device at a venue", seen)
 	}
 }
