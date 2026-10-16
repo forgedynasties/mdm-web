@@ -585,10 +585,10 @@
     <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "enrollment")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path d="M7.2 16.5h3"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="2.5" y="4.5" width="12.5" height="15" rx="2"/><rect class="fill" x="16.5" y="8.5" width="5" height="11" rx="1.4"/><path class="cut" d="M7.2 16.5h3"/></svg><span class="dock-live dock-ring" hidden></span></span><span class="dock-lbl">Fleet</span></a>
     <a href="/restaurants" class="nav-link js-dest{{if eq .ActivePage "restaurants"}} active{{end}}" data-cmdk-label="Venues"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle class="cut" cx="12" cy="10" r="2.4"/></svg></span><span class="dock-lbl">Venues</span></a>
     <a href="/lineup" class="nav-link js-dest{{if eq .ActivePath "/lineup"}} active{{end}}" data-cmdk-label="Lineup"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></span><span class="dock-lbl">Lineup</span></a>
+    {{if canAdminOrOperator .Role}}<a href="/rollouts" class="nav-link js-dest{{if eq .ActivePage "updates"}} active{{end}}" data-cmdk-label="Rollouts"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Rollouts</span></a>{{end}}
     <a href="/compliance" class="nav-link js-dest{{if eq .ActivePage "compliance"}} active{{end}}" data-cmdk-label="Compliance"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12.2 2.3 2.3 4.4-4.6"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><path class="fill" d="M12 3 4.5 6v5.5c0 4.6 3.2 8.4 7.5 9.5 4.3-1.1 7.5-4.9 7.5-9.5V6z"/><path d="m8.8 12.2 2.3 2.3 4.4-4.6"/></svg></span><span class="dock-lbl">Compliance</span></a>
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
-    {{if eq .ActivePage "updates"}}{{template "nav-updates" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{/* The search field: devices, restaurants, pages and actions, the same ⌘K palette. */}}
     {{if ne .Role "owner"}}<button type="button" class="dock-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices, restaurants and pages" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></button>{{end}}
@@ -648,7 +648,9 @@
         <div class="t">Firmware</div>
         <a class="js-dest{{if eq .ActivePath "/lineup"}} on{{end}}" href="/lineup" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Lineup">Lineup</a>
         <a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="App library">App library</a>
-        {{if canAdminOrOperator .Role}}<a class="js-dest{{if or (eq .ActivePath "/rollouts") (or (eq .ActivePath "/releases") (eq .ActivePath "/packages"))}} on{{end}}" href="/rollouts" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Rollouts">Rollouts</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/rollouts"}} on{{end}}" href="/rollouts" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Rollouts">Rollouts</a>{{end}}
+        {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Firmware" data-cmdk-label="Releases">Releases</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Packages">Packages</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
@@ -841,7 +843,7 @@
     var GROUPS = {
       // Venues has its own dock entry now, so /restaurants is not Fleet's.
       '/devices': ['/groups', '/enrollment'],
-      '/lineup': ['/releases'],
+      '/rollouts': ['/updates', '/packages', '/releases'],
     };
     function owns(href, path) {
       if (href === '/') return path === '/';
@@ -1155,7 +1157,7 @@
       if (h === '/') d = (p === '/');
       else d = (p === h || p.indexOf(h + '/') === 0);
       if (!d && h === '/devices') g = /^\/(groups|enrollment)(\/|$)/.test(p);
-      if (!d && h === '/lineup') g = /^\/releases(\/|$)/.test(p);
+      if (!d && h === '/rollouts') g = /^\/(releases|packages|updates)(\/|$)/.test(p);
       a.classList.toggle('active', d || g);
       if (d) direct.push(a); else if (g) grouped.push(a);
     });
@@ -3539,17 +3541,5 @@
 {{/* The three firmware views as this page's own rail: they were separate nav entries
      that each rendered part of the others' job. A child rail states the relationship in
      the same vocabulary every other page uses. */}}
-{{define "rollout-tabs"}}
-<style>
-  .rt-tabs{display:flex;gap:4px;margin:0 0 16px;border-bottom:1px solid var(--border);padding-bottom:0}
-  .rt-tabs a{font-size:13px;font-weight:650;color:var(--text-2);text-decoration:none;padding:8px 14px;
-    border-radius:9px 9px 0 0;border:1px solid transparent;border-bottom:0;position:relative;top:1px}
-  .rt-tabs a:hover{color:var(--text)}
-  .rt-tabs a.on{background:var(--surface);border-color:var(--border);color:var(--text)}
-</style>
-<div class="rt-tabs" role="navigation" aria-label="Firmware">
-  <a href="/rollouts" class="{{if or (eq .ActivePath "/rollouts") (eq .ActivePath "/updates")}}on{{end}}">Updates</a>
-  <a href="/releases" class="{{if eq .ActivePath "/releases"}}on{{end}}">Releases</a>
-  {{if canAdmin .Role}}<a href="/packages" class="{{if eq .ActivePath "/packages"}}on{{end}}">Packages</a>{{end}}
-</div>
-{{end}}
+{{define "rollout-tabs"}}{{/* Rollouts, Releases and Packages lost their shared tab strip on 16 Oct:
+     Rollouts is in the dock, Releases and Packages are in More. */}}{{end}}
