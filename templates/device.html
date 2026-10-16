@@ -859,7 +859,8 @@ if (!window.__ddNotesHook) {
         var ps = document.getElementById('pad-status');
         if (ps && !v) { ps.className = 'pad-stat pad-stat-na'; var t = ps.querySelector('.pad-txt'); if (t) t.textContent = 'Not available'; }
         if (!v && window.ddPadChip) window.ddPadChip('na');
-        document.querySelectorAll('.vc-sw').forEach(function (sw) { sw.setAttribute('aria-checked', v ? 'true' : 'false'); });
+        document.querySelectorAll('.wlc-seg button').forEach(function (b) { b.setAttribute('aria-pressed', (b.value === '1') === v ? 'true' : 'false'); });
+        var wt = document.getElementById('wlc-row-st'); if (wt) wt.textContent = v ? 'pad is on' : 'pad is off';
       };
       apply(next); // optimistic
       btn.disabled = true;
@@ -3793,6 +3794,27 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="dd-vcols" id="device-vitals-cols" data-diff-guard data-morph
            hx-get="/devices/{{.Device.SerialNumber}}/vitals?cols=1" hx-select="unset"
            hx-trigger="device-updated from:body, every 300s" hx-target="this" hx-swap="innerHTML">{{template "device-vitals-cols" .}}</div>
+      {{/* Wireless charging (C1, picked 16 Oct): its own labelled On / Off row under the
+           columns; the Pad column is only a reading. Both buttons go through #wlc-chip. */}}
+      {{if .PadState}}{{$padOn := ne .PadState "na"}}{{$canPad := canAdminOrOperator .Role}}
+      <div class="ddc-kv wlc-row"><span class="k">Wireless charging</span><span class="v">
+        <span class="wlc-seg{{if not $canPad}} role-locked{{end}}" role="group" aria-label="Wireless charging"{{if not $canPad}} title="Requires the operator role" data-role-need="operator"{{end}}>
+          <button type="button" value="1" aria-pressed="{{if $padOn}}true{{else}}false{{end}}"{{if $canPad}} onclick="if (this.getAttribute('aria-pressed') !== 'true') { var c = document.getElementById('wlc-chip'); if (c) c.click(); }"{{end}}>On</button><button type="button" value="0" aria-pressed="{{if $padOn}}false{{else}}true{{end}}"{{if $canPad}} onclick="if (this.getAttribute('aria-pressed') !== 'true') { var c = document.getElementById('wlc-chip'); if (c) c.click(); }"{{end}}>Off</button>
+        </span>
+        <span class="muted small" id="wlc-row-st">{{if eq .PadState "on"}}charging the phone{{else if eq .PadState "vacant"}}no phone on it{{else if eq .PadState "flapping"}}misplaced, place it again{{else if eq .PadState "na"}}pad is off{{else}}pad unreadable{{end}}</span>
+      </span></div>
+      <style>
+      .wlc-row{grid-column:1/-1}
+      .wlc-row{display:flex;align-items:center;gap:14px}
+      .wlc-row .v{flex:1;display:flex;align-items:center;gap:12px;justify-content:flex-start}
+      .wlc-row #wlc-row-st{margin-left:auto;font-weight:500}
+      .wlc-seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--surface-2,var(--hover));border:1px solid var(--border)}
+      .wlc-seg button{font:inherit;font-size:12px;font-weight:650;padding:3px 12px;border:0;border-radius:7px;background:none;color:var(--text-2);cursor:pointer}
+      .wlc-seg button[aria-pressed=true]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+      .wlc-seg button[value="1"][aria-pressed=true]{color:var(--ok)}
+      .wlc-seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+      </style>
+      {{end}}
       <div class="dd-hwkv">
       {{$ram := ramUsage .Device.LatestExtra}}
       <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
@@ -4664,12 +4686,6 @@ html.dd-fit .dd-split-r{padding-right:4px}
 .vc[role=button]{cursor:pointer;border-radius:10px;margin:-4px;padding:4px;transition:background .12s}
 .vc[role=button]:hover,.vc[role=button]:focus-visible{background:var(--surface2)}
 .vc[role=button]:hover .vc-tube{background:var(--surface)}
-/* W1 (16 Oct): the pad's wireless-charging switch, in its column. */
-.vc.k-pad{grid-template-columns:10px 1fr auto;align-items:center}
-.vc-sw{position:relative;width:34px;height:20px;border-radius:10px;border:0;padding:0;background:var(--border);cursor:pointer;flex:none;transition:background .15s}
-.vc-sw::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
-.vc-sw[aria-checked=true]{background:var(--ok)}.vc-sw[aria-checked=true]::after{left:16px}
-.vc-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .vc-go{display:inline-block;width:12px;height:12px;margin-left:3px;vertical-align:1px;fill:none;stroke:var(--text-faint);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
 .vc[role=button]:hover .vc-go{stroke:var(--accent-text)}
 .vc-tube{height:64px;border-radius:7px;background:var(--surface2);position:relative;overflow:hidden}
@@ -6096,4 +6112,4 @@ document.addEventListener('keydown', function (e) {
 </div>
 {{end}}
 
-{{define "device-vitals-cols"}}<div class="vc-row">{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}} k-{{.Key}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{else if eq .Key "pad"}} role="button" tabindex="0" onclick="event.stopPropagation(); var c = document.getElementById('pad-chip'); if (c) c.click()" title="Charging pad"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}{{if or (eq .Key "wifi") (eq .Key "pad")}}<svg class="vc-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{{end}}</div><small>{{.Label}} · {{.Sub}}</small></div>{{if eq .Key "pad"}}{{$padOn := ne $.PadState "na"}}<button type="button" role="switch" class="vc-sw{{if not (canAdminOrOperator $.Role)}} role-locked{{end}}" aria-checked="{{if $padOn}}true{{else}}false{{end}}" aria-label="Wireless charging"{{if canAdminOrOperator $.Role}} title="Switch wireless charging {{if $padOn}}off{{else}}on{{end}}" onclick="event.stopPropagation(); var c = document.getElementById('wlc-chip'); if (c) c.click()"{{else}} title="Requires the operator role" data-role-need="operator" onclick="event.stopPropagation()"{{end}}></button>{{end}}</div>{{end}}</div>{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
+{{define "device-vitals-cols"}}<div class="vc-row">{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}} k-{{.Key}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}{{if eq .Key "wifi"}}<svg class="vc-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{{end}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}</div>{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
