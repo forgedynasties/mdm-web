@@ -2233,14 +2233,14 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 // see the Cache-Control comment below for why this can't just apply everywhere.
 var prefetchableTemplates = map[string]bool{
 	"overview.html": true, "devices.html": true, "health.html": true,
-	"commands.html": true, "updates.html": true,
+	"commands.html": true, "releases.html": true, "compliance.html": true,
 	// Child-rail destinations: moving within a section is the most common
 	// navigation in the dashboard, and the rail warms the next page on hover.
 	"alerts.html": true, "alert_config.html": true, "report_alerts.html": true,
 	"apps.html": true, "app_detail.html": true, "jobs.html": true,
 	"command_history.html": true, "manage.html": true,
 	"enrollment.html": true, "groups.html": true, "restaurants.html": true,
-	"settings.html": true, "updates_rollouts.html": true, "releases.html": true,
+	"settings.html": true,
 	"packages.html": true, "users.html": true, "activity.html": true,
 	"users_access.html": true,
 }
@@ -2296,7 +2296,7 @@ func (h *Handler) frequentPaths(r *http.Request) []string {
 	// Jobs left the dock on 15 Oct and is not to come back as a shortcut either; it
 	// stays in More.
 	paths, err := h.db.TopPagesForUser(r.Context(), user, 30*24*time.Hour, 10,
-		[]string{"/", "/devices", "/commands", "/alerts", "/jobs", "/rollouts", "/updates"})
+		[]string{"/", "/devices", "/commands", "/alerts", "/jobs", "/releases", "/rollouts", "/updates"})
 	if err != nil {
 		return nil
 	}
@@ -11633,11 +11633,21 @@ func visibleDeployments(role string, in []db.Update) []db.Update {
 	return out
 }
 
-func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
+// releaseVersions is the release catalogue as /rollouts lists it: every tracked release
+// and every version devices report without one (newest release first), the hidden ones
+// apart, and how many devices the fleet has.
+type releaseVersions struct {
+	Active, Hidden        []versionRow
+	Untracked             []string
+	Tracked, NotTracked   int
+	FleetTotal            int
+}
+
+// releaseVersionRows builds the catalogue (it was the body of the old Releases list).
+func (h *Handler) releaseVersionRows(r *http.Request) (releaseVersions, error) {
 	releases, err := h.db.ListReleases(r.Context())
 	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+		return releaseVersions{}, err
 	}
 	// Dev releases are invisible outside dev/admin: a build a device happens to
 	// report still shows as an untracked version, which is honest — the fleet is
@@ -11854,154 +11864,8 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		hidden = nil
 	}
 	fleetTotal, _ := h.db.CountDevices(r.Context(), db.DeviceFilter{})
-
-	// Hub: the release currently under test drives the focus band, and every problem
-	// across all releases drives the "all problems at a glance" board.
-	activeRel, _ := h.db.ActiveRelease(r.Context())
-	var activeQA db.QASummary
-	var activeProblems db.ProblemSummary
-	activeCarried := 0
-	if activeRel != nil {
-		activeQA, _ = h.db.ReleaseQASummary(r.Context(), activeRel.ID)
-		activeProblems, _ = h.db.ReleaseProblemSummary(r.Context(), activeRel.ID)
-		if carried, err := h.db.CarriedForwardProblems(r.Context(), activeRel.ID); err == nil {
-			activeCarried = len(carried)
-		}
-	}
-	problemBoard, _ := h.db.ListProblemBoard(r.Context())
-	globalProblems, _ := h.db.GlobalProblemSummary(r.Context())
-
-	// Map release id → version to resolve merge relationships for the timeline.
-	verByID := make(map[int]string, len(releases))
-	for _, rel := range releases {
-		verByID[rel.ID] = rel.Version
-	}
-	// Release train: the mainline timeline — visible (non-hidden), non-branch builds
-	// including the current draft, most recent 6, shown oldest→newest. `releases` is
-	// newest-first. A merged branch shows which mainline release it merged into.
-	var trainRels []db.Release
-	for _, rel := range releases {
-		if rel.Hidden || rel.IsBranch {
-			continue
-		}
-		trainRels = append(trainRels, rel)
-		if len(trainRels) == 6 {
-			break
-		}
-	}
-	// Branch forks hang off their parent node in the timeline; a merged branch also
-	// carries the version it merged into so the graph can show the merge back to main.
-	trainChildren := map[int][]map[string]any{}
-	for _, rel := range releases {
-		if !rel.IsBranch || rel.ParentReleaseID == nil || rel.Hidden {
-			continue
-		}
-		pid := *rel.ParentReleaseID
-		mergedInto := ""
-		if rel.MergedIntoReleaseID != nil {
-			mergedInto = verByID[*rel.MergedIntoReleaseID]
-		}
-		trainChildren[pid] = append(trainChildren[pid], map[string]any{
-			"ID": rel.ID, "Version": rel.Version, "Name": rel.Name, "Status": rel.Status,
-			"MergedInto": mergedInto, "Merged": mergedInto != "",
-		})
-	}
-	var releaseTrain []map[string]any
-	for i := len(trainRels) - 1; i >= 0; i-- {
-		rel := trainRels[i]
-		mergedFrom := ""
-		if rel.MergedFromReleaseID != nil {
-			mergedFrom = verByID[*rel.MergedFromReleaseID]
-		}
-		releaseTrain = append(releaseTrain, map[string]any{
-			"ID":          rel.ID,
-			"Version":     rel.Version,
-			"Name":        rel.Name,
-			"Status":      rel.Status,
-			"SignedOffBy": rel.SignedOffBy,
-			"Open":        problemsByRelease[rel.ID].Open,
-			"Active":      activeRel != nil && activeRel.ID == rel.ID,
-			"Branches":    trainChildren[rel.ID],
-			"MergedFrom":  mergedFrom,
-		})
-	}
-
-	// KPI strip counts (releases.html cc-kpis): published / draft / under-test tracked
-	// releases in the current (product-filtered) view, plus the newest published
-	// release's fleet adoption for the page verdict headline.
-	publishedCount, draftCount, underTestCount, devCount := 0, 0, 0, 0
-	latestPublishedPct := 0
-	for _, v := range active {
-		if !v.Tracked {
-			continue
-		}
-		if v.IsDev {
-			devCount++
-		}
-		switch v.Status {
-		case "published":
-			publishedCount++
-			if latestPublishedPct == 0 && v.ReleasedAt != nil && fleetTotal > 0 {
-				latestPublishedPct = v.DeviceCount * 100 / fleetTotal
-			}
-		case "draft":
-			draftCount++
-		}
-		if !v.TestingDone {
-			underTestCount++
-		}
-	}
-
-	data := map[string]any{
-		"Title":              "Releases",
-		"Versions":           active,
-		"HiddenReleases":     hidden,
-		"UntrackedBuilds":    untrackedBuilds,
-		"TrackedCount":       trackedCount,
-		"NotTrackedCount":    notTrackedCount,
-		"PublishedCount":     publishedCount,
-		"DraftCount":         draftCount,
-		"UnderTestCount":     underTestCount,
-		"DevCount":           devCount,
-		"LatestPublishedPct": latestPublishedPct,
-		"FleetTotal":         fleetTotal,
-		"ActiveRelease":      activeRel,
-		"ActiveQA":           activeQA,
-		"ActiveProblems":     activeProblems,
-		"ActiveCarried":      activeCarried,
-		"ProblemBoard":       problemBoard,
-		"GlobalProblems":     globalProblems,
-		"ReleaseTrain":       releaseTrain,
-		"Graph":              buildReleaseGraph(releases),
-		"Products":           h.releaseProductFilters(r.Context()),
-		"FilterProduct":      r.URL.Query().Get("product"),
-	}
-	// Live "OTA in progress" summary card — devices mid-OTA with their last-reported
-	// percent. The card polls itself (htmx) via ?partial=ota-progress.
-	activeOTA, _ := h.db.ActiveOTADevices(r.Context())
-	// Overlay the live in-memory OTA progress (updated on every ota_progress WS frame —
-	// verifying/finalizing land here in real time) over the lagging latest_extra copy.
-	for i := range activeOTA {
-		if p := h.shell.GetOTAProgress(activeOTA[i].DeviceID); p != nil {
-			if p.Phase != "" {
-				activeOTA[i].Phase = p.Phase
-			}
-			if p.Percent > 0 {
-				activeOTA[i].Percent = p.Percent
-			}
-			// A device whose live progress is flowing is actively downloading/installing,
-			// even if its update_devices row still reads "pending".
-			if activeOTA[i].Status == "pending" {
-				activeOTA[i].Status = "downloading"
-			}
-		}
-	}
-	data["ActiveOTA"] = activeOTA
-	if r.URL.Query().Get("partial") == "ota-progress" {
-		_ = h.tmpl.ExecuteTemplate(w, "ota-progress", h.withRole(r, data))
-		return
-	}
-	h.render(w, r, "releases.html", data)
+	return releaseVersions{Active: active, Hidden: hidden, Untracked: untrackedBuilds,
+		Tracked: trackedCount, NotTracked: notTrackedCount, FleetTotal: fleetTotal}, nil
 }
 
 // ── Release lineage graph ─────────────────────────────────────────────────────
@@ -13166,373 +13030,7 @@ func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", relID), http.StatusSeeOther)
 }
 
-// UpdatesHub renders the global Updates page: every deployment across releases with
-// its progress, plus a "new deployment" composer (admin/dev) that picks a published
-// release and its targets. Operators/operators can view the list but not deploy.
-// UpdatesHub is the combined Updates landing page: the releases we track and the
-// rollouts carrying them, side by side, because a release and its rollout are the
-// same story told twice. Legacy (otautil) rollouts join the same list, tagged, so
-// what is deploying reads in one place. Full lists live at /releases and
-// /updates/rollouts.
-func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	_ = h.db.CompleteSettledDeployments(ctx)
 
-	filterProduct := strings.TrimSpace(r.URL.Query().Get("product"))
-	productMatches := func(p string) bool {
-		if filterProduct == "" {
-			return true
-		}
-		want, _ := product.Resolve(filterProduct)
-		got, _ := product.Resolve(p)
-		return want.Key == got.Key
-	}
-
-	// ── rollouts: fleet deployments, newest first, with legacy ones merged in ──
-	deployments, _ := h.db.ListDeployments(ctx)
-	deployments = visibleDeployments(h.role(r), deployments)
-	type rolloutRow struct {
-		URL        string
-		Version    string
-		Product    string
-		Status     string
-		CreatedAt  time.Time
-		CreatedBy  string
-		Reboot     string
-		Legacy     bool
-		Total      int
-		Installed  int
-		Installing int
-		Failed     int
-		Progress   int // 0-100, the download half and the install half weighted equally
-	}
-
-	// A device's journey scores out of 100: the download is half the work and
-	// applying it is the other half. phaseScore folds in the live percent so a
-	// fleet 70% downloaded reads 35 and climbs, instead of sitting on a flat 25
-	// for the whole download and then jumping to done.
-	const (
-		pctDownloading = 25  // no live frame: assume partway through the first half
-		pctInstalling  = 75  // no live frame: downloaded, partway through the second
-		pctDone        = 100 // applied, with or without its reboot
-	)
-	phaseScore := func(phase string, pct int) int {
-		installing := phase == "installing" || phase == "verifying" || phase == "finalizing"
-		if pct < 0 || pct > 100 { // no live progress frame for this device
-			if installing {
-				return pctInstalling
-			}
-			return pctDownloading
-		}
-		if installing {
-			return 50 + pct/2
-		}
-		return pct / 2
-	}
-	// Live percents live in memory, not in update_devices, so pull every mid-flight
-	// target once and score them per rollout rather than per-rollout queries.
-	liveScore := map[int]int{}
-	if inflight, err := h.db.ListInProgressTargets(ctx); err == nil {
-		for _, t := range inflight {
-			phase, pct := t.Status, -1
-			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
-				pct = p.Percent
-				if p.Phase != "" {
-					phase = p.Phase
-				}
-			}
-			liveScore[t.UpdateID] += phaseScore(phase, pct)
-		}
-	}
-	// legacyScore is the same read for an otautil device, whose live state is keyed
-	// by serial and whose last reported percent is also persisted on the row.
-	legacyScore := func(dv db.LegacyDeploymentDevice) int {
-		phase, pct := dv.Status, -1
-		if st, ok := ota.Legacy.Get(dv.Serial); ok {
-			if st.Phase != "" {
-				phase = st.Phase
-			}
-			pct = st.Percent
-		} else if dv.Percent > 0 {
-			pct = dv.Percent
-		}
-		return phaseScore(phase, pct)
-	}
-	var rollouts []rolloutRow
-	rolloutsByID := map[int]int{}
-	active, installing, failed, installed := 0, 0, 0, 0
-	for _, d := range deployments {
-		if !productMatches(d.Product) {
-			continue
-		}
-		ver := ""
-		if d.Release != nil {
-			ver = d.Release.Version
-		}
-		pendingOrFailed := d.DeviceTotal - d.DeviceInstalled - d.DeviceDownloading - d.DeviceInstalling - d.DeviceAwaiting
-		_ = pendingOrFailed
-		row := rolloutRow{
-			URL:       fmt.Sprintf("/releases/%d/deployments/%d", d.ReleaseID, d.ID),
-			Version:   ver,
-			Product:   d.Product,
-			Status:    d.Status,
-			CreatedAt: d.CreatedAt,
-			CreatedBy: d.CreatedBy,
-			Reboot:    d.RebootBehavior,
-			Total:     d.DeviceTotal, Installed: d.DeviceInstalled,
-			Installing: d.DeviceDownloading + d.DeviceInstalling, Failed: d.DeviceFailed,
-		}
-		// Weighted score, in points out of 100 per device; divided by the target count
-		// below once the legacy half has been folded in.
-		row.Progress = (d.DeviceInstalled+d.DeviceAwaiting)*pctDone + liveScore[d.ID]
-		rolloutsByID[d.ID] = len(rollouts)
-		rollouts = append(rollouts, row)
-		if d.Status == "active" {
-			active++
-		}
-		installing += d.DeviceDownloading
-		failed += d.DeviceFailed
-		installed += d.DeviceInstalled
-	}
-	// Legacy rollouts carry no product of their own — they are T7 builds by
-	// definition — so they show unless another product is being filtered for.
-	legacyByUpdate := map[int]db.LegacyDeployment{}
-	if legacy, err := h.db.ListLegacyDeployments(ctx); err == nil && productMatches("t7") {
-		for _, d := range legacy {
-			// Part of a fleet deployment: its devices belong to that rollout's row.
-			if d.UpdateID != nil {
-				legacyByUpdate[*d.UpdateID] = d
-				continue
-			}
-			ld := rolloutRow{
-				URL: fmt.Sprintf("/updates/legacy/deployments/%d", d.ID), Version: d.ReleaseVersion, Product: d.ReleaseProduct,
-				Status: d.Status, CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy,
-				Legacy: true, Total: d.Total, Installed: d.Installed, Failed: d.Failed,
-			}
-			for _, dev := range d.Devices {
-				switch dev.Status {
-				case "installed", "awaiting_reboot":
-					ld.Progress += pctDone
-				case "installing", "verifying", "finalizing":
-					ld.Progress += legacyScore(dev)
-					ld.Installing++
-				case "offered", "downloading":
-					ld.Progress += legacyScore(dev)
-					ld.Installing++
-				}
-			}
-			if ld.Total > 0 {
-				ld.Progress /= ld.Total
-			}
-			rollouts = append(rollouts, ld)
-			if d.Status == "active" {
-				active++
-			}
-			installing += ld.Installing
-			failed += ld.Failed
-			installed += ld.Installed
-		}
-	}
-	// Fold each linked legacy half into its deployment's row: one push, one line.
-	for updID, d := range legacyByUpdate {
-		i, ok := rolloutsByID[updID]
-		if !ok {
-			continue
-		}
-		rollouts[i].Legacy = true
-		rollouts[i].Total += d.Total
-		rollouts[i].Installed += d.Installed
-		rollouts[i].Failed += d.Failed
-		installed += d.Installed
-		failed += d.Failed
-		for _, dev := range d.Devices {
-			switch dev.Status {
-			case "installed":
-				rollouts[i].Progress += pctDone
-			case "awaiting_reboot":
-				rollouts[i].Progress += pctDone
-			case "installing", "verifying", "finalizing":
-				rollouts[i].Progress += legacyScore(dev)
-				rollouts[i].Installing++
-				installing++
-			case "offered", "downloading":
-				rollouts[i].Progress += legacyScore(dev)
-				rollouts[i].Installing++
-				installing++
-			}
-		}
-	}
-	for i := range rollouts {
-		if rollouts[i].Total > 0 {
-			rollouts[i].Progress /= rollouts[i].Total
-		}
-	}
-	sort.SliceStable(rollouts, func(i, j int) bool { return rollouts[i].CreatedAt.After(rollouts[j].CreatedAt) })
-	rolloutTotal := len(rollouts)
-	if len(rollouts) > 8 {
-		rollouts = rollouts[:8]
-	}
-
-	// ── releases: the tracked list, newest first, with fleet adoption ──
-	const releasePaneRows = 8
-	releases, _ := h.db.ListReleases(ctx)
-	releases = visibleReleases(h.role(r), releases)
-	adoption := map[string]int{}
-	if fleet, err := h.db.GetFleetVersions(ctx); err == nil {
-		for _, fv := range fleet {
-			// Keyed by product too: a same-version release for another product must
-			// not show these devices as on it.
-			adoption[fv.Version+"|"+fv.Product] += fv.DeviceCount
-		}
-	}
-	fleetTotal, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
-	type releaseRow struct {
-		ID       int
-		Version  string
-		Name     string
-		Product  string
-		Status   string
-		Branch   bool
-		Dev      bool
-		Packages int
-		Deploys  int
-		Devices  int
-		Pct      int
-		Created  time.Time
-	}
-	var relRows []releaseRow
-	published, latestPublishedPct, tracked, devShown, shown := 0, 0, 0, 0, 0
-	for _, rel := range releases {
-		if rel.Hidden || !productMatches(rel.Product) {
-			continue
-		}
-		tracked++
-		n := adoption[rel.Version+"|"+rel.Product]
-		pct := 0
-		if fleetTotal > 0 {
-			pct = n * 100 / fleetTotal
-		}
-		if rel.Status == "published" {
-			published++
-			if latestPublishedPct == 0 {
-				latestPublishedPct = pct
-			}
-		}
-		// The pane shows the newest few — but dev releases are folded away by default,
-		// so counting them against the limit left the default view nearly empty when
-		// the recent releases happen to be dev (two rows, six blanks). Fill each set
-		// separately: the visible list always holds its eight, and the dev ones ride
-		// along for the toggle.
-		row := releaseRow{
-			ID: rel.ID, Version: rel.Version, Name: rel.Name, Product: rel.Product,
-			Status: rel.Status, Branch: rel.IsBranch, Dev: rel.IsDev,
-			Packages: rel.PackageCount, Deploys: rel.DeployCount,
-			Devices: n, Pct: pct, Created: rel.CreatedAt,
-		}
-		if rel.IsDev {
-			if devShown < releasePaneRows {
-				devShown++
-				relRows = append(relRows, row)
-			}
-			continue
-		}
-		if shown < releasePaneRows {
-			shown++
-			relRows = append(relRows, row)
-		}
-	}
-	// Back into date order, so revealing the dev ones slots them where they belong
-	// rather than appending them under everything else.
-	sort.SliceStable(relRows, func(i, j int) bool { return relRows[i].Created.After(relRows[j].Created) })
-
-	// The legacy fleet as a line of state, not a button: how many devices speak the
-	// old protocol, how many are mid-update right now, and who is answering their
-	// port. All three are things an operator wants to see without clicking.
-	legacySeen, _ := h.db.CountLegacyOTADevices(ctx)
-	legacyUpdating, legacyRecent := 0, 0
-	if devs, err := h.db.ListLegacyOTADevices(ctx); err == nil {
-		for _, d := range devs {
-			switch d.Status {
-			case "offered", "downloading", "installing", "verifying", "finalizing", "awaiting_reboot":
-				legacyUpdating++
-			}
-			if time.Since(d.LastSeen) < 30*time.Minute {
-				legacyRecent++
-			}
-		}
-	}
-	h.render(w, r, "updates.html", map[string]any{
-		"Title":              "Updates",
-		"Rollouts":           rollouts,
-		"RolloutTotal":       rolloutTotal,
-		"ReleaseRows":        relRows,
-		"ReleaseTotal":       tracked,
-		"DevCount":           devShown,
-		"PublishedCount":     published,
-		"LatestPublishedPct": latestPublishedPct,
-		"ActiveCount":        active,
-		"InstallingCount":    installing,
-		"FailedCount":        failed,
-		"InstalledCount":     installed,
-		"LegacySeen":         legacySeen,
-		"LegacyUpdating":     legacyUpdating,
-		"LegacyRecent":       legacyRecent,
-		"LegacyMode":         h.cfg.LegacyOTAMode(),
-		"LegacyPort":         os.Getenv("LEGACY_OTA_PORT"),
-		"CanDeploy":          roleCanOTA(h.role(r)),
-		"Products":           h.releaseProductFilters(ctx),
-		"FilterProduct":      filterProduct,
-	})
-}
-
-// UpdatesRollouts is the full rollout list — every deployment and how it is landing.
-// The combined Updates page (UpdatesHub) shows the newest handful and links here.
-func (h *Handler) UpdatesRollouts(w http.ResponseWriter, r *http.Request) {
-	role := h.role(r)
-	_ = h.db.CompleteSettledDeployments(r.Context())
-	deployments, _ := h.db.ListDeployments(r.Context())
-	deployments = visibleDeployments(role, deployments)
-	deployable, _ := h.db.ListDeployableReleases(r.Context())
-	deployable = visibleReleases(role, deployable)
-	groups, _ := h.db.ListGroups(r.Context())
-
-	// Optional per-product filter (?product=): keep deployments whose release product
-	// resolves to the selected one (empty/legacy -> t7). Empty filter shows everything.
-	filterProduct := strings.TrimSpace(r.URL.Query().Get("product"))
-	if filterProduct != "" {
-		want, _ := product.Resolve(filterProduct)
-		kept := deployments[:0]
-		for _, d := range deployments {
-			if got, _ := product.Resolve(d.Product); got.Key == want.Key {
-				kept = append(kept, d)
-			}
-		}
-		deployments = kept
-	}
-
-	canDeploy := roleCanOTA(role)
-	var devices []db.Device
-	if canDeploy {
-		devices, _ = h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
-	}
-	connected := h.hub.ConnectedIDs()
-	online := make(map[uuid.UUID]bool, len(connected))
-	for cid := range connected {
-		online[cid] = true
-	}
-	h.render(w, r, "updates_rollouts.html", map[string]any{
-		"Title":         "Rollouts",
-		"Deployments":   deployments,
-		"Releases":      deployable,
-		"Devices":       devices,
-		"Groups":        groups,
-		"Online":        online,
-		"CanDeploy":     canDeploy,
-		"PreRelease":    r.URL.Query().Get("release"),
-		"Products":      h.releaseProductFilters(r.Context()),
-		"FilterProduct": filterProduct,
-	})
-}
 
 // NewUpdatePage is the standalone "push an update" screen reached from the Updates
 // page's "+ New Update" button. Step 1: pick a publishable release. Step 2 (once
@@ -22241,7 +21739,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp)) // removing an APK stays admin-only
 
-	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleaseList))
+	// Releases, rollouts and the summary of both are one page since 16 Oct (O2), at
+	// /releases; the old list addresses land there, keeping their query.
+	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleasesPage))
 	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(drainable(h.ReleaseProblemEvents)))
 	post("POST /releases", h.requireReleaseAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
@@ -22267,11 +21767,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// three pages that each rendered a slice of the others: /updates drew a "Releases"
 	// section, /releases drew an "Updates in progress" section. They are now one
 	// destination with three tabs, so there is a single answer to "what is rolling out".
-	mux.HandleFunc("GET /rollouts", h.requireAdminOrOperator(h.UpdatesHub))
-	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/rollouts", http.StatusMovedPermanently)
-	}))
-	mux.HandleFunc("GET /updates/rollouts", h.requireAdminOrOperator(h.UpdatesRollouts))
+	mux.HandleFunc("GET /rollouts", h.requireAdminOrOperator(releasesRedirect))
+	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(releasesRedirect))
+	mux.HandleFunc("GET /updates/rollouts", h.requireAdminOrOperator(releasesRedirect))
 	mux.HandleFunc("GET /updates/new", h.requireOTA(h.NewUpdatePage))
 	mux.HandleFunc("GET /updates/legacy", h.requireAdminOrOperator(h.fleetWide(h.LegacyOTAPage)))
 	mux.HandleFunc("GET /updates/legacy/deployments/{id}", h.requireAdminOrOperator(h.fleetWide(h.LegacyDeploymentPage)))

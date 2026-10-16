@@ -1,208 +1,130 @@
 {{define "releases.html"}}
 {{template "header" .}}
-{{template "rollout-tabs" .}}
-{{/* Lean releases page: a release is just version + product + changelog + update packages.
-     Pushing OTA lives on its own page (/updates). QA/sign-off/testing/problems/branches
-     were removed. */}}
-{{$canQfil := canOperate .Role}}
-
 <style>
-/* ── Releases · command center ──────────────────────────── */
-.rl-list-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
-.rl-row{display:flex;align-items:center;gap:14px;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none}
-.rl-row:first-of-type{border-top:none}
-.rl-row.reported{opacity:.85}
-.rl-id{flex:1;min-width:0}
-.rl-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.rl-ver{font-family:var(--mono);font-size:13.5px;font-weight:700;text-decoration:none;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-a.rl-ver:hover{color:var(--accent-text)}
-.rl-sub{font-size:12px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rl-roll{flex:none;width:190px;min-width:150px}
-.rl-rollf{font-size:11.5px;color:var(--muted);margin-top:5px;display:block}
-.rl-rollf b{color:var(--text);font-variant-numeric:tabular-nums}
-.rl-act{flex:none;display:flex;align-items:center;gap:8px}
-.rl-dl{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);color:var(--muted);flex:none}
-.rl-dl:hover{color:var(--text);border-color:var(--rule-2)}
-.rl-dl.off{opacity:.38;cursor:not-allowed;border-style:dashed}
-.rl-dl.off:hover{color:var(--muted);border-color:var(--border)}
-.rl-dl svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.rl-reported-toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);cursor:pointer;padding:10px 2px;user-select:none}
-.rl-reported-toggle input{width:16px;height:16px}
-.rl-list.show-reported .rl-row.reported{display:flex}
-.rl-row.reported{display:none}
-/* Dev releases: in the list but folded away behind their own toggle, so the
-   default view is what has actually shipped. */
-.rl-list.show-dev .rl-row.devrel{display:flex}
-.rl-row.devrel{display:none}
-.rl-toggles{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-/* Release issues on this build (crashes on 3+ devices in 14 days), linking to its crashes. */
+/* ── Releases and rollouts (O2, picked 16 Oct): the release list beside the selected
+   release, rollouts in flight pinned on top. ── */
+.ro-wrap{max-width:1240px;margin:0 auto}
+.ro-head{display:flex;align-items:center;gap:12px;margin:4px 0 12px;flex-wrap:wrap}
+.ro-head h1{margin:0}
+.ro-head .r{margin-left:auto;display:flex;gap:8px}
+.ro-pills{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.ro-pills a{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);text-decoration:none}
+.ro-pills a.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+.ro-pills label{font-size:12px;color:var(--muted);display:inline-flex;gap:6px;align-items:center;margin-left:8px;cursor:pointer}
+.ro-live{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:10px 16px;border-radius:14px;border:1px solid color-mix(in srgb,var(--info, #60a5fa) 45%,transparent);background:color-mix(in srgb,var(--info, #60a5fa) 8%,var(--surface));margin-bottom:8px;font-size:13px;text-decoration:none;color:var(--text-2)}
+.ro-live b{color:var(--text)}
+.ro-md{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+.ro-list{padding:6px;position:sticky;top:76px;max-height:calc(100vh - 200px);overflow:auto}
+.ro-it{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 10px;border-radius:10px;text-decoration:none;color:var(--text-2);font-size:12.5px}
+.ro-it:hover{background:var(--hover)}
+.ro-it.on{background:var(--accent-soft)}
+.ro-it b{font-family:var(--mono);font-size:12.5px;color:var(--text);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ro-it .d{color:var(--muted);font-size:11.5px;white-space:nowrap}
+.ro-it small{grid-column:1/-1;color:var(--muted);font-size:11.5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ro-it .live{color:#60a5fa;font-weight:650}
+.ro-it.dev,.ro-it.rep{display:none}
+.ro-list.show-dev .ro-it.dev,.ro-list.show-rep .ro-it.rep{display:grid}
+.ro-sep{font-size:11px;font-weight:650;color:var(--muted);padding:10px 10px 4px}
+.ro-det{padding:16px 20px}
+.ro-dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.ro-dh h2{margin:0;font-family:var(--mono);font-size:18px}
+.ro-dh .r{margin-left:auto;display:flex;gap:8px}
+.ro-name{font-size:13px;color:var(--muted);margin:0 0 10px}
+.ro-kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 14px;align-items:center;font-size:13px;color:var(--text-2);padding:10px 0;border-top:1px solid var(--border-soft)}
+.ro-kv .k{color:var(--muted);font-size:12.5px}
+.ro-kv a{color:var(--text)}
+.ro-cov{display:flex;align-items:center;gap:10px}
+.ro-cov .cc-meter{width:160px}
+.ro-chg{white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--text-2);max-height:220px;overflow:auto;margin:0}
+.ro-sec{font-size:12.5px;font-weight:650;color:var(--muted);margin:16px 0 4px}
+table.ro-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.ro-t th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border)}
+.ro-t td{padding:9px 8px;border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:middle}
+.ro-t td a{color:var(--text);text-decoration:none;font-family:var(--mono);font-size:12px}
+.ro-t td a:hover{color:var(--accent-text)}
+.ro-bar{display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--surface2);min-width:140px}
+.ro-bar i{display:block;height:100%}.ro-bar .p{background:var(--ok)}.ro-bar .f{background:var(--danger)}.ro-bar .g{background:#60a5fa}
+.ro-bad{color:var(--danger)}
+.ro-empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px}
 a.rl-crash{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;text-decoration:none;background:var(--danger-bg);color:var(--danger);white-space:nowrap}
 a.rl-crash.warn{background:var(--warn-bg);color:var(--warn)}
 a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
-a.rl-crash:hover{text-decoration:underline}
-@media(max-width:640px){
-  .rl-row{flex-wrap:wrap;padding:12px 14px;gap:8px 12px}
-  .rl-sq{width:34px;height:34px}
-  .rl-id{flex-basis:100%;order:1}
-  .rl-roll{order:3;flex-basis:100%;width:auto}
-  .rl-act{order:2;margin-left:auto}
-}
 </style>
-
-<div class="cc-wrap">
-<div class="cc-top">
-  <div>
-    <div class="cc-eyebrow">Releases {{if .FilterProduct}}· {{productLabel .FilterProduct}}{{end}}</div>
-    <h1 class="cc-h1">{{.TrackedCount}} release{{if ne .TrackedCount 1}}s{{end}}{{if gt .LatestPublishedPct 0}} · fleet is <span class="hl {{if ge .LatestPublishedPct 70}}ok{{else if ge .LatestPublishedPct 35}}warn{{else}}danger{{end}}">{{.LatestPublishedPct}}%</span> on the latest published{{end}}</h1>
-    <div class="cc-sub">{{.PublishedCount}} published, {{.DraftCount}} draft, {{.UnderTestCount}} under test{{if gt .NotTrackedCount 0}} · <b>{{.NotTrackedCount}}</b> reported version{{if ne .NotTrackedCount 1}}s{{end}} not tracked{{end}}.</div>
+<div class="ro-wrap">
+  <div class="ro-head">
+    <h1>Releases</h1><span class="cp-mu" style="font-size:12.5px;color:var(--muted);margin-top:6px">and the rollouts carrying them</span>
+    <span class="r">
+      {{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
+      {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">Roll out…</a>{{end}}
+    </span>
   </div>
-  <div class="cc-actions">
-    <a href="/updates" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Updates</a>
-    <button type="button" class="cc-btn primary{{if not (canRelease .Role)}} role-locked{{end}}" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')"{{if not (canRelease .Role)}} title="Requires the admin role" data-role-need="admin"{{end}}><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New release</button>
-  </div>
-</div>
 
-{{/* Per-product filter — releases are product-scoped. Always shown so the products are
-     discoverable; server-side filter via ?product=, "All products" clears it. */}}
-<div class="cc-seg" role="group" aria-label="Filter releases by product" style="margin-bottom:14px;">
-  <a class="{{if not .FilterProduct}}on{{end}}" href="/releases">All products</a>
-  {{range .Products}}
-  <a class="{{if eq .Key $.FilterProduct}}on{{end}}" href="/releases?product={{.Key}}">{{.Label}}</a>
+  {{range .Active}}
+  <a class="ro-live" href="{{.URL}}"><b>Rolling out</b><span class="mono">{{.Version}} · #{{.ID}}</span>
+    <span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span>
+    <span>{{.Installed}}/{{.Total}} installed{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</span><span class="cc-btn sm">Open</span></a>
   {{end}}
-</div>
 
-{{/* KPI strip */}}
-<div class="cc-kpis">
-  <div class="cc-kpi">
-    <span class="k"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Published</span>
-    <div class="v ok">{{.PublishedCount}}</div>
+  <div class="ro-pills">
+    <a href="/releases"{{if eq .FilterProduct ""}} class="on"{{end}}>All products</a>
+    {{range .Products}}<a href="/releases?product={{.Key}}"{{if eq $.FilterProduct .Key}} class="on"{{end}}>{{.Label}}</a>{{end}}
+    {{if .NotTracked}}<label><input type="checkbox" onchange="document.getElementById('ro-list').classList.toggle('show-rep', this.checked)"> {{.NotTracked}} reported build{{if ne .NotTracked 1}}s{{end}} not added</label>{{end}}
+    {{if and (canSeeDev .Role) .DevCount}}<label><input type="checkbox" id="ro-dev" onchange="roDev(this.checked)"> {{.DevCount}} dev release{{if ne .DevCount 1}}s{{end}}</label>{{end}}
   </div>
-  <div class="cc-kpi">
-    <span class="k"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Drafts</span>
-    <div class="v warn">{{.DraftCount}}</div>
-  </div>
-  <div class="cc-kpi">
-    <span class="k"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Reported, not added</span>
-    <div class="v">{{.NotTrackedCount}}</div>
-  </div>
-</div>
 
-{{/* Live "Updates in progress" summary. Polls at 4s only while an OTA is actually in
-     flight; backs off to ~30s (just enough to notice one start) the rest of the time —
-     this card renders empty on most visits, so a fixed 4s poll was mostly wasted
-     requests. window.otaActive is re-derived from the swapped-in markup itself (the
-     "ota-progress" template renders a .card wrapper only when .ActiveOTA is set).
-     The backoff is done by skipping ticks in JS (htmx:beforeRequest), NOT via htmx's
-     "every 4s[expr]" bracket-conditional trigger syntax — that evaluates the bracketed
-     expression with new Function()/eval, which this app's CSP (no 'unsafe-eval')
-     blocks outright. That threw on every poll tick and broke htmx's click handling
-     for the rest of the page along with it (FW-2026-000XXX: clicking any boosted
-     link on /releases silently did nothing once this fired). */}}
-{{/* The live "updates in progress" card used to sit here. It belongs on Updates: this
-     page is the catalogue of releases, that one is the state of what is going out. */}}
+  <div class="ro-md">
+    <nav class="cc-card ro-list" id="ro-list" aria-label="Releases">
+      {{range .Versions}}{{$c := index $.RolloutCounts .Version}}
+      <a class="ro-it{{if .IsDev}} dev{{end}}{{if not .Tracked}} rep{{end}}{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}{{if $.FilterProduct}}&amp;product={{$.FilterProduct}}{{end}}">
+        <b title="{{.Version}}">{{.Version}}</b><span class="d">{{if .ReleasedAt}}{{shortDate (deref .ReleasedAt)}}{{else}}reported{{end}}</span>
+        <small>{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if $c.N}} · {{$c.N}} rollout{{if ne $c.N 1}}s{{end}}{{end}}{{if $c.Active}} · <span class="live">rolling out</span>{{end}}</small>
+      </a>
+      {{else}}<div class="ro-empty">No releases{{if .FilterProduct}} for this product{{end}} yet.</div>{{end}}
+      {{if .HiddenReleases}}<div class="ro-sep">Hidden</div>{{range .HiddenReleases}}<a class="ro-it{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}"><b>{{.Version}}</b><span class="d">hidden</span></a>{{end}}{{end}}
+    </nav>
 
-{{if .Versions}}
-<div class="rl-toggles">
-{{if and (canRelease $.Role) (gt .NotTrackedCount 0)}}
-<label class="rl-reported-toggle" title="Builds seen on devices that aren't managed releases yet — hidden by default to reduce clutter">
-  <input type="checkbox" onchange="document.querySelector('.rl-list').classList.toggle('show-reported', this.checked)">
-  Show {{.NotTrackedCount}} reported build{{if ne .NotTrackedCount 1}}s{{end}} not yet added
-</label>
-{{end}}
-{{if and (canSeeDev $.Role) (gt .DevCount 0)}}
-<label class="rl-reported-toggle" title="Releases still marked dev — folded away by default; anyone who can push may push one">
-  <input type="checkbox" id="rl-dev-toggle" onchange="rlDevToggle(this.checked)">
-  Show {{.DevCount}} dev release{{if ne .DevCount 1}}s{{end}}
-</label>
-{{end}}
-</div>
-<script>
-// The choice sticks across navigations — a dev working on a build wants them on.
-function rlDevToggle(on) {
-  var l = document.querySelector('.rl-list');
-  if (l) l.classList.toggle('show-dev', on);
-  try { localStorage.setItem('mdm-show-dev', on ? '1' : '0'); } catch (e) {}
-}
-(function () {
-  // The list is parsed after this script (and on a boosted nav there is no
-  // DOMContentLoaded at all), so restore on the next tick when it exists.
-  setTimeout(function () {
-    var on = false;
-    try { on = localStorage.getItem('mdm-show-dev') === '1'; } catch (e) {}
-    var box = document.getElementById('rl-dev-toggle');
-    if (box) box.checked = on;
-    var l = document.querySelector('.rl-list');
-    if (l) l.classList.toggle('show-dev', on);
-  }, 0);
-})();
-</script>
-<div class="rl-list-wrap" style="margin-top:8px;">
-<div class="rl-list">
-  {{range .Versions}}
-  {{$pct := pctOf .DeviceCount $.FleetTotal}}
-  {{if .Tracked}}
-  {{$sq := "info"}}{{if eq .Status "published"}}{{$sq = "ok"}}{{else if eq .Status "draft"}}{{$sq = "warn"}}{{end}}
-  <div class="rl-row{{if .IsDev}} devrel{{end}}">
-    <span class="cc-sq {{$sq}}">{{if eq .Status "published"}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{else if eq .Status "draft"}}<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>{{end}}</span>
-    <div class="rl-id">
-      <div class="rl-top">
+    <section class="cc-card ro-det">
+    {{with .Sel}}
+      {{if .Tracked}}{{$rel := $.Rel}}
+      <div class="ro-dh">
+        <h2>{{.Version}}</h2>
         <span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>
-        <a href="/releases/{{.ReleaseID}}" class="rl-ver" title="{{.Version}}">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</a>
-        {{if .Product}}<span class="cc-tag" title="Target product — only {{productLabel .Product}} devices are offered this release">{{productLabel .Product}}</span>{{end}}
-        {{if .ReleasedAt}}<span class="cc-tag" title="Release date — {{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
-        {{if .IsDev}}<span class="cc-tag warn" title="Only super admins can see this release">dev</span>{{end}}
-        {{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}
+        {{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}
+        {{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}
+        {{if .ReleasedAt}}<span class="cc-tag" title="{{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
+        <span class="r"><a class="cc-btn" href="/releases/{{.ReleaseID}}">Open release</a>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn primary" href="/updates/new?release={{.ReleaseID}}">Roll out</a>{{end}}</span>
       </div>
-      <span class="rl-sub">{{if .Changelog}}{{truncate .Changelog 90}}{{else}}<span class="muted">No changelog</span>{{end}}</span>
-    </div>
-    <div class="rl-roll">
-      <div class="cc-meter"><i class="{{if eq .Status "published"}}ok{{else if eq .Status "draft"}}warn{{else}}accent{{end}}" style="width:{{$pct}}%"></i></div>
-      <span class="rl-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{.PackageCount}} pkg</span>
-    </div>
-    <div class="rl-act">
-      {{if $canQfil}}{{if .QfilURL}}<a href="{{.QfilURL}}" class="rl-dl" title="Download flashing bundle" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="rl-dl off" title="No flashing bundle uploaded for this release" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>{{end}}{{end}}
-      <a href="/releases/{{.ReleaseID}}" class="cc-btn sm" title="Manage changelog &amp; update packages">Manage</a>
-    </div>
-  </div>
-  {{else}}
-  {{/* A version seen on devices but not yet a managed release. Hidden by default;
-       revealed by the "Show reported builds" toggle. */}}
-  <div class="rl-row reported">
-    <span class="cc-sq"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></span>
-    <div class="rl-id">
-      <div class="rl-top">
-        <span class="cc-tag" title="Seen on devices but not a managed release">reported</span>
-        {{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rl-ver" title="See the device(s) running {{.Version}}">{{.Version}}</a>{{else}}<span class="rl-ver">{{.Version}}</span>{{end}}
-        {{if .Product}}<span class="cc-tag" title="Reported by {{productLabel .Product}} devices">{{productLabel .Product}}</span>{{end}}
-      </div>
-      <span class="rl-sub muted">seen on devices — not a release yet</span>
-    </div>
-    <div class="rl-roll">
-      <div class="cc-meter"><i style="width:{{$pct}}%"></i></div>
-      <span class="rl-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}</span>
-    </div>
-    <div class="rl-act">
-      {{if canRelease $.Role}}<form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="cc-btn sm primary" title="Create a release for this version (product inferred from the devices on it)">+ Add as release</button></form>{{end}}
-    </div>
-  </div>
-  {{end}}
-  {{end}}
-</div>
-</div>
-{{else}}
-<div class="cc-card">
-  <div class="cc-empty tall">
-    <div class="i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></div>
-    {{if .FilterProduct}}
-    <div><b>No releases for {{productLabel .FilterProduct}} yet</b><br>No {{productLabel .FilterProduct}} releases or reported versions. Create one, or <a href="/releases">clear the product filter</a>.</div>
-    {{else}}
-    <div><b>No releases or device versions yet</b><br>Create a release to manage a changelog and update packages, or versions appear here as devices report them.</div>
-    {{end}}
-    {{if canRelease .Role}}<div class="muted" style="font-size:12px;">Use <b>New release</b> (top right) to create one.</div>{{end}}
-  </div>
-</div>
-{{end}}
+      {{if .Name}}<p class="ro-name">{{.Name}}</p>{{end}}
+      <div class="ro-kv"><span class="k">On devices</span><span class="ro-cov"><span class="cc-meter"><i class="{{if eq .Status "published"}}ok{{else}}warn{{end}}" style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></span>{{if .DeviceCount}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}{{if .Crash}} <a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}</span></div>
+      {{if or .Problems.Open .Problems.Blockers}}<div class="ro-kv"><span class="k">Problems</span><span><a href="/releases/{{.ReleaseID}}?tab=problems">{{.Problems.Open}} open{{if .Problems.Blockers}} · <span class="ro-bad">{{.Problems.Blockers}} blocking</span>{{end}}</a></span></div>{{end}}
+      <div class="ro-kv"><span class="k">Packages</span><span>{{if $.Packages}}{{range $i, $p := $.Packages}}{{if $i}} · {{end}}{{if eq $p.Type "incremental"}}incremental from <span class="mono">{{$p.SourceBuildID}}</span>{{else}}full{{end}}{{if $p.Wipe}} (wipes){{end}}{{if ne $p.Status "active"}} <span class="ro-bad">{{$p.Status}}</span>{{end}}{{end}}{{else}}<span class="ro-bad">none yet</span> · <a href="/releases/{{.ReleaseID}}?tab=packages">add one</a>{{end}}</span></div>
+      <div class="ro-kv" style="align-items:start"><span class="k">Changes</span>{{if .Changelog}}<p class="ro-chg">{{.Changelog}}</p>{{else}}<span class="ro-empty" style="padding:0;text-align:left">No changelog.</span>{{end}}</div>
 
+      <div class="ro-sec">Rollouts</div>
+      {{if $.Rollouts}}
+      <table class="ro-t">
+        <tr><th>Rollout</th><th>Started</th><th>Progress</th><th></th><th>State</th></tr>
+        {{range $.Rollouts}}
+        <tr><td><a href="{{.URL}}">#{{.ID}}</a>{{if .Legacy}} <span class="cc-tag" title="Includes devices on the legacy (otautil) path">legacy</span>{{end}}</td>
+          <td>{{shortDate .CreatedAt}}{{if .CreatedBy}} · {{.CreatedBy}}{{end}}</td>
+          <td><span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span></td>
+          <td>{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</td>
+          <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}rolling out{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
+        {{end}}
+      </table>
+      {{else}}<p class="ro-empty" style="text-align:left;padding:6px 0">Not rolled out yet.{{if and (canOTA $.Role) $.CanPush}} <a href="/updates/new?release={{.ReleaseID}}">Roll it out</a>.{{end}}</p>{{end}}
+      {{else}}
+      <div class="ro-dh"><h2>{{.Version}}</h2><span class="cc-tag">reported</span>{{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}</div>
+      <p class="ro-name">Seen on devices, not a release yet: there is no changelog, package or rollout for it.</p>
+      <div class="ro-kv"><span class="k">On devices</span><span class="ro-cov"><span class="cc-meter"><i style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></span>{{if .DeviceCount}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}</span></div>
+      {{if canRelease $.Role}}<form action="/releases/track" method="POST" style="margin-top:12px"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="cc-btn primary">Add as release</button></form>{{end}}
+      {{end}}
+    {{else}}
+      <div class="ro-empty">Pick a release on the left.</div>
+    {{end}}
+    </section>
+  </div>
+</div>
 {{if canRelease .Role}}
 <!-- New Release modal: version + product + changelog. update packages are attached on the next screen. -->
 <div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
@@ -248,74 +170,21 @@ document.addEventListener('keydown', function (e) {
 });
 </script>
 {{end}}
-
-</div>
 <script>
+function roDev(on) {
+  var l = document.getElementById('ro-list'); if (l) l.classList.toggle('show-dev', on);
+  try { localStorage.setItem('mdm-show-dev', on ? '1' : '0'); } catch (e) {}
+}
 (function () {
-  if (!/[?&]new=1(&|$)/.test(location.search)) return;
-  var m = document.getElementById('create-pkg-modal');
-  if (m) m.classList.add('modal-open');
+  setTimeout(function () {
+    var on = false; try { on = localStorage.getItem('mdm-show-dev') === '1'; } catch (e) {}
+    var box = document.getElementById('ro-dev'); if (box) box.checked = on;
+    var l = document.getElementById('ro-list'); if (l) l.classList.toggle('show-dev', on);
+    // A selected dev or reported row stays visible whatever the toggles say.
+    var sel = l && l.querySelector('.ro-it.on'); if (sel) sel.style.display = 'grid';
+  }, 0);
+  if (/[?&]new=1(&|$)/.test(location.search)) { var m = document.getElementById('create-pkg-modal'); if (m) m.classList.add('modal-open'); }
 })();
 </script>
 {{template "footer" .}}
 {{end}}
-
-{{/* Live OTA-in-progress card — rendered inline on load and re-fetched every 4s via
-     GET /releases?partial=ota-progress. Renders nothing when no OTA is in flight. */}}
-{{define "ota-progress"}}
-{{if .ActiveOTA}}
-{{/* Summary only — this card re-polls every 4s, so a long per-device list makes the
-     releases page huge (and any expander would collapse on each refresh). Show the
-     rolled-up counts + aggregate download progress here; the per-device breakdown
-     lives on the Updates page (linked below). */}}
-{{$total := len .ActiveOTA}}
-{{/* Per-phase counts and per-phase average percent: a device reports which
-     phase it is in (downloading, verifying, installing, finalizing) and a
-     percent that only means something within that phase, so each phase gets
-     its own pill and its own bar rather than one blended bar. */}}
-{{$dlN := 0}}{{$dlP := 0}}{{$vfN := 0}}{{$vfP := 0}}{{$inN := 0}}{{$inP := 0}}{{$fnN := 0}}{{$fnP := 0}}{{$await := 0}}
-{{range .ActiveOTA}}
-  {{if ne .Status "downloading"}}{{$await = add $await 1}}
-  {{else if eq .Phase "verifying"}}{{$vfN = add $vfN 1}}{{$vfP = add $vfP .Percent}}
-  {{else if eq .Phase "installing"}}{{$inN = add $inN 1}}{{$inP = add $inP .Percent}}
-  {{else if eq .Phase "finalizing"}}{{$fnN = add $fnN 1}}{{$fnP = add $fnP .Percent}}
-  {{else}}{{$dlN = add $dlN 1}}{{$dlP = add $dlP .Percent}}{{end}}
-{{end}}
-{{/* Link straight to the one deployment in flight when every device here belongs to
-     the same one — the common case — instead of always sending you to the generic
-     /updates hub to hunt for it. Falls back to the hub only when two+ deployments
-     are active at once, since a single link can't point at more than one page. */}}
-{{$singleUpdateID := 0}}{{$singleReleaseID := 0}}{{$mixed := false}}
-{{range .ActiveOTA}}
-  {{if eq $singleUpdateID 0}}{{$singleUpdateID = .UpdateID}}{{$singleReleaseID = .ReleaseID}}
-  {{else if ne $singleUpdateID .UpdateID}}{{$mixed = true}}{{end}}
-{{end}}
-<div class="cc-card" style="margin-top:12px;border-color:var(--accent);">
-  <div class="cc-ch">
-    <span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
-    <h2>Updates in progress <span class="live-dot" title="Live — updates every few seconds"></span></h2>
-    {{/* hx-target/hx-swap explicitly override the ancestor #ota-progress-live's
-         hx-target="this" hx-swap="innerHTML" (there for ITS OWN polling) — without
-         this the link inherits those and tries to swap the whole destination page
-         into this small card instead of navigating main. */}}
-    <span class="m">{{$total}} device{{if ne $total 1}}s{{end}} updating</span>
-    <a class="r" href="{{if and (not $mixed) (gt $singleReleaseID 0)}}/releases/{{$singleReleaseID}}/deployments/{{$singleUpdateID}}{{else}}/updates{{end}}" hx-target="main" hx-swap="outerHTML">device-by-device →</a>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:8px;padding:12px 17px 14px;">
-    {{template "ota-phase-row" (dict "Label" "downloading" "N" $dlN "Sum" $dlP)}}
-    {{template "ota-phase-row" (dict "Label" "verifying" "N" $vfN "Sum" $vfP)}}
-    {{template "ota-phase-row" (dict "Label" "installing" "N" $inN "Sum" $inP)}}
-    {{template "ota-phase-row" (dict "Label" "finalizing" "N" $fnN "Sum" $fnP)}}
-    {{if gt $await 0}}<div style="display:flex;align-items:center;gap:12px;"><span class="cc-pill">{{$await}} awaiting check-in</span></div>{{end}}
-  </div>
-</div>
-{{end}}
-{{end}}
-
-{{/* One phase line of the "Updates in progress" card: count pill + that phase's own bar. */}}
-{{define "ota-phase-row"}}{{if gt .N 0}}{{$avg := div .Sum .N}}
-<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-  <span class="cc-pill info" style="min-width:120px;justify-content:center;">{{.N}} {{.Label}}</span>
-  <div style="flex:1;min-width:160px;max-width:360px;"><div class="cc-meter"><i class="accent" style="width:{{$avg}}%"></i></div></div>
-  <span class="small" style="font-variant-numeric:tabular-nums;color:var(--muted);">{{if gt .N 1}}avg {{end}}{{$avg}}%</span>
-</div>{{end}}{{end}}
