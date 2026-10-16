@@ -614,7 +614,7 @@ window.addEventListener('load', flMapSync);
     {{if canOTA .Role}}
     <div class="fleet-rail-cap"><a href="/devices?view=releases"{{if eq .View "releases"}} class="on"{{end}}>Releases</a></div>
     {{/* Only releases with at least one device on them — 0-device releases are noise here;
-         manage all of them on /releases. Five busiest shown, the rest behind "Show all". */}}
+         manage all of them on /releases. All rows are listed; the section scrolls. */}}
     <div class="fleet-rail-list" data-sec="releases">
     {{range .RailReleases}}{{if gt .DeviceCount 0}}
     <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Version}}">
