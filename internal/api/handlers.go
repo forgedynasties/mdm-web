@@ -1293,6 +1293,13 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 			cfg["guest"] = g.Guest
 		}
 	}
+	// The app the firmware client reports on (extra.host_app). Sent every time, "" included,
+	// so a device whose class stops naming one stops reporting it. Firmware devices store no
+	// class; theirs is the class of the product they report (the legacy empty product is T7).
+	if !isDPCPayload(req.Extra) {
+		p, _ := product.Resolve(req.Product)
+		cfg["host_app_pattern"] = product.HostAppPattern(p.Class)
+	}
 	h.processOfflineExit(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
 	cfg["temp_fast_sec"] = h.recordTempFast(ctx, deviceID, req.Extra, tag)
 

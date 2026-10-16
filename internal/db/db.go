@@ -2062,7 +2062,7 @@ func jsonFloat(raw json.RawMessage) *float64 {
 // battery_temp_c and ram_usage_mb deliberately stay: they feed the device chart, the
 // live SSE payload, a CSV column, the temp_elevated/memory_low rules and the daily
 // rollup. They are quantised on the device instead.
-const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address' - 'battery_cc'`
+const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address' - 'battery_cc' - 'host_app'`
 
 // checkinVolatileKeys are readings that drift every frame without meaning a state
 // change; two rows equal on everything else within the sample window are one sample.

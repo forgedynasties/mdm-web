@@ -90,6 +90,22 @@ func ClassLabel(class string) string {
 	return strings.TrimSpace(class)
 }
 
+// HostAppPattern names the app a class of device is there to run, for the firmware
+// client's host_app report (HostApp.java): which variants are installed, which one is in
+// use, whether it is running, its memory, today's use and traffic, and why it last died —
+// all read from outside the app. A trailing * is a prefix; several patterns are
+// comma-separated. "" sends nothing, and a client told "" stops reporting.
+//
+// Only the T7 for now: aio.app.nugget is the guest ordering app (TSAI), and its build
+// variants (.uatv2, .qa, .internal, .stagev2…) are the same app pointed at another backend.
+func HostAppPattern(class string) string {
+	switch class {
+	case ClassT7:
+		return "aio.app.nugget*"
+	}
+	return ""
+}
+
 // IsClass reports whether the key names a known class.
 func IsClass(class string) bool {
 	for _, c := range Classes() {
