@@ -71,15 +71,6 @@
     {{if .CanEdit}}<div class="co-foot"><a class="cc-btn" href="/compliance/rules">Cancel</a><button type="submit" class="cc-btn primary">Save override</button></div>{{end}}
   </form>
 </div>
-<script>
-(function () {
-  var box = document.getElementById('co-scope');
-  function sync() {
-    var on = box.querySelector('input:checked'), v = on ? on.value : '';
-    document.querySelectorAll('.co-pick').forEach(function (s) { s.hidden = s.getAttribute('data-for') !== v; });
-  }
-  box.addEventListener('change', sync); sync();
-})();
-</script>
+<script src="/static/js/compliance_override.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}

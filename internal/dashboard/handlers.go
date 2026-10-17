@@ -770,7 +770,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		}
 		return uuMap[strings.ToLower(name)]
 	}
+	// One stamp for every /static/ URL (see assetVersion). Templates read it through the
+	// assetVer func rather than .AssetVer so partials rendered with their own data (htmx
+	// fragments) can version the scripts they load too.
+	assetVer := assetVersion("static")
 	funcMap := template.FuncMap{
+		"assetVer":      func() string { return assetVer },
 		"userURL":       userURL,
 		"userBubble":    userBubble,
 		// systemActorLabel names a sender the server writes itself ("Control probe",
@@ -1795,7 +1800,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		msClientID:     os.Getenv("MS_CLIENT_ID"),
 		msClientSecret: os.Getenv("MS_CLIENT_SECRET"),
 		msTenantID:     os.Getenv("MS_TENANT_ID"),
-		assetVer:       assetVersion("static"),
+		assetVer:       assetVer,
 	}
 }
 

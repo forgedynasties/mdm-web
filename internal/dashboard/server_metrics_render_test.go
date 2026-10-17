@@ -99,10 +99,16 @@ func TestServerPipelinePayload(t *testing.T) {
 			t.Errorf("pipeline frame is missing %s — the card reads it", key)
 		}
 	}
+	// The card's markup is in the template, the code that reads the frame in its script.
 	page, err := os.ReadFile("../../templates/server_metrics.html")
 	if err != nil {
 		t.Fatal(err)
 	}
+	js, err := os.ReadFile("../../static/js/server_metrics.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	page = append(page, js...)
 	for _, want := range []string{`id="sv-pipe-wrap"`, `id="sv-pipe"`, "p.ingest", `id="sv-streams"`, "s.streams",
 		"ttfb_p50_ms", "ttfb_p95_ms", "life_p50_sec"} {
 		if !strings.Contains(string(page), want) {

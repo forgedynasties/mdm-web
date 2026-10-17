@@ -472,29 +472,7 @@
 .kd-app[hidden]{display:none!important}
 .kd-none{grid-column:1/-1;padding:18px;text-align:center;color:var(--muted);font-size:12.5px}
 </style>
-<script>
-function kioskFilter(q){
-  q=(q||'').trim().toLowerCase(); var n=0;
-  document.querySelectorAll('#kioskfleet .kd-app').forEach(function(b){ var hit=!q || b.textContent.toLowerCase().indexOf(q)!==-1; b.hidden=!hit; if(hit)n++; });
-  var none=document.getElementById('kd-none'); if(!none){ none=document.createElement('div'); none.id='kd-none'; none.className='kd-none'; document.getElementById('kioskfleet').appendChild(none); }
-  none.textContent='No app matches "'+q+'"'; none.hidden=n>0||!q;
-}
-function kioskAllowed(pkg){
-  var ta=document.getElementById('kiosk-allowlist-ta'); if(!ta) return false;
-  return ta.value.split(/[\s,;]+/).some(function(pat){ pat=pat.trim(); if(!pat) return false; if(pat===pkg) return true;
-    if(pat.indexOf('*')===-1) return false; var re=new RegExp('^'+pat.split('*').map(function(x){return x.replace(/[.+?^${}()|[\]\\]/g,'\\$&');}).join('.*')+'$'); return re.test(pkg); });
-}
-function kioskSyncAdded(){ document.querySelectorAll('#kioskfleet .kd-app').forEach(function(b){ b.classList.toggle('added', kioskAllowed(b.dataset.pkg)); }); }
-function kioskAddPkg(pkg, el){
-  var ta=document.getElementById('kiosk-allowlist-ta'); if(!ta) return;
-  if(kioskAllowed(pkg)){ // toggle off: remove the exact line (patterns stay)
-    ta.value=ta.value.split(/\n/).filter(function(l){return l.trim()!==pkg;}).join('\n'); kioskSyncAdded(); return;
-  }
-  var lines=ta.value.split(/[\s,;]+/).map(function(s){return s.trim();}).filter(Boolean);
-  lines.push(pkg); ta.value=lines.join('\n'); kioskSyncAdded();
-}
-(function(){ var ta=document.getElementById('kiosk-allowlist-ta'); if(ta){ ta.addEventListener('input', kioskSyncAdded); kioskSyncAdded(); } })();
-</script>
+<script src="/static/js/settings/lock-allowlist.js?v={{assetVer}}"></script>
   </section>
 
   <!-- ── Actions — governance, shell/remote, queries ── -->
@@ -702,28 +680,7 @@ function kioskAddPkg(pkg, el){
     </form>
   </div>
 </div>
-<script>
-  // Per-channel alert-type filter: keep each category's master checkbox in sync with
-  // its children (checked / unchecked / indeterminate), and let it toggle them.
-  function chanTypeKids(group) { return group.querySelectorAll('input[name="alert_types"]'); }
-  function chanRefreshCat(group) {
-    var cat = group.querySelector('.chan-type-cat');
-    if (!cat) return;
-    var kids = chanTypeKids(group), on = 0;
-    kids.forEach(function (c) { if (c.checked) on++; });
-    cat.checked = on === kids.length;
-    cat.indeterminate = on > 0 && on < kids.length;
-  }
-  function chanToggleCat(cat) {
-    var group = cat.closest('.chan-type-group');
-    chanTypeKids(group).forEach(function (c) { c.checked = cat.checked; });
-    cat.indeterminate = false;
-  }
-  function chanSyncCat(kid) { chanRefreshCat(kid.closest('.chan-type-group')); }
-  document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.chan-type-group').forEach(chanRefreshCat);
-  });
-</script>
+<script src="/static/js/settings/alert-channels.js?v={{assetVer}}"></script>
 
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch collapsible-header" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
@@ -894,72 +851,8 @@ function kioskAddPkg(pkg, el){
     {{end}}
   </div>
 </div>
-<script>
-(function(){
-  var root = document.getElementById('google-usage');
-  if(!root) return;
-  var nf = new Intl.NumberFormat();
-  function money(v){ return '$' + (Number(v)||0).toFixed(2); }
-  function setText(el, sel, val){ var n=el.querySelector(sel); if(n) n.textContent=val; }
-  function renderCard(s){
-    var el = document.getElementById('gu-card-'+s.key);
-    if(!el) return;
-    el.classList.toggle('off', !s.enabled);
-    setText(el, '.gu-requests', nf.format(s.requests));
-    setText(el, '.gu-24', nf.format(s.last24h));
-    setText(el, '.gu-peak', nf.format(s.peak_hour));
-    setText(el, '.gu-hits', nf.format(s.hits));
-    setText(el, '.gu-localhits', nf.format(s.local_hits||0));
-    setText(el, '.gu-cooldowns', nf.format(s.cooldowns));
-    setText(el, '.gu-errors', nf.format(s.errors));
-    setText(el, '.gu-hitratio', s.hit_ratio + '%');
-    if(s.billable){
-      setText(el, '.gu-cost-val', money(s.cost_to_date));
-      setText(el, '.gu-proj-val', money(s.proj_month));
-    }
-    setText(el, '.gu-lastreq', s.last_req_ago || 'never');
-    var errline = el.querySelector('.gu-errline');
-    if(errline){ errline.innerHTML = s.last_err ? (' · <span class="gu-err" title="'+(s.last_err.replace(/"/g,'&quot;'))+'">error '+s.last_err_ago+'</span>') : ''; }
-    // sparkline
-    var spark = el.querySelector('.gu-spark'); var bars = spark ? spark.querySelectorAll('.gu-bar') : [];
-    var peak = s.peak_hour || 0;
-    (s.hourly||[]).forEach(function(v,i){
-      var b = bars[i]; if(!b) return;
-      var h = (peak>0 && v>0) ? Math.max(6, Math.round(v*100/peak)) : 0;
-      b.style.height = h + '%';
-      b.classList.toggle('zero', v===0);
-    });
-  }
-  function render(data){
-    (data.stats||[]).forEach(renderCard);
-    setText(root, '#gu-total-cost', money(data.total_cost_to_date));
-    setText(root, '#gu-total-proj', money(data.total_proj_month));
-    var L = data.learned || {};
-    if(document.getElementById('gu-l-total')){
-      setText(document, '#gu-l-total', nf.format(L.total||0));
-      setText(document, '#gu-l-fresh', nf.format(L.fresh||0));
-      setText(document, '#gu-l-places', nf.format(L.distinct_places||0));
-      setText(document, '#gu-l-served', nf.format(L.served_lookups||0));
-      setText(document, '#gu-l-saved', money(L.cost_saved));
-    }
-    setText(root, '#gu-since', data.since_ago || '');
-    var u = document.getElementById('gu-updated'); if(u) u.textContent='updated just now';
-  }
-  try { render({{.GoogleUsageJSON}}); } catch(e){}
-  var url = root.getAttribute('data-poll');
-  function poll(){
-    fetch(url, {headers:{'Accept':'application/json'}, credentials:'same-origin'})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){ if(d) render(d); })
-      .catch(function(){});
-  }
-  // Poll only while this tab is visible and the page is focused.
-  setInterval(function(){
-    var tab = document.querySelector('.settings-tab[data-tab="integrations"]');
-    if(tab && tab.classList.contains('active') && !document.hidden) poll();
-  }, 15000);
-})();
-</script>
+<script>window.SETTINGS_GOOGLE_USAGE = {{.GoogleUsageJSON}};</script>
+<script src="/static/js/settings/google-usage.js?v={{assetVer}}"></script>
   </section>
 
   <!-- ── Data — retention, maintenance ── -->
@@ -1120,119 +1013,8 @@ function kioskAddPkg(pkg, el){
 
 
 <script src="/static/vendor/chart.umd.min.js"></script>
-<script>
-// AI token-usage chart — lazily built the first time the AI tab is shown (a chart
-// created inside a display:none panel renders at 0×0).
-window.__initAIChart = function () {
-  if (window.__aiChartDone) return;
-  var el = document.getElementById('aiUsageChart');
-  if (!el || typeof Chart === 'undefined') return;
-  window.__aiChartDone = true;
-  var rows = {{.AIUsageDailyJSON}};
-  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function fmtDay(d) { var p = String(d).slice(0,10).split('-'); return MONTHS[parseInt(p[1],10)-1] + ' ' + parseInt(p[2],10); }
-  new Chart(el.getContext('2d'), {
-    type: 'bar',
-    data: { labels: rows.map(function (r) { return fmtDay(r.day); }), datasets: [
-      { label: 'Input tokens', data: rows.map(function (r) { return r.input_tokens; }), backgroundColor: 'rgba(120,144,170,0.7)', stack: 's' },
-      { label: 'Output tokens', data: rows.map(function (r) { return r.output_tokens; }), backgroundColor: '#d82747', stack: 's' }
-    ]},
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'tokens' } } },
-      plugins: { legend: { position: 'bottom' } }
-    }
-  });
-};
-</script>
-<script>
-// Settings tabs.
-(function () {
-  var nav = document.getElementById('settings-nav');
-  if (!nav) return;
-  var btns = nav.querySelectorAll('button');
-  var panels = document.querySelectorAll('.settings-tab');
-  function show(key) {
-    var found = false;
-    panels.forEach(function (p) { var on = p.getAttribute('data-tab') === key; p.classList.toggle('active', on); if (on) found = true; });
-    btns.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === key); });
-    if (found && key === 'integrations' && window.__initAIChart) window.__initAIChart();
-    return found;
-  }
-  btns.forEach(function (b) {
-    b.addEventListener('click', function () { var k = b.getAttribute('data-tab'); if (show(k)) history.replaceState(null, '', '#' + k); });
-  });
-  var initial = (location.hash || '').replace('#', '');
-  // legacy deep-links from older tabs
-  var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'general', tools: 'devices', testing: 'general' };
-  if (alias[initial]) initial = alias[initial];
-  if (!initial || !show(initial)) show('general');
-  // in-page links to /settings#tab (and back/forward) switch tabs too
-  window.addEventListener('hashchange', function () { var k = (location.hash || '').replace('#', ''); if (alias[k]) k = alias[k]; if (k) show(k); });
-})();
-</script>
-<script>
-// Alert rules: switch = save immediately; thresholds show a Save button when edited.
-// Both post with fetch (the server answers 204 for X-Requested-With: fetch), so
-// the page never reloads and you stay on the tab.
-function ruleData(form) {
-  var fd = new URLSearchParams(); // the POST wrapper parses urlencoded bodies, not multipart
-  fd.append('type', form.querySelector('input[name=type]').value);
-  if (form.querySelector('.sw-toggle').classList.contains('on')) fd.append('enabled', 'on');
-  form.querySelectorAll('.rule-fields input, .rule-fields select').forEach(function (el) { fd.append(el.name, el.value); });
-  return fd;
-}
-function ruleStatus(form, text, err) {
-  var st = form.querySelector('.rule-status'); if (!st) return;
-  st.textContent = text; st.classList.toggle('err', !!err); st.style.opacity = 1;
-  clearTimeout(st._t); if (!err) st._t = setTimeout(function () { st.style.opacity = 0; }, 2200);
-}
-function ruleCounts() {
-  document.querySelectorAll('.alert-cat-panel').forEach(function (panel) {
-    var cat = panel.getAttribute('data-cat'), on = panel.querySelectorAll('.rule-item:not(.off)').length, all = panel.querySelectorAll('.rule-item').length;
-    var pill = document.querySelector('.alert-cat-tab[data-cat="' + cat + '"] .pill'); if (pill) pill.textContent = on + '/' + all;
-  });
-}
-function ruleSave(form, ev) {
-  if (ev) ev.preventDefault();
-  var name = form.getAttribute('data-name') || 'Rule';
-  fetch(form.action, { method: 'POST', body: ruleData(form), headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' })
-    .then(function (r) { if (!r.ok) throw new Error(r.status); ruleStatus(form, 'Saved'); var b = form.querySelector('.rule-save'); if (b) b.hidden = true; if (window.showToast) showToast(name + ' saved', 'success'); })
-    .catch(function () { ruleStatus(form, 'Not saved', true); if (window.showToast) showToast('Could not save ' + name, 'error'); });
-  return false;
-}
-function ruleToggle(btn) {
-  var form = btn.closest('form'); var on = !btn.classList.contains('on');
-  btn.classList.toggle('on', on); btn.setAttribute('aria-pressed', on ? 'true' : 'false'); btn.title = on ? 'Disable' : 'Enable';
-  form.classList.toggle('off', !on); ruleCounts(); ruleSave(form);
-}
-function ruleDirty(el) { var b = el.closest('form').querySelector('.rule-save'); if (b) b.hidden = false; }
-// Every other settings form: submit natively (no htmx boost — boosted requests drop
-// the #tab fragment) and come back to the tab you were on after saving.
-document.querySelectorAll('.settings-panels form:not([hx-post]):not([hx-boost])').forEach(function (f) { f.setAttribute('hx-boost', 'false'); });
-document.addEventListener('submit', function (e) {
-  var form = e.target; if (!form.closest || !form.closest('.settings-panels') || form.hasAttribute('hx-post') || form.classList.contains('rule-item')) return;
-  var active = document.querySelector('.settings-nav button.active'); var tab = active ? active.getAttribute('data-tab') : 'general';
-  var inp = form.querySelector('input[name=redirect]'); if (!inp) { inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'redirect'; form.appendChild(inp); }
-  if (!inp.value || inp.value.indexOf('/settings') === 0) inp.value = '/settings#' + tab;
-}, true);
-</script>
-<script>
-// Alert-rule category sub-tabs (within the Alerts tab).
-(function () {
-  var tabs = document.getElementById('alert-cat-tabs');
-  if (!tabs) return;
-  var btns = tabs.querySelectorAll('.alert-cat-tab');
-  var panels = document.querySelectorAll('.alert-cat-panel');
-  btns.forEach(function (b) {
-    b.addEventListener('click', function () {
-      var k = b.getAttribute('data-cat');
-      btns.forEach(function (x) { x.classList.toggle('active', x === b); });
-      panels.forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-cat') === k); });
-    });
-  });
-})();
-</script>
+<script>window.SETTINGS_AI_USAGE = {{.AIUsageDailyJSON}};</script>
+<script src="/static/js/settings/panels.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}
 {{end}}
@@ -1473,108 +1255,7 @@ document.addEventListener('submit', function (e) {
     </div>
   </div>
 </div>
-<script>
-// ── App library: upload APK (client-parsed, direct-to-S3) with a progress bar ──
-function libEnsureParser(){return new Promise(function(res,rej){if(window.AppInfoParser)return res();var s=document.createElement('script');s.src='/static/vendor/app-info-parser.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('could not load APK parser'));};document.head.appendChild(s);});}
-// 192px, not 96: the store renders icons on 136px tiles and at 96 they visibly upscaled.
-// Capped at the source's own size so a small icon is not blown up on the way in either.
-function libIconPng(ic){return new Promise(function(res){if(!ic)return res('');var src=ic.indexOf('data:')===0?ic:('data:image/png;base64,'+ic);var img=new Image();img.onload=function(){try{var n=Math.min(192,Math.max(img.naturalWidth||192,96));var c=document.createElement('canvas');c.width=n;c.height=n;var g=c.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(img,0,0,n,n);res(c.toDataURL('image/png').split(',')[1]||'');}catch(e){res('');}};img.onerror=function(){res('');};img.src=src;});}
-function libFmt(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(0)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
-function libS3Put(url,file,onp,onXhr){return new Promise(function(res,rej){var x=new XMLHttpRequest();if(onXhr)onXhr(x);x.open('PUT',url);x.setRequestHeader('Content-Type','application/vnd.android.package-archive');x.upload.onprogress=function(e){if(e.lengthComputable&&onp)onp(e.loaded,e.total);};x.onload=function(){(x.status>=200&&x.status<300)?res():rej(new Error('S3 upload failed ('+x.status+')'));};x.onerror=function(){rej(new Error('network error uploading to S3'));};x.onabort=function(){rej(new Error('cancelled'));};x.send(file);});}
-// Multi-file APK upload: each file parses + uploads to S3 with its own progress and a
-// cancel button; once uploads finish, a confirmation window lists the parsed details and
-// only then (on confirm) registers them into the library.
-var libQueue = [];
-// Packages already in the library (from the tiles), for the duplicate hint.
-function libExisting(){var m={};document.querySelectorAll('.lib-tile[data-pkg]').forEach(function(t){m[t.dataset.pkg]=t.dataset.version||'';});return m;}
-function libAddOpen(){document.getElementById('lib-add-modal').classList.add('modal-open');libSum();}
-function libAddClose(){
-  if(libQueue.some(function(it){return it.state==='reading'||it.state==='uploading';})&&!confirm('Uploads are still running. Close and cancel them?'))return;
-  libQueue.forEach(function(it){if(it.state==='reading'||it.state==='uploading'){it.state='cancelled';if(it.xhr)it.xhr.abort();}});
-  libQueue=[]; document.getElementById('la-list').innerHTML=''; document.getElementById('la-err').style.display='none';
-  document.getElementById('lib-add-modal').classList.remove('modal-open');
-}
-function libUploadApks(files){
-  if(!files||!files.length)return;
-  var apks=Array.prototype.filter.call(files,function(f){return /\.apk$/i.test(f.name)||f.type==='application/vnd.android.package-archive';});
-  var skipped=files.length-apks.length;
-  libAddOpen();
-  if(skipped){var e=document.getElementById('la-err');e.textContent=skipped+' file'+(skipped===1?' is':'s are')+' not an APK and '+(skipped===1?'was':'were')+' ignored.';e.style.display='block';}
-  apks.forEach(function(file){
-    var item={id:'ul_'+libQueue.length+'_'+(+new Date()),file:file,name:file.name,pkg:'',ver:'',icon:'',size:file.size,key:'',xhr:null,state:'reading',err:''};
-    libQueue.push(item); document.getElementById('la-list').appendChild(libUlRow(item)); libProcess(item);
-  });
-  libSum();
-}
-function libUlRow(item){
-  var row=document.createElement('div'); row.className='la-row'; row.id=item.id;
-  row.innerHTML='<div class="la-ic"></div><div class="la-m"><div class="la-nm"></div><div class="la-pk mono"></div><div class="la-bar"><div class="la-fill"></div></div><div class="la-st"></div></div><div class="la-meta"></div><button type="button" class="la-x" title="Remove">&times;</button>';
-  row.querySelector('.la-nm').textContent=item.name;
-  row.querySelector('.la-meta').textContent=libFmt(item.size);
-  row.querySelector('.la-x').onclick=function(){libCancel(item);};
-  return row;
-}
-function libUlSet(item,txt,pct,err){
-  var row=document.getElementById(item.id); if(!row)return;
-  var st=row.querySelector('.la-st'); if(txt!=null)st.textContent=txt; st.classList.toggle('is-error',!!err); st.classList.toggle('is-ok',txt==='Ready');
-  if(pct!=null)row.querySelector('.la-fill').style.width=pct+'%';
-  row.querySelector('.la-bar').hidden=(pct==null||pct>=100||!!err);
-  libSum();
-}
-function libSum(){
-  var ready=libQueue.filter(function(it){return it.state==='uploaded';}).length, busy=libQueue.some(function(it){return it.state==='reading'||it.state==='uploading';});
-  var btn=document.getElementById('la-add'), sum=document.getElementById('la-sum'); if(!btn)return;
-  btn.disabled=busy||!ready; btn.textContent=ready?('Add '+ready+' to library'):'Add to library';
-  sum.textContent=!libQueue.length?'':busy?'Uploading…':(ready+' ready');
-}
-function libProcess(item){
-  libUlSet(item,'Reading…',0);
-  var r=document.getElementById(item.id);
-  libEnsureParser().then(function(){return new AppInfoParser(item.file).parse();}).then(function(info){
-    item.pkg=info.package||'';
-    var lbl=(info.application&&info.application.label)||info.label||item.pkg; if(Array.isArray(lbl))lbl=lbl[0]; item.name=String(lbl||item.pkg);
-    var v=info.versionName||(info.apkInfo&&info.apkInfo.versionName)||''; item.ver=v?String(v):'';
-    if(r){ r.querySelector('.la-nm').textContent=item.name; r.querySelector('.la-pk').textContent=item.pkg; r.querySelector('.la-meta').textContent=(item.ver?'v'+item.ver+' · ':'')+libFmt(item.size);
-      var have=libExisting(); if(item.pkg&&item.pkg in have){var tag=document.createElement('span');tag.className='la-dup';tag.textContent=have[item.pkg]===item.ver?'already in library':'in library as v'+(have[item.pkg]||'?');r.querySelector('.la-nm').appendChild(tag);} }
-    return libIconPng(info.icon).then(function(png){item.icon=png; var ic=r&&r.querySelector('.la-ic'); if(ic&&png)ic.innerHTML='<img src="data:image/png;base64,'+png+'" alt="">';});
-  }).catch(function(){ if(r){r.querySelector('.la-pk').textContent='could not read the manifest; the file still uploads';} })
-  .then(function(){ if(item.state==='cancelled')throw new Error('cancelled'); return fetch('/apps/upload-url',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({filename:item.file.name})}); })
-  .then(function(r){if(!r.ok)throw new Error('could not get upload URL');return r.json();})
-  .then(function(d){ item.key=d.key; item.state='uploading'; libUlSet(item,'Uploading… 0%',0);
-    return libS3Put(d.url,item.file,function(l,t){var p=Math.round(l/t*100);libUlSet(item,'Uploading… '+p+'%',p);},function(x){item.xhr=x;}); })
-  .then(function(){ item.state='uploaded'; item.xhr=null; libUlSet(item,'Ready',100); })
-  .catch(function(err){ if(item.state==='cancelled'){libUlSet(item,'Cancelled',null,true);} else {item.state='error'; item.err=err.message; libUlSet(item,'Error: '+err.message,null,true);} });
-}
-function libCancel(item){
-  if(item.state==='reading'||item.state==='uploading'){item.state='cancelled'; if(item.xhr)item.xhr.abort();}
-  var r=document.getElementById(item.id); if(r)r.remove(); var i=libQueue.indexOf(item); if(i>=0)libQueue.splice(i,1); libSum();
-}
-function libConfirmAdd(){
-  var items=libQueue.filter(function(it){return it.state==='uploaded';}); if(!items.length)return;
-  var btn=document.getElementById('la-add'); btn.disabled=true; btn.textContent='Adding…';
-  var err=document.getElementById('la-err'); err.style.display='none'; var added=0; var chain=Promise.resolve();
-  items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){if(!r.ok)return r.text().then(function(t){throw new Error(t||('HTTP '+r.status));});added++;});}); });
-  chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.textContent='Add '+items.length+' to library';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
-}
-function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this APK from the library? Devices that already have it keep it.'))return false;fetch(form.action,{method:'POST',credentials:'same-origin',headers:{'X-Requested-With':'fetch'}}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
-function libFamOpen(id){var m=document.getElementById('lf-'+id);if(m)m.classList.add('modal-open');}
-function libFamClose(m){if(m)m.classList.remove('modal-open');}
-// Drag and drop: anywhere on the page. Capture phase on document so no region's own
-// handlers can swallow it; files taken from dataTransfer.files or .items (some
-// browsers only fill one of them for an OS drag).
-(function(){
-  if(window.__libDnD){return;} window.__libDnD=true;
-  function hasFiles(e){var dt=e.dataTransfer; if(!dt)return false; var t=dt.types; if(t){ if(Array.prototype.some.call(t,function(x){return x==='Files'||x==='application/x-moz-file';}))return true; } if(dt.items){for(var i=0;i<dt.items.length;i++){if(dt.items[i].kind==='file')return true;}} return !!(dt.files&&dt.files.length);}
-  function filesOf(e){var dt=e.dataTransfer, out=[]; if(dt.files&&dt.files.length){for(var i=0;i<dt.files.length;i++)out.push(dt.files[i]);} else if(dt.items){for(var j=0;j<dt.items.length;j++){var f=dt.items[j].kind==='file'?dt.items[j].getAsFile():null; if(f)out.push(f);}} return out;}
-  var depth=0;
-  function card(){return document.getElementById('lib-card');}
-  function zone(){return document.getElementById('la-drop');}
-  document.addEventListener('dragenter',function(e){ if(!hasFiles(e))return; e.preventDefault(); depth++; document.body.classList.add('lib-dragging'); var c=card(); if(c&&c.contains(e.target))c.classList.add('is-over'); var z=zone(); if(z&&z.contains(e.target))z.classList.add('is-over'); },true);
-  document.addEventListener('dragover',function(e){ if(!hasFiles(e))return; e.preventDefault(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; },true);
-  document.addEventListener('dragleave',function(e){ if(!hasFiles(e))return; depth=Math.max(0,depth-1); if(!depth){document.body.classList.remove('lib-dragging'); var c=card(); if(c)c.classList.remove('is-over'); var z=zone(); if(z)z.classList.remove('is-over');} },true);
-  document.addEventListener('drop',function(e){ if(!hasFiles(e)){ try{console.warn('[mdm] drop ignored: no files in dataTransfer', e.dataTransfer&&e.dataTransfer.types);}catch(x){} return; } e.preventDefault(); e.stopPropagation(); depth=0; document.body.classList.remove('lib-dragging'); var c=card(); if(c)c.classList.remove('is-over'); var z=zone(); if(z)z.classList.remove('is-over'); var files=filesOf(e); try{console.info('[mdm] drop:', files.map(function(f){return f.name;}));}catch(x){} if(!files.length){ if(window.showToast)showToast('Nothing droppable in that drag', 'error'); return; } if(typeof libUploadApks==='function')libUploadApks(files); },true);
-})();
-</script>
+<script src="/static/js/settings/app-library.js?v={{assetVer}}"></script>
 {{end}}
 
 {{/* "Install on…" — the scopes that can be resolved from fleet inventory, with the real
