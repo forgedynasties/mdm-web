@@ -79,6 +79,14 @@ type Config struct {
 	OperatorDeniedCmds  []string `json:"operator_denied_cmds"`
 	RequireReasonFlag   bool     `json:"require_reason"` // require a reason for destructive commands
 
+	// Customer-facing compliance reporting (17 Oct, R1): the "Device security" page in the
+	// weekly venue PDF and the monthly report email to venue contacts and owners. Off until
+	// the wording has a non-engineering sign-off; nothing reaches a customer while it is off.
+	ComplianceReportsCustomersFlag bool `json:"compliance_reports_customers"`
+	// LostModeSupportPhoneVal is the one AIO support number a lost device's screen shows
+	// (lost mode L1, 17 Oct). '' = the screen shows the message alone.
+	LostModeSupportPhoneVal string `json:"lost_mode_support_phone"`
+
 	// DPC agent APK for QR cold-provisioning (PROVISIONING_DEVICE_ADMIN_PACKAGE_
 	// DOWNLOAD_LOCATION + SIGNATURE_CHECKSUM). Env AGENT_APK_URL / AGENT_APK_CHECKSUM
 	// are the fallback when unset here, so existing deployments keep working.
@@ -1293,6 +1301,37 @@ func (c *Config) SetAgentAPK(url, checksum string) error {
 func (c *Config) SetRequireReason(v bool) error {
 	c.mu.Lock()
 	c.RequireReasonFlag = v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// ComplianceReportsCustomers is whether compliance reporting reaches customers: the
+// weekly PDF's "Device security" page and the monthly report email. Default off.
+func (c *Config) ComplianceReportsCustomers() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.ComplianceReportsCustomersFlag
+}
+
+func (c *Config) SetComplianceReportsCustomers(v bool) error {
+	c.mu.Lock()
+	c.ComplianceReportsCustomersFlag = v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// LostModeSupportPhone is the support number shown on a lost device's screen.
+func (c *Config) LostModeSupportPhone() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.LostModeSupportPhoneVal
+}
+
+func (c *Config) SetLostModeSupportPhone(v string) error {
+	c.mu.Lock()
+	c.LostModeSupportPhoneVal = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

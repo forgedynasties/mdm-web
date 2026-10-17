@@ -350,6 +350,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
+	post("POST /settings/compliance-reports/toggle", h.requireStrictAdmin(h.SettingsToggleComplianceReports))
+	post("POST /settings/lost-mode-phone", h.requireStrictAdmin(h.SettingsSetLostModePhone))
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
 	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
 	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))
