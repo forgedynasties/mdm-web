@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -12,7 +13,7 @@ import (
 // hidden device by URL. It reads RegisterRoutes from source because ServeMux
 // patterns cannot be enumerated at runtime.
 func TestDeviceRoutesAreGuarded(t *testing.T) {
-	src, err := os.ReadFile("handlers.go")
+	src, err := packageSource()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +32,7 @@ func TestDeviceRoutesAreGuarded(t *testing.T) {
 // TestListRoutesScoped checks the list-style handlers that must narrow their
 // results to the caller's visible devices keep doing so.
 func TestListRoutesScoped(t *testing.T) {
-	src, err := os.ReadFile("handlers.go")
+	src, err := packageSource()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,4 +50,25 @@ func TestListRoutesScoped(t *testing.T) {
 			t.Errorf("%s: no visibility scoping call in handler body", name)
 		}
 	}
+}
+
+// packageSource is every non-test Go file of the package, joined. The handlers are
+// spread over one file per page, so a source check must read them all.
+func packageSource() ([]byte, error) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		return nil, err
+	}
+	var out []byte
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		b, err := os.ReadFile(f)
+		if err != nil {
+			return nil, err
+		}
+		out = append(append(out, b...), '\n')
+	}
+	return out, nil
 }
