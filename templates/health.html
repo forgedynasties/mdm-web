@@ -39,7 +39,6 @@
       <div class="cc-sub">{{if .Crashes24h}}<b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} in the last 24h across <b>{{.CrashDevices24h}}</b> device{{if ne .CrashDevices24h 1}}s{{end}}{{if .CrashWorstBuild}}, most on build <b>{{.CrashWorstBuild}}</b>{{end}}.{{else}}No crashes in the last 24h.{{end}}{{if gt .OfflineDevices 0}} <b>{{.OfflineDevices}}</b> device{{if ne .OfflineDevices 1}}s{{end}} offline.{{end}}</div>
     </div>
     <div class="cc-actions">
-      {{if not .AISummary}}<button type="button" id="ai-sum-refresh" class="cc-btn primary" onclick="refreshHourlyReport()" title="Generate the fleet report"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Generate report</button>{{end}}
       <div class="cc-seg" title="Aggregation window">
         <a class="{{if ne .WindowDays 1}}on{{end}}" href="/fleet-health?days=7">7 days</a>
         <a class="{{if eq .WindowDays 1}}on{{end}}" href="/fleet-health?days=1">Today</a>
@@ -156,12 +155,33 @@
     </div>
   </div>
 
-  {{/* ── Daily report + evidence: full width so the charts have room ── */}}
-  <div class="fh-report">
-      {{template "ai-report-card" .}}
-
-      {{template "ai-report-evidence" .}}
+  {{/* ── The last 14 days, fleet-wide: online devices, low battery, running hot and crashes per day ── */}}
+  {{if .SeriesJSON}}
+  <div class="cc-card fh-trend" id="fh-trend">
+    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h2>Last 14 days</h2><span class="m">fleet-wide</span></div>
+    <div class="fh-ev-grid">
+      <div class="fh-ev"><div class="fh-ev-h"><span>Online devices</span><b id="fh-ev-active"></b></div><div class="fh-ev-c"><canvas id="fh-c-active"></canvas></div></div>
+      <div class="fh-ev"><div class="fh-ev-h"><span>Low battery (&lt;20%)</span><b id="fh-ev-low"></b></div><div class="fh-ev-c"><canvas id="fh-c-low"></canvas></div></div>
+      <div class="fh-ev"><div class="fh-ev-h"><span>Running hot (≥45°C)</span><b id="fh-ev-hot"></b></div><div class="fh-ev-c"><canvas id="fh-c-hot"></canvas></div></div>
+      <div class="fh-ev"><div class="fh-ev-h"><span>Crashes per day</span><b id="fh-ev-crash"></b></div><div class="fh-ev-c"><canvas id="fh-c-crash"></canvas></div></div>
+    </div>
   </div>
+  <script type="application/json" id="fh-series">{{.SeriesJSON}}</script>
+  <style>
+  .fh-trend{margin-top:16px}
+  .fh-ev-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+  @media(max-width:1024px){.fh-ev-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:720px){.fh-ev-grid{grid-template-columns:1fr}}
+  .fh-ev{padding:12px 16px 10px;border-right:1px solid var(--border-soft)}
+  .fh-ev:last-child{border-right:none}
+  @media(max-width:1024px){.fh-ev:nth-child(2){border-right:none}.fh-ev:nth-child(n+3){border-top:1px solid var(--border-soft)}}
+  @media(max-width:720px){.fh-ev{border-right:none}.fh-ev+.fh-ev{border-top:1px solid var(--border-soft)}}
+  .fh-ev-h{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--muted);margin-bottom:6px}
+  .fh-ev-h b{font-size:12px;color:var(--text);font-weight:650;font-variant-numeric:tabular-nums}
+  .fh-ev-c{height:120px;position:relative}
+  </style>
+  <script src="/static/js/health_trend.js?v={{assetVer}}"></script>
+  {{end}}
 
 </div>
 

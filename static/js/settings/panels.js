@@ -1,28 +1,4 @@
 // Loaded by templates/settings.html.
-// AI token-usage chart — lazily built the first time the AI tab is shown (a chart
-// created inside a display:none panel renders at 0×0).
-window.__initAIChart = function () {
-  if (window.__aiChartDone) return;
-  var el = document.getElementById('aiUsageChart');
-  if (!el || typeof Chart === 'undefined') return;
-  window.__aiChartDone = true;
-  var rows = window.SETTINGS_AI_USAGE;
-  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function fmtDay(d) { var p = String(d).slice(0,10).split('-'); return MONTHS[parseInt(p[1],10)-1] + ' ' + parseInt(p[2],10); }
-  new Chart(el.getContext('2d'), {
-    type: 'bar',
-    data: { labels: rows.map(function (r) { return fmtDay(r.day); }), datasets: [
-      { label: 'Input tokens', data: rows.map(function (r) { return r.input_tokens; }), backgroundColor: 'rgba(120,144,170,0.7)', stack: 's' },
-      { label: 'Output tokens', data: rows.map(function (r) { return r.output_tokens; }), backgroundColor: '#d82747', stack: 's' }
-    ]},
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'tokens' } } },
-      plugins: { legend: { position: 'bottom' } }
-    }
-  });
-};
-
 // Settings tabs.
 (function () {
   var nav = document.getElementById('settings-nav');
@@ -33,7 +9,6 @@ window.__initAIChart = function () {
     var found = false;
     panels.forEach(function (p) { var on = p.getAttribute('data-tab') === key; p.classList.toggle('active', on); if (on) found = true; });
     btns.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === key); });
-    if (found && key === 'integrations' && window.__initAIChart) window.__initAIChart();
     return found;
   }
   btns.forEach(function (b) {

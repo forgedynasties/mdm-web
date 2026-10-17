@@ -316,16 +316,14 @@ matrix's clock. Closes the §7 "service hours" open question.
   how the `offline` rule already skips quiet hours, generalized.
 - Migration seeds a fleet-default window so Phase-1 rules work before any group is configured.
 
-**Lab vs deployment (matches the AI-report framing).** The window-gated rules
+**Lab vs deployment.** The window-gated rules
 (`service`/`overnight`) are *operational* — they assume the unit is live in a restaurant
 on a service/charge schedule. A bench/lab unit that is idle or unplugged during the default
 day window is expected behavior, not an alert, so these rules fire for **deployed units
 only** (effective deployed = `COALESCE(device.deployed, any-group.deployed, false)`,
 `deployedDeviceSet`). Always-on **hardware** rules (`storage_low`, `temp_elevated`,
 `overheating`) still fire fleet-wide so a genuine lab hardware fault surfaces. This keeps
-the Alerts feed — and therefore the AI fleet/device report, which ingests open alerts — free
-of lab-unit operational noise, consistent with the report's existing "only deployed units
-drive watch/at_risk" rule (`internal/ai/ai.go`).
+the Alerts feed free of lab-unit operational noise.
 
 ## 10. Evaluation tiers (daily vs recent vs event)
 
@@ -414,7 +412,7 @@ Dashboard: the existing **Alerts** page gains a severity filter (incl. info) and
   discharge_rate_idle/active, overnight_not_charging, overnight_slow_charge); each rule
   type bound to exactly one tier; `alert_channels` CRUD + severity/window realtime routing
   with legacy-webhook migration. Window-gated (operational) rules fire for **deployed units
-  only** so lab-bench noise stays out of the Alerts feed and the AI report, preserving the
+  only** so lab-bench noise stays out of the Alerts feed, preserving the
   lab-vs-deployment distinction.
 - **2026-06-13** — Phase 1 **complete**: dashboard UI landed (Settings cards for alert
   rules incl. active-window selector + a 'live' badge, per-restaurant **service windows**,
