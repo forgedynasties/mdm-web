@@ -38,6 +38,66 @@ func ownerAllowedPath(p string) bool {
 // sentence, a to-do list only when something needs a hand, today's service as
 // an hourly strip, station cards, and a week-over-week report card.
 func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, "owner_home.html", h.ownerHomeData(r))
+}
+
+type ownerStation struct {
+	Serial, Name, Product string
+	Online, HasBattery    bool
+	Battery               int
+	Charging              bool
+	Pad                   string // "docked" | "vacant" | "faulty" | ""
+	Kiosk                 bool
+	LastSeen              time.Time
+	Temp                  string
+	Crashes               int
+	State                 string        // ok | warn | bad
+	Word                  string        // roster state word
+	Do                    template.HTML // what to do (may contain <b>)
+}
+
+type ownerTodo struct {
+	Sev, Title, Body, Serial string
+	Kind, Station            string // Kind groups like problems into one "Needs you" row
+}
+
+type ownerVenue struct {
+	Name            string
+	Stations        []ownerStation
+	Online, Offline int
+}
+
+type ownerHourCell struct {
+	Label   string
+	Pct     int
+	Service bool
+	Now     bool
+}
+
+type ownerDelta struct {
+	Label, Value, Prev string
+	Up, Better         bool
+	Has                bool
+}
+
+// ownerNeedGroup is one "Needs you" row: like problems grouped (7 stations offline,
+// 13 pads misplaced, …) instead of one row per station per problem.
+type ownerNeedGroup struct {
+	Sev, Kind, Title, Body string
+	Stations               []ownerTodo
+	More                   int // stations beyond the first few chips
+}
+
+// ownerRoster is the station list with the counts the rest of the page derives from.
+type ownerRoster struct {
+	venues                 []*ownerVenue
+	todos                  []ownerTodo
+	total, online, lowBatt int
+	restaurantID           *uuid.UUID
+}
+
+// ownerHomeData is the load step of OwnerHome.
+func (h *Handler) ownerHomeData(r *http.Request) map[string]any {
 	ctx := r.Context()
 	acc := h.access(r)
 	ids := acc.visibleIDs()
@@ -56,50 +116,99 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	nick, _ := h.db.GetNicknames(ctx, ids)
 	incidents, incCur, incPrev, _ := h.db.IncidentCounts(ctx, ids, 7)
 
-	type station struct {
-		Serial, Name, Product string
-		Online, HasBattery    bool
-		Battery               int
-		Charging              bool
-		Pad                   string // "docked" | "vacant" | "faulty" | ""
-		Kiosk                 bool
-		LastSeen              time.Time
-		Temp                  string
-		Crashes               int
-		State                 string        // ok | warn | bad
-		Word                  string        // roster state word
-		Do                    template.HTML // what to do (may contain <b>)
+	ro := ownerRosterOf(devices, connected, nick, incidents)
+	score, scoreClass, scoreWord := ownerHealthScore(ro, incCur)
+	cells, serviceUptime, serviceLabel, loc := h.ownerServiceStrip(ctx, ids, ro)
+	report := h.ownerWeekReport(ctx, ro.restaurantID, incCur, incPrev)
+
+	hour := time.Now().In(loc).Hour()
+	greeting := "Good evening"
+	if hour < 12 {
+		greeting = "Good morning"
+	} else if hour < 17 {
+		greeting = "Good afternoon"
 	}
-	type todo struct {
-		Sev, Title, Body, Serial string
-		Kind, Station            string // Kind groups like problems into one "Needs you" row
+	name := h.currentUsername(r)
+	if u, err := h.db.GetUserByUsername(ctx, name); err == nil && u != nil && u.FirstName != "" {
+		name = u.FirstName
 	}
-	type venue struct {
-		Name            string
-		Stations        []station
-		Online, Offline int
+	todos := ro.todos
+	sort.SliceStable(todos, func(i, j int) bool {
+		rank := map[string]int{"bad": 0, "warn": 1, "info": 2}
+		return rank[todos[i].Sev] < rank[todos[j].Sev]
+	})
+	headline, lede := ownerHeadline(ro.venues, ro.total, hour)
+	needGroups := ownerNeedGroups(todos)
+
+	// The owner's own weekly report, inline. This card used to be a mock-up captioned
+	// "Preview"; it now carries the real figures for the last finished week — the same
+	// numbers the emailed report and the PDF quote, from the same query, so an owner
+	// comparing the three never sees three different answers.
+	reportURL, reportFrom, reportTo := "", time.Time{}, time.Time{}
+	var reportMetrics *db.SiteMetrics
+	if ro.restaurantID != nil {
+		reportFrom, reportTo = lastFullWeek(time.Now())
+		// The PDF, which the server renders on first request and caches.
+		reportURL = h.ReportPDFURL(r, *ro.restaurantID, reportFrom)
+		if m, err := h.db.SiteMetricsFor(ctx, *ro.restaurantID, 7, reportTo); err == nil && m.DeviceDays > 0 {
+			reportMetrics = &m
+		}
 	}
-	byName := map[string]*venue{}
+
+	return map[string]any{
+		"ReportURL":     reportURL,
+		"ReportMetrics": reportMetrics,
+		"ReportFrom":    reportFrom,
+		"ReportTo":      reportTo,
+		"TodoGroups":    needGroups,
+		"TodoCount":     len(todos),
+		"Headline":      headline,
+		"Lede":          template.HTML(lede),
+		"Title":         "Home",
+		"Greeting":      greeting,
+		"Name":          name,
+		"DateLine":      time.Now().In(loc).Format("Monday 2 January"),
+		"TimeLine":      strings.ToLower(time.Now().In(loc).Format("3:04 pm")),
+		"Venues":        ro.venues,
+		"Total":         ro.total,
+		"Online":        ro.online,
+		"Offline":       ro.total - ro.online,
+		"LowBatt":       ro.lowBatt,
+		"Score":         score,
+		"ScoreClass":    scoreClass,
+		"ScoreWord":     scoreWord,
+		"Todos":         todos,
+		"Hours":         cells,
+		"ServiceUptime": serviceUptime,
+		"ServiceLabel":  serviceLabel,
+		"Report":        report,
+		"VenueCount":    len(ro.venues),
+	}
+}
+
+// ownerRosterOf builds the station cards per venue, worst first, and the to-do items
+// they raise.
+func ownerRosterOf(devices []db.Device, connected map[uuid.UUID]struct{}, nick map[uuid.UUID]string, incidents map[uuid.UUID]int) ownerRoster {
+	byName := map[string]*ownerVenue{}
 	var order []string
-	var todos []todo
-	total, online, lowBatt := len(devices), 0, 0
-	var restaurantID *uuid.UUID
+	var ro ownerRoster
+	ro.total = len(devices)
 	for _, d := range devices {
 		name := d.RestaurantName
 		if name == "" {
 			name = "Unassigned"
 		}
-		if restaurantID == nil && d.RestaurantID != nil {
-			restaurantID = d.RestaurantID
+		if ro.restaurantID == nil && d.RestaurantID != nil {
+			ro.restaurantID = d.RestaurantID
 		}
 		v, ok := byName[name]
 		if !ok {
-			v = &venue{Name: name}
+			v = &ownerVenue{Name: name}
 			byName[name] = v
 			order = append(order, name)
 		}
 		_, on := connected[d.ID]
-		st := station{Serial: d.SerialNumber, Name: nick[d.ID], Product: product.Label(d.Product), Online: on,
+		st := ownerStation{Serial: d.SerialNumber, Name: nick[d.ID], Product: product.Label(d.Product), Online: on,
 			HasBattery: d.HasBattery(), Battery: d.BatteryPct, Kiosk: d.KioskEnabled, LastSeen: d.LastSeenAt, Crashes: incidents[d.ID]}
 		if st.Name == "" {
 			st.Name = d.SerialNumber
@@ -121,21 +230,21 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		}
 		st.State = "ok"
 		if on {
-			online++
+			ro.online++
 			v.Online++
 		} else {
 			v.Offline++
 			st.State = "bad"
-			todos = append(todos, todo{Sev: "bad", Kind: "offline", Station: st.Name, Title: st.Name + " is offline", Serial: d.SerialNumber,
+			ro.todos = append(ro.todos, ownerTodo{Sev: "bad", Kind: "offline", Station: st.Name, Title: st.Name + " is offline", Serial: d.SerialNumber,
 				Body: "Last seen " + timeSinceStr(d.LastSeenAt) + ". Check that it is powered on and connected to Wi-Fi."})
 		}
 		if st.HasBattery && st.Battery < 20 {
-			lowBatt++
+			ro.lowBatt++
 			if !st.Charging {
 				if st.State == "ok" {
 					st.State = "warn"
 				}
-				todos = append(todos, todo{Sev: "warn", Kind: "battery", Station: st.Name, Title: st.Name + " is at " + strconv.Itoa(st.Battery) + "% and not charging", Serial: d.SerialNumber,
+				ro.todos = append(ro.todos, ownerTodo{Sev: "warn", Kind: "battery", Station: st.Name, Title: st.Name + " is at " + strconv.Itoa(st.Battery) + "% and not charging", Serial: d.SerialNumber,
 					Body: "Put it back on its charging dock so it lasts through service."})
 			}
 		}
@@ -143,15 +252,15 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			if st.State == "ok" {
 				st.State = "warn"
 			}
-			todos = append(todos, todo{Sev: "warn", Kind: "pad", Station: st.Name, Title: st.Name + "'s charging pad is misplaced", Serial: d.SerialNumber,
+			ro.todos = append(ro.todos, ownerTodo{Sev: "warn", Kind: "pad", Station: st.Name, Title: st.Name + "'s charging pad is misplaced", Serial: d.SerialNumber,
 				Body: "Connection issue between the pad and the device. Please place it again; if it keeps happening, let the MDM team know."})
 		}
 		if on && !d.KioskEnabled {
-			todos = append(todos, todo{Sev: "info", Kind: "kiosk", Station: st.Name, Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
+			ro.todos = append(ro.todos, ownerTodo{Sev: "info", Kind: "kiosk", Station: st.Name, Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
 				Body: "Guests can leave the app. Ask the MDM team to turn locked mode back on."})
 		}
 		if st.Crashes >= 3 {
-			todos = append(todos, todo{Sev: "warn", Kind: "crashes", Station: st.Name, Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
+			ro.todos = append(ro.todos, ownerTodo{Sev: "warn", Kind: "crashes", Station: st.Name, Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
 				Body: "The MDM team can see the details; a restart usually helps in the meantime."})
 		}
 		switch {
@@ -186,20 +295,22 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	for _, v := range byName {
 		sort.SliceStable(v.Stations, func(i, j int) bool { return rankOf[v.Stations[i].State] < rankOf[v.Stations[j].State] })
 	}
-	var venues []*venue
 	for _, n := range order {
-		venues = append(venues, byName[n])
+		ro.venues = append(ro.venues, byName[n])
 	}
+	return ro
+}
 
-	// Health score: offline share weighs most, then battery, pad and crashes.
-	score := 100
-	if total > 0 {
-		score -= 60 * (total - online) / total
-		score -= 15 * lowBatt / total
+// ownerHealthScore: offline share weighs most, then battery, pad and crashes.
+func ownerHealthScore(ro ownerRoster, incCur int) (score int, class, word string) {
+	score = 100
+	if ro.total > 0 {
+		score -= 60 * (ro.total - ro.online) / ro.total
+		score -= 15 * ro.lowBatt / ro.total
 		if incCur > 0 {
 			score -= min(15, 3*incCur)
 		}
-		for _, t := range todos {
+		for _, t := range ro.todos {
 			if t.Sev == "warn" && strings.Contains(t.Title, "pad") {
 				score -= 5
 				break
@@ -209,43 +320,40 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	if score < 0 {
 		score = 0
 	}
-	scoreClass, scoreWord := "ok", "Running smoothly"
+	class, word = "ok", "Running smoothly"
 	switch {
 	case score < 50:
-		scoreClass, scoreWord = "bad", "Needs your attention"
+		class, word = "bad", "Needs your attention"
 	case score < 80:
-		scoreClass, scoreWord = "warn", "Mostly fine, a few things to fix"
+		class, word = "warn", "Mostly fine, a few things to fix"
 	}
+	return score, class, word
+}
 
-	// Today's service: hourly online counts for 24h, with the venue's service
-	// window shaded and uptime-during-service computed for today so far.
+// ownerServiceStrip is today's service: hourly online counts for 24h, with the
+// venue's service window shaded and uptime-during-service computed for today so far.
+// It also returns the venue's time zone, which the greeting and date line use.
+func (h *Handler) ownerServiceStrip(ctx context.Context, ids []uuid.UUID, ro ownerRoster) (cells []ownerHourCell, serviceUptime int, serviceLabel string, loc *time.Location) {
 	hourly, _ := h.db.HourlyOnline(ctx, ids, 24)
-	type hourCell struct {
-		Label   string
-		Pct     int
-		Service bool
-		Now     bool
-	}
 	var win *db.ServiceWindow
-	if restaurantID != nil {
-		if sw, ok, err := h.db.GetRestaurantServiceWindow(ctx, *restaurantID); err == nil && ok {
+	if ro.restaurantID != nil {
+		if sw, ok, err := h.db.GetRestaurantServiceWindow(ctx, *ro.restaurantID); err == nil && ok {
 			win = &sw
 		}
 	}
-	loc := time.Local
+	loc = time.Local
 	if win != nil && win.TZ != "" {
 		if l, err := time.LoadLocation(win.TZ); err == nil {
 			loc = l
 		}
 	}
 	startHour := time.Now().UTC().Truncate(time.Hour).Add(-23 * time.Hour)
-	var cells []hourCell
 	svcHours, svcOnline := 0, 0
 	for i := 0; i < 24; i++ {
 		t := startHour.Add(time.Duration(i) * time.Hour).In(loc)
 		pct := 0
-		if total > 0 {
-			pct = 100 * hourly[i] / total
+		if ro.total > 0 {
+			pct = 100 * hourly[i] / ro.total
 		}
 		inSvc := false
 		if win != nil {
@@ -257,24 +365,22 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			svcHours++
 			svcOnline += pct
 		}
-		cells = append(cells, hourCell{Label: t.Format("3PM"), Pct: pct, Service: inSvc, Now: i == 23})
+		cells = append(cells, ownerHourCell{Label: t.Format("3PM"), Pct: pct, Service: inSvc, Now: i == 23})
 	}
-	serviceUptime := -1
+	serviceUptime = -1
 	if svcHours > 0 {
 		serviceUptime = svcOnline / svcHours
 	}
-	serviceLabel := ""
 	if win != nil && win.OpenMin != win.CloseMin {
 		serviceLabel = fmtMin(win.OpenMin) + " – " + fmtMin(win.CloseMin)
 	}
+	return cells, serviceUptime, serviceLabel, loc
+}
 
-	// Week report card from daily stats: uptime and battery, this week vs last.
-	type delta struct {
-		Label, Value, Prev string
-		Up, Better         bool
-		Has                bool
-	}
-	var report []delta
+// ownerWeekReport is the report card from daily stats: uptime and battery, this
+// week vs last, then incidents.
+func (h *Handler) ownerWeekReport(ctx context.Context, restaurantID *uuid.UUID, incCur, incPrev int) []ownerDelta {
+	var report []ownerDelta
 	if restaurantID != nil {
 		if stats, err := h.db.GetRestaurantDailyStats(ctx, *restaurantID, 14); err == nil && len(stats) > 0 {
 			var upCur, upPrev, batCur, batPrev float64
@@ -300,7 +406,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			}
 			if nCur > 0 {
 				u := upCur / float64(nCur)
-				d := delta{Label: "Uptime in service", Value: fmt.Sprintf("%.0f%%", u), Has: true}
+				d := ownerDelta{Label: "Uptime in service", Value: fmt.Sprintf("%.0f%%", u), Has: true}
 				if nPrev > 0 {
 					pu := upPrev / float64(nPrev)
 					d.Prev = fmt.Sprintf("%.0f%%", pu)
@@ -308,7 +414,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 				}
 				report = append(report, d)
 				b := batCur / float64(nCur)
-				d2 := delta{Label: "Battery at close", Value: fmt.Sprintf("%.0f%%", b), Has: true}
+				d2 := ownerDelta{Label: "Battery at close", Value: fmt.Sprintf("%.0f%%", b), Has: true}
 				if nPrev > 0 {
 					pb := batPrev / float64(nPrev)
 					d2.Prev = fmt.Sprintf("%.0f%%", pb)
@@ -318,25 +424,12 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	report = append(report, delta{Label: "Incidents", Value: strconv.Itoa(incCur), Prev: strconv.Itoa(incPrev), Up: incCur > incPrev, Better: incCur <= incPrev, Has: true})
+	return append(report, ownerDelta{Label: "Incidents", Value: strconv.Itoa(incCur), Prev: strconv.Itoa(incPrev), Up: incCur > incPrev, Better: incCur <= incPrev, Has: true})
+}
 
-	hour := time.Now().In(loc).Hour()
-	greeting := "Good evening"
-	if hour < 12 {
-		greeting = "Good morning"
-	} else if hour < 17 {
-		greeting = "Good afternoon"
-	}
-	name := h.currentUsername(r)
-	if u, err := h.db.GetUserByUsername(ctx, name); err == nil && u != nil && u.FirstName != "" {
-		name = u.FirstName
-	}
-	sort.SliceStable(todos, func(i, j int) bool {
-		rank := map[string]int{"bad": 0, "warn": 1, "info": 2}
-		return rank[todos[i].Sev] < rank[todos[j].Sev]
-	})
-	// Headline: "Six of eight stations are ready for dinner." Lede: the exceptions
-	// in one breath, then "everything else is fine".
+// ownerHeadline: "Six of eight stations are ready for dinner." The lede is the
+// exceptions in one breath, then "everything else is fine".
+func ownerHeadline(venues []*ownerVenue, total, hour int) (headline, lede string) {
 	ready := 0
 	groups := map[string][]string{}
 	for _, v := range venues {
@@ -386,7 +479,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	case hour < 22:
 		meal = "dinner"
 	}
-	headline := "No stations are set up yet."
+	headline = "No stations are set up yet."
 	if total > 0 {
 		if ready == total {
 			headline = "All " + numWord(total) + " station" + map[bool]string{true: "s are", false: " is"}[total != 1] + " ready for " + meal + "."
@@ -396,7 +489,6 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			headline = strings.Title(numWord(ready)) + " of " + numWord(total) + " stations " + map[bool]string{true: "are", false: "is"}[ready != 1] + " ready for " + meal + "."
 		}
 	}
-	lede := ""
 	if len(exceptions) > 0 {
 		lede = strings.Join(exceptions, ". ") + "."
 		if ready > 0 {
@@ -405,114 +497,67 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	} else if total > 0 {
 		lede = "Every station is charged, locked to the menu and online."
 	}
-	// "Needs you" needGroups like problems into one row each (7 stations offline,
-	// 13 pads misplaced, …) instead of one row per station per problem; the
-	// stations list below already carries the per-station detail.
-	type needGroup struct {
-		Sev, Kind, Title, Body string
-		Stations               []todo
-		More                   int // stations beyond the first few chips
-	}
-	var needGroups []needGroup
-	{
-		idx := map[string]int{}
-		order := []string{"offline", "battery", "pad", "crashes", "kiosk"}
-		for _, k := range order {
-			idx[k] = -1
-		}
-		for _, t := range todos {
-			i, ok := idx[t.Kind]
-			if !ok {
-				continue
-			}
-			if i == -1 {
-				needGroups = append(needGroups, needGroup{Sev: t.Sev, Kind: t.Kind, Body: t.Body})
-				i = len(needGroups) - 1
-				idx[t.Kind] = i
-			}
-			needGroups[i].Stations = append(needGroups[i].Stations, t)
-		}
-		sort.SliceStable(needGroups, func(a, b int) bool {
-			pos := func(k string) int {
-				for i, o := range order {
-					if o == k {
-						return i
-					}
-				}
-				return len(order)
-			}
-			return pos(needGroups[a].Kind) < pos(needGroups[b].Kind)
-		})
-		for i := range needGroups {
-			n := len(needGroups[i].Stations)
-			plural := map[bool]string{true: "s", false: ""}[n != 1]
-			switch needGroups[i].Kind {
-			case "offline":
-				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " offline"
-				needGroups[i].Body = "Check that they are powered on and connected to Wi-Fi."
-			case "battery":
-				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " low and not charging"
-				needGroups[i].Body = "Put them back on their charging docks so they last through service."
-			case "pad":
-				needGroups[i].Title = strconv.Itoa(n) + " charging pad" + plural + " misplaced"
-				needGroups[i].Body = "Place each device again on its pad. If it keeps happening, let the MDM team know."
-			case "crashes":
-				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " crashing this week"
-				needGroups[i].Body = "The MDM team can see the details; a restart usually helps in the meantime."
-			case "kiosk":
-				needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " not locked to the app"
-				needGroups[i].Body = "Guests can leave the app. Ask the MDM team to turn locked mode back on."
-			}
-			if n > 6 {
-				needGroups[i].More = n - 6
-				needGroups[i].Stations = needGroups[i].Stations[:6]
-			}
-		}
-	}
-	// The owner's own weekly report, inline. This card used to be a mock-up captioned
-	// "Preview"; it now carries the real figures for the last finished week — the same
-	// numbers the emailed report and the PDF quote, from the same query, so an owner
-	// comparing the three never sees three different answers.
-	reportURL, reportFrom, reportTo := "", time.Time{}, time.Time{}
-	var reportMetrics *db.SiteMetrics
-	if restaurantID != nil {
-		reportFrom, reportTo = lastFullWeek(time.Now())
-		// The PDF, which the server renders on first request and caches.
-		reportURL = h.ReportPDFURL(r, *restaurantID, reportFrom)
-		if m, err := h.db.SiteMetricsFor(ctx, *restaurantID, 7, reportTo); err == nil && m.DeviceDays > 0 {
-			reportMetrics = &m
-		}
-	}
+	return headline, lede
+}
 
-	h.render(w, r, "owner_home.html", map[string]any{
-		"ReportURL":     reportURL,
-		"ReportMetrics": reportMetrics,
-		"ReportFrom":    reportFrom,
-		"ReportTo":      reportTo,
-		"TodoGroups":    needGroups,
-		"TodoCount":     len(todos),
-		"Headline":      headline,
-		"Lede":          template.HTML(lede),
-		"Title":         "Home",
-		"Greeting":      greeting,
-		"Name":          name,
-		"DateLine":      time.Now().In(loc).Format("Monday 2 January"),
-		"TimeLine":      strings.ToLower(time.Now().In(loc).Format("3:04 pm")),
-		"Venues":        venues,
-		"Total":         total,
-		"Online":        online,
-		"Offline":       total - online,
-		"LowBatt":       lowBatt,
-		"Score":         score,
-		"ScoreClass":    scoreClass,
-		"ScoreWord":     scoreWord,
-		"Todos":         todos,
-		"Hours":         cells,
-		"ServiceUptime": serviceUptime,
-		"ServiceLabel":  serviceLabel,
-		"Report":        report,
-		"VenueCount":    len(venues),
+// ownerNeedGroups folds the to-do items into one "Needs you" row per kind of
+// problem; the stations list below already carries the per-station detail.
+func ownerNeedGroups(todos []ownerTodo) []ownerNeedGroup {
+	var needGroups []ownerNeedGroup
+	idx := map[string]int{}
+	order := []string{"offline", "battery", "pad", "crashes", "kiosk"}
+	for _, k := range order {
+		idx[k] = -1
+	}
+	for _, t := range todos {
+		i, ok := idx[t.Kind]
+		if !ok {
+			continue
+		}
+		if i == -1 {
+			needGroups = append(needGroups, ownerNeedGroup{Sev: t.Sev, Kind: t.Kind, Body: t.Body})
+			i = len(needGroups) - 1
+			idx[t.Kind] = i
+		}
+		needGroups[i].Stations = append(needGroups[i].Stations, t)
+	}
+	sort.SliceStable(needGroups, func(a, b int) bool {
+		pos := func(k string) int {
+			for i, o := range order {
+				if o == k {
+					return i
+				}
+			}
+			return len(order)
+		}
+		return pos(needGroups[a].Kind) < pos(needGroups[b].Kind)
 	})
+	for i := range needGroups {
+		n := len(needGroups[i].Stations)
+		plural := map[bool]string{true: "s", false: ""}[n != 1]
+		switch needGroups[i].Kind {
+		case "offline":
+			needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " offline"
+			needGroups[i].Body = "Check that they are powered on and connected to Wi-Fi."
+		case "battery":
+			needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " low and not charging"
+			needGroups[i].Body = "Put them back on their charging docks so they last through service."
+		case "pad":
+			needGroups[i].Title = strconv.Itoa(n) + " charging pad" + plural + " misplaced"
+			needGroups[i].Body = "Place each device again on its pad. If it keeps happening, let the MDM team know."
+		case "crashes":
+			needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " crashing this week"
+			needGroups[i].Body = "The MDM team can see the details; a restart usually helps in the meantime."
+		case "kiosk":
+			needGroups[i].Title = strconv.Itoa(n) + " station" + plural + " not locked to the app"
+			needGroups[i].Body = "Guests can leave the app. Ask the MDM team to turn locked mode back on."
+		}
+		if n > 6 {
+			needGroups[i].More = n - 6
+			needGroups[i].Stations = needGroups[i].Stations[:6]
+		}
+	}
+	return needGroups
 }
 
 // batteryTempStr renders the device's temperature as "39.2°C" or "": battery_temp_c,
