@@ -183,6 +183,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /reports/{token}", h.ReportPDFServe)
 	mux.HandleFunc("GET /reports/{id}/{week}/{token}", h.ReportPDFToken)
 	mux.HandleFunc("GET /restaurants/{id}/report.pdf", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantReportPDF)))
+	// The monthly device-security report: the login-free link a report email carries
+	// (answers only while customer compliance reports are on), and the venue page's copy.
+	mux.HandleFunc("GET /reports/{id}/month/{month}/{token}", h.ComplianceMonthPDFToken)
+	mux.HandleFunc("GET /restaurants/{id}/compliance.pdf", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantCompliancePDF)))
 	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.fleetWide(h.RestaurantReportEmail)))
 	post("POST /restaurants/{id}", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdate)))
 	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))

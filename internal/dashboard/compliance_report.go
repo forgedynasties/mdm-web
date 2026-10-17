@@ -39,14 +39,15 @@ type compStatement struct {
 
 // compStatements is the report, in order. Draft wording (17 Oct) — see the note above.
 var compStatements = []compStatement{
+	// Partial is a plain label, not a claim: the count beside it says how far it held.
 	{Key: "locked", Checks: []string{"locked"},
-		Ok: "Every device stayed locked to its app", Partial: "Devices stayed locked to their app",
+		Ok: "Every device stayed locked to its app", Partial: "Devices locked to their app",
 		Lapse: "was not locked to its app"},
 	{Key: "closed", Checks: []string{"adb_off", "wireless_adb_off", "dev_options_off"},
-		Ok: "No debugging or remote access was left open", Partial: "Debugging and remote access stayed closed",
+		Ok: "No debugging or remote access was left open", Partial: "Debugging and remote access closed",
 		Lapse: "had debugging or remote access open", FixType: "adb_tcp", FixBy: "compliance", Fixed: "Closed automatically."},
 	{Key: "current", Checks: []string{"firmware_approved", "client_current", "security_patch_recent"},
-		Ok: "Software stayed up to date", Partial: "Software stayed up to date",
+		Ok: "Software stayed up to date", Partial: "Software up to date",
 		Lapse: "ran older software", FixType: "app_update", FixBy: "auto-update", Fixed: "Updated automatically."},
 }
 
