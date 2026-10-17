@@ -1999,4 +1999,18 @@ CREATE TABLE IF NOT EXISTS venue_wifi_pushes (
 	PRIMARY KEY (network_id, device_id, version, action)
 );
 
+-- Venue contact email (17 Oct, compliance report R1): where the monthly device-security
+-- report goes, besides the owner-role users whose access covers the venue. '' = none.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS contact_email TEXT NOT NULL DEFAULT '';
+
+-- One row per venue per month the compliance report was emailed, so the monthly job
+-- sends it once however many times it runs (RunComplianceReports).
+CREATE TABLE IF NOT EXISTS compliance_report_sends (
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    month         TEXT NOT NULL,                 -- YYYY-MM, the month reported on
+    sent_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    recipients    TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (restaurant_id, month)
+);
+
 `

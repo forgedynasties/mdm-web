@@ -274,6 +274,10 @@ func renderReportPDF(venue string, v venueReport, generated time.Time) ([]byte, 
 	text(muted)
 	pdf.MultiCell(contentW, 3.8, tr(note), "", "L", false)
 
+	if v.Security != nil {
+		drawWeeklySecurityPage(pdf, tr, venue, v, margin, contentW)
+	}
+
 	var buf bytes.Buffer
 	if err := pdf.Output(&buf); err != nil {
 		return nil, err

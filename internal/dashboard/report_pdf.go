@@ -148,7 +148,21 @@ func (h *Handler) serveReportPDF(w http.ResponseWriter, r *http.Request, id uuid
 
 // reportPDFLayout is part of every cache key, so a change to the drawing below makes
 // every cached file stale at once. Bump it with any change to renderReportPDF.
-const reportPDFLayout = "2"
+const reportPDFLayout = "3"
+
+// weekSecurity is the week's "Device security" page, or nil while customer compliance
+// reports are off (or it cannot be read — the rest of the report still goes out).
+func (h *Handler) weekSecurity(ctx context.Context, rest *db.Restaurant, win reportWindow, visible func(uuid.UUID) bool) *venueSecurity {
+	if !h.cfg.ComplianceReportsCustomers() {
+		return nil
+	}
+	sec, err := h.loadVenueSecurity(ctx, rest, win.From, win.To.AddDate(0, 0, 1), visible)
+	if err != nil {
+		log.Printf("[report-pdf] security %s %s: %v", rest.ID, win.Value(), err)
+		return nil
+	}
+	return &sec
+}
 
 // venueReportPDF returns the venue's PDF for a week, from the disk cache when the
 // week's rollups have not changed since it was drawn.
@@ -162,17 +176,20 @@ func (h *Handler) venueReportPDF(ctx context.Context, rest *db.Restaurant, win r
 		if err != nil {
 			return nil, err
 		}
+		v.Security = h.weekSecurity(ctx, rest, win, visible)
 		return renderReportPDF(rest.Name, v, time.Now())
 	}
 	stamp, rows, err := h.db.DailyStatsStamp(ctx, rest.ID, win.Days, win.To)
 	if err != nil {
 		return nil, err
 	}
+	sec := h.weekSecurity(ctx, rest, win, nil)
 	// The key is whatever the PDF shows: the venue's name, the window, and the newest
 	// rollup inside it — the hourly rollup rewrites the week in progress, a recompute
-	// rewrites a finished one, and either moves computed_at.
-	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%d|%d|%d", reportPDFLayout, rest.Name,
-		win.Days, stamp.UnixNano(), rows)))
+	// rewrites a finished one, and either moves computed_at — plus the security page's
+	// figures, or "off" while it is not shown.
+	sum := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%d|%d|%d|%s", reportPDFLayout, rest.Name,
+		win.Days, stamp.UnixNano(), rows, secHash(sec))))
 	prefix := fmt.Sprintf("%s-%s-", rest.ID, win.Value())
 	dir := filepath.Join(ReportStoreDir(), "cache")
 	path := filepath.Join(dir, prefix+hex.EncodeToString(sum[:8])+".pdf")
@@ -184,6 +201,7 @@ func (h *Handler) venueReportPDF(ctx context.Context, rest *db.Restaurant, win r
 	if err != nil {
 		return nil, err
 	}
+	v.Security = sec
 	b, err := renderReportPDF(rest.Name, v, time.Now())
 	if err != nil {
 		return nil, err

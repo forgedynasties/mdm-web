@@ -84,6 +84,10 @@ type venueReport struct {
 	AvgPluggedPct     int
 	AvgPadMinutes     float64
 	AvgStandbyMinutes float64
+
+	// Security is the "Device security" page (compliance_report.go), set only while
+	// customer compliance reports are switched on.
+	Security *venueSecurity
 }
 
 // WindowHours is the ceiling the per-device hour tiles are read against.

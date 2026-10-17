@@ -837,6 +837,10 @@ func main() {
 				// Score every device against the compliance baseline and overrides; only
 				// changed results are written, each change kept as an event (compliance.go).
 				runJob(bgCtx, "compliance", time.Minute, dash.RunCompliance)
+				// The monthly device-security report to each venue's contact and owners, on
+				// the 1st from 09:00 venue time — only while customer compliance reports are
+				// switched on, once per venue per month (compliance_report_send.go).
+				runJob(bgCtx, "compliance-reports", time.Minute, dash.RunComplianceReports)
 				// The role model (static/device-role-model-plan.html): close lab sessions
 				// whose time is up, then keep each device on its role's app build. Both
 				// act only where a lab session or a prod build exists.

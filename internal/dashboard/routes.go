@@ -183,6 +183,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /reports/{token}", h.ReportPDFServe)
 	mux.HandleFunc("GET /reports/{id}/{week}/{token}", h.ReportPDFToken)
 	mux.HandleFunc("GET /restaurants/{id}/report.pdf", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantReportPDF)))
+	// The monthly device-security report: the login-free link a report email carries
+	// (answers only while customer compliance reports are on), and the venue page's copy.
+	mux.HandleFunc("GET /reports/{id}/month/{month}/{token}", h.ComplianceMonthPDFToken)
+	mux.HandleFunc("GET /restaurants/{id}/compliance.pdf", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantCompliancePDF)))
 	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.fleetWide(h.RestaurantReportEmail)))
 	post("POST /restaurants/{id}", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdate)))
 	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))
@@ -353,6 +357,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
+	post("POST /settings/compliance-reports/toggle", h.requireStrictAdmin(h.SettingsToggleComplianceReports))
+	post("POST /settings/lost-mode-phone", h.requireStrictAdmin(h.SettingsSetLostModePhone))
 	post("POST /settings/agent-apk", h.requireStrictAdmin(h.SettingsAgentAPK))
 	post("POST /products/{key}/name", h.requireStrictAdmin(h.ProductRename))
 	post("POST /products/{key}/role", h.requireStrictAdmin(h.ProductSetRole))

@@ -9,6 +9,7 @@ import (
 	_ "image/jpeg"
 	"log"
 	"net/http"
+	"net/mail"
 	"strconv"
 	"strings"
 	"time"
@@ -162,13 +163,19 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/restaurants", http.StatusFound)
 		return
 	}
+	contact, err := venueContactEmail(r.FormValue("contact_email"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	rest, err := h.db.CreateRestaurant(r.Context(), db.Restaurant{
-		Name:      name,
-		Address:   strings.TrimSpace(r.FormValue("address")),
-		Latitude:  parseFloatPtr(r.FormValue("latitude")),
-		Longitude: parseFloatPtr(r.FormValue("longitude")),
-		Timezone:  strings.TrimSpace(r.FormValue("timezone")),
-		Notes:     strings.TrimSpace(r.FormValue("notes")),
+		ContactEmail: contact,
+		Name:         name,
+		Address:      strings.TrimSpace(r.FormValue("address")),
+		Latitude:     parseFloatPtr(r.FormValue("latitude")),
+		Longitude:    parseFloatPtr(r.FormValue("longitude")),
+		Timezone:     strings.TrimSpace(r.FormValue("timezone")),
+		Notes:        strings.TrimSpace(r.FormValue("notes")),
 	})
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -665,6 +672,14 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Name required", http.StatusBadRequest)
 		return
 	}
+	// Only a form that carries the field changes it: an older form, or one posted
+	// without it, leaves the contact email alone instead of blanking it.
+	_, hasContact := r.Form["contact_email"]
+	contact, err := venueContactEmail(r.FormValue("contact_email"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	if err := h.db.UpdateRestaurant(r.Context(), db.Restaurant{
 		ID:        id,
 		Name:      name,
@@ -676,6 +691,12 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	if hasContact {
+		if err := h.db.SetRestaurantContactEmail(r.Context(), id, contact); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
 	}
 	h.audit(r, "restaurant.update", id.String(), name)
 	h.pushGuestToRestaurant(r.Context(), id) // the name is on every table's welcome
@@ -926,4 +947,18 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 		h.audit(r, "device.restaurant", serial, ridStr)
 	}
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
+}
+
+// venueContactEmail checks the venue form's contact email: empty (no contact), or one
+// plain address — never a display name or a list, since it becomes a To: header.
+func venueContactEmail(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	a, err := mail.ParseAddress(raw)
+	if err != nil || a.Name != "" || a.Address != raw || len(raw) > 254 || strings.ContainsAny(raw, ",; ") {
+		return "", fmt.Errorf("Contact email must be one email address")
+	}
+	return raw, nil
 }

@@ -526,6 +526,51 @@ func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Req
 	h.settingsToggleResponse(w, r, "/settings/require-reason", h.cfg.RequireReason())
 }
 
+// SettingsToggleComplianceReports switches customer-facing compliance reporting on or
+// off: the weekly PDF's "Device security" page and the monthly report email. It ships
+// off, because the wording needs a non-engineering sign-off before a customer reads it.
+func (h *Handler) SettingsToggleComplianceReports(w http.ResponseWriter, r *http.Request) {
+	_ = h.cfg.SetComplianceReportsCustomers(!h.cfg.ComplianceReportsCustomers())
+	h.audit(r, "settings.compliance_reports_customers", "", fmt.Sprintf("%t", h.cfg.ComplianceReportsCustomers()))
+	h.settingsToggleResponse(w, r, "/settings/compliance-reports/toggle", h.cfg.ComplianceReportsCustomers())
+}
+
+// SettingsSetLostModePhone sets the one AIO support number a lost device's screen shows.
+// Empty clears it.
+func (h *Handler) SettingsSetLostModePhone(w http.ResponseWriter, r *http.Request) {
+	phone, err := lostModePhone(r.FormValue("phone"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	_ = h.cfg.SetLostModeSupportPhone(phone)
+	h.audit(r, "settings.lost_mode_support_phone", "", phone)
+	h.hxRedirect(w, r, h.settingsDest(r))
+}
+
+// lostModePhone checks a support number for the lost screen: digits and the usual
+// separators, at most 40 characters (the lost_mode payload's limit), at least 6 digits.
+func lostModePhone(raw string) (string, error) {
+	raw = strings.Join(strings.Fields(raw), " ")
+	if raw == "" {
+		return "", nil
+	}
+	digits := 0
+	for _, c := range raw {
+		switch {
+		case c >= '0' && c <= '9':
+			digits++
+		case strings.ContainsRune(" +()-.", c):
+		default:
+			return "", fmt.Errorf("A phone number may only hold digits, spaces and + ( ) - .")
+		}
+	}
+	if digits < 6 || len(raw) > 40 {
+		return "", fmt.Errorf("Enter a phone number of 6 to 40 characters")
+	}
+	return raw, nil
+}
+
 func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	if n, err := strconv.Atoi(r.FormValue("page_size")); err == nil && n > 0 && n <= 200 {
