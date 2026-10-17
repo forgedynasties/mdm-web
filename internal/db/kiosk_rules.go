@@ -12,17 +12,16 @@ import (
 // KioskState is one device's kiosk configuration and what it last reported, for the
 // kiosk rule enforcer and the Policies page.
 type KioskState struct {
-	DeviceID    uuid.UUID
-	Enabled     bool
-	Package     string
-	Mode        string
-	Rule        *uuid.UUID // the rule that set this configuration, nil when set by hand
-	Override    bool       // changed by hand on the device page while a rule covers it
-	OfflineExit bool
-	ConfigAt    *time.Time // when the configuration last changed
-	LastSeen    time.Time
-	Suspended   bool       // staff left kiosk on the device with an offline exit code
-	ExitedAt    *time.Time // taken out of kiosk on site; stays out until answered
+	DeviceID  uuid.UUID
+	Enabled   bool
+	Package   string
+	Mode      string
+	Rule      *uuid.UUID // the rule that set this configuration, nil when set by hand
+	Override  bool       // changed by hand on the device page while a rule covers it
+	ConfigAt  *time.Time // when the configuration last changed
+	LastSeen  time.Time
+	Suspended bool       // staff left kiosk on the device with the exit PIN
+	ExitedAt  *time.Time // taken out of kiosk on site; stays out until answered
 }
 
 // ListKioskStates returns the kiosk state of every device in the fleet (not hidden,
@@ -30,7 +29,7 @@ type KioskState struct {
 func (d *DB) ListKioskStates(ctx context.Context) (map[uuid.UUID]KioskState, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.id, COALESCE(dc.kiosk_enabled, false), COALESCE(dc.kiosk_package, ''), COALESCE(dc.kiosk_mode, ''),
-		       dc.kiosk_rule, COALESCE(dc.kiosk_override, false), COALESCE(dc.offline_exit_enabled, false),
+		       dc.kiosk_rule, COALESCE(dc.kiosk_override, false),
 		       dc.updated_at, d.last_seen_at,
 		       COALESCE(d.latest_extra->>'kiosk_suspended', '') = 'true', dc.kiosk_exited_at
 		FROM devices d LEFT JOIN device_config dc ON dc.device_id = d.id
@@ -42,7 +41,7 @@ func (d *DB) ListKioskStates(ctx context.Context) (map[uuid.UUID]KioskState, err
 	out := map[uuid.UUID]KioskState{}
 	for rows.Next() {
 		var s KioskState
-		if err := rows.Scan(&s.DeviceID, &s.Enabled, &s.Package, &s.Mode, &s.Rule, &s.Override, &s.OfflineExit,
+		if err := rows.Scan(&s.DeviceID, &s.Enabled, &s.Package, &s.Mode, &s.Rule, &s.Override,
 			&s.ConfigAt, &s.LastSeen, &s.Suspended, &s.ExitedAt); err != nil {
 			return nil, err
 		}
@@ -358,12 +357,11 @@ func (d *DB) AutoResetDeviceKeyAnywhere(ctx context.Context, serial string) (boo
 func (d *DB) KioskPolicyForRestaurant(ctx context.Context, restaurantID uuid.UUID) (*KioskPolicy, error) {
 	var p KioskPolicy
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, name, kiosk_package, target_type, target_id, target_serial,
-		       COALESCE(offline_exit, false)
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial
 		FROM kiosk_policies
 		WHERE target_type = 'restaurant' AND target_id = $1
 		ORDER BY updated_at DESC LIMIT 1`, restaurantID).
-		Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.OfflineExit)
+		Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial)
 	if err != nil {
 		return nil, nil // no rule for this venue is the normal case, not an error
 	}

@@ -231,11 +231,6 @@ func (h *Handler) reconcileKiosk(ctx context.Context) int {
 					changed = append(changed, k.Dev.ID)
 				}
 			}
-			if want.OfflineExit && !st.OfflineExit {
-				if _, err := h.db.SetOfflineExit(ctx, k.Dev.ID, true, "", false); err != nil {
-					log.Printf("[kiosk-rules] offline exit on %s: %v", k.Dev.SerialNumber, err)
-				}
-			}
 		}
 	}
 	if len(changed) > 0 {

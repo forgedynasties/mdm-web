@@ -92,7 +92,7 @@ func TestKioskPagesRender(t *testing.T) {
 	id := uuid.New()
 	rest := uuid.New()
 	rules := []kioskRuleView{
-		{KioskPolicy: db.KioskPolicy{ID: id, Name: "Flights Vegas · Nugget", KioskPackage: "aio.app.nugget.uatv2", TargetType: "restaurant", TargetID: &rest, OfflineExit: true},
+		{KioskPolicy: db.KioskPolicy{ID: id, Name: "Flights Vegas · Nugget", KioskPackage: "aio.app.nugget.uatv2", TargetType: "restaurant", TargetID: &rest},
 			Pos: 1, First: true, Last: true, AppName: "Nugget-uatv2", TargetLabel: "Flights Vegas (restaurant)", TargetHref: "/devices?view=restaurant&id=" + rest.String(),
 			Devices: 20, Locked: 16, Waiting: 4, Exited: 1},
 	}

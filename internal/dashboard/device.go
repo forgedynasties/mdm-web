@@ -14,7 +14,6 @@ import (
 	"mdm/internal/db"
 	"mdm/internal/product"
 	"mdm/internal/shell"
-	"mdm/internal/totp"
 
 	"github.com/google/uuid"
 )
@@ -462,15 +461,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// (skipping any whose app the device already has present).
 	pendingInstalls := pendingInstallRows(commands, apps, installedPkgs, apkPkg)
 
-	// Kiosk unlock code (everyone except viewers) — shown inside the Kiosk section so an
-	// operator/operator/admin can read it to a technician who needs to leave kiosk on-device.
-	// The initial code renders server-side; the page then keeps it live via /offline-code.
-	offlineCode, offlineSecs := "", 0
-	if kioskCfg.OfflineExitSeed != "" && role != "viewer" {
-		now := time.Now()
-		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
-		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
-	}
 	// Count a Maps Embed load whenever this render will actually emit the map iframe
 	// (key configured + resolved coordinates present). Browser embed loads are free,
 	// but the count lets admins see map activity in the Google APIs usage panel.
@@ -547,10 +537,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Caps":             device.CapSet(),
 		"Classes":          product.Classes(),
 		"DeviceCrashCount": crashCount,
-		"OfflinePeriod":    totp.DefaultPeriod,
-		"OfflineDigits":    totp.DefaultDigits,
-		"OfflineCode":      offlineCode,
-		"OfflineCodeSecs":  offlineSecs,
 		"ChargerFlapRate":  flapRate,
 		"ChargerFlapping":  flapRate > 10,
 		"Notes":            notes,
@@ -616,51 +602,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"AddableGroups":       addableGroups,
 		"MapsEmbedKey":        h.mapsEmbedKey,
 	})
-}
-
-// DeviceOfflineCode returns the current offline-exit unlock code + seconds remaining as
-// JSON, so the device page can show a live, self-rotating code without a page reload and
-// without needing browser crypto (works over plain HTTP). Admin-only.
-func (h *Handler) DeviceOfflineCode(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	cfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	out := map[string]any{"enabled": false, "period": totp.DefaultPeriod, "kiosk_enabled": cfg.KioskEnabled}
-	if cfg.OfflineExitSeed != "" {
-		now := time.Now()
-		code, _ := totp.Code(cfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
-		out["enabled"] = true
-		out["code"] = code
-		out["seconds"] = totp.SecondsRemaining(now, totp.DefaultPeriod)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(out)
-}
-
-// DeviceRotateOfflineCode rotates a device's kiosk unlock seed. Old codes stop working
-// immediately; the device picks up the new seed on its next check-in. Admin-only.
-func (h *Handler) DeviceRotateOfflineCode(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if _, err := h.db.SetOfflineExit(r.Context(), device.ID, true, "", true); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.auditDev(r, "device.offline_code_rotate", device.ID, serial, "")
-	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
 }
 
 func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {

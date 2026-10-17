@@ -150,7 +150,7 @@ var commands = []Command{
 	{Type: "adb_tcp", Cap: CapAdbTcp, Roles: rolesAdmin, API: true},
 
 	// Lost mode: the device shows a full-screen "this belongs to …" message, pinned with
-	// lock task, until the server lifts it (or support reads out the rotating unlock code).
+	// lock task, until the server lifts it (nothing on the device does).
 	// Operator-level like reboot — reacting to a missing tablet must not wait for an admin
 	// — under its own access action, so a policy can grant or withhold it per venue.
 	{Type: "lost_mode", Cap: CapLostMode, Roles: rolesOperator, API: true, Access: "lost_mode"},

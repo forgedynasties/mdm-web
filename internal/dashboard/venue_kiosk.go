@@ -62,11 +62,10 @@ func (h *Handler) RestaurantKioskSave(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := rest.Name + " · " + pkg
-	offline := r.FormValue("offline_exit") == "1"
 	if existing != nil {
-		err = h.db.UpdateKioskPolicy(ctx, existing.ID, name, pkg, "restaurant", &id, "", offline)
+		err = h.db.UpdateKioskPolicy(ctx, existing.ID, name, pkg, "restaurant", &id, "")
 	} else {
-		_, err = h.db.CreateKioskPolicy(ctx, name, pkg, "restaurant", &id, "", offline)
+		_, err = h.db.CreateKioskPolicy(ctx, name, pkg, "restaurant", &id, "")
 	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -83,7 +82,6 @@ func (h *Handler) RestaurantKioskSave(w http.ResponseWriter, r *http.Request) {
 type venueKioskView struct {
 	Package  string
 	RuleID   string
-	Offline  bool
 	Total    int
 	Locked   int
 	Exited   int
@@ -100,7 +98,7 @@ func (h *Handler) venueKiosk(r *http.Request, restaurantID uuid.UUID) *venueKios
 	ctx := r.Context()
 	v := &venueKioskView{}
 	if p, _ := h.db.KioskPolicyForRestaurant(ctx, restaurantID); p != nil {
-		v.Package, v.RuleID, v.Offline = p.KioskPackage, p.ID.String(), p.OfflineExit
+		v.Package, v.RuleID = p.KioskPackage, p.ID.String()
 	}
 	v.Total, v.Locked, v.Exited, _ = h.db.RestaurantKioskState(ctx, restaurantID)
 	v.Disagree = v.Package != "" && v.Locked < v.Total

@@ -2,11 +2,8 @@ package db
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base32"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,18 +40,17 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	// first one, so the INSERT below (a wasted write attempt at 900 dev × every 60s)
 	// only ever fires once per device.
 	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features,
-		offline_exit_enabled, offline_exit_seed, offline_exit_relock, wlc_charging_enabled, updated_at,
+		offline_exit_enabled, offline_exit_relock, wlc_charging_enabled, updated_at,
 		kiosk_mode, kiosk_packages, kiosk_url, kiosk_url_allow
 		FROM device_config WHERE device_id = $1`
 	var cfg DeviceConfig
 	scan := func(row pgx.Row) error {
 		return row.Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures,
-			&cfg.OfflineExitEnabled, &cfg.OfflineExitSeed, &cfg.OfflineExitRelock, &cfg.WlcChargingEnabled, &cfg.UpdatedAt,
+			&cfg.OfflineExitEnabled, &cfg.OfflineExitRelock, &cfg.WlcChargingEnabled, &cfg.UpdatedAt,
 			&cfg.KioskMode, &cfg.KioskPackages, &cfg.KioskURL, &cfg.KioskURLAllow)
 	}
 	err := scan(d.pool.QueryRow(ctx, sel, deviceID))
 	if err == nil {
-		d.ensureOfflineExitSeed(ctx, &cfg)
 		return &cfg, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -66,23 +62,7 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	if err := scan(d.pool.QueryRow(ctx, sel, deviceID)); err != nil {
 		return nil, err
 	}
-	d.ensureOfflineExitSeed(ctx, &cfg)
 	return &cfg, nil
-}
-
-// ensureOfflineExitSeed lazily provisions a TOTP seed the first time a device is read.
-// Offline exit is part of kiosk (not a separate opt-in), so every device gets a seed;
-// the code is only ever usable while the device is in kiosk. Updates cfg in place.
-func (d *DB) ensureOfflineExitSeed(ctx context.Context, cfg *DeviceConfig) {
-	if cfg.OfflineExitSeed != "" {
-		return
-	}
-	seed := newBase32Seed()
-	if _, err := d.pool.Exec(ctx,
-		`UPDATE device_config SET offline_exit_seed=$2 WHERE device_id=$1 AND offline_exit_seed=''`,
-		cfg.DeviceID, seed); err == nil {
-		cfg.OfflineExitSeed = seed
-	}
 }
 
 // PendingOfflineExitAt returns the offline kiosk-exit timestamp the device last
@@ -105,44 +85,11 @@ func (d *DB) PendingOfflineExitAt(ctx context.Context, deviceID uuid.UUID) int64
 func (d *DB) RecordOfflineExit(ctx context.Context, deviceID uuid.UUID, atEpoch int64) {
 	_, _ = d.pool.Exec(ctx, `
 		INSERT INTO device_events (device_id, kind, summary, occurred_at)
-		SELECT $1, 'kiosk_exit_offline', 'Kiosk exited offline (unlock code)', to_timestamp($2)
+		SELECT $1, 'kiosk_exit_offline', 'Kiosk exited offline (exit PIN)', to_timestamp($2)
 		WHERE NOT EXISTS (
 			SELECT 1 FROM device_events
 			WHERE device_id = $1 AND kind = 'kiosk_exit_offline' AND occurred_at = to_timestamp($2))`,
 		deviceID, atEpoch)
-}
-
-// newBase32Seed returns a 20-byte (160-bit) random TOTP seed, RFC 4648 base32
-// (no padding), matching the on-device Totp verifier.
-func newBase32Seed() string {
-	b := make([]byte, 20)
-	_, _ = rand.Read(b)
-	return strings.TrimRight(base32.StdEncoding.EncodeToString(b), "=")
-}
-
-// SetOfflineExit enables/disables offline kiosk exit for a device. On the first
-// enable it generates a random base32 TOTP seed; disabling keeps the seed so a
-// re-enable reuses it (rotate by passing rotate=true).
-func (d *DB) SetOfflineExit(ctx context.Context, deviceID uuid.UUID, enabled bool, relock string, rotate bool) (string, error) {
-	if relock == "" {
-		relock = "reboot"
-	}
-	// Ensure the row exists.
-	if _, err := d.pool.Exec(ctx, `INSERT INTO device_config (device_id) VALUES ($1) ON CONFLICT (device_id) DO NOTHING`, deviceID); err != nil {
-		return "", err
-	}
-	var seed string
-	if err := d.pool.QueryRow(ctx, `SELECT offline_exit_seed FROM device_config WHERE device_id=$1`, deviceID).Scan(&seed); err != nil {
-		return "", err
-	}
-	if (enabled && seed == "") || rotate {
-		seed = newBase32Seed()
-	}
-	_, err := d.pool.Exec(ctx, `
-		UPDATE device_config
-		   SET offline_exit_enabled=$2, offline_exit_seed=$3, offline_exit_relock=$4, updated_at=NOW()
-		 WHERE device_id=$1`, deviceID, enabled, seed, relock)
-	return seed, err
 }
 
 func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled bool, pkg string, features int) error {
@@ -242,8 +189,7 @@ type KioskPolicy struct {
 	TargetType   string     `json:"target_type"`
 	TargetID     *uuid.UUID `json:"target_id,omitempty"`
 	TargetSerial string     `json:"target_serial,omitempty"`
-	Priority     int        `json:"priority"`     // lower wins where two rules cover one device
-	OfflineExit  bool       `json:"offline_exit"` // switch on the offline exit code on its devices
+	Priority     int        `json:"priority"` // lower wins where two rules cover one device
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
@@ -252,7 +198,7 @@ type KioskPolicy struct {
 // is the one it follows.
 func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, offline_exit, created_at, updated_at
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, created_at, updated_at
 		FROM kiosk_policies ORDER BY priority ASC, created_at ASC
 	`)
 	if err != nil {
@@ -262,7 +208,7 @@ func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 	var out []KioskPolicy
 	for rows.Next() {
 		var p KioskPolicy
-		if err := rows.Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.OfflineExit, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -273,32 +219,32 @@ func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
 func (d *DB) GetKioskPolicy(ctx context.Context, id uuid.UUID) (KioskPolicy, error) {
 	var p KioskPolicy
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, offline_exit, created_at, updated_at
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, priority, created_at, updated_at
 		FROM kiosk_policies WHERE id = $1
-	`, id).Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.OfflineExit, &p.CreatedAt, &p.UpdatedAt)
+	`, id).Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.Priority, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
 // CreateKioskPolicy adds a rule at the top of the order — a new rule is usually the
 // more specific one and should win over the broad ones already there — except an
 // all-devices rule, which goes to the bottom so it catches only what nothing else does.
-func (d *DB) CreateKioskPolicy(ctx context.Context, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string, offlineExit bool) (uuid.UUID, error) {
+func (d *DB) CreateKioskPolicy(ctx context.Context, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial, offline_exit, priority)
-		VALUES ($1, $2, $3, $4, $5, $6,
+		INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial, priority)
+		VALUES ($1, $2, $3, $4, $5,
 		        CASE WHEN $3 = 'all' THEN COALESCE((SELECT MAX(priority) FROM kiosk_policies), -1) + 1
 		             ELSE COALESCE((SELECT MIN(priority) FROM kiosk_policies), 1) - 1 END) RETURNING id
-	`, name, pkg, targetType, targetID, targetSerial, offlineExit).Scan(&id)
+	`, name, pkg, targetType, targetID, targetSerial).Scan(&id)
 	return id, err
 }
 
-func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string, offlineExit bool) error {
+func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE kiosk_policies SET name = $2, kiosk_package = $3, target_type = $4, target_id = $5, target_serial = $6,
-		       offline_exit = $7, updated_at = NOW()
+		       updated_at = NOW()
 		WHERE id = $1
-	`, id, name, pkg, targetType, targetID, targetSerial, offlineExit)
+	`, id, name, pkg, targetType, targetID, targetSerial)
 	return err
 }
 

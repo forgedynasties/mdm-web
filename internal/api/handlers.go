@@ -17,8 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
@@ -36,8 +34,10 @@ import (
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
-	"mdm/internal/totp"
 	"mdm/internal/ws"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 // maxPackagesPerDevice caps how many installed-app rows a single check-in will
@@ -1282,7 +1282,6 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 			cfg[k] = v
 		}
 	}
-	addOfflineExit(cfg, deviceCfg)
 	// Guest info (venue, table, guest Wi-Fi) for the firmware client's home screen. It
 	// rides the HTTP check-in only: a socket gets it once on connect and again whenever
 	// it changes (PushGuest), so the telemetry frames over it don't each pay a lookup.
@@ -1384,17 +1383,6 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		resp["send_apps"] = true
 	}
 	writeJSON(w, http.StatusOK, resp)
-}
-
-// addOfflineExit hands the device its unlock seed. Offline exit isn't a separate feature —
-// it's part of kiosk — so the seed always rides the config; the code is only ever usable
-// while the device is in kiosk (the on-device trigger is long-press Back in lock-task).
-func addOfflineExit(cfgMap map[string]any, cfg *db.DeviceConfig) {
-	cfgMap["offline_exit"] = map[string]any{
-		"seed":   cfg.OfflineExitSeed,
-		"digits": totp.DefaultDigits,
-		"period": totp.DefaultPeriod,
-	}
 }
 
 // processOfflineExit handles a device-reported offline kiosk exit: it flips the kiosk

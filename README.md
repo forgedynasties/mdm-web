@@ -21,8 +21,8 @@ whether we own the firmware, and capability gating in
 
 **Firmware** — in-house devices (T7, Kiosks) run our own AOSP image, so the client
 ships inside it as a platform-signed system app with `android.uid.system`. Kiosk
-lock, full firmware OTA, reboot, shell, splash and boot-logo updates, TOTP
-kiosk-exit codes. Auto-enrolled on first check-in. The only tier that gets firmware
+lock, full firmware OTA, reboot, shell, splash and boot-logo updates, an on-device
+kiosk-exit PIN. Auto-enrolled on first check-in. The only tier that gets firmware
 OTA; since 1.0.0 it also updates itself as an APK.
 
 **DPC** — off-the-shelf devices can't take our image, so this is a normal APK that
@@ -97,7 +97,7 @@ internal/
   ai/                AI analysis providers
   geolocate/         WiFi geolocation, reverse geocoding
   product/           Product catalog
-  config/ version/ totp/ ratelimit/ safehttp/
+  config/ version/ ratelimit/ safehttp/
 templates/           Go HTML templates
 static/              CSS, JS, icons, service worker
 docker/postgres/     DB init script

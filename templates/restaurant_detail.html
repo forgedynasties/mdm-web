@@ -167,7 +167,6 @@
             {{range .Choices}}<option value="{{.Package}}"{{if eq .Package $cur}} selected{{end}}>{{.Label}}</option>{{end}}
             {{if and $cur (not .Choices)}}<option value="{{$cur}}" selected>{{$cur}}</option>{{end}}
           </select></div>
-        <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="offline_exit" value="1"{{if .Offline}} checked{{end}}> Allow the on-device exit code</label>
         <p>Only apps installed on this venue's tablets are offered.</p>
         <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
       </form>

@@ -353,7 +353,6 @@ func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
 	tt, tid, serial, ok := kioskTargetFromForm(r)
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 	name := strings.TrimSpace(r.FormValue("name"))
-	offline := r.FormValue("offline_exit") == "1"
 	if !ok || pkg == "" {
 		http.Error(w, "Choose where the rule applies and which app to lock to.", http.StatusBadRequest)
 		return
@@ -384,11 +383,11 @@ func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
 		if !h.kioskPolicyInScope(w, r, oldIDs) {
 			return
 		}
-		if err := h.db.UpdateKioskPolicy(ctx, id, name, pkg, tt, tid, serial, offline); err != nil {
+		if err := h.db.UpdateKioskPolicy(ctx, id, name, pkg, tt, tid, serial); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-	} else if id, err = h.db.CreateKioskPolicy(ctx, name, pkg, tt, tid, serial, offline); err != nil {
+	} else if id, err = h.db.CreateKioskPolicy(ctx, name, pkg, tt, tid, serial); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

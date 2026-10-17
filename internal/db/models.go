@@ -347,10 +347,9 @@ type DeviceConfig struct {
 	// WlcChargingEnabled controls wireless-charging on the pad (client writes the
 	// customer_gpio line). Default true.
 	WlcChargingEnabled bool `json:"wlc_charging_enabled"`
-	// Offline kiosk-exit: a per-device TOTP seed (base32) lets a technician leave
-	// kiosk mode on-device with no server access. Seed is generated on enable.
+	// Offline kiosk-exit (the on-device exit PIN). The per-device rotating code (TOTP seed)
+	// was removed on 17 Oct; the offline_exit_seed column is left in place, unused.
 	OfflineExitEnabled bool   `json:"offline_exit_enabled"`
-	OfflineExitSeed    string `json:"offline_exit_seed"`
 	OfflineExitRelock  string `json:"offline_exit_relock"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
