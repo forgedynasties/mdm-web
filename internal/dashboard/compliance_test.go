@@ -39,7 +39,8 @@ func TestComplianceDeviceChecks(t *testing.T) {
 	}
 	quiet := &db.Device{}
 	for _, c := range complianceChecks {
-		if !c.Device {
+		// device_owner asks only the standard client; a firmware device is n/a, not unknown.
+		if !c.Device || c.ID == "device_owner" {
 			continue
 		}
 		if got, _ := c.eval(s, quiet, c.Param); got != db.ComplianceUnknown {
@@ -122,6 +123,42 @@ func TestComplianceVerdict(t *testing.T) {
 	v := compCompliant(res)
 	if !v[a] || v[b] {
 		t.Errorf("verdict %v: unknown and recommended failures must not break compliance; a required failure must", v)
+	}
+}
+
+// The P2 signals (17 Oct): patch age, verified boot, SELinux and Device Owner.
+func TestComplianceP2Checks(t *testing.T) {
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+	s := &compSnapshot{now: now}
+	dev := func(extra string) *db.Device { return &db.Device{LatestExtra: json.RawMessage(extra)} }
+	dpc := func(extra string) *db.Device {
+		return &db.Device{AgentKind: "dpc", LatestExtra: json.RawMessage(extra)}
+	}
+	cases := []struct {
+		check string
+		d     *db.Device
+		want  string
+	}{
+		{"security_patch_recent", dev(`{"security_patch":"2026-08-05"}`), db.CompliancePass},
+		{"security_patch_recent", dev(`{"security_patch":"2025-11-01"}`), db.ComplianceFail},
+		{"security_patch_recent", dev(`{"security_patch":null}`), db.ComplianceUnknown},
+		{"security_patch_recent", dev(`{"security_patch":"soon"}`), db.ComplianceUnknown},
+		{"verified_boot", dev(`{"verified_boot":"green"}`), db.CompliancePass},
+		{"verified_boot", dev(`{"verified_boot":"orange"}`), db.ComplianceFail},
+		{"verified_boot", dev(`{"verified_boot":"red"}`), db.ComplianceFail},
+		{"verified_boot", dev(`{}`), db.ComplianceUnknown},
+		{"selinux_enforcing", dev(`{"selinux_enforcing":true}`), db.CompliancePass},
+		{"selinux_enforcing", dev(`{"selinux_enforcing":false}`), db.ComplianceFail},
+		{"device_owner", dpc(`{"device_owner":true}`), db.CompliancePass},
+		{"device_owner", dpc(`{"device_owner":false}`), db.ComplianceFail},
+		{"device_owner", dpc(`{}`), db.ComplianceUnknown},
+		{"device_owner", dev(`{"device_owner":false}`), db.ComplianceNA},
+		{"device_owner", dpc(`{"agent_type":"mdm-lite"}`), db.ComplianceNA},
+	}
+	for _, tc := range cases {
+		if got, detail := compState(t, tc.check, s, tc.d); got != tc.want {
+			t.Errorf("%s on %s: %s (%s), want %s", tc.check, tc.d.LatestExtra, got, detail, tc.want)
+		}
 	}
 }
 

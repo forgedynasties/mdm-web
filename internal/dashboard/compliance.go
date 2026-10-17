@@ -95,6 +95,17 @@ var complianceChecks = []compCheck{
 	{ID: "play_protect", Group: compGroupIntact, Name: "Play Protect on", Device: true, Level: db.ComplianceRecommended,
 		Help: "Only where the image has Google Play.",
 		eval: evalExtraTrue("play_protect", "Play Protect is off")},
+	{ID: "security_patch_recent", Group: compGroupIntact, Name: "Security patch recent", Device: true, Level: db.ComplianceRecommended, Param: 180, Unit: "days",
+		Help: "The Android security patch level is no older than the time below.",
+		eval: evalSecurityPatch},
+	{ID: "verified_boot", Group: compGroupIntact, Name: "Verified boot", Device: true, Level: db.ComplianceRecommended,
+		Help: "The bootloader verified the image it started (green). Yellow, orange or red means a self-signed, unlocked or failed boot.",
+		eval: evalVerifiedBoot},
+	{ID: "selinux_enforcing", Group: compGroupIntact, Name: "SELinux enforcing", Device: true, Level: db.ComplianceRequired,
+		eval: evalExtraTrue("selinux_enforcing", "SELinux is permissive")},
+	{ID: "device_owner", Group: compGroupSetup, Name: "Standard client is Device Owner", Device: true, Level: db.ComplianceRequired,
+		Help: "Without Device Owner the standard client cannot lock, install or reset. Firmware clients are system apps and are not measured.",
+		eval: evalDeviceOwner},
 }
 
 func complianceCheck(id string) (compCheck, bool) {
@@ -218,6 +229,58 @@ func evalUnknownSources(_ *compSnapshot, d *db.Device, _ int) (string, string) {
 		}
 	}
 	return db.ComplianceFail, detail
+}
+
+// evalSecurityPatch passes when extra.security_patch ("2026-08-05") is no more than
+// days old. A patch level is a date, so it is measured to the day.
+func evalSecurityPatch(s *compSnapshot, d *db.Device, days int) (string, string) {
+	raw := strings.TrimSpace(extraString(d.LatestExtra, "security_patch"))
+	if raw == "" || raw == "—" || raw == "null" {
+		return db.ComplianceUnknown, "Not reported by its client"
+	}
+	at, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return db.ComplianceUnknown, "Patch level " + raw + " is not a date"
+	}
+	age := int(s.now.Sub(at).Hours() / 24)
+	if age <= days {
+		return db.CompliancePass, raw
+	}
+	return db.ComplianceFail, fmt.Sprintf("%s, %d days old", raw, age)
+}
+
+// evalVerifiedBoot reads extra.verified_boot (ro.boot.verifiedbootstate).
+func evalVerifiedBoot(_ *compSnapshot, d *db.Device, _ int) (string, string) {
+	state := strings.ToLower(strings.TrimSpace(extraString(d.LatestExtra, "verified_boot")))
+	switch state {
+	case "", "—", "null":
+		return db.ComplianceUnknown, "Not reported by its client"
+	case "green":
+		return db.CompliancePass, "green"
+	case "yellow":
+		return db.ComplianceFail, "yellow: booted an image signed with its own key"
+	case "orange":
+		return db.ComplianceFail, "orange: the bootloader is unlocked"
+	case "red":
+		return db.ComplianceFail, "red: verification failed"
+	}
+	return db.ComplianceUnknown, "Unrecognised state " + state
+}
+
+// evalDeviceOwner applies to the standard (DPC) client only: the firmware client is a
+// system app and MDM-lite is a host-app library, neither of which holds Device Owner.
+func evalDeviceOwner(_ *compSnapshot, d *db.Device, _ int) (string, string) {
+	if !d.IsDPC() || d.IsMDMLite() {
+		return db.ComplianceNA, "Not a standard client"
+	}
+	on, ok := extraTri(d.LatestExtra, "device_owner")
+	switch {
+	case !ok:
+		return db.ComplianceUnknown, "Not reported by its client"
+	case !on:
+		return db.ComplianceFail, "The client is not Device Owner"
+	}
+	return db.CompliancePass, "Device Owner"
 }
 
 // evalExtraFalse passes when the reported flag is false (adb_enabled, su_present…).
