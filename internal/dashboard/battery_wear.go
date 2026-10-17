@@ -286,3 +286,34 @@ func fmtClimb(secs int) string {
 	}
 	return strconv.Itoa(m/60) + " h " + strconv.Itoa(m%60) + " m"
 }
+
+// batteryWearFor is the device page's Battery card, or nil when the device sends no
+// climbs: only the firmware client logs them, and only a device with a battery has any.
+func (h *Handler) batteryWearFor(ctx context.Context, d *db.Device) *batteryWearCard {
+	if d.IsDPC() || !d.HasBattery() {
+		return nil
+	}
+	climbs, err := h.db.BatteryClimbsFor(ctx, d.ID, 400)
+	if err != nil || len(climbs) == 0 {
+		return nil
+	}
+	card := computeWearCard(climbs, h.fleetWearNow(ctx).MedianSecs)
+	return &card
+}
+
+// visibleWear narrows the Wear tab to the devices the caller may see. The median stays the
+// fleet's: it is the yardstick, not a list of devices.
+func visibleWear(fw fleetWear, visible func(uuid.UUID) bool) fleetWear {
+	rows := fw.Rows[:0:0]
+	fw.FastCount = 0
+	for _, r := range fw.Rows {
+		if visible(r.DeviceID) {
+			rows = append(rows, r)
+			if r.Fast {
+				fw.FastCount++
+			}
+		}
+	}
+	fw.Rows = rows
+	return fw
+}
