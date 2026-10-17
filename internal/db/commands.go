@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -105,6 +106,13 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 			return nil, errors.New(msg)
 		}
 	}
+	// lost_mode / wifi_config: the same check the send paths ran, as a backstop, and the
+	// password split off so it never reaches commands.payload.
+	payload, msg := prod.NormalizeCommandPayload(cmdType, payload)
+	if msg != "" {
+		return nil, errors.New(msg)
+	}
+	payload, secret := prod.SplitCommandSecret(cmdType, payload)
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -134,6 +142,11 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 		Scan(&cmd.ID, &cmd.Type, &cmd.ApkURL, &cmd.Payload, &cmd.TargetType, &cmd.CreatedBy, &cmd.CreatedAt)
 	if err != nil {
 		return nil, err
+	}
+	if secret != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO command_secrets (command_id, secret) VALUES ($1, $2)`, cmd.ID, secret); err != nil {
+			return nil, err
+		}
 	}
 
 	inserted := 0
@@ -638,7 +651,62 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		}
 		cmds = append(cmds, c)
 	}
-	return cmds, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// This is a delivery read — every caller hands these to the device — so the secret
+	// fields go back in here.
+	for i := range cmds {
+		cmds[i].Payload = d.DeliveryPayload(ctx, cmds[i].ID, cmds[i].Type, cmds[i].Payload)
+	}
+	return cmds, nil
+}
+
+// DeliveryPayload is a command's payload as the device must receive it: the stored
+// payload with its secret fields (command_secrets) joined back in. Call it only where
+// the payload is about to go to a device — never for a view. Types without secrets cost
+// nothing; a secret that is gone (swept) leaves the stored payload, which the client
+// refuses rather than guessing.
+func (d *DB) DeliveryPayload(ctx context.Context, id uuid.UUID, cmdType string, payload json.RawMessage) json.RawMessage {
+	if !prod.CommandHasSecret(cmdType) {
+		return payload
+	}
+	var secret json.RawMessage
+	if err := d.pool.QueryRow(ctx, `SELECT secret FROM command_secrets WHERE command_id = $1`, id).Scan(&secret); err != nil {
+		return payload
+	}
+	return prod.MergeCommandSecret(cmdType, payload, secret)
+}
+
+// dropFinishedSecret deletes a command's secret once every device it names has reached
+// a terminal state: nobody can be handed it again. Group and fleet commands resolve
+// their devices at delivery, so theirs wait for PruneCommandSecrets.
+func (d *DB) dropFinishedSecret(ctx context.Context, commandID uuid.UUID) {
+	_, err := d.pool.Exec(ctx, `
+		DELETE FROM command_secrets s
+		USING commands c
+		WHERE s.command_id = $1 AND c.id = s.command_id AND c.target_type = 'devices'
+		  AND NOT EXISTS (
+			SELECT 1 FROM command_targets ct
+			WHERE ct.command_id = c.id AND NOT EXISTS (
+				SELECT 1 FROM command_status cs
+				WHERE cs.command_id = c.id AND cs.device_id = ct.target_id
+				  AND cs.status IN ('installed', 'failed', 'completed', 'cancelled', 'expired')))`, commandID)
+	if err != nil {
+		log.Printf("[command-secret] drop %s: %v", commandID, err)
+	}
+}
+
+// PruneCommandSecrets deletes the secrets of commands past delivering: a command is only
+// handed out within the hour it was created (GetPendingCommandsForDevice), so two hours
+// leaves every lease and redrive room to finish.
+func (d *DB) PruneCommandSecrets(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `DELETE FROM command_secrets WHERE created_at < NOW() - INTERVAL '2 hours'`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 // LearnApkPackage records that apkURL installs packageName, so future installs of

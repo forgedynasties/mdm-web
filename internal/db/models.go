@@ -212,7 +212,35 @@ func (d Device) CapSet() map[string]bool {
 	if prod.DefaultCaps(d.Product) != nil && extraTrue(d.LatestExtra, "factory_reset") {
 		out[prod.CapWipe] = true
 	}
+	// Lost mode and Wi-Fi config are the client's too, from 1.12.0: the version says so.
+	if prod.DefaultCaps(d.Product) != nil && extraInt(d.LatestExtra, "agent_version_code") >= prod.FirmwareClientCapsMinCode {
+		for _, c := range prod.FirmwareVersionedCaps {
+			out[c] = true
+		}
+	}
 	return out
+}
+
+// extraInt reads a latest_extra integer (a JSON number or a numeric string); 0 when
+// absent or unreadable.
+func extraInt(extra json.RawMessage, key string) int64 {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(extra, &m) != nil {
+		return 0
+	}
+	var n json.Number
+	if json.Unmarshal(m[key], &n) == nil {
+		if v, err := n.Int64(); err == nil {
+			return v
+		}
+	}
+	var s string
+	if json.Unmarshal(m[key], &s) == nil {
+		if v, err := json.Number(s).Int64(); err == nil {
+			return v
+		}
+	}
+	return 0
 }
 
 // extraTrue reports whether a latest_extra key holds JSON true.

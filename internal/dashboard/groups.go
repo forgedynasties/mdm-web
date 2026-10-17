@@ -542,7 +542,11 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := buildPayload(cmdType, r)
+	payload, msg := checkedPayload(cmdType, r)
+	if msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
 	if cmdType == "install_apk" {
 		// Capture APK size + ETag so the device can verify/resume the download.
 		payload = apkmeta.Augment(r.Context(), apkURL, payload)

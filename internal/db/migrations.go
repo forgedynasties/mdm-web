@@ -1957,4 +1957,15 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_round_trip_ok_at TIMESTAMPTZ;
 -- means it has a socket (or has never been seen without one). See db.MarkWSMissing.
 ALTER TABLE devices     ADD COLUMN IF NOT EXISTS ws_missing_since    TIMESTAMPTZ;
 
+-- Command secrets (17 Oct): the fields of a payload that must not be stored with the
+-- command — a wifi_config's password. commands.payload is what every view, list, export
+-- and API listing shows, so the password lives here instead and is joined back in only
+-- on the way to the device. Deleted when every named device has finished with the
+-- command, and swept once the command is past delivering (PruneCommandSecrets).
+CREATE TABLE IF NOT EXISTS command_secrets (
+	command_id UUID PRIMARY KEY REFERENCES commands(id) ON DELETE CASCADE,
+	secret     JSONB       NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 `

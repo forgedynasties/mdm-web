@@ -664,7 +664,7 @@ func (h *Handler) flushPendingLogcatRequests(ctx context.Context, deviceID uuid.
 // pushCommand pushes a newly created command to all targeted online devices
 // and marks delivery status.
 func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType string, targetIDs []uuid.UUID) {
-	msg := marshalCommand(cmd.ID, cmd.Type, cmd.ApkURL, cmd.Payload)
+	msg := marshalCommand(cmd.ID, cmd.Type, cmd.ApkURL, h.db.DeliveryPayload(ctx, cmd.ID, cmd.Type, cmd.Payload))
 
 	switch targetType {
 	case "all":
@@ -2489,6 +2489,13 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// lost_mode / wifi_config: the shared payload check (internal/product/device_payloads.go).
+	normalized, msg := product.NormalizeCommandPayload(body.Type, body.Payload)
+	if msg != "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "payload: " + msg})
+		return
+	}
+	body.Payload = normalized
 
 	var targetIDs []uuid.UUID
 	switch body.TargetType {

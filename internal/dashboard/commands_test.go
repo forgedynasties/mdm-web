@@ -34,6 +34,8 @@ var wantCommandRoles = map[string][]string{
 	"unenroll":         {"admin"},
 	"mic_gain_read":    {"admin"},
 	"adb_tcp":          {"admin"},
+	"lost_mode":        {"admin", "operator", "user_manager", "super_op"},
+	"wifi_config":      {"admin"},
 }
 
 func TestCommandRolesMatchTheAllowlist(t *testing.T) {

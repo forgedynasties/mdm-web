@@ -174,6 +174,12 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 	if err := h.db.DeleteExpiredSessions(ctx); err != nil {
 		log.Printf("[retention] prune sessions: %v", err)
 	}
+	// A wifi_config password outlives its command's delivery window by nothing.
+	if n, err := h.db.PruneCommandSecrets(ctx); err != nil {
+		log.Printf("[retention] prune command secrets: %v", err)
+	} else if n > 0 {
+		log.Printf("[retention] pruned %d command secret(s) past delivery", n)
+	}
 }
 
 // resolvedAlertRetentionDays is how long resolved alerts are kept before the
