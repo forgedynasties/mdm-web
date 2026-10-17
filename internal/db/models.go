@@ -558,7 +558,7 @@ type DeviceFilter struct {
 	Online              string    // "online", "offline", or "" (no filter)
 	BuildID             string    // exact build_id match, or "" (no filter)
 	Battery             string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
-	Kiosk               string    // "enabled" (kiosk on), "disabled" (kiosk off), or "" (no filter)
+	Kiosk               string    // "enabled" (kiosk on), "disabled" (kiosk off), "lost" (in lost mode), or "" (no filter)
 	Charging            string    // "yes" (charging), "no" (not charging), or "" (no filter)
 	RAM                 string    // "high" (>=80% used), "warn" (>=60%), or "" (no filter)
 	Temp                string    // "hot" (danger level), "warm" (warn level or above), or "" (no filter)

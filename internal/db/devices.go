@@ -390,6 +390,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, "EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true)")
 	} else if f.Kiosk == "disabled" {
 		wheres = append(wheres, "NOT EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true)")
+	} else if f.Kiosk == "lost" {
+		// In lost mode, as the device itself reports it (extra.lost_mode, client 1.12.0 / 0.3.0).
+		wheres = append(wheres, "d.latest_extra->'lost_mode'->>'on' = 'true'")
 	}
 
 	if f.Timezone != "" {

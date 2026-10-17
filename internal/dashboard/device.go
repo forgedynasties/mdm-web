@@ -530,6 +530,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"BatteryWear": h.batteryWearFor(r.Context(), device),
 		// The networks the device says it has saved (client 1.12.0 / 0.3.0), names only.
 		"SavedNetworks": savedNetworksView(device.LatestExtra),
+		// Lost mode: the band at the top of the page and the dialog's defaults (lost_mode.go).
+		"Lost": h.lostModeFor(r.Context(), device),
 		// Lifetime battery wear by day, so hovering the graph can read out cycles as of
 		// that moment — the same measure as the "Battery cycles" card, which is what
 		// anyone comparing the two expects.
