@@ -528,6 +528,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// Charge-climb wear against the fleet and its own first weeks (battery_wear.go);
 		// nil where there is nothing to read it from (no battery, the Standard client).
 		"BatteryWear": h.batteryWearFor(r.Context(), device),
+		// The networks the device says it has saved (client 1.12.0 / 0.3.0), names only.
+		"SavedNetworks": savedNetworksView(device.LatestExtra),
 		// Lifetime battery wear by day, so hovering the graph can read out cycles as of
 		// that moment — the same measure as the "Battery cycles" card, which is what
 		// anyone comparing the two expects.

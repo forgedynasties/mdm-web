@@ -269,6 +269,8 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	gw, _ := h.db.GetRestaurantGuestWifi(r.Context(), id) // zero value: shown as not set
 	data["GuestWifi"] = gw
+	// The networks the venue's devices join (venue_wifi.go) — not the guest Wi-Fi above.
+	data["VenueWifi"] = h.venueWifiRows(r.Context(), id, devices)
 	// Power and usage over the chosen window: uptime, guest-pad time and what it costs
 	// the tablet's own battery, and the battery levels staff plug and unplug at. The
 	// same number of days feeds the tiles and the per-day strip below them, so the

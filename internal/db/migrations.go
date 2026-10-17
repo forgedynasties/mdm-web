@@ -1968,4 +1968,35 @@ CREATE TABLE IF NOT EXISTS command_secrets (
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Venue Wi-Fi (W1, picked 17 Oct): the networks every device at a venue should have, so a
+-- router or password change is prepared from the dashboard before it happens. Not the
+-- guest Wi-Fi (restaurants.guest_wifi_*), which is shown to guests, not joined by devices.
+-- The password is sealed by the server (venue_wifi.go) before it is stored; version moves
+-- on every change so the reconciler knows which devices still have the old one.
+CREATE TABLE IF NOT EXISTS venue_wifi_networks (
+	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	restaurant_id UUID        NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+	ssid          TEXT        NOT NULL,
+	security      TEXT        NOT NULL,
+	hidden        BOOLEAN     NOT NULL DEFAULT FALSE,
+	secret        BYTEA,
+	version       INT         NOT NULL DEFAULT 1,
+	created_by    TEXT        NOT NULL DEFAULT '',
+	created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	removed_at    TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_venue_wifi_live ON venue_wifi_networks(restaurant_id, lower(ssid)) WHERE removed_at IS NULL;
+-- One row per wifi_config the reconciler queued for a device: which network, which
+-- version, add or remove, and the command that carries it (its status is the outcome).
+CREATE TABLE IF NOT EXISTS venue_wifi_pushes (
+	network_id UUID        NOT NULL REFERENCES venue_wifi_networks(id) ON DELETE CASCADE,
+	device_id  UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	version    INT         NOT NULL,
+	action     TEXT        NOT NULL,
+	command_id UUID        REFERENCES commands(id) ON DELETE SET NULL,
+	at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	PRIMARY KEY (network_id, device_id, version, action)
+);
+
 `

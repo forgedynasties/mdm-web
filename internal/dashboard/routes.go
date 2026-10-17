@@ -187,6 +187,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdate)))
 	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))
 	post("POST /restaurants/{id}/guest-wifi", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetGuestWifi)))
+	// The venue's device Wi-Fi (venue_wifi.go): admins only, it writes a credential to every device there.
+	post("POST /restaurants/{id}/wifi", h.collectionRoute("restaurant", h.requireAdmin(h.RestaurantWifiSave)))
+	post("POST /restaurants/{id}/wifi/{nid}/remove", h.collectionRoute("restaurant", h.requireAdmin(h.RestaurantWifiRemove)))
 	post("POST /restaurants/{id}/delete", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDelete)))
 	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicePicker)))
 	post("POST /restaurants/{id}/devices", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantAssignDevices)))

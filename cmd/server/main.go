@@ -831,6 +831,9 @@ func main() {
 				// where that was switched on. A device that was away collects it the
 				// first minute it is seen again — see client_autoupdate.go.
 				runJob(bgCtx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
+				// Give every device at a venue the venue's Wi-Fi networks, and have them
+				// forget removed ones (venue_wifi.go).
+				runJob(bgCtx, "venue-wifi", time.Minute, dash.RunVenueWifi)
 				// Score every device against the compliance baseline and overrides; only
 				// changed results are written, each change kept as an event (compliance.go).
 				runJob(bgCtx, "compliance", time.Minute, dash.RunCompliance)
