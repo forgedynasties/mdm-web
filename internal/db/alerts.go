@@ -96,16 +96,26 @@ var defaultAlertRules = []struct {
 	{"wifi_unstable", "Frequent Wi-Fi disconnects", `{"disconnects":3}`, "always", true},
 	{"device_crash", "Device crash / ANR", `{"window_min":15}`, "always", true},
 	{"slow_charge_night", "Slow overnight charging", `{"max_gain_pct":15,"window_hours":2,"below_pct":80}`, "overnight", true},
+	// 17 Oct: the host app gone from the screen during service (firmware client 1.11.0+).
+	{"host_app_away", "Host app not on screen", `{"minutes":5}`, "service", true},
+	// Off by default (15 Oct): compliance alerts wait for a few weeks of results.
+	{"compliance_failed", "Fails a required compliance check", `{"minutes":30}`, "always", false},
+	// A device in lost mode reporting in. Every device, assigned to a venue or not.
+	{"lost_device_seen", "Lost device checked in", `{}`, "always", true},
 }
+
+// defaultRulesFleetWide are default rules seeded with deployed_only off: a lost device
+// matters most when it is not at a venue at all.
+var defaultRulesFleetWide = map[string]bool{"lost_device_seen": true}
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
 func (d *DB) EnsureDefaultRules(ctx context.Context) error {
 	for _, r := range defaultAlertRules {
 		if _, err := d.pool.Exec(ctx, `
-			INSERT INTO alert_rules (type, name, enabled, params, active_window)
-			SELECT $1, $2, $3, $4::jsonb, $5
+			INSERT INTO alert_rules (type, name, enabled, params, active_window, deployed_only)
+			SELECT $1, $2, $3, $4::jsonb, $5, $6
 			WHERE NOT EXISTS (SELECT 1 FROM alert_rules WHERE type = $1)
-		`, r.Type, r.Name, r.Enabled, r.Params, r.ActiveWindow); err != nil {
+		`, r.Type, r.Name, r.Enabled, r.Params, r.ActiveWindow, !defaultRulesFleetWide[r.Type]); err != nil {
 			return err
 		}
 	}

@@ -95,6 +95,14 @@ var alertRuleDefs = []struct {
 	{"device_crash", "Device crash / ANR", "Fires when the device reports an app/system crash, ANR, or native tombstone (from DropBox) within the window.", "System", []alertParamField{
 		{"window_min", "Look-back", "min", 1, 15},
 	}, false, true},
+	{"host_app_away", "Host app not on screen", "Fires during service when the app the device is there to run has been off the screen this long while the screen is on and the device is reporting (firmware client 1.11.0+). Auto-resolves when the app is back in front.", "System", []alertParamField{
+		{"minutes", "Away for", "min", 1, 5},
+	}, true, true},
+	// ── Security ──
+	{"compliance_failed", "Fails a required compliance check", "Fires when a device at a venue has failed a required compliance check for this long; one alert per device naming every required check it fails. Auto-resolves when it passes.", "Security", []alertParamField{
+		{"minutes", "Failing for", "min", 5, 30},
+	}, false, true},
+	{"lost_device_seen", "Lost device checked in", "Fires, critical at any hour, when a device in lost mode reports in, with the last location the server has for it. Stays open while it keeps reporting in lost mode.", "Security", []alertParamField{}, false, true},
 }
 
 // alertTypeOption / alertTypeGroup back the per-channel alert-type filter UI.

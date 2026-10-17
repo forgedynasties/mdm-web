@@ -28,7 +28,8 @@ func hitSeverity(now time.Time, typ, ruleSev string, h alertHit, w ServiceWindow
 		sum, _ := h.Detail["summary"].(string)
 		sev = crashSeverity(n, sum)
 	}
-	if sev == "critical" && !inActiveWindow(now, "", w, "service") {
+	// A lost device turning up is urgent whatever the hour: nobody waits for opening.
+	if sev == "critical" && typ != "lost_device_seen" && !inActiveWindow(now, "", w, "service") {
 		if h.Detail != nil {
 			h.Detail["after_hours"] = true
 		}
