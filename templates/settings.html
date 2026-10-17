@@ -679,6 +679,10 @@
       <input type="url" name="alert_webhook_url" value="" placeholder="{{if .AlertWebhookSet}}•••• configured — leave blank to keep{{else}}https://hooks.slack.com/services/…{{end}}" aria-label="Default alert webhook URL" class="form-input" style="flex:1;" autocomplete="off">
       <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:560px;margin:-6px 0 18px;">
+      <div><strong class="small">Daily fleet digest</strong><div class="muted small">Once a day after 08:00, posts the fleet health score and what is dragging it down to the default webhook.</div></div>
+      {{template "settings-toggle" (dict "Action" "/settings/daily-digest/toggle" "On" .DailyDigest)}}
+    </div>
     {{if eq .ChannelTest "ok"}}<div class="status-badge ok" style="margin-bottom:10px;">Test alert sent — check the channel.</div>{{end}}
     {{if eq .ChannelTest "fail"}}<div class="status-badge danger" style="margin-bottom:10px;">Test failed — the webhook URL was rejected (see server logs).</div>{{end}}
     <div class="muted small" style="margin-bottom:12px;">Route alerts to multiple destinations by minimum severity. Teams gets an Adaptive Card (use a channel's <em>Workflows</em> webhook); the others get a text webhook. Realtime posts immediately; digest batches into the daily digest.</div>
@@ -720,54 +724,8 @@
 </div>
   </section>
 
-  <!-- ── Integrations — AI analysis, Google APIs ── -->
+  <!-- ── Integrations — Google APIs ── -->
   <section class="settings-tab" data-tab="integrations">
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg></span><h2>AI Analysis</h2></div>
-  <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:10px;">
-      Adds an <strong>Analyze with AI</strong> button to device Trends and Fleet Health that reads the rolled-up metrics and explains what's wrong and what to do — a non-ML shortcut while there isn't enough history for prediction. Works with Anthropic (Claude) or any OpenAI-compatible provider such as DeepSeek.
-      {{if .AIKeySet}}<span class="status-badge ok">key configured</span>{{else}}<span class="status-badge warn">no key — disabled</span>{{end}}
-    </div>
-    <form action="/settings/ai" method="POST" style="display:flex;flex-direction:column;gap:12px;max-width:560px;">
-      <label class="small">Provider
-        <select name="ai_provider" class="form-input" style="display:block;margin-top:4px;">
-          <option value="anthropic"{{if eq .AIProvider "anthropic"}} selected{{end}}>Anthropic (Claude)</option>
-          <option value="deepseek"{{if eq .AIProvider "deepseek"}} selected{{end}}>DeepSeek</option>
-          <option value="openai"{{if eq .AIProvider "openai"}} selected{{end}}>OpenAI-compatible (other)</option>
-        </select>
-      </label>
-      <label class="small">API key
-        <input type="password" name="anthropic_api_key" value="" placeholder="{{if .AIKeySet}}•••• configured — leave blank to keep{{else}}sk-… (key for the selected provider){{end}}" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
-        <span class="muted small m">Leave blank to keep the current key; enter <code>-</code> to clear it.</span>
-      </label>
-      <label class="small">Model
-        <input type="text" name="anthropic_model" value="{{.AnthropicModel}}" placeholder="claude-opus-4-8 · deepseek-chat · deepseek-reasoner" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
-        <span class="muted small m">Anthropic: <code>claude-opus-4-8</code> / <code>claude-sonnet-4-6</code> / <code>claude-haiku-4-5</code>. DeepSeek: <code>deepseek-chat</code> / <code>deepseek-reasoner</code>. Blank uses the provider default.</span>
-      </label>
-      <label class="small">API base URL <span class="muted">(optional)</span>
-        <input type="text" name="ai_base_url" value="{{.AIBaseURL}}" placeholder="leave blank for the provider default (DeepSeek: https://api.deepseek.com)" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
-        <span class="muted small m">Overrides the default endpoint. Blank = provider default. Two ways to use DeepSeek: provider <strong>DeepSeek</strong> with blank URL (OpenAI-compatible), or provider <strong>Anthropic</strong> with URL <code>https://api.deepseek.com/anthropic</code> (Claude-compatible; key is sent as a bearer token, set the model to a DeepSeek id).</span>
-      </label>
-      <label class="small" style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" name="ai_digest"{{if .AIDigestEnabled}} checked{{end}}> Post a daily fleet digest to the alert webhook (sent once a day during housekeeping)
-      </label>
-      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button></div>
-    </form>
-
-    <div style="margin-top:18px;border-top:1px solid var(--border-soft);padding-top:16px;">
-      <strong class="small">Token usage</strong>
-      <div style="display:flex;flex-wrap:wrap;gap:24px;margin:12px 0 16px;">
-        <div><div style="font-size:22px;font-weight:600;">{{.AIUsage.Calls}}</div><div class="muted small">Calls</div></div>
-        <div><div style="font-size:22px;font-weight:600;">{{.AIUsage.InputTokens}}</div><div class="muted small">Input tokens</div></div>
-        <div><div style="font-size:22px;font-weight:600;">{{.AIUsage.OutputTokens}}</div><div class="muted small">Output tokens</div></div>
-        <div><div style="font-size:22px;font-weight:600;">{{.AIUsageTotal}}</div><div class="muted small">Total tokens</div></div>
-      </div>
-      <div style="height:200px;"><canvas id="aiUsageChart"></canvas></div>
-      <div class="muted small" style="margin-top:6px;">Input + output tokens per day, last 30 days.</div>
-    </div>
-  </div>
-</div>
 <style>
 .gu-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:4px 0 2px;}
 .gu-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--surface-1,transparent);display:flex;flex-direction:column;gap:10px;}
@@ -1036,7 +994,6 @@
 
 
 <script src="/static/vendor/chart.umd.min.js"></script>
-<script>window.SETTINGS_AI_USAGE = {{.AIUsageDailyJSON}};</script>
 <script src="/static/js/settings/panels.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}

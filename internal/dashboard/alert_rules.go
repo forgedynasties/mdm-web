@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"mdm/internal/ai"
 	"mdm/internal/db"
 
 	"github.com/google/uuid"
@@ -329,10 +328,16 @@ func (h *Handler) AlertConfigView(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// alertCutoffs are the configurable alert thresholds other views judge against.
+type alertCutoffs struct {
+	TempC  float64 // overheating
+	RAMPct float64 // memory pressure
+}
+
 // alertThresholds reads the configurable cutoffs from the alert rules so the fleet
-// report judges problems against the same numbers (defaults if a rule is missing).
-func (h *Handler) alertThresholds(ctx context.Context) ai.Thresholds {
-	t := ai.Thresholds{TempC: 45, MinFullPct: 90, MaxChargeFrac: 0.3, RAMPct: 85}
+// views judge problems against the same numbers (defaults if a rule is missing).
+func (h *Handler) alertThresholds(ctx context.Context) alertCutoffs {
+	t := alertCutoffs{TempC: 45, RAMPct: 85}
 	rules, err := h.db.ListAlertRules(ctx, false)
 	if err != nil {
 		return t

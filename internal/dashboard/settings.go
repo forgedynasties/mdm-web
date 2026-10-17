@@ -59,12 +59,6 @@ func (h *Handler) settingsDest(r *http.Request) string {
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	setFams, setSugg, setMode := h.libraryData(r.Context())
 	dbStats, _ := h.db.TableStats(r.Context())
-	aiTotals, _ := h.db.GetAIUsageTotals(r.Context())
-	aiDaily, _ := h.db.GetAIUsageDaily(r.Context(), 30)
-	if aiDaily == nil {
-		aiDaily = []db.AIUsageDay{}
-	}
-	aiDailyJSON, _ := json.Marshal(aiDaily)
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	channels, _ := h.db.ListAlertChannels(r.Context(), false)
 	baseCases, _ := h.db.ListBaseTestCases(r.Context(), false)
@@ -129,14 +123,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"GroupWindows":          groupWindows,
 		"AlertChannels":         channels,
 		"ChannelTest":           r.URL.Query().Get("channel_test"),
-		"AIKeySet":              h.cfg.AIEnabled(),
-		"AIProvider":            h.cfg.AIProvider(),
-		"AnthropicModel":        h.cfg.AnthropicModel(),
-		"AIBaseURL":             h.cfg.AIBaseURL(),
-		"AIDigestEnabled":       h.cfg.AIDigestEnabled(),
-		"AIUsage":               aiTotals,
-		"AIUsageTotal":          aiTotals.InputTokens + aiTotals.OutputTokens,
-		"AIUsageDailyJSON":      template.JS(aiDailyJSON),
+		"DailyDigest":           h.cfg.DailyDigestEnabled(),
 		"AutoHideDays":          h.cfg.AutoHideDays(),
 		"CheckinRetentionDays":  h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":   h.cfg.LogcatRetentionDays(),
@@ -522,6 +509,14 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 	// Prunes can delete many rows, so run them in the background to keep Save snappy.
 	go h.applyPrunes(context.Background())
 	h.hxRedirect(w, r, h.settingsDest(r)) // retention fields may be normalized — re-render them
+}
+
+// SettingsToggleDailyDigest switches the daily fleet digest (the explained health score,
+// posted to the default alert webhook once a day after 08:00) on or off.
+func (h *Handler) SettingsToggleDailyDigest(w http.ResponseWriter, r *http.Request) {
+	_ = h.cfg.SetDailyDigestEnabled(!h.cfg.DailyDigestEnabled())
+	h.audit(r, "settings.daily_digest", "", fmt.Sprintf("%t", h.cfg.DailyDigestEnabled()))
+	h.settingsToggleResponse(w, r, "/settings/daily-digest/toggle", h.cfg.DailyDigestEnabled())
 }
 
 func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Request) {

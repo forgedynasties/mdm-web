@@ -236,7 +236,6 @@ func (h *Handler) commandListData(r *http.Request) (map[string]any, error) {
 		"TargetSerials":    targetSerials,
 		"ShellRecent":      in.shellRecent,
 		"ShellPopular":     in.shellPopular,
-		"AIEnabled":        h.cfg.AIEnabled(),
 		"Prefill":          prefill,
 		"PaletteJSON":      template.JS(paletteJSON),
 		"RecentSends":      recents,

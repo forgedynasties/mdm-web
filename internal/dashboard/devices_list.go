@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"mdm/internal/ai"
 	"mdm/internal/db"
 	"mdm/internal/product"
 
@@ -21,31 +20,6 @@ import (
 )
 
 const pageSize = 25
-
-// summarizePreview produces a one-line plaintext preview of a cached summary. For a
-// structured report it's the headline; otherwise the first meaningful Markdown line.
-func summarizePreview(md string) string {
-	if rep, ok := ai.ParseReport(md); ok {
-		return rep.Headline
-	}
-	for _, line := range strings.Split(md, "\n") {
-		t := strings.TrimSpace(line)
-		if t == "" {
-			continue
-		}
-		t = strings.NewReplacer("**", "", "*", "", "`", "", "#", "").Replace(t)
-		t = strings.TrimLeft(t, "-0123456789. ")
-		t = strings.TrimSpace(t)
-		if t == "" {
-			continue
-		}
-		if len(t) > 160 {
-			t = t[:157] + "…"
-		}
-		return t
-	}
-	return ""
-}
 
 // connectedSlice returns the device IDs shown as present, as a slice, for DB queries
 // that compute online counts and filters from real presence (the ws.Hub) instead of

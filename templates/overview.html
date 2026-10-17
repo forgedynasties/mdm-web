@@ -276,7 +276,6 @@
 .ov3-ch .ov3-ch-btn{font:inherit;font-size:11.5px;font-weight:650;padding:4px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;margin-left:8px;white-space:nowrap}
 .ov3-ch .ov3-ch-btn:hover{color:var(--text);border-color:var(--rule-2)}
 .ov3-ch .ov3-ch-btn:disabled{opacity:.6;cursor:wait}
-.ov3-ch .ic.ai{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff}
 /* customize popover */
 .ov3-cust{position:relative}
 .ov3-pop{position:absolute;right:0;top:calc(100% + 8px);width:310px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:8px;z-index:60;text-align:left}
@@ -300,19 +299,6 @@
 .ov3-pop-hint kbd{font:inherit;font-weight:650;color:var(--text-2)}
 .ov3-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:99px;box-shadow:var(--shadow-pop);z-index:70;opacity:0;transition:opacity .2s;pointer-events:none}
 .ov3-toast.show{opacity:1}
-/* compact daily report (brief) */
-.ov3-brief-body{padding:14px 17px}
-.ov3-brief-lede{font-size:14px;line-height:1.5;font-weight:500}
-.ov3-brief-full{margin-top:10px}
-.ov3-brief .rep-tiles,.ov3-brief .rep-good{display:none}
-.ov3-brief .rep-rows{margin-top:0;gap:8px}
-.ov3-brief .rep-row .meta{font-size:12.5px;line-height:1.45}
-.ov3-brief:not(.open) .rep-row:nth-child(n+4){display:none}
-.ov3-w[data-w="report"] #ai-summary-card{margin-bottom:0}
-.ov3-brief-more{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12px}
-.ov3-brief-more button{font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:0}
-.ov3-brief-more a{color:var(--muted);text-decoration:none;font-weight:600;margin-left:auto}
-.ov3-brief-more a:hover{color:var(--text)}
 </style>
 
 <div class="ov3" id="ov3">
@@ -468,13 +454,8 @@
 
   {{end}}
 
-{{define "ov3-w-report"}}
-  {{template "ai-report-card" .}}
-  {{template "ai-report-evidence" .}}
-  {{end}}
-
 {{define "ov3-widget"}}{{$d := .D}}{{$sz := $d.Layout.Size .ID}}<div class="ov3-w" data-w="{{.ID}}" data-cw="{{$sz.W}}" data-ch="{{$sz.H}}">
-{{if eq .ID "hero"}}{{template "ov3-w-hero" $d}}{{else if eq .ID "kpis"}}{{template "ov3-w-kpis" $d}}{{else if eq .ID "report"}}{{template "ov3-w-report" $d}}{{else if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{else if eq .ID "power"}}{{template "ov3-w-power" $d}}{{end}}
+{{if eq .ID "hero"}}{{template "ov3-w-hero" $d}}{{else if eq .ID "kpis"}}{{template "ov3-w-kpis" $d}}{{else if eq .ID "inbox"}}{{template "ov3-w-inbox" $d}}{{else if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{else if eq .ID "power"}}{{template "ov3-w-power" $d}}{{end}}
 </div>{{end}}
 
 {{define "ov3-w-inbox"}}

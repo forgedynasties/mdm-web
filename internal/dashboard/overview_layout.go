@@ -32,7 +32,6 @@ var overviewWidgets = []overviewWidget{
 	{"sites", "Sites", "left"},
 	{"map", "Fleet map", "left"},
 	{"activity", "Fleet activity", "left"},
-	{"report", "Daily report", "top"},
 	{"rollouts", "Rollouts", "right"},
 	{"adoption", "Release adoption", "right"},
 	{"vitals", "Fleet vitals", "right"},

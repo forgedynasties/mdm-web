@@ -3889,30 +3889,6 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
   .dd-title { font-size: 22px; }
 }
 
-/* AI analysis output: rendered Markdown from the model. */
-.ai-text { color: var(--text); line-height: 1.55; }
-.ai-text p { margin: 0 0 8px; }
-.ai-text p:last-child { margin-bottom: 0; }
-.ai-text ul, .ai-text ol { margin: 4px 0 10px; padding-left: 20px; }
-.ai-text li { margin: 3px 0; }
-.ai-text strong { font-weight: 600; color: var(--text-strong, var(--text)); }
-.ai-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; background: var(--surface-2, rgba(127,127,127,0.12)); padding: 1px 4px; border-radius: 4px; }
-
-/* ── Daily Report · Assistant treatment (orb header + chat-bubble briefing) ── */
-.ai-hdr { display: flex; align-items: center; gap: 11px; }
-.ai-orb { position: relative; width: 32px; height: 32px; flex: none; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-  color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2, #7a80f6)); box-shadow: 0 4px 13px rgba(249,103,78,.28); }
-.ai-orb svg { width: 16px; height: 16px; }
-.ai-orb::after { content: ""; position: absolute; inset: -4px; border-radius: 13px; border: 1.5px solid var(--accent-soft); animation: ai-orbpulse 2.6s ease-out infinite; }
-@keyframes ai-orbpulse { 0% { transform: scale(.9); opacity: .7; } 70% { transform: scale(1.35); opacity: 0; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .ai-orb::after { animation: none; } }
-.ai-hdr-t { font-size: 15px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; }
-.ai-hdr-sub { display: block; font-size: 11px; font-weight: 500; color: var(--text-faint); letter-spacing: 0; margin-top: 1px; }
-.ai-hdr-r { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.ai-stamp { font-size: 12px; color: var(--muted); }
-.ai-body { padding: 15px 18px 17px; }
-.ai-bubble { background: var(--surface2); border: 1px solid var(--border-soft); border-radius: 5px 16px 16px 16px; padding: 15px 17px; }
-
 /* Daily Report — live per-restaurant open-alert breakdown */
 .rab:not(:empty) { margin-top: 16px; padding-top: 15px; border-top: 1px solid var(--border-soft); }
 .rab-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 9px; }
@@ -3929,42 +3905,6 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 .rab-count { flex: none; min-width: 22px; text-align: right; font-weight: 750; font-variant-numeric: tabular-nums; font-size: 14px; }
 .rab-more { display: inline-block; margin-top: 9px; font-size: 12.5px; font-weight: 600; color: var(--accent-text); }
 .rab-empty { font-size: 13px; color: var(--muted); padding: 4px 2px; }
-
-.ai-lede { font-size: 15px; line-height: 1.5; font-weight: 500; color: var(--text); }
-.ai-intro { font-weight: 700; }
-.ai-intro.ai-ok { color: var(--ok); } .ai-intro.ai-warn { color: var(--warn); } .ai-intro.ai-bad { color: var(--danger); } .ai-intro.ai-muted { color: var(--muted); }
-.rep-headline { color: var(--text); }
-
-/* metrics → pills */
-.rep-tiles { display: flex; flex-wrap: wrap; gap: 8px; margin: 13px 0 4px; }
-.rep-tile { display: inline-flex; align-items: baseline; gap: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 4px 12px; font-size: 12.5px; }
-.rep-tile b { font-weight: 700; font-variant-numeric: tabular-nums; }
-.rep-tile .l { color: var(--muted); font-weight: 500; }
-
-/* issues → dotted briefing list */
-.rep-rows { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-.rep-row { display: flex; gap: 10px; }
-.rep-row .ind { width: 7px; height: 7px; border-radius: 50%; margin-top: 7px; flex: none; background: var(--muted); }
-.rep-row.rep-danger .ind { background: var(--danger); }
-.rep-row.rep-warn .ind { background: var(--warn); }
-.rep-row .meta { font-size: 13.5px; color: var(--text); line-height: 1.55; min-width: 0; }
-.rep-row .scope { font-weight: 650; }
-.rep-act { color: var(--accent-text); font-weight: 600; }
-
-/* healthy footer line */
-.rep-good { font-size: 12px; color: var(--text-faint); margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
-.rep-good b { color: var(--text-2); font-weight: 600; }
-
-/* Serial links inside report prose: inline mono text, not boxed chips —
-   the boxed .link-detail style breaks the sentence flow around commas. */
-#ai-sum-preview .link-detail, #ai-sum-full .link-detail {
-  display: inline; padding: 0; border: none; border-radius: 0; background: none;
-  font-family: var(--mono); font-size: 12.5px; font-weight: 600;
-  color: var(--accent-text); white-space: nowrap;
-}
-#ai-sum-preview .link-detail:hover, #ai-sum-full .link-detail:hover {
-  color: var(--accent-h); text-decoration: underline;
-}
 
 /* ════════════════════════════════════════════════════
    OVERVIEW PAGE (main1 "command deck" port)
@@ -4453,15 +4393,8 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 .alert-logs-acts { display: flex; gap: 6px; }
 .lg-btn { font: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; cursor: pointer; }
 .lg-btn:hover { border-color: var(--accent-edge); color: var(--accent-text); }
-.lg-btn.ai { color: var(--accent-2); border-color: var(--accent-2-soft); background: var(--accent-2-soft); }
-.lg-btn.ai:hover { color: var(--accent-2); }
 .lg-btn:disabled { opacity: .6; cursor: default; }
 .alert-logs-pre { max-height: 320px; overflow: auto; margin: 0; }
-.alert-logs-ai { margin-top: 10px; border: 1px solid var(--accent-2-soft); background: var(--accent-2-soft); border-radius: 10px; padding: 11px 13px; }
-.alert-logs-ai.loading { color: var(--muted); font-size: 13px; }
-.alert-logs-ai.err { border-color: var(--danger-bg); background: var(--danger-bg); color: var(--danger); font-size: 13px; }
-.alert-logs-ai .ai-tag { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent-2); margin-bottom: 6px; }
-.alert-logs-ai .ai-body { font-size: 13px; line-height: 1.6; color: var(--fg); white-space: pre-wrap; }
 
 /* De-emphasized destructive text button (Clear all). */
 .btn-link-danger {
@@ -5450,29 +5383,6 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .pl-pop-opt input[type=radio] { margin: 0; accent-color: var(--accent); }
 .pl-pop-opt:has(input:checked) { color: var(--accent-text); font-weight: 600; }
 .pl-pop .cc-mfoot button { margin-left: auto; }
-
-/* AI sparkle button + analysis modal (device detail) */
-.ddc-btn-ai { border-color: transparent; background: var(--accent-soft); color: var(--accent-text); }
-.ddc-btn-ai:hover { background: var(--accent-soft); filter: brightness(.97); }
-.ddc-btn-ai svg { width: 15px; height: 15px; }
-.ai-modal-box { max-width: 600px; width: 100%; padding: 0; overflow: hidden; }
-.ai-modal-h { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; border-bottom: 1px solid var(--border-soft); }
-.ai-modal-title { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; }
-.ai-spark { width: 16px; height: 16px; flex: none; }
-.ai-grad { background: var(--brand-grad, linear-gradient(90deg,#7a80f6,#f9674e)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.ai-modal-body { padding: 16px 18px 18px; }
-.ai-result { border: 1px solid var(--border); border-radius: 11px; padding: 14px 15px; font-size: 13.5px; line-height: 1.6; max-height: 320px; overflow: auto; }
-.ai-result p:first-child { margin-top: 0; } .ai-result p:last-child { margin-bottom: 0; }
-.ai-modal-foot { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
-.ai-run { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
-.ai-run .ai-spark { width: 14px; height: 14px; }
-.ai-prev-wrap { margin-top: 18px; }
-.ai-prev-h { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px; }
-.ai-prev-list { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow: auto; }
-.ai-prev-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left;
-  padding: 9px 11px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--surface); cursor: pointer; font: inherit; font-size: 12.5px; }
-.ai-prev-row:hover { background: var(--hover); }
-.ai-prev-snip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* screenshot command result — framed preview + download */
 .ss-result { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
@@ -6719,19 +6629,6 @@ a.hl-row:hover { background: var(--hover); }
 .hl-evidence .dot, .hl-evcat .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
 .d-bad { background: var(--danger); } .d-warn { background: var(--warn); } .d-muted { background: var(--text-faint); }
 
-/* ── Daily Report · live generation (thinking log + streamed reveal) ── */
-.ai-think{display:flex;flex-direction:column;gap:9px;padding:2px 0}
-.ai-tline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);opacity:0;transform:translateY(4px);transition:opacity .3s,transform .3s}
-.ai-tline.show{opacity:1;transform:none}
-.ai-tick{width:16px;height:16px;flex:none;color:var(--ok)}
-.ai-tspin{width:14px;height:14px;flex:none;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:ai-spin .7s linear infinite}
-@keyframes ai-spin{to{transform:rotate(360deg)}}
-.ai-caret{display:inline-block;width:2px;height:1.05em;background:var(--accent);margin-left:1px;vertical-align:-2px;animation:ai-blink 1s steps(2) infinite}
-@keyframes ai-blink{50%{opacity:0}}
-.ai-reveal .rep-tile,.ai-reveal .rep-row,.ai-reveal .rep-good{opacity:0;transform:translateY(6px)}
-.ai-reveal .rep-tile.in,.ai-reveal .rep-row.in,.ai-reveal .rep-good.in{opacity:1;transform:none;transition:opacity .35s,transform .35s}
-@media(prefers-reduced-motion:reduce){.ai-tline,.ai-reveal .rep-tile,.ai-reveal .rep-row,.ai-reveal .rep-good{transition:none;opacity:1;transform:none}.ai-caret,.ai-tspin{animation:none}}
-
 /* Fleet nav skeleton: mirrors .fleet-md (collections rail + roster). */
 .skel-w80{width:80%;}
 .skel-fleet-grid{display:grid;grid-template-columns:232px minmax(0,1fr);gap:20px;align-items:start;}
@@ -7169,7 +7066,7 @@ body .cc-actions, body .ov3-actions { flex: 0 1 auto; max-width: 60%; }
 /* No outer glow on buttons, resting or hovered; solid coral, no gradient. */
 body .co-send { background: var(--accent); box-shadow: none; border-radius: 40px; }
 body .co-send:hover { background: var(--accent-h); box-shadow: none; }
-.ovx-cta:hover, .ai-orb { box-shadow: none; }
+.ovx-cta:hover { box-shadow: none; }
 
 /* Sign-in / sign-up / password pages in the landing language: the photo hero
    with the thin headline and coral phrase, 12px fields, solid coral pill. */
@@ -7425,21 +7322,6 @@ a.cc-kpi { text-decoration: none; color: inherit; }
 /* The serial is the headline here, not a pill — same reset as the column view. */
 .dl-serial-list .dl-card .dl-sc-sn.link-detail { padding: 0; background: none; font-size: 14.5px; color: var(--text); }
 .dl-serial-list .dl-card .dl-sc-sn.link-detail:hover { background: none; color: var(--text); }
-
-/* Daily Report, collapsed form. The card is one line until asked otherwise: on a normal
-   day the report's answer is "nothing to act on", and that should cost a glance rather
-   than a scroll. Expanding shows the call-outs, each with its action. */
-#ai-summary-card.ai-collapsed #ai-sum-full { display: none; }
-.ai-more { margin-left: auto; flex: none; background: none; border: 1px solid var(--border);
-  border-radius: 8px; color: var(--muted); font-size: 11px; font-weight: 650; padding: 3px 10px;
-  cursor: pointer; font-family: inherit; }
-.ai-more:hover { color: var(--text); background: var(--surface2); }
-.ai-bubble { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
-.ai-bubble > #ai-sum-preview { flex: 1; min-width: 200px; }
-.ai-bubble > #ai-sum-full { flex-basis: 100%; }
-.rep-checked { display: block; font-size: 11.5px; color: var(--text-faint); margin-top: 3px; }
-.rep-foot { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border-soft);
-  font-size: 11.5px; color: var(--text-faint); line-height: 1.6; }
 
 /* ── List tools: search box + filter chips + "Show all N" cap on long lists (Clients,
    Enrollment, Wireless adb). Markup contract is in layout.html next to ltInit(). ── */

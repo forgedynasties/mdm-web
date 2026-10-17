@@ -2,14 +2,11 @@ package dashboard
 
 import (
 	"context"
-	"encoding/json"
 	_ "image/gif"
 	_ "image/jpeg"
 	"log"
-	"net/http"
 	"time"
 
-	"mdm/internal/ai"
 	"mdm/internal/db"
 	"mdm/internal/notify"
 
@@ -92,7 +89,6 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 		}
 		h.dispatchAlertNotifications(ctx, created)
 	}
-	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
 	h.applyPrunes(ctx)
 	h.downsampleOldCheckins(ctx)
@@ -186,89 +182,12 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 // housekeeping prune deletes them (open/acknowledged alerts are never pruned).
 const resolvedAlertRetentionDays = 90
 
-// refreshFleetSummary regenerates the cached fleet AI summary shown on the main
-// page, at most hourly. It's a no-op unless AI is configured, and it skips when the
-// cached summary is still fresh (< 55 min) so frequent housekeeping runs or restarts
-// don't trigger extra API calls.
-func (h *Handler) refreshFleetSummary(ctx context.Context) {
-	if !h.cfg.AIEnabled() {
-		return
-	}
-	if cur, err := h.db.GetAISummary(ctx, "fleet"); err == nil && cur.Summary != "" &&
-		!cur.GeneratedAt.IsZero() && time.Since(cur.GeneratedAt) < 55*time.Minute {
-		return
-	}
-	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
-	defer cancel()
-	if _, err := h.generateFleetSummary(cctx); err != nil {
-		log.Printf("[ai-summary] %v", err)
-	} else {
-		log.Printf("[ai-summary] refreshed fleet summary")
-	}
-}
-
-// generateFleetSummary runs the fleet analysis (health + open alerts), records token
-// usage, caches the result, and returns it. Always generates — callers gate freshness.
-func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error) {
-	groups, err := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 1) // Daily Report: one day
-	if err != nil {
-		return db.AISummary{}, err
-	}
-	summary, _ := h.db.GetSummary(ctx, h.connectedSlice())
-	openAlerts, _ := h.db.CountOpenAlerts(ctx, false)
-	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
-
-	deployed, lab, _ := h.db.DeploymentCounts(ctx)
-	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, deployed, lab, alerts, h.alertThresholds(ctx))
-	if err != nil {
-		return db.AISummary{}, err
-	}
-	if err := h.db.RecordAIUsage(ctx, usage.InputTokens, usage.OutputTokens); err != nil {
-		log.Printf("[ai-summary] record usage: %v", err)
-	}
-	// Store the report as canonical JSON: the model sometimes wraps it in stray
-	// characters, which would otherwise render as raw text in the card.
-	if rep, ok := ai.ParseReport(text); ok {
-		if c := rep.Canonical(); c != "" {
-			text = c
-		}
-	}
-	if err := h.db.SetAISummary(ctx, "fleet", text, client.Model()); err != nil {
-		return db.AISummary{}, err
-	}
-	return db.AISummary{Summary: text, Model: client.Model(), GeneratedAt: time.Now()}, nil
-}
-
-// AISummaryRefresh forces a fresh fleet summary (the main-page card's refresh button)
-// and returns the new text + timestamp.
-func (h *Handler) AISummaryRefresh(w http.ResponseWriter, r *http.Request) {
-	if !h.cfg.AIEnabled() {
-		writeJSONError(w, http.StatusServiceUnavailable, "AI analysis is not configured — add an API key in Settings.")
-		return
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
-	defer cancel()
-	s, err := h.generateFleetSummary(ctx)
-	if err != nil {
-		log.Printf("[ai-summary] refresh: %v", err)
-		writeJSONError(w, http.StatusBadGateway, "Refresh failed: "+err.Error())
-		return
-	}
-	h.audit(r, "ai.summary_refresh", "", "")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"text":         s.Summary,
-		"generated_at": s.GeneratedAt.UTC().Format(time.RFC3339),
-	})
-}
-
-// maybeSendDigest posts a once-a-day AI fleet summary to the alert webhook. It is
-// a no-op unless AI analysis + the digest toggle + a webhook are all configured. It
-// fires on the first housekeeping run at or after 08:00 local each day, so the
-// summary reflects daytime service rather than overnight charging.
+// maybeSendDigest posts a once-a-day fleet digest — the explained fleet health score —
+// to the alert webhook. It is a no-op unless the digest toggle and a webhook are both
+// configured. It fires on the first housekeeping run at or after 08:00 local each day,
+// so it reflects daytime service rather than overnight charging.
 func (h *Handler) maybeSendDigest(ctx context.Context) {
-	if !h.cfg.AIDigestEnabled() {
+	if !h.cfg.DailyDigestEnabled() {
 		return
 	}
 	url := h.cfg.AlertWebhookURL()
@@ -285,15 +204,8 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 		log.Printf("[digest] group health: %v", err)
 		return
 	}
-	summary, _ := h.db.GetSummary(ctx, h.connectedSlice())
-	openAlerts, _ := h.db.CountOpenAlerts(ctx, false)
-	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
-
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	deployed, lab, _ := h.db.DeploymentCounts(cctx)
-	// Deterministic "fleet health, explained" is the floor: it always goes out.
-	// The AI narrative is layered on top when it is configured and answers.
 	fleetScore, den := 0, 0
 	for _, g := range groups {
 		fleetScore += g.Score * g.DeviceCount
@@ -306,23 +218,6 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 	}
 	crashStats, _ := h.db.GetFleetCrashStats(cctx, 4)
 	msg := healthExplainText(fleetScore, 0, explainFleetHealth(groups, crashStats.ByRestaurant))
-	if h.cfg.AIEnabled() {
-		client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-		text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, deployed, lab, alerts, h.alertThresholds(cctx))
-		if err != nil {
-			log.Printf("[digest] analyze: %v (sending the explained score instead)", err)
-		} else {
-			if err := h.db.RecordAIUsage(cctx, usage.InputTokens, usage.OutputTokens); err != nil {
-				log.Printf("[digest] record usage: %v", err)
-			}
-			// The report is structured JSON; flatten it to readable text for the webhook.
-			narrative := text
-			if rep, ok := ai.ParseReport(text); ok {
-				narrative = rep.Text()
-			}
-			msg = narrative + "\n\n" + msg
-		}
-	}
 	if err := notify.SendWebhook(ctx, url, "*Daily fleet digest*\n"+msg); err != nil {
 		log.Printf("[digest] webhook: %v", err)
 		return

@@ -105,20 +105,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		data["PowerMetrics"] = m
 	}
 
-	// Same cached hourly AI fleet report the devices page used to host.
-	if s, err := h.db.GetAISummary(ctx, "fleet"); err == nil && s.Summary != "" {
-		data["AISummary"] = s.Summary
-		data["AISummaryModel"] = s.Model
-		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
-		data["AISummaryPreview"] = summarizePreview(s.Summary)
-		if serials, err := h.db.ListAllSerials(ctx); err == nil {
-			data["DeviceSerials"] = serialsJSON(serials)
-		}
-		data["HotSerials"] = serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(ctx).TempC))
-		data["ReportRestaurants"] = restaurantLinksJSON(groups)
-		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
-	}
-
 	// Fleet map: every device with a resolved location from the geolocation pipeline.
 	locs, locCount := h.deviceLocationsJSON(ctx, h.access(r).hidesDPC())
 	data["DeviceLocations"] = locs

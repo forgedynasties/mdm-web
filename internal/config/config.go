@@ -32,7 +32,7 @@ func (c *Config) CheckWritable() error {
 
 func writeFileAtomic(path string, data []byte) error {
 	tmp := path + ".tmp"
-	// 0600: this file holds secrets (anthropic_api_key, alert webhook URLs), so it must
+	// 0600: this file holds secrets (alert webhook URLs), so it must
 	// not be world/group-readable by other users on the host.
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
@@ -237,22 +237,16 @@ type Config struct {
 	// Alerting. Slack/Discord/Mattermost-compatible webhook for new alerts ("" = off).
 	AlertWebhookURLVal string `json:"alert_webhook_url"`
 
-	// AI analysis. The API key is the on/off switch ("" = disabled). Provider selects
-	// the wire format: "anthropic" (Claude) or "deepseek"/"openai" (OpenAI-compatible
-	// /chat/completions). BaseURL overrides the provider's default endpoint. Digest
-	// posts a daily fleet summary to the alert webhook during housekeeping when on.
-	AnthropicAPIKeyVal string `json:"anthropic_api_key"` // the active provider's API key
-	AnthropicModelVal  string `json:"anthropic_model"`   // active model id
-	AIProviderVal      string `json:"ai_provider"`       // "anthropic" | "deepseek" | "openai"
-	AIBaseURLVal       string `json:"ai_base_url"`       // optional endpoint override
-	AIDigestEnabledVal bool   `json:"ai_digest_enabled"`
+	// Daily fleet digest: once a day the explained fleet health score is posted to the
+	// alert webhook. Configs written before 17 Oct stored it as "ai_digest_enabled"; that
+	// key is read once on load and carried over (applyEnvOverrides).
+	DailyDigestVal  bool `json:"daily_digest_enabled"`
+	LegacyDigestVal bool `json:"ai_digest_enabled,omitempty"`
 
 	mu   sync.RWMutex
 	path string
 }
 
-// DefaultAnthropicModel is used when no model has been configured.
-const DefaultAnthropicModel = "claude-opus-4-8"
 
 // defaultLegacyBuilds is the seed list of WebSocket-incapable firmware build IDs.
 func defaultLegacyBuilds() []string { return []string{"A15-v1.62-user"} }
@@ -293,30 +287,17 @@ func Load(path string) (*Config, error) {
 	return c, nil
 }
 
-// applyEnvOverrides lets environment variables override the persisted AI settings
-// (convenient for .env-based deployment). A set env var wins over the stored value
-// and over the Settings UI on every restart; unset vars leave the file value intact.
+// applyEnvOverrides carries the digest setting over from its old key, then lets the
+// environment override it (convenient for .env-based deployment). A set env var wins over
+// the stored value and over the Settings UI on every restart.
 //
-//	AI_PROVIDER  anthropic | deepseek | openai
-//	AI_API_KEY   the provider's API key ("" = AI disabled)
-//	AI_MODEL     model id (e.g. deepseek-chat, claude-opus-4-8)
-//	AI_BASE_URL  endpoint override (e.g. https://api.deepseek.com/anthropic)
-//	AI_DIGEST    1/true/on to enable the daily fleet digest
+//	DAILY_DIGEST  1/true/on to post the daily fleet digest to the alert webhook
 func (c *Config) applyEnvOverrides() {
-	if v := os.Getenv("AI_PROVIDER"); v != "" {
-		c.AIProviderVal = v
+	if c.LegacyDigestVal {
+		c.DailyDigestVal, c.LegacyDigestVal = true, false
 	}
-	if v := os.Getenv("AI_API_KEY"); v != "" {
-		c.AnthropicAPIKeyVal = v
-	}
-	if v := os.Getenv("AI_MODEL"); v != "" {
-		c.AnthropicModelVal = v
-	}
-	if v := os.Getenv("AI_BASE_URL"); v != "" {
-		c.AIBaseURLVal = v
-	}
-	if v := os.Getenv("AI_DIGEST"); v != "" {
-		c.AIDigestEnabledVal = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
+	if v := os.Getenv("DAILY_DIGEST"); v != "" {
+		c.DailyDigestVal = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
 	}
 }
 
@@ -1427,86 +1408,16 @@ func (c *Config) SetAlertWebhookURL(s string) error {
 	return writeFileAtomic(c.path, data)
 }
 
-// AnthropicAPIKey returns the configured key ("" = AI analysis disabled).
-func (c *Config) AnthropicAPIKey() string {
+// DailyDigestEnabled reports whether the daily fleet digest goes to the alert webhook.
+func (c *Config) DailyDigestEnabled() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.AnthropicAPIKeyVal
+	return c.DailyDigestVal
 }
 
-func (c *Config) SetAnthropicAPIKey(s string) error {
+func (c *Config) SetDailyDigestEnabled(v bool) error {
 	c.mu.Lock()
-	c.AnthropicAPIKeyVal = s
-	data, _ := json.MarshalIndent(c, "", "  ")
-	c.mu.Unlock()
-	return writeFileAtomic(c.path, data)
-}
-
-// AIEnabled reports whether AI analysis can run (a key is set).
-func (c *Config) AIEnabled() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.AnthropicAPIKeyVal != ""
-}
-
-// AnthropicModel returns the configured model id verbatim ("" if unset — the ai
-// package fills in a provider-appropriate default).
-func (c *Config) AnthropicModel() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.AnthropicModelVal
-}
-
-func (c *Config) SetAnthropicModel(s string) error {
-	c.mu.Lock()
-	c.AnthropicModelVal = s
-	data, _ := json.MarshalIndent(c, "", "  ")
-	c.mu.Unlock()
-	return writeFileAtomic(c.path, data)
-}
-
-// AIProvider returns the configured provider, defaulting to "anthropic".
-func (c *Config) AIProvider() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if c.AIProviderVal == "" {
-		return "anthropic"
-	}
-	return c.AIProviderVal
-}
-
-func (c *Config) SetAIProvider(s string) error {
-	c.mu.Lock()
-	c.AIProviderVal = s
-	data, _ := json.MarshalIndent(c, "", "  ")
-	c.mu.Unlock()
-	return writeFileAtomic(c.path, data)
-}
-
-// AIBaseURL returns the optional endpoint override ("" = use provider default).
-func (c *Config) AIBaseURL() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.AIBaseURLVal
-}
-
-func (c *Config) SetAIBaseURL(s string) error {
-	c.mu.Lock()
-	c.AIBaseURLVal = s
-	data, _ := json.MarshalIndent(c, "", "  ")
-	c.mu.Unlock()
-	return writeFileAtomic(c.path, data)
-}
-
-func (c *Config) AIDigestEnabled() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.AIDigestEnabledVal
-}
-
-func (c *Config) SetAIDigestEnabled(v bool) error {
-	c.mu.Lock()
-	c.AIDigestEnabledVal = v
+	c.DailyDigestVal = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

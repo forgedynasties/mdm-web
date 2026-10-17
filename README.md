@@ -94,7 +94,6 @@ internal/
   apkstore/ apkmeta/ S3 APK library, APK parsing
   remote/ shell/ logstream/   Remote screen, shell, live logcat
   alerts/ notify/ mailer/     Alerting and email
-  ai/                AI analysis providers
   geolocate/         WiFi geolocation, reverse geocoding
   product/           Product catalog
   config/ version/ ratelimit/ safehttp/

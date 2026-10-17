@@ -290,7 +290,7 @@
     <div class="ddc-actions cc-actions">
       {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="isl-dup ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
-           Placed next to Analyze per the chosen "Identity Ribbon" layout. */}}
+           Placed per the chosen "Identity Ribbon" layout. */}}
       {{/* The pill reports what the DEVICE is doing, not only what the server asked
            for. A technician who exits kiosk on the device with the static PIN leaves
            the stored config saying "on" — the device reports kiosk_suspended, and
@@ -1466,7 +1466,6 @@ window.DEVICE_VITALS = {
   <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
 </div>
 </section><!-- /location -->
-<script src="/static/js/device/history-panel.js?v={{assetVer}}"></script>
 </div><!-- /ddc-main -->
 <style>
 /* Split view (static/device-split-demos.html, S4 with split on by default, picked 14 Oct):
@@ -1598,27 +1597,6 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
 {{end}}
 
 <script src="/static/js/device/locked-app.js?v={{assetVer}}"></script>
-
-<div id="ai-modal" class="modal-backdrop" onclick="aiBackdrop(event)">
-  <div class="modal-box ai-modal-box">
-    <div class="ai-modal-h">
-      <span class="ai-modal-title"><svg class="ai-spark" viewBox="0 0 24 24" fill="#7a80f6"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg><span class="ai-grad">AI analysis</span><span class="muted mono" style="font-weight:500;font-size:13px"> · {{.Device.SerialNumber}}</span></span>
-      <button type="button" class="modal-close" aria-label="Close" onclick="aiClose()">&times;</button>
-    </div>
-    <div class="ai-modal-body">
-      <div id="ai-result" class="ai-result" role="status" aria-live="polite"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action.</span></div>
-      <div class="ai-modal-foot">
-        <span id="ai-meta" class="muted small"></span>
-        <span style="flex:1"></span>
-        <button type="button" id="ai-run-btn" class="btn-primary ai-run" onclick="aiRun()"><svg class="ai-spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</button>
-      </div>
-      <div class="ai-prev-wrap">
-        <div class="ai-prev-h">Previous analyses</div>
-        <div id="ai-prev" class="ai-prev-list"><div class="muted small">Loading…</div></div>
-      </div>
-    </div>
-  </div>
-</div>
 
 
 {{template "footer" .}}

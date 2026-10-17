@@ -149,13 +149,6 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	if d14, err := h.db.GetFleetDailyStats(r.Context(), 14); err == nil {
 		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
 	}
-	// Show the same cached fleet report as the main page (latest of hourly or manual).
-	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
-		data["AISummary"] = s.Summary
-		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
-		data["AISummaryPreview"] = summarizePreview(s.Summary)
-		data["ReportRestaurants"] = restaurantLinksJSON(groups)
-	}
 	h.render(w, r, "health.html", data)
 }
 
