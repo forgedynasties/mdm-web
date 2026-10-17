@@ -35,6 +35,7 @@
         <button type="button" class="dl-copy" data-copy="{{.SerialNumber}}" title="Copy serial number" aria-label="Copy serial number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
         <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
       {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
+      {{if deviceLost .LatestExtra}}<span class="dl-ktag lost" title="In lost mode: its screen is locked to a return message">Lost</span>{{end}}
       {{$cu := ""}}{{if $.Custody}}{{with index $.Custody .ID}}{{$cu = .Server}}{{end}}{{end}}
       {{if $cu}}<span class="dl-elsewhere" title="This device reports to {{$cu}}. It is not offline — it was pointed at another MDM, so it checks in there.">on {{$cu}}</span>{{end}}
       {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else if eq .EnrollmentStatus "unenrolled"}}Unenrolled{{else}}Retired{{end}}</span>{{end}}
@@ -689,7 +690,7 @@ window.FLEET_FIELDS = [
   {k: 'temp', label: 'Temperature', grp: 'Health', vals: [['hot', 'Hot'], ['warm', 'Warm or hotter']]},
   {k: 'ram', label: 'RAM', grp: 'Health', vals: [['high', 'High 80%+'], ['warn', 'Elevated 60%+']]},
   {k: 'charging', label: 'Charging', grp: 'Health', vals: [['yes', 'Charging'], ['no', 'Not charging']]},
-  {k: 'kiosk', label: 'Lock', grp: 'Health', vals: [['enabled', 'Locked'], ['disabled', 'Unlocked']]},
+  {k: 'kiosk', label: 'Lock', grp: 'Health', vals: [['enabled', 'Locked'], ['disabled', 'Unlocked'], ['lost', 'Lost']]},
   {k: 'timezone', label: 'Timezone', grp: 'Health', vals: [{{range .Timezones}}[{{.}}, {{.}}],{{end}}]},
   {k: 'onboarding', label: 'Onboarding', grp: 'Lifecycle', vals: [['pending', 'Waiting for a site'], ['done', 'Placed']]},
   {k: 'enrolled_by', label: 'Enrolled by', grp: 'Lifecycle', vals: [{{range .Enrollers}}[{{.Username}}, {{(userBubble .Username).Name}}],{{end}}]},

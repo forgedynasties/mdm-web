@@ -244,6 +244,29 @@
   <!-- ── Devices — check-in, compatibility, boot logo, kiosk allowlist ── -->
   <section class="settings-tab" data-tab="devices">
 <div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Lost devices</h2></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <strong>Support number on the lost screen</strong>
+      <div class="muted small">Shown on every device marked lost, under its message, so whoever finds it can call. Each mark-as-lost can change it.</div>
+    </div>
+    <form action="/settings/lost-mode-phone" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="tel" name="phone" value="{{.LostModeSupportPhone}}" maxlength="40" class="form-input" placeholder="+1 415 555 0100" aria-label="Support phone number" style="width:200px;">
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+</div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Customer reports</h2></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+    <div>
+      <strong>Device security in venue reports</strong>{{if not .ComplianceReportsCustomers}} <span class="cc-tag">off</span>{{end}}
+      <div class="muted small">Adds a device security page to each venue's weekly report and emails a monthly security report on the 1st to the venue's contact email and owner accounts. Off until the wording is signed off; you can always open the monthly PDF from a venue's report page.</div>
+    </div>
+    {{template "settings-toggle" (dict "Action" "/settings/compliance-reports/toggle" "On" .ComplianceReportsCustomers)}}
+  </div>
+</div>
+<div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><h2>Checkin Interval</h2></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:8px;">How often devices check in with the server (seconds). Applies to all devices, including ones added later.</div>

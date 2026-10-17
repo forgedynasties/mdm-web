@@ -43,9 +43,12 @@ details.bt-climb pre{font-size:11px;white-space:pre-wrap;word-break:break-all;co
 </style>
 
 <div class="bt-wrap">
-  <div class="bt-head"><h1>Battery data</h1></div>
+  <div class="bt-head"><h1>Battery data</h1>
+    {{/* Wear (B1, 17 Oct): every T7's charge-climb time against the fleet, next to the per-device data. */}}
+    <span class="bt-seg" style="margin-left:auto"><a href="/battery"{{if ne .Tab "wear"}} class="on"{{end}}>Devices</a><a href="/battery?tab=wear"{{if eq .Tab "wear"}} class="on"{{end}}>Wear</a></span></div>
   <p class="bt-lede">What firmware client 1.10.1 collects for the battery health model. Every battery broadcast and screen change on T7s (at most one row per 30 s while nothing changes), and the client's summary of each charge climb. Times are the device's own clock. Kept 180 days.</p>
 
+  {{if eq .Tab "wear"}}{{template "battery-wear" .}}{{else}}
   <div class="bt-split">
     <aside class="cc-card bt-card bt-list">
       <div class="bt-ch"><h2>Devices sending</h2><span class="r"><a class="cc-btn sm" href="/battery/export.csv?range={{.Range}}" hx-boost="false" title="Every device's rows over the range">CSV, all</a></span></div>
@@ -114,6 +117,7 @@ details.bt-climb pre{font-size:11px;white-space:pre-wrap;word-break:break-all;co
     {{end}}
     </div>
   </div>
+  {{end}}
 </div>
 <script src="/static/js/battery.js?v={{assetVer}}"></script>
 {{template "footer" .}}

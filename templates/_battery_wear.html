@@ -12,14 +12,13 @@
 .bw-lg{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:8px}
 .bw-t td.r,.bw-t th.r{text-align:right}
 </style>
-<div class="bt-kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+<div class="bt-kpis" style="grid-template-columns:repeat(3,minmax(0,1fr))">
   <div class="cc-card bt-kpi"><b>{{$w.Devices}}</b><span>T7s with a clean climb, last {{$w.WindowDays}} days</span></div>
   <div class="cc-card bt-kpi"><b>{{if $w.MedianSecs}}{{fmtClimb $w.MedianSecs}}{{else}}—{{end}}</b><span>fleet median, 3.7 → 4.1 V</span></div>
   <div class="cc-card bt-kpi"><b>{{$w.FastCount}}</b><span>clearly faster than the fleet</span></div>
-  <div class="cc-card bt-kpi"><b>T7</b><span>only device that sends climbs</span></div>
 </div>
 <section class="cc-card bt-card">
-  <div class="bt-ch"><h2>Climb time, 3.7 → 4.1 V</h2><span class="bt-mu" style="font-size:12px">clean overnight climbs: full ladder, screen off, densely sampled</span></div>
+  <div class="bt-ch"><h2>Climb time, 3.7 → 4.1 V</h2><span class="bt-mu" style="font-size:12px">T7s only · clean overnight climbs: full ladder, screen off, densely sampled</span></div>
   {{if $w.Rows}}
   <div class="bt-raw" style="max-height:none">
   <table class="bt-t bw-t">

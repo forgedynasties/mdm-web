@@ -20,6 +20,16 @@ import (
 // The phone number is one AIO support number for every lost device (Settings), not a
 // venue's own — venues have no phone field.
 
+// deviceLost reports whether the device says it is in lost mode (extra.lost_mode.on).
+func deviceLost(extra json.RawMessage) bool {
+	var x struct {
+		Lost struct {
+			On bool `json:"on"`
+		} `json:"lost_mode"`
+	}
+	return json.Unmarshal(extra, &x) == nil && x.Lost.On
+}
+
 // lostModeView is the device page's lost state: what the device reports, and the command
 // that put it there (or is about to).
 type lostModeView struct {

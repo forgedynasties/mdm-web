@@ -169,6 +169,9 @@
       {{else}}
       <a class="cc-btn primary" href="{{.PDFURL}}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Save as PDF</span></a>
       {{end}}
+      {{/* The monthly device-security PDF (compliance report R1, 17 Oct): last month, the
+           same pages the venue is emailed once customer reports are switched on. */}}
+      <a class="cc-btn" href="/restaurants/{{.Restaurant.ID}}/compliance.pdf" target="_blank" rel="noopener" title="Last month's device security report, as the venue receives it"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Device security, last month</span></a>
       <form class="rp-mail" method="POST" action="/restaurants/{{.Restaurant.ID}}/report/email" hx-post="/restaurants/{{.Restaurant.ID}}/report/email" hx-target="#rp-mail-out" hx-swap="innerHTML">
         <input type="hidden" name="week" value="{{.Week.Value}}">
         <input class="form-input" type="email" name="to" required placeholder="name@aioapp.com" aria-label="Send this report to">

@@ -71,7 +71,7 @@ func (h *Handler) BatteryPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	rangeKey, from, to := batteryRange(r)
-	data := map[string]any{"Title": "Battery data", "Devices": devices, "Range": rangeKey, "Ev": r.URL.Query().Get("ev")}
+	data := map[string]any{"Title": "Battery data", "Devices": devices, "Range": rangeKey, "Ev": r.URL.Query().Get("ev"), "Tab": ""}
 	if r.URL.Query().Get("tab") == "wear" {
 		data["Tab"] = "wear"
 		data["Wear"] = visibleWear(h.fleetWearNow(ctx), acc.visible)

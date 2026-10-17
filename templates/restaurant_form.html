@@ -81,6 +81,12 @@
                    value="{{with .Restaurant}}{{.Address}}{{end}}" oninput="rfPrev()">
             <span class="rf-hint">Optional — handy for the techs you dispatch.</span>
           </div>
+          <div class="rf-field">
+            <label for="rf-contact">Contact email</label>
+            <input type="email" name="contact_email" id="rf-contact" class="form-input" maxlength="254" autocomplete="off" placeholder="manager@restaurant.com"
+                   value="{{with .Restaurant}}{{.ContactEmail}}{{end}}">
+            <span class="rf-hint">Optional. Gets the venue's monthly device security report, with its owner accounts.</span>
+          </div>
         </div>
 
         <div class="rf-section">

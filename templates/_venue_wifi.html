@@ -65,5 +65,5 @@
 
 {{/* A device's saved networks (client 1.12.0 / 0.3.0): names only, the client never reports a password. */}}
 {{define "saved-networks-row"}}{{if .SavedNetworks}}
-<div class="ddc-kv"><span class="k">Saved networks</span><span class="v">{{range $i, $n := .SavedNetworks}}{{if $i}}, {{end}}{{$n.SSID}}{{if $n.Connected}} <span class="cc-tag ok">connected</span>{{end}}{{if $n.Pending}} <span class="cc-tag info" title="A new password is held until this network goes away, then used">new password waiting</span>{{end}}{{end}}</span></div>
+<div class="ddc-kv sn-row" style="grid-column:1/-1;align-items:flex-start"><span class="k">Saved networks</span><span class="v" style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 12px">{{range .SavedNetworks}}<span style="white-space:nowrap">{{.SSID}}{{if .Connected}} <span class="cc-tag ok">connected</span>{{end}}{{if .Pending}} <span class="cc-tag info" title="A new password is held until this network goes away, then used">new password waiting</span>{{end}}</span>{{end}}</span></div>
 {{end}}{{end}}

@@ -114,6 +114,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"CommandExpiry":         h.cfg.CommandExpiry(),
 		"MaxTargets":            h.cfg.MaxTargets(),
 		"RequireReason":         h.cfg.RequireReason(),
+		// Lost mode's support number and the switch for customer compliance reports (17 Oct).
+		"LostModeSupportPhone":       h.cfg.LostModeSupportPhone(),
+		"ComplianceReportsCustomers": h.cfg.ComplianceReportsCustomers(),
 		"SessionTimeout":        h.cfg.SessionTimeout(),
 		"BrandName":             h.cfg.BrandName(),
 		"PageSize":              h.cfg.PageSize(),
