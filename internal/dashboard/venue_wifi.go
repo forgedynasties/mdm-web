@@ -290,7 +290,21 @@ func savedNetworksView(extra json.RawMessage) []savedNetwork {
 	if json.Unmarshal(extra, &m) != nil {
 		return nil
 	}
-	return m.Nets
+	// A transition-mode network is saved as two configs (WPA2 and WPA3) under one name, and
+	// the firmware client lists both: show the name once, connected if either is.
+	var out []savedNetwork
+	at := map[string]int{}
+	for _, n := range m.Nets {
+		k := strings.ToLower(n.SSID)
+		if i, ok := at[k]; ok {
+			out[i].Connected = out[i].Connected || n.Connected
+			out[i].Pending = out[i].Pending || n.Pending
+			continue
+		}
+		at[k] = len(out)
+		out = append(out, n)
+	}
+	return out
 }
 
 // ── The reconciler ────────────────────────────────────────────────────────────

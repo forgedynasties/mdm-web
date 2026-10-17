@@ -176,3 +176,26 @@ func TestComplianceVenueOnly(t *testing.T) {
 		t.Errorf("scored %v; want only the device at a venue", seen)
 	}
 }
+
+func TestSELinuxMisreadByFirmware1120(t *testing.T) {
+	fw := func(code int, on bool) *db.Device {
+		extra, _ := json.Marshal(map[string]any{"agent_version": "1.12.0", "agent_version_code": code, "selinux_enforcing": on})
+		return &db.Device{LatestExtra: extra, AgentKind: "firmware"}
+	}
+	if st, _ := evalSELinux(nil, fw(87, false), 0); st != db.ComplianceUnknown {
+		t.Fatalf("1.12.0 false must be unknown, got %s", st)
+	}
+	if st, _ := evalSELinux(nil, fw(87, true), 0); st != db.CompliancePass {
+		t.Fatalf("1.12.0 true is still a pass, got %s", st)
+	}
+	if st, _ := evalSELinux(nil, fw(88, false), 0); st != db.ComplianceFail {
+		t.Fatalf("1.12.1 false is a real fail, got %s", st)
+	}
+}
+
+func TestSavedNetworksMergesTransitionConfigs(t *testing.T) {
+	got := savedNetworksView(json.RawMessage(`{"wifi_networks":[{"ssid":"AIO_STDA","security":"wpa2","connected":false},{"ssid":"AIO_STDA","security":"wpa3","connected":true},{"ssid":"AIO-Office","security":"wpa2"}]}`))
+	if len(got) != 2 || !got[0].Connected || got[1].SSID != "AIO-Office" {
+		t.Fatalf("merged: %+v", got)
+	}
+}

@@ -102,7 +102,7 @@ var complianceChecks = []compCheck{
 		Help: "The bootloader verified the image it started (green). Yellow, orange or red means a self-signed, unlocked or failed boot.",
 		eval: evalVerifiedBoot},
 	{ID: "selinux_enforcing", Group: compGroupIntact, Name: "SELinux enforcing", Device: true, Level: db.ComplianceRequired,
-		eval: evalExtraTrue("selinux_enforcing", "SELinux is permissive")},
+		eval: evalSELinux},
 	{ID: "device_owner", Group: compGroupSetup, Name: "Standard client is Device Owner", Device: true, Level: db.ComplianceRequired,
 		Help: "Without Device Owner the standard client cannot lock, install or reset. Firmware clients are system apps and are not measured.",
 		eval: evalDeviceOwner},
@@ -281,6 +281,23 @@ func evalDeviceOwner(_ *compSnapshot, d *db.Device, _ int) (string, string) {
 		return db.ComplianceFail, "The client is not Device Owner"
 	}
 	return db.CompliancePass, "Device Owner"
+}
+
+// fwSELinuxMisread is the firmware client that reported selinux_enforcing false whenever it
+// could not read the mode: SELinux.isSELinuxEnforced() answers false when
+// /sys/fs/selinux/enforce is refused to system_app — and that refusal itself only happens
+// when SELinux is enforcing. Found on AT070AA2600024 (17 Oct); 1.12.1 reads it properly.
+const fwSELinuxMisread = 87
+
+func evalSELinux(s *compSnapshot, d *db.Device, p int) (string, string) {
+	if !d.IsDPC() {
+		if _, code := clientVersionOf(d); code == fwSELinuxMisread {
+			if on, ok := extraTri(d.LatestExtra, "selinux_enforcing"); ok && !on {
+				return db.ComplianceUnknown, "Not read reliably by firmware client 1.12.0"
+			}
+		}
+	}
+	return evalExtraTrue("selinux_enforcing", "SELinux is permissive")(s, d, p)
 }
 
 // evalExtraFalse passes when the reported flag is false (adb_enabled, su_present…).
