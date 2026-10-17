@@ -48,17 +48,7 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
 </form>
 
 <script src="/static/picker.js?v={{.AssetVer}}"></script>
-<script>
-function gfSync(){
-  var name = document.getElementById('group-name').value.trim();
-  var chip = document.getElementById('gf-chip-name');
-  chip.textContent = name || 'Group name';
-  chip.classList.toggle('muted', name === '');
-  document.getElementById('gf-sum-name').textContent = name || 'a new group';
-  document.getElementById('create-group-btn').disabled = name === '';
-}
-gfSync();
-</script>
+<script src="/static/js/group_form.js?v={{assetVer}}"></script>
 </div>
 
 {{template "footer" .}}

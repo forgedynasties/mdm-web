@@ -43,16 +43,8 @@
 </div>
 </div>
 
-<script>
-// The full crashes page has no inline report form; "Report" jumps to the release's
-// Problems tab with the crash seeded (consumed by probFromCrash's on-load hook there).
-function probFromCrash(btn) {
-  var p = new URLSearchParams({
-    rc_kind: btn.dataset.kind || '', rc_sum: btn.dataset.sum || '', rc_serial: btn.dataset.serial || ''
-  });
-  location.href = '/releases/{{$rel.ID}}?tab=problems&' + p.toString();
-}
-</script>
+<script>window.RELEASE_CRASHES_PAGE = {release: {{$rel.ID}}};</script>
+<script src="/static/js/release_crashes.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}
 {{end}}
