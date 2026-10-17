@@ -61,7 +61,11 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload := buildPayload(cmdType, r)
+	payload, msg := checkedPayload(cmdType, r)
+	if msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
 	// An agent update names no APK: it is always the build this server hosts, so the
 	// console never has to know a URL and can't point a device at the wrong one.
 	if cmdType == "app_update" && apkURL == "" {

@@ -147,7 +147,20 @@ const (
 	// agent does it silently (Device Owner); the MDM-lite host app does it silently only
 	// when the device allows it to install apps, else via Android's prompt.
 	CapSelfUpdate = "self_update"
+	// CapLostMode: the full-screen lost message under lock task. CapWifiConfig: add or
+	// forget a Wi-Fi network. Both from firmware client 1.12.0 and DPC agent 0.3.0.
+	CapLostMode   = "lost_mode"
+	CapWifiConfig = "wifi_config"
 )
+
+// FirmwareCapFlags map the extra flags the firmware client sends (it reports no
+// capability list) to the capability each one offers, as factory_reset does for wipe:
+// client 1.12.0 (code 87) sends both. The DPC agent (0.3.0, code 23) lists lost_mode and
+// wifi_config in its capabilities itself.
+var FirmwareCapFlags = map[string]string{
+	"lost_mode_cmd":   CapLostMode,
+	"wifi_config_cmd": CapWifiConfig,
+}
 
 // The command types themselves, and the capability each one requires, live in
 // commands.go — one table shared with the dashboard's role allowlist and the admin

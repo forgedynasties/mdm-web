@@ -259,6 +259,40 @@ var stateKeys = []string{
 	"screen_on", "kiosk_suspended", "boot_id", "boot_reason",
 	"ip_address", "wifi", "timezone", "foreground_pkg",
 	"adb_enabled", "screen_lock_set", "storage_encrypted",
+	"host_app_fg",
+}
+
+// withDerivedState adds the state keys that are not report fields of their own but a
+// reading of one. host_app_fg is whether the host app's variant in use is in the
+// foreground (extra.host_app, firmware client 1.11.0+): host_app itself is a large,
+// stripped key, so its one state bit is recorded as a transition here, which is what
+// lets the host_app_away alert measure "away for N minutes" the way wlc_continuous
+// measures a pad state. Absent when the report has no host app with variants.
+func withDerivedState(m map[string]json.RawMessage) {
+	raw, ok := m["host_app"]
+	if !ok {
+		return
+	}
+	var ha struct {
+		Package  string `json:"package"`
+		Variants []struct {
+			Package    string `json:"package"`
+			Foreground bool   `json:"foreground"`
+		} `json:"variants"`
+	}
+	if json.Unmarshal(raw, &ha) != nil || ha.Package == "" {
+		return
+	}
+	for _, v := range ha.Variants {
+		if v.Package == ha.Package {
+			if v.Foreground {
+				m["host_app_fg"] = json.RawMessage("true")
+			} else {
+				m["host_app_fg"] = json.RawMessage("false")
+			}
+			return
+		}
+	}
 }
 
 // ShapedTelemetry is the history one check-in produces, computed while the device row
@@ -320,6 +354,10 @@ func shapeRows(items []ShapedTelemetry) (shapedBatch, error) {
 		if err := json.Unmarshal(it.Cur, &curMap); err != nil {
 			return b, err
 		}
+		if prevMap != nil {
+			withDerivedState(prevMap)
+		}
+		withDerivedState(curMap)
 		keys, froms, tos, seeds := stateEventRows(prevMap, curMap)
 		for i, k := range keys {
 			dk := devKey{it.DeviceID, k}
@@ -508,7 +546,11 @@ func jsonFloat(raw json.RawMessage) *float64 {
 // battery_temp_c and ram_usage_mb deliberately stay: they feed the device chart, the
 // live SSE payload, a CSV column, the temp_elevated/memory_low rules and the daily
 // rollup. They are quantised on the device instead.
-const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address' - 'battery_cc' - 'host_app'`
+//
+// wifi_networks (client 1.12.0, DPC 0.3.0) lists the configured networks with a
+// `connected` flag that flips on every Wi-Fi drop, so it would read as a state change on
+// each one; nothing reads it from history.
+const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address' - 'battery_cc' - 'host_app' - 'wifi_networks'`
 
 // checkinVolatileKeys are readings that drift every frame without meaning a state
 // change; two rows equal on everything else within the sample window are one sample.

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"mdm/internal/db"
+	"mdm/internal/product"
 
 	"github.com/google/uuid"
 )
@@ -934,6 +935,18 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
+// resendPayload is the payload a resend repeats: the stored one, with its secret
+// fields while they are still kept. A wifi_config whose password has been swept cannot
+// be repeated from here — the new command would carry no password — so it says so.
+func (h *Handler) resendPayload(w http.ResponseWriter, r *http.Request, cmd *db.Command) (json.RawMessage, bool) {
+	payload := h.db.DeliveryPayload(r.Context(), cmd.ID, cmd.Type, cmd.Payload)
+	if _, msg := product.NormalizeCommandPayload(cmd.Type, payload); msg != "" {
+		http.Error(w, cmdTypeLabel(cmd.Type)+" can't be resent: the password is no longer kept. Send it again with the password.", http.StatusBadRequest)
+		return nil, false
+	}
+	return payload, true
+}
+
 func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -962,7 +975,11 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 	if !h.requireDeviceAction(w, r, policyActionForCommand(cmd.Type), deviceIDs[0]) {
 		return
 	}
-	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, "devices", deviceIDs, h.currentUsername(r))
+	payload, ok := h.resendPayload(w, r, cmd)
+	if !ok {
+		return
+	}
+	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, payload, "devices", deviceIDs, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -995,7 +1012,11 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, targetType, targetIDs, h.currentUsername(r))
+	payload, ok := h.resendPayload(w, r, cmd)
+	if !ok {
+		return
+	}
+	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, payload, targetType, targetIDs, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -1345,6 +1366,10 @@ func cmdTypeLabel(cmdType string) string {
 		return "OTA update"
 	case "adb_tcp":
 		return "Wireless adb"
+	case "lost_mode":
+		return "Lost mode"
+	case "wifi_config":
+		return "Wi-Fi network"
 	case "set_kiosk", "kiosk_set":
 		return "Kiosk"
 	case "remote":
@@ -1435,7 +1460,7 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 		"id":           cmd.ID,
 		"command_type": db.DeviceCommandType(cmd.Type),
 		"apk_url":      cmd.ApkURL,
-		"payload":      cmd.Payload,
+		"payload":      h.db.DeliveryPayload(ctx, cmd.ID, cmd.Type, cmd.Payload),
 	})
 
 	switch targetType {

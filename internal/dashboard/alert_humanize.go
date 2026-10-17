@@ -202,6 +202,41 @@ func humanizeAlert(a db.Alert) humanAlert {
 		}
 		s = fmt.Sprintf("%s reported %s %s recently%s.", place, b(fmt.Sprintf("%d", n)), word, crashTail(str("summary")))
 		h.PackageName = extractPackageName(str("summary"))
+	case "host_app_away":
+		h.Headline = "The app is not on screen"
+		s = fmt.Sprintf("%s has had its app off the screen for %s during service, with the screen on — guests may be looking at something else.",
+			place, b(minsAgo(num("away_min"))))
+		h.PackageName = str("package")
+	case "compliance_failed":
+		h.Headline = "Out of compliance"
+		var names []string
+		if ids, ok := d["checks"].([]any); ok {
+			for _, id := range ids {
+				sid, _ := id.(string)
+				if c, ok := complianceCheck(sid); ok {
+					names = append(names, html.EscapeString(c.Name))
+				} else if sid != "" {
+					names = append(names, html.EscapeString(sid))
+				}
+			}
+		}
+		if len(names) == 0 {
+			s = place + ": " + html.EscapeString(a.Summary)
+		} else {
+			s = fmt.Sprintf("%s fails a required check: %s.", place, b(strings.Join(names, ", ")))
+			if len(names) > 1 {
+				s = fmt.Sprintf("%s fails %d required checks: %s.", place, len(names), b(strings.Join(names, ", ")))
+			}
+		}
+	case "lost_device_seen":
+		h.IconKey, h.Headline = "offline", "A lost device checked in"
+		where := "No location yet."
+		if addr := str("location_address"); addr != "" {
+			where = "Last located near " + b(html.EscapeString(addr)) + "."
+		} else if lat, lon := num("latitude"), num("longitude"); lat != 0 || lon != 0 {
+			where = fmt.Sprintf("Last located at %s.", b(fmt.Sprintf("%.5f, %.5f", lat, lon)))
+		}
+		s = fmt.Sprintf("%s in lost mode is online again. %s", place, where)
 	case "role_app_stuck":
 		h.Headline = "Stuck behind its prod build"
 		s = place + ": " + html.EscapeString(a.Summary)

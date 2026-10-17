@@ -212,6 +212,14 @@ func (d Device) CapSet() map[string]bool {
 	if prod.DefaultCaps(d.Product) != nil && extraTrue(d.LatestExtra, "factory_reset") {
 		out[prod.CapWipe] = true
 	}
+	// So are lost mode and Wi-Fi config: 1.12.0+ says so the same way.
+	if prod.DefaultCaps(d.Product) != nil {
+		for flag, c := range prod.FirmwareCapFlags {
+			if extraTrue(d.LatestExtra, flag) {
+				out[c] = true
+			}
+		}
+	}
 	return out
 }
 

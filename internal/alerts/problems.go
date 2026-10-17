@@ -44,6 +44,8 @@ func CauseOf(types []string) Cause {
 		return false
 	}
 	switch {
+	case has["lost_device_seen"]:
+		return Cause{"lost", "Lost device online", "It is in lost mode and has just checked in. The alert carries the last location the server has for it."}
 	case any("offline", "offline_peak", "offline_long") && any("wifi_weak", "wifi_unstable"):
 		return Cause{"wifi", "Wi-Fi dropping", "Its Wi-Fi was weak or dropping, then it stopped checking in. Likely where it sits in the restaurant, or the router."}
 	case any("offline", "offline_peak", "offline_long"):
@@ -76,6 +78,10 @@ func CauseOf(types []string) Cause {
 		return Cause{"app", "Stuck behind prod", "Its role's prod build keeps failing to install, so it is running an older build than every other device in its role."}
 	case has["kiosk_exited"]:
 		return Cause{"kiosk", "Unlocked on the device", "Someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."}
+	case has["host_app_away"]:
+		return Cause{"app", "App not on screen", "The app it is there to run has been off the screen during service while the screen is on."}
+	case has["compliance_failed"]:
+		return Cause{"compliance", "Out of compliance", "It has failed a required compliance check for a while. The device page's Compliance tab names it."}
 	case has["identity_conflict"]:
 		return Cause{"identity", "Possible impersonation", "Something used this device's serial with the shared key and this device has already had its key reset automatically several times today, so it was refused. Either something is looping on this serial, or someone is using it: look before pressing Reset."}
 	case has["hardware_serial_changed"]:

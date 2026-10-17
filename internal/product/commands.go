@@ -149,6 +149,17 @@ var commands = []Command{
 	// admin-only and the send paths accept exactly one named device — never all or a group.
 	{Type: "adb_tcp", Cap: CapAdbTcp, Roles: rolesAdmin, API: true},
 
+	// Lost mode: the device shows a full-screen "this belongs to …" message, pinned with
+	// lock task, until the server lifts it (or support reads out the rotating unlock code).
+	// Operator-level like reboot — reacting to a missing tablet must not wait for an admin
+	// — under its own access action, so a policy can grant or withhold it per venue.
+	{Type: "lost_mode", Cap: CapLostMode, Roles: rolesOperator, API: true, Access: "lost_mode"},
+
+	// Add or forget a Wi-Fi network. Admin-only: a wrong network pushed to a venue can take
+	// every device there off the air, and the payload carries the network's password,
+	// which never reaches the commands table (see SplitCommandSecret).
+	{Type: "wifi_config", Cap: CapWifiConfig, Roles: rolesAdmin, API: true},
+
 	// ── T7 hardware ─────────────────────────────────────────────────────────
 	// Mic capture gain (codec TX_DEC). Reading the mixer is admin-only: the field
 	// it refreshes is rendered for admins alone (device.html Hardware card).
@@ -184,6 +195,7 @@ var accessActionsAdminOnly = map[string]string{
 	"unenroll":      "unenroll",
 	"mic_gain_read": "mic_gain_read",
 	"adb_tcp":       "adb_tcp",
+	"wifi_config":   "wifi_config",
 }
 
 // AdminOnlyCommandTypes is the set in accessActionsAdminOnly, exported so the

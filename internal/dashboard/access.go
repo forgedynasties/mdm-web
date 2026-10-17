@@ -37,6 +37,7 @@ var accessActions = []accessAction{
 	{Key: "query", Label: "Run diagnostic query", Group: "Commands"},
 	{Key: "logcat", Label: "Request logcat", Group: "Commands"},
 	{Key: "kiosk", Label: "Kiosk settings", Group: "Device"},
+	{Key: "lost_mode", Label: "Lost mode", Group: "Device", Help: "Put a missing device in lost mode (a full-screen return message) and take it out again."},
 	{Key: "notes", Label: "Device notes", Group: "Device"},
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
 	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Dev, super op and access admin have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},

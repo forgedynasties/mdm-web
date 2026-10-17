@@ -251,6 +251,9 @@ var recentRuleTypes = map[string]bool{
 	"charger_flapping":   true,
 	"device_crash":       true,
 	"slow_charge_night":  true,
+	"host_app_away":      true,
+	"compliance_failed":  true,
+	"lost_device_seen":   true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
@@ -264,6 +267,8 @@ func defaultActiveWindow(typ string) string {
 		return "overnight"
 	case "offline_peak", "battery_low":
 		return "peak"
+	case "host_app_away":
+		return "service"
 	}
 	return "always"
 }
@@ -880,6 +885,13 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				map[string]any{"disconnects_1h": n, "limit": limit}})
 		}
 		return hits, "warning", rows.Err()
+
+	case "host_app_away":
+		return d.detectHostAppAway(ctx, p, connected)
+	case "compliance_failed":
+		return d.detectComplianceFailed(ctx, p)
+	case "lost_device_seen":
+		return d.detectLostDeviceSeen(ctx, connected)
 
 	case "device_crash":
 		// A crash/ANR/tombstone was reported (device_events, from the client's DropBox

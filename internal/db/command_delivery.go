@@ -57,7 +57,15 @@ func (d *DB) ListStuckDeliveredCommands(ctx context.Context, staleSeconds int) (
 		}
 		out = append(out, s)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// The sweep re-pushes these to the device, so the secret fields go back in.
+	for i := range out {
+		out[i].Payload = d.DeliveryPayload(ctx, out[i].CommandID, out[i].Type, out[i].Payload)
+	}
+	return out, nil
 }
 
 // DevicesWithPendingInstall returns which of the given devices already have an
@@ -245,6 +253,11 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 		log.Printf("[command-lease] release on ack %s: %v", commandID, lerr)
 	}
 	d.AppendCommandEvent(ctx, commandID, deviceID, status, nil)
+	// A wifi_config's password is needed only until its devices are done with it.
+	switch status {
+	case "installed", "failed", "completed", "cancelled", "expired":
+		d.dropFinishedSecret(ctx, commandID)
+	}
 	// A command that ran end to end is the only proof this device is controllable, as
 	// opposed to merely reporting. Everything else — a socket, a check-in, a fresh
 	// temperature — is liveness, which is what misled us about AT070AABU00077.

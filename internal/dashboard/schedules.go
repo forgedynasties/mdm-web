@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"mdm/internal/db"
+	"mdm/internal/product"
 
 	"github.com/google/uuid"
 )
@@ -29,6 +30,12 @@ func (h *Handler) RecipeCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
+		return
+	}
+	// A recipe is stored and shown as it is, so a type that carries a password (a
+	// wifi_config) cannot be one.
+	if product.CommandHasSecret(cmdType) {
+		http.Error(w, cmdTypeLabel(cmdType)+" can't be saved as a recipe: it carries a password.", http.StatusBadRequest)
 		return
 	}
 	targetType := r.FormValue("target_type")

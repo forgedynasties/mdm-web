@@ -152,6 +152,30 @@ func cmdTitleOf(s cmdShape) (title, hint string) {
 		return "Wipe", "factory reset"
 	case "unenroll":
 		return "Unenroll", "handed back, data kept"
+	case "lost_mode":
+		var p struct {
+			On bool `json:"on"`
+		}
+		_ = json.Unmarshal(s.Payload, &p)
+		if p.On {
+			return "Lost mode", "show the return message"
+		}
+		return "Lost mode", "lift it"
+	case "wifi_config":
+		// The stored payload never holds the password (product.SplitCommandSecret).
+		var p struct {
+			Action   string `json:"action"`
+			SSID     string `json:"ssid"`
+			Security string `json:"security"`
+		}
+		_ = json.Unmarshal(s.Payload, &p)
+		if p.Action == "remove" {
+			return "Wi-Fi network", "forget " + p.SSID
+		}
+		if p.Security != "" && p.Security != "open" {
+			return "Wi-Fi network", "add " + p.SSID + " (" + strings.ToUpper(p.Security) + ")"
+		}
+		return "Wi-Fi network", "add " + p.SSID
 	}
 	return cmdTypeLabel(s.Type), ""
 }
@@ -173,6 +197,8 @@ func cmdVerbOf(s cmdShape) string {
 		return "wiped"
 	case "unenroll":
 		return "unenrolled"
+	case "wifi_config":
+		return "applied"
 	}
 	return "delivered"
 }

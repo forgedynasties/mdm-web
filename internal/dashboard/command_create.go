@@ -300,7 +300,12 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		items = []cmdItem{{apkURL: strings.TrimSpace(r.FormValue("apk_url")), payload: buildPayload(cmdType, r)}}
+		payload, msg := checkedPayload(cmdType, r)
+		if msg != "" {
+			http.Error(w, msg, http.StatusBadRequest)
+			return
+		}
+		items = []cmdItem{{apkURL: strings.TrimSpace(r.FormValue("apk_url")), payload: payload}}
 	}
 
 	// Create one command per item. For install_apk, drop target devices that already
@@ -547,7 +552,33 @@ func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 		}
 		b, _ := json.Marshal(m)
 		return json.RawMessage(b)
+	case "lost_mode":
+		// on=1 shows the lost screen with message and phone; on=0 lifts it.
+		on := r.FormValue("on")
+		b, _ := json.Marshal(map[string]any{
+			"on":      on == "1" || on == "true" || on == "on",
+			"message": r.FormValue("message"),
+			"phone":   r.FormValue("phone"),
+		})
+		return json.RawMessage(b)
+	case "wifi_config":
+		// The password is split off before the command is stored (product.SplitCommandSecret).
+		hidden := r.FormValue("hidden")
+		b, _ := json.Marshal(map[string]any{
+			"action":   r.FormValue("action"),
+			"ssid":     r.FormValue("ssid"),
+			"security": r.FormValue("security"),
+			"password": r.FormValue("password"),
+			"hidden":   hidden == "1" || hidden == "true" || hidden == "on",
+		})
+		return json.RawMessage(b)
 	default:
 		return json.RawMessage("{}")
 	}
+}
+
+// checkedPayload is buildPayload plus the payload check for the types that have one;
+// msg is the reason to refuse it, "" when it may be sent.
+func checkedPayload(cmdType string, r *http.Request) (json.RawMessage, string) {
+	return product.NormalizeCommandPayload(cmdType, buildPayload(cmdType, r))
 }
