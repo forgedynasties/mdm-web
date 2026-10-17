@@ -316,6 +316,8 @@ type Restaurant struct {
 	Notes       string    `json:"notes"`
 	CreatedAt   time.Time `json:"created_at"`
 	DeviceCount int       `json:"device_count"` // populated by List/Get
+	// ContactEmail is where the venue's monthly device-security report goes ('' = none).
+	ContactEmail string `json:"contact_email"`
 }
 
 // DefaultKioskFeatures shows system info (battery/wifi) but blocks home, recents,

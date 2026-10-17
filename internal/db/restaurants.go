@@ -19,11 +19,11 @@ import (
 func (d *DB) CreateRestaurant(ctx context.Context, r Restaurant) (*Restaurant, error) {
 	var out Restaurant
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO restaurants (name, address, latitude, longitude, timezone, notes)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, name, address, latitude, longitude, timezone, notes, created_at
-	`, r.Name, r.Address, r.Latitude, r.Longitude, r.Timezone, r.Notes).
-		Scan(&out.ID, &out.Name, &out.Address, &out.Latitude, &out.Longitude, &out.Timezone, &out.Notes, &out.CreatedAt)
+		INSERT INTO restaurants (name, address, latitude, longitude, timezone, notes, contact_email)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, name, address, latitude, longitude, timezone, notes, created_at, contact_email
+	`, r.Name, r.Address, r.Latitude, r.Longitude, r.Timezone, r.Notes, r.ContactEmail).
+		Scan(&out.ID, &out.Name, &out.Address, &out.Latitude, &out.Longitude, &out.Timezone, &out.Notes, &out.CreatedAt, &out.ContactEmail)
 	return &out, err
 }
 
@@ -33,6 +33,14 @@ func (d *DB) UpdateRestaurant(ctx context.Context, r Restaurant) error {
 			timezone = $6, notes = $7
 		WHERE id = $1
 	`, r.ID, r.Name, r.Address, r.Latitude, r.Longitude, r.Timezone, r.Notes)
+	return err
+}
+
+// SetRestaurantContactEmail sets only the venue's contact email. Separate from
+// UpdateRestaurant, which writes every field, so a form that does not carry the field
+// cannot blank it.
+func (d *DB) SetRestaurantContactEmail(ctx context.Context, id uuid.UUID, email string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET contact_email = $2 WHERE id = $1`, id, email)
 	return err
 }
 
@@ -53,7 +61,7 @@ func (d *DB) DeleteRestaurant(ctx context.Context, id uuid.UUID) error {
 func (d *DB) ListRestaurants(ctx context.Context) ([]Restaurant, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.id, r.name, r.address, r.latitude, r.longitude, r.timezone,
-		       r.notes, r.created_at, COUNT(d.id) AS device_count
+		       r.notes, r.created_at, COUNT(d.id) AS device_count, r.contact_email
 		FROM restaurants r
 		LEFT JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
 		GROUP BY r.id
@@ -67,7 +75,7 @@ func (d *DB) ListRestaurants(ctx context.Context) ([]Restaurant, error) {
 	for rows.Next() {
 		var r Restaurant
 		if err := rows.Scan(&r.ID, &r.Name, &r.Address, &r.Latitude, &r.Longitude, &r.Timezone,
-			&r.Notes, &r.CreatedAt, &r.DeviceCount); err != nil {
+			&r.Notes, &r.CreatedAt, &r.DeviceCount, &r.ContactEmail); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -79,13 +87,13 @@ func (d *DB) GetRestaurant(ctx context.Context, id uuid.UUID) (*Restaurant, erro
 	var r Restaurant
 	err := d.pool.QueryRow(ctx, `
 		SELECT r.id, r.name, r.address, r.latitude, r.longitude, r.timezone,
-		       r.notes, r.created_at, COUNT(d.id) AS device_count
+		       r.notes, r.created_at, COUNT(d.id) AS device_count, r.contact_email
 		FROM restaurants r
 		LEFT JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
 		WHERE r.id = $1
 		GROUP BY r.id
 	`, id).Scan(&r.ID, &r.Name, &r.Address, &r.Latitude, &r.Longitude, &r.Timezone,
-		&r.Notes, &r.CreatedAt, &r.DeviceCount)
+		&r.Notes, &r.CreatedAt, &r.DeviceCount, &r.ContactEmail)
 	if err != nil {
 		return nil, err
 	}
