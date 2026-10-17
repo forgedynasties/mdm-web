@@ -1,0 +1,48 @@
+{{/* Lost mode on the device page (New view), L1 picked 17 Oct: a ⋯ menu entry, a dialog,
+     and a red band at the top of the page while the device is lost. internal/dashboard/lost_mode.go */}}
+
+{{define "lost-menu-item"}}{{if supports .Device "lost_mode"}}{{if .Lost.On}}
+<button type="button" class="cc-mi danger{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} data-role-need="operator"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-lift-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Lift lost mode…<span class="rt">Lost</span></button>
+{{else}}
+<button type="button" class="cc-mi danger{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} data-role-need="operator"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Mark as lost…{{if .Lost.Waiting}}<span class="rt">sending</span>{{end}}</button>
+{{end}}{{end}}{{end}}
+
+{{define "lost-band"}}{{if or .Lost.On .Lost.Waiting}}
+<div class="lost-band" role="status">
+  <span class="lb-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span>
+  <span class="lb-tx">
+    {{if .Lost.On}}<b>Lost{{if not .Lost.Since.IsZero}} since {{localShortTime .Lost.Since}}{{end}}</b>{{else}}<b>Marked as lost</b> · waiting for the device to show the screen{{end}}
+    {{if .Lost.By}} · marked by {{.Lost.By}}{{end}}
+    · last seen {{timeSince .Device.LastSeenAt}}
+    {{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $addr (ne $addr "—")}}<span class="lb-m">near {{$addr}}</span>{{end}}
+    {{if .Lost.Lifting}}<span class="lb-m">· lifting, waiting for the device</span>{{end}}
+  </span>
+  <span class="lb-acts">
+    <button type="button" class="cc-btn sm" onclick="var t=document.getElementById('dd-tab-location'); if(t){t.click(); t.scrollIntoView({behavior:'smooth',block:'start'})}">Show on map</button>
+    {{if .Lost.On}}<button type="button" class="cc-btn sm{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} data-role-need="operator"{{end}} onclick="document.getElementById('lost-lift-dlg').showModal()">Found it — lift lost mode</button>{{end}}
+  </span>
+</div>
+{{end}}{{end}}
+
+{{define "lost-dialogs"}}{{if supports .Device "lost_mode"}}
+<dialog id="lost-dlg" class="en-dlg lost-dlg">
+  <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands">
+    <input type="hidden" name="type" value="lost_mode"><input type="hidden" name="on" value="1">
+    <h4>Mark {{if .Nickname}}{{.Nickname}}{{else}}{{.Device.SerialNumber}}{{end}} as lost?</h4>
+    <p class="small muted">The screen locks to this message until you lift it here. Nothing else works on it, a restart doesn't clear it, and it keeps reporting where it is.</p>
+    <label class="lost-f"><span>Message on the screen</span>
+      <textarea name="message" class="form-input" rows="3" maxlength="280">{{.Lost.DefaultM}}</textarea></label>
+    <label class="lost-f"><span>Phone number</span>
+      <input type="text" name="phone" class="form-input" maxlength="40" value="{{.Lost.Phone}}" placeholder="Set one AIO support number in Settings"></label>
+    <div class="en-dlg-btns"><button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="cc-btn sm primary">Mark as lost</button></div>
+  </form>
+</dialog>
+<dialog id="lost-lift-dlg" class="en-dlg lost-dlg">
+  <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands">
+    <input type="hidden" name="type" value="lost_mode"><input type="hidden" name="on" value="0">
+    <h4>Lift lost mode?</h4>
+    <p class="small muted">The lost screen closes and the device goes back to how it should be: locked to its app again if its lock rule says so.</p>
+    <div class="en-dlg-btns"><button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="cc-btn sm primary">Lift lost mode</button></div>
+  </form>
+</dialog>
+{{end}}{{end}}

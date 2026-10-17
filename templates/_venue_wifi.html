@@ -1,0 +1,69 @@
+{{/* Venue Wi-Fi (W1, picked 17 Oct): the networks every device at the venue joins — not the
+     guest Wi-Fi card above it, which is shown to guests. One side card in the venue page's own
+     style (collapsed: the networks and how far they've got; open: per-network delivery, the
+     add form for admins). internal/dashboard/venue_wifi.go */}}
+{{define "venue-wifi-card"}}
+<style>
+.vw-net{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.vw-net .n{font-weight:650;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vw-net .s{color:var(--muted);font-size:11.5px}
+.vw-net .bar{grid-column:1/-1;display:flex;align-items:center;gap:8px;color:var(--text-2);font-size:11.5px}
+.vw-net .bar i{display:block;flex:1;height:5px;border-radius:9px;background:var(--surface-3);overflow:hidden;position:relative}
+.vw-net .bar i b{position:absolute;inset:0 auto 0 0;background:var(--warn);border-radius:9px}
+.vw-net .bar i b.ok{background:var(--ok)}
+.vw-net form{margin:0}
+.vw-tip{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border-soft);background:var(--info-bg);font-size:11.5px;line-height:1.5;color:var(--text-2)}
+.vw-tip b{color:var(--text)}
+.vw-tip svg{width:14px;height:14px;flex:none;margin-top:2px;fill:none;stroke:var(--info);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vw-seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.vw-seg label{display:flex;cursor:pointer}
+.vw-seg input{position:absolute;opacity:0;pointer-events:none}
+.vw-seg span{padding:6px 11px;font-size:12px;color:var(--text-2);border-right:1px solid var(--border)}
+.vw-seg label:last-child span{border-right:0}
+.vw-seg input:checked+span{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+.vw-seg input:focus-visible+span{box-shadow:var(--ring)}
+</style>
+{{$nets := .VenueWifi}}
+<details class="vn-card" id="wifi">
+  <summary><h2>Device Wi-Fi</h2>
+    {{if $nets}}<span class="vn-val">{{range $i, $n := $nets}}{{if $i}}, {{end}}{{$n.SSID}}{{end}}</span>{{else}}<span class="vn-val">none set</span>{{end}}
+    {{range $nets}}{{if not .Complete}}<span class="cc-tag warn">{{.Done}} of {{sub .Total .Unsupported}}</span>{{break}}{{end}}{{end}}
+    {{if canAdmin $.Role}}<span class="vn-ed">{{if $nets}}Manage{{else}}Add{{end}}</span>{{end}}</summary>
+  <div class="vn-sub">The networks this venue's devices join, sent to every device here, including ones assigned later. Not the guest Wi-Fi.</div>
+  {{range $nets}}
+  <div class="vw-net">
+    <span class="n">{{.SSID}}{{if .New}} <span class="cc-tag info">new</span>{{end}}</span>
+    <span class="s">{{if eq .Security "open"}}Open{{else if eq .Security "wpa3"}}WPA3{{else}}WPA2{{end}}{{if .Hidden}} · hidden{{end}}</span>
+    <span class="bar"><i><b class="{{if .Complete}}ok{{end}}" style="width:{{.Pct}}%"></b></i>
+      {{.Done}} of {{sub .Total .Unsupported}}{{if .Offline}} · {{.Offline}} offline{{end}}{{if .Failed}} · <span style="color:var(--danger)">{{.Failed}} failed</span>{{end}}{{if .Unsupported}} · {{.Unsupported}} on an older client{{end}}</span>
+    {{if .Sealed}}<span class="bar" style="color:var(--danger)">The server can no longer read this password (its secret changed). Add the network again.</span>{{end}}
+    {{if canAdmin $.Role}}<form method="POST" action="/restaurants/{{$.Restaurant.ID}}/wifi/{{.ID}}/remove" style="grid-column:2;grid-row:1" onsubmit="return confirm('Remove {{.SSID}} from this venue? Its devices forget it, except any still connected to it.')"><button type="submit" class="cc-btn sm" title="Remove from this venue and its devices">Remove</button></form>{{end}}
+  </div>
+  {{end}}
+  {{if $nets}}
+  <div class="vw-tip"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg>
+    <span><b>Changing the router?</b> Add the new network here first, wait until its bar is full and green, then change the router. Devices that are off get it when they next check in.</span></div>
+  {{end}}
+  {{if canAdmin .Role}}
+  <form class="vn-form" action="/restaurants/{{.Restaurant.ID}}/wifi" method="POST" autocomplete="off">
+    <div class="form-row full"><label class="form-label" for="vw-ssid">Network name</label>
+      <input type="text" id="vw-ssid" name="ssid" class="form-input" maxlength="32" required spellcheck="false" placeholder="e.g. Nugget-Staff"></div>
+    <div class="form-row full"><label class="form-label">Security</label>
+      <span class="vw-seg" role="radiogroup" aria-label="Security">
+        <label><input type="radio" name="security" value="open"><span>Open</span></label>
+        <label><input type="radio" name="security" value="wpa2" checked><span>WPA2</span></label>
+        <label><input type="radio" name="security" value="wpa3"><span>WPA3</span></label></span></div>
+    <div class="form-row full"><label class="form-label" for="vw-pass">Password</label>
+      <input type="password" id="vw-pass" name="password" class="form-input" minlength="8" maxlength="63" autocomplete="new-password" placeholder="8 to 63 characters"></div>
+    <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="hidden" value="1"> Hidden network</label>
+    <p>Sent to every device here that can take it (firmware client 1.12.0+, Standard client 0.3.0+). Saving a name that's already listed changes its password. Never shown again after saving.</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Add to {{len .Devices}} device{{if ne (len .Devices) 1}}s{{end}}</button></div>
+  </form>
+  {{end}}
+</details>
+{{end}}
+
+{{/* A device's saved networks (client 1.12.0 / 0.3.0): names only, the client never reports a password. */}}
+{{define "saved-networks-row"}}{{if .SavedNetworks}}
+<div class="ddc-kv"><span class="k">Saved networks</span><span class="v">{{range $i, $n := .SavedNetworks}}{{if $i}}, {{end}}{{$n.SSID}}{{if $n.Connected}} <span class="cc-tag ok">connected</span>{{end}}{{if $n.Pending}} <span class="cc-tag info" title="A new password is held until this network goes away, then used">new password waiting</span>{{end}}{{end}}</span></div>
+{{end}}{{end}}

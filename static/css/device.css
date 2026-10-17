@@ -545,3 +545,28 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 @container (max-width:860px){.ha-top{grid-template-columns:1fr;gap:14px}}
 @container (max-width:520px){.ha-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .ha-facts .ddc-kv .k{white-space:nowrap}
+
+/* Lost mode (lost_mode.go, L1 picked 17 Oct): the band at the top of the page while a device
+   is lost, and the mark-as-lost dialog. Red is the state, not decoration: nothing else on the
+   page uses the danger fill. */
+.lost-band{display:flex;align-items:center;gap:12px;border:1px solid var(--danger-edge);background:var(--danger-bg);border-radius:14px;padding:11px 14px;margin:0 0 12px}
+.lost-band .lb-ic{width:30px;height:30px;border-radius:9px;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.lost-band .lb-ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.lost-band .lb-tx{font-size:13px;line-height:1.45;color:var(--text);min-width:0}
+.lost-band .lb-tx b{color:var(--danger)}
+.lost-band .lb-m{color:var(--text-2);margin-left:4px}
+.lost-band .lb-acts{margin-left:auto;display:flex;gap:8px;flex:none}
+.lost-dlg{width:min(460px,92vw)}
+.lost-f{display:block;margin:0 0 12px}
+.lost-f>span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.lost-f textarea{resize:vertical;min-height:64px;font:inherit;font-size:13px;line-height:1.45}
+
+/* Battery card (battery_wear.go, B2 picked 17 Oct): charge-climb time per night against the
+   fleet median. Bars are the device's own nights; the dashed line is the fleet. */
+.bw-card .bw-big{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;padding:12px 17px 0}
+.bw-card .bw-big b{font-size:24px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--text)}
+.bw-card .bw-big span{font-size:12.5px;color:var(--text-2)}
+.bw-card .bw-bars{position:relative;display:flex;align-items:flex-end;gap:4px;height:64px;margin:12px 17px 6px;border-bottom:1px solid var(--border-soft)}
+.bw-card .bw-bars i{flex:1;max-width:22px;background:var(--chart-battery);opacity:.85;border-radius:3px 3px 0 0;min-height:2px}
+.bw-card .bw-base{position:absolute;left:0;right:0;border-top:1px dashed var(--rule-2);pointer-events:none}
+.bw-card .bw-cap{padding:0 17px 14px;font-size:11.5px;line-height:1.5;color:var(--muted)}

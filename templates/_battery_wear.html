@@ -1,0 +1,59 @@
+{{/* Battery wear (B1 + B2, picked 17 Oct): the /battery page's Wear view and the device page's
+     Battery card. A measurement and a comparison, never a health verdict: no pack of known
+     capacity has been measured yet. internal/dashboard/battery_wear.go */}}
+
+{{define "battery-wear"}}{{$w := .Wear}}
+<style>
+.bw-strip{position:relative;width:200px;height:16px}
+.bw-strip:before{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:var(--surface-3);border-radius:2px}
+.bw-strip .med{position:absolute;top:1px;width:1px;height:14px;background:var(--rule-2)}
+.bw-strip .d{position:absolute;top:4px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--chart-battery)}
+.bw-strip .d.w{background:var(--warn)}
+.bw-lg{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:8px}
+.bw-t td.r,.bw-t th.r{text-align:right}
+</style>
+<div class="bt-kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+  <div class="cc-card bt-kpi"><b>{{$w.Devices}}</b><span>T7s with a clean climb, last {{$w.WindowDays}} days</span></div>
+  <div class="cc-card bt-kpi"><b>{{if $w.MedianSecs}}{{fmtClimb $w.MedianSecs}}{{else}}—{{end}}</b><span>fleet median, 3.7 → 4.1 V</span></div>
+  <div class="cc-card bt-kpi"><b>{{$w.FastCount}}</b><span>clearly faster than the fleet</span></div>
+  <div class="cc-card bt-kpi"><b>T7</b><span>only device that sends climbs</span></div>
+</div>
+<section class="cc-card bt-card">
+  <div class="bt-ch"><h2>Climb time, 3.7 → 4.1 V</h2><span class="bt-mu" style="font-size:12px">clean overnight climbs: full ladder, screen off, densely sampled</span></div>
+  {{if $w.Rows}}
+  <div class="bt-raw" style="max-height:none">
+  <table class="bt-t bw-t">
+    <tr><th>Device</th><th>Venue</th><th class="r">Climbs</th><th class="r">Latest</th><th class="r">vs fleet</th><th>Each climb</th><th></th></tr>
+    {{range $w.Rows}}
+    <tr>
+      <td class="m"><a href="/battery?serial={{.Serial}}" style="color:inherit">{{.Serial}}</a></td>
+      <td>{{if .Venue}}{{.Venue}}{{else}}<span class="bt-mu">lab</span>{{end}}</td>
+      <td class="r">{{len .Readings}}</td>
+      <td class="r">{{fmtClimb .Latest.Secs}}</td>
+      <td class="r">{{.VsFleet}} %</td>
+      <td><div class="bw-strip"><span class="med" style="left:{{$w.Pos $w.MedianSecs}}%"></span>{{$fast := .Fast}}{{range .Readings}}<span class="d{{if $fast}} w{{end}}" style="left:{{$w.Pos .Secs}}%" title="{{fmtClimb .Secs}}"></span>{{end}}</div></td>
+      <td>{{if .Fast}}<span class="cc-tag warn">faster than fleet</span>{{end}}{{if .Hot}} <span class="cc-tag" title="The latest climb reached {{printf "%.0f" .Latest.MaxC}} °C">hot climb</span>{{end}}</td>
+    </tr>
+    {{end}}
+  </table>
+  </div>
+  <div class="bw-lg"><span>│ fleet median</span><span>● one climb</span><span>shorter = the pack holds less</span><span>"faster than fleet" is under {{wearFastPct}} % of the median. It is not a health figure: no pack of known capacity has been measured yet.</span></div>
+  {{else}}<div class="bt-empty">No clean charge climbs in the last {{$w.WindowDays}} days. They come from firmware client 1.10.1+ on T7s charging overnight with the screen off.</div>{{end}}
+</section>
+{{end}}
+
+{{define "battery-wear-card"}}{{with .BatteryWear}}
+<div class="ddc-card bw-card">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg></span><h2>Battery</h2><span class="m muted small">from overnight charges{{if canSeeBattery $.Role}} · <a href="/battery?tab=wear" class="link-detail">fleet</a>{{end}}</span></div>
+  {{if .Clean}}
+  <div class="bw-big"><b>{{.VsFleet}} %</b><span>of the fleet's charge time{{if .HasOwn}} · {{.VsOwn}} % of its own first weeks{{else}} · its own trend after 3 weeks of climbs{{end}}</span>{{if .Fast}} <span class="cc-tag warn">faster than fleet</span>{{end}}</div>
+  <div class="bw-bars" role="img" aria-label="Charge time per night, against the fleet median">
+    {{if .FleetSecs}}<span class="bw-base" style="bottom:{{.BarPct .FleetSecs}}%"></span>{{end}}
+    {{$c := .}}{{range .Readings}}<i style="height:{{$c.BarPct .Secs}}%" title="{{fmtClimb .Secs}}"></i>{{end}}
+  </div>
+  <div class="bw-cap">Each bar is one night's climb from 3.7 to 4.1 V with the screen off; the dashed line is the fleet median. Shorter means the pack holds less. {{.Clean}} of {{.Total}} climbs were clean enough to compare.</div>
+  {{else}}
+  <div class="bw-cap" style="padding-top:2px">Collecting: none of its {{.Total}} charge climb{{if ne .Total 1}}s{{end}} so far was clean enough to compare (a full 3.7 → 4.1 V climb with the screen off).</div>
+  {{end}}
+</div>
+{{end}}{{end}}

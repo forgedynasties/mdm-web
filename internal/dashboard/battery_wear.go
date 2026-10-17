@@ -36,6 +36,7 @@ const (
 	wearRecent       = 5                   // a device's figure is the mean of its last few clean climbs
 	wearWindow       = 30 * 24 * time.Hour // the fleet comparison looks this far back
 	wearFastFleet    = 0.92                // below this share of the fleet median: "faster than fleet"
+	wearFastPct      = 92                  // the same line, as the page writes it
 	wearBaseClimbs   = 3                   // a device's own baseline: its first clean climbs…
 	wearBaseMinSpan  = 21 * 24 * time.Hour // …and the trend against it only after this much history
 	wearCardReadings = 14
