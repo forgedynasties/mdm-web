@@ -3,6 +3,7 @@ package dashboard
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"sort"
@@ -16,10 +17,8 @@ import (
 	"mdm/internal/ratelimit"
 )
 
-// The Wireless adb page (/adb): every device wireless adb was pushed to, grouped by
-// state, with batch on/off and a tunnel so `adb connect` works from anywhere. Design:
-// static/adb-page-demos-2.html, option A (table + guided panel), which replaced the first
-// pass in static/adb-page-demos.html. Admin only, like the adb_tcp command itself.
+// The Wireless adb page (/adb). Admin only, like the adb_tcp command itself. The connect
+// flow both it and the device page use lives in adb_flow.go.
 
 // SetAdbTunnels wires the tunnel manager.
 func (h *Handler) SetAdbTunnels(m *adbtunnel.Manager) { h.tunnels = m }
@@ -117,7 +116,10 @@ func (h *Handler) adbRowFor(d *db.Device, online bool, hist *db.AdbTCPFleetRow) 
 	return r
 }
 
-// AdbPage renders /adb.
+// AdbPage renders /adb (A1, picked 17 Oct): "Connect devices" — one search over every device
+// that can take wireless adb, the duration, Connect — then the live progress for the devices
+// being connected (their serials ride the URL, so a reload keeps watching), the `adb connect`
+// lines for all of them, and "Open now" below with copy / turn off / end tunnel, in batch too.
 func (h *Handler) AdbPage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	hist, err := h.db.AdbTCPFleet(ctx)
@@ -131,72 +133,52 @@ func (h *Handler) AdbPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connected := h.hub.ConnectedIDsForDisplay()
-	showAll := r.URL.Query().Get("show") == "all"
-	sel := strings.TrimSpace(r.URL.Query().Get("sel"))
-
-	var open, off, cant []adbRow
-	var selected *adbRow
-	capable := 0
+	type pickable struct {
+		Serial string `json:"s"`
+		Venue  string `json:"v,omitempty"`
+		Kind   string `json:"k"`
+		Online bool   `json:"o"`
+		Open   bool   `json:"a,omitempty"`
+	}
+	var picks []pickable
+	var open []adbRow
 	for i := range devices {
 		d := &devices[i]
-		hr, pushed := hist[d.ID]
 		var hp *db.AdbTCPFleetRow
-		if pushed {
+		if hr, ok := hist[d.ID]; ok {
 			hp = &hr
 		}
 		_, online := connected[d.ID]
 		row := h.adbRowFor(d, online, hp)
-		if row.CanSwitch || d.AgentKind == "dpc" {
-			capable++
+		if row.CanSwitch || (d.AgentKind == "dpc" && row.Group == "open" && row.CanTunnel) {
+			picks = append(picks, pickable{Serial: d.SerialNumber, Venue: d.RestaurantName, Kind: d.KindLabel(), Online: online, Open: row.Group == "open"})
 		}
-		// Default scope: pushed to before, or open right now (an image that ships adbd
-		// on 5555 was never "pushed" but is exactly what this page is for).
-		if !showAll && !pushed && row.Group != "open" && row.Tunnel == nil && d.SerialNumber != sel {
-			continue
-		}
-		switch row.Group {
-		case "open":
+		if row.Group == "open" || row.Tunnel != nil {
 			open = append(open, row)
-		case "off":
-			off = append(off, row)
-		default:
-			cant = append(cant, row)
-		}
-		if d.SerialNumber == sel {
-			rc := row
-			selected = &rc
 		}
 	}
-	byVenue := func(rows []adbRow) {
-		sort.SliceStable(rows, func(i, j int) bool {
-			if rows[i].Device.RestaurantName != rows[j].Device.RestaurantName {
-				return rows[i].Device.RestaurantName < rows[j].Device.RestaurantName
-			}
-			return rows[i].Device.SerialNumber < rows[j].Device.SerialNumber
-		})
-	}
-	byVenue(open)
-	byVenue(off)
-	byVenue(cant)
-
-	host := h.tunnels.Host()
-	if host == "" {
-		host = r.Host
-		if i := strings.LastIndex(host, ":"); i > 0 && !strings.Contains(host[i:], "]") {
-			host = host[:i]
+	sort.SliceStable(open, func(i, j int) bool {
+		if open[i].Device.RestaurantName != open[j].Device.RestaurantName {
+			return open[i].Device.RestaurantName < open[j].Device.RestaurantName
+		}
+		return open[i].Device.SerialNumber < open[j].Device.SerialNumber
+	})
+	picksJSON, _ := json.Marshal(picks)
+	var watching []string
+	for _, s := range strings.Split(r.URL.Query().Get("connect"), ",") {
+		if s = strings.TrimSpace(s); s != "" && len(watching) < 100 {
+			watching = append(watching, s)
 		}
 	}
 	h.render(w, r, "adb.html", map[string]any{
 		"Title":      "Wireless adb",
 		"Open":       open,
-		"Off":        off,
-		"Cant":       cant,
-		"ShowAll":    showAll,
-		"Capable":    capable,
-		"Selected":   selected,
+		"Capable":    len(picks),
+		"PicksJSON":  template.JS(picksJSON),
+		"Watching":   strings.Join(watching, ","),
 		"Sessions":   h.tunnels.List(),
 		"TunnelsOn":  h.tunnels.Enabled(),
-		"TunnelHost": host,
+		"TunnelHost": h.adbTunnelHost(r),
 		"MyIP":       ratelimit.ClientIP(r),
 		"Now":        time.Now(),
 	})

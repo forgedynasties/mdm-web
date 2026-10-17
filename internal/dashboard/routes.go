@@ -81,6 +81,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Wireless adb page: batch on/off and tunnels (admin only, like adb_tcp itself).
 	mux.HandleFunc("GET /adb", h.requireAdmin(h.AdbPage))
 	post("POST /adb/commands", h.requireAdmin(h.AdbBatch))
+	// One connect flow for the page and the device pill (adb_flow.go): on + tunnel, then progress.
+	post("POST /adb/connect", h.requireAdmin(h.AdbConnect))
+	mux.HandleFunc("GET /adb/progress", h.requireAdmin(h.AdbProgress))
 	post("POST /adb/tunnel", h.requireAdmin(h.AdbTunnelOpen))
 	post("POST /adb/tunnel/{id}/end", h.requireAdmin(h.AdbTunnelEnd))
 	post("POST /adb/tunnel/{id}/allow", h.requireAdmin(h.AdbTunnelAllow))

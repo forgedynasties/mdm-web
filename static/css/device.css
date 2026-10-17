@@ -482,8 +482,6 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .en-dlg::backdrop{background:rgba(16,18,32,.45);}
 /* The global reset zeroes every margin, which drops a modal <dialog>'s auto centring. */
 .en-dlg[open]{margin:auto;}
-.wadb-dlg{width:min(520px,92vw)}
-.wadb-dlg h4{display:flex;align-items:center;gap:8px}
 /* Credential row: which key the device uses (own / shared, waiting / shared, too old). */
 .en-key{display:inline-flex;align-items:center;gap:6px}
 .en-key .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
@@ -570,3 +568,32 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .bw-card .bw-bars i{flex:1;max-width:22px;background:var(--chart-battery);opacity:.85;border-radius:3px 3px 0 0;min-height:2px}
 .bw-card .bw-base{position:absolute;left:0;right:0;border-top:1px dashed var(--rule-2);pointer-events:none}
 .bw-card .bw-cap{padding:0 17px 14px;font-size:11.5px;line-height:1.5;color:var(--muted)}
+
+/* Wireless adb pill in the header island and its popover (D2, picked 17 Oct; adb-pill.js).
+   Grey when off, a spinner while it works, green when the adb connect line is ready. */
+.adbp{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);font:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.adbp:hover{border-color:var(--rule-2);color:var(--text)}
+.adbp:focus-visible{outline:none;box-shadow:var(--ring)}
+.adbp .adbp-i{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none}
+.adbp.on .adbp-i{background:var(--warn)}
+.adbp.busy .adbp-i{width:11px;height:11px;background:none;border:2px solid var(--accent);border-top-color:transparent;animation:adbspin .9s linear infinite}
+.adbp.ready{border-color:var(--ok-edge);background:var(--ok-bg);color:var(--ok)}
+.adbp.ready .adbp-i{background:var(--ok)}
+.adbp.bad{border-color:var(--danger-edge);color:var(--danger)}
+.adbp.bad .adbp-i{background:var(--danger)}
+.adbp-pop{position:fixed;z-index:1200;width:440px;max-width:calc(100vw - 24px);padding:6px 6px 10px}
+.adbp-pop .cc-mh{align-items:center}
+.adbp-pop .cc-mh .cc-tag{margin-left:2px}
+.adbp-pop .adbp-b{padding:0 10px}
+.adbp-pop .adb-st{margin-top:2px}
+.adbp-pop .adbp-cmds{margin-top:6px}
+.adbp-pop .adbp-p{margin:2px 0 10px;line-height:1.5}
+.adbp-pop .adbp-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.adbp-pop .adbp-ctl .cc-btn.primary,.adbp-pop .adbp-ctl .small+.cc-btn{margin-left:auto}
+.adbp-seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
+.adbp-seg label{display:flex;cursor:pointer}
+.adbp-seg input{position:absolute;opacity:0;pointer-events:none}
+.adbp-seg span{padding:5px 9px;font-size:12px;color:var(--text-2);border-right:1px solid var(--border)}
+.adbp-seg label:last-child span{border-right:0}
+.adbp-seg input:checked+span{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+.adbp-seg input:focus-visible+span{box-shadow:var(--ring)}

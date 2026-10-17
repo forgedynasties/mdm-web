@@ -124,3 +124,59 @@ func (d *DB) AdbTCPFleet(ctx context.Context) (map[uuid.UUID]AdbTCPFleetRow, err
 	}
 	return out, rows.Err()
 }
+
+// AdbTCPLatest is a device's newest adb_tcp command, answered or not, for the connect
+// progress (adb_flow.go): AdbTCPFleet only sees commands a device has picked up.
+type AdbTCPLatest struct {
+	CommandID uuid.UUID
+	CreatedAt time.Time
+	CreatedBy string
+	Port      int    // 0 = turn off
+	Hours     int    // 0 = stays on
+	Status    string // '' until the device picks it up; delivered / received / completed / failed / expired …
+	Output    string
+	UpdatedAt time.Time
+}
+
+// LatestAdbTCPFor returns the newest adb_tcp command that names each of the devices.
+func (d *DB) LatestAdbTCPFor(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]AdbTCPLatest, error) {
+	out := map[uuid.UUID]AdbTCPLatest{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ON (t.target_id) t.target_id, c.id, c.created_at, c.created_by, c.payload,
+		       COALESCE(s.status, ''), COALESCE(cr.output, ''), COALESCE(s.updated_at, c.created_at)
+		FROM commands c
+		JOIN command_targets t ON t.command_id = c.id
+		LEFT JOIN command_status s ON s.command_id = c.id AND s.device_id = t.target_id
+		LEFT JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = t.target_id
+		WHERE c.type = 'adb_tcp' AND c.target_type = 'devices' AND t.target_id = ANY($1)
+		ORDER BY t.target_id, c.created_at DESC`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var l AdbTCPLatest
+		var payload json.RawMessage
+		if err := rows.Scan(&id, &l.CommandID, &l.CreatedAt, &l.CreatedBy, &payload, &l.Status, &l.Output, &l.UpdatedAt); err != nil {
+			return nil, err
+		}
+		p := struct {
+			Port  *int `json:"port"`
+			Hours *int `json:"hours"`
+		}{}
+		_ = json.Unmarshal(payload, &p)
+		l.Port, l.Hours = 5555, 24
+		if p.Port != nil {
+			l.Port = *p.Port
+		}
+		if p.Hours != nil {
+			l.Hours = *p.Hours
+		}
+		out[id] = l
+	}
+	return out, rows.Err()
+}
