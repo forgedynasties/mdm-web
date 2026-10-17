@@ -223,6 +223,16 @@ func (d Device) CapSet() map[string]bool {
 	return out
 }
 
+// firmwareCapExtraKeys are the latest_extra keys CapSet reads, for queries that load a
+// device without its whole extra.
+func firmwareCapExtraKeys() []string {
+	keys := []string{"factory_reset"}
+	for flag := range prod.FirmwareCapFlags {
+		keys = append(keys, flag)
+	}
+	return keys
+}
+
 // extraTrue reports whether a latest_extra key holds JSON true.
 func extraTrue(extra json.RawMessage, key string) bool {
 	var m map[string]json.RawMessage

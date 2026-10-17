@@ -1101,10 +1101,14 @@ func (d *DB) GetDevicesByIDs(ctx context.Context, ids []uuid.UUID) ([]Device, er
 	if len(ids) == 0 {
 		return nil, nil
 	}
+	// Only the extra keys the firmware client declares capabilities with (factory_reset,
+	// lost_mode_cmd, …) come along: without them CapSet cannot see what a 1.10.0+ client
+	// offers, and the admin API refused lost_mode / wifi_config to a client that had them.
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, serial_number, COALESCE(build_id,''), last_seen_at, COALESCE(latest_battery_pct,0),
-		       product, agent_kind, device_class, capabilities, capabilities_degraded, enrollment_status
-		FROM devices WHERE id = ANY($1) AND NOT hidden`, ids)
+		       product, agent_kind, device_class, capabilities, capabilities_degraded, enrollment_status,
+		       COALESCE((SELECT jsonb_object_agg(k, latest_extra->k) FROM unnest($2::text[]) k WHERE latest_extra ? k), '{}'::jsonb)
+		FROM devices WHERE id = ANY($1) AND NOT hidden`, ids, firmwareCapExtraKeys())
 	if err != nil {
 		return nil, err
 	}
@@ -1113,7 +1117,8 @@ func (d *DB) GetDevicesByIDs(ctx context.Context, ids []uuid.UUID) ([]Device, er
 	for rows.Next() {
 		var dev Device
 		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.BatteryPct,
-			&dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus); err != nil {
+			&dev.Product, &dev.AgentKind, &dev.DeviceClass, &dev.Capabilities, &dev.CapabilitiesDegraded, &dev.EnrollmentStatus,
+			&dev.LatestExtra); err != nil {
 			return nil, err
 		}
 		out = append(out, dev)
