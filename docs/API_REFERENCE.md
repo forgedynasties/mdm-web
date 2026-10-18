@@ -75,6 +75,32 @@ firmware client reads the missing key as empty, so a tablet that still shows a t
 Every key is always present, empty when unset, so a cleared value clears on the device.
 It rides HTTP check-ins only; over the WebSocket it comes as its own `guest` frame (below).
 
+#### Lost-device reporting (18 Oct)
+
+Two more keys are in **every** config answer and every `config` frame, because a frame can be
+partial and the clients read a missing key as "unchanged" (`lost_listen`) or "off" (`self_lock`):
+
+| Key | Value |
+|---|---|
+| `lost_listen` | `{"beacons": ["<16 hex>", …], "scan_s": 8, "every_s": 120}` while a device at the same venue is lost — scan Bluetooth LE for those beacons; `null` otherwise (stop). |
+| `self_lock` | firmware clients only: `{"enabled": false}`, or `{"enabled": true, "minutes": 10, "message": "It belongs to <venue>. Please hand it to a member of staff, or call:", "phone": "<AIO support number>"}` when the venue has self-lock on. |
+
+A `lost_mode` command `{"on": true}` sent to one device gains `"beacon": "<16 hex>"` — a random
+token the server makes per lost session (a caller's own is replaced). The lost device advertises
+it as Bluetooth LE service data under UUID `6a1f0001-a10c-4d4d-9c5e-4c0574000001`. When a device is
+marked lost or lifted, the other devices at its venue get a `checkin_now` so they pick
+`lost_listen` up at once.
+
+Extra keys a client reports for it:
+
+| `extra` key | From | Meaning |
+|---|---|---|
+| `ble_sightings` | listeners | `[{"beacon", "rssi", "at_ms"}]` — what the last scan heard (omitted when nothing). Stored per neighbour per minute, strongest kept; not kept in history. |
+| `ble_scan` | listeners | `{"ok": false, "why"}` when a scan was asked for but could not run. Not kept in history. |
+| `lost_beacon` | the lost device | `{"ok": bool, "why"}` — whether it is advertising. The reliable signal; `ble_beacon` can be optimistic. Not kept in history. |
+| `lost_mode.self` | firmware 1.13.0+ | `true` when it locked itself (self-lock), with `since_ms`; it lifts itself (`on: false`) when its venue's Wi-Fi is back. |
+| `ble_listen`, `ble_beacon` | firmware 1.13.0+ | capability flags (`true`) when the radio can scan / advertise. The Standard client lists the same names in its capabilities. |
+
 The same fields can be set with the admin key (`X-API-Key`), for scripts and test benches;
 each change is pushed to the connected firmware devices it affects:
 
@@ -83,6 +109,17 @@ each change is pushed to the connected firmware devices it affects:
 | `POST /api/v1/restaurants` | `{"name", "address"?, "timezone"?, "notes"?}` | creates a restaurant (`201`, the restaurant) |
 | `POST /api/v1/restaurants/{id}/devices` | `{"serials": [...]}` | places the devices at the venue |
 | `POST /api/v1/restaurants/{id}/guest-wifi` | `{"ssid", "password"?, "security"?, "app_package"?}` | sets the venue's guest Wi-Fi (empty `ssid` clears it; same checks as the dashboard; the password is not echoed back) |
+
+### POST `/api/v1/checkins/backfill`
+Readings a firmware client (1.7.0+) kept while it could not reach the server:
+`{"serial", "now_ms", "now_elapsed_ms", "boot_id", "dropped", "readings": [{"at_ms", "elapsed_ms",
+"boot_id", "battery_pct", "temp_c", "wifi_rssi", "ram_used_mb", "ram_total_mb", "storage_free_gb",
+"charging", "wlc_status", "crashes": […], "wifi_scan": […], "lost_mode": {…}}]}`.
+Stored as late history (no alerts). Since 1.13.0 (lost-device reporting) a reading may carry
+`wifi_scan` — up to 8 `{"bssid", "ssid", "rssi"}`, kept when the APs in view changed — which
+becomes the device's trail (placed on the map only for devices that are lost or set off
+`left_venue` in the last day), and `lost_mode` — a self-lock (`"self": true`) that happened
+while out of reach is recorded from it. Answer `{"accepted", "stored"}`.
 
 ### POST `/api/v1/commands/{id}/ack`
 Device reports progress/terminal state for a command.
@@ -365,7 +402,8 @@ Device connects to `/api/v1/ws?serial=…`. Frames are JSON text frames dispatch
 | `ping_request` + `nonce` | Liveness probe; device must reply `pong_response` with same nonce (~5 s window) |
 | `command` | `{id, command_type, apk_url?, payload?}` — a command to execute |
 | `logcat_request` | `{id, level, lines, tag}` |
-| `config` | `{kiosk_enabled, kiosk_package, kiosk_features, checkin_interval_seconds}` |
+| `config` | `{kiosk_enabled, kiosk_package, kiosk_features, checkin_interval_seconds, lost_listen, self_lock}` — `lost_listen` and `self_lock` always present (see Lost-device reporting above) |
+| `checkin_now` | Check in now — sent to a venue's devices when one there is marked lost or lifted |
 | `guest` | `{guest: {restaurant_name, wifi_ssid, wifi_password, wifi_security, guest_app_package}}` — firmware devices only; sent on connect and whenever the venue's name or guest Wi-Fi, or the device's venue changes. Its own type, not a partial `config`, because a `config` frame is applied as a whole (a missing `kiosk_enabled` reads as kiosk off). Older clients log it as an unknown type and ignore it. |
 | `start_capture` | `{quality, scale, max_fps}` — begins remote-control capture |
 
