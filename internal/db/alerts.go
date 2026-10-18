@@ -102,11 +102,16 @@ var defaultAlertRules = []struct {
 	{"compliance_failed", "Fails a required compliance check", `{"minutes":30}`, "always", false},
 	// A device in lost mode reporting in. Every device, assigned to a venue or not.
 	{"lost_device_seen", "Lost device checked in", `{}`, "always", true},
+	// 18 Oct, lost-device reporting: a tablet dropping off the Wi-Fi off its charger during
+	// service (A), a lost device heard by its neighbours (B), one that locked itself (D).
+	{"left_venue", "Left the venue", `{"offline_minutes":3}`, "service", true},
+	{"lost_device_heard", "Lost device heard nearby", `{"minutes":10}`, "always", true},
+	{"self_locked", "Locked itself after leaving", `{}`, "always", true},
 }
 
 // defaultRulesFleetWide are default rules seeded with deployed_only off: a lost device
 // matters most when it is not at a venue at all.
-var defaultRulesFleetWide = map[string]bool{"lost_device_seen": true}
+var defaultRulesFleetWide = map[string]bool{"lost_device_seen": true, "lost_device_heard": true, "self_locked": true}
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
 func (d *DB) EnsureDefaultRules(ctx context.Context) error {

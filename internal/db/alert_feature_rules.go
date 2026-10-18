@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -121,6 +122,7 @@ func (d *DB) detectLostDeviceSeen(ctx context.Context, connected []uuid.UUID) ([
 		FROM devices dv
 		WHERE NOT dv.hidden AND dv.custody_server = ''
 		  AND dv.latest_extra->'lost_mode'->>'on' = 'true'
+		  AND COALESCE(dv.latest_extra->'lost_mode'->>'self', 'false') <> 'true' -- self_locked covers those
 		  AND (dv.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`' OR dv.id = ANY($1::uuid[]))`, connected)
 	if err != nil {
 		return nil, "critical", err
@@ -158,4 +160,156 @@ func (d *DB) detectLostDeviceSeen(ctx context.Context, connected []uuid.UUID) ([
 		hits = append(hits, alertHit{id, serial, summary, detail})
 	}
 	return hits, "critical", rows.Err()
+}
+
+// ── Lost-device reporting (18 Oct): left the venue, heard while lost, locked itself ──
+
+// detectLeftVenue (A): a battery device at a venue that dropped off the Wi-Fi while off its
+// charger — the moment a tablet walks out, before anyone notices it is gone. "Off its
+// charger" is the last report's charging=false (the firmware client reports true whenever
+// anything is plugged in) and charger_type none. One alert per departure: it is not raised
+// again for the same silence once resolved (as offline), and clears when the device is back
+// or someone marks it lost (lost_device_seen / lost_device_heard take over then). The
+// signal readings before it went quiet are attached, and named when they were falling.
+func (d *DB) detectLeftVenue(ctx context.Context, p map[string]float64, connected []uuid.UUID) ([]alertHit, string, error) {
+	mins := param(p, "offline_minutes", 3)
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number, d.last_seen_at, COALESCE(r.name, ''), COALESCE(n.name, ''),
+		       COALESCE((SELECT array_agg(x.wifi_rssi ORDER BY x.at) FROM (
+		           SELECT s.wifi_rssi, s.at FROM device_samples s
+		           WHERE s.device_id = d.id AND NOT s.late AND s.wifi_rssi IS NOT NULL
+		             AND s.at > d.last_seen_at - INTERVAL '20 minutes' AND s.at <= d.last_seen_at + INTERVAL '1 minute'
+		           ORDER BY s.at DESC LIMIT 8) x), '{}')
+		FROM devices d
+		JOIN restaurants r ON r.id = d.restaurant_id
+		LEFT JOIN device_nicknames n ON n.device_id = d.id
+		WHERE NOT d.hidden AND d.custody_server = '' AND d.id <> ALL(COALESCE($2::uuid[], '{}'))
+		  AND d.last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+		  AND d.last_seen_at > NOW() - INTERVAL '6 hours'
+		  AND d.latest_extra->>'charging' = 'false'
+		  AND COALESCE(d.latest_extra->>'charger_type', 'none') IN ('none', '')
+		  AND `+hasBatteryD+`
+		  AND COALESCE(d.latest_extra->'lost_mode'->>'on', 'false') <> 'true'
+		  AND NOT EXISTS (SELECT 1 FROM lost_sessions ls WHERE ls.device_id = d.id AND ls.ended_at IS NULL)
+		  AND NOT EXISTS (SELECT 1 FROM alerts a WHERE a.device_id = d.id AND a.type = 'left_venue'
+		                    AND a.status = 'resolved' AND a.fired_at >= d.last_seen_at)`, mins, connected)
+	if err != nil {
+		return nil, "critical", err
+	}
+	defer rows.Close()
+	now := time.Now().UTC()
+	var hits []alertHit
+	for rows.Next() {
+		var id uuid.UUID
+		var serial, venue, nick string
+		var last time.Time
+		var rssi []int16
+		if err := rows.Scan(&id, &serial, &last, &venue, &nick, &rssi); err != nil {
+			return nil, "critical", err
+		}
+		detail := map[string]any{"last_seen": last, "offline_minutes": int(now.Sub(last).Minutes()),
+			"venue": venue, "serial": serial, "mark_lost": true}
+		if nick != "" {
+			detail["nickname"] = nick
+		}
+		summary := "Dropped off the Wi-Fi away from its charger"
+		if len(rssi) >= 2 {
+			from, to := rssi[0], rssi[len(rssi)-1]
+			detail["rssi_from"], detail["rssi_to"] = from, to
+			if from-to >= 8 {
+				detail["rssi_falling"] = true
+				summary += fmt.Sprintf(" as its signal faded (%d → %d dBm)", from, to)
+			}
+		}
+		hits = append(hits, alertHit{id, serial, summary, detail})
+	}
+	return hits, "critical", rows.Err()
+}
+
+// detectLostDeviceHeard (B): a lost device that is out of reach itself (no socket, not
+// reporting) but that a neighbour at its venue heard on Bluetooth in the last `minutes`.
+// The detail names the neighbour that heard it loudest — "near Table 7".
+func (d *DB) detectLostDeviceHeard(ctx context.Context, p map[string]float64, connected []uuid.UUID) ([]alertHit, string, error) {
+	mins := param(p, "minutes", 10)
+	rows, err := d.pool.Query(ctx, `
+		SELECT ls.device_id, dv.serial_number, b.heard_by, h.serial_number, COALESCE(NULLIF(n.name, ''), h.serial_number),
+		       b.rssi, b.at, cnt.c
+		FROM lost_sessions ls
+		JOIN devices dv ON dv.id = ls.device_id
+		JOIN LATERAL (
+			SELECT x.heard_by, x.rssi, x.at FROM ble_sightings x
+			WHERE x.session_id = ls.id AND x.at > NOW() - ($1 * INTERVAL '1 minute')
+			ORDER BY x.rssi DESC, x.at DESC LIMIT 1) b ON true
+		JOIN LATERAL (
+			SELECT COUNT(DISTINCT y.heard_by) AS c FROM ble_sightings y
+			WHERE y.session_id = ls.id AND y.at > NOW() - ($1 * INTERVAL '1 minute')) cnt ON true
+		JOIN devices h ON h.id = b.heard_by
+		LEFT JOIN device_nicknames n ON n.device_id = h.id
+		WHERE ls.ended_at IS NULL AND NOT dv.hidden
+		  AND dv.id <> ALL(COALESCE($2::uuid[], '{}'))
+		  AND dv.last_seen_at < NOW() - INTERVAL '3 minutes'`, mins, connected)
+	if err != nil {
+		return nil, "critical", err
+	}
+	defer rows.Close()
+	var hits []alertHit
+	for rows.Next() {
+		var id, by uuid.UUID
+		var serial, bySerial, byName string
+		var rssi int16
+		var at time.Time
+		var n int
+		if err := rows.Scan(&id, &serial, &by, &bySerial, &byName, &rssi, &at, &n); err != nil {
+			return nil, "critical", err
+		}
+		summary := fmt.Sprintf("Lost device heard by %s (%s)", byName, signalWord(int(rssi)))
+		if n > 1 {
+			summary += fmt.Sprintf(" and %d more", n-1)
+		}
+		hits = append(hits, alertHit{id, serial, summary, map[string]any{
+			"heard_by": bySerial, "heard_by_name": byName, "rssi": rssi, "signal": signalWord(int(rssi)),
+			"heard_at": at, "event_at": at, "neighbours": n}})
+	}
+	return hits, "critical", rows.Err()
+}
+
+// detectSelfLocked (D): a device locked itself after leaving its venue, and has not lifted
+// it. Open while its self-started lost session is.
+func (d *DB) detectSelfLocked(ctx context.Context) ([]alertHit, string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT ls.device_id, dv.serial_number, ls.started_at, COALESCE(r.name, '')
+		FROM lost_sessions ls
+		JOIN devices dv ON dv.id = ls.device_id
+		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
+		WHERE ls.ended_at IS NULL AND ls.started_by = 'self' AND NOT dv.hidden`)
+	if err != nil {
+		return nil, "critical", err
+	}
+	defer rows.Close()
+	var hits []alertHit
+	for rows.Next() {
+		var id uuid.UUID
+		var serial, venue string
+		var at time.Time
+		if err := rows.Scan(&id, &serial, &at, &venue); err != nil {
+			return nil, "critical", err
+		}
+		hits = append(hits, alertHit{id, serial, "Locked itself after leaving its venue",
+			map[string]any{"locked_at": at, "event_at": at, "venue": venue}})
+	}
+	return hits, "critical", rows.Err()
+}
+
+// signalWord says how close a Bluetooth reading puts the device, for people: a rough guide
+// indoors, not a distance.
+func signalWord(rssi int) string {
+	switch {
+	case rssi >= -60:
+		return "very close"
+	case rssi >= -75:
+		return "close"
+	case rssi >= -88:
+		return "in range"
+	}
+	return "faint"
 }

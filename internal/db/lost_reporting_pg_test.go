@@ -156,3 +156,109 @@ func TestLostReportingAgainstPostgres(t *testing.T) {
 		t.Fatalf("self session not ended: %+v", s)
 	}
 }
+
+// TestLostAlertsAgainstPostgres: left_venue, lost_device_heard and self_locked fire on the
+// cases they are for and not on their look-alikes.
+func TestLostAlertsAgainstPostgres(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	stamp := time.Now().Format("150405.000")
+	rest, err := d.CreateRestaurant(ctx, Restaurant{Name: "Alert venue " + stamp})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := 70
+	mk := func(sfx, extra string) uuid.UUID {
+		id, _, _, _, _, err := d.UpsertCheckin(ctx, "LA"+sfx+stamp, "v2.1.099", &b, json.RawMessage(extra), false, "t7")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := d.AssignDeviceToRestaurant(ctx, "LA"+sfx+stamp, &rest.ID); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	walked := mk("W", `{"charging":false,"charger_type":"none"}`)
+	docked := mk("D", `{"charging":true,"charger_type":"usb"}`)
+	near := mk("N", `{"charging":true,"charger_type":"usb"}`)
+	ago := func(id uuid.UUID, m int) {
+		if _, err := d.pool.Exec(ctx, `UPDATE devices SET last_seen_at = NOW() - make_interval(mins => $2) WHERE id = $1`, id, m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ago(walked, 10)
+	ago(docked, 10)
+	has := func(hits []alertHit, id uuid.UUID) bool {
+		for _, h := range hits {
+			if h.DeviceID == id {
+				return true
+			}
+		}
+		return false
+	}
+
+	hits, _, err := d.detectLeftVenue(ctx, map[string]float64{"offline_minutes": 3}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has(hits, walked) || has(hits, docked) || has(hits, near) {
+		t.Fatalf("left_venue: walked %v docked %v near %v", has(hits, walked), has(hits, docked), has(hits, near))
+	}
+	// Marked lost: left_venue gives way.
+	cmd, err := d.CreateCommandBy(ctx, "lost_mode", "", json.RawMessage(`{"on":true}`), "devices", []uuid.UUID{walked}, "Sara")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hits, _, _ = d.detectLeftVenue(ctx, map[string]float64{"offline_minutes": 3}, nil); has(hits, walked) {
+		t.Fatal("left_venue still fires for a device marked lost")
+	}
+	// Heard by its neighbour while it cannot report.
+	var p struct{ Beacon string }
+	_ = json.Unmarshal(cmd.Payload, &p)
+	x, _ := json.Marshal(map[string]any{"ble_sightings": []map[string]any{{"beacon": p.Beacon, "rssi": -58}}})
+	d.IngestBLESightings(ctx, near, x, time.Now())
+	hits, _, err = d.detectLostDeviceHeard(ctx, map[string]float64{"minutes": 10}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has(hits, walked) {
+		t.Fatalf("lost_device_heard: %+v", hits)
+	}
+	for _, h := range hits {
+		if h.DeviceID == walked && h.Detail["signal"] != "very close" {
+			t.Fatalf("heard detail: %+v", h.Detail)
+		}
+	}
+	// Online again: no longer "heard while out of reach".
+	if hits, _, _ = d.detectLostDeviceHeard(ctx, map[string]float64{"minutes": 10}, []uuid.UUID{walked}); has(hits, walked) {
+		t.Fatal("heard fires for a connected device")
+	}
+	// Self-lock.
+	d.RecordSelfLock(ctx, docked, time.Now().Add(-time.Minute))
+	hits, _, err = d.detectSelfLocked(ctx)
+	if err != nil || !has(hits, docked) {
+		t.Fatalf("self_locked: %v %v", hits, err)
+	}
+	d.EndSelfLock(ctx, docked)
+	if hits, _, _ = d.detectSelfLocked(ctx); has(hits, docked) {
+		t.Fatal("self_locked after it lifted itself")
+	}
+	// The minute-ly evaluator runs the new rules without error.
+	if err := d.EnsureDefaultRules(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := d.EvaluateRecentAlerts(ctx, []uuid.UUID{}); err != nil {
+		t.Fatalf("EvaluateRecentAlerts: %v", err)
+	}
+}

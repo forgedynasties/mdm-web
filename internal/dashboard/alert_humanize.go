@@ -237,6 +237,22 @@ func humanizeAlert(a db.Alert) humanAlert {
 			where = fmt.Sprintf("Last located at %s.", b(fmt.Sprintf("%.5f, %.5f", lat, lon)))
 		}
 		s = fmt.Sprintf("%s in lost mode is online again. %s", place, where)
+	case "left_venue":
+		h.IconKey, h.Headline = "offline", "Left the venue"
+		s = fmt.Sprintf("%s dropped off the Wi-Fi away from its charger during service.", place)
+		if d["rssi_falling"] == true {
+			s += fmt.Sprintf(" Its signal faded from %s to %s dBm before it went quiet.", b(fmt.Sprintf("%.0f", num("rssi_from"))), b(fmt.Sprintf("%.0f", num("rssi_to"))))
+		}
+		s += " If nobody has it, mark it as lost."
+	case "lost_device_heard":
+		h.IconKey, h.Headline = "offline", "A lost device was heard nearby"
+		s = fmt.Sprintf("%s in lost mode was heard on Bluetooth by %s (%s).", place, b(html.EscapeString(str("heard_by_name"))), html.EscapeString(str("signal")))
+		if n := num("neighbours"); n > 1 {
+			s += fmt.Sprintf(" %s devices there heard it.", b(fmt.Sprintf("%.0f", n)))
+		}
+	case "self_locked":
+		h.IconKey, h.Headline = "offline", "Locked itself after leaving"
+		s = fmt.Sprintf("%s lost its venue's Wi-Fi off its charger and locked itself to the lost screen. It unlocks itself when it is back.", place)
 	case "role_app_stuck":
 		h.Headline = "Stuck behind its prod build"
 		s = place + ": " + html.EscapeString(a.Summary)

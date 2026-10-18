@@ -29,7 +29,7 @@ func hitSeverity(now time.Time, typ, ruleSev string, h alertHit, w ServiceWindow
 		sev = crashSeverity(n, sum)
 	}
 	// A lost device turning up is urgent whatever the hour: nobody waits for opening.
-	if sev == "critical" && typ != "lost_device_seen" && !inActiveWindow(now, "", w, "service") {
+	if sev == "critical" && !anyHourCritical[typ] && !inActiveWindow(now, "", w, "service") {
 		if h.Detail != nil {
 			h.Detail["after_hours"] = true
 		}
@@ -37,6 +37,10 @@ func hitSeverity(now time.Time, typ, ruleSev string, h alertHit, w ServiceWindow
 	}
 	return sev
 }
+
+// anyHourCritical are the alert types that page whatever the hour: a lost device turning
+// up, heard nearby or locking itself is urgent at 3 am too.
+var anyHourCritical = map[string]bool{"lost_device_seen": true, "lost_device_heard": true, "self_locked": true}
 
 // crashLoopCount is how many crashes inside the rule's window make a crash loop rather
 // than a one-off.

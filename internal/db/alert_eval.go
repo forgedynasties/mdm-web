@@ -254,6 +254,9 @@ var recentRuleTypes = map[string]bool{
 	"host_app_away":      true,
 	"compliance_failed":  true,
 	"lost_device_seen":   true,
+	"left_venue":         true,
+	"lost_device_heard":  true,
+	"self_locked":        true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
@@ -267,7 +270,7 @@ func defaultActiveWindow(typ string) string {
 		return "overnight"
 	case "offline_peak", "battery_low":
 		return "peak"
-	case "host_app_away":
+	case "host_app_away", "left_venue":
 		return "service"
 	}
 	return "always"
@@ -892,6 +895,12 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		return d.detectComplianceFailed(ctx, p)
 	case "lost_device_seen":
 		return d.detectLostDeviceSeen(ctx, connected)
+	case "left_venue":
+		return d.detectLeftVenue(ctx, p, connected)
+	case "lost_device_heard":
+		return d.detectLostDeviceHeard(ctx, p, connected)
+	case "self_locked":
+		return d.detectSelfLocked(ctx)
 
 	case "device_crash":
 		// A crash/ANR/tombstone was reported (device_events, from the client's DropBox

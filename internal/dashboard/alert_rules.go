@@ -102,6 +102,13 @@ var alertRuleDefs = []struct {
 		{"minutes", "Failing for", "min", 5, 30},
 	}, false, true},
 	{"lost_device_seen", "Lost device checked in", "Fires, critical at any hour, when a device in lost mode reports in, with the last location the server has for it. Stays open while it keeps reporting in lost mode.", "Security", []alertParamField{}, false, true},
+	{"left_venue", "Left the venue", "Fires during service when a tablet at a venue drops off the Wi-Fi while off its charger — how a tablet walking out of the door looks. Names its Wi-Fi signal before it went quiet. Clears when it is back, or when someone marks it lost.", "Security", []alertParamField{
+		{"offline_minutes", "Gone for", "min", 1, 3},
+	}, true, true},
+	{"lost_device_heard", "Lost device heard nearby", "Fires, critical at any hour, when a lost device that cannot report itself is heard on Bluetooth by another device at its venue, naming the one that heard it loudest.", "Security", []alertParamField{
+		{"minutes", "Heard within", "min", 2, 10},
+	}, false, true},
+	{"self_locked", "Locked itself after leaving", "Fires, critical at any hour, when a device at a venue with self-lock on locked itself after leaving (its venue's Wi-Fi gone, off its charger, surroundings changed). Clears when it is back and unlocks itself, or when its lost mode is lifted.", "Security", []alertParamField{}, false, true},
 }
 
 // alertTypeOption / alertTypeGroup back the per-channel alert-type filter UI.

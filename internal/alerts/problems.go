@@ -46,6 +46,12 @@ func CauseOf(types []string) Cause {
 	switch {
 	case has["lost_device_seen"]:
 		return Cause{"lost", "Lost device online", "It is in lost mode and has just checked in. The alert carries the last location the server has for it."}
+	case has["lost_device_heard"]:
+		return Cause{"lost", "Lost device heard nearby", "It is in lost mode and cannot report, but a device at its venue heard it on Bluetooth. The alert names which one heard it loudest."}
+	case has["self_locked"]:
+		return Cause{"lost", "Locked itself", "It lost its venue's Wi-Fi off its charger and locked itself. It unlocks itself when it is back at the venue."}
+	case has["left_venue"]:
+		return Cause{"lost", "Left the venue", "It dropped off the Wi-Fi away from its charger during service — it may have walked out. Mark it as lost if nobody has it."}
 	case any("offline", "offline_peak", "offline_long") && any("wifi_weak", "wifi_unstable"):
 		return Cause{"wifi", "Wi-Fi dropping", "Its Wi-Fi was weak or dropping, then it stopped checking in. Likely where it sits in the restaurant, or the router."}
 	case any("offline", "offline_peak", "offline_long"):
