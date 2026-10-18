@@ -597,3 +597,25 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .adbp-seg label:last-child span{border-right:0}
 .adbp-seg input:checked+span{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
 .adbp-seg input:focus-visible+span{box-shadow:var(--ring)}
+
+/* Lost reporting (H1, picked 18 Oct): the band's "Last heard" line and the Location tab's
+   "Since it went missing" map + timeline. */
+.lost-band .lb-heard{display:flex;align-items:center;gap:6px;margin-top:3px;font-weight:600;color:var(--text)}
+.lost-band .lb-heard:empty{display:none}
+.lb-bars{display:inline-flex;gap:2px;align-items:flex-end;height:11px}
+.lb-bars i{width:3px;background:var(--rule-2);border-radius:1px}
+.lb-bars i:nth-child(1){height:4px}.lb-bars i:nth-child(2){height:7px}.lb-bars i:nth-child(3){height:9px}.lb-bars i:nth-child(4){height:11px}
+.lb-bars.lb-n1 i:nth-child(1),.lb-bars.lb-n2 i:nth-child(-n+2),.lb-bars.lb-n3 i:nth-child(-n+3),.lb-bars.lb-n4 i{background:var(--ok)}
+.lr-card{margin-bottom:12px}
+.lr-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1px solid var(--border-soft)}
+.lr-two.lr-nomapcol{grid-template-columns:minmax(0,1fr)}
+.lr-map{min-height:280px;background:var(--surface2);display:flex;align-items:center;justify-content:center}
+.lr-tl{list-style:none;margin:0;padding:6px 0;max-height:420px;overflow:auto}
+.lr-tl li{display:grid;grid-template-columns:66px 12px minmax(0,1fr);gap:8px;padding:7px 16px;font-size:12.5px;color:var(--text-2);align-items:start}
+.lr-tl li .t{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;white-space:nowrap}
+.lr-tl li .d{width:9px;height:9px;border-radius:50%;margin-top:4px;background:var(--rule-2)}
+.lr-tl li .d.lr-left_venue,.lr-tl li .d.lr-self_locked{background:var(--danger)}
+.lr-tl li .d.lr-heard{background:var(--ok)}
+.lr-tl li .d.lr-trail{background:var(--accent-2)}
+.lr-tl li b{color:var(--text);font-weight:600}
+@media (max-width:1024px){.lr-two{grid-template-columns:1fr}}

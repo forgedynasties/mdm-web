@@ -324,6 +324,7 @@
   {{/* Lost mode (L1, 17 Oct): first thing on the page while the device is lost. */}}
   {{template "lost-band" .}}
   {{template "lost-dialogs" .}}
+  <script src="/static/js/device/lost-trail.js?v={{assetVer}}"></script>
   {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}
   <div id="adbp-pop" class="cc-menu adbp-pop" role="dialog" aria-label="Wireless adb" hidden
        data-serial="{{.Device.SerialNumber}}" data-adb-on="{{if .Security.AdbOn}}1{{end}}"></div>
@@ -1418,6 +1419,7 @@ window.DEVICE_VITALS = {
 
 {{/* Location (15 Oct): the map and the address, out of Overview and Hardware. */}}
 <section class="dd-panel" data-dd-panel="location" id="dd-panel-location" role="tabpanel" aria-labelledby="dd-tab-location" tabindex="0" hidden>
+{{template "lost-report-card" .}}
 {{/* Location map — the JS Maps API (not the Embed iframe, which can't be
      themed) so it can follow the dashboard's dark mode like the Overview
      fleet map does. Rendered only when the device has resolved WiFi-

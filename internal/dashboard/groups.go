@@ -139,9 +139,6 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
 	data["ScopesJSON"] = h.pickerScopesJSON(r)
-	// Kiosk belongs on the venue: "the tablets at this restaurant run the ordering app"
-	// is the sentence the business says. See venue_kiosk.go.
-	data["Kiosk"] = h.venueKiosk(r, id)
 	if r.URL.Query().Get("partial") == "kpis" { // the count cards, refreshed on group-updated
 		_ = h.tmpl.ExecuteTemplate(w, "group-kpis", h.withRole(r, data))
 		return

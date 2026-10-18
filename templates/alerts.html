@@ -284,7 +284,7 @@
       {{end}}
     </details>
     <div class="alx-foot">
-      {{if $p.Href}}<a class="cc-btn sm primary" href="{{$p.Href}}"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{$p.HrefLabel}}</a>{{end}}
+      {{if $p.Href}}<a class="cc-btn sm primary" href="{{$p.Href}}">{{if $p.LeftVenue}}<svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{end}}{{$p.HrefLabel}}</a>{{end}}
       {{if $p.KioskExit}}{{if $p.CanAct}}<form method="POST" action="/devices/{{$p.Serial}}/kiosk/relock" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Lock again</button></form><form method="POST" action="/devices/{{$p.Serial}}/kiosk/leave-out" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Leave it out</button></form>{{end}}{{end}}
       {{if $p.KeyReset}}<a class="cc-btn sm danger" href="/devices/{{$p.Serial}}#reset-key" title="If the device was just factory reset, this is it asking to come back">Reset its key…</a>{{end}}
       {{if $p.CanAct}}
@@ -320,7 +320,7 @@
         </form></div>
       </details>
       <details class="alx-menu">
-        <summary class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</summary>
+        <summary class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{if $p.LeftVenue}}It's fine{{else}}Resolve{{end}}</summary>
         <div class="alx-pop"><form action="/alerts/problem" method="POST">
           <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="resolve">
           <div class="alx-pop-h">Why</div>
@@ -375,10 +375,10 @@
     {{if .Trace}}{{template "crash-trace" .Trace}}{{end}}
     <div class="alx-foot">
       {{if ne .Status "resolved"}}
-        {{if .Primary}}<a class="cc-btn sm primary" href="{{.Primary.Href}}">{{if eq .Primary.Icon "logs"}}<svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{end}}{{.Primary.Label}}</a>{{end}}
+        {{if .Primary}}<a class="cc-btn sm primary" href="{{.Primary.Href}}">{{if eq .Primary.Icon "logs"}}<svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>{{else if eq .Primary.Icon "lost"}}<svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{end}}{{.Primary.Label}}</a>{{end}}
         {{if .CanAct}}
           {{if eq .Status "open"}}<form action="/alerts/{{.ID}}/ack" method="POST"><button type="submit" class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Acknowledge</button></form>{{end}}
-          <form action="/alerts/{{.ID}}/resolve" method="POST"><button type="submit" class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button></form>
+          <form action="/alerts/{{.ID}}/resolve" method="POST"><button type="submit" class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{if eq .Type "left_venue"}}It's fine{{else}}Resolve{{end}}</button></form>
         {{end}}
       {{else if .Primary}}
         <a class="cc-btn sm" href="{{.Primary.Href}}">{{.Primary.Label}}</a>

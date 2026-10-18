@@ -270,6 +270,11 @@ func humanizeAlert(a db.Alert) humanAlert {
 	// link to the old logcat page — the device link in the footer is enough.
 	if a.Serial != "" {
 		h.Primary = &alertAction{Label: "Open device", Href: "/devices/" + a.Serial, Icon: "arrow"}
+		// Left the venue (E1, 17 Oct): two taps from the alert to lost mode — the device page
+		// opens with the mark-as-lost dialog up (?lost=1 on the New view).
+		if a.Type == "left_venue" {
+			h.Primary = &alertAction{Label: "Mark as lost…", Href: "/devices/" + a.Serial + "?view=new&lost=1", Icon: "lost"}
+		}
 	}
 	return h
 }

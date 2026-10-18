@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -72,6 +73,7 @@ func (h *Handler) RunLostTrail(ctx context.Context) {
 type lostReport struct {
 	LastHeard *db.BLESighting // the most recent neighbour that heard it, nil when none
 	Signal    string          // LastHeard's strength in words ("very close" …)
+	Bars      int             // the same as 1–4 bars, for the band's signal glyph
 	Timeline  []db.LostEvent  // oldest first: left the venue, marked lost, heard, Wi-Fi diary, lifted
 	Since     time.Time
 	Beacon    *lostBeaconState
@@ -103,6 +105,10 @@ func (h *Handler) lostReportFor(ctx context.Context, d *db.Device) *lostReport {
 		}
 		if r.LastHeard != nil {
 			r.Signal = db.SignalWord(r.LastHeard.RSSI)
+			r.Bars = map[string]int{"very close": 4, "close": 3, "in range": 2}[r.Signal]
+			if r.Bars == 0 {
+				r.Bars = 1
+			}
 		}
 	}
 	var x struct {
@@ -155,4 +161,43 @@ func (h *Handler) RestaurantSelfLock(w http.ResponseWriter, r *http.Request) {
 		h.nudgeCheckin(ids)
 	}
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+}
+
+// Newest is the timeline newest first, as the Location tab lists it.
+func (r *lostReport) Newest() []db.LostEvent {
+	out := make([]db.LostEvent, len(r.Timeline))
+	for i, e := range r.Timeline {
+		out[len(r.Timeline)-1-i] = e
+	}
+	return out
+}
+
+// HasPoints reports whether any timeline event has a place to put on the map.
+func (r *lostReport) HasPoints() bool {
+	for _, e := range r.Timeline {
+		if e.Lat != nil && e.Lon != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// PointsJSON is the timeline's placed events, oldest first, for the trail map.
+func (r *lostReport) PointsJSON() template.JS {
+	type pt struct {
+		Lat   float64 `json:"lat"`
+		Lon   float64 `json:"lon"`
+		Acc   float64 `json:"acc"`
+		Kind  string  `json:"kind"`
+		Title string  `json:"title"`
+		At    int64   `json:"at"`
+	}
+	pts := []pt{}
+	for _, e := range r.Timeline {
+		if e.Lat != nil && e.Lon != nil {
+			pts = append(pts, pt{*e.Lat, *e.Lon, e.Accuracy, e.Kind, e.Title, e.At.UnixMilli()})
+		}
+	}
+	b, _ := json.Marshal(pts)
+	return template.JS(b)
 }

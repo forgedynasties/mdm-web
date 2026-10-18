@@ -280,6 +280,9 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	data["VenueWifi"] = h.venueWifiRows(r.Context(), id, devices)
 	// Self-lock (S1): minutes, 0 = off.
 	data["SelfLockMinutes"], _ = h.db.RestaurantSelfLockMinutes(r.Context(), id)
+	// The Device lock card (venue_kiosk.go). Wired into GroupDetail by mistake on 11 Oct,
+	// so the venue page never showed it until 18 Oct.
+	data["Kiosk"] = h.venueKiosk(r, id)
 	// Power and usage over the chosen window: uptime, guest-pad time and what it costs
 	// the tablet's own battery, and the battery levels staff plug and unplug at. The
 	// same number of days feeds the tiles and the per-day strip below them, so the

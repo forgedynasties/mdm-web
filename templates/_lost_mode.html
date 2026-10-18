@@ -16,9 +16,11 @@
     · last seen {{timeSince .Device.LastSeenAt}}
     {{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $addr (ne $addr "—")}}<span class="lb-m">near {{$addr}}</span>{{end}}
     {{if .Lost.Lifting}}<span class="lb-m">· lifting, waiting for the device</span>{{end}}
+    {{/* H1 (18 Oct): who nearby heard its Bluetooth beacon, the one line that says "still close or not". */}}
+    {{with .LostReport}}<span class="lb-heard">{{if .LastHeard}}<span class="lb-bars lb-n{{.Bars}}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Last heard {{localShortTime .LastHeard.LastAt}} by {{.LastHeard.HeardByName}}, {{.Signal}}{{else if and .Beacon (not .Beacon.OK)}}Its Bluetooth beacon isn't running: {{.Beacon.Why}}{{else if $.Lost.On}}Not heard by any device nearby{{end}}</span>{{end}}
   </span>
   <span class="lb-acts">
-    <button type="button" class="cc-btn sm" onclick="var t=document.getElementById('dd-tab-location'); if(t){t.click(); t.scrollIntoView({behavior:'smooth',block:'start'})}">Show on map</button>
+    <button type="button" class="cc-btn sm" onclick="var t=document.getElementById('dd-tab-location'); if(t){t.click(); var c=document.getElementById('lost-report')||t; setTimeout(function(){c.scrollIntoView({behavior:'smooth',block:'start'})},60)}">{{if .LostReport}}Where it's been{{else}}Show on map{{end}}</button>
     {{if .Lost.On}}<button type="button" class="cc-btn sm{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} data-role-need="operator"{{end}} onclick="document.getElementById('lost-lift-dlg').showModal()">Found it — lift lost mode</button>{{end}}
   </span>
 </div>
@@ -45,4 +47,19 @@
     <div class="en-dlg-btns"><button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="cc-btn sm primary">Lift lost mode</button></div>
   </form>
 </dialog>
+{{end}}{{end}}
+
+{{/* "Since it went missing" (H1, 18 Oct): the Location tab's map and timeline of a lost or
+     departed device — left the venue, marked lost, heard by neighbours, Wi-Fi diary points
+     (uploaded late, placed by when they happened), lifted. lost_reporting.go */}}
+{{define "lost-report-card"}}{{with .LostReport}}
+<div class="ddc-card lr-card" id="lost-report">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Since it went missing</h2><span class="m muted small">since {{localShortTime .Since}}</span></div>
+  <div class="lr-two{{if not (and .HasPoints $.MapsEmbedKey)}} lr-nomapcol{{end}}">
+    {{if and .HasPoints $.MapsEmbedKey}}<div class="lr-map" id="lr-map" data-points="{{.PointsJSON}}" data-key="{{$.MapsEmbedKey}}"></div>{{end}}
+    <ul class="lr-tl">
+      {{range .Newest}}<li><span class="t">{{localShortTime .At}}</span><span class="d lr-{{.Kind}}"></span><span><b>{{.Title}}</b>{{if .Detail}} · {{.Detail}}{{end}}</span></li>{{end}}
+    </ul>
+  </div>
+</div>
 {{end}}{{end}}

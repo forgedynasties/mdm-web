@@ -43,6 +43,7 @@ type problemView struct {
 	CanAct     bool
 	KeyReset   bool // an impersonation alert: the device may have lost its key
 	KioskExit  bool // unlocked on the device: offer Lock again / Leave it out
+	LeftVenue  bool // dropped off the Wi-Fi away from its dock: offer Mark as lost / It's fine (E1)
 }
 
 type problemSymptom struct {
@@ -256,6 +257,12 @@ func deviceProblem(key string, as []db.Alert, hs []humanAlert, users map[string]
 			}
 			if a.Type == "kiosk_exited" && a.Status != "resolved" {
 				p.KioskExit = true
+			}
+			// E1 (18 Oct): from "it left the venue" to lost mode in two taps — the device page
+			// opens with the mark-as-lost dialog up.
+			if a.Type == "left_venue" && a.Status != "resolved" {
+				p.LeftVenue = true
+				p.Href, p.HrefLabel = "/devices/"+p.Serial+"?view=new&lost=1", "Mark as lost…"
 			}
 		}
 	}
