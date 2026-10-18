@@ -522,6 +522,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"SavedNetworks": savedNetworksView(device.LatestExtra),
 		// Lost mode: the band at the top of the page and the dialog's defaults (lost_mode.go).
 		"Lost": h.lostModeFor(r.Context(), device),
+		// Its time out of reach (lost_reporting.go): the band's "last heard" and the Location
+		// tab's timeline. nil when it was never lost and has not left lately.
+		"LostReport": h.lostReportFor(r.Context(), device),
 		// Lifetime battery wear by day, so hovering the graph can read out cycles as of
 		// that moment — the same measure as the "Battery cycles" card, which is what
 		// anyone comparing the two expects.

@@ -262,12 +262,12 @@ func (d *DB) detectLostDeviceHeard(ctx context.Context, p map[string]float64, co
 		if err := rows.Scan(&id, &serial, &by, &bySerial, &byName, &rssi, &at, &n); err != nil {
 			return nil, "critical", err
 		}
-		summary := fmt.Sprintf("Lost device heard by %s (%s)", byName, signalWord(int(rssi)))
+		summary := fmt.Sprintf("Lost device heard by %s (%s)", byName, SignalWord(int(rssi)))
 		if n > 1 {
 			summary += fmt.Sprintf(" and %d more", n-1)
 		}
 		hits = append(hits, alertHit{id, serial, summary, map[string]any{
-			"heard_by": bySerial, "heard_by_name": byName, "rssi": rssi, "signal": signalWord(int(rssi)),
+			"heard_by": bySerial, "heard_by_name": byName, "rssi": rssi, "signal": SignalWord(int(rssi)),
 			"heard_at": at, "event_at": at, "neighbours": n}})
 	}
 	return hits, "critical", rows.Err()
@@ -300,9 +300,9 @@ func (d *DB) detectSelfLocked(ctx context.Context) ([]alertHit, string, error) {
 	return hits, "critical", rows.Err()
 }
 
-// signalWord says how close a Bluetooth reading puts the device, for people: a rough guide
+// SignalWord says how close a Bluetooth reading puts the device, for people: a rough guide
 // indoors, not a distance.
-func signalWord(rssi int) string {
+func SignalWord(rssi int) string {
 	switch {
 	case rssi >= -60:
 		return "very close"

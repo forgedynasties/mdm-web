@@ -262,3 +262,81 @@ func TestLostAlertsAgainstPostgres(t *testing.T) {
 		t.Fatalf("EvaluateRecentAlerts: %v", err)
 	}
 }
+
+// TestLostTimelineAgainstPostgres: one call gives the device page the whole story, in the
+// order it happened, with late Wi-Fi diary points slotted in by when they were taken.
+func TestLostTimelineAgainstPostgres(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	stamp := time.Now().Format("150405.000")
+	rest, _ := d.CreateRestaurant(ctx, Restaurant{Name: "Timeline venue " + stamp})
+	b := 70
+	mk := func(sfx string) uuid.UUID {
+		id, _, _, _, _, err := d.UpsertCheckin(ctx, "LT"+sfx+stamp, "v2.1.099", &b, json.RawMessage(`{}`), false, "t7")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = d.AssignDeviceToRestaurant(ctx, "LT"+sfx+stamp, &rest.ID)
+		return id
+	}
+	lost, near := mk("A"), mk("B")
+	if tl, _, _ := d.LostTimeline(ctx, lost); len(tl) != 0 {
+		t.Fatalf("never lost: %+v", tl)
+	}
+	now := time.Now().UTC()
+	if _, err := d.pool.Exec(ctx, `INSERT INTO alerts (type, device_id, severity, summary, status, fired_at)
+		VALUES ('left_venue', $1, 'critical', 'Dropped off the Wi-Fi away from its charger', 'resolved', $2)`, lost, now.Add(-40*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := d.CreateCommandBy(ctx, "lost_mode", "", json.RawMessage(`{"on":true}`), "devices", []uuid.UUID{lost}, "Sara")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var p struct{ Beacon string }
+	_ = json.Unmarshal(cmd.Payload, &p)
+	x, _ := json.Marshal(map[string]any{"ble_sightings": []map[string]any{{"beacon": p.Beacon, "rssi": -70}}})
+	d.IngestBLESightings(ctx, near, x, now)
+	// A diary point taken 20 minutes ago, sent just now.
+	sc := json.RawMessage(`[{"bssid":"aa:bb:cc:dd:ee:01","rssi":-60}]`)
+	_, _ = d.InsertTrailScans(ctx, lost, []TrailScan{{At: now.Add(-20 * time.Minute), Scan: sc}})
+	pend, _ := d.PendingTrailScans(ctx, 100)
+	for _, q := range pend {
+		if q.DeviceID == lost {
+			_ = d.ResolveTrailScan(ctx, q.ID, 37.7, -122.4, 50, true)
+		}
+	}
+	tl, since, err := d.LostTimeline(ctx, lost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []string
+	for _, e := range tl {
+		kinds = append(kinds, e.Kind)
+	}
+	want := []string{"left_venue", "trail", "lost_marked", "heard"}
+	if len(kinds) != len(want) {
+		t.Fatalf("timeline kinds %v, want %v", kinds, want)
+	}
+	for i := range want {
+		if kinds[i] != want[i] {
+			t.Fatalf("timeline kinds %v, want %v", kinds, want)
+		}
+	}
+	if !tl[1].Late || tl[1].Lat == nil || tl[2].By != "Sara" || tl[3].Detail != "close" {
+		t.Fatalf("timeline detail: %+v", tl)
+	}
+	if !since.Before(now.Add(-40 * time.Minute)) {
+		t.Fatalf("since %v should start before the departure", since)
+	}
+}

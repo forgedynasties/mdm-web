@@ -834,6 +834,9 @@ func main() {
 				// Give every device at a venue the venue's Wi-Fi networks, and have them
 				// forget removed ones (venue_wifi.go).
 				runJob(bgCtx, "venue-wifi", time.Minute, dash.RunVenueWifi)
+				// Place the Wi-Fi scans lost or departed devices kept while out of reach
+				// (lost-device reporting, C) — see dashboard/lost_reporting.go.
+				runJob(bgCtx, "lost-trail", time.Minute, dash.RunLostTrail)
 				// Score every device against the compliance baseline and overrides; only
 				// changed results are written, each change kept as an event (compliance.go).
 				runJob(bgCtx, "compliance", time.Minute, dash.RunCompliance)

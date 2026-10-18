@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -431,4 +432,134 @@ func (d *DB) EndSelfLock(ctx context.Context, deviceID uuid.UUID) {
 	if err == nil && tag.RowsAffected() > 0 {
 		lostConfigGen.Add(1)
 	}
+}
+
+// ── The device page's timeline (H1, picked 18 Oct) ─────────────────────────────
+
+// LostEvent is one line of a lost device's timeline. Kind is left_venue | lost_marked |
+// self_locked | heard | trail | lost_lifted. Lat/Lon are set for points that have a place
+// (Wi-Fi diary and live fixes); Late marks what the device sent after it came back.
+type LostEvent struct {
+	At       time.Time
+	Kind     string
+	Title    string // "Left the venue", "Marked as lost", "Heard by Table 7" …
+	Detail   string // "by Sara", "very close", "Wi-Fi diary", "signal faded -55 → -79 dBm" …
+	By       string // who marked or lifted it, the neighbour that heard it
+	Lat, Lon *float64
+	Accuracy float64
+	Late     bool
+}
+
+// lostTimelineSpan picks what the timeline covers: from a little before the device's most
+// recent lost session (or a departure alert, whichever is earlier) to the session's end or
+// now. Nothing in the last 7 days → zero time.
+func (d *DB) lostTimelineSpan(ctx context.Context, deviceID uuid.UUID) (from, to time.Time, err error) {
+	var start, alertAt *time.Time
+	var end *time.Time
+	err = d.pool.QueryRow(ctx, `
+		SELECT (SELECT started_at FROM lost_sessions WHERE device_id = $1 AND started_at > NOW() - INTERVAL '7 days'
+		        ORDER BY started_at DESC LIMIT 1),
+		       (SELECT ended_at FROM lost_sessions WHERE device_id = $1 AND started_at > NOW() - INTERVAL '7 days'
+		        ORDER BY started_at DESC LIMIT 1),
+		       (SELECT fired_at FROM alerts WHERE device_id = $1 AND type = 'left_venue' AND fired_at > NOW() - INTERVAL '7 days'
+		        ORDER BY fired_at DESC LIMIT 1)`, deviceID).Scan(&start, &end, &alertAt)
+	if err != nil || (start == nil && alertAt == nil) {
+		return time.Time{}, time.Time{}, err
+	}
+	from = time.Now()
+	if start != nil {
+		from = *start
+	}
+	// A departure up to a day before it was marked lost is part of the same story.
+	if alertAt != nil && (start == nil || (alertAt.Before(from) && from.Sub(*alertAt) < 24*time.Hour)) {
+		from = *alertAt
+	}
+	from = from.Add(-30 * time.Minute)
+	to = time.Now()
+	if end != nil && start != nil && alertAt != nil && alertAt.After(*end) {
+		// A newer departure after the last session ended: that is the story now.
+		from, end = alertAt.Add(-30*time.Minute), nil
+	}
+	if end != nil {
+		to = end.Add(30 * time.Minute)
+	}
+	return from, to, nil
+}
+
+// LostTimeline returns a device's lost story, oldest first, and when it starts: the
+// departure alert, being marked lost (or locking itself), each neighbour that heard it (one
+// line per neighbour per 5 minutes, the strongest reading), the places its Wi-Fi diary and
+// live fixes put it, and being lifted. Points the device sent after it came back slot in by
+// the time they were taken, marked Late.
+func (d *DB) LostTimeline(ctx context.Context, deviceID uuid.UUID) ([]LostEvent, time.Time, error) {
+	from, to, err := d.lostTimelineSpan(ctx, deviceID)
+	if err != nil || from.IsZero() {
+		return nil, from, err
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT a.fired_at, 'left_venue', a.summary, '', NULL::float8, NULL::float8, 0::float8, false
+		FROM alerts a WHERE a.device_id = $1 AND a.type = 'left_venue' AND a.fired_at BETWEEN $2 AND $3
+		UNION ALL
+		SELECT s.started_at, CASE WHEN s.started_by = 'self' THEN 'self_locked' ELSE 'lost_marked' END,
+		       '', CASE WHEN s.started_by = 'self' THEN '' ELSE s.started_by END, NULL, NULL, 0, false
+		FROM lost_sessions s WHERE s.device_id = $1 AND s.started_at BETWEEN $2 AND $3
+		UNION ALL
+		SELECT s.ended_at, 'lost_lifted', '', '', NULL, NULL, 0, false
+		FROM lost_sessions s WHERE s.device_id = $1 AND s.ended_at BETWEEN $2 AND $3
+		UNION ALL
+		-- Sightings are kept per minute; one in the minute it was marked lost must not read
+		-- as heard before it.
+		SELECT MAX(GREATEST(b.at, s.started_at)), 'heard', MAX(b.rssi)::text, COALESCE(NULLIF(n.name, ''), h.serial_number), NULL, NULL, 0, false
+		FROM ble_sightings b JOIN lost_sessions s ON s.id = b.session_id
+		JOIN devices h ON h.id = b.heard_by LEFT JOIN device_nicknames n ON n.device_id = h.id
+		WHERE s.device_id = $1 AND b.at BETWEEN $2 AND $3
+		GROUP BY b.heard_by, h.serial_number, n.name, date_trunc('hour', b.at), floor(extract(minute FROM b.at) / 5)
+		UNION ALL
+		SELECT t.at, 'trail', t.source, '', t.lat, t.lon, COALESCE(t.accuracy, 0), t.source = 'scan'
+		FROM device_trail t WHERE t.device_id = $1 AND t.lat IS NOT NULL AND t.at BETWEEN $2 AND $3
+		ORDER BY 1`, deviceID, from, to)
+	if err != nil {
+		return nil, from, err
+	}
+	defer rows.Close()
+	var out []LostEvent
+	for rows.Next() {
+		var e LostEvent
+		var a, b string
+		if err := rows.Scan(&e.At, &e.Kind, &a, &b, &e.Lat, &e.Lon, &e.Accuracy, &e.Late); err != nil {
+			return nil, from, err
+		}
+		switch e.Kind {
+		case "left_venue":
+			e.Title, e.Detail = "Left the venue", a
+		case "lost_marked":
+			e.Title, e.By = "Marked as lost", b
+			if b != "" {
+				e.Detail = "by " + b
+			}
+		case "self_locked":
+			e.Title, e.Detail = "Locked itself", "its venue's Wi-Fi was gone and it was off its charger"
+		case "lost_lifted":
+			e.Title = "Lost mode lifted"
+		case "heard":
+			rssi, _ := strconv.Atoi(a)
+			e.Title, e.By, e.Detail = "Heard by "+b, b, SignalWord(rssi)
+		case "trail":
+			e.Title = "Seen here"
+			if a == "scan" {
+				e.Detail = "from its Wi-Fi diary, sent when it came back"
+			} else {
+				e.Detail = "while lost and online"
+			}
+		}
+		out = append(out, e)
+	}
+	return out, from, rows.Err()
+}
+
+// RestaurantSelfLockMinutes is a venue's self-lock time, 0 when it is off.
+func (d *DB) RestaurantSelfLockMinutes(ctx context.Context, restaurantID uuid.UUID) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `SELECT self_lock_minutes FROM restaurants WHERE id = $1`, restaurantID).Scan(&n)
+	return n, err
 }
