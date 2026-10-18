@@ -665,6 +665,9 @@ func (h *Handler) flushPendingLogcatRequests(ctx context.Context, deviceID uuid.
 // and marks delivery status.
 func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType string, targetIDs []uuid.UUID) {
 	msg := marshalCommand(cmd.ID, cmd.Type, cmd.ApkURL, h.db.DeliveryPayload(ctx, cmd.ID, cmd.Type, cmd.Payload))
+	if cmd.Type == "lost_mode" && targetType == "devices" {
+		defer h.NudgeLostVenue(ctx, targetIDs)
+	}
 
 	switch targetType {
 	case "all":
@@ -1301,6 +1304,10 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	}
 	h.processOfflineExit(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
 	cfg["temp_fast_sec"] = h.recordTempFast(ctx, deviceID, req.Extra, tag)
+	// Lost-device reporting (lost_reporting.go): what this device should listen for, its
+	// venue's self-lock opt-in, and the lost-mode parts of what it just reported.
+	h.noteLostReport(ctx, deviceID, req.Extra, time.Now())
+	h.addLostConfig(ctx, cfg, deviceID, isDPCPayload(req.Extra))
 
 	// Publish AFTER processOfflineExit so this check-in's own (immediate) broadcast
 	// already carries the flipped kiosk state — the dashboard updates as promptly as

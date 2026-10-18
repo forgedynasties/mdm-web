@@ -2013,4 +2013,45 @@ CREATE TABLE IF NOT EXISTS compliance_report_sends (
     PRIMARY KEY (restaurant_id, month)
 );
 
+-- Lost-device reporting (18 Oct; A+B+C+D). A lost session is one "marked lost" on the
+-- dashboard: the beacon the server handed the device for it, until it is lifted. Devices
+-- at the same venue listen for the active beacons and report what they hear
+-- (ble_sightings). device_trail is where a device was: Wi-Fi scans it kept while out of
+-- reach (C, geolocated later and only for lost or departed devices) and live fixes while
+-- lost. self_lock_minutes is the venue's opt-in for D (0 = off).
+CREATE TABLE IF NOT EXISTS lost_sessions (
+	id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	device_id  UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	beacon     TEXT,
+	command_id UUID        REFERENCES commands(id) ON DELETE SET NULL,
+	started_by TEXT        NOT NULL DEFAULT '',
+	started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	ended_at   TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_lost_sessions_active ON lost_sessions(device_id) WHERE ended_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lost_sessions_beacon ON lost_sessions(beacon) WHERE beacon IS NOT NULL;
+CREATE TABLE IF NOT EXISTS ble_sightings (
+	session_id UUID        NOT NULL REFERENCES lost_sessions(id) ON DELETE CASCADE,
+	heard_by   UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	rssi       SMALLINT    NOT NULL,
+	at         TIMESTAMPTZ NOT NULL,
+	PRIMARY KEY (session_id, heard_by, at)
+);
+CREATE INDEX IF NOT EXISTS idx_ble_sightings_at ON ble_sightings(session_id, at DESC);
+CREATE TABLE IF NOT EXISTS device_trail (
+	id        BIGSERIAL PRIMARY KEY,
+	device_id UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	at        TIMESTAMPTZ NOT NULL,
+	source    TEXT        NOT NULL,          -- scan (kept offline) | live (lost, online)
+	scan      JSONB,                         -- the Wi-Fi APs it saw, for source = scan
+	lat       DOUBLE PRECISION,
+	lon       DOUBLE PRECISION,
+	accuracy  DOUBLE PRECISION,
+	resolved_at TIMESTAMPTZ,                 -- tried (lat stays NULL when it could not be placed)
+	UNIQUE (device_id, at, source)
+);
+CREATE INDEX IF NOT EXISTS idx_device_trail_dev_at ON device_trail(device_id, at DESC);
+CREATE INDEX IF NOT EXISTS idx_device_trail_pending ON device_trail(device_id) WHERE resolved_at IS NULL;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS self_lock_minutes INT NOT NULL DEFAULT 0;
+
 `

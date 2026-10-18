@@ -151,6 +151,11 @@ const (
 	// forget a Wi-Fi network. Both from firmware client 1.12.0 and DPC agent 0.3.0.
 	CapLostMode   = "lost_mode"
 	CapWifiConfig = "wifi_config"
+	// CapBLEListen: scans Bluetooth LE for the beacons of lost devices nearby. CapBLEBeacon:
+	// advertises its own beacon while lost. lost_beacon.ok is the reliable signal for the
+	// second: a DPC agent may list it with the radio off.
+	CapBLEListen = "ble_listen"
+	CapBLEBeacon = "ble_beacon"
 )
 
 // FirmwareCapFlags map the extra flags the firmware client sends (it reports no
@@ -160,6 +165,10 @@ const (
 var FirmwareCapFlags = map[string]string{
 	"lost_mode_cmd":   CapLostMode,
 	"wifi_config_cmd": CapWifiConfig,
+	// Lost-device reporting (18 Oct): firmware client 1.13.0 sends ble_listen / ble_beacon
+	// when its radio can scan / advertise. The DPC agent lists both itself.
+	"ble_listen": CapBLEListen,
+	"ble_beacon": CapBLEBeacon,
 }
 
 // The command types themselves, and the capability each one requires, live in

@@ -550,7 +550,11 @@ func jsonFloat(raw json.RawMessage) *float64 {
 // wifi_networks (client 1.12.0, DPC 0.3.0) lists the configured networks with a
 // `connected` flag that flips on every Wi-Fi drop, so it would read as a state change on
 // each one; nothing reads it from history.
-const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address' - 'battery_cc' - 'host_app' - 'wifi_networks'`
+//
+// ble_sightings / ble_scan / lost_beacon (18 Oct, lost-device reporting) are what a scan
+// heard and how the radio fared: they go to their own tables, and a listener reports them
+// every scan while something is heard.
+const checkinStripKeys = `'crash_events' - 'wifi_scan' - 'charger_voltage_mv' - 'mic_gain' - 'location_address' - 'battery_cc' - 'host_app' - 'wifi_networks' - 'ble_sightings' - 'ble_scan' - 'lost_beacon'`
 
 // checkinVolatileKeys are readings that drift every frame without meaning a state
 // change; two rows equal on everything else within the sample window are one sample.

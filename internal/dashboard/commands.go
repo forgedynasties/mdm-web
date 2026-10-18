@@ -1454,6 +1454,10 @@ func clusterSystemReboots(cmds []db.Command, summaries map[uuid.UUID]db.CommandD
 // ── WS push helpers ───────────────────────────────────────────────────────────
 
 func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType string, targetIDs []uuid.UUID) {
+	// Marked lost or lifted: the venue's other devices start or stop listening for it.
+	if cmd.Type == "lost_mode" && targetType == "devices" {
+		defer h.nudgeLostVenue(ctx, targetIDs)
+	}
 	msg, _ := json.Marshal(map[string]any{
 		"type":         "command",
 		"id":           cmd.ID,

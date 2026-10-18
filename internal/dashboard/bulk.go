@@ -149,7 +149,7 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 		if err != nil {
 			continue
 		}
-		msg, _ := json.Marshal(map[string]any{
+		frame := map[string]any{
 			"type":                     "config",
 			"kiosk_enabled":            cfg.KioskEnabled,
 			"kiosk_package":            cfg.KioskPackage,
@@ -160,7 +160,15 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"kiosk_url_allow":          cfg.KioskURLAllow,
 			"wlc_charging_enabled":     cfg.WlcChargingEnabled,
 			"checkin_interval_seconds": interval,
-		})
+		}
+		// Every config frame carries the lost-reporting keys: the firmware client reads a
+		// frame without self_lock as "off" (db.LostConfigKeys).
+		if lc, err := h.db.LostConfigFor(ctx, id); err == nil {
+			for k, v := range db.LostConfigKeys(lc, h.cfg.LostModeSupportPhone()) {
+				frame[k] = v
+			}
+		}
+		msg, _ := json.Marshal(frame)
 		h.hub.Push(id, msg)
 		// Enabling app locks the device to one app — wake the screen too, so a device
 		// that was asleep doesn't sit locked to a black screen until something else wakes

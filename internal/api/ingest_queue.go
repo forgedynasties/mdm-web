@@ -64,6 +64,8 @@ func writeHistory(ctx context.Context, d *db.DB, jobs []historyJob) {
 	}
 	for _, j := range jobs {
 		d.IngestDeviceEvents(ctx, j.Shaped.DeviceID, j.BuildID, j.Extra, j.Shaped.At)
+		// What it heard of lost devices nearby (lost_reporting.go).
+		d.IngestBLESightings(ctx, j.Shaped.DeviceID, j.Extra, j.Shaped.At)
 	}
 }
 

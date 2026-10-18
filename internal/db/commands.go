@@ -113,6 +113,13 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 		return nil, errors.New(msg)
 	}
 	payload, secret := prod.SplitCommandSecret(cmdType, payload)
+	// lost_mode on, to one device: the server hands it a fresh Bluetooth beacon for this
+	// lost session (lost_reporting.go). A command to several devices carries one payload,
+	// so it gets none — a shared beacon could not tell the neighbours which one they heard.
+	var beacon string
+	if cmdType == "lost_mode" && targetType == "devices" && len(targetIDs) == 1 {
+		payload, beacon = withLostBeacon(payload)
+	}
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -172,6 +179,11 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 	// (the rollback in defer drops the command), rather than one that reads "0 devices".
 	if targetType == "devices" && len(targetIDs) > 0 && inserted == 0 {
 		return nil, errors.New("every target reports to another MDM server, nothing to send")
+	}
+	if cmdType == "lost_mode" && targetType == "devices" {
+		if err := recordLostSessions(ctx, tx, payload, beacon, cmd.ID, createdBy, targetIDs); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {

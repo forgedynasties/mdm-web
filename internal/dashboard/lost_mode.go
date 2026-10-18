@@ -3,7 +3,10 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"time"
+
+	"github.com/google/uuid"
 
 	"mdm/internal/db"
 )
@@ -82,4 +85,16 @@ func (h *Handler) lostModeFor(ctx context.Context, d *db.Device) lostModeView {
 		v.DefaultM = "It belongs to " + d.RestaurantName + ". " + v.DefaultM
 	}
 	return v
+}
+
+// nudgeLostVenue asks the other devices at the venues of the given devices to check in now,
+// so they start or stop listening for a lost device's beacon at once (lost_listen in their
+// config). The api package does the same for the admin API's sends.
+func (h *Handler) nudgeLostVenue(ctx context.Context, deviceIDs []uuid.UUID) {
+	ids, err := h.db.VenueDeviceIDs(ctx, deviceIDs)
+	if err != nil {
+		log.Printf("[lost] venue devices: %v", err)
+		return
+	}
+	h.nudgeCheckin(ids)
 }
