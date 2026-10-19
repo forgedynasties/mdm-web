@@ -44,6 +44,9 @@ func (h *Handler) RestaurantKioskSave(w http.ResponseWriter, r *http.Request) {
 	existing, _ := h.db.KioskPolicyForRestaurant(ctx, id)
 
 	back := "/restaurants/" + id.String()
+	if r.FormValue("back") == "/lock" { // the Device lock page's venue switch
+		back = "/lock"
+	}
 	switch {
 	case !lock && existing != nil:
 		// Clearing the rule releases the venue's devices unless another rule covers them;
