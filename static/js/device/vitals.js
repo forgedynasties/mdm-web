@@ -2473,16 +2473,25 @@ function mdmBootCharts() {
         .catch(function () {})
         .then(function () { navCtl = null; window.vtNavSync(); });
     }
+    // The page's own (live) arrays win wherever they reach: the fetched history comes from
+    // the shaped tables, which can lag the last hours, so taking live points only after the
+    // fetch time left today blank and hatched as offline while the chart above had it all
+    // (19 Oct). The fetch fills in only what lies before the live data starts.
+    function liveStart(arr) {
+      for (var i = 0; i < arr.length; i++) if (arr[i] && arr[i].y != null) return arr[i].x;
+      return Infinity;
+    }
     function seriesFor(tab) {
       var live = tab === 'ram' ? allRam : tab === 'temp' ? allTemp : allBattery;
       if (!navData) return live;
       var base = (tab === 'ram' ? navData.ram : tab === 'temp' ? navData.temp : navData.battery) || [];
-      var tail = live.filter(function (p) { return p.x > navUntil; });
-      return base.concat(tail);
+      var cut = liveStart(live);
+      return base.filter(function (p) { return p.x < cut; }).concat(live);
     }
     function chargeSpans() {
-      var spans = (navData && navData.charge) ? navData.charge.slice() : [];
-      (allCharge || []).forEach(function (c) { if (!navData || c.from > navUntil) spans.push(c); });
+      var cut = liveStart(allBattery);
+      var spans = (navData && navData.charge) ? navData.charge.filter(function (c) { return c.from < cut; }) : [];
+      (allCharge || []).forEach(function (c) { if (!navData || c.from >= cut) spans.push(c); });
       return spans;
     }
 
