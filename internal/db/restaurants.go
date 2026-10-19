@@ -744,3 +744,18 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 	sort.Slice(out, func(i, j int) bool { return out[i].Score < out[j].Score })
 	return out, nil
 }
+
+// UpdateRestaurantProfile sets the venue's name and notes, and nothing else (the
+// venue page's Profile card).
+func (d *DB) UpdateRestaurantProfile(ctx context.Context, id uuid.UUID, name, notes string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET name = $2, notes = $3 WHERE id = $1`, id, name, notes)
+	return err
+}
+
+// UpdateRestaurantLocation sets the venue's address, point and timezone, and nothing
+// else (the venue page's Location card).
+func (d *DB) UpdateRestaurantLocation(ctx context.Context, id uuid.UUID, address string, lat, lon *float64, tz string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET address = $2, latitude = $3, longitude = $4, timezone = $5 WHERE id = $1`,
+		id, address, lat, lon, tz)
+	return err
+}

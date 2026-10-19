@@ -41,7 +41,7 @@ func (h *Handler) RestaurantIconImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // venueIconHTML draws a venue's icon (or its initial) at one of the sizes the pages use:
-// "sm" 20px, "md" 32px.
+// "sm" 20px, "md" 32px, "lg" 48px (the Profile card).
 func venueIconHTML(d *db.DB, id any, name, size string) template.HTML {
 	var vid uuid.UUID
 	switch v := id.(type) {
@@ -56,7 +56,7 @@ func venueIconHTML(d *db.DB, id any, name, size string) template.HTML {
 	default:
 		vid, _ = uuid.Parse(fmt.Sprint(v))
 	}
-	if size != "sm" {
+	if size != "sm" && size != "lg" {
 		size = "md"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

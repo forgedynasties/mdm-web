@@ -189,6 +189,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}/compliance.pdf", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantCompliancePDF)))
 	post("POST /restaurants/{id}/report/email", h.requireAdminOrOperator(h.fleetWide(h.RestaurantReportEmail)))
 	post("POST /restaurants/{id}", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdate)))
+	post("POST /restaurants/{id}/profile", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantProfileSave)))
+	post("POST /restaurants/{id}/icon", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantIconSave)))
+	post("POST /restaurants/{id}/location", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantLocationSave)))
+	mux.HandleFunc("GET /restaurants/{id}/geocode", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantGeocode)))
 	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))
 	post("POST /restaurants/{id}/guest-wifi", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetGuestWifi)))
 	// The venue's device Wi-Fi (venue_wifi.go): admins only, it writes a credential to every device there.

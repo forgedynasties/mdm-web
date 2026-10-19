@@ -283,6 +283,12 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	// The Device lock card (venue_kiosk.go). Wired into GroupDetail by mistake on 11 Oct,
 	// so the venue page never showed it until 18 Oct.
 	data["Kiosk"] = h.venueKiosk(r, id)
+	// Profile and Location cards (E1, 19 Oct): edited in place; ?open= names the card a
+	// save sent you back to.
+	data["Location"] = h.venueLocationView(rest, devices)
+	data["Timezones"] = restaurantTimezones
+	data["Open"] = r.URL.Query().Get("open")
+	_, _, data["IconSource"], _ = h.db.RestaurantIcon(r.Context(), id)
 	// Power and usage over the chosen window: uptime, guest-pad time and what it costs
 	// the tablet's own battery, and the battery levels staff plug and unplug at. The
 	// same number of days feeds the tiles and the per-day strip below them, so the
@@ -637,29 +643,15 @@ func (h *Handler) peakView(ctx context.Context, restaurantID *uuid.UUID) peakWin
 	return v
 }
 
+// RestaurantEdit was the separate Edit page; a venue is edited on its own page now
+// (Profile and Location cards, E1 picked 19 Oct 2026).
 func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
 		return
 	}
-	rest, err := h.db.GetRestaurant(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Restaurant not found", http.StatusNotFound)
-		return
-	}
-	// The whole app is hx-boosted (see layout.html), so a normal in-app nav to this
-	// page still arrives as an HX-Request — Embed drops the page chrome (header/
-	// footer/back-link) since layout.html's boosted shell already supplies it.
-	embed := r.Header.Get("HX-Request") == "true"
-	h.render(w, r, "restaurant_form.html", map[string]any{
-		"ScopesJSON": h.pickerScopesJSON(r),
-		"Title":      "Edit " + rest.Name,
-		"Restaurant": rest,
-		"Timezones":  restaurantTimezones,
-		"Embed":      embed,
-		"RedirectTo": "/devices?restaurant=" + id.String(),
-	})
+	http.Redirect(w, r, "/restaurants/"+id.String()+"?open=profile", http.StatusSeeOther)
 }
 
 func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {

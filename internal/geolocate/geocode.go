@@ -26,9 +26,10 @@ type Geocoder struct {
 	apiKey string
 	client *http.Client
 
-	mu    sync.RWMutex
-	cache map[string]cachedAddress
-	meter *Meter
+	mu     sync.RWMutex
+	cache  map[string]cachedAddress
+	places map[string]cachedPlaces // forward lookups, by query
+	meter  *Meter
 }
 
 // Stats returns a snapshot of this geocoder's Google Geocoding API usage.
@@ -147,4 +148,89 @@ func (g *Geocoder) Reverse(ctx context.Context, lat, lon float64) (string, error
 	g.mu.Unlock()
 
 	return addr, nil
+}
+
+// Place is one forward-geocoding answer: a formatted address and its point.
+type Place struct {
+	Address string  `json:"address"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
+}
+
+type forwardResponse struct {
+	Status  string `json:"status"`
+	Results []struct {
+		FormattedAddress string `json:"formatted_address"`
+		Geometry         struct {
+			Location struct {
+				Lat float64 `json:"lat"`
+				Lng float64 `json:"lng"`
+			} `json:"location"`
+		} `json:"geometry"`
+	} `json:"results"`
+	ErrorMessage string `json:"error_message"`
+}
+
+// Forward looks up an address or place name ("103 E Fremont Ave, Sunnyvale") and returns
+// up to five matches, for the venue page's Location card. Answers are cached for a day
+// by the exact query, since people retype the same search.
+func (g *Geocoder) Forward(ctx context.Context, query string) ([]Place, error) {
+	key := "q:" + query
+	g.mu.RLock()
+	if c, ok := g.places[key]; ok && time.Now().Before(c.expires) {
+		g.mu.RUnlock()
+		g.meter.MarkHit()
+		return c.places, nil
+	}
+	g.mu.RUnlock()
+
+	endpoint := googleGeocodeURL + "?address=" + url.QueryEscape(query) + "&key=" + url.QueryEscape(g.apiKey)
+	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(req)
+	if err != nil {
+		g.meter.MarkError(err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		gerr := fmt.Errorf("google geocode returned %d", resp.StatusCode)
+		g.meter.MarkError(gerr)
+		return nil, gerr
+	}
+	var fr forwardResponse
+	if err := json.NewDecoder(resp.Body).Decode(&fr); err != nil {
+		g.meter.MarkError(err)
+		return nil, err
+	}
+	switch fr.Status {
+	case "OK", "ZERO_RESULTS":
+		g.meter.MarkSuccess()
+	default:
+		log.Printf("[geocode] forward status=%s: %s", fr.Status, fr.ErrorMessage)
+		gerr := fmt.Errorf("geocode status %s", fr.Status)
+		g.meter.MarkError(gerr)
+		return nil, gerr
+	}
+	var out []Place
+	for _, r := range fr.Results {
+		out = append(out, Place{Address: r.FormattedAddress, Lat: r.Geometry.Location.Lat, Lon: r.Geometry.Location.Lng})
+		if len(out) == 5 {
+			break
+		}
+	}
+	g.mu.Lock()
+	if g.places == nil || len(g.places) > 500 {
+		g.places = map[string]cachedPlaces{}
+	}
+	g.places[key] = cachedPlaces{places: out, expires: time.Now().Add(24 * time.Hour)}
+	g.mu.Unlock()
+	return out, nil
+}
+
+type cachedPlaces struct {
+	places  []Place
+	expires time.Time
 }

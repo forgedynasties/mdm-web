@@ -75,7 +75,7 @@
   <span class="isl-acts">
     {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('vn-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}
     <a class="cc-btn" href="/restaurants/{{.Restaurant.ID}}/report">Weekly report</a>
-    {{if canAdminOrOperator .Role}}<a class="cc-btn" href="/restaurants/{{.Restaurant.ID}}/edit">Edit</a>
+    {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn" onclick="window.vnOpenCard && vnOpenCard('vn-profile')">Edit</button>
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
         <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST" onsubmit="return confirm('Delete {{.Restaurant.Name}}? Its devices stop being at a venue.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete venue</button></form>
@@ -106,7 +106,7 @@
     {{end}}
     <a href="/restaurants/{{.Restaurant.ID}}/report" class="cc-btn isl-dup"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Weekly report</a>
     {{if canAdminOrOperator .Role}}
-    <a href="/restaurants/{{.Restaurant.ID}}/edit" class="cc-btn isl-dup"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit</a>
+    <a href="#vn-profile" onclick="if (window.vnOpenCard) { vnOpenCard('vn-profile'); return false }" class="cc-btn isl-dup"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit</a>
     <details class="vn-more-m isl-dup">
       <summary class="cc-btn" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></summary>
       <div class="vn-menu">
@@ -134,6 +134,8 @@
          The whole card (figures AND the per-day strip) is one htmx target, so the range
          buttons never leave the bars showing the old window under a new number. */}}
     <div id="power-live">{{template "restaurant-power" .}}</div>
+
+    {{template "venue-profile-cards" .}}
 
     {{$sw := .ServiceWindow}}
     <details class="vn-card">

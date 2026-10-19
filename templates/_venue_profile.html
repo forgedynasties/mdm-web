@@ -1,0 +1,89 @@
+{{/* Profile and Location on the venue page (E1, picked 19 Oct): the venue is edited in
+     place, like Service hours and Device lock. internal/dashboard/venue_profile.go,
+     static/js/venue_location.js */}}
+{{define "venue-profile-cards"}}
+<style>
+.vp-row{display:flex;align-items:center;gap:8px;min-width:0}
+.vp-row .form-input{flex:1;min-width:0}
+.vp-small{justify-content:space-between;margin-top:6px;font-size:11.5px;color:var(--text-faint)}
+.vp-links{white-space:nowrap}
+.vp-up{color:var(--accent-text);font-weight:650;cursor:pointer}
+.vp-up input{display:none}
+.vp-rm,.vp-link{border:0;background:none;padding:0;font:inherit;font-weight:650;cursor:pointer;color:var(--accent-text)}
+.vp-rm{color:var(--danger)}
+.vn-card>summary .vicon{margin-right:2px}
+.vl-find{position:relative}
+.vl-sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);overflow:hidden}
+.vl-sugg button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 11px;font:inherit;font-size:12.5px;color:var(--text);cursor:pointer}
+.vl-sugg button:hover,.vl-sugg button.on{background:var(--accent-soft)}
+.vl-sugg .vl-none{padding:8px 11px;font-size:12px;color:var(--muted)}
+.vl-map{height:190px;border-radius:12px;overflow:hidden;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--border);display:flex;align-items:center;justify-content:center}
+.vl-devs{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;background:var(--info-bg);font-size:12px;color:var(--text-2);line-height:1.45}
+.vl-devs b{color:var(--text)}.vl-devs .cc-btn{margin-left:auto;flex:none}
+.vl-tz{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2)}
+.vl-tz b{color:var(--text)}.vl-tzhint{color:var(--muted)}
+.vl-tz .vl-tzchange{margin-left:auto}
+.vl-tzsel{width:100%}
+</style>{{$r := .Restaurant}}{{$can := canAdminOrOperator .Role}}
+<details class="vn-card" id="vn-profile"{{if eq .Open "profile"}} open{{end}}>
+  <summary>{{venueIcon $r.ID $r.Name "sm"}}<h2>Profile</h2><span class="vn-val">{{if $r.ContactEmail}}{{$r.ContactEmail}}{{else}}no contact email{{end}}</span>{{if $can}}<span class="vn-ed">Edit</span>{{end}}</summary>
+  {{if $can}}
+  <form class="vn-form vp-icon" action="/restaurants/{{$r.ID}}/icon" method="POST" enctype="multipart/form-data" hx-boost="false">
+    <div class="form-row full"><label class="form-label" for="vp-site">Icon</label>
+      <div class="vp-row">{{venueIcon $r.ID $r.Name "lg"}}
+        <input type="text" id="vp-site" name="website" class="form-input" placeholder="The venue's website, e.g. momsbiryanica.com" autocomplete="off" spellcheck="false">
+        <button type="submit" name="action" value="fetch" class="cc-btn sm">Get icon</button></div>
+      <div class="vp-row vp-small"><span>{{if .IconSource}}{{if hasPrefix .IconSource "http"}}From the venue's site{{else if hasPrefix .IconSource "Google"}}From {{.IconSource}}{{else}}Uploaded{{end}}{{else}}No icon: the venue shows its initial{{end}}</span>
+        <span class="vp-links"><label class="vp-up">Upload…<input type="file" name="icon" accept="image/png,image/jpeg,image/gif" onchange="var f=this.form, b=document.createElement('input'); b.type='hidden'; b.name='action'; b.value='upload'; f.appendChild(b); f.submit()"></label>{{if .IconSource}} · <button type="submit" name="action" value="remove" class="vp-rm">Remove</button>{{end}}</span></div>
+    </div>
+  </form>
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/profile" method="POST" style="border-top:0;padding-top:0">
+    <div class="form-row full"><label class="form-label" for="vp-name">Name</label><input type="text" id="vp-name" name="name" class="form-input" required maxlength="120" value="{{$r.Name}}"></div>
+    <div class="form-row full"><label class="form-label" for="vp-mail">Contact email</label><input type="email" id="vp-mail" name="contact_email" class="form-input" maxlength="254" autocomplete="off" placeholder="manager@restaurant.com" value="{{$r.ContactEmail}}"></div>
+    <p>Gets the venue's monthly device security report, with its owner accounts.</p>
+    <div class="form-row full"><label class="form-label" for="vp-notes">Notes</label><textarea id="vp-notes" name="notes" class="form-input" rows="2" placeholder="Anything ops should know about this venue">{{$r.Notes}}</textarea></div>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{end}}
+</details>
+
+{{with .Location}}
+<details class="vn-card" id="vn-location"{{if eq $.Open "location"}} open{{end}}>
+  <summary><h2>Location</h2><span class="vn-val">{{if .Address}}{{.Address}}{{else if .Lat}}pinned on the map{{else}}not set{{end}}{{if .Timezone}} · {{.Timezone}}{{end}}</span>{{if $can}}<span class="vn-ed">Edit</span>{{end}}</summary>
+  {{if and (not .Lat) .Centre}}<div class="vn-sub">Its devices are reporting where they are: open to use that.</div>{{end}}
+  {{if $can}}
+  <form class="vn-form vl-form" action="/restaurants/{{$r.ID}}/location" method="POST"
+        data-geocode="/restaurants/{{$r.ID}}/geocode" data-key="{{.MapsKey}}" data-points="{{.PointsJSON}}"
+        {{if .Centre}}data-centre="{{.Centre.Lat}},{{.Centre.Lon}}"{{end}}>
+    <input type="hidden" name="latitude" value="{{with .Lat}}{{.}}{{end}}">
+    <input type="hidden" name="longitude" value="{{with .Lon}}{{.}}{{end}}">
+    <div class="form-row full vl-find">
+      <label class="form-label" for="vl-q">{{if .CanSearch}}Find the venue{{else}}Address{{end}}</label>
+      <input type="text" id="vl-q" name="address" class="form-input" value="{{.Address}}" autocomplete="off" spellcheck="false"
+             placeholder="{{if .CanSearch}}Search an address or the restaurant's name{{else}}Street, city{{end}}"{{if .CanSearch}} role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="vl-sugg"{{end}}>
+      <div class="vl-sugg" id="vl-sugg" role="listbox" hidden></div>
+    </div>
+    {{if .MapsKey}}<div class="full vl-map" id="vl-map"></div>{{end}}
+    <p class="vl-pinned">{{if .Pin}}Pinned at <span class="mono">{{.Pin}}</span>.{{if .MapsKey}} Drag the pin to adjust.{{end}}{{else}}No pin yet: pick an address{{if .Centre}} or use where the devices are{{end}}.{{end}}</p>
+    {{if .Centre}}
+    <div class="full vl-devs"><span><b>{{len .Devices}} of its devices {{if eq (len .Devices) 1}}is{{else}}are{{end}} here</b>{{if gt (len .Devices) 1}}, within about {{.SpreadM}} m{{end}} (their Wi-Fi positions, last day).</span>
+      <button type="button" class="cc-btn sm" data-use-centre>Use this</button></div>
+    {{end}}
+    <div class="full vl-tz">
+      <input type="hidden" name="timezone" value="{{.Timezone}}">
+      <span>Timezone <b class="vl-tzname">{{if .Timezone}}{{.TZLabel}}{{else}}each device's own{{end}}</b>
+        {{if and .DeviceTZ (ne .DeviceTZ .Timezone)}}<span class="vl-tzhint">· its devices report <button type="button" class="vp-link" data-use-tz="{{.DeviceTZ}}">{{.DeviceTZ}}</button></span>{{end}}</span>
+      <button type="button" class="vp-link vl-tzchange">Change</button>
+      <select class="form-input vl-tzsel" aria-label="Timezone" hidden>
+        <option value="">Each device's own timezone</option>
+        {{$tz := .Timezone}}{{range $.Timezones}}<option value="{{.Value}}"{{if eq .Value $tz}} selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </div>
+    <p>Drives this venue's service-hours alerts.</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{end}}
+</details>
+{{end}}
+<script src="/static/js/venue_location.js?v={{assetVer}}"></script>
+{{end}}

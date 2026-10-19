@@ -7567,3 +7567,5 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 /* Fleet's Restaurants list: the status dot sits on the icon's corner. */
 .vicon-dot { position: relative; display: inline-flex; flex: none; }
 .fleet-rail-item .vicon-dot .dot { position: absolute; right: -3px; bottom: -3px; width: 8px; height: 8px; box-shadow: 0 0 0 2px var(--surface); }
+.vicon-lg { width: 48px; height: 48px; border-radius: 12px; padding: 4px; }
+.vicon-lg.vicon-ini { font-size: 20px; }
