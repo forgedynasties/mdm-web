@@ -88,10 +88,14 @@
       <div class="pl-empty">No app for {{$.RoleLabel}}. Lock on these devices offers the app picker instead.</div>
       {{else}}
       <div class="lu-app">
-        <div class="lu-app-n">{{if .Total}}On <b>{{.On}}</b> of {{.Total}} device{{if ne .Total 1}}s{{end}}{{else}}No {{$.RoleLabel}} devices yet{{end}}</div>
+        {{/* One stacked bar, a slice per build, and its legend (B2, picked 19 Oct 2026). */}}
+        <div class="lu-app-n">{{if .Total}}{{.Name}} is on <b>{{.On}}</b> of {{.Total}} device{{if ne .Total 1}}s{{end}}{{else}}No {{$.RoleLabel}} devices yet{{end}}</div>
         {{if .Builds}}
-        <div class="lu-builds">
-          {{range .Builds}}<span class="lu-bd" title="{{.Package}}{{if gt .Versions 1}} · {{.Versions}} versions on these devices; the most common shown{{end}}"><span class="cc-tag {{.EnvTone}}">{{.Env}}</span><b>{{if .Version}}{{.Version}}{{else}}—{{end}}</b>{{if gt .Versions 1}}<span class="pl-faint">+{{sub .Versions 1}}</span>{{end}}<span class="mono lu-bd-p">{{.Short}}</span><span class="lu-bd-n">{{.Devices}}</span></span>{{end}}
+        <div class="lu-bar" role="img" aria-label="Builds of {{.Name}} on these devices">
+          {{range .Builds}}<i class="lu-t-{{if .EnvTone}}{{.EnvTone}}{{else}}none{{end}}" style="width:{{printf "%.2f" .Pct}}%" title="{{.Env}}: {{.Devices}} device{{if ne .Devices 1}}s{{end}} · {{.Tip}}"></i>{{end}}
+        </div>
+        <div class="lu-leg">
+          {{range .Builds}}<span title="{{.Tip}}"><i class="lu-t-{{if .EnvTone}}{{.EnvTone}}{{else}}none{{end}}"></i>{{.Env}} <b>{{.Devices}}</b></span>{{end}}
         </div>
         {{end}}
         <div class="lu-uses"><span>Lock locks to it</span><span>Host app card on the device page</span><span>"Not on screen" alert</span></div>
@@ -195,11 +199,15 @@
   .lu-app { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 22px; }
   .lu-app-n { font-size: 12.5px; color: var(--text-2); }
   .lu-app-n b { color: var(--text); }
-  .lu-builds { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .lu-bd { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 10px; padding: 5px 9px; font-size: 12.5px; color: var(--text); }
-  .lu-bd b { font-weight: 700; }
-  .lu-bd-p { font-size: 11.5px; color: var(--muted); }
-  .lu-bd-n { font-size: 11.5px; font-weight: 700; color: var(--text-2); padding: 1px 7px; border-radius: 99px; background: var(--surface2); }
+  .lu-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin: 10px 0 10px; background: var(--surface2); box-shadow: inset 0 0 0 1px var(--border); }
+  .lu-bar i { display: block; height: 100%; min-width: 3px; }
+  .lu-bar i + i { box-shadow: inset 1px 0 0 var(--surface); }
+  .lu-leg { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; }
+  .lu-leg span { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-2); cursor: default; }
+  .lu-leg span i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .lu-leg b { color: var(--text); font-weight: 700; }
+  .lu-t-ok { background: var(--ok); } .lu-t-info { background: var(--info); } .lu-t-v2 { background: var(--accent-2); }
+  .lu-t-accent { background: var(--accent); } .lu-t-warn { background: var(--warn); } .lu-t-none { background: var(--muted); }
   .lu-uses { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--muted); }
   .lu-uses span::before { content: "✓ "; color: var(--ok); font-weight: 700; }
   .pl-split { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
