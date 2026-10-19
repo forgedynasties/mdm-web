@@ -556,6 +556,7 @@ func main() {
 	// Pull delivery: the device asks for its own work, so a device with no socket is late
 	// rather than unreachable. Same auth as the WebSocket; see api/commands_pull.go.
 	mux.Handle("GET /api/v1/commands/pending", deviceAuth(http.HandlerFunc(apiHandler.PendingCommands)))
+	mux.Handle("GET /api/v1/venue-icon", deviceAuth(http.HandlerFunc(apiHandler.VenueIcon)))
 	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
 	mux.Handle("POST /api/v1/logcat", devicePost(apiHandler.SubmitLogcat))
 	mux.Handle("POST /api/v1/ota/status", devicePost(apiHandler.OtaStatus))

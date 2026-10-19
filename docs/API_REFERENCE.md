@@ -83,10 +83,11 @@ partial and the clients read a missing key as "unchanged" (`lost_listen`) or "of
 | Key | Value |
 |---|---|
 | `lost_listen` | `{"beacons": ["<16 hex>", …], "scan_s": 8, "every_s": 120}` while a device at the same venue is lost — scan Bluetooth LE for those beacons; `null` otherwise (stop). |
-| `self_lock` | firmware clients only: `{"enabled": false}`, or `{"enabled": true, "minutes": 10, "message": "It belongs to <venue>. Please hand it to a member of staff, or call:", "phone": "<AIO support number>"}` when the venue has self-lock on. |
+| `self_lock` | firmware clients only: `{"enabled": false, "venue", "venue_icon_v"}`, or `{"enabled": true, "minutes": 10, "message": "It belongs to <venue>. Please hand it to a member of staff[, or call:]", "phone": "<AIO support number>", "venue", "venue_icon_v"}` when the venue has self-lock on. `venue` is the device's venue name (`""` if none) and `venue_icon_v` its icon version (unix seconds, `0` if none); the lost screen (client 1.13.4+) draws them, fetching the icon from `GET /api/v1/venue-icon` when the version changes. "or call:" only appears when a support number is set. |
 
 A `lost_mode` command `{"on": true}` sent to one device gains `"beacon": "<16 hex>"` — a random
-token the server makes per lost session (a caller's own is replaced). The lost device advertises
+token the server makes per lost session (a caller's own is replaced) — and the device's `"venue"`
+and `"venue_icon_v"`, as in `self_lock`. The lost device advertises
 it as Bluetooth LE service data under UUID `6a1f0001-a10c-4d4d-9c5e-4c0574000001`. When a device is
 marked lost or lifted, the other devices at its venue get a `checkin_now` so they pick
 `lost_listen` up at once.
@@ -161,6 +162,13 @@ Request:
 ```
 Response `200`: `{"status":"ok"}`
 Status: `200` · `400` · `403` command not targeting device · `404` · `500`.
+
+### GET `/api/v1/venue-icon?serial=<serial>`
+The calling device's own venue icon, a PNG of at most 128 px (`Cache-Control: private,
+max-age=86400`), for the lost screen. Same device auth and serial binding as the other device
+calls. Fetch it when `venue_icon_v` (lost_mode payload, config `self_lock`) changes; the image
+never rides in a WebSocket frame.
+Status: `200` · `400` · `401` · `403` · `404` no venue, or the venue has no icon.
 
 ### GET `/api/v1/ws` (WebSocket upgrade)
 Long-lived device socket for server-push delivery. `X-API-Key` header is checked **before** upgrade.

@@ -34,6 +34,14 @@ import (
 // per-device cache of that config knows to look again. See LostConfigGen.
 var lostConfigGen atomic.Uint64
 
+// venueChanged moves the generation after a write that changes a device's venue name,
+// its venue, or the venue's icon: the config's self_lock carries all three (client 1.13.4).
+func venueChanged(err error) {
+	if err == nil {
+		lostConfigGen.Add(1)
+	}
+}
+
 // LostConfigGen is the current generation of lost-reporting config.
 func (d *DB) LostConfigGen() uint64 { return lostConfigGen.Load() }
 
@@ -59,6 +67,31 @@ func withLostBeacon(payload json.RawMessage) (json.RawMessage, string) {
 	m["beacon"] = b
 	out, _ := json.Marshal(m)
 	return out, b
+}
+
+// withLostVenue adds the device's venue name and icon version to a lost_mode {"on": true}
+// payload, for the lost screen (client 1.13.4): it names the venue and fetches the icon
+// from /api/v1/venue-icon when the version is new. Only for a command to one device —
+// several devices can sit at several venues, and then the client uses its config's
+// self_lock venue instead.
+func (d *DB) withLostVenue(ctx context.Context, payload json.RawMessage, deviceID uuid.UUID) json.RawMessage {
+	var m map[string]any
+	if json.Unmarshal(payload, &m) != nil {
+		return payload
+	}
+	if on, _ := m["on"].(bool); !on {
+		return payload
+	}
+	var venue string
+	var iconV int64
+	if err := d.pool.QueryRow(ctx, `
+		SELECT COALESCE(r.name, ''), COALESCE(EXTRACT(EPOCH FROM r.icon_at)::bigint, 0)
+		FROM devices dv LEFT JOIN restaurants r ON r.id = dv.restaurant_id WHERE dv.id = $1`, deviceID).Scan(&venue, &iconV); err != nil {
+		return payload
+	}
+	m["venue"], m["venue_icon_v"] = venue, iconV
+	out, _ := json.Marshal(m)
+	return out
 }
 
 // recordLostSessions starts (on) or ends (off) the lost sessions of a lost_mode command's
@@ -123,6 +156,7 @@ type LostConfig struct {
 	Beacons         []string // active beacons of other lost devices at the same venue
 	Lost            bool     // this device has an open lost session
 	DPC             bool     // the Standard client, which has no self-lock
+	VenueIconV      int64    // the venue icon's version (unix secs of icon_at), 0 when none
 }
 
 // Lost-listen scan cadence the listeners are told: scan_s seconds of Bluetooth LE every
@@ -146,15 +180,21 @@ func LostConfigKeys(c LostConfig, phone string) map[string]any {
 	if c.DPC {
 		return out
 	}
+	// venue and venue_icon_v ride along whether self-lock is on or not: the lost screen
+	// (client 1.13.4, L1) names the venue and shows its icon, fetched once per version
+	// from /api/v1/venue-icon, for a lost_mode command that carries none too.
 	if c.SelfLockMinutes <= 0 {
-		out["self_lock"] = map[string]any{"enabled": false}
+		out["self_lock"] = map[string]any{"enabled": false, "venue": c.Venue, "venue_icon_v": c.VenueIconV}
 		return out
 	}
+	// The message keeps "It belongs to <venue>." for clients before 1.13.4, which show
+	// only the message; 1.13.4 drops that sentence when it draws the venue itself.
 	msg := LostMessage(phone)
 	if c.Venue != "" {
 		msg = "It belongs to " + c.Venue + ". " + msg
 	}
-	out["self_lock"] = map[string]any{"enabled": true, "minutes": c.SelfLockMinutes, "message": msg, "phone": phone}
+	out["self_lock"] = map[string]any{"enabled": true, "minutes": c.SelfLockMinutes, "message": msg, "phone": phone,
+		"venue": c.Venue, "venue_icon_v": c.VenueIconV}
 	return out
 }
 
@@ -170,9 +210,10 @@ func (d *DB) LostConfigFor(ctx context.Context, deviceID uuid.UUID) (LostConfig,
 		                 WHERE s.ended_at IS NULL AND s.beacon IS NOT NULL
 		                   AND o.restaurant_id = d.restaurant_id AND o.id <> d.id), '{}'),
 		       EXISTS (SELECT 1 FROM lost_sessions s WHERE s.device_id = d.id AND s.ended_at IS NULL),
-		       COALESCE(d.agent_kind, '') = 'dpc'
+		       COALESCE(d.agent_kind, '') = 'dpc',
+		       COALESCE(EXTRACT(EPOCH FROM r.icon_at)::bigint, 0)
 		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE d.id = $1`, deviceID).Scan(&c.VenueID, &c.Venue, &c.SelfLockMinutes, &c.Beacons, &c.Lost, &c.DPC)
+		WHERE d.id = $1`, deviceID).Scan(&c.VenueID, &c.Venue, &c.SelfLockMinutes, &c.Beacons, &c.Lost, &c.DPC, &c.VenueIconV)
 	return c, err
 }
 

@@ -33,6 +33,7 @@ func (d *DB) UpdateRestaurant(ctx context.Context, r Restaurant) error {
 			timezone = $6, notes = $7
 		WHERE id = $1
 	`, r.ID, r.Name, r.Address, r.Latitude, r.Longitude, r.Timezone, r.Notes)
+	venueChanged(err)
 	return err
 }
 
@@ -49,6 +50,7 @@ func (d *DB) SetRestaurantContactEmail(ctx context.Context, id uuid.UUID, email 
 // posting the full edit form with a blank rest would.
 func (d *DB) RenameRestaurant(ctx context.Context, id uuid.UUID, name string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET name = $2 WHERE id = $1`, id, name)
+	venueChanged(err)
 	return err
 }
 
@@ -103,6 +105,7 @@ func (d *DB) GetRestaurant(ctx context.Context, id uuid.UUID) (*Restaurant, erro
 // AssignDeviceToRestaurant sets (or with restaurantID=nil clears) a device's venue.
 func (d *DB) AssignDeviceToRestaurant(ctx context.Context, serial string, restaurantID *uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `UPDATE devices SET restaurant_id = $2 WHERE serial_number = $1`, serial, restaurantID)
+	venueChanged(err)
 	return err
 }
 
@@ -112,6 +115,7 @@ func (d *DB) AssignDevicesToRestaurant(ctx context.Context, serials []string, re
 		return nil
 	}
 	_, err := d.pool.Exec(ctx, `UPDATE devices SET restaurant_id = $2 WHERE serial_number = ANY($1)`, serials, restaurantID)
+	venueChanged(err)
 	return err
 }
 
@@ -749,6 +753,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 // venue page's Profile card).
 func (d *DB) UpdateRestaurantProfile(ctx context.Context, id uuid.UUID, name, notes string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET name = $2, notes = $3 WHERE id = $1`, id, name, notes)
+	venueChanged(err)
 	return err
 }
 

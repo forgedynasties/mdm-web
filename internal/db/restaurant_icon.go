@@ -17,9 +17,11 @@ func (d *DB) SetRestaurantIcon(ctx context.Context, id uuid.UUID, png []byte, so
 	defer d.venueIcons.drop()
 	if png == nil {
 		_, err := d.pool.Exec(ctx, `UPDATE restaurants SET icon = NULL, icon_source = '', icon_at = NULL WHERE id = $1`, id)
+		venueChanged(err)
 		return err
 	}
 	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET icon = $2, icon_source = $3, icon_at = now() WHERE id = $1`, id, png, source)
+	venueChanged(err)
 	return err
 }
 

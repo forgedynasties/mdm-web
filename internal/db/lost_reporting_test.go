@@ -25,6 +25,16 @@ func TestLostConfigKeys(t *testing.T) {
 	if sl["enabled"] != true || sl["minutes"] != 15 || sl["phone"] != "+1 555" || sl["message"] != "It belongs to Nugget Downtown. Please hand it to a member of staff, or call:" {
 		t.Fatalf("self_lock: %v", sl)
 	}
+	// The venue and its icon version ride along, self-lock on or off (client 1.13.4's lost
+	// screen draws them for a lost_mode command too).
+	if sl["venue"] != "Nugget Downtown" || sl["venue_icon_v"] != int64(0) {
+		t.Fatalf("self_lock venue: %v", sl)
+	}
+	k = LostConfigKeys(LostConfig{Venue: "Pho 88", VenueIconV: 1792410614}, "")
+	off := k["self_lock"].(map[string]any)
+	if off["enabled"] != false || off["venue"] != "Pho 88" || off["venue_icon_v"] != int64(1792410614) {
+		t.Fatalf("self_lock off with a venue: %v", off)
+	}
 }
 
 func TestSignalWord(t *testing.T) {
