@@ -93,26 +93,35 @@ func TestKioskPagesRender(t *testing.T) {
 	rest := uuid.New()
 	rules := []kioskRuleView{
 		{KioskPolicy: db.KioskPolicy{ID: id, Name: "Flights Vegas · Nugget", KioskPackage: "aio.app.nugget.uatv2", TargetType: "restaurant", TargetID: &rest},
-			Pos: 1, First: true, Last: true, AppName: "Nugget-uatv2", TargetLabel: "Flights Vegas (restaurant)", TargetHref: "/devices?view=restaurant&id=" + rest.String(),
+			AppName: "Nugget-uatv2", TargetLabel: "Flights Vegas (restaurant)", TargetHref: "/devices?view=restaurant&id=" + rest.String(),
 			Devices: 20, Locked: 16, Waiting: 4, Exited: 1},
 	}
 	exits := []kioskExitView{{KioskExit: db.KioskExit{DeviceID: uuid.New(), Serial: "AT070AABU00875", Restaurant: "Flights Vegas",
 		Package: "aio.app.nugget.uatv2", RuleID: &id, RuleName: "Flights Vegas · Nugget"}, AppName: "Nugget-uatv2"}}
+	venues := []*lockVenueRow{
+		{ID: rest, Name: "Flights Vegas", On: true, Devices: 20, Locked: 16, Exited: 1, Missing: 2, Pct: 80},
+		{ID: uuid.New(), Name: "Huanchaco Peruvian", Devices: 8},
+	}
 	var buf bytes.Buffer
 	if err := kioskTmpl(t, "manage.html").ExecuteTemplate(&buf, "manage.html", map[string]any{
-		"Rules": rules, "Locked": 16, "NotCovered": 161, "ByHand": 0, "CanEdit": true, "Exits": exits,
+		"Venues": venues, "Rules": rules, "Locked": 16, "Unlocked": 160, "Exited": 1, "Cant": 2, "NotCovered": 161, "ByHand": 0, "CanEdit": true, "Exits": exits,
 	}); err != nil {
 		t.Fatalf("manage.html: %v", err)
 	}
 	out := buf.String()
-	for _, want := range []string{"16 locked", "4 waiting", "1 taken out on site", "1 device was unlocked on the device",
-		"/devices/AT070AABU00875/kiosk/relock", "/devices/AT070AABU00875/kiosk/leave-out", `by the rule "Flights Vegas · Nugget"`, "/kiosk/policies/" + id.String() + "/move", "161 devices no rule covers"} {
+	for _, want := range []string{"Device lock", "taken out on site", "can't lock", "Flights Vegas", "16 of 20", "1 taken out", "2 app missing",
+		`action="/restaurants/` + rest.String() + `/kiosk"`, `name="back" value="/lock"`, "off · 8 devices",
+		"/devices/AT070AABU00875/kiosk/relock", "/devices/AT070AABU00875/kiosk/leave-out", `by "Flights Vegas · Nugget"`, "161 devices no rule covers", "+ Lock a group or a device"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("list missing %q", want)
+			t.Errorf("page missing %q", want)
 		}
 	}
-	if strings.Contains(out, "exit code on") {
-		t.Error("the rules list still says \"exit code on\"")
+	// A venue that is off gets a switch that turns it on; one that is on, a switch that clears it.
+	if strings.Count(out, `name="lock" value="on"`) != 1 {
+		t.Errorf("want exactly one switch that turns a venue on")
+	}
+	if strings.Contains(out, "/move") {
+		t.Error("rules can no longer be reordered from the page")
 	}
 	buf.Reset()
 	p := rules[0].KioskPolicy

@@ -248,41 +248,6 @@ func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, tar
 	return err
 }
 
-// MoveKioskPolicy swaps a rule with its neighbour above (up) or below.
-func (d *DB) MoveKioskPolicy(ctx context.Context, id uuid.UUID, up bool) error {
-	rules, err := d.ListKioskPolicies(ctx)
-	if err != nil {
-		return err
-	}
-	for i := range rules {
-		if rules[i].ID != id {
-			continue
-		}
-		j := i + 1
-		if up {
-			j = i - 1
-		}
-		if j < 0 || j >= len(rules) {
-			return nil
-		}
-		// Renumber the whole list in its new order, so equal priorities left by older
-		// rows can't make the swap a no-op.
-		rules[i], rules[j] = rules[j], rules[i]
-		tx, err := d.pool.Begin(ctx)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback(ctx)
-		for k, r := range rules {
-			if _, err := tx.Exec(ctx, `UPDATE kiosk_policies SET priority = $2 WHERE id = $1`, r.ID, k); err != nil {
-				return err
-			}
-		}
-		return tx.Commit(ctx)
-	}
-	return nil
-}
-
 func (d *DB) DeleteKioskPolicy(ctx context.Context, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM kiosk_policies WHERE id = $1`, id)
 	return err

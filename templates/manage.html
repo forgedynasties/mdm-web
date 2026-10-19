@@ -2,138 +2,114 @@
 {{template "header" .}}
 
 <style>
-/* ── Lock rules ─────────────────────────────────────────────
-   One job: which app each device is locked to. Rules are in order; a device
-   covered by two follows the higher one. Each row shows what happened on its
-   devices, not just the intent. */
+/* ── Device lock (K1, picked 19 Oct 2026) ─────────────────────────────
+   Where devices are locked and what needs a person: four counts, every venue with
+   an on/off switch, devices taken out on site, then the few other rules. Rules
+   name no app since 19 Oct: each device locks to its role's app (Lineup). */
 .kr-wrap{max-width:1100px;margin:0 auto}
-.kr-list{padding:0}
-.kr-row{display:grid;grid-template-columns:30px 44px minmax(0,1fr) auto;gap:14px;align-items:center;padding:15px 17px;border-top:1px solid var(--border-soft)}
-.kr-row:first-child{border-top:0}
-.kr-ord{display:flex;flex-direction:column;align-items:center;gap:2px}
-.kr-ord b{font-size:12.5px;color:var(--text-faint);font-variant-numeric:tabular-nums}
-.kr-ord form{margin:0}
-.kr-ord button{border:0;background:none;color:var(--text-faint);cursor:pointer;width:26px;height:22px;border-radius:5px;font-size:12px;line-height:1}
-.kr-ord button:hover,.kr-ord button:focus-visible{background:var(--surface-3);color:var(--text)}
-.kr-ord button[disabled]{visibility:hidden}
-.kr-app{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;background:var(--accent);overflow:hidden}
-.kr-app img{width:100%;height:100%;object-fit:cover}
-.kr-nm{font-size:14.5px;font-weight:700;letter-spacing:-.005em}
-.kr-mt{font-size:12.5px;color:var(--muted);margin-top:2px}
-.kr-mt b{color:var(--text-2);font-weight:650}
-.kr-mt a{color:inherit;border-bottom:1px solid var(--rule-2);text-decoration:none}
-.kr-st{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.kr-st span{font-size:11.5px;font-weight:650;border-radius:99px;padding:2px 9px;border:1px solid var(--border);color:var(--text-2)}
-.kr-st .ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}
-.kr-st .wait{color:var(--info);background:var(--info-bg);border-color:transparent}
-.kr-st .warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}
-.kr-st .bad{color:var(--danger);background:var(--danger-bg);border-color:transparent}
-.kr-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.kr-acts form{margin:0}
-.kr-else{display:flex;gap:12px;align-items:center;padding:14px 17px;border:1px dashed var(--border);border-radius:var(--r-4);margin-top:12px;color:var(--muted);font-size:13px}
-.kr-else b{color:var(--text)}
-/* Unlocked on the device: stays out until someone answers it. */
-.kx-strip{border:1px solid var(--warn-edge,var(--border));background:var(--warn-bg);border-radius:var(--r-4,12px);margin-bottom:14px;overflow:hidden}
-.kx-strip-h{display:flex;align-items:center;gap:10px;padding:12px 17px}
-.kx-strip-h h2{font-size:13.5px;font-weight:700;margin:0}
-.kx-strip-h small{display:block;font-size:12px;color:var(--text-2);margin-top:1px}
-.kx-strip-h .i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface);color:var(--warn);flex:none}
-.kx-strip-h .i svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.kx-dev{display:flex;align-items:center;gap:12px;padding:11px 17px;background:var(--surface);border-top:1px solid var(--border-soft);flex-wrap:wrap}
-.kx-dev .id{flex:1;min-width:200px}
-.kx-dev .id a{font-family:var(--mono);font-size:13px;font-weight:650;color:inherit;text-decoration:none}
-.kx-dev .id a:hover{text-decoration:underline}
-.kx-dev .id small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
-.kx-dev .a{display:flex;gap:6px;flex-wrap:wrap}
-.kx-dev form{margin:0}
-.kr-st a.warn{font-size:11.5px;font-weight:650;border-radius:99px;padding:2px 9px;border:1px solid transparent;color:var(--warn);background:var(--warn-bg);text-decoration:none}
-.kr-st a.warn:hover{text-decoration:underline}
-.kr-flash{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:var(--ok-bg);color:var(--ok);font-size:13px;font-weight:600}
-@media(max-width:720px){
-  .kr-row{grid-template-columns:44px minmax(0,1fr)}
-  .kr-ord{display:none}
-  .kr-acts{grid-column:1/-1;justify-content:flex-start}
-  .kr-acts .cc-btn{min-height:40px}
-}
+.lk-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.lk-sum div{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);padding:11px 15px}
+.lk-sum b{display:block;font-size:24px;font-weight:700;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.lk-sum span{font-size:12px;color:var(--muted)}
+.lk-sum .warn b{color:var(--warn)}.lk-sum .bad b{color:var(--danger)}
+.lk-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.lk-tbl th{font-size:11px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:10px 16px}
+.lk-tbl td{padding:10px 16px;border-top:1px solid var(--border-soft);vertical-align:middle;color:var(--text-2)}
+.lk-vn{display:flex;align-items:center;gap:10px;min-width:0}
+.lk-vn a{color:var(--text);font-weight:650;text-decoration:none}.lk-vn a:hover{text-decoration:underline}
+.lk-sw{position:relative;width:36px;height:21px;border-radius:99px;border:0;padding:0;background:var(--surface-3);box-shadow:inset 0 0 0 1px var(--border);cursor:pointer;vertical-align:middle}
+.lk-sw::after{content:"";position:absolute;top:3px;left:3px;width:15px;height:15px;border-radius:99px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}
+.lk-sw.on{background:var(--ok);box-shadow:none}.lk-sw.on::after{left:18px}
+.lk-sw[disabled]{cursor:default;opacity:.85}
+.lk-tbl form{margin:0;display:inline}
+.lk-bar{display:inline-block;width:110px;height:7px;border-radius:99px;background:var(--surface-3);overflow:hidden;vertical-align:middle;margin-right:9px}
+.lk-bar i{display:block;height:100%;background:var(--ok)}
+.lk-tags{display:flex;gap:6px;flex-wrap:wrap}
+.lk-tags span,.lk-tags a{font-size:11.5px;font-weight:650;border-radius:99px;padding:2px 9px;text-decoration:none}
+.lk-tags .warn{color:var(--warn);background:var(--warn-bg)}.lk-tags .bad{color:var(--danger);background:var(--danger-bg)}
+.lk-h2{display:flex;align-items:baseline;gap:8px;font-size:13.5px;font-weight:700;margin:20px 0 8px}
+.lk-h2 small{font-size:12px;font-weight:500;color:var(--muted)}
+.lk-row{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:13px;flex-wrap:wrap}
+.lk-row:first-child{border-top:0}
+.lk-row .t{flex:1;min-width:220px}
+.lk-row .t b{color:var(--text);font-weight:650}
+.lk-row .t small{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.lk-row .t small a{color:inherit}
+.lk-row .a{display:flex;gap:6px;flex-wrap:wrap}.lk-row form{margin:0}
+.lk-row .mono{font-family:var(--mono);font-weight:650;color:var(--text);text-decoration:none}
+.lk-quiet{color:var(--muted)}
+@media(max-width:720px){.lk-sum{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 
 <div class="kr-wrap cc-wrap">
   <div class="cc-top">
     <div>
       <h1 class="cc-h1">Device lock</h1>
-      <div class="cc-sub">{{if .Rules}}<b>{{.Locked}}</b> device{{if ne .Locked 1}}s{{end}} locked by {{len .Rules}} rule{{if ne (len .Rules) 1}}s{{end}} {{if .Exits}} · <a href="#kiosk-exits" style="color:var(--warn);font-weight:650">{{len .Exits}} taken out on site</a>{{end}} · {{.NotCovered}} not covered{{else}}Lock a restaurant, a group or a device to one app. Rules keep applying as devices join or leave.{{end}}</div>
-    </div>
-    <div class="cc-actions">
-      {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New lock rule</a>{{end}}
+      <div class="cc-sub">Each device locks to its role's app from <a href="/lineup">Lineup</a>. Switch a venue on to lock every device there, including ones that arrive later.</div>
     </div>
   </div>
 
-  {{if .Flash}}<div class="kr-flash" role="status">{{.Flash}}</div>{{end}}
+  <div class="lk-sum" id="lock-counts">
+    <div><b>{{.Locked}}</b><span>locked</span></div>
+    <div><b>{{.Unlocked}}</b><span>unlocked</span></div>
+    <div class="{{if .Exited}}warn{{end}}"><b>{{.Exited}}</b><span>taken out on site</span></div>
+    <div class="{{if .Cant}}bad{{end}}"><b>{{.Cant}}</b><span>can't lock · app missing</span></div>
+  </div>
+
+  {{/* Venues: the venue's own rule, the same switch as its Device lock card. */}}
+  <div class="cc-card" id="lock-venues">
+    {{if .Venues}}
+    <table class="lk-tbl">
+      <thead><tr><th>Venue</th><th>Lock</th><th>Locked</th><th>Needs a look</th></tr></thead>
+      <tbody>
+      {{range .Venues}}
+      <tr>
+        <td><span class="lk-vn">{{venueIcon .ID .Name "sm"}}<a href="/restaurants/{{.ID}}">{{.Name}}</a></span></td>
+        <td>{{if $.CanEdit}}<form method="POST" action="/restaurants/{{.ID}}/kiosk">
+            <input type="hidden" name="back" value="/lock">{{if not .On}}<input type="hidden" name="lock" value="on">{{end}}
+            <button type="submit" class="lk-sw{{if .On}} on{{end}}" role="switch" aria-checked="{{if .On}}true{{else}}false{{end}}" aria-label="Lock {{.Name}}" title="{{if .On}}Unlock{{else}}Lock{{end}} every device at {{.Name}}"></button>
+          </form>{{else}}<button type="button" class="lk-sw{{if .On}} on{{end}}" role="switch" aria-checked="{{if .On}}true{{else}}false{{end}}" aria-label="{{.Name}} lock" disabled></button>{{end}}</td>
+        <td>{{if .On}}<span class="lk-bar"><i style="width:{{.Pct}}%"></i></span>{{.Locked}} of {{.Devices}}{{if .Package}} <span class="lk-quiet" title="Saved before 19 Oct: locks to this package, not each device's app">· {{.Package}}</span>{{end}}{{else}}<span class="lk-quiet">off · {{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Locked}} · {{.Locked}} locked by hand{{end}}</span>{{end}}</td>
+        <td><span class="lk-tags">{{if .Exited}}<a class="warn" href="#lock-exits">{{.Exited}} taken out</a>{{end}}{{if .Missing}}<span class="bad" title="Their app isn't installed, or their role has no app on Lineup">{{.Missing}} app missing</span>{{end}}{{if .Cant}}<span class="bad" title="Their agent can't lock the screen">{{.Cant}} can't lock</span>{{end}}</span></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <div class="cc-empty"><b>No venues yet</b>Create a venue and place devices in it, then lock it here.</div>
+    {{end}}
+  </div>
 
   {{if .Exits}}
-  <div class="kx-strip" id="kiosk-exits">
-    <div class="kx-strip-h"><span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span><div><h2>{{len .Exits}} device{{if ne (len .Exits) 1}}s were{{else}} was{{end}} unlocked on the device</h2><small>Someone used the exit PIN or code on the device. {{if ne (len .Exits) 1}}They stay{{else}}It stays{{end}} unlocked until you lock {{if ne (len .Exits) 1}}them{{else}}it{{end}} again.</small></div></div>
+  <div class="lk-h2" id="lock-exits">Taken out on site <small>unlocked with the exit PIN; they stay unlocked until someone answers</small></div>
+  <div class="cc-card">
     {{range .Exits}}
-    <div class="kx-dev">
-      <div class="id"><a href="/devices/{{.Serial}}">{{.Serial}}</a><small>{{if .Restaurant}}{{.Restaurant}} · {{end}}was locked to {{.AppName}}{{if .RuleName}} by the rule "{{.RuleName}}"{{else}} by hand{{end}} · taken out <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span></small></div>
+    <div class="lk-row">
+      <div class="t"><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a><small>{{if .Restaurant}}{{.Restaurant}} · {{end}}was locked to {{.AppName}}{{if .RuleName}} by "{{.RuleName}}"{{else}} by hand{{end}} · <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span></small></div>
       {{if $.CanEdit}}<div class="a">
-        <form method="POST" action="/devices/{{.Serial}}/kiosk/relock" hx-boost="false"><input type="hidden" name="back" value="/kiosk"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
-        <form method="POST" action="/devices/{{.Serial}}/kiosk/leave-out" hx-boost="false"><input type="hidden" name="back" value="/kiosk"><button type="submit" class="cc-btn sm">Leave it out</button></form>
+        <form method="POST" action="/devices/{{.Serial}}/kiosk/relock" hx-boost="false"><input type="hidden" name="back" value="/lock"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+        <form method="POST" action="/devices/{{.Serial}}/kiosk/leave-out" hx-boost="false"><input type="hidden" name="back" value="/lock"><button type="submit" class="cc-btn sm">Leave it out</button></form>
       </div>{{end}}
     </div>
     {{end}}
   </div>
   {{end}}
 
-  <div id="lock-rules"></div>
-  {{if .Rules}}
-  <div class="cc-card kr-list">
+  <div class="lk-h2" id="lock-rules">Other rules <small>groups, single devices, every device</small></div>
+  <div class="cc-card">
     {{range .Rules}}
-    <div class="kr-row">
-      <div class="kr-ord">
-        {{if $.CanEdit}}<form method="POST" action="/kiosk/policies/{{.ID}}/move"><input type="hidden" name="dir" value="up"><button type="submit" title="Move up" aria-label="Move {{.Name}} up"{{if .First}} disabled{{end}}>▲</button></form>{{end}}
-        <b title="Rule {{.Pos}}: a device covered by more than one rule follows the highest">{{.Pos}}</b>
-        {{if $.CanEdit}}<form method="POST" action="/kiosk/policies/{{.ID}}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="Move down" aria-label="Move {{.Name}} down"{{if .Last}} disabled{{end}}>▼</button></form>{{end}}
-      </div>
-      <span class="kr-app">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else if .KioskPackage}}{{slice .AppName 0 1}}{{else}}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{{end}}</span>
-      <div>
-        <div class="kr-nm">{{.Name}}</div>
-        <div class="kr-mt">Locked to <b>{{.AppName}}</b>{{if not .KioskPackage}} (<a href="/lineup">Lineup</a>){{end}} · <a href="{{.TargetHref}}">{{.TargetLabel}}</a></div>
-        <div class="kr-st">
-          {{if .Locked}}<span class="ok" title="Locked to the app">{{.Locked}} locked</span>{{end}}
-          {{if .Waiting}}<span class="wait" title="Not picked up yet: offline, or not checked in since the rule changed">{{.Waiting}} waiting</span>{{end}}
-          {{if .Exited}}<a class="warn" href="#kiosk-exits" title="Taken out of kiosk on site with the exit PIN or code; they stay unlocked until someone locks them again">{{.Exited}} taken out on site</a>{{end}}
-          {{if .Missing}}<span class="warn" title="Their app isn't installed, or their role has no app on Lineup; they lock once it is">{{.Missing}} app missing</span>{{end}}
-          {{if .Cant}}<span class="bad" title="Their agent can't lock the screen (MDM Lite)">{{.Cant}} can't lock</span>{{end}}
-          {{if .Override}}<span title="Changed by hand on the device page; follows the device's own setting">{{.Override}} set by hand</span>{{end}}
-          {{if .Higher}}<span title="In this rule's target but covered by a rule above it">{{.Higher}} follow a rule above</span>{{end}}
-          {{if not .Devices}}{{if not .Higher}}<span>no devices</span>{{end}}{{end}}
-        </div>
-      </div>
-      <div class="kr-acts">
-        <a href="{{.TargetHref}}" class="cc-btn sm">Devices</a>
-        {{if $.CanEdit}}
+    <div class="lk-row">
+      <div class="t"><b>{{.Name}}</b><small><a href="{{.TargetHref}}">{{.TargetLabel}}</a> · locked to {{.AppName}} · {{.Locked}} of {{.Devices}} locked{{if .Waiting}} · {{.Waiting}} waiting{{end}}{{if .Exited}} · {{.Exited}} taken out{{end}}{{if .Missing}} · {{.Missing}} app missing{{end}}{{if .Override}} · {{.Override}} set by hand{{end}}</small></div>
+      {{if $.CanEdit}}<div class="a">
         <a href="/kiosk/policies/{{.ID}}/edit" class="cc-btn sm">Edit</a>
         <form method="POST" action="/kiosk/policies/{{.ID}}/delete" hx-confirm="Delete {{printf "%q" .Name}}? Its devices follow the next rule that covers them, or are unlocked."><button type="submit" class="cc-btn sm danger">Delete</button></form>
-        {{end}}
-      </div>
+      </div>{{end}}
     </div>
     {{end}}
-  </div>
-  {{else}}
-  <div class="cc-card"><div class="cc-empty tall">
-    <span class="i accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-    <b>No lock rules yet</b>
-    Lock a restaurant, a group or a device to one app. The rule keeps applying: devices that join are locked, devices that leave are released.
-    {{if .CanEdit}}<a href="/kiosk/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New lock rule</a>{{end}}
-  </div></div>
-  {{end}}
-
-  <div id="lock-uncovered"></div>
-    <div class="kr-else">
-    <span class="cc-sq"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-    <div style="flex:1"><b>Everything else</b> · {{.NotCovered}} device{{if ne .NotCovered 1}}s{{end}} no rule covers{{if .ByRole}} · {{.ByRole}} at a venue follow their role's app instead ({{.ByRoleLocked}} locked) — set on <a href="/lineup">Lineup</a>{{end}}{{if .ByHand}} · {{.ByHand}} locked by hand on their device page{{end}}</div>
-    {{if .CanEdit}}<a href="/kiosk/policies/new?target=all" class="cc-btn sm">Lock these too</a>{{end}}
+    <div class="lk-row lk-quiet">
+      <div class="t">{{.NotCovered}} device{{if ne .NotCovered 1}}s{{end}} no rule covers{{if .ByHand}} · {{.ByHand}} locked by hand on their page{{end}}</div>
+      {{if .CanEdit}}<div class="a"><a href="/kiosk/policies/new" class="cc-btn sm">+ Lock a group or a device</a><a href="/kiosk/policies/new?target=all" class="cc-btn sm">Lock every device</a></div>{{end}}
+    </div>
   </div>
 </div>
 
