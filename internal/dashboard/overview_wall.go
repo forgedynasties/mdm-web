@@ -42,7 +42,6 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		classOn  []db.ClassOnline
 		wallDevs []db.WallDevice
 		products []compRole
-		uptime   []db.RestaurantUptime
 		hygiene  db.FleetHygiene
 		hygErr   error
 		wg       sync.WaitGroup
@@ -55,7 +54,6 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, h.connectedSlice(), acc.hidesDPC()) })
 	run(func() { wallDevs, _ = h.db.FleetWall(ctx, acc.hidesDPC()) })
 	run(func() { products, _ = h.overviewProducts(ctx, acc.hidesDPC()) })
-	run(func() { uptime = h.serviceUptime(ctx) })
 	// The clean-up checklist is about the whole fleet list, so it is for viewers who
 	// see the whole fleet.
 	if !acc.hidesDevices() {
@@ -74,20 +72,6 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	data["AttentionTotal"] = attN
 	data["AttentionCritical"] = attCrit
 	data["ClassOnline"] = classOnlineRows(classOn)
-	// A scoped viewer sees the restaurants they have a device in.
-	var seeRestaurant func(db.RestaurantUptime) bool
-	if acc.hidesDevices() {
-		seeRestaurant = func(r db.RestaurantUptime) bool {
-			for _, id := range r.Devices {
-				if acc.visible(id) {
-					return true
-				}
-			}
-			return false
-		}
-	}
-	upRows := uptimeRows(uptime, seeRestaurant)
-	data["Uptime"] = upRows
 	if hygErr == nil {
 		data["Hygiene"] = hygieneRows(hygiene)
 	}

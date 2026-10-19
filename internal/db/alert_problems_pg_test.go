@@ -128,9 +128,6 @@ func TestProblemQueriesAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = d.IsReleaseCrash(ctx, "x — y")
-	if _, err := d.ServiceUptime(ctx, 7, time.Now()); err != nil {
-		t.Fatal(err)
-	}
 	lc, err := d.CreateCommand(ctx, "collect_logs", "", []byte(`{"cmd":"x"}`), "devices", []uuid.UUID{id})
 	if err != nil {
 		t.Fatal(err)

@@ -54,8 +54,6 @@ func TestOverviewNewRenders(t *testing.T) {
 			HasDelta: true, Delta: -5, MoreChecks: 2, Partly: 1,
 			Top: []compWidgetCheck{{ID: "wireless_adb_off", Name: "Wireless adb off", Line: "all at Pho 88 · auto-fix on", Count: 1, Href: "/compliance?tab=devices&show=failing&check=wireless_adb_off"}}},
 		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1,
-		"Uptime": uptimeRows([]db.RestaurantUptime{{ID: rid, Name: "Pho 88", Days: []db.UptimeDay{
-			{Date: now.AddDate(0, 0, -1), Expected: 100, Up: 97, DownDevice: 1}, {Date: now, Expected: 0}}}}, nil),
 		"Hygiene": hygieneRows(db.FleetHygiene{Fleet: 181, Silent: 86, PlacedSilent: 10, PlacedSilentAt: []string{"Huanchaco Peruvian 6", "Flights Vegas 4"},
 			DeadPad: 9, Builds: 19, OddBuilds: []string{"A15-v1.62-user", "old-key", "clean-build", "4.0.87"}}),
 	}
@@ -81,8 +79,6 @@ func TestOverviewNewRenders(t *testing.T) {
 		`id="ovd-intro"`,           // the first-visit intro
 		`class="ov3-hero is-warn"`, // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,
-		`<span class="p warn">97.0%</span>`, // service uptime, one restaurant
-		`97.0% up · 1 device missed time`,
 		`<b>86</b> devices silent 14&#43; days<small>48% of the fleet, none in a restaurant.`, // clean-up checklist
 		`href="/devices?hygiene=placed-silent"`,
 		`4 are not a release: A15-v1.62-user, old-key, clean-build, …<`,
