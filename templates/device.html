@@ -841,15 +841,38 @@
 .chart-card .vt-panel{padding-top:0}
 .chart-card .vt-panel+.vt-panel{border-top:0}
 .chart-card .vt-panel .chart-wrap--tall{height:260px;padding:10px 14px 2px 6px}
-.vt-navw{padding:6px 16px 12px;border-top:1px solid var(--border-soft)}
-.vt-nav{position:relative;height:34px;border-radius:8px;background:var(--surface2);overflow:hidden;cursor:pointer;touch-action:none;color:var(--text-faint);user-select:none}
+/* Navigator (N1, picked 19 Oct 2026). The strip keeps its overflow visible so the span
+   label and the handles can sit on its edges; the drawing is clipped by .vt-nav-bg. */
+.vt-navw{padding:16px 16px 10px;border-top:1px solid var(--border-soft)}
+.vt-nav{position:relative;height:56px;cursor:pointer;touch-action:none;user-select:none}
+.vt-nav-bg{position:absolute;inset:0;border-radius:8px;background:var(--surface2);overflow:hidden;color:color-mix(in srgb,var(--muted) 34%,transparent)}
 .vt-nav svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.vt-win{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--accent) 16%,transparent);border:1.5px solid var(--accent);border-radius:7px;cursor:grab;min-width:6px}
+#vt-nav-area{fill:color-mix(in srgb,var(--accent-2) 16%,transparent);stroke:none}
+#vt-nav-line{fill:none;stroke:var(--accent-2);stroke-width:1.5;vector-effect:non-scaling-stroke}
+#vt-nav-chg rect{fill:color-mix(in srgb,var(--ok) 16%,transparent)}
+#vt-nav-off rect{fill:url(#vt-nav-hatch)}
+#vt-nav-mid line{stroke:var(--border);stroke-width:1;vector-effect:non-scaling-stroke}
+.vt-dim{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--surface) 58%,transparent);pointer-events:none}
+.vt-dim.l{left:0}.vt-dim.r{right:0}
+.vt-win{position:absolute;top:0;bottom:0;border:2px solid var(--accent);border-radius:8px;cursor:grab;min-width:6px;box-sizing:border-box}
 .vt-nav.drag .vt-win{cursor:grabbing}
-.vt-h{position:absolute;top:0;bottom:0;width:12px;cursor:ew-resize}
-.vt-h.l{left:-6px}.vt-h.r{right:-6px}
-.vt-h::after{content:"";position:absolute;top:9px;bottom:9px;left:4px;width:4px;border-radius:2px;background:var(--accent)}
-.vt-navcap{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-faint);padding-top:4px;font-variant-numeric:tabular-nums}
+.vt-span{position:absolute;left:50%;top:-11px;transform:translateX(-50%);font-size:10.5px;font-weight:700;line-height:1;color:var(--accent-text);background:var(--surface);border:1px solid var(--accent-edge);border-radius:99px;padding:3px 7px;white-space:nowrap;pointer-events:none;font-variant-numeric:tabular-nums}
+.vt-h{position:absolute;top:0;bottom:0;width:14px;cursor:ew-resize;z-index:1}
+.vt-h.l{left:-8px}.vt-h.r{right:-8px}
+.vt-h::after{content:"";position:absolute;top:50%;left:3px;width:8px;height:22px;margin-top:-11px;border-radius:3px;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
+.vt-days{position:relative;height:16px;margin-top:3px;font-size:10.5px;color:var(--text-faint);font-variant-numeric:tabular-nums;overflow:hidden}
+.vt-days span{position:absolute;top:0;padding-left:4px;white-space:nowrap}
+.vt-days span.on{color:var(--text);font-weight:650}
+.vt-navfoot{display:flex;align-items:center;gap:10px;margin-top:4px}
+.vt-navlg{display:flex;gap:12px;font-size:11px;color:var(--muted)}
+.vt-navlg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.vt-navlg i.c{background:color-mix(in srgb,var(--ok) 40%,transparent)}
+.vt-navlg i.o{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--muted) 45%,transparent) 0 2px,transparent 2px 4px)}
+.vt-pre{display:inline-flex;margin-left:auto;border:1px solid var(--border);border-radius:99px;overflow:hidden}
+.vt-pre button{font:inherit;font-size:11.5px;font-weight:650;padding:3px 10px;border:0;border-right:1px solid var(--border);background:none;color:var(--text-2);cursor:pointer}
+.vt-pre button:last-child{border-right:0}
+.vt-pre button:hover{background:var(--hover)}
+.vt-pre button.on{background:var(--accent-soft);color:var(--accent-text)}
 @media (max-width:720px){.chart-card .vt-head{flex-wrap:wrap}.chart-card .vt-head .gcontrols.vt-tools{flex-basis:100%;justify-content:flex-start}}
 </style>
 <div class="card chart-card">
@@ -882,6 +905,7 @@
           <button type="button" class="dur-btn vt-mi cc-mi" data-ms="86400000">Last 24 hours</button>
           <button type="button" class="dur-btn vt-mi cc-mi" data-ms="172800000">Last 48 hours</button>
           <button type="button" class="dur-btn vt-mi cc-mi" data-ms="604800000">Last 7 days</button>
+          <button type="button" class="dur-btn vt-mi cc-mi" data-ms="2592000000">Last 30 days</button>
           <button type="button" class="dur-btn vt-mi cc-mi" id="custom-range-btn">Custom dates…</button>
           <div class="vt-sep cc-msep"></div>
           <div class="vt-mh cc-msec">Time zone</div>
@@ -1009,14 +1033,32 @@
     {{end}}
   </aside>
   </div><!-- /chart-split -->
-  {{/* Navigator: the last days at a glance with the window on screen drawn on it. Drag the
-       window to move through time, pull an edge to widen or narrow it. */}}
+  {{/* Navigator (N1, picked 19 Oct 2026): a mini chart of at least the last week — the
+       metric on screen as an area, charging shaded, offline hatched, a line at each
+       midnight with the day under it — and the window on screen drawn over it with its
+       span. Drag the window, pull an edge, click to jump, or pick a preset. */}}
   <div class="vt-navw">
-    <div class="vt-nav" id="vt-nav" title="Drag to move the window · pull an edge to zoom">
-      <svg viewBox="0 0 1000 34" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="vt-nav-clip"><rect id="vt-nav-clip-r" x="0" y="0" width="1000" height="34"/></clipPath></defs><path id="vt-nav-line" d="" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" clip-path="url(#vt-nav-clip)"/></svg>
-      <div class="vt-win" id="vt-nav-win"><span class="vt-h l" data-edge="l"></span><span class="vt-h r" data-edge="r"></span></div>
+    <div class="vt-nav" id="vt-nav" title="Drag to move the window · pull an edge to widen or narrow it · click to jump there">
+      <div class="vt-nav-bg">
+        <svg viewBox="0 0 1000 56" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <clipPath id="vt-nav-clip"><rect id="vt-nav-clip-r" x="0" y="0" width="1000" height="56"/></clipPath>
+            <pattern id="vt-nav-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.5" height="6" fill="currentColor"/></pattern>
+          </defs>
+          <g id="vt-nav-chg"></g><g id="vt-nav-off"></g><g id="vt-nav-mid"></g>
+          <g clip-path="url(#vt-nav-clip)"><path id="vt-nav-area" d=""/><path id="vt-nav-line" d=""/></g>
+        </svg>
+        <div class="vt-dim l" id="vt-nav-dl"></div><div class="vt-dim r" id="vt-nav-dr"></div>
+      </div>
+      <div class="vt-win" id="vt-nav-win"><span class="vt-span" id="vt-nav-span"></span><span class="vt-h l" data-edge="l"></span><span class="vt-h r" data-edge="r"></span></div>
     </div>
-    <div class="vt-navcap"><span id="vt-nav-from"></span><span id="vt-nav-to"></span></div>
+    <div class="vt-days" id="vt-nav-days" aria-hidden="true"></div>
+    <div class="vt-navfoot">
+      <span class="vt-navlg">{{if .ShowBattery}}<span><i class="c"></i>charging</span>{{end}}<span><i class="o"></i>offline</span></span>
+      <span class="vt-pre" role="group" aria-label="Show the last">
+        <button type="button" data-ms="21600000">6 h</button><button type="button" data-ms="86400000">24 h</button><button type="button" data-ms="604800000">7 d</button><button type="button" data-ms="2592000000">30 d</button>
+      </span>
+    </div>
   </div>
 </div>
 

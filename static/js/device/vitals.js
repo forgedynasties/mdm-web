@@ -893,7 +893,7 @@ function mdmBootCharts() {
 
   function updateCharts() {
     const { pts } = filterWindow(srcBattery());
-    const labels = {3600000: "Last hour", 21600000: "Last 6 hours", 43200000: "Last 12 hours", 86400000: "Last 24 hours", 172800000: "Last 48 hours", 604800000: "Last 7 days"};
+    const labels = {3600000: "Last hour", 21600000: "Last 6 hours", 43200000: "Last 12 hours", 86400000: "Last 24 hours", 172800000: "Last 48 hours", 604800000: "Last 7 days", 2592000000: "Last 30 days"};
     // The window label renders on the graph (#chart-window-label), not in the control
     // row, so a wide custom/shifted range can't wrap the toolbar. The old #chart-info
     // slot is kept empty to hold the row's layout stable.
@@ -2407,23 +2407,86 @@ function mdmBootCharts() {
     return f === "battery" ? "battery" : f === "ram" ? "ram" : "temp";
   }
 
-  // ── Navigator strip (static/device-graph-demos.html, T4) ─────────────────────
-  // Under the charts: the last two days (or more, around an older window) as one thin
-  // line, with the window on screen drawn over it. Drag the window to move through
-  // time, pull an edge to widen or narrow it, click elsewhere to jump there. It replaces
-  // the ‹ › and − + buttons; drag-to-zoom on the charts still works.
+  // ── Navigator (N1, picked 19 Oct 2026) ───────────────────────────────────────
+  // Under the charts: a mini chart of at least the last week (all history if the device
+  // is younger; more around an older window) — the metric on screen as an area, charging
+  // shaded, offline hatched, a line at each midnight with the day under it — and the
+  // window on screen drawn over it with its span. Drag the window to move through time,
+  // pull an edge to widen or narrow it, click elsewhere to jump there, or pick a preset.
+  // The strip draws from its own low-resolution fetch of its span (the live arrays only
+  // reach back two days), with the live tail appended so it stays current.
   (function () {
-    var nav = document.getElementById('vt-nav'), win = document.getElementById('vt-nav-win'), line = document.getElementById('vt-nav-line');
+    var nav = document.getElementById('vt-nav'), win = document.getElementById('vt-nav-win');
     if (!nav || !win) return;
+    var lineEl = document.getElementById('vt-nav-line'), areaEl = document.getElementById('vt-nav-area');
+    var chgG = document.getElementById('vt-nav-chg'), offG = document.getElementById('vt-nav-off'), midG = document.getElementById('vt-nav-mid');
+    var dimL = document.getElementById('vt-nav-dl'), dimR = document.getElementById('vt-nav-dr');
+    var spanEl = document.getElementById('vt-nav-span'), daysEl = document.getElementById('vt-nav-days');
+    var presets = [].slice.call(document.querySelectorAll('.vt-pre button[data-ms]'));
+    var DAY = 86400e3, H = 56, MIN_SPAN = 7 * DAY;
     var navA = 0, navB = 1, curA = 0, curB = 1, drag = null, navFloor = CHART_MIN_X;
+    var SVGNS = 'http://www.w3.org/2000/svg';
+
+    function spanText(ms) {
+      if (ms < 90 * 60e3) return Math.max(1, Math.round(ms / 60e3)) + ' min';
+      if (ms < 48 * 3600e3) return Math.round(ms / 3600e3) + ' h';
+      var d = ms / DAY;
+      return (d < 10 && Math.abs(d - Math.round(d)) > 0.05 ? d.toFixed(1) : Math.round(d)) + ' d';
+    }
     function place(a, b) {
       var span = (navB - navA) || 1;
       var l = Math.max(0, (a - navA) / span * 100), r = Math.min(100, (b - navA) / span * 100);
       win.style.left = l + '%';
       win.style.width = Math.max(0.8, r - l) + '%';
+      if (dimL) dimL.style.width = l + '%';
+      if (dimR) dimR.style.width = Math.max(0, 100 - r) + '%';
+      if (spanEl) spanEl.textContent = spanText(b - a);
+      // The preset whose length the window has (within 3%) is lit.
+      presets.forEach(function (p) {
+        var ms = +p.dataset.ms;
+        p.classList.toggle('on', Math.abs((b - a) - ms) / ms < 0.03);
+      });
     }
-    // The line draws itself in: a clip sweeps out to the points that just arrived (older
-    // history loads in chunks), rather than the line jumping a chunk at a time.
+    // Presets reuse the range menu's own buttons, so the label, the active item and the
+    // history loading are exactly what picking it from the menu does.
+    presets.forEach(function (p) {
+      p.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var item = document.querySelector('#vt-range-menu .dur-btn[data-ms="' + p.dataset.ms + '"]');
+        if (item) item.click();
+      });
+      p.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+    });
+
+    // The strip's own data: one low-resolution fetch of its span, refetched only when
+    // the span moves earlier than what it holds. Points newer than the fetch come from
+    // the live arrays.
+    var navData = null, navFrom = 0, navUntil = 0, navCtl = null;
+    function needFetch() { return !navData || navA < navFrom - 60e3; }
+    function fetchNav() {
+      if (navCtl) return;
+      var from = Math.floor(navA / 600e3) * 600e3, until = Date.now();
+      navCtl = new AbortController();
+      fetch('/devices/' + DV.serial + '/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin', signal: navCtl.signal })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d) { navData = d; navFrom = from; navUntil = until; } })
+        .catch(function () {})
+        .then(function () { navCtl = null; window.vtNavSync(); });
+    }
+    function seriesFor(tab) {
+      var live = tab === 'ram' ? allRam : tab === 'temp' ? allTemp : allBattery;
+      if (!navData) return live;
+      var base = (tab === 'ram' ? navData.ram : tab === 'temp' ? navData.temp : navData.battery) || [];
+      var tail = live.filter(function (p) { return p.x > navUntil; });
+      return base.concat(tail);
+    }
+    function chargeSpans() {
+      var spans = (navData && navData.charge) ? navData.charge.slice() : [];
+      (allCharge || []).forEach(function (c) { if (!navData || c.from > navUntil) spans.push(c); });
+      return spans;
+    }
+
+    // The line draws itself in: a clip sweeps out to the points that just arrived.
     var clipR = document.getElementById('vt-nav-clip-r'), shown = { l: 0, r: 0, n: 0, tab: null }, anim = 0;
     function setClip(l, r) { if (clipR) { clipR.setAttribute('x', l.toFixed(1)); clipR.setAttribute('width', Math.max(0, r - l).toFixed(1)); } }
     function navReveal(l, r, n) {
@@ -2432,14 +2495,43 @@ function mdmBootCharts() {
       var from = fresh ? { l: l, r: l } : { l: shown.l, r: shown.r };
       shown.tab = activeTab; shown.n = n; shown.l = l; shown.r = r;
       cancelAnimationFrame(anim);
-      if (!fresh && !grew) { setClip(l, r + 2); return; }
-      var t0 = performance.now(), dur = fresh ? 1400 : 900;
+      if (!fresh && !grew) { setClip(Math.min(l, from.l), r + 2); return; }
+      var t0 = performance.now(), dur = fresh ? 1200 : 800;
       (function step(now) {
         var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
-        setClip(from.l + (l - from.l) * e, from.r + (r + 2 - from.r) * e);
+        setClip(Math.min(l, from.l + (l - from.l) * e), from.r + (r + 2 - from.r) * e);
         if (k < 1) anim = requestAnimationFrame(step);
       })(t0);
     }
+    function rect(g, x0, x1, cls) {
+      var el = document.createElementNS(SVGNS, 'rect');
+      el.setAttribute('x', x0.toFixed(1)); el.setAttribute('y', '0');
+      el.setAttribute('width', Math.max(0.5, x1 - x0).toFixed(1)); el.setAttribute('height', String(H));
+      g.appendChild(el);
+    }
+    function X(t) { return (t - navA) / (navB - navA) * 1000; }
+    // Local midnights in the chart's time zone (browser, UTC or the device's), found by
+    // asking the formatter which whole hours read 00.
+    var hourFmt = null, hourFmtMode = null;
+    function midnights(a, b) {
+      if (hourFmtMode !== window.TZ_MODE) {
+        hourFmt = new Intl.DateTimeFormat('en-GB', tzArg({ hour: '2-digit', hourCycle: 'h23' }));
+        hourFmtMode = window.TZ_MODE;
+      }
+      var out = [];
+      for (var t = Math.ceil(a / 3600e3) * 3600e3; t <= b; t += 3600e3) {
+        if (hourFmt.format(new Date(t)) === '00') out.push(t);
+      }
+      return out;
+    }
+    // "Mon 13" whatever order the locale would put the parts in.
+    function dayLabel(t) {
+      var parts = new Intl.DateTimeFormat(undefined, tzArg({ weekday: 'short', day: 'numeric' })).formatToParts(new Date(t));
+      var wd = '', dd = '';
+      parts.forEach(function (q) { if (q.type === 'weekday') wd = q.value; else if (q.type === 'day') dd = q.value; });
+      return (wd + ' ' + dd).trim();
+    }
+
     window.vtNavSync = function () {
       var c = vtStack()[0]; if (!c) return;
       var a = c.options.scales.x.min, b = c.options.scales.x.max;
@@ -2447,28 +2539,71 @@ function mdmBootCharts() {
       curA = a; curB = b;
       var now = Date.now(), w = curB - curA;
       navB = Math.max(now, curB);
-      navA = Math.min(curA - w * 0.5, navB - 48 * 3600e3);
+      navA = Math.min(curA - w * 0.25, navB - MIN_SPAN);
       if (navA < CHART_MIN_X) navA = Math.min(CHART_MIN_X, curA);
+      if (navB - navA < 3600e3) navA = navB - 3600e3;
       navFloor = Math.min(CHART_MIN_X, curA);
-      // The strip draws the metric on screen: battery and RAM on 0–100, temperature
-      // scaled to what it covers.
-      var src = activeTab === 'ram' ? allRam : activeTab === 'temp' ? allTemp : allBattery;
-      var pct = activeTab !== 'temp';
+      if (needFetch()) fetchNav();
+
+      // The metric on screen: battery and RAM on 0–100, temperature scaled to its range.
+      var src = seriesFor(activeTab), pct = activeTab !== 'temp';
       var pts = src.filter(function (p) { return p.y != null && p.x >= navA && p.x <= navB; });
       var lo = pct ? 0 : Infinity, hi = pct ? 100 : -Infinity;
       if (!pct) pts.forEach(function (p) { lo = Math.min(lo, p.y); hi = Math.max(hi, p.y); });
       if (!(hi - lo >= 1)) hi = lo + 1;
-      var step = Math.max(1, Math.floor(pts.length / 300)), d = '';
-      for (var i = 0; i < pts.length; i += step) {
-        var x = (pts[i].x - navA) / (navB - navA) * 1000, y = 31 - (pts[i].y - lo) / (hi - lo) * 28;
-        d += (d ? ' L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1);
+      var thr = gapThresholdFor(pts);
+      var step = Math.max(1, Math.floor(pts.length / 400)), line = '', area = '', run = [];
+      function flush() {
+        if (!run.length) return;
+        line += 'M' + run.map(function (q) { return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' L');
+        area += 'M' + run[0][0].toFixed(1) + ',' + H + ' L' + run.map(function (q) { return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' L') + ' L' + run[run.length - 1][0].toFixed(1) + ',' + H + ' Z';
+        run = [];
       }
-      if (line) line.setAttribute('d', d);
-      if (pts.length) navReveal((pts[0].x - navA) / (navB - navA) * 1000, (pts[pts.length - 1].x - navA) / (navB - navA) * 1000, pts.length);
+      var offs = [], prev = null;
+      for (var i = 0; i < pts.length; i += step) {
+        var p = pts[i];
+        if (prev && p.x - prev.x > thr) { flush(); offs.push([prev.x, p.x]); }
+        run.push([X(p.x), 3 + (1 - (p.y - lo) / (hi - lo)) * (H - 6)]);
+        prev = p;
+      }
+      flush();
+      // A device silent now: hatched from its last point to now.
+      if (prev && !deviceOnline && now - prev.x > thr) offs.push([prev.x, now]);
+      if (lineEl) lineEl.setAttribute('d', line);
+      if (areaEl) areaEl.setAttribute('d', area);
+
+      chgG.textContent = ''; offG.textContent = ''; midG.textContent = '';
+      if (activeTab === 'battery' || !activeTab) {
+        chargeSpans().forEach(function (s) {
+          if (s.c !== true || s.to < navA || s.from > navB) return;
+          rect(chgG, X(Math.max(s.from, navA)), X(Math.min(s.to, navB)));
+        });
+      }
+      offs.forEach(function (o) { rect(offG, X(Math.max(o[0], navA)), X(Math.min(o[1], navB))); });
+
+      // Midnights and the day names under them; a long span labels every few days.
+      var mids = midnights(navA, navB), every = Math.max(1, Math.ceil(mids.length / 10)), html = '';
+      var winMid = (curA + curB) / 2;
+      mids.forEach(function (t) {
+        var el = document.createElementNS(SVGNS, 'line'), x = X(t).toFixed(1);
+        el.setAttribute('x1', x); el.setAttribute('x2', x); el.setAttribute('y1', '0'); el.setAttribute('y2', String(H));
+        midG.appendChild(el);
+      });
+      var starts = [navA].concat(mids);
+      starts.forEach(function (t, k) {
+        var end = k + 1 < starts.length ? starts[k + 1] : navB;
+        var left = X(t) / 10;
+        // A sliver of a day at the left edge gets no label; nor does one squeezed at the right.
+        if ((end - t) < DAY * 0.35 && k === 0) return;
+        if (left > 94) return;
+        if (k > 0 && (k - 1) % every !== 0) return;
+        var on = winMid >= t && winMid < end;
+        html += '<span' + (on ? ' class="on"' : '') + ' style="left:' + left.toFixed(2) + '%">' + dayLabel(t) + '</span>';
+      });
+      if (daysEl) daysEl.innerHTML = html;
+
+      if (pts.length) navReveal(X(pts[0].x), X(pts[pts.length - 1].x), pts.length);
       if (!drag) place(curA, curB);
-      var f = document.getElementById('vt-nav-from'), t = document.getElementById('vt-nav-to');
-      if (f) f.textContent = fmtDate(navA);
-      if (t) t.textContent = navB - now < 60000 ? 'now' : fmtDate(navB);
     };
     function move(e) {
       if (!drag) return;
