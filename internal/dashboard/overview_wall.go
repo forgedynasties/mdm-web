@@ -386,9 +386,9 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	for _, rs := range rests {
 		names[rs.ID] = rs.Name
 	}
+	// The wall itself is no longer drawn (Venues widget, V1): it still places the map's dots.
 	wall := buildWall(wallDevs, h.hub.ConnectedIDsForDisplay(), active, groups, names, time.Now())
-	data["Wall"] = wall
-	data["WallTotal"] = len(wallDevs)
+	data["Venues"] = h.overviewVenueData(r, wallDevs)
 	data["MapData"], data["MapDots"] = buildMap(wall, rests, pts, groups, upRows)
 	data["MapsEmbedKey"] = h.mapsEmbedKey
 }

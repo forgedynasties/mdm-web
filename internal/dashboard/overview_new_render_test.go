@@ -59,7 +59,10 @@ func TestOverviewNewRenders(t *testing.T) {
 		"Products": []compRole{{"t7", "Tableside AI", 2}, {"", "Unassigned", 2}},
 		"SitesOK":  0, "SitesWarn": 0, "SitesBad": 1, "Crashes24h": 0, "CrashDevices24h": 0,
 		"AttentionRows": att, "AttentionTotal": attN, "AttentionCritical": attCrit,
-		"Wall": wall, "WallTotal": len(devs), "MapData": mapJS, "MapDots": dots, "MapsEmbedKey": "k",
+		"Venues": overviewVenues{Rows: []venueRow{{ID: rid.String(), Name: "Pho 88", Href: "/restaurants/" + rid.String(), Devices: 3, Online: 2, Offline: 1,
+			Pips: []string{"off", "on", "on"}, Class: "danger", NeedsLook: true, HasH: true, H: db.GroupHealth{Score: 42, OpenWarning: 1}}},
+			Total: 1, NeedLook: 1, Unplaced: 1},
+		"MapData": mapJS, "MapDots": dots, "MapsEmbedKey": "k",
 		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1,
 		"Uptime": uptimeRows([]db.RestaurantUptime{{ID: rid, Name: "Pho 88", Days: []db.UptimeDay{
 			{Date: now.AddDate(0, 0, -1), Expected: 100, Up: 97, DownDevice: 1}, {Date: now, Expected: 0}}}}, nil),
@@ -72,15 +75,18 @@ func TestOverviewNewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`href="/devices/T7-0002" class="off shape-sq"`,       // offline square, T7 is battery-powered
-		`href="/devices/K22-0003" class="warn shape-circle"`, // alerting square, kiosk is mains-powered
-		`Menu board · Not deployed`,                          // loose device, grouped by type
-		`id="ovd-map-data"`,                                  // map data shipped
-		`"name":"Pho 88"`,                                    // restaurant on the map
-		`"silent":["T7-0002"]`,                               // the map card lists who is silent
+		`<h2>Venues</h2>`, // the Venues widget (V1)
+		`<b>1 needs a look</b>`,
+		`2 of 3 online · 1 offline · 1 warning`,
+		`<i class="off"></i><i class="on"></i><i class="on"></i>`,
+		`<span class="ovv-sc s-danger">42</span>`,
+		`1 device waiting for a site`, // devices at no venue
+		`id="ovd-map-data"`,           // map data shipped
+		`"name":"Pho 88"`,             // restaurant on the map
+		`"silent":["T7-0002"]`,        // the map card lists who is silent
 		`"uptime":["ok","warn"]`,
-		`id="ovd-intro"`,                             // the first-visit intro
-		`class="ov3-hero is-warn"`,                   // the classic hero: score, right now, composition
+		`id="ovd-intro"`,           // the first-visit intro
+		`class="ov3-hero is-warn"`, // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,
 		`<span class="p warn">97.0%</span>`, // service uptime, one restaurant
 		`97.0% up · 1 device missed time`,

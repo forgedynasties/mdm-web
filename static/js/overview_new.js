@@ -19,45 +19,6 @@
   if (!isNaN(d)) t.textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   if (window.mdmTickRel) window.mdmTickRel();
 })();
-
-// Wall tooltips: one floating label, instead of a title per square.
-(function () {
-  var wall = document.querySelector('.ovd-wall');
-  if (!wall) return;
-  // The label lives on <body>, outside the page that navigation swaps. Clicking a square
-  // left it showing on the next page and in the history snapshot, so coming back added a
-  // second one next to the stuck one: start from none, and remove it on the way out.
-  var old = document.getElementById('ovd-tip');
-  if (old) old.remove();
-  var tip = document.createElement('div');
-  tip.id = 'ovd-tip';
-  document.body.appendChild(tip);
-  function hide() { tip.classList.remove('on'); }
-  // Leaving the page (a boosted link saves a history snapshot first) removes it; any
-  // other swap, like the cards refreshing, only hides it.
-  function gone() {
-    tip.remove();
-    document.removeEventListener('htmx:beforeSwap', hide);
-    document.removeEventListener('htmx:beforeHistorySave', gone);
-    window.removeEventListener('pagehide', gone);
-    window.removeEventListener('scroll', hide);
-  }
-  wall.addEventListener('click', hide);
-  window.addEventListener('scroll', hide, { passive: true });
-  document.addEventListener('htmx:beforeSwap', hide);
-  document.addEventListener('htmx:beforeHistorySave', gone);
-  window.addEventListener('pagehide', gone);
-  wall.addEventListener('mousemove', function (e) {
-    var t = e.target.closest('[data-tip]');
-    if (!t) { tip.classList.remove('on'); return; }
-    tip.textContent = t.getAttribute('data-tip');
-    var x = Math.min(e.clientX + 12, window.innerWidth - tip.offsetWidth - 8);
-    tip.style.left = x + 'px'; tip.style.top = (e.clientY + 16) + 'px';
-    tip.classList.add('on');
-  });
-  wall.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
-})();
-
 // Restaurant map: a circle per restaurant, sized by devices, coloured by state.
 window.ovdInitMap = function () {
   var el = document.getElementById('ovd-map'), raw = document.getElementById('ovd-map-data');
