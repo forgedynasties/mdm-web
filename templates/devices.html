@@ -382,7 +382,13 @@ a.fleet-rail-item{min-height:40px}
 .fl-mfind input{flex:1;min-width:0;border:0;background:none;outline:none;box-shadow:none;font:inherit;font-size:13px;color:var(--text)}
 .fl-cur{font-weight:600;color:var(--accent-text);max-width:120px;overflow:hidden;text-overflow:ellipsis}
 .ff-n{font-family:var(--mono);font-size:11.5px}
-/* Filter chips (F2, picked 16 Oct): what is set, then "+ Filter". */
+/* Filter chips: the quick chips (F3, picked 19 Oct), what else is set, then "More". */
+.fl-quick{display:contents}
+.fq{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.fq:hover{border-color:var(--rule-2,var(--border));color:var(--text)}
+.fq.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.fq b{font-weight:700}
+.fq-car{width:12px;height:12px;flex:none;opacity:.7}
 .fl-fchips{position:relative;z-index:39;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px}
 .fl-chip-list{display:contents}
 .fl-fchips .fchip{padding-left:0}
@@ -631,13 +637,16 @@ a.fleet-rail-item{min-height:40px}
   </div>
 </div>
 
-{{/* ── Filters (F2, picked 16 Oct): only what is set shows, as chips; "+ Filter" opens one
-     menu — a field, then its values with how many devices each would show. Rendered from
-     the URL (ffRender), so the query string, saved views and pasted links work as they
-     always did. The class filter is the product tabs' job and has no chip here. ── */}}
+{{/* ── Filters (F3, picked 19 Oct): the everyday filters are quick chips — Online,
+     Offline, Release ▾, Lock ▾, Low battery, Waiting for a site — and "More" opens the
+     menu for the rest (a field, then its values with how many devices each would show).
+     Chips for a "More" filter that is set follow the quick ones. Rendered from the URL
+     (ffRender), so pasted links work as they always did. The class filter is the product
+     tabs' job and has no chip here. ── */}}
 <div class="fl-fchips" id="fl-fchips">
+  <span class="fl-quick" id="fl-quick" role="group" aria-label="Quick filters"></span>
   <span class="fl-chip-list" id="fl-chip-list"></span>
-  <button type="button" class="fl-fadd" id="ff-add" onclick="ffOpen(event, this)" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Filter</button>
+  <button type="button" class="fl-fadd" id="ff-add" onclick="ffOpen(event, this)" aria-haspopup="menu" aria-expanded="false">More<svg class="fq-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
   <button type="button" class="fchip-clear" id="ff-clear" hidden onclick="clearFilters()">Clear</button>
   <div class="cc-menu fl-menu fl-ffmenu" id="ff-menu" role="menu" hidden>
     <div class="fl-mpane" data-pane="fields">
@@ -733,15 +742,50 @@ function ffValLabel(f, v) {
   var hit = (f.vals || []).filter(function (x) { return x[0] === v; })[0];
   return hit ? hit[1] : v;
 }
-// Chips: one per filter set in the URL, in the menu's order. The chip opens that field's
-// values; its ✕ clears it.
+// Quick chips (F3): a toggle sets its value or clears it; a ▾ chip opens its field's
+// values. They are drawn from the URL like everything else here.
+window.FLEET_QUICK = [
+  {k: 'status', v: 'online', label: 'Online'},
+  {k: 'status', v: 'offline', label: 'Offline'},
+  {k: 'build', menu: true, label: 'Release'},
+  {k: 'kiosk', menu: true, label: 'Lock'},
+  {k: 'battery', v: 'low', label: 'Low battery'},
+  {k: 'onboarding', v: 'pending', label: 'Waiting for a site'}
+];
+// Fields the quick chips own outright: "More" does not list them, and no extra chip is drawn.
+window.FLEET_QUICK_KEYS = ['status', 'build', 'kiosk'];
+function ffQuick(p) {
+  var box = document.getElementById('fl-quick'); if (!box) return 0;
+  var html = '', n = 0;
+  window.FLEET_QUICK.forEach(function (q) {
+    var cur = p.get(q.k) || '';
+    if (q.menu) {
+      var f = ffField(q.k); if (!f) return;
+      if (cur) n++;
+      html += '<button type="button" class="fq' + (cur ? ' on' : '') + '" data-k="' + q.k + '" aria-haspopup="menu" onclick="ffOpen(event, this, \'' + q.k + '\')">'
+        + ffEsc(q.label) + (cur ? ': <b>' + ffEsc(ffValLabel(f, cur)) + '</b>' : '')
+        + '<svg class="fq-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>';
+    } else {
+      var on = cur === q.v;
+      if (on) n++;
+      html += '<button type="button" class="fq' + (on ? ' on' : '') + '" aria-pressed="' + on + '" onclick="setFilter(\'' + q.k + '\', ' + (on ? "''" : "'" + q.v + "'") + ')">' + ffEsc(q.label) + '</button>';
+    }
+  });
+  box.innerHTML = html;
+  return n;
+}
+// Chips: one per "More" filter set in the URL, in the menu's order. The chip opens that
+// field's values; its ✕ clears it.
 function ffRender() {
   var list = document.getElementById('fl-chip-list'); if (!list) return;
-  var p = new URLSearchParams(location.search), html = '', n = 0;
+  var p = new URLSearchParams(location.search), html = '', n = ffQuick(p);
   var hy = p.get('hygiene');
   if (hy) { n++; html += '<span class="fchip"><span class="fchip-b is-static"><span class="k">Clean up</span> ' + ffEsc(window.FLEET_HYGIENE || hy) + '</span><button type="button" class="x" onclick="setFilter(\'hygiene\', \'\')" aria-label="Clear clean-up filter">×</button></span>'; }
   (window.FLEET_FIELDS || []).forEach(function (f) {
     var v = p.get(f.k); if (!v) return;
+    // Shown by its quick chip already.
+    if (window.FLEET_QUICK_KEYS.indexOf(f.k) >= 0) return;
+    if ((f.k === 'battery' && v === 'low') || (f.k === 'onboarding' && v === 'pending')) return;
     n++;
     html += '<span class="fchip" data-k="' + f.k + '"><button type="button" class="fchip-b" onclick="ffChip(event, this, \'' + f.k + '\')" title="Change ' + ffEsc(f.label.toLowerCase()) + '"><span class="k">' + ffEsc(f.label) + '</span> ' + ffEsc(ffValLabel(f, v)) + '</button>'
       + '<button type="button" class="x" onclick="setFilter(\'' + f.k + '\', \'\')" aria-label="Clear ' + ffEsc(f.label.toLowerCase()) + '">×</button></span>';

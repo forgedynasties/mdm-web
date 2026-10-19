@@ -282,7 +282,11 @@ function ffFind(q) {
   var p = new URLSearchParams(location.search), html = '', grp = '';
   q = (q || '').trim().toLowerCase();
   var fields = (window.FLEET_FIELDS || []).filter(function (f) { return f.vals && f.vals.length; });
+  var quick = window.FLEET_QUICK_KEYS || [];
   fields.forEach(function (f) {
+    // Status, Release and Lock have their own chips (F3); "More" lists the rest. Typed
+    // searches still reach their values below.
+    if (quick.indexOf(f.k) >= 0) return;
     if (q && f.label.toLowerCase().indexOf(q) < 0) return;
     if (!q && f.grp !== grp) { grp = f.grp; html += '<div class="cc-msec">' + ffEsc(grp) + '</div>'; }
     var cur = p.get(f.k);
