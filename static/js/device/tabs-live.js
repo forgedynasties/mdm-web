@@ -7,12 +7,13 @@
     document.querySelectorAll('.dd-panel').forEach(function (p) {
       p.hidden = p.getAttribute('data-dd-panel') !== name;
       if (!p.hidden && window.htmx) {
-        // Lazy panels (Alerts, History) fetch their content on first open; the
-        // "once" in their hx-trigger makes repeat opens a no-op.
-        var lazy = p.hasAttribute('hx-get') ? p : p.querySelector(':scope > [hx-trigger^="dd-show"]');
+        // Lazy parts (Health's compliance checklist and alert history, History) fetch
+        // their content on first open; the "once" in their hx-trigger makes repeat opens
+        // a no-op. A panel can hold more than one (Health holds two).
+        var lazies = p.hasAttribute('hx-get') ? [p] : [].slice.call(p.querySelectorAll(':scope > [hx-trigger^="dd-show"]'));
         // process() first: on a deep-link or remembered tab this runs before htmx has wired
         // the element up, and the trigger would go to nothing. It is a no-op when already done.
-        if (lazy) { window.htmx.process(lazy); window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); }
+        lazies.forEach(function (lazy) { window.htmx.process(lazy); window.htmx.trigger(lazy, 'dd-show'); if (window.watchLazy) window.watchLazy(p, lazy); });
       }
     });
     // Charts may have been laid out while hidden; nudge a resize when summary shows.
@@ -86,10 +87,11 @@
     // arrives to catch. Watch the panel instead: still on the placeholder after 20s
     // means it failed, whatever the reason.
     window.watchLazy = function (panel, el) {
-      if (panel.__lazyWatch) return;
-      panel.__lazyWatch = setTimeout(function () {
+      // Per lazy element, not per panel: Health holds two.
+      if (el.__lazyWatch) return;
+      el.__lazyWatch = setTimeout(function () {
         if (!panel.isConnected || !el.isConnected) return;
-        var txt = (panel.textContent || '').trim();
+        var txt = (el.textContent || '').trim();
         if (txt.indexOf('Loading') !== 0) return;
         lazyPanelError({ detail: { elt: el, xhr: null } });
       }, 20000);
@@ -103,6 +105,9 @@
     try { var qp = new URLSearchParams(location.search); if (qp.get('tab')) want = qp.get('tab'); } catch (e) {}
     // A device page always opens on Overview; only a link that names a tab opens another.
     if (want === 'queue' || want === 'history') want = 'activity'; // the two tabs merged
+    // T1 (19 Oct): Host app is in Apps; Alerts and Compliance are Health.
+    if (want === 'hostapp') want = 'apps';
+    if (want === 'alerts' || want === 'compliance') want = 'health';
     if (!want || want === 'summary') return;
     var btn = document.getElementById('dd-tab-' + want);
     if (btn && btn.hidden) return;   // About lives in Overview in the split view

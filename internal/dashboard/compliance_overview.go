@@ -395,7 +395,7 @@ func (h *Handler) DeviceCompliancePartial(w http.ResponseWriter, r *http.Request
 		}
 		what := x.Name
 		if d := x.Result.Detail; d != "" {
-			what += " (" + strings.ToLower(d[:1]) + d[1:] + ")"
+			what += " (" + lowerFirst(d) + ")"
 		}
 		if x.Result.Level == db.ComplianceRequired {
 			reqFails = append(reqFails, what)

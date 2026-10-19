@@ -543,12 +543,11 @@
 <div class="dd-tabrow">
 <div class="dd-tabs" role="tablist" aria-label="Device details">
   <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
-  {{if and .HostApp (not .IsOwner)}}<button class="dd-tab" id="dd-tab-hostapp" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-hostapp" data-dd-tab="hostapp" onclick="setDeviceTab('hostapp', this)">Host app</button>{{end}}
+  {{/* Device tabs (T1, picked 19 Oct 2026): Host app is inside Apps, and Alerts and Compliance are one tab, Health. */}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Apps</button>{{end}}
   {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)">Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
-  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-compliance" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-compliance" data-dd-tab="compliance" onclick="setDeviceTab('compliance', this)">Compliance</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-health" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-health" data-dd-tab="health" onclick="setDeviceTab('health', this)">Health{{if .Health.Count}} <span class="dd-tab-n warn" title="Open alerts and failing required checks">{{.Health.Count}}</span>{{end}}</button>{{end}}
   <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)">Location</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
 </div>
@@ -1308,12 +1307,9 @@ window.DEVICE_VITALS = {
 {{end}}
 
 {{if not .IsOwner}}
-{{/* Host app: its own tab (16 Oct), the card that first sat under the chart. */}}
-{{if and .HostApp (not .IsOwner)}}<section class="dd-panel" data-dd-panel="hostapp" id="dd-panel-hostapp" role="tabpanel" aria-labelledby="dd-tab-hostapp" tabindex="0" hidden>
-{{template "dd-host-app" .HostApp}}
-</section>{{end}}
-
 <section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
+  {{/* The host app leads the Apps tab (T1, 19 Oct; it was its own tab from 16 Oct). */}}
+  {{if .HostApp}}<div class="dd-apps-host">{{template "dd-host-app" .HostApp}}</div>{{end}}
   <div class="card">
     <div class="card-header cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
@@ -1447,19 +1443,49 @@ window.DEVICE_VITALS = {
 <script src="/static/js/device/queue-badge.js?v={{assetVer}}"></script>
 
 {{if not .IsOwner}}
-<section class="dd-panel" data-dd-panel="alerts" id="dd-panel-alerts" role="tabpanel" aria-labelledby="dd-tab-alerts" tabindex="0" hidden
-         hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
-  <div class="muted small" style="padding:26px;text-align:center;">Loading alerts…</div>
-</section><!-- /alerts -->
-{{end}}
-
-{{if not .IsOwner}}
-{{/* Compliance (15 Oct): this device against the compliance rules — every check with its
-     state, level, what was seen and since when. Replaces the Software and Security folds. */}}
-<section class="dd-panel" data-dd-panel="compliance" id="dd-panel-compliance" role="tabpanel" aria-labelledby="dd-tab-compliance" tabindex="0" hidden
-         hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
-  <div class="muted small" style="padding:26px;text-align:center;">Loading compliance…</div>
-</section><!-- /compliance -->
+{{/* Health (T1, picked 19 Oct 2026): what needs attention — open alerts and failing
+     compliance checks together, worst first — then the compliance checklist and the alert
+     history, each fetched on first open as the two tabs did before (device_health.go). */}}
+<section class="dd-panel" data-dd-panel="health" id="dd-panel-health" role="tabpanel" aria-labelledby="dd-tab-health" tabindex="0" hidden>
+  {{with .Health}}
+  <div class="card dh-attn">
+    <div class="card-header cc-ch"><span class="ic{{if .Count}} warn{{else}} ok{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h2>Needs attention</h2>{{if .Items}}<span class="muted small">{{len .Items}}</span>{{end}}</div>
+    {{if .Items}}
+    <ul class="dh-list">
+      {{range .Items}}
+      <li class="dh-row"><span class="dh-dot {{.Tone}}" aria-hidden="true"></span><span class="dh-t"><b>{{.Title}}</b>{{if .Note}}<small>{{.Note}}</small>{{end}}</span><span class="dh-m"><span class="dh-k">{{.Label}}</span>{{if not .Since.IsZero}}<span class="reltime" data-ts="{{.Since.Unix}}">{{timeSince .Since}}</span>{{end}}</span></li>
+      {{end}}
+    </ul>
+    {{else}}
+    <div class="dh-none">Nothing needs attention: no open alerts{{if .Scored}}, and it passes every compliance check it is held to{{end}}.</div>
+    {{end}}
+  </div>
+  {{end}}
+  <div class="dh-sec">Compliance{{if .Health.Scored}} <span class="muted">· {{.Health.Passing}} of {{.Health.Scored}} pass</span>{{end}}</div>
+  <div class="dh-lazy" hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+    <div class="muted small" style="padding:26px;text-align:center;">Loading compliance…</div>
+  </div>
+  <div class="dh-sec">Alerts</div>
+  <div class="dh-lazy" hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+    <div class="muted small" style="padding:26px;text-align:center;">Loading alerts…</div>
+  </div>
+</section><!-- /health -->
+<style>
+.dd-apps-host{margin-bottom:14px}
+.dd-tab-n.warn{background:var(--warn-bg);color:var(--warn)}
+.dh-attn{margin-bottom:6px}
+.dh-attn .ic.warn{color:var(--warn)}.dh-attn .ic.ok{color:var(--ok)}
+.dh-list{list-style:none;margin:0;padding:2px 16px 8px}
+.dh-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.dh-row:first-child{border-top:0}
+.dh-dot{width:8px;height:8px;border-radius:99px;flex:none;background:var(--muted)}
+.dh-dot.danger{background:var(--danger)}.dh-dot.warn{background:var(--warn)}.dh-dot.info{background:var(--accent-2)}
+.dh-t{flex:1;min-width:0}.dh-t b{font-weight:600;color:var(--text)}.dh-t small{display:block;font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dh-m{display:flex;flex-direction:column;align-items:flex-end;gap:1px;font-size:11.5px;color:var(--muted);white-space:nowrap}
+.dh-k{color:var(--text-2)}
+.dh-none{padding:12px 16px 16px;font-size:13px;color:var(--text-2)}
+.dh-sec{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 4px 8px}
+</style>
 {{end}}
 
 {{/* Location (15 Oct): the map and the address, out of Overview and Hardware. */}}
