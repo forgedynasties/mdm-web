@@ -779,6 +779,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	assetVer := assetVersion("static")
 	funcMap := template.FuncMap{
 		"assetVer":      func() string { return assetVer },
+		"venueIcon":     func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
 		"userURL":       userURL,
 		"userBubble":    userBubble,
 		// systemActorLabel names a sender the server writes itself ("Control probe",

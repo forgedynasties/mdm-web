@@ -3,13 +3,16 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"mdm/internal/db"
 	"mdm/internal/product"
+	"mdm/internal/venueicon"
 )
 
 // Admin API for venues and guest info, so scripts (onboarding, test benches) can do what
@@ -134,4 +137,55 @@ func (h *Handler) pushGuestToRestaurant(ctx context.Context, restaurantID uuid.U
 			h.hub.Push(g.DeviceID, g.Guest.Frame())
 		}
 	}
+}
+
+// SetRestaurantIcon is POST /api/v1/restaurants/{id}/icon: {"website": "momsbiryanica.com"}
+// fetches the site's icon (venueicon.Fetch), {"clear": true} removes it, and a request
+// whose Content-Type is image/* stores that image. The icon is kept as a 128px PNG.
+func (h *Handler) SetRestaurantIcon(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid restaurant id"})
+		return
+	}
+	ctx := r.Context()
+	if _, err := h.db.GetRestaurant(ctx, id); err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "restaurant not found"})
+		return
+	}
+	var icon []byte
+	source := "uploaded"
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "image/") {
+		raw, err := io.ReadAll(io.LimitReader(r.Body, 2<<20+1))
+		if err == nil {
+			icon, err = venueicon.Normalize(raw)
+		}
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+	} else {
+		var body struct {
+			Website string `json:"website"`
+			Clear   bool   `json:"clear"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "send {\"website\": …}, {\"clear\": true} or an image"})
+			return
+		}
+		if !body.Clear {
+			fctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+			icon, source, err = venueicon.Fetch(fctx, body.Website)
+			cancel()
+			if err != nil {
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+				return
+			}
+		}
+	}
+	if err := h.db.SetRestaurantIcon(ctx, id, icon, source); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "has_icon": icon != nil, "bytes": len(icon), "source": source})
 }

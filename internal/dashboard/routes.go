@@ -171,6 +171,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDetail)))
 	mux.HandleFunc("GET /restaurants/{id}/edit", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantEdit)))
+	mux.HandleFunc("GET /restaurants/{id}/icon", h.requireAuth(h.RestaurantIconImage))
 	post("POST /restaurants/{id}/kiosk", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantKioskSave)))
 	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantDevicesModal)))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.collectionRoute("restaurant", h.requireAuth(h.RestaurantDailyStatsJSON)))

@@ -7552,3 +7552,18 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .adb-cmd{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:7px 10px;margin-top:6px}
 .adb-cmd code{flex:1;font-family:var(--mono);font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .adb-cmd .w{font-size:11px;color:var(--muted);white-space:nowrap}
+
+/* Venue icons (I1, 19 Oct): the venue's own icon, or its initial on a colour tile.
+   venue_icon.go draws them; sm 20px (headers, Fleet's list), md 32px (Venues list). */
+.vicon { flex: none; display: inline-block; box-sizing: border-box; object-fit: contain; background: #fff; box-shadow: inset 0 0 0 1px var(--border); vertical-align: middle; }
+.vicon-sm { width: 20px; height: 20px; border-radius: 6px; padding: 2px; }
+.vicon-md { width: 32px; height: 32px; border-radius: 9px; padding: 3px; }
+.vicon-ini { display: inline-grid; place-items: center; padding: 0; box-shadow: none; color: #fff; font-weight: 750; line-height: 1; background: hsl(var(--vh, 210) 45% 46%); }
+.vicon-sm.vicon-ini { font-size: 10.5px; }
+.vicon-md.vicon-ini { font-size: 14px; }
+.appbar-island .vicon { margin-right: -2px; }
+.vn-nm-ic { display: flex; align-items: center; gap: 11px; }
+.vn-nm-ic > span { min-width: 0; }
+/* Fleet's Restaurants list: the status dot sits on the icon's corner. */
+.vicon-dot { position: relative; display: inline-flex; flex: none; }
+.fleet-rail-item .vicon-dot .dot { position: absolute; right: -3px; bottom: -3px; width: 8px; height: 8px; box-shadow: 0 0 0 2px var(--surface); }

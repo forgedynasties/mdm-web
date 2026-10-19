@@ -2003,6 +2003,13 @@ CREATE TABLE IF NOT EXISTS venue_wifi_pushes (
 -- report goes, besides the owner-role users whose access covers the venue. '' = none.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS contact_email TEXT NOT NULL DEFAULT '';
 
+-- Venue icons (I1, 19 Oct): a 128px PNG fetched from the venue's website (or uploaded),
+-- stored here so no page loads anything from the restaurant's site. icon_at versions the
+-- image URL; NULL = no icon (the venue shows its initial).
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS icon BYTEA;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS icon_source TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS icon_at TIMESTAMPTZ;
+
 -- One row per venue per month the compliance report was emailed, so the monthly job
 -- sends it once however many times it runs (RunComplianceReports).
 CREATE TABLE IF NOT EXISTS compliance_report_sends (

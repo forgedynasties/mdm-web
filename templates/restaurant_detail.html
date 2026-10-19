@@ -70,7 +70,7 @@
 <template id="page-island">
   {{$on := .OnlineCount}}{{$n := .Restaurant.DeviceCount}}
   <span class="isl-dot {{if eq $n 0}}{{else if lt $on $n}}warn{{else}}on{{end}}"></span>
-  <span class="isl-t">{{.Restaurant.Name}}</span>
+  {{venueIcon .Restaurant.ID .Restaurant.Name "sm"}}<span class="isl-t">{{.Restaurant.Name}}</span>
   <span class="isl-s">{{if $n}}<b>{{$on}}</b> of {{$n}} online{{else}}No devices yet{{end}}{{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}</span>
   <span class="isl-acts">
     {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('vn-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}

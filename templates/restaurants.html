@@ -99,7 +99,7 @@
      data-name="{{.Name}}" data-text="{{.Text}}"
      data-score="{{if and .Devices .HasH}}{{.H.Score}}{{else}}999{{end}}" data-devices="{{.Devices}}" data-last="{{if not .Last.IsZero}}{{.Last.Unix}}{{else}}0{{end}}"
      data-look="{{if .NeedsLook}}1{{end}}" data-offline="{{if .Offline}}1{{end}}" data-empty="{{if not .Devices}}1{{end}}">
-    <span class="vn-nm"><b>{{.Name}}</b><small>{{.Sub}}</small></span>
+    <span class="vn-nm vn-nm-ic">{{venueIcon .ID .Name "md"}}<span><b>{{.Name}}</b><small>{{.Sub}}</small></span></span>
     <span class="vn-sc {{.Class}}">{{if and .Devices .HasH}}{{.H.Score}}{{else}}—{{end}}</span>
     <span class="vn-pipcell">{{if .Devices}}<span class="vn-pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span><span class="vn-sm">{{.Online}} of {{.Devices}} online{{if .Dormant}} · {{.Dormant}} dormant{{end}}</span>{{else}}<span class="vn-sm">no devices</span>{{end}}</span>
     <span class="vn-tags">

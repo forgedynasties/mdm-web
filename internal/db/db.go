@@ -36,6 +36,9 @@ type DB struct {
 
 	// roleApps caches role → app for the check-in path (role_model.go).
 	roleApps roleAppCache
+
+	// venueIcons caches which venues have an icon (restaurant_icon.go).
+	venueIcons venueIconCache
 }
 
 type cmdSummaryCacheEntry struct {
