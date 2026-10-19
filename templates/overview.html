@@ -378,7 +378,6 @@
         <a class="ov3-fact{{if gt .Crashes24h 0}} bad{{end}}" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg><b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} · 24h</a>
         <a class="ov3-fact{{if gt .AlertsOpenCount 0}} warn{{end}}" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg><b>{{.AlertsOpenCount}}</b> open alert{{if ne .AlertsOpenCount 1}}s{{end}}</a>
         <a class="ov3-fact{{if gt .Hot 0}} bad{{end}}" href="/devices?sort=temp&dir=desc"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg><b>{{.Hot}}</b> running hot</a>
-        <span class="ov3-fact"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><b>{{.KioskPct}}%</b> in locked mode</span>
       </div>
       <div class="ov3-sub" style="margin-top:14px">Sites: <b>{{.SitesOK}}</b> healthy · <b>{{.SitesWarn}}</b> to watch · <b>{{.SitesBad}}</b> at risk{{if .RolloutsCount}} · <b>{{.RolloutsCount}}</b> rollout{{if ne .RolloutsCount 1}}s{{end}} in flight{{end}}</div>
     </div>
