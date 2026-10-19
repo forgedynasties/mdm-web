@@ -58,3 +58,28 @@ func TestLockAppFor(t *testing.T) {
 		t.Fatal("a role with no app keeps the picker")
 	}
 }
+
+func TestLockPackageFor(t *testing.T) {
+	base := "aio.app.nugget"
+	d := db.Device{LatestExtra: json.RawMessage(`{"foreground_pkg":"aio.app.nugget.uatv2"}`)}
+	inst := map[string]string{"aio.app.nugget": "1", "aio.app.nugget.uatv2": "2", "aio.app.nugget.qa": "3"}
+
+	if got := lockPackageFor(d, base, inst, db.KioskState{}); got != "aio.app.nugget.uatv2" {
+		t.Fatalf("on screen first: %q", got)
+	}
+	if got := lockPackageFor(db.Device{}, base, inst, db.KioskState{}); got != "aio.app.nugget" {
+		t.Fatalf("then prod: %q", got)
+	}
+	if got := lockPackageFor(d, base, inst, db.KioskState{Enabled: true, Package: "aio.app.nugget.qa"}); got != "aio.app.nugget.qa" {
+		t.Fatalf("keeps the build it is locked to: %q", got)
+	}
+	if got := lockPackageFor(d, base, inst, db.KioskState{Enabled: true, Package: "aio.app.nugget.gone"}); got != "aio.app.nugget.uatv2" {
+		t.Fatalf("a locked build no longer installed is not kept: %q", got)
+	}
+	if got := lockPackageFor(d, "", inst, db.KioskState{}); got != "" {
+		t.Fatalf("no role app: %q", got)
+	}
+	if got := lockPackageFor(d, "aio.app.kds", inst, db.KioskState{}); got != "" {
+		t.Fatalf("role app not installed: %q", got)
+	}
+}

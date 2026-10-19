@@ -120,11 +120,12 @@ func TestKioskPagesRender(t *testing.T) {
 		"Policy": p, "Restaurants": []db.Restaurant{{ID: rest, Name: "Flights Vegas", DeviceCount: 20}},
 		"Groups": []db.Group{{ID: uuid.New(), Name: "SJ 3.0", DeviceCount: 20}}, "Serials": []string{"T7-1"},
 		"FleetTotal": 181, "AllowAll": true, "CanEdit": true,
+		"RoleApps": []roleAppLine{{Role: "t7", Label: "Tableside AI", App: "Nugget", Package: "aio.app.nugget"}, {Role: "megakiosk", Label: "Mega kiosk"}},
 	}); err != nil {
 		t.Fatalf("form: %v", err)
 	}
 	out = buf.String()
-	for _, want := range []string{`value="aio.app.nugget.uatv2"`, `data-id="` + rest.String() + `"`, "Power five times", "stays unlocked until someone locks it again", "Every device"} {
+	for _, want := range []string{"saved locked to <span class=\"mono\">aio.app.nugget.uatv2</span>", "aio.app.nugget", "no app: not locked", `data-id="` + rest.String() + `"`, "Power five times", "stays unlocked until someone locks it again", "Every device"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("form missing %q", want)
 		}

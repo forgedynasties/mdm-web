@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"log"
+	"sort"
 	"sync"
 
 	"github.com/google/uuid"
@@ -18,14 +19,22 @@ import (
 // never touches a device someone overrode on its device page, and it only locks to an
 // app the device has installed: lock-task on a missing app fails silently.
 
+// A rule names no app (19 Oct 2026): it locks each device to its role's app on Lineup,
+// the build of it the device has (lockPackageFor). A rule saved before then still names
+// its package and locks to exactly that.
+
+// roleAppWords is how a rule that names no app says what it locks to.
+const roleAppWords = "its role's app"
+
 // kioskDevice is one device's kiosk position under the rules.
 type kioskDevice struct {
 	Dev      db.Device
 	Rule     *db.KioskPolicy // the rule it follows, nil when none covers it
 	Covering int             // how many rules cover it
 	State    db.KioskState
-	HasApp   bool // the rule's app is installed
-	CanLock  bool // its agent can lock the screen
+	Package  string // what the rule locks this device to ("" = nothing it can lock to)
+	HasApp   bool   // that app is installed
+	CanLock  bool   // its agent can lock the screen
 	Online   bool
 }
 
@@ -140,6 +149,27 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 	if err != nil {
 		return nil, nil, err
 	}
+	bases := h.db.RoleAppBases(ctx)
+	var famList []string
+	for _, b := range bases {
+		if b != "" {
+			famList = append(famList, b)
+		}
+	}
+	fam, err := h.db.FamilyVersions(ctx, famList)
+	if err != nil {
+		return nil, nil, err
+	}
+	// place fills in what a device locks to under its rule.
+	place := func(k *kioskDevice) {
+		if k.Rule.KioskPackage != "" {
+			k.Package = k.Rule.KioskPackage
+			k.HasApp = installed[k.Dev.ID][k.Package]
+			return
+		}
+		k.Package = lockPackageFor(k.Dev, bases[k.Dev.Class()], fam[k.Dev.ID], k.State)
+		k.HasApp = k.Package != ""
+	}
 	online := h.hub.ConnectedIDsForDisplay()
 	out := make([]kioskDevice, 0, len(devs))
 	for _, d := range devs {
@@ -152,7 +182,7 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 		if rr, ok := roleRules[d.Class()]; ok && d.RestaurantID != nil {
 			rr := rr
 			k.Rule, k.Covering = &rr, 1
-			k.HasApp = installed[d.ID][rr.KioskPackage]
+			place(&k)
 			out = append(out, k)
 			continue
 		}
@@ -165,7 +195,7 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 			}
 		}
 		if k.Rule != nil {
-			k.HasApp = installed[d.ID][k.Rule.KioskPackage]
+			place(&k)
 		}
 		out = append(out, k)
 	}
@@ -226,8 +256,8 @@ func (h *Handler) reconcileKiosk(ctx context.Context) int {
 			}
 		default:
 			want := k.Rule
-			if !st.Enabled || st.Package != want.KioskPackage || st.Rule == nil || *st.Rule != want.ID || (st.Mode != "" && st.Mode != "app") {
-				if err := h.db.SetKioskByRule(ctx, k.Dev.ID, true, want.KioskPackage, &want.ID); err == nil {
+			if !st.Enabled || st.Package != k.Package || st.Rule == nil || *st.Rule != want.ID || (st.Mode != "" && st.Mode != "app") {
+				if err := h.db.SetKioskByRule(ctx, k.Dev.ID, true, k.Package, &want.ID); err == nil {
 					changed = append(changed, k.Dev.ID)
 				}
 			}
@@ -238,6 +268,42 @@ func (h *Handler) reconcileKiosk(ctx context.Context) int {
 		log.Printf("[kiosk-rules] updated %d device(s)", len(changed))
 	}
 	return len(changed)
+}
+
+// lockPackageFor is the build of its role's app (base) a rule locks a device to: the one
+// it is already locked to, if that is still installed, so the choice never flips back
+// and forth; else the build on screen; else prod; else the first by name. "" when the
+// role has no app or none of it is installed.
+func lockPackageFor(d db.Device, base string, installed map[string]string, st db.KioskState) string {
+	if base == "" || len(installed) == 0 {
+		return ""
+	}
+	if st.Enabled && inFamily(base, st.Package) {
+		if _, ok := installed[st.Package]; ok {
+			return st.Package
+		}
+	}
+	screen := screenPackages(d.LatestExtra)
+	var pkgs []string
+	for p := range installed {
+		if inFamily(base, p) {
+			pkgs = append(pkgs, p)
+		}
+	}
+	if len(pkgs) == 0 {
+		return ""
+	}
+	sort.Slice(pkgs, func(i, j int) bool {
+		a, b := pkgs[i], pkgs[j]
+		if screen[a] != screen[b] {
+			return screen[a]
+		}
+		if (a == base) != (b == base) {
+			return a == base
+		}
+		return a < b
+	})
+	return pkgs[0]
 }
 
 // RunLockRules is the minute tick for the enforcer above. It was documented as running

@@ -95,15 +95,15 @@
         <b title="Rule {{.Pos}}: a device covered by more than one rule follows the highest">{{.Pos}}</b>
         {{if $.CanEdit}}<form method="POST" action="/kiosk/policies/{{.ID}}/move"><input type="hidden" name="dir" value="down"><button type="submit" title="Move down" aria-label="Move {{.Name}} down"{{if .Last}} disabled{{end}}>▼</button></form>{{end}}
       </div>
-      <span class="kr-app">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else}}{{slice .AppName 0 1}}{{end}}</span>
+      <span class="kr-app">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else if .KioskPackage}}{{slice .AppName 0 1}}{{else}}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{{end}}</span>
       <div>
         <div class="kr-nm">{{.Name}}</div>
-        <div class="kr-mt">Locked to <b>{{.AppName}}</b> · <a href="{{.TargetHref}}">{{.TargetLabel}}</a></div>
+        <div class="kr-mt">Locked to <b>{{.AppName}}</b>{{if not .KioskPackage}} (<a href="/lineup">Lineup</a>){{end}} · <a href="{{.TargetHref}}">{{.TargetLabel}}</a></div>
         <div class="kr-st">
           {{if .Locked}}<span class="ok" title="Locked to the app">{{.Locked}} locked</span>{{end}}
           {{if .Waiting}}<span class="wait" title="Not picked up yet: offline, or not checked in since the rule changed">{{.Waiting}} waiting</span>{{end}}
           {{if .Exited}}<a class="warn" href="#kiosk-exits" title="Taken out of kiosk on site with the exit PIN or code; they stay unlocked until someone locks them again">{{.Exited}} taken out on site</a>{{end}}
-          {{if .Missing}}<span class="warn" title="The app isn't installed; they lock once it is">{{.Missing}} app missing</span>{{end}}
+          {{if .Missing}}<span class="warn" title="Their app isn't installed, or their role has no app on Lineup; they lock once it is">{{.Missing}} app missing</span>{{end}}
           {{if .Cant}}<span class="bad" title="Their agent can't lock the screen (MDM Lite)">{{.Cant}} can't lock</span>{{end}}
           {{if .Override}}<span title="Changed by hand on the device page; follows the device's own setting">{{.Override}} set by hand</span>{{end}}
           {{if .Higher}}<span title="In this rule's target but covered by a rule above it">{{.Higher}} follow a rule above</span>{{end}}

@@ -156,18 +156,12 @@
          devices are actually doing, side by side. */}}
     {{with .Kiosk}}
     <details class="vn-card">
-      <summary><h2>Device lock</h2><span class="vn-val">{{if .Package}}{{.Package}} · {{.Locked}} of {{.Total}} locked{{else}}no rule{{end}}{{if $.SelfLockMinutes}} · locks itself if it leaves{{end}}</span>{{if canAdminOrOperator $.Role}}<span class="vn-ed">Edit</span>{{end}}</summary>
-      <div class="vn-sub">{{if .Exited}}<span style="color:var(--danger)">{{.Exited}} taken out on site.</span> {{end}}{{if .Disagree}}{{sub .Total .Locked}} not locked: not checked in since the rule was set, or unlocked on the device.{{else if not .Package}}{{.Locked}} of {{.Total}} locked by another rule or by hand.{{end}} <a href="/lock">All lock rules</a></div>
+      <summary><h2>Device lock</h2><span class="vn-val">{{if .On}}{{if .Package}}{{.Package}}{{else}}their app{{end}} · {{.Locked}} of {{.Total}} locked{{else}}no rule{{end}}{{if $.SelfLockMinutes}} · locks itself if it leaves{{end}}</span>{{if canAdminOrOperator $.Role}}<span class="vn-ed">Edit</span>{{end}}</summary>
+      <div class="vn-sub">{{if .Exited}}<span style="color:var(--danger)">{{.Exited}} taken out on site.</span> {{end}}{{if .Disagree}}{{sub .Total .Locked}} not locked: not checked in since the rule was set, unlocked on the device, or their app isn't installed.{{else if not .On}}{{.Locked}} of {{.Total}} locked by another rule or by hand.{{end}} <a href="/lock">All lock rules</a></div>
       {{if canAdminOrOperator $.Role}}
       <form class="vn-form" action="/restaurants/{{$.Restaurant.ID}}/kiosk" method="POST">
-        <div class="form-row full"><label class="form-label">Lock tablets to</label>
-          <select name="kiosk_package" class="form-input">
-            <option value="">Not locked</option>
-            {{$cur := .Package}}
-            {{range .Choices}}<option value="{{.Package}}"{{if eq .Package $cur}} selected{{end}}>{{.Label}}</option>{{end}}
-            {{if and $cur (not .Choices)}}<option value="{{$cur}}" selected>{{$cur}}</option>{{end}}
-          </select></div>
-        <p>Only apps installed on this venue's tablets are offered.</p>
+        <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="lock" value="on"{{if .On}} checked{{end}}> <b>Lock this venue's devices to their app</b></label>
+        <p>Each device locks to its role's app from <a href="/lineup">Lineup</a> (a TSAI to Nugget, a POS to AIO POS).{{if .Package}} This venue's rule was saved locked to <span class="mono">{{.Package}}</span>; saving switches it to each device's app.{{end}}</p>
         <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
       </form>
       {{end}}

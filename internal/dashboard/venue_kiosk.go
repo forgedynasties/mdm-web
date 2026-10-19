@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 
 	"github.com/google/uuid"
 )
@@ -40,12 +39,13 @@ func (h *Handler) RestaurantKioskSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
+	// The venue's rule locks each tablet to its role's app (Lineup); it names no package.
+	lock := r.FormValue("lock") == "on"
 	existing, _ := h.db.KioskPolicyForRestaurant(ctx, id)
 
 	back := "/restaurants/" + id.String()
 	switch {
-	case pkg == "" && existing != nil:
+	case !lock && existing != nil:
 		// Clearing the rule releases the venue's devices unless another rule covers them;
 		// reconcileKiosk works that out rather than this handler guessing.
 		if err := h.db.DeleteKioskPolicy(ctx, existing.ID); err != nil {
@@ -54,69 +54,48 @@ func (h *Handler) RestaurantKioskSave(w http.ResponseWriter, r *http.Request) {
 		}
 		n := h.reconcileKiosk(ctx)
 		h.audit(r, "kiosk_rule.delete", rest.Name, fmt.Sprintf("venue=%s devices_changed=%d", id, n))
-		h.hxRedirect(w, r, back+"?flash="+url.QueryEscape("Kiosk cleared for "+rest.Name+".")+"&flash_type=success")
+		h.hxRedirect(w, r, back+"?flash="+url.QueryEscape("Lock cleared for "+rest.Name+".")+"&flash_type=success")
 		return
-	case pkg == "":
+	case !lock:
 		h.hxRedirect(w, r, back)
 		return
 	}
 
-	name := rest.Name + " · " + pkg
+	name := rest.Name + " · locked"
 	if existing != nil {
-		err = h.db.UpdateKioskPolicy(ctx, existing.ID, name, pkg, "restaurant", &id, "")
+		err = h.db.UpdateKioskPolicy(ctx, existing.ID, name, "", "restaurant", &id, "")
 	} else {
-		_, err = h.db.CreateKioskPolicy(ctx, name, pkg, "restaurant", &id, "")
+		_, err = h.db.CreateKioskPolicy(ctx, name, "", "restaurant", &id, "")
 	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	n := h.reconcileKiosk(ctx)
-	h.audit(r, "kiosk_rule.save", name, fmt.Sprintf("venue=%s app=%s devices_changed=%d", id, pkg, n))
+	h.audit(r, "kiosk_rule.save", name, fmt.Sprintf("venue=%s app=role devices_changed=%d", id, n))
 	h.hxRedirect(w, r, back+"?flash="+
-		url.QueryEscape(fmt.Sprintf("%s tablets now lock to %s — %d device(s) changed.", rest.Name, pkg, n))+
+		url.QueryEscape(fmt.Sprintf("%s devices now lock to their app: %d changed.", rest.Name, n))+
 		"&flash_type=success")
 }
 
 // venueKiosk gathers what the venue page shows: the rule, and what is actually true.
 type venueKioskView struct {
-	Package  string
+	On       bool   // the venue has a lock rule
+	Package  string // a rule saved before 19 Oct names its app; "" = each device's role app
 	RuleID   string
 	Total    int
 	Locked   int
 	Exited   int
-	Choices  []venueKioskChoice
 	Disagree bool // a rule is set but devices are not all locked to it
-}
-
-type venueKioskChoice struct {
-	Package string
-	Label   string
 }
 
 func (h *Handler) venueKiosk(r *http.Request, restaurantID uuid.UUID) *venueKioskView {
 	ctx := r.Context()
 	v := &venueKioskView{}
 	if p, _ := h.db.KioskPolicyForRestaurant(ctx, restaurantID); p != nil {
-		v.Package, v.RuleID = p.KioskPackage, p.ID.String()
+		v.On, v.Package, v.RuleID = true, p.KioskPackage, p.ID.String()
 	}
 	v.Total, v.Locked, v.Exited, _ = h.db.RestaurantKioskState(ctx, restaurantID)
-	v.Disagree = v.Package != "" && v.Locked < v.Total
-
-	// Offer what the venue's own devices actually have installed, most common first:
-	// locking to an app that is not on the tablet is the one mistake this picker can
-	// prevent.
-	if pkgs, err := h.db.LaunchablePackagesAtRestaurant(ctx, restaurantID); err == nil {
-		for _, p := range pkgs {
-			label := p.AppName
-			if label == "" {
-				label = p.PackageName
-			}
-			v.Choices = append(v.Choices, venueKioskChoice{
-				Package: p.PackageName,
-				Label:   fmt.Sprintf("%s — on %d", label, p.Devices),
-			})
-		}
-	}
+	v.Disagree = v.On && v.Locked < v.Total
 	return v
 }

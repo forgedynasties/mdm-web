@@ -1,10 +1,9 @@
 // Loaded by templates/manage_policy_form.html.
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var tt = $('ke-tt'), tid = $('ke-tid'), ts = $('ke-ts'), pkg = $('ke-pkg'), nameEl = $('ke-name');
-  var nameTouched = !!nameEl.value, targetLabel = '', appName = '', apps = [], last = null, seq = 0;
+  var tt = $('ke-tt'), tid = $('ke-tid'), ts = $('ke-ts'), nameEl = $('ke-name');
+  var nameTouched = !!nameEl.value, targetLabel = '', seq = 0;
   function esc(s) { return String(s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function color(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
 
   function clearTargets() {
     document.querySelectorAll('.ke-chip.on').forEach(function (c) { c.classList.remove('on'); });
@@ -40,60 +39,35 @@
 
   function autoName() {
     if (nameTouched) return;
-    nameEl.value = targetLabel && appName ? targetLabel + ' · ' + appName : '';
+    nameEl.value = targetLabel ? targetLabel + ' · locked' : '';
   }
   nameEl.addEventListener('input', function () { nameTouched = !!nameEl.value; });
 
-  function renderApps() {
-    var box = $('ke-apps'), q = ($('ke-appq').value || '').toLowerCase();
-    if (!tt.value) { box.innerHTML = ''; return; }
-    var list = apps.filter(function (a) { return !q || (a.name + ' ' + a.pkg).toLowerCase().indexOf(q) >= 0; });
-    if (!apps.length) { box.innerHTML = '<div class="ke-empty">No apps reported on these devices yet.</div>'; return; }
-    box.innerHTML = list.map(function (a) {
-      var ic = a.icon ? '<img src="data:image/png;base64,' + a.icon + '" alt="">' : esc((a.name || '?').replace(/^[^A-Za-z0-9]+/, '').slice(0, 1).toUpperCase());
-      return '<button type="button" class="ke-app' + (a.pkg === pkg.value ? ' on' : '') + '" role="option" aria-selected="' + (a.pkg === pkg.value) + '" data-pkg="' + esc(a.pkg) + '" data-name="' + esc(a.name) + '">' +
-        '<i style="background:' + (a.icon ? 'transparent' : color(a.pkg)) + '">' + ic + '</i><span><b>' + esc(a.name) + '</b><small>on ' + a.count + ' of ' + (last ? last.devices : '?') + '</small></span></button>';
-    }).join('') || '<div class="ke-empty">No app matches.</div>';
-    box.querySelectorAll('.ke-app').forEach(function (b) {
-      b.addEventListener('click', function () { pkg.value = b.dataset.pkg; appName = b.dataset.name; autoName(); renderApps(); refresh(); });
-    });
-  }
-  $('ke-appq').addEventListener('input', renderApps);
-
+  // Rules lock each device to its role's app (Lineup), so the editor asks only where.
   function renderPreview(d) {
     var el = $('ke-prev');
-    if (!tt.value) { el.innerHTML = '<div class="ke-empty">Pick where and which app.</div>'; return; }
-    var h = '<div class="ke-big">' + d.devices + ' device' + (d.devices === 1 ? '' : 's') + '</div><div style="color:var(--muted)">' + esc(targetLabel) + ' · ' + d.online + ' online</div>';
-    if (pkg.value) {
-      h += '<ul>';
-      if (d.lock) h += '<li>' + d.lock + ' lock to ' + esc(appName || pkg.value) + (d.online ? '' : ' when they next check in') + '</li>';
-      if (d.missing) h += '<li class="w">' + d.missing + ' don\'t have the app: they lock once it\'s installed</li>';
-      if (d.cant) h += '<li class="b">' + d.cant + ' can\'t lock (their agent has no kiosk)</li>';
-      for (var k in (d.higher || {})) h += '<li>' + d.higher[k] + ' follow “' + esc(k) + '”, a rule above this one</li>';
-      if (!d.lock && !d.missing && !d.cant && !Object.keys(d.higher || {}).length) h += '<li>Nothing to lock here yet</li>';
-      h += '</ul>';
-    }
+    if (!tt.value) { el.innerHTML = '<div class="ke-empty">Pick where.</div>'; return; }
+    var h = '<div class="ke-big">' + (d.devices || 0) + ' device' + (d.devices === 1 ? '' : 's') + '</div><div style="color:var(--muted)">' + esc(targetLabel) + ' · ' + (d.online || 0) + ' online</div><ul>';
+    if (d.lock) h += '<li>' + d.lock + ' lock to their role\'s app' + (d.online ? '' : ' when they next check in') + '</li>';
+    if (d.missing) h += '<li class="w">' + d.missing + ' don\'t have their role\'s app, or their role has none: they lock once it\'s installed</li>';
+    if (d.cant) h += '<li class="b">' + d.cant + ' can\'t lock (their agent has no lock)</li>';
+    for (var k in (d.higher || {})) h += '<li>' + d.higher[k] + ' follow “' + esc(k) + '”, a rule above this one</li>';
+    if (!d.lock && !d.missing && !d.cant && !Object.keys(d.higher || {}).length) h += '<li>Nothing to lock here yet</li>';
+    h += '</ul>';
     el.innerHTML = h;
-    $('ke-save').textContent = pkg.value && d.lock ? 'Save and lock ' + d.lock + ' device' + (d.lock === 1 ? '' : 's') : 'Save';
+    $('ke-save').textContent = d.lock ? 'Save and lock ' + d.lock + ' device' + (d.lock === 1 ? '' : 's') : 'Save';
   }
 
   function refresh() {
     var ready = tt.value && (tt.value === 'all' || tid.value || ts.value);
-    $('ke-save').disabled = !(ready && pkg.value);
-    $('ke-appq').hidden = !ready;
-    $('ke-apphint').textContent = ready ? 'Only apps installed on these devices, with how many have each.' : 'Pick where first: the list shows only apps installed on those devices.';
-    if (!ready) { apps = []; renderApps(); renderPreview({}); return; }
-    var q = new URLSearchParams({ target_type: tt.value, target_id: tid.value, target_serial: ts.value, kiosk_package: pkg.value, id: $('ke-id').value });
+    $('ke-save').disabled = !ready;
+    if (!ready) { renderPreview({}); return; }
+    var q = new URLSearchParams({ target_type: tt.value, target_id: tid.value, target_serial: ts.value, id: $('ke-id').value });
     var my = ++seq;
     fetch('/manage/policies/preview?' + q.toString(), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (my !== seq) return;
-        last = d; apps = d.apps || [];
-        var cur = apps.filter(function (a) { return a.pkg === pkg.value; })[0];
-        if (cur) appName = cur.name;
-        renderApps(); renderPreview(d);
-      }).catch(function () {});
+      .then(function (d) { if (my === seq) renderPreview(d); })
+      .catch(function () {});
   }
 
   $('ke-form').addEventListener('submit', function (e) {

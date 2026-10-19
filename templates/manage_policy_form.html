@@ -21,16 +21,13 @@
 .ke-more select,.ke-more input,.ke-name{font:inherit;font-size:13px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--bg);color:var(--text);min-height:38px;box-sizing:border-box}
 .ke-more select.on,.ke-more input.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
 .ke-name{width:100%;max-width:440px}
-.ke-apps{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
-.ke-app{display:flex;align-items:center;gap:10px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--surface);cursor:pointer;font:inherit;text-align:left;color:var(--text);min-height:48px}
-.ke-app.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
-.ke-app i{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff;font-style:normal;font-weight:700;font-size:13px;overflow:hidden}
-.ke-app i img{width:100%;height:100%;object-fit:cover}
-.ke-app b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ke-app small{display:block;color:var(--muted);font-size:11.5px}
-.ke-app span{min-width:0}
-.ke-appq{font:inherit;font-size:13px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--bg);color:var(--text);width:100%;max-width:320px;margin-bottom:10px;box-sizing:border-box}
 .ke-empty{font-size:13px;color:var(--muted);padding:6px 0}
+.ke-roles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.ke-role{display:flex;flex-direction:column;gap:1px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:13px}
+.ke-role b{font-size:12px;color:var(--muted);font-weight:650}
+.ke-role span{font-weight:650;color:var(--text)}
+.ke-role small{font-size:11.5px;color:var(--muted)}
+.ke-role .ke-none{font-weight:500;color:var(--text-faint)}
 .ke-sw{display:flex;align-items:flex-start;gap:10px;font-size:13px;cursor:pointer}
 .ke-sw input{width:18px;height:18px;margin-top:1px}
 .ke-sw small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
@@ -49,14 +46,13 @@
 </style>
 
 <div class="ke-wrap cc-wrap">
-  <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit kiosk rule{{else}}New lock rule{{end}}</h1>
+  <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit lock rule{{else}}New lock rule{{end}}</h1>
 
   <form id="ke-form" method="POST" action="/kiosk/policies" hx-boost="false">
     <input type="hidden" name="id" id="ke-id" value="{{if $p}}{{$p.ID}}{{end}}">
     <input type="hidden" name="target_type" id="ke-tt" value="{{if $p}}{{$p.TargetType}}{{end}}">
     <input type="hidden" name="target_id" id="ke-tid" value="{{if $p}}{{if $p.TargetID}}{{$p.TargetID}}{{end}}{{end}}">
     <input type="hidden" name="target_serial" id="ke-ts" value="{{if $p}}{{$p.TargetSerial}}{{end}}">
-    <input type="hidden" name="kiosk_package" id="ke-pkg" value="{{if $p}}{{$p.KioskPackage}}{{end}}">
 
     <div class="ke-grid">
       <div>
@@ -75,10 +71,12 @@
         </div>
 
         <div class="cc-card ke-q">
-          <h2><span class="n">2</span>Which app</h2>
-          <p class="ke-hint" id="ke-apphint">Pick where first: the list shows only apps installed on those devices.</p>
-          <input type="search" class="ke-appq" id="ke-appq" placeholder="Search apps…" aria-label="Search apps" hidden>
-          <div class="ke-apps" id="ke-apps" role="listbox" aria-label="Apps"></div>
+          <h2><span class="n">2</span>What it locks to</h2>
+          <p class="ke-hint">Each device locks to its role's app, set on <a href="/lineup" class="link-detail">Lineup</a>. Where a device has several builds of it, it keeps the one it is locked to, else the one on screen, else prod.</p>
+          {{if $p}}{{if $p.KioskPackage}}<p class="ke-hint" style="color:var(--warn)">This rule was saved locked to <span class="mono">{{$p.KioskPackage}}</span>. Saving it switches it to each device's role app.</p>{{end}}{{end}}
+          <div class="ke-roles">
+            {{range .RoleApps}}<div class="ke-role"><b>{{.Label}}</b>{{if .Package}}<span>{{.App}}</span><small class="mono">{{.Package}}</small>{{else}}<span class="ke-none">no app: not locked</span>{{end}}</div>{{end}}
+          </div>
         </div>
 
         <div class="cc-card ke-q">
@@ -86,14 +84,14 @@
           <p class="ke-hint">The same on every device; nothing to set here.</p>
           <ol class="kx-steps">
             <li><span>Press <b>Power five times</b> within 10 seconds. A keypad opens over the app.</span></li>
-            <li><span>Enter the <b>exit PIN</b>, or the code shown on the device's page in the MDM. Both work with no connection.</span></li>
+            <li><span>Enter the <b>exit PIN</b>. It works with no connection.</span></li>
             <li><span>The device <b>stays unlocked until someone locks it again</b> here. The Lock page and the device's page show that it was unlocked.</span></li>
           </ol>
         </div>
 
         <div class="cc-card ke-q">
           <h2>Name</h2>
-          <input class="ke-name" name="name" id="ke-name" maxlength="120" value="{{if $p}}{{$p.Name}}{{end}}" placeholder="Filled in from where and which app">
+          <input class="ke-name" name="name" id="ke-name" maxlength="120" value="{{if $p}}{{$p.Name}}{{end}}" placeholder="Filled in from where">
         </div>
 
         <div class="ke-foot">
@@ -105,7 +103,7 @@
 
       <div class="cc-card ke-prev" aria-live="polite">
         <h2>What will happen</h2>
-        <div id="ke-prev"><div class="ke-empty">Pick where and which app.</div></div>
+        <div id="ke-prev"><div class="ke-empty">Pick where.</div></div>
       </div>
     </div>
   </form>

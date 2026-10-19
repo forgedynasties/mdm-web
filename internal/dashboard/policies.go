@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,11 +11,13 @@ import (
 	"github.com/google/uuid"
 
 	"mdm/internal/db"
+	prod "mdm/internal/product"
 )
 
 // The Policies page is lock rules and nothing else (30 Sep): an ordered list where
 // each rule shows what actually happened on its devices, and a three-question editor
-// (where, which app, how staff get out) with a live preview. Enforcement lives in
+// (where, what it locks to, how staff get out) with a live preview. Since 19 Oct a rule
+// names no app: each device locks to its role's app from Lineup. Enforcement lives in
 // kiosk_rules.go.
 
 // kioskRuleView is one row of the rules list.
@@ -70,7 +73,10 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 	for i, p := range rules {
 		v := kioskRuleView{KioskPolicy: p, Pos: i + 1, First: i == 0, Last: i == len(rules)-1,
 			AppName: p.KioskPackage, TargetLabel: manageTargetLabel(p, restaurants, groups), TargetHref: kioskTargetHref(p)}
-		if a, ok := apps[p.KioskPackage]; ok {
+		if p.KioskPackage == "" {
+			v.AppName = roleAppWords
+		}
+		if a, ok := apps[p.KioskPackage]; ok && p.KioskPackage != "" {
 			if a.AppName != "" {
 				v.AppName = a.AppName
 			}
@@ -149,16 +155,16 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, r, "manage.html", map[string]any{
-		"Title":      "Kiosk",
-		"Exits":      exits,
-		"Rules":      views,
-		"Locked":     locked,
-		"NotCovered": notCovered,
-		"ByHand":     byHand,
+		"Title":        "Kiosk",
+		"Exits":        exits,
+		"Rules":        views,
+		"Locked":       locked,
+		"NotCovered":   notCovered,
+		"ByHand":       byHand,
 		"ByRole":       byRole,
 		"ByRoleLocked": byRoleLocked,
-		"CanEdit":    roleCanOperate(h.role(r)),
-		"Flash":      r.URL.Query().Get("flash"),
+		"CanEdit":      roleCanOperate(h.role(r)),
+		"Flash":        r.URL.Query().Get("flash"),
 	})
 }
 
@@ -223,7 +229,27 @@ func (h *Handler) kioskEditorData(r *http.Request) map[string]any {
 		"FleetTotal":  len(devs),
 		"AllowAll":    !acc.hidesDevices(),
 		"CanEdit":     roleCanOperate(h.role(r)),
+		"RoleApps":    h.roleAppList(ctx),
 	}
+}
+
+// roleAppLine is one role and its app, for the rule editor's "what it locks to".
+type roleAppLine struct {
+	Role, Label, App, Package string
+}
+
+// roleAppList is every role with its app on Lineup, in Lineup's order.
+func (h *Handler) roleAppList(ctx context.Context) []roleAppLine {
+	bases := h.db.RoleAppBases(ctx)
+	var out []roleAppLine
+	for _, c := range prod.Classes() {
+		l := roleAppLine{Role: c, Label: prod.ClassLabel(c), Package: bases[c]}
+		if l.Package != "" {
+			l.App = hostAppName(l.Package)
+		}
+		out = append(out, l)
+	}
+	return out
 }
 
 // kioskTargetFromForm reads the target fields shared by save and preview.
@@ -275,8 +301,18 @@ func (h *Handler) ManagePolicyPreview(w http.ResponseWriter, r *http.Request) {
 	if s := r.FormValue("id"); s != "" {
 		editing, _ = uuid.Parse(s)
 	}
+	// A new or edited rule names no app: each device locks to its role's app. A rule saved
+	// before 19 Oct still names one.
 	pkg := r.FormValue("kiosk_package")
 	installed, _ := h.db.InstalledPackages(ctx, []string{pkg})
+	bases := h.db.RoleAppBases(ctx)
+	var famList []string
+	for _, b := range bases {
+		if b != "" {
+			famList = append(famList, b)
+		}
+	}
+	fam, _ := h.db.FamilyVersions(ctx, famList)
 	scopes, _ := h.db.DeviceScopes(ctx)
 	online, cant, missing, lock := 0, 0, 0, 0
 	higher := map[string]int{}
@@ -308,6 +344,8 @@ func (h *Handler) ManagePolicyPreview(w http.ResponseWriter, r *http.Request) {
 		case !k.CanLock:
 			cant++
 		case pkg != "" && !installed[k.Dev.ID][pkg]:
+			missing++
+		case pkg == "" && lockPackageFor(k.Dev, bases[k.Dev.Class()], fam[k.Dev.ID], k.State) == "":
 			missing++
 		default:
 			lock++
@@ -351,14 +389,15 @@ func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	ctx := r.Context()
 	tt, tid, serial, ok := kioskTargetFromForm(r)
-	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
+	// Rules lock to each device's role app (Lineup): the form no longer names a package.
+	pkg := ""
 	name := strings.TrimSpace(r.FormValue("name"))
-	if !ok || pkg == "" {
-		http.Error(w, "Choose where the rule applies and which app to lock to.", http.StatusBadRequest)
+	if !ok {
+		http.Error(w, "Choose where the rule applies.", http.StatusBadRequest)
 		return
 	}
 	if name == "" {
-		name = pkg
+		name = "Lock rule"
 	}
 	ids, err := h.resolvePolicyTargetIDs(ctx, tt, tid, serial)
 	if err != nil {
@@ -392,7 +431,7 @@ func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n := h.reconcileKiosk(ctx)
-	h.audit(r, "kiosk_rule.save", name, fmt.Sprintf("rule=%s app=%s target=%s devices_changed=%d", id, pkg, tt, n))
+	h.audit(r, "kiosk_rule.save", name, fmt.Sprintf("rule=%s app=role target=%s devices_changed=%d", id, tt, n))
 	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("Saved %q.", name)))
 }
 
