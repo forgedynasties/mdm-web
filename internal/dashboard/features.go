@@ -225,6 +225,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Inbox":          inbox,
 		"Stats":          stats,
 		"HasAgentAPK":    h.cfg.AgentAPKHosted() || (h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != ""),
+		"EnrollAndroid":  h.enrollAndroidView(r),
 		"AgentAPKURL":    h.agentAPKURL(r),
 		"Sightings":      sgroups,
 		"SightingsReady": readyN,
@@ -388,6 +389,42 @@ func (h *Handler) EnrollmentProfilesDeleteExpired(w http.ResponseWriter, r *http
 // EnrollmentProfileQR renders the Android managed-provisioning QR payload for a profile
 // as a PNG. Scanned from the setup wizard (tap the welcome screen 6×), it installs the
 // agent as Device Owner and hands it the server URL + enrollment token.
+// enrollAndroid is the AIO Enroll for Android download on the Enrollment page.
+type enrollAndroid struct {
+	Hosted  bool
+	Version string
+	SizeMB  string
+	URL     string // absolute, so the QR works from a phone
+	At      time.Time
+}
+
+func (h *Handler) enrollAndroidView(r *http.Request) enrollAndroid {
+	b, ok := h.cfg.AgentAPKSlot(enrollAndroidSlot)
+	if !ok {
+		return enrollAndroid{}
+	}
+	return enrollAndroid{Hosted: true, Version: b.Version, SizeMB: fmt.Sprintf("%.1f MB", float64(b.Size)/(1<<20)),
+		URL: h.baseURL(r) + "/agent/" + AgentAPKSlots[enrollAndroidSlot], At: b.At}
+}
+
+// EnrollAndroidQR is a QR of the AIO Enroll for Android download link, to scan with the
+// phone that will run it.
+func (h *Handler) EnrollAndroidQR(w http.ResponseWriter, r *http.Request) {
+	v := h.enrollAndroidView(r)
+	if !v.Hosted {
+		http.NotFound(w, r)
+		return
+	}
+	png, err := qrcode.Encode(v.URL, qrcode.Medium, 320)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	w.Write(png)
+}
+
 func (h *Handler) EnrollmentProfileQR(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -1266,7 +1303,16 @@ var AgentAPKSlots = map[string]string{
 	// Kiosk 22 images come from their own tree (/nvme/A15/kiosk22 on the kiosk build box),
 	// signed with that tree's platform key, not the T7 tree's: they need their own build.
 	"firmware-kiosk22": "aio-mdm-firmware-kiosk22.apk",
+	// Not an MDM client: AIO Enroll for Android (aio-mdm-enroll-android), the phone app
+	// people enrol devices with, offered for download on the Enrollment page (19 Oct
+	// 2026). Each server hosts its own flavour (live or stage). No device ever maps to
+	// this slot, so nothing is offered it as an update.
+	enrollAndroidSlot: "aio-enroll-android.apk",
 }
+
+// enrollAndroidSlot hosts AIO Enroll for Android; publish with
+// POST /api/v1/agent-apk?slot=enroll-android.
+const enrollAndroidSlot = "enroll-android"
 
 // firmwareSlotFor picks which firmware client a device can install. The key that signs
 // the client belongs to the *tree* and to nothing else: QCOM signs with one platform

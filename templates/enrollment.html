@@ -78,6 +78,13 @@
 .en-qr{display:none;gap:14px;align-items:flex-start;padding-top:8px;border-top:1px dashed var(--border-soft)}
 .en-qr.open{display:flex}
 .en-qr img{width:168px;height:168px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:6px;flex:none}
+.en-app{position:relative}
+.en-app>summary{list-style:none}.en-app>summary::-webkit-details-marker{display:none}
+.en-app-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:60;width:380px;display:flex;gap:14px;align-items:center;padding:14px}
+.en-app-pop img{width:132px;height:132px;border-radius:10px;background:#fff;padding:5px;flex:none;box-shadow:inset 0 0 0 1px var(--border)}
+.en-app-t{display:flex;flex-direction:column;gap:6px;align-items:flex-start;min-width:0;line-height:1.45}
+.en-app-t b{font-size:14px;color:var(--text)}
+.en-app-t .cc-btn svg,.en-app>summary svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .en-qr .t{font-size:12px;color:var(--muted);line-height:1.55}
 .en-qr .t b{color:var(--text)}
 /* how-to */
@@ -116,11 +123,35 @@
            still a link to the fleet filter it names. */}}
       <div class="cc-sub"><a href="/devices?kind=firmware"><b>{{.Stats.Firmware}}</b> Firmware MDM</a> · <a href="/devices?kind=dpc"><b>{{.Stats.DPC}}</b> Standard MDM</a>{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}{{if gt .Stats.Retired 0}} · <a href="/devices?lifecycle=retired">{{.Stats.Retired}} retired</a>{{end}}</div>
     </div>
-    {{if $canOp}}
     <div class="cc-actions">
+      {{/* AIO Enroll for Android (19 Oct): this server hosts the phone app (slot
+           enroll-android); the header button opens its QR and download, on every tab. */}}
+      {{with .EnrollAndroid}}{{if .Hosted}}
+      <details class="en-app">
+        <summary class="cc-btn"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Get the Android app</summary>
+        <div class="cc-menu en-app-pop" role="dialog" aria-label="AIO Enroll for Android">
+          <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="132" height="132">
+          <div class="en-app-t">
+            <b>AIO Enroll for Android</b>
+            <span class="muted small">{{if .Version}}{{.Version}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
+            <span class="small">Scan with the phone, or download here and copy it over. Android asks once to allow installs from your browser.</span>
+            <a class="cc-btn sm primary" href="{{.URL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download APK</a>
+          </div>
+        </div>
+      </details>
+      <script>
+      (function () {
+        if (window.__enAppClose) return; window.__enAppClose = true;
+        function shut(e) { document.querySelectorAll('details.en-app[open]').forEach(function (d) { if (!e || e.key === 'Escape' || !d.contains(e.target)) d.open = false; }); }
+        document.addEventListener('click', function (e) { shut(e); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') shut(e); });
+      })();
+      </script>
+      {{end}}{{end}}
+    {{if $canOp}}
       <button type="button" class="cc-btn primary" onclick="enOpenModal()" data-coach="enroll-new-profile" data-coach-title="Start with a profile" data-coach-text="A profile is a scannable QR that says what a batch of devices is and where it goes. Scout and app enrolments mint their own; this one is for QR and adb."><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</button>
-    </div>
     {{end}}
+    </div>
   </div>
 
   {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
@@ -297,7 +328,7 @@
         <button type="button" data-pane="fw">Firmware MDM devices</button>
       </div>
       <div class="en-pane on" data-pane="app">
-        <div class="en-step"><div class="en-num">1</div><div><div class="b">Open AIO Enroll on your Mac, Windows or Linux machine and sign in</div><div class="t">Your dashboard account. The app gets its own enrollment token per person and device type, so every device it enrolls records <b>who</b> enrolled it — that is the "Enrolled by" on the device page and in the log above.</div></div></div>
+        <div class="en-step"><div class="en-num">1</div><div><div class="b">Open AIO Enroll on your Mac, Windows or Linux machine, or your Android phone, and sign in</div><div class="t">Your dashboard account. The app gets its own enrollment token per person and device type, so every device it enrolls records <b>who</b> enrolled it — that is the "Enrolled by" on the device page and in the log above.</div></div></div>
         <div class="en-step"><div class="en-num">2</div><div><div class="b">Plug in a clean device, or pair it over Wi-Fi</div><div class="t">Factory-reset, with <b>no accounts</b> added, USB debugging on. The app lists what it sees and tells our hardware from lookalikes by serial.</div></div></div>
         <div class="en-step"><div class="en-num">3</div><div><div class="b">Pick the device type and site, press Enroll</div><div class="t">The app installs the standard client, makes it Device Owner and hands it its token over adb — the same steps as the adb path, without the terminal. The device shows up here within a minute.</div></div></div>
       </div>

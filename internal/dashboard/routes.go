@@ -262,6 +262,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Enrollment is admin-only: the page, its QR codes and every profile mutation.
 	mux.HandleFunc("GET /enrollment", h.requireStrictAdmin(h.EnrollmentPage))
 	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireStrictAdmin(h.EnrollmentProfileQR))
+	mux.HandleFunc("GET /enrollment/android-app/qr.png", h.requireAuth(h.EnrollAndroidQR))
 	post("POST /enrollment/scan", h.requireOperatorOrAdmin(h.ScoutScan))
 	post("POST /enrollment/sightings/{id}/enroll", h.requireOperatorOrAdmin(h.ScoutEnroll))
 	post("POST /enrollment/sightings/{id}/recheck", h.requireOperatorOrAdmin(h.ScoutRecheck))
