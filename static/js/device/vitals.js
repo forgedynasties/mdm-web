@@ -2522,11 +2522,14 @@ function mdmBootCharts() {
       // sweep short: that is how the draw-in vanished once the strip redrew more often.
       if (!fresh && !grew) { if (!anim) setClip(Math.min(l, from.l), r + 2); return; }
       cancelAnimationFrame(anim);
+      var gapsEl = document.getElementById('vt-nav-gaps');
+      if (gapsEl) gapsEl.classList.remove('on');
       var t0 = performance.now(), dur = fresh ? 1200 : 800;
       (function step(now) {
         var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
         setClip(Math.min(l, from.l + (l - from.l) * e), from.r + (r + 2 - from.r) * e);
         anim = k < 1 ? requestAnimationFrame(step) : 0;
+        if (!anim && gapsEl) gapsEl.classList.add('on');
       })(t0);
     }
     function rect(g, x0, x1, cls) {
@@ -2618,6 +2621,20 @@ function mdmBootCharts() {
         });
       }
       offs.forEach(function (o) { rect(offG, X(Math.max(o[0], navA)), X(Math.min(o[1], navB))); });
+      // Name the long gaps (wide enough to hold a label) so a stretch of hatching reads
+      // as "no data for 4 days", not as a broken strip.
+      var gapsEl = document.getElementById('vt-nav-gaps');
+      if (gapsEl) {
+        var gh = '';
+        offs.forEach(function (o) {
+          var a0 = Math.max(o[0], navA), b0 = Math.min(o[1], navB), wPct = (X(b0) - X(a0)) / 10;
+          if (wPct < 12) return;
+          var d = b0 - a0, txt = d >= 2 * DAY ? Math.round(d / DAY) + ' d' : Math.round(d / 3600e3) + ' h';
+          gh += '<span style="left:' + ((X(a0) + X(b0)) / 20).toFixed(2) + '%">no data · ' + txt + '</span>';
+        });
+        gapsEl.innerHTML = gh;
+        if (!anim) gapsEl.classList.add('on'); // during a sweep, its end shows them
+      }
 
       // Midnights and the day names under them; a long span labels every few days.
       var mids = midnights(navA, navB), every = Math.max(1, Math.ceil(mids.length / 10)), html = '';

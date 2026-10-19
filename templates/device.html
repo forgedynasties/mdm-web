@@ -842,6 +842,11 @@
 .chart-card .vt-panel .chart-wrap--tall{height:260px;padding:10px 14px 2px 6px}
 /* Navigator (N1, picked 19 Oct 2026). The strip keeps its overflow visible so the span
    label and the handles can sit on its edges; the drawing is clipped by .vt-nav-bg. */
+/* Long stretches with no data are named on the strip ("no data · 4 d"): the device may
+   have been off, or reporting to another server (19 Oct). */
+.vt-gaps{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.vt-gaps span{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:10.5px;font-weight:650;color:var(--text-2);background:color-mix(in srgb,var(--surface) 82%,transparent);border-radius:99px;padding:1px 8px;white-space:nowrap;opacity:0;transition:opacity .35s}
+.vt-gaps.on span{opacity:1}
 .vt-navw{padding:16px 16px 10px;border-top:1px solid var(--border-soft)}
 .vt-nav{position:relative;height:56px;cursor:pointer;touch-action:none;user-select:none}
 .vt-nav-bg{position:absolute;inset:0;border-radius:8px;background:var(--surface2);overflow:hidden;color:color-mix(in srgb,var(--muted) 34%,transparent)}
@@ -1044,16 +1049,17 @@
             <clipPath id="vt-nav-clip"><rect id="vt-nav-clip-r" x="0" y="0" width="1000" height="56"/></clipPath>
             <pattern id="vt-nav-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="2.5" height="6" fill="currentColor"/></pattern>
           </defs>
-          <g id="vt-nav-chg"></g><g id="vt-nav-off"></g><g id="vt-nav-mid"></g>
-          <g clip-path="url(#vt-nav-clip)"><path id="vt-nav-area" d=""/><path id="vt-nav-line" d=""/></g>
+          <g id="vt-nav-mid"></g>
+          <g clip-path="url(#vt-nav-clip)"><g id="vt-nav-chg"></g><g id="vt-nav-off"></g><path id="vt-nav-area" d=""/><path id="vt-nav-line" d=""/></g>
         </svg>
+        <div class="vt-gaps" id="vt-nav-gaps"></div>
         <div class="vt-dim l" id="vt-nav-dl"></div><div class="vt-dim r" id="vt-nav-dr"></div>
       </div>
       <div class="vt-win" id="vt-nav-win"><span class="vt-span" id="vt-nav-span"></span><span class="vt-h l" data-edge="l"></span><span class="vt-h r" data-edge="r"></span></div>
     </div>
     <div class="vt-days" id="vt-nav-days" aria-hidden="true"></div>
     <div class="vt-navfoot">
-      <span class="vt-navlg">{{if .ShowBattery}}<span><i class="c"></i>charging</span>{{end}}<span><i class="o"></i>offline</span></span>
+      <span class="vt-navlg">{{if .ShowBattery}}<span><i class="c"></i>charging</span>{{end}}<span><i class="o"></i>no data</span></span>
       <span class="vt-pre" role="group" aria-label="Show the last">
         <button type="button" data-ms="21600000">6 h</button><button type="button" data-ms="86400000">24 h</button><button type="button" data-ms="604800000">7 d</button><button type="button" data-ms="2592000000">30 d</button>
       </span>
