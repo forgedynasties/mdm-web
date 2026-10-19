@@ -254,7 +254,9 @@ function ffOpen(e, anchor, field) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   var m = document.getElementById('ff-menu'); if (!m) return;
   var add = document.getElementById('ff-add');
-  if (!m.hidden && !field && ffState.anchor === anchor) { ffClose(); return; }
+  // A second click on whatever opened the menu closes it — the "More" button and the
+  // Release / Lock chips alike.
+  if (!m.hidden && ffState.anchor === anchor) { ffClose(); return; }
   closeSort(); selMenuClose();
   ffState.anchor = anchor;
   m.hidden = false;

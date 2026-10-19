@@ -1464,6 +1464,15 @@ html.dd-fit .dd-split{align-items:stretch}
 html.dd-fit .dd-split-l,html.dd-fit .dd-split-r{position:static;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:12px}
 html.dd-fit .dd-split-r{padding-right:4px}
 .dd-split-l .chart-card{margin:0}
+/* Fitted to the window, the graph takes the left pane's whole height (19 Oct): the page
+   doesn't scroll, so the space under a fixed 260px chart was simply empty. The legend card
+   keeps its height under it; the chart never shrinks below 260px. */
+html.dd-fit .dd-split-l{display:flex;flex-direction:column}
+html.dd-fit .dd-split-l>.chart-card{flex:1 0 auto;display:flex;flex-direction:column}
+html.dd-fit .dd-split-l>.chart-card>.chart-split{flex:1;min-height:0;display:flex;flex-direction:column}
+html.dd-fit .dd-split-l .chart-body{flex:1;display:flex;flex-direction:column}
+html.dd-fit .dd-split-l .chart-body>.vt-panel,html.dd-fit .dd-split-l .chart-body>#chart-panel-all{flex:1;display:flex;flex-direction:column;min-height:0}
+html.dd-fit .dd-split-l .chart-body .chart-wrap--tall{flex:1;height:auto;min-height:260px}
 .dd-split-r #dev-map-card{margin-top:0}
 .dd-split-r{min-width:0}
 /* Seven tabs in one row of the right pane (Compliance joined 15 Oct). */
