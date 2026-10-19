@@ -45,30 +45,39 @@
 .ovd-sev.warning{color:var(--warn);border-color:var(--warn-edge);background:var(--warn-bg)}
 .ovd-sev.info{color:var(--info);border-color:var(--info-edge);background:var(--info-bg)}
 
-/* Device wall: a block per restaurant, a square per device. */
-.ovd-wall{--sq:10px;display:flex;flex-wrap:wrap;gap:14px 18px;padding:14px}
-.ovd-wall.sm{--sq:7px;gap:10px 12px}
-.ovd-wb{display:flex;flex-direction:column;gap:5px;min-width:0}
-.ovd-wb .nm{display:flex;align-items:center;font-size:11.5px;font-weight:600;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ovd-wb .nm .ovd-dot{width:6px;height:6px;margin-right:5px;flex:none}
-.ovd-wb .nm a,.ovd-wb .nm span:not(.ovd-dot){color:var(--text-2);text-decoration:none;overflow:hidden;text-overflow:ellipsis}
-.ovd-wb .nm a:hover{color:var(--text);text-decoration:underline}
-.ovd-wb.bad .nm a{color:var(--danger)}
-.ovd-wb .sq{display:grid;gap:2px}
-/* Grouped by class: a labeled row per class instead of one flat grid, so two classes in
-   the same restaurant never look like the same device at a glance. */
-.ovd-wb.bad .sq{outline:1.5px solid var(--danger-edge);outline-offset:3px;border-radius:2px}
-.ovd-wb .sq a{display:block;width:var(--sq);height:var(--sq);border-radius:2px}
-/* Shape is a second, independent read on device class (battery vs. mains), next to colour
-   for status — the group label above a row already says the exact class on hover/scan, this
-   is for telling classes apart across the whole wall at a glance. */
-.ovd-wb .sq a.shape-circle{border-radius:50%}
-.ovd-wb .sq a:hover,.ovd-wb .sq a:focus-visible{outline:2px solid var(--text);outline-offset:1px}
-.ovd-wb .sq a.on,.ovd-wfoot i.on{background:color-mix(in srgb,var(--ok) 62%,var(--surface))}
-/* Alerting squares are orange, clearly apart from offline red (the warn token reads brown). */
-.ovd-wb .sq a.warn,.ovd-wfoot i.warn{background:var(--chart-temp)}
-.ovd-wb .sq a.off,.ovd-wfoot i.off{background:var(--danger)}
-.ovd-wb .sq a.dormant,.ovd-wfoot i.dormant{background:var(--rule-2)}
+/* Compliance widget (C1). */
+.ovc-head{display:flex;align-items:center;gap:14px;padding:14px 16px 10px}
+.ovc-ring{width:80px;height:80px;flex:none;transform:rotate(-90deg)}
+.ovc-track{fill:none;stroke:var(--surface-3);stroke-width:9}
+.ovc-arc{fill:none;stroke-width:9}
+.ovc-arc.ok{stroke:var(--ok)}.ovc-arc.unk{stroke:var(--text-faint)}.ovc-arc.fail{stroke:var(--warn)}
+.ovc-pct{transform:rotate(90deg);transform-origin:40px 40px;font-size:17px;font-weight:750;fill:var(--text)}
+.ovc-nums{font-size:12.5px;color:var(--text-2);display:grid;gap:3px}
+.ovc-nums b{color:var(--text);font-weight:700}.ovc-nums .f b{color:var(--warn)}
+.ovc-delta{font-size:11.5px;color:var(--muted)}.ovc-delta.up{color:var(--ok)}.ovc-delta.down{color:var(--danger)}
+.ovc-list{list-style:none;margin:0;padding:0 0 4px}
+.ovc-list li{display:flex;align-items:center;gap:10px;padding:8px 16px;border-top:1px solid var(--border-soft)}
+.ovc-t{flex:1;min-width:0}.ovc-t b{display:block;font-size:13px;font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovc-t small{display:block;font-size:11.5px;color:var(--muted)}
+.ovc-n{font-weight:700;font-variant-numeric:tabular-nums;color:var(--warn)}
+.ovc-foot{padding:8px 16px 10px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
+/* Venues widget (V1): rows like the Venues page. */
+.ovv{display:flex;flex-direction:column}
+.ovv-sum{font-size:12px;color:var(--muted);margin-left:8px}.ovv-sum b{color:var(--warn);font-weight:650}
+.ovv-r{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border-soft);text-decoration:none;color:inherit}
+.ovv-r:first-child{border-top:0}
+.ovv-r:hover{background:var(--hover)}
+.ovv-nm{flex:1;min-width:0}.ovv-nm b{display:block;font-size:13.5px;font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovv-nm small{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovv-pips{display:flex;gap:3px;flex-wrap:wrap;width:150px;flex:none;justify-content:flex-end}
+.ovv-pips i{width:9px;height:9px;border-radius:3px;display:block;background:var(--ok)}
+.ovv-pips i.off{background:var(--warn)}.ovv-pips i.dormant{background:var(--text-faint);opacity:.5}
+.ovv-pips em{font-style:normal;font-size:10.5px;color:var(--text-faint);line-height:9px}
+.ovv-sc{width:38px;flex:none;text-align:right;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ok)}
+.ovv-sc.s-warn{color:var(--warn)}.ovv-sc.s-danger{color:var(--danger)}.ovv-sc.s-empty{color:var(--text-faint);font-weight:500}
+.ovv-more{display:block;padding:9px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none}
+.ovv-loose .ovv-nm b{color:var(--text-2);font-weight:600}
+.ovv-loose{padding-left:60px}
 .ovd-wfoot{display:flex;flex-wrap:wrap;gap:6px 16px;padding:9px 14px;border-top:1px solid var(--border-soft);font-size:11.5px;color:var(--muted)}
 .ovd-wfoot i.shape{background:var(--text-faint)}
 .ovd-wfoot i.shape.shape-circle{border-radius:50%}
@@ -78,8 +87,6 @@
 .ovd-wfoot span{display:inline-flex;align-items:center}
 .ovd-wfoot i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
 .ovd-wfoot .ovd-dot{margin-right:5px}
-#ovd-tip{position:fixed;z-index:80;pointer-events:none;background:var(--text);color:var(--bg);font-size:11.5px;font-weight:550;padding:5px 8px;border-radius:5px;white-space:nowrap;opacity:0;transition:opacity .08s;box-shadow:var(--shadow-md)}
-#ovd-tip.on{opacity:1}
 
 /* Service uptime: a row per restaurant, one cell per day of opening hours. */
 .ovd-up{padding:4px 14px 12px}
@@ -106,7 +113,7 @@
 .ovd-hy .t small{display:block;color:var(--muted);font-size:11.5px}
 .ovd-hy a{font-size:12px;font-weight:650;white-space:nowrap}
 
-/* Needs attention: a compact worklist beside the wall. */
+/* Needs attention: a compact worklist beside the venues. */
 .ovd-q{list-style:none;margin:0;padding:0}
 .ovd-q li{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 14px;border-top:1px solid var(--border-soft)}
 .ovd-q li:first-child{border-top:0}
@@ -118,8 +125,6 @@
 .ovd-q .ser{font-family:var(--mono);font-size:11px}
 .ovd-q .a{font-size:11.5px;color:var(--text-faint);white-space:nowrap}
 
-.ovd-map{height:420px;background:var(--surface2)}
-@media(max-width:720px){.ovd-map{height:320px}}
 
 /* Fleet health hero, shared with the classic Overview (its markup is "ov3-w-hero" in
    overview.html). Corners and shadow match this page's flat cards. */
@@ -196,8 +201,8 @@
 .ovd .ov3-hero{border-radius:8px;box-shadow:none;margin-bottom:14px}
 .ovd-main{display:grid;gap:14px;min-width:0;align-content:start}
 .ovd-side{align-content:start}
-/* One column: keep the reading order wall → attention → map → rollouts → types. */
-@media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o4{order:3}.ovd-o3{order:4}.ovd-o6{order:5}.ovd-o5{order:6}}
+/* One column: keep the reading order venues → attention → map → rollouts → types. */
+@media(max-width:1024px){.ovd-main,.ovd-side{display:contents}.ovd-o1{order:1}.ovd-o2{order:2}.ovd-o7{order:3}.ovd-o4{order:4}.ovd-o6{order:5}.ovd-o5{order:6}}
 .ovd-mlbl{position:absolute;white-space:nowrap;pointer-events:none;font:650 11.5px/1.2 var(--font);color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:2px 8px;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 .ovd-mlbl.warn{border-color:var(--warn-edge)}
 .ovd-mlbl.bad{border-color:var(--danger-edge);color:var(--danger)}
@@ -250,9 +255,9 @@
     <div class="ovd-intro-k">New look</div>
     <h2 id="ovd-intro-t">The Overview has been redesigned</h2>
     <ul>
-      <li><b>Every device is a square</b>, grouped by restaurant, worst first. Hover one for its state, click to open it.</li>
+      <li><b>Venues</b>, worst first: each one's icon, a square per device and its health score.</li>
       <li><b>A map</b> of your restaurants, with each one's device count.</li>
-      <li><b>Needs attention</b> sits beside them, so the red squares have a reason next to them.</li>
+      <li><b>Needs attention</b> sits beside them, so a venue's problems have a reason next to them.</li>
     </ul>
     <div class="ovd-intro-b"><button type="button" class="ovd-intro-ok" id="ovd-intro-ok">Got it</button></div>
   </div>
@@ -266,41 +271,30 @@
   {{/* Two independent columns, so a short attention list leaves no gap under it. */}}
   <div class="ovd-mid">
     <div class="ovd-main">
-      {{/* ── Device wall: every device one square, restaurants worst first ── */}}
+      {{/* ── Venues widget (V1, picked 19 Oct 2026): the Venues page in miniature — icon,
+           a square per device, online and problems, health score — from the same rows
+           (collRows). Venues that need a look first, ten at most. overview_venues.go ── */}}
+      {{with .Venues}}
       <div class="cc-card ovd-o1">
-        <div class="cc-ch"><h2>Fleet</h2><a class="r" href="/devices" style="margin-left:auto">All devices</a></div>
-        {{if .Wall}}
-        <div class="ovd-wall{{if gt .WallTotal 900}} sm{{end}}">
-          {{range .Wall}}
-          <div class="ovd-wb {{.Health}}">
-            <div class="nm">{{if .Health}}<span class="ovd-dot {{if eq .Health "bad"}}danger{{else}}{{.Health}}{{end}}"></span>{{end}}{{if .ID}}<a href="/restaurants/{{.ID}}" title="{{.Name}} · {{.Online}} of {{.Total}} online">{{.Name}}</a>{{else}}<span title="{{.Online}} of {{.Total}} online">{{.Name}}</span>{{end}}</div>
-            <div class="sq" style="grid-template-columns:repeat({{.Cols}},var(--sq))">{{range .Squares}}<a href="/devices/{{.Serial}}" class="{{.State}} shape-{{.Shape}}" data-tip="{{.Tip}}" aria-label="{{.Tip}}"></a>{{end}}</div>
-          </div>
+        <div class="cc-ch"><h2>Venues</h2><span class="ovv-sum">{{.Total}}{{if .NeedLook}} · <b>{{.NeedLook}} need{{if eq .NeedLook 1}}s{{end}} a look</b>{{end}}</span><a class="r" href="/restaurants" style="margin-left:auto">All venues</a></div>
+        {{if or .Rows .Unplaced}}
+        <div class="ovv">
+          {{range .Rows}}
+          <a class="ovv-r" href="{{.Href}}">
+            {{venueIcon .ID .Name "md"}}
+            <span class="ovv-nm"><b>{{.Name}}</b><small>{{if .Devices}}{{.Online}} of {{.Devices}} online{{if .Offline}} · {{.Offline}} offline{{end}}{{if .HasH}}{{if .H.OpenCritical}} · {{.H.OpenCritical}} critical{{end}}{{if .H.OpenWarning}} · {{.H.OpenWarning}} warning{{if ne .H.OpenWarning 1}}s{{end}}{{end}}{{end}}{{if .Dormant}} · {{.Dormant}} dormant{{end}}{{else}}no devices{{end}}</small></span>
+            <span class="ovv-pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span>
+            <span class="ovv-sc s-{{.Class}}">{{if and .Devices .HasH}}{{.H.Score}}{{else}}—{{end}}</span>
+          </a>
           {{end}}
-        </div>
-        <div class="ovd-wfoot">
-          <span><i class="on"></i>Online</span><span><i class="warn"></i>Alert</span><span><i class="off"></i>Offline</span><span><i class="dormant"></i>Not seen for 2+ weeks</span>
+          {{if .More}}<a class="ovv-more" href="/restaurants">{{.More}} more venue{{if ne .More 1}}s{{end}}</a>{{end}}
+          {{if .Unplaced}}<a class="ovv-r ovv-loose" href="/devices?onboarding=pending"><span class="ovv-nm"><b>Not at a venue</b><small>{{.Unplaced}} device{{if ne .Unplaced 1}}s{{end}} waiting for a site</small></span></a>{{end}}
         </div>
         {{else}}
-        <div class="ovd-empty"><b>No devices enrolled yet.</b></div>
+        <div class="ovd-empty"><b>No venues yet.</b></div>
         {{end}}
       </div>
-
-      {{/* ── Restaurant map: a dot per restaurant, sized by devices, coloured by state ── */}}
-      <div class="cc-card ovd-o3">
-        <div class="cc-ch"><h2>Map</h2><a class="r" href="/map" style="margin-left:auto">Device map</a></div>
-        {{if and .MapDots .MapsEmbedKey}}
-        <div class="ovd-map" id="ovd-map" role="region" aria-label="Map of restaurants"></div>
-        <div class="ovd-wfoot">
-          <span><span class="ovd-dot ok"></span>Healthy</span><span><span class="ovd-dot warn"></span>Watch</span><span><span class="ovd-dot danger"></span>At risk</span><span>The number in each dot is its device count</span>
-        </div>
-        <script type="application/json" id="ovd-map-data">{{.MapData}}</script>
-        {{else if .MapDots}}
-        <div class="ovd-empty">The map needs a Google Maps key on the server.</div>
-        {{else}}
-        <div class="ovd-empty"><b>No restaurants on the map yet.</b> Give a restaurant its coordinates, or turn on location on its devices, and it appears here.</div>
-        {{end}}
-      </div>
+      {{end}}
     </div>
 
     <div class="ovd-side">
@@ -325,6 +319,43 @@
         <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
         {{end}}
       </div>
+
+      {{/* ── Compliance widget (C1, picked 19 Oct 2026): the share of devices passing every
+           required check, then the three checks failing on the most devices, each with one
+           action. compliance_widget.go ── */}}
+      {{with .Compliance}}
+      <div class="cc-card ovd-o7">
+        <div class="cc-ch"><h2>Compliance</h2><a class="r" href="/compliance" style="margin-left:auto">Compliance</a></div>
+        {{if not .InScope}}
+        <div class="ovd-empty">No device is held to a required check yet.</div>
+        {{else}}
+        <div class="ovc-head">
+          <svg class="ovc-ring" viewBox="0 0 80 80" role="img" aria-label="{{.Pct}}% compliant">
+            <circle cx="40" cy="40" r="34" class="ovc-track"/>
+            {{if .Compliant}}<circle cx="40" cy="40" r="34" class="ovc-arc ok" stroke-dasharray="{{.OkDash}}" stroke-dashoffset="{{.OkOff}}"/>{{end}}
+            {{if .Unknown}}<circle cx="40" cy="40" r="34" class="ovc-arc unk" stroke-dasharray="{{.UnkDash}}" stroke-dashoffset="{{.UnkOff}}"/>{{end}}
+            {{if .Failing}}<circle cx="40" cy="40" r="34" class="ovc-arc fail" stroke-dasharray="{{.FailDash}}" stroke-dashoffset="{{.FailOff}}"/>{{end}}
+            <text x="40" y="45" text-anchor="middle" class="ovc-pct">{{.Pct}}%</text>
+          </svg>
+          <div class="ovc-nums">
+            <div><b>{{.Compliant}}</b> compliant</div>
+            <div{{if .Failing}} class="f"{{end}}><b>{{.Failing}}</b> failing a required check</div>
+            {{if .HasDelta}}<div class="ovc-delta{{if gt .Delta 0}} up{{else if lt .Delta 0}} down{{end}}">{{if gt .Delta 0}}▲ {{.Delta}}{{else if lt .Delta 0}}▼ {{sub 0 .Delta}}{{else}}no change{{end}}{{if ne .Delta 0}} pts{{end}} vs last week</div>{{end}}
+          </div>
+        </div>
+        {{if .Top}}
+        <ul class="ovc-list">
+          {{range .Top}}
+          <li><div class="ovc-t"><b>{{.Name}}</b>{{if .Line}}<small>{{.Line}}</small>{{end}}</div><span class="ovc-n">{{.Count}}</span><a class="cc-btn sm" href="{{.Href}}">Show</a></li>
+          {{end}}
+        </ul>
+        {{else}}
+        <div class="ovd-empty">Every device passes its required checks.</div>
+        {{end}}
+        {{if or .MoreChecks .Partly}}<div class="ovc-foot">{{if .MoreChecks}}+ {{.MoreChecks}} more check{{if ne .MoreChecks 1}}s{{end}} failing{{end}}{{if and .MoreChecks .Partly}} · {{end}}{{if .Partly}}{{.Partly}} device{{if ne .Partly 1}}s{{end}} can't be measured{{end}}</div>{{end}}
+        {{end}}
+      </div>
+      {{end}}
 
       {{/* ── Service uptime: were the devices up while each restaurant was open ── */}}
       {{if .Uptime}}
@@ -378,9 +409,6 @@
 </div>
 
 <script src="/static/js/overview_new.js?v={{assetVer}}"></script>
-{{if and .MapDots .MapsEmbedKey}}
-<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovdInitMap"></script>
-{{end}}
 
 {{template "footer" .}}
 {{end}}

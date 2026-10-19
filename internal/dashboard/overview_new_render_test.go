@@ -36,20 +36,8 @@ func TestOverviewNewRenders(t *testing.T) {
 
 	now := time.Now()
 	rid := uuid.New()
-	on, off, hot, loose := uuid.New(), uuid.New(), uuid.New(), uuid.New()
-	devs := []db.WallDevice{
-		{ID: on, Serial: "T7-0001", Class: "t7", RestaurantID: &rid, LastSeenAt: now},
-		{ID: off, Serial: "T7-0002", Class: "t7", RestaurantID: &rid, LastSeenAt: now.Add(-2 * time.Hour)},
-		{ID: hot, Serial: "K22-0003", Class: "kiosk", RestaurantID: &rid, LastSeenAt: now},
-		{ID: loose, Serial: "MB-0004", Class: "dongle", LastSeenAt: now},
-	}
-	connected := map[uuid.UUID]struct{}{on: {}, hot: {}, loose: {}}
+	hot := uuid.New()
 	alerts := []db.Alert{{Type: "device_overheating", DeviceID: &hot, Serial: "K22-0003", Severity: "warning", FiredAt: now}}
-	groups := []db.GroupHealth{{GroupID: rid, Name: "Pho 88", DeviceCount: 3, OfflineCount: 1, Deployed: true, ScoreClass: "danger"}}
-	wall := buildWall(devs, connected, alerts, groups, map[uuid.UUID]string{rid: "Pho 88"}, now)
-	lat, lng := 33.77, -117.94
-	mapJS, dots := buildMap(wall, []db.Restaurant{{ID: rid, Name: "Pho 88", Latitude: &lat, Longitude: &lng}}, nil, groups,
-		[]uptimeRow{{ID: rid.String(), Days: []uptimeCell{{Class: "ok"}, {Class: "warn"}}}})
 	att, attN, attCrit := buildAttention(alerts, 1)
 
 	data := map[string]any{
@@ -59,7 +47,12 @@ func TestOverviewNewRenders(t *testing.T) {
 		"Products": []compRole{{"t7", "Tableside AI", 2}, {"", "Unassigned", 2}},
 		"SitesOK":  0, "SitesWarn": 0, "SitesBad": 1, "Crashes24h": 0, "CrashDevices24h": 0,
 		"AttentionRows": att, "AttentionTotal": attN, "AttentionCritical": attCrit,
-		"Wall": wall, "WallTotal": len(devs), "MapData": mapJS, "MapDots": dots, "MapsEmbedKey": "k",
+		"Venues": overviewVenues{Rows: []venueRow{{ID: rid.String(), Name: "Pho 88", Href: "/restaurants/" + rid.String(), Devices: 3, Online: 2, Offline: 1,
+			Pips: []string{"off", "on", "on"}, Class: "danger", NeedsLook: true, HasH: true, H: db.GroupHealth{Score: 42, OpenWarning: 1}}},
+			Total: 1, NeedLook: 1, Unplaced: 1},
+		"Compliance": &compWidget{InScope: 4, Compliant: 3, Failing: 1, Pct: 75, OkDash: "1 1", FailDash: "1 1",
+			HasDelta: true, Delta: -5, MoreChecks: 2, Partly: 1,
+			Top: []compWidgetCheck{{ID: "wireless_adb_off", Name: "Wireless adb off", Line: "all at Pho 88 · auto-fix on", Count: 1, Href: "/compliance?tab=devices&show=failing&check=wireless_adb_off"}}},
 		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1,
 		"Uptime": uptimeRows([]db.RestaurantUptime{{ID: rid, Name: "Pho 88", Days: []db.UptimeDay{
 			{Date: now.AddDate(0, 0, -1), Expected: 100, Up: 97, DownDevice: 1}, {Date: now, Expected: 0}}}}, nil),
@@ -72,15 +65,21 @@ func TestOverviewNewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`href="/devices/T7-0002" class="off shape-sq"`,       // offline square, T7 is battery-powered
-		`href="/devices/K22-0003" class="warn shape-circle"`, // alerting square, kiosk is mains-powered
-		`Menu board · Not deployed`,                          // loose device, grouped by type
-		`id="ovd-map-data"`,                                  // map data shipped
-		`"name":"Pho 88"`,                                    // restaurant on the map
-		`"silent":["T7-0002"]`,                               // the map card lists who is silent
-		`"uptime":["ok","warn"]`,
-		`id="ovd-intro"`,                             // the first-visit intro
-		`class="ov3-hero is-warn"`,                   // the classic hero: score, right now, composition
+		`<h2>Venues</h2>`, // the Venues widget (V1)
+		`<b>1 needs a look</b>`,
+		`2 of 3 online · 1 offline · 1 warning`,
+		`<i class="off"></i><i class="on"></i><i class="on"></i>`,
+		`<span class="ovv-sc s-danger">42</span>`,
+		`1 device waiting for a site`, // devices at no venue
+		`<h2>Compliance</h2>`,         // the compliance widget (C1)
+		`>75%</text>`,
+		`<b>1</b> failing a required check`,
+		`▼ 5 pts vs last week`,
+		`all at Pho 88 · auto-fix on`,
+		`href="/compliance?tab=devices&amp;show=failing&amp;check=wireless_adb_off">Show</a>`,
+		`+ 2 more checks failing · 1 device can't be measured`,
+		`id="ovd-intro"`,           // the first-visit intro
+		`class="ov3-hero is-warn"`, // the classic hero: score, right now, composition
 		`Tableside AI <b>2</b>`,
 		`<span class="p warn">97.0%</span>`, // service uptime, one restaurant
 		`97.0% up · 1 device missed time`,
@@ -92,7 +91,7 @@ func TestOverviewNewRenders(t *testing.T) {
 			t.Errorf("rendered page is missing %q", want)
 		}
 	}
-	if dots != 1 {
-		t.Errorf("map dots = %d, want 1 (restaurants only)", dots)
+	if strings.Contains(out, `id="ovd-map"`) {
+		t.Error("the map card is back on the Overview")
 	}
 }
