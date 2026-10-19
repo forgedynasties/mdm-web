@@ -27,6 +27,10 @@ type LostModePayload struct {
 	// Beacon is the Bluetooth LE token for this lost session (18 Oct). The server sets it
 	// when the command is created (db.CreateCommandBy); one a caller sends is dropped.
 	Beacon string `json:"beacon,omitempty"`
+	// Venue and VenueIconV name the device's venue and its icon version for the lost
+	// screen (19 Oct, client 1.13.4); set by the server for a command to one device.
+	Venue      string `json:"venue,omitempty"`
+	VenueIconV int64  `json:"venue_icon_v,omitempty"`
 }
 
 // NormalizeLostMode checks a lost_mode payload and returns it in its stored shape

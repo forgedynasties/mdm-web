@@ -119,6 +119,7 @@ func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payloa
 	var beacon string
 	if cmdType == "lost_mode" && targetType == "devices" && len(targetIDs) == 1 {
 		payload, beacon = withLostBeacon(payload)
+		payload = d.withLostVenue(ctx, payload, targetIDs[0])
 	}
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
