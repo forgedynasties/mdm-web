@@ -14,7 +14,7 @@ import (
 // installed variant is one line under it, since a lab T7 often carries four or five builds
 // of the same app pointed at different backends.
 //
-// The server names the app per class (product.HostAppPattern); only T7 has one today.
+// The server names the app per role: the role's app on Lineup (role_apps).
 
 type hostAppReport struct {
 	Pattern  string           `json:"pattern"`
@@ -201,6 +201,12 @@ func hostAppName(base string) string {
 		return "AIO POS"
 	case "aio.app.menuboards":
 		return "Menu board"
+	case "aio.app.kiosk":
+		return "Kiosk app"
+	case "aio.app.kds":
+		return "KDS"
+	case "aio.app.mpos":
+		return "Handheld"
 	}
 	return base
 }

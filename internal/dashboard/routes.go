@@ -366,6 +366,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Super admins only — Releases shows both read-only.
 	post("POST /products/attach", h.requireStrictAdmin(h.ProductAttach))
 	post("POST /products/firmware-mode", h.requireStrictAdmin(h.PipelineFirmwareMode))
+	post("POST /products/role-app", h.requireStrictAdmin(h.PipelineRoleApp))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.
 	mux.HandleFunc("GET /clients", h.requireAuth(h.fleetWide(h.ClientsPage)))

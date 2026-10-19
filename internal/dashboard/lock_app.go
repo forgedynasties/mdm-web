@@ -14,8 +14,8 @@ import (
 )
 
 // Lock goes straight to the host app (picked 19 Oct 2026, "L1"): the device page's Lock
-// button locks to the app the device is there to run, named per class by
-// product.HostAppPattern, with no list of other apps. Only when several builds of that
+// button locks to the app the device is there to run, its role's app on Lineup, with no
+// list of other apps. Only when several builds of that
 // app are installed (….uatv2, ….qa next to prod) does the button open a menu asking which.
 // A class with no host app keeps the app picker, since there is nothing to lock to by
 // itself.
@@ -84,10 +84,11 @@ func hostAppMatcher(pattern string) (base string, match func(string) bool) {
 	}
 }
 
-// lockAppFor works out the Lock button for a device, or nil when its class names no
-// host app. allowed is the fleet lock allowlist: a build it refuses is not offered.
-func lockAppFor(d db.Device, pkgs []db.DevicePackage, cfg *db.DeviceConfig, allowed func(string) bool) *LockApp {
-	pattern := prod.HostAppPattern(d.Class())
+// lockAppFor works out the Lock button for a device, or nil when its role has no app.
+// base is the role's app (Lineup); allowed is the fleet lock allowlist: a build it
+// refuses is not offered.
+func lockAppFor(d db.Device, base string, pkgs []db.DevicePackage, cfg *db.DeviceConfig, allowed func(string) bool) *LockApp {
+	pattern := prod.HostAppPattern(base)
 	if pattern == "" {
 		return nil
 	}
@@ -190,7 +191,8 @@ func (h *Handler) DeviceLockHost(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "Internal error")
 		return
 	}
-	la := lockAppFor(*device, pkgs, cfg, h.cfg.KioskAppAllowed)
+	roleApp := h.db.RoleAppBase(r.Context(), device.Class())
+	la := lockAppFor(*device, roleApp, pkgs, cfg, h.cfg.KioskAppAllowed)
 	if la == nil {
 		writeJSONError(w, http.StatusBadRequest, "This device has no host app to lock to")
 		return
@@ -245,7 +247,7 @@ func (h *Handler) DeviceLockHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg.KioskEnabled, cfg.KioskPackage, cfg.KioskMode = on, pkg, "app"
-	after := lockAppFor(*device, pkgs, cfg, h.cfg.KioskAppAllowed)
+	after := lockAppFor(*device, roleApp, pkgs, cfg, h.cfg.KioskAppAllowed)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"on": on, "package": pkg, "label": after.Label, "sub": after.Sub, "delivered": delivered,

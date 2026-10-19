@@ -401,6 +401,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		"Inbox":       inbox,
 		"Models":      models,
 		"RoleClients": roleClients,
+		"App":         h.lineupApp(ctx, sel, devices),
 		"AppRollout":  h.cfg.RoleRollout(config.RolloutApps),
 		"FwRollout":   h.cfg.RoleRollout(config.RolloutFirmware),
 	}))
@@ -517,8 +518,15 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	msg := "App for " + prod.ClassLabel(role) + ": " + hostAppName(base) + "."
+	if base == "" {
+		base = "(none)"
+		msg = "No app for " + prod.ClassLabel(role) + "."
+	}
 	h.audit(r, "release.role_app", role, base)
-	http.Redirect(w, r, "/lineup?role="+role+"&flash=app", http.StatusSeeOther)
+	// One message, as a toast: the page's own banner only knows its short codes.
+	q := url.Values{"role": {role}, "flash": {msg}, "flash_type": {"success"}}
+	http.Redirect(w, r, "/lineup?"+q.Encode(), http.StatusSeeOther)
 }
 
 // PipelineChannel puts a build on its package's column. On the base package this is

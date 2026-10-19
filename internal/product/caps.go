@@ -90,27 +90,30 @@ func ClassLabel(class string) string {
 	return strings.TrimSpace(class)
 }
 
-// HostAppPattern names the app a class of device is there to run, for the firmware
-// client's host_app report (HostApp.java): which variants are installed, which one is in
-// use, whether it is running, its memory, today's use and traffic, and why it last died —
-// all read from outside the app. A trailing * is a prefix; several patterns are
-// comma-separated. "" sends nothing, and a client told "" stops reporting.
-//
-// aio.app.nugget is the guest ordering app (TSAI), and its build variants (.uatv2, .qa,
-// .internal, .stagev2…) are the same app pointed at another backend. POS and the menu board
-// were added for Lock (19 Oct 2026), which locks to this app by itself; the families are
-// the ones live devices of those classes were locked to by hand. Only the firmware client
-// reads the pattern for its report, and none runs on those classes.
-func HostAppPattern(class string) string {
-	switch class {
-	case ClassT7:
-		return "aio.app.nugget*"
-	case ClassPOS:
-		return "aio.app.pos*"
-	case ClassDongle:
-		return "aio.app.menuboards*"
+// DefaultRoleApps is the app each role starts with: role_apps is filled from it once, and
+// Lineup changes it from then on (roles got their app back on 19 Oct 2026, "A1"). The
+// families are the ones live devices of each class have installed. A role's app is a base
+// package; its build variants (aio.app.nugget.uatv2, .qa, .internal…) are the same app
+// pointed at another backend.
+func DefaultRoleApps() map[string]string {
+	return map[string]string{
+		ClassT7:     "aio.app.nugget",
+		ClassKiosk:  "aio.app.kiosk",
+		ClassKDS:    "aio.app.kds",
+		ClassPOS:    "aio.app.pos",
+		ClassDongle: "aio.app.menuboards",
 	}
-	return ""
+}
+
+// HostAppPattern is the pattern for a role's app (its base package), for the firmware
+// client's host_app report (HostApp.java) and for Lock: the base package and its variants.
+// A trailing * is a prefix; patterns are comma-separated, the first naming the family.
+// "" (no app) sends nothing, and a client told "" stops reporting.
+func HostAppPattern(base string) string {
+	if base == "" {
+		return ""
+	}
+	return base + "," + base + ".*"
 }
 
 // IsClass reports whether the key names a known class.

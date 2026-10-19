@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -173,17 +174,21 @@ func (d *DB) ListRoleApps(ctx context.Context) ([]RoleApp, error) {
 	return out, rows.Err()
 }
 
-// SetRoleApp names (or, with an empty package, clears) the app a role runs. Clearing it
-// also drops the role's channels: with no app there is nothing for them to point at.
+// SetRoleApp names (or, with an empty package, clears) the app a role runs. A cleared
+// role keeps its row with an empty package, so the one-time seed never fills it again.
+// Clearing also drops the role's channels: with no app there is nothing for them to point at.
 func (d *DB) SetRoleApp(ctx context.Context, role, basePackage, by string) error {
 	role, basePackage = strings.TrimSpace(role), strings.TrimSpace(basePackage)
+	defer d.roleApps.drop()
 	if basePackage == "" {
 		tx, err := d.pool.Begin(ctx)
 		if err != nil {
 			return err
 		}
 		defer tx.Rollback(ctx)
-		if _, err := tx.Exec(ctx, `DELETE FROM role_apps WHERE role = $1`, role); err != nil {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO role_apps (role, base_package, updated_by, updated_at) VALUES ($1, '', $2, now())
+			ON CONFLICT (role) DO UPDATE SET base_package = '', updated_by = EXCLUDED.updated_by, updated_at = now()`, role, by); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM app_channels WHERE role = $1`, role); err != nil {
@@ -201,6 +206,60 @@ func (d *DB) SetRoleApp(ctx context.Context, role, basePackage, by string) error
 	// A channel for a package outside the (new) family is meaningless now.
 	_, err = d.pool.Exec(ctx, `DELETE FROM app_channels WHERE role = $1 AND package <> $2 AND package NOT LIKE $2 || '.%'`, role, basePackage)
 	return err
+}
+
+// seedRoleApps gives each role its starting app (prod.DefaultRoleApps) the first time,
+// and never again: a role an admin changed or cleared already has its row.
+func seedRoleApps(ctx context.Context, tx pgx.Tx) error {
+	for role, base := range prod.DefaultRoleApps() {
+		if _, err := tx.Exec(ctx, `INSERT INTO role_apps (role, base_package, updated_by) VALUES ($1, $2, 'seed') ON CONFLICT (role) DO NOTHING`, role, base); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// roleAppCache holds role → base package for the check-in path, which asks on every
+// check-in. SetRoleApp drops it; otherwise it is re-read after roleAppTTL.
+type roleAppCache struct {
+	mu sync.Mutex
+	at time.Time
+	m  map[string]string
+}
+
+const roleAppTTL = 30 * time.Second
+
+func (c *roleAppCache) drop() {
+	c.mu.Lock()
+	c.at = time.Time{}
+	c.mu.Unlock()
+}
+
+// RoleAppBase is the base package of the app a role runs, "" for none.
+func (d *DB) RoleAppBase(ctx context.Context, role string) string {
+	m := d.RoleAppBases(ctx)
+	return m[role]
+}
+
+// RoleAppBases is every role's app, from the cache when it is fresh. On a read error it
+// serves what it had.
+func (d *DB) RoleAppBases(ctx context.Context) map[string]string {
+	c := &d.roleApps
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.m != nil && time.Since(c.at) < roleAppTTL {
+		return c.m
+	}
+	apps, err := d.ListRoleApps(ctx)
+	if err != nil {
+		return c.m
+	}
+	m := make(map[string]string, len(apps))
+	for _, a := range apps {
+		m[a.Role] = a.BasePackage
+	}
+	c.m, c.at = m, time.Now()
+	return m
 }
 
 // ── app channels ─────────────────────────────────────────────────────────────
@@ -625,4 +684,34 @@ func (d *DB) CommandOutcome(ctx context.Context, commandID, deviceID uuid.UUID) 
 		       COALESCE((SELECT output FROM command_results WHERE command_id = $1 AND device_id = $2), '')`,
 		commandID, deviceID).Scan(&status, &output)
 	return status, output, err
+}
+
+// FleetFamily is one AIO app family the fleet reports, with how many devices carry any
+// package of it.
+type FleetFamily struct {
+	Base    string
+	Devices int
+}
+
+// FleetAppFamilies lists the aio.app.<name> families on any device, most widespread first.
+// A variant (aio.app.nugget.uatv2) counts toward its family.
+func (d *DB) FleetAppFamilies(ctx context.Context) ([]FleetFamily, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT split_part(package_name, '.', 1) || '.' || split_part(package_name, '.', 2) || '.' || split_part(package_name, '.', 3) AS fam,
+		       count(DISTINCT device_id)
+		FROM device_packages WHERE package_name LIKE 'aio.app.%'
+		GROUP BY 1 ORDER BY 2 DESC, 1`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetFamily
+	for rows.Next() {
+		var f FleetFamily
+		if err := rows.Scan(&f.Base, &f.Devices); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
 }

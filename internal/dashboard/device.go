@@ -576,7 +576,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstalledPackages":   launchableOnly(installedPkgs),
 		"ClientPill":          h.clientPillFor(device),
 		"KioskApps":           kioskApps,
-		"LockApp":             lockAppFor(*device, installedPkgs, kioskCfg, h.cfg.KioskAppAllowed),
+		"LockApp":             lockAppFor(*device, h.db.RoleAppBase(r.Context(), device.Class()), installedPkgs, kioskCfg, h.cfg.KioskAppAllowed),
 		"KioskAllowlistCSV":   strings.Join(h.cfg.KioskAllowlist(), ","),
 		"KioskExtras":         kioskExtras,
 		"PendingInstalls":     pendingInstalls,

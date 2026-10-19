@@ -17,7 +17,7 @@ func TestLockAppFor(t *testing.T) {
 		{PackageName: "aio.app.nugget.uatv2", VersionName: "2"},
 	}
 
-	l := lockAppFor(t7, pkgs, &db.DeviceConfig{}, all)
+	l := lockAppFor(t7, "aio.app.nugget", pkgs, &db.DeviceConfig{}, all)
 	if l == nil || l.Name != "Nugget" || l.On || l.Label != "Lock" || !l.Menu() {
 		t.Fatalf("unlocked, three builds: %+v", l)
 	}
@@ -29,32 +29,32 @@ func TestLockAppFor(t *testing.T) {
 		}
 	}
 
-	one := lockAppFor(t7, pkgs[2:3], &db.DeviceConfig{KioskEnabled: true, KioskPackage: "aio.app.nugget"}, all)
+	one := lockAppFor(t7, "aio.app.nugget", pkgs[2:3], &db.DeviceConfig{KioskEnabled: true, KioskPackage: "aio.app.nugget"}, all)
 	if one.Menu() || one.Label != "Locked" || one.Sub != "Nugget" {
 		t.Fatalf("one build, locked: %+v", one)
 	}
 
-	multi := lockAppFor(t7, pkgs, &db.DeviceConfig{KioskEnabled: true, KioskPackage: "aio.app.nugget.qa"}, all)
+	multi := lockAppFor(t7, "aio.app.nugget", pkgs, &db.DeviceConfig{KioskEnabled: true, KioskPackage: "aio.app.nugget.qa"}, all)
 	if multi.Sub != "Nugget QA" {
 		t.Fatalf("locked to a lab build: sub = %q", multi.Sub)
 	}
 
-	foreign := lockAppFor(t7, pkgs[2:3], &db.DeviceConfig{KioskEnabled: true, KioskPackage: "com.android.chrome"}, all)
+	foreign := lockAppFor(t7, "aio.app.nugget", pkgs[2:3], &db.DeviceConfig{KioskEnabled: true, KioskPackage: "com.android.chrome"}, all)
 	if !foreign.Foreign || !foreign.Menu() || foreign.Sub != "other app" {
 		t.Fatalf("locked to another app: %+v", foreign)
 	}
 
-	none := lockAppFor(t7, pkgs[1:2], &db.DeviceConfig{}, all)
+	none := lockAppFor(t7, "aio.app.nugget", pkgs[1:2], &db.DeviceConfig{}, all)
 	if len(none.Variants) != 0 || !none.Menu() {
 		t.Fatalf("not installed: %+v", none)
 	}
 
-	refused := lockAppFor(t7, pkgs, &db.DeviceConfig{}, func(p string) bool { return p == "aio.app.nugget" })
+	refused := lockAppFor(t7, "aio.app.nugget", pkgs, &db.DeviceConfig{}, func(p string) bool { return p == "aio.app.nugget" })
 	if len(refused.Variants) != 1 {
 		t.Fatalf("allowlist not applied: %+v", refused.Variants)
 	}
 
-	if lockAppFor(db.Device{DeviceClass: "kds"}, pkgs, &db.DeviceConfig{}, all) != nil {
-		t.Fatal("a class with no host app keeps the picker")
+	if lockAppFor(db.Device{DeviceClass: "kds"}, "", pkgs, &db.DeviceConfig{}, all) != nil {
+		t.Fatal("a role with no app keeps the picker")
 	}
 }

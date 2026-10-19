@@ -9,7 +9,7 @@
     </div>
   </div>
 
-  {{if .Flash}}<div class="pl-flash">{{if eq .Flash "channel"}}Saved. Devices move to it in their window.{{else if eq .Flash "app"}}App saved for this role.{{else if eq .Flash "firmware"}}Prod firmware saved.{{else if eq .Flash "mode"}}Firmware mode saved.{{else if eq .Flash "rollout"}}Rollout saved.{{end}}</div>{{end}}
+  {{if or (eq .Flash "channel") (eq .Flash "app") (eq .Flash "firmware") (eq .Flash "mode") (eq .Flash "rollout")}}<div class="pl-flash">{{if eq .Flash "channel"}}Saved. Devices move to it in their window.{{else if eq .Flash "app"}}App saved for this role.{{else if eq .Flash "firmware"}}Prod firmware saved.{{else if eq .Flash "mode"}}Firmware mode saved.{{else if eq .Flash "rollout"}}Rollout saved.{{end}}</div>{{end}}
 
   {{/* Lineup (static/lineup-merge-demos.html, M1, picked 14 Oct): Releases and Hardware in
        one page. The side list swaps the pane in place. */}}
@@ -66,6 +66,37 @@
       </div></div>
       {{end}}{{else}}
       <div class="lu-head"><h2>{{.RoleLabel}}</h2><span class="pl-faint">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}}</span></div>
+      {{end}}
+
+      {{/* ── App (A1, picked 19 Oct): the role's app and the builds its devices are on.
+           A name and a read-out: Lock and the host app report use it; nothing installs. */}}
+      {{with .App}}
+      <div class="pl-lanehead">
+        <h2>App</h2>
+        {{if canAdmin $.Role}}
+        <form method="POST" action="/products/role-app" class="pl-inline">
+          <input type="hidden" name="role" value="{{$.RoleKey}}">
+          <select name="base_package" class="lu-sel" aria-label="App for {{$.RoleLabel}}" onchange="this.form.requestSubmit()">
+            <option value=""{{if not .Base}} selected{{end}}>— no app —</option>
+            {{$b := .Base}}{{range .Choices}}<option value="{{.Package}}"{{if eq .Package $b}} selected{{end}}>{{.Label}}</option>{{end}}
+          </select>
+        </form>
+        {{else if .Base}}<b class="lu-appname">{{.Name}}</b> <span class="mono pl-faint">{{.Base}}</span>{{end}}
+        <span class="pl-faint">what {{$.RoleLabel}} devices are there to run</span>
+      </div>
+      {{if not .Base}}
+      <div class="pl-empty">No app for {{$.RoleLabel}}. Lock on these devices offers the app picker instead.</div>
+      {{else}}
+      <div class="lu-app">
+        <div class="lu-app-n">{{if .Total}}On <b>{{.On}}</b> of {{.Total}} device{{if ne .Total 1}}s{{end}}{{else}}No {{$.RoleLabel}} devices yet{{end}}</div>
+        {{if .Builds}}
+        <div class="lu-builds">
+          {{range .Builds}}<span class="lu-bd" title="{{.Package}}{{if gt .Versions 1}} · {{.Versions}} versions on these devices; the most common shown{{end}}"><span class="cc-tag {{.EnvTone}}">{{.Env}}</span><b>{{if .Version}}{{.Version}}{{else}}—{{end}}</b>{{if gt .Versions 1}}<span class="pl-faint">+{{sub .Versions 1}}</span>{{end}}<span class="mono lu-bd-p">{{.Short}}</span><span class="lu-bd-n">{{.Devices}}</span></span>{{end}}
+        </div>
+        {{end}}
+        <div class="lu-uses"><span>Lock locks to it</span><span>Host app card on the device page</span><span>"Not on screen" alert</span></div>
+      </div>
+      {{end}}
       {{end}}
 
       {{/* ── Hardware ── */}}
@@ -161,6 +192,16 @@
   .pl-intake input[type=url] { flex: 1; min-width: 220px; font: inherit; font-size: 12.5px; padding: 8px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
   .pl-fetch { font-size: 12px; color: var(--text-2); margin: 0 0 6px 4px; overflow-wrap: anywhere; }
   .pl-faint { font-size: 11.5px; color: var(--text-faint); }
+  .lu-app { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 22px; }
+  .lu-app-n { font-size: 12.5px; color: var(--text-2); }
+  .lu-app-n b { color: var(--text); }
+  .lu-builds { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .lu-bd { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); border-radius: 10px; padding: 5px 9px; font-size: 12.5px; color: var(--text); }
+  .lu-bd b { font-weight: 700; }
+  .lu-bd-p { font-size: 11.5px; color: var(--muted); }
+  .lu-bd-n { font-size: 11.5px; font-weight: 700; color: var(--text-2); padding: 1px 7px; border-radius: 99px; background: var(--surface2); }
+  .lu-uses { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: var(--muted); }
+  .lu-uses span::before { content: "✓ "; color: var(--ok); font-weight: 700; }
   .pl-split { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; margin-top: 14px; align-items: start; }
   .pl-side { display: grid; gap: 4px; position: sticky; top: 84px; }
   .pl-side-cap { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin: 12px 10px 2px; }

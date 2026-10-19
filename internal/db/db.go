@@ -33,6 +33,9 @@ type DB struct {
 	// concurrent viewer without serving meaningfully stale data.
 	cmdSummaryMu    sync.Mutex
 	cmdSummaryCache map[[2]int]cmdSummaryCacheEntry
+
+	// roleApps caches role → app for the check-in path (role_model.go).
+	roleApps roleAppCache
 }
 
 type cmdSummaryCacheEntry struct {
@@ -164,6 +167,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 		return err
 	}
 	if _, err := tx.Exec(ctx, roleModelSchema); err != nil {
+		return err
+	}
+	if err := seedRoleApps(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
