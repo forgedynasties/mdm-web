@@ -1,7 +1,10 @@
-{{/* Profile and Location on the venue page (E1, picked 19 Oct): the venue is edited in
-     place, like Service hours and Device lock. internal/dashboard/venue_profile.go,
+{{/* Venue settings (S1, picked 19 Oct 2026): the venue page's side column has ONE card, a
+     list with a row per setting (Profile, Location, Service hours, Device lock, Device
+     Wi-Fi) showing its current value. A row opens its form in place under it, one at a
+     time (<details name="vn-set">). Editing stays on the venue page (E1, picked the same
+     morning); this replaced five stacked cards. internal/dashboard/venue_profile.go,
      static/js/venue_location.js */}}
-{{define "venue-profile-cards"}}
+{{define "venue-settings"}}
 <style>
 .vp-row{display:flex;align-items:center;gap:8px;min-width:0}
 .vp-row .form-input{flex:1;min-width:0}
@@ -11,7 +14,25 @@
 .vp-up input{display:none}
 .vp-rm,.vp-link{border:0;background:none;padding:0;font:inherit;font-weight:650;cursor:pointer;color:var(--accent-text)}
 .vp-rm{color:var(--danger)}
-.vn-card>summary .vicon{margin-right:2px}
+.vs-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-width:0;overflow:hidden}
+.vs-h{padding:12px 14px 10px}.vs-h h2{font-size:13.5px;font-weight:650;margin:0}
+.vs-row>summary{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border-soft);list-style:none;cursor:pointer;font-size:13px}
+.vs-row>summary::-webkit-details-marker{display:none}
+.vs-row>summary:hover{background:var(--hover)}
+.vs-row>summary:focus-visible{outline:none;box-shadow:inset var(--ring)}
+.vs-row[open]>summary{background:var(--accent-soft)}
+.vs-k{width:96px;flex:none;color:var(--muted);font-size:12.5px}
+.vs-v{flex:1;min-width:0;display:flex;align-items:center;gap:7px;color:var(--text);white-space:nowrap;overflow:hidden}
+.vs-v>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.vs-v small{color:var(--muted);font-size:12px}
+.vs-ch{flex:none;width:14px;height:14px;fill:none;stroke:var(--text-faint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.vs-row[open] .vs-ch{transform:rotate(90deg);stroke:var(--accent-text)}
+.vs-body{border-top:1px solid var(--border-soft)}
+.vs-body .vn-form{border-top:0}
+.vs-body .vn-form+.vn-form{border-top:1px solid var(--border-soft)}
+.vs-note{padding:10px 14px 2px;font-size:11.5px;color:var(--text-faint);line-height:1.5}
+.vs-note:last-child{padding-bottom:12px}
+.vs-ro{padding:10px 14px 12px;font-size:12.5px;color:var(--text-2);line-height:1.5;white-space:pre-wrap}
 .vl-find{position:relative}
 .vl-sugg{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:30;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg);overflow:hidden}
 .vl-sugg button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 11px;font:inherit;font-size:12.5px;color:var(--text);cursor:pointer}
@@ -24,9 +45,14 @@
 .vl-tz b{color:var(--text)}.vl-tzhint{color:var(--muted)}
 .vl-tz .vl-tzchange{margin-left:auto}
 .vl-tzsel{width:100%}
-</style>{{$r := .Restaurant}}{{$can := canAdminOrOperator .Role}}
-<details class="vn-card" id="vn-profile"{{if eq .Open "profile"}} open{{end}}>
-  <summary>{{venueIcon $r.ID $r.Name "sm"}}<h2>Profile</h2><span class="vn-val">{{if $r.ContactEmail}}{{$r.ContactEmail}}{{else}}no contact email{{end}}</span>{{if $can}}<span class="vn-ed">Edit</span>{{end}}</summary>
+</style>
+{{$r := .Restaurant}}{{$can := canAdminOrOperator .Role}}
+<div class="vs-card" id="vn-settings">
+<div class="vs-h"><h2>Venue settings</h2></div>
+
+<details class="vs-row" name="vn-set" id="vn-profile"{{if eq .Open "profile"}} open{{end}}>
+  <summary><span class="vs-k">Profile</span><span class="vs-v">{{venueIcon $r.ID $r.Name "sm"}}<span>{{$r.Name}} <small>· {{if $r.ContactEmail}}{{$r.ContactEmail}}{{else}}no contact email{{end}}</small></span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
   {{if $can}}
   <form class="vn-form vp-icon" action="/restaurants/{{$r.ID}}/icon" method="POST" enctype="multipart/form-data" hx-boost="false">
     <div class="form-row full"><label class="form-label" for="vp-site">Icon</label>
@@ -37,20 +63,24 @@
         <span class="vp-links"><label class="vp-up">Upload…<input type="file" name="icon" accept="image/png,image/jpeg,image/gif" onchange="var f=this.form, b=document.createElement('input'); b.type='hidden'; b.name='action'; b.value='upload'; f.appendChild(b); f.submit()"></label>{{if .IconSource}} · <button type="submit" name="action" value="remove" class="vp-rm">Remove</button>{{end}}</span></div>
     </div>
   </form>
-  <form class="vn-form" action="/restaurants/{{$r.ID}}/profile" method="POST" style="border-top:0;padding-top:0">
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/profile" method="POST">
     <div class="form-row full"><label class="form-label" for="vp-name">Name</label><input type="text" id="vp-name" name="name" class="form-input" required maxlength="120" value="{{$r.Name}}"></div>
     <div class="form-row full"><label class="form-label" for="vp-mail">Contact email</label><input type="email" id="vp-mail" name="contact_email" class="form-input" maxlength="254" autocomplete="off" placeholder="manager@restaurant.com" value="{{$r.ContactEmail}}"></div>
     <p>Gets the venue's monthly device security report, with its owner accounts.</p>
     <div class="form-row full"><label class="form-label" for="vp-notes">Notes</label><textarea id="vp-notes" name="notes" class="form-input" rows="2" placeholder="Anything ops should know about this venue">{{$r.Notes}}</textarea></div>
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
+  {{else}}
+  <div class="vs-ro">{{if $r.Notes}}{{$r.Notes}}{{else}}No notes.{{end}}</div>
   {{end}}
+  </div>
 </details>
 
 {{with .Location}}
-<details class="vn-card" id="vn-location"{{if eq $.Open "location"}} open{{end}}>
-  <summary><h2>Location</h2><span class="vn-val">{{if .Address}}{{.Address}}{{else if .Lat}}pinned on the map{{else}}not set{{end}}{{if .Timezone}} · {{.Timezone}}{{end}}</span>{{if $can}}<span class="vn-ed">Edit</span>{{end}}</summary>
-  {{if and (not .Lat) .Centre}}<div class="vn-sub">Its devices are reporting where they are: open to use that.</div>{{end}}
+<details class="vs-row" name="vn-set" id="vn-location"{{if eq $.Open "location"}} open{{end}}>
+  <summary><span class="vs-k">Location</span><span class="vs-v"><span>{{if .Address}}{{.Address}}{{else if .Lat}}Pinned on the map{{else}}Not set{{end}}{{if .Timezone}} <small>· {{.Timezone}}</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  {{if and (not .Lat) .Centre}}<div class="vs-note">Its devices are reporting where they are: use that below.</div>{{end}}
   {{if $can}}
   <form class="vn-form vl-form" action="/restaurants/{{$r.ID}}/location" method="POST"
         data-geocode="/restaurants/{{$r.ID}}/geocode" data-key="{{.MapsKey}}" data-points="{{.PointsJSON}}"
@@ -82,8 +112,65 @@
     <p>Drives this venue's service-hours alerts.</p>
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
+  {{else}}
+  <div class="vs-ro">{{if .Address}}{{.Address}}{{else}}No address.{{end}}{{if .Pin}} · {{.Pin}}{{end}}{{if .Timezone}} · {{.Timezone}}{{end}}</div>
   {{end}}
+  </div>
 </details>
 {{end}}
+
+{{$sw := .ServiceWindow}}
+<details class="vs-row" name="vn-set" id="vn-hours"{{if eq .Open "hours"}} open{{end}}>
+  <summary><span class="vs-k">Service hours</span><span class="vs-v"><span>{{$sw.Open}} – {{$sw.Close}}{{if ne $sw.NightOpen $sw.NightClose}} <small>· overnight {{$sw.NightOpen}} – {{$sw.NightClose}}</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">{{if $sw.HasOwn}}Set for this venue{{else}}Fleet default{{end}}{{if $sw.TZ}} · {{$sw.TZ}}{{else if $r.Timezone}} · {{$r.Timezone}}{{end}}. Offline and battery alerts count only inside these hours.</div>
+  {{if $can}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/service-window" method="POST">
+    <div class="form-row"><label class="form-label">Open</label><input type="time" name="open" class="form-input" value="{{$sw.Open}}"></div>
+    <div class="form-row"><label class="form-label">Close</label><input type="time" name="close" class="form-input" value="{{$sw.Close}}"></div>
+    <div class="form-row"><label class="form-label">Overnight open</label><input type="time" name="night_open" class="form-input" value="{{$sw.NightOpen}}"></div>
+    <div class="form-row"><label class="form-label">Overnight close</label><input type="time" name="night_close" class="form-input" value="{{$sw.NightClose}}"></div>
+    <div class="form-row full"><label class="form-label">Time zone <span class="muted small">(blank = each device's own)</span></label><input type="text" name="timezone" class="form-input" value="{{$sw.TZ}}" placeholder="GMT-8"></div>
+    <p>Window-gated alerts (offline during service, low battery during service, overnight charging) fire only for deployed units during these hours.</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save hours</button>{{if $sw.HasOwn}}<button type="submit" name="action" value="reset" class="cc-btn sm" title="Revert to the fleet default window">Use fleet default</button>{{end}}</div>
+  </form>
+  {{end}}
+  </div>
+</details>
+
+{{/* Device lock, where the business thinks about it: what the rule says and what the
+     devices are actually doing, side by side. */}}
+{{with .Kiosk}}
+<details class="vs-row" name="vn-set" id="vn-lock"{{if eq $.Open "lock"}} open{{end}}>
+  <summary><span class="vs-k">Device lock</span><span class="vs-v"><span>{{if .On}}On{{if .Package}} <small>({{.Package}})</small>{{end}}{{else}}Off{{end}} <small>· {{.Locked}} of {{.Total}} locked{{if $.SelfLockMinutes}} · locks itself if it leaves{{end}}</small></span>{{if .Exited}}<span class="cc-tag bad">{{.Exited}} taken out</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">{{if .Exited}}<span style="color:var(--danger)">{{.Exited}} taken out on site.</span> {{end}}{{if .Disagree}}{{sub .Total .Locked}} not locked: not checked in since the rule was set, unlocked on the device, or their app isn't installed.{{else if not .On}}{{.Locked}} of {{.Total}} locked by another rule or by hand.{{end}} <a href="/lock">All lock rules</a></div>
+  {{if $can}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/kiosk" method="POST">
+    <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="lock" value="on"{{if .On}} checked{{end}}> <b>Lock this venue's devices to their app</b></label>
+    <p>Each device locks to its role's app from <a href="/lineup">Lineup</a> (a TSAI to Nugget, a POS to AIO POS).{{if .Package}} This venue's rule was saved locked to <span class="mono">{{.Package}}</span>; saving switches it to each device's app.{{end}}</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{end}}
+  {{/* Self-lock (picked 18 Oct): a tablet that leaves the venue locks itself to the lost
+       screen even when the server can't reach it. Admin only; off by default. lost_reporting.go */}}
+  {{if canAdmin $.Role}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/self-lock" method="POST">
+    <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="self_lock" value="on"{{if $.SelfLockMinutes}} checked{{end}}> <b>Lock a tablet that leaves the venue</b></label>
+    <div class="form-row full"><label class="form-label" for="sl-min">when this venue's Wi-Fi has been gone for</label>
+      <select id="sl-min" name="self_lock_minutes" class="form-input">
+        {{$m := $.SelfLockMinutes}}{{if not $m}}{{$m = 10}}{{end}}
+        <option value="5"{{if eq $m 5}} selected{{end}}>5 minutes</option><option value="10"{{if eq $m 10}} selected{{end}}>10 minutes</option><option value="15"{{if eq $m 15}} selected{{end}}>15 minutes</option><option value="30"{{if eq $m 30}} selected{{end}}>30 minutes</option><option value="60"{{if eq $m 60}} selected{{end}}>60 minutes</option>
+      </select></div>
+    <p>…while it's off its charger and off its guest pad, and the networks around it have changed too, so a router outage never locks a tablet at its table. It shows the lost screen until it's back at the venue or someone lifts it from its page. Firmware client 1.13.0+.</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{end}}
+  </div>
+</details>
+{{end}}
+
+{{template "venue-wifi-row" .}}
+</div>
 <script src="/static/js/venue_location.js?v={{assetVer}}"></script>
 {{end}}

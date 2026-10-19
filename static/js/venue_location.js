@@ -3,7 +3,9 @@
 // where the venue's devices are; the timezone can follow what they report. Everything
 // lands in the form's hidden fields and is saved with the card's Save.
 (function () {
-  // Open a card from the header's Edit button (or ?open=), scroll to it, focus it.
+  // Open a row of the Venue settings list (S1) from the header's Edit button (or ?open=),
+  // scroll to it, focus it. The rows are <details name="vn-set">, so opening one closes
+  // the one that was open.
   window.vnOpenCard = function (id) {
     var d = document.getElementById(id);
     if (!d) return;
@@ -16,14 +18,17 @@
   function init() {
     // A save sends you back with ?open=<card>; the card is already open, so drop the
     // parameter and bring it into view.
+    // The Wi-Fi handlers send you back to #wifi instead.
     try {
       var u = new URL(location.href), open = u.searchParams.get('open');
       if (open) {
         u.searchParams.delete('open');
         history.replaceState(null, '', u.pathname + (u.searchParams.toString() ? '?' + u.searchParams : '') + u.hash);
-        var c = document.getElementById('vn-' + open);
-        if (c) c.scrollIntoView({ block: 'start' });
+      } else if (location.hash === '#wifi') {
+        open = 'wifi';
       }
+      var c = open && document.getElementById(open === 'wifi' ? 'wifi' : 'vn-' + open);
+      if (c && c.tagName === 'DETAILS') { c.open = true; c.scrollIntoView({ block: 'start' }); }
     } catch (e) {}
 
     var form = document.querySelector('.vl-form');

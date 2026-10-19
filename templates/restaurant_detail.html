@@ -130,65 +130,13 @@
   </div>
 
   <div class="vn-side">
+    {{template "venue-settings" .}}
+
     {{/* Power and usage — what the venue's hardware actually did over the chosen window.
          The whole card (figures AND the per-day strip) is one htmx target, so the range
-         buttons never leave the bars showing the old window under a new number. */}}
+         buttons never leave the bars showing the old window under a new number. Under the
+         settings since S1 (19 Oct), so the venue's identity comes first. */}}
     <div id="power-live">{{template "restaurant-power" .}}</div>
-
-    {{template "venue-profile-cards" .}}
-
-    {{$sw := .ServiceWindow}}
-    <details class="vn-card">
-      <summary><h2>Service hours</h2><span class="vn-val">{{$sw.Open}} – {{$sw.Close}}{{if ne $sw.NightOpen $sw.NightClose}} · overnight {{$sw.NightOpen}} – {{$sw.NightClose}}{{end}}</span>{{if canAdminOrOperator $.Role}}<span class="vn-ed">Edit</span>{{end}}</summary>
-      <div class="vn-sub">{{if $sw.HasOwn}}Set for this venue{{else}}Fleet default{{end}}{{if $sw.TZ}} · {{$sw.TZ}}{{else if .Restaurant.Timezone}} · {{.Restaurant.Timezone}}{{end}}. Offline and battery alerts count only inside these hours.</div>
-      {{if canAdminOrOperator .Role}}
-      <form class="vn-form" action="/restaurants/{{.Restaurant.ID}}/service-window" method="POST">
-        <div class="form-row"><label class="form-label">Open</label><input type="time" name="open" class="form-input" value="{{$sw.Open}}"></div>
-        <div class="form-row"><label class="form-label">Close</label><input type="time" name="close" class="form-input" value="{{$sw.Close}}"></div>
-        <div class="form-row"><label class="form-label">Overnight open</label><input type="time" name="night_open" class="form-input" value="{{$sw.NightOpen}}"></div>
-        <div class="form-row"><label class="form-label">Overnight close</label><input type="time" name="night_close" class="form-input" value="{{$sw.NightClose}}"></div>
-        <div class="form-row full"><label class="form-label">Time zone <span class="muted small">(blank = each device's own)</span></label><input type="text" name="timezone" class="form-input" value="{{$sw.TZ}}" placeholder="GMT-8"></div>
-        <p>Window-gated alerts (offline during service, low battery during service, overnight charging) fire only for deployed units during these hours.</p>
-        <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save hours</button>{{if $sw.HasOwn}}<button type="submit" name="action" value="reset" class="cc-btn sm" title="Revert to the fleet default window">Use fleet default</button>{{end}}</div>
-      </form>
-      {{end}}
-    </details>
-
-    {{/* Device lock, where the business thinks about it: what the rule says and what the
-         devices are actually doing, side by side. */}}
-    {{with .Kiosk}}
-    <details class="vn-card">
-      <summary><h2>Device lock</h2><span class="vn-val">{{if .On}}{{if .Package}}{{.Package}}{{else}}their app{{end}} · {{.Locked}} of {{.Total}} locked{{else}}no rule{{end}}{{if $.SelfLockMinutes}} · locks itself if it leaves{{end}}</span>{{if canAdminOrOperator $.Role}}<span class="vn-ed">Edit</span>{{end}}</summary>
-      <div class="vn-sub">{{if .Exited}}<span style="color:var(--danger)">{{.Exited}} taken out on site.</span> {{end}}{{if .Disagree}}{{sub .Total .Locked}} not locked: not checked in since the rule was set, unlocked on the device, or their app isn't installed.{{else if not .On}}{{.Locked}} of {{.Total}} locked by another rule or by hand.{{end}} <a href="/lock">All lock rules</a></div>
-      {{if canAdminOrOperator $.Role}}
-      <form class="vn-form" action="/restaurants/{{$.Restaurant.ID}}/kiosk" method="POST">
-        <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="lock" value="on"{{if .On}} checked{{end}}> <b>Lock this venue's devices to their app</b></label>
-        <p>Each device locks to its role's app from <a href="/lineup">Lineup</a> (a TSAI to Nugget, a POS to AIO POS).{{if .Package}} This venue's rule was saved locked to <span class="mono">{{.Package}}</span>; saving switches it to each device's app.{{end}}</p>
-        <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
-      </form>
-      {{end}}
-      {{/* Self-lock (S1, picked 18 Oct): a tablet that leaves the venue locks itself to the lost
-           screen even when the server can't reach it. Admin only; off by default. lost_reporting.go */}}
-      {{if canAdmin $.Role}}
-      <form class="vn-form" action="/restaurants/{{$.Restaurant.ID}}/self-lock" method="POST">
-        <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="self_lock" value="on"{{if $.SelfLockMinutes}} checked{{end}}> <b>Lock a tablet that leaves the venue</b></label>
-        <div class="form-row full"><label class="form-label" for="sl-min">when this venue's Wi-Fi has been gone for</label>
-          <select id="sl-min" name="self_lock_minutes" class="form-input">
-            {{$m := $.SelfLockMinutes}}{{if not $m}}{{$m = 10}}{{end}}
-            <option value="5"{{if eq $m 5}} selected{{end}}>5 minutes</option><option value="10"{{if eq $m 10}} selected{{end}}>10 minutes</option><option value="15"{{if eq $m 15}} selected{{end}}>15 minutes</option><option value="30"{{if eq $m 30}} selected{{end}}>30 minutes</option><option value="60"{{if eq $m 60}} selected{{end}}>60 minutes</option>
-          </select></div>
-        <p>…while it's off its charger and off its guest pad, and the networks around it have changed too, so a router outage never locks a tablet at its table. It shows the lost screen until it's back at the venue or someone lifts it from its page. Firmware client 1.13.0+.</p>
-        <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
-      </form>
-      {{end}}
-    </details>
-    {{end}}
-
-    {{template "venue-wifi-card" .}}
-
-    {{if .Restaurant.Notes}}
-    <div class="vn-card"><div class="vn-ch"><h2>Notes</h2></div><div style="padding:0 14px 12px;white-space:pre-wrap;font-size:12.5px;line-height:1.55;color:var(--text-2)">{{.Restaurant.Notes}}</div></div>
-    {{end}}
   </div>
 </div>
 </div>
