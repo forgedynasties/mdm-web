@@ -543,9 +543,10 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 // GetDistinctBuildIDs returns all distinct non-empty build IDs for non-hidden devices.
 func (d *DB) GetDistinctBuildIDs(ctx context.Context) ([]string, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT DISTINCT build_id FROM devices
+		SELECT build_id FROM devices
 		WHERE NOT hidden AND build_id != ''
-		ORDER BY build_id
+		GROUP BY build_id
+		ORDER BY count(*) DESC, build_id
 	`)
 	if err != nil {
 		return nil, err

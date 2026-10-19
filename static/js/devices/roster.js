@@ -377,8 +377,17 @@ function ffShowField(k) {
       box.querySelectorAll('.cc-mi[data-v]').forEach(function (b) {
         var c = n[b.dataset.v], el = b.querySelector('.ff-n');
         if (el) el.textContent = c == null ? '' : c;
-        if (c === 0 && b.dataset.v !== cur) { b.classList.add('is-off'); b.disabled = true; }
+        if (c === 0 && b.dataset.v !== cur) {
+          // A release no device here runs is left out; other fields grey it.
+          if (k === 'build') b.remove(); else { b.classList.add('is-off'); b.disabled = true; }
+        }
       });
+      // Releases: the one most devices here are on first.
+      if (k === 'build') {
+        var list = box.querySelector('.fl-mlist');
+        [].slice.call(list.children).sort(function (a, b) { return (n[b.dataset.v] || 0) - (n[a.dataset.v] || 0); })
+          .forEach(function (b) { list.appendChild(b); });
+      }
     })
     .catch(function () { box.querySelectorAll('.ff-n').forEach(function (el) { el.textContent = ''; }); });
 }

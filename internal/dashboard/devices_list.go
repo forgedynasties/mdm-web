@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -329,13 +330,15 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		vis, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{OnlyIDs: acc.visibleIDs()}, 0, 10000, "", "")
 		fleetTotal = len(vis)
 		prodCounts = map[string]int{}
-		bset, tset := map[string]bool{}, map[string]bool{}
+		bset, tset := map[string]int{}, map[string]bool{}
 		builds, timezones = nil, nil
 		for _, d := range vis {
 			prodCounts[d.Product]++
-			if d.BuildID != "" && !bset[d.BuildID] {
-				bset[d.BuildID] = true
-				builds = append(builds, d.BuildID)
+			if d.BuildID != "" {
+				if bset[d.BuildID] == 0 {
+					builds = append(builds, d.BuildID)
+				}
+				bset[d.BuildID]++
 			}
 			var ex struct {
 				TZ string `json:"timezone"`
@@ -346,6 +349,13 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 				timezones = append(timezones, tz)
 			}
 		}
+		// The release filter lists the build most devices are on first.
+		slices.SortStableFunc(builds, func(a, b string) int {
+			if bset[a] != bset[b] {
+				return bset[b] - bset[a]
+			}
+			return strings.Compare(a, b)
+		})
 	}
 
 	totalPages := (total + pageSize - 1) / pageSize
