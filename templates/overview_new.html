@@ -268,7 +268,9 @@
   {{/* ── Fleet health · right now · composition, as on the classic Overview ── */}}
   {{template "ov3-w-hero" .}}
 
-  {{/* Two independent columns, so a short attention list leaves no gap under it. */}}
+  {{/* Two independent columns, so a short attention list leaves no gap under it. Left:
+       Venues, Service uptime, Devices by type; right: Needs attention, Compliance, Clean up
+       (rebalanced 19 Oct, when the map card went and the right column ran far longer). */}}
   <div class="ovd-mid">
     <div class="ovd-main">
       {{/* ── Venues widget (V1, picked 19 Oct 2026): the Venues page in miniature — icon,
@@ -295,6 +297,40 @@
         {{end}}
       </div>
       {{end}}
+
+      {{/* ── Service uptime: were the devices up while each restaurant was open ── */}}
+      {{if .Uptime}}
+      <div class="cc-card ovd-o4">
+        <div class="cc-ch"><h2>Service uptime</h2><span class="m">7 days</span><a class="r" href="/restaurants">Restaurants</a></div>
+        <div class="ovd-up">
+          {{range .Uptime}}
+          <div class="r">
+            <a class="n" href="/restaurants/{{.ID}}">{{.Name}}</a>
+            <div class="c" role="img" aria-label="{{.Name}}: {{.Pct}} up over 7 days">{{range .Days}}<i class="{{.Class}}" title="{{.Title}}"></i>{{end}}</div>
+            <span class="p {{.Class}}">{{.Pct}}</span>
+          </div>
+          {{end}}
+          <div class="lg"><span>Opening hours only · oldest → today</span><span><i style="background:var(--warn)"></i>below 99%</span><span><i style="background:var(--danger)"></i>below 95%</span></div>
+        </div>
+      </div>
+      {{end}}
+
+      {{/* ── Devices by type ── */}}
+      <div class="cc-card ovd-o5">
+        <div class="cc-ch"><h2>Devices by type</h2><a class="r" href="/devices">All devices</a></div>
+        {{if .ClassOnline}}
+        <table class="ovd-t">
+          <thead><tr><th>Type</th><th class="num">Online</th><th class="num">Total</th></tr></thead>
+          <tbody>
+          {{range .ClassOnline}}
+          <tr><td>{{if .Class}}<a href="/devices?class={{.Class}}">{{.Label}}</a>{{else}}{{.Label}}{{end}}</td><td class="num">{{.Online}}</td><td class="num mut">{{.Total}}</td></tr>
+          {{end}}
+          </tbody>
+        </table>
+        {{else}}
+        <div class="ovd-empty">No devices enrolled yet.</div>
+        {{end}}
+      </div>
     </div>
 
     <div class="ovd-side">
@@ -357,23 +393,6 @@
       </div>
       {{end}}
 
-      {{/* ── Service uptime: were the devices up while each restaurant was open ── */}}
-      {{if .Uptime}}
-      <div class="cc-card ovd-o4">
-        <div class="cc-ch"><h2>Service uptime</h2><span class="m">7 days</span><a class="r" href="/restaurants">Restaurants</a></div>
-        <div class="ovd-up">
-          {{range .Uptime}}
-          <div class="r">
-            <a class="n" href="/restaurants/{{.ID}}">{{.Name}}</a>
-            <div class="c" role="img" aria-label="{{.Name}}: {{.Pct}} up over 7 days">{{range .Days}}<i class="{{.Class}}" title="{{.Title}}"></i>{{end}}</div>
-            <span class="p {{.Class}}">{{.Pct}}</span>
-          </div>
-          {{end}}
-          <div class="lg"><span>Opening hours only · oldest → today</span><span><i style="background:var(--warn)"></i>below 99%</span><span><i style="background:var(--danger)"></i>below 95%</span></div>
-        </div>
-      </div>
-      {{end}}
-
       {{/* ── Clean up: is the fleet list honest ── */}}
       {{if .Hygiene}}
       <div class="cc-card ovd-o6">
@@ -386,22 +405,6 @@
       </div>
       {{end}}
 
-      {{/* ── Devices by type ── */}}
-      <div class="cc-card ovd-o5">
-        <div class="cc-ch"><h2>Devices by type</h2><a class="r" href="/devices">All devices</a></div>
-        {{if .ClassOnline}}
-        <table class="ovd-t">
-          <thead><tr><th>Type</th><th class="num">Online</th><th class="num">Total</th></tr></thead>
-          <tbody>
-          {{range .ClassOnline}}
-          <tr><td>{{if .Class}}<a href="/devices?class={{.Class}}">{{.Label}}</a>{{else}}{{.Label}}{{end}}</td><td class="num">{{.Online}}</td><td class="num mut">{{.Total}}</td></tr>
-          {{end}}
-          </tbody>
-        </table>
-        {{else}}
-        <div class="ovd-empty">No devices enrolled yet.</div>
-        {{end}}
-      </div>
     </div>
   </div>
 
