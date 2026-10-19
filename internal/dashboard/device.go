@@ -224,6 +224,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		notes         string
 		flapRate      int
 		crashCount    int
+		health        deviceHealth
 		otaUpdate     *db.Update
 		otaLabel      string
 		otaClass      string
@@ -448,6 +449,13 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			mu.Unlock()
 		}
 	})
+	// The Health tab (T1): what needs attention, and the tab's count.
+	run(func() {
+		hv := h.deviceHealthView(ctx, r, device)
+		mu.Lock()
+		health = hv
+		mu.Unlock()
+	})
 
 	wg.Wait()
 	dbDur := time.Since(t0)
@@ -540,6 +548,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Caps":             device.CapSet(),
 		"Classes":          product.Classes(),
 		"DeviceCrashCount": crashCount,
+		"Health":           health,
 		"ChargerFlapRate":  flapRate,
 		"ChargerFlapping":  flapRate > 10,
 		"Notes":            notes,
