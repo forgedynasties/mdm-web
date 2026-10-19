@@ -135,47 +135,6 @@ function selectCollection(type, id) {
   navigateDevices(ov);
 }
 
-// ── Saved views ──────────────────────────────────────────────────────────────
-// "+ Save this view" turns itself into a name field rather than opening a dialog:
-// naming a filter set is a one-word decision and a modal is heavier than the act.
-function saveCurrentView() {
-  var row = document.getElementById('fleet-saved');
-  if (!row || row.querySelector('.fs-naming')) return;
-  var btn = row.querySelector('.fs-add');
-  var box = document.createElement('span');
-  box.className = 'fs-naming';
-  box.innerHTML = '<input type="text" maxlength="40" placeholder="Name this view" aria-label="Name for the saved view">' +
-                  '<button type="button" class="ok">Save</button>' +
-                  '<button type="button" class="no" aria-label="Cancel">&times;</button>';
-  if (btn) btn.hidden = true;
-  row.appendChild(box);
-  var input = box.querySelector('input');
-  function cancel() { box.remove(); if (btn) { btn.hidden = false; btn.focus(); } }
-  function commit() {
-    var name = input.value.trim();
-    if (!name) { input.focus(); return; }
-    // location.search carries every filter and the sort — that IS the view.
-    window.mdmPostForm('/devices/views', { name: name, query: location.search.replace(/^\?/, '') });
-  }
-  box.querySelector('.ok').onclick = commit;
-  box.querySelector('.no').onclick = cancel;
-  input.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    if (e.key === 'Escape') { e.preventDefault(); cancel(); }
-  });
-  input.focus();
-}
-
-function deleteSavedView(id, name) {
-  window.mdmConfirm({
-    title: 'Delete saved view',
-    body: 'Delete \u201c' + (name || 'this view').trim() + '\u201d? The filters themselves are not affected.',
-    confirmLabel: 'Delete', tier: 'danger'
-  }).then(function (ok) {
-    if (ok) window.mdmPostForm('/devices/views/' + id + '/delete', {});
-  });
-}
-
 
 // Keep an open popover inside the window, above the floating bottom nav: cap its
 // height to the room below its top edge and let it scroll inside.

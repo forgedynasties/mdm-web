@@ -103,8 +103,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// device), so it is restricted to admins only.
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemote)))
 	mux.HandleFunc("GET /devices/{serial}/remote/token", h.requireAdminOrOperator(h.deviceRoute("remote", h.DeviceRemoteToken)))
-	post("POST /devices/views", h.requireAuth(h.FleetViewSave))
-	post("POST /devices/views/{id}/delete", h.requireAuth(h.FleetViewDelete))
 	post("POST /devices/bulk-restaurant", h.requireAdminOrOperator(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-nickname", h.requireAdminOrOperator(h.BulkNickname))
 	post("POST /devices/bulk-retire", h.requireStrictAdmin(h.BulkRetire))

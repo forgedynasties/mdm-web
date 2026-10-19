@@ -7,7 +7,6 @@ import (
 	_ "image/jpeg"
 	"math"
 	"net/http"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -574,16 +573,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"MapsEmbedKey":         h.mapsEmbedKey,
 	}
 
-	// Saved views: the current query string, named. Also hand the template the
-	// live query so it can mark the pill that matches what is on screen, and so
-	// "Save this view" has something to save.
-	if sess, ok := h.currentSession(r); ok && sess.UserID != nil {
-		if views, err := h.db.ListFleetViews(r.Context(), *sess.UserID); err == nil {
-			data["SavedViews"] = views
-		}
-		data["CanSaveView"] = true
-	}
-	data["CurrentQuery"] = r.URL.RawQuery
 	// Tablets refused for a corrupted serial in the last day: they are stored nowhere
 	// else, so their cards at the top of the roster are the only place they show up.
 	if refused, err := h.db.RecentRefusedCheckins(r.Context(), 24*time.Hour); err == nil && len(refused) > 0 {
@@ -656,59 +645,3 @@ func sparkPoints(vals []float64) string {
 }
 
 // ── Saved fleet views ─────────────────────────────────────────────────────────
-
-// FleetViewSave names the Fleet page's current query string. Every signed-in role
-// may save one: a view reads nothing a viewer could not already see by setting the
-// filters by hand — it only remembers which ones.
-func (h *Handler) FleetViewSave(w http.ResponseWriter, r *http.Request) {
-	sess, ok := h.currentSession(r)
-	if !ok || sess.UserID == nil {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	r.ParseForm()
-	name := strings.TrimSpace(r.FormValue("name"))
-	if name == "" {
-		h.hxDoneToast(w, r, "/devices", "Give the view a name.", "error")
-		return
-	}
-	if len(name) > 40 {
-		name = name[:40]
-	}
-	// Store the query only — never a full URL. The value is echoed back into an
-	// href, and a saved "//evil.example" would otherwise navigate off-site.
-	q := strings.TrimSpace(r.FormValue("query"))
-	q = strings.TrimPrefix(q, "?")
-	if parsed, err := url.ParseQuery(q); err == nil {
-		q = parsed.Encode()
-	} else {
-		q = ""
-	}
-	if err := h.db.SaveFleetView(r.Context(), *sess.UserID, name, q); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	dest := "/devices"
-	if q != "" {
-		dest += "?" + q
-	}
-	h.hxDoneToast(w, r, dest, "Saved view “"+name+"”.", "success")
-}
-
-func (h *Handler) FleetViewDelete(w http.ResponseWriter, r *http.Request) {
-	sess, ok := h.currentSession(r)
-	if !ok || sess.UserID == nil {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid view ID", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.DeleteFleetView(r.Context(), *sess.UserID, id); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.hxDone(w, r, "/devices", "fleet-views-changed")
-}

@@ -530,31 +530,6 @@ a.fleet-rail-item{min-height:40px}
          in "+ Filter" now (F2, picked 16 Oct). ── */}}
     <div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product">{{template "fleet-product-tabs" .}}</div>
 
-    {{/* ── Saved views ───────────────────────────────────────────────────────────
-         The quick views above are the four the product ships with. These are the
-         ones this person built: fifteen filter dimensions plus a sort, named and
-         kept, instead of rebuilt from the popover every morning. A view is just
-         the query string — clicking one navigates, exactly as pasting the URL
-         would, so nothing new can go wrong with it. */}}
-    {{if .CanSaveView}}
-    <div class="fleet-saved" id="fleet-saved">
-      <span class="fs-cap">Saved</span>
-      {{range .SavedViews}}
-      <span class="fs-view{{if eq .Query $.CurrentQuery}} on{{end}}">
-        {{/* The whole URL as one value: a query spliced in after "?" is escaped as one
-             parameter, which turned "a=1&b=2" into a single key that matched nothing. */}}
-        <a href="{{if .Query}}{{printf "/devices?%s" .Query}}{{else}}/devices{{end}}">{{.Name}}</a>
-        <button type="button" class="x" title="Delete this view"
-                aria-label="Delete saved view {{.Name}}"
-                onclick="deleteSavedView('{{.ID}}', this.previousElementSibling.textContent)">&times;</button>
-      </span>
-      {{else}}
-      <span class="fs-none">No saved views yet — set up the filters you want, then save them.</span>
-      {{end}}
-      <button type="button" class="fs-add" onclick="saveCurrentView()">+ Save this view</button>
-    </div>
-    {{end}}
-
 
 <div class="fleet-bar dv-rise-1">
   {{/* ── Search ── */}}
