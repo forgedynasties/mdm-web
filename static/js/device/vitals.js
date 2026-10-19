@@ -2503,13 +2503,15 @@ function mdmBootCharts() {
       var grew = n > shown.n;
       var from = fresh ? { l: l, r: l } : { l: shown.l, r: shown.r };
       shown.tab = activeTab; shown.n = n; shown.l = l; shown.r = r;
+      // A redraw with nothing new (the strip redraws on every update) must not cut a
+      // sweep short: that is how the draw-in vanished once the strip redrew more often.
+      if (!fresh && !grew) { if (!anim) setClip(Math.min(l, from.l), r + 2); return; }
       cancelAnimationFrame(anim);
-      if (!fresh && !grew) { setClip(Math.min(l, from.l), r + 2); return; }
       var t0 = performance.now(), dur = fresh ? 1200 : 800;
       (function step(now) {
         var k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
         setClip(Math.min(l, from.l + (l - from.l) * e), from.r + (r + 2 - from.r) * e);
-        if (k < 1) anim = requestAnimationFrame(step);
+        anim = k < 1 ? requestAnimationFrame(step) : 0;
       })(t0);
     }
     function rect(g, x0, x1, cls) {
@@ -2560,8 +2562,19 @@ function mdmBootCharts() {
       var lo = pct ? 0 : Infinity, hi = pct ? 100 : -Infinity;
       if (!pct) pts.forEach(function (p) { lo = Math.min(lo, p.y); hi = Math.max(hi, p.y); });
       if (!(hi - lo >= 1)) hi = lo + 1;
-      var thr = gapThresholdFor(pts);
-      var step = Math.max(1, Math.floor(pts.length / 400)), line = '', area = '', run = [];
+      // Time slots, not raw spacing (19 Oct): the strip mixes thinned history (points
+      // minutes apart) with the page's own dense recent points (seconds apart), so a gap
+      // rule from the average spacing called the thinned days offline. Each of SLOTS
+      // equal slots keeps its last value; only a run of empty slots longer than both the
+      // usual outage threshold and a few slots counts as offline, and shorter holes are
+      // bridged.
+      var SLOTS = 400, slotW = (navB - navA) / SLOTS, slot = new Array(SLOTS);
+      pts.forEach(function (p) {
+        var k = Math.min(SLOTS - 1, Math.max(0, Math.floor((p.x - navA) / slotW)));
+        slot[k] = p;
+      });
+      var thr = Math.max(gapThresholdMs, slotW * 3);
+      var line = '', area = '', run = [];
       function flush() {
         if (!run.length) return;
         line += 'M' + run.map(function (q) { return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' L');
@@ -2569,8 +2582,9 @@ function mdmBootCharts() {
         run = [];
       }
       var offs = [], prev = null;
-      for (var i = 0; i < pts.length; i += step) {
-        var p = pts[i];
+      for (var i = 0; i < SLOTS; i++) {
+        var p = slot[i];
+        if (!p) continue;
         if (prev && p.x - prev.x > thr) { flush(); offs.push([prev.x, p.x]); }
         run.push([X(p.x), 3 + (1 - (p.y - lo) / (hi - lo)) * (H - 6)]);
         prev = p;
