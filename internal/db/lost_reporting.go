@@ -150,7 +150,7 @@ func LostConfigKeys(c LostConfig, phone string) map[string]any {
 		out["self_lock"] = map[string]any{"enabled": false}
 		return out
 	}
-	msg := "Please hand it to a member of staff, or call:"
+	msg := LostMessage(phone)
 	if c.Venue != "" {
 		msg = "It belongs to " + c.Venue + ". " + msg
 	}
@@ -562,4 +562,14 @@ func (d *DB) RestaurantSelfLockMinutes(ctx context.Context, restaurantID uuid.UU
 	var n int
 	err := d.pool.QueryRow(ctx, `SELECT self_lock_minutes FROM restaurants WHERE id = $1`, restaurantID).Scan(&n)
 	return n, err
+}
+
+// LostMessage is the lost screen's default request. It only asks for a call when there is
+// a number to call: with no AIO support number set, "…or call:" ended in nothing (seen
+// 19 Oct on AT070AA2600030).
+func LostMessage(phone string) string {
+	if strings.TrimSpace(phone) == "" {
+		return "Please hand it to a member of staff."
+	}
+	return "Please hand it to a member of staff, or call:"
 }

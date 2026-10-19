@@ -80,7 +80,7 @@ func (h *Handler) lostModeFor(ctx context.Context, d *db.Device) lostModeView {
 		}
 	}
 	v.Phone = h.cfg.LostModeSupportPhone()
-	v.DefaultM = "Please hand it to a member of staff, or call:"
+	v.DefaultM = db.LostMessage(v.Phone)
 	if d.RestaurantName != "" {
 		v.DefaultM = "It belongs to " + d.RestaurantName + ". " + v.DefaultM
 	}
