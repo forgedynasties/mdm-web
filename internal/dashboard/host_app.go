@@ -197,6 +197,10 @@ func hostAppName(base string) string {
 	switch base {
 	case "aio.app.nugget":
 		return "Nugget"
+	case "aio.app.pos":
+		return "AIO POS"
+	case "aio.app.menuboards":
+		return "Menu board"
 	}
 	return base
 }

@@ -619,3 +619,21 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .lr-tl li .d.lr-trail{background:var(--accent-2)}
 .lr-tl li b{color:var(--text);font-weight:600}
 @media (max-width:1024px){.lr-two{grid-template-columns:1fr}}
+/* Lock to the host app (L1, 19 Oct): the island button and its builds menu. */
+.lk-wrap{position:relative;display:inline-flex}
+.lk-btn .lk-sub{font-size:11px;font-weight:700;color:var(--muted)}
+.lk-btn .lk-sub:empty{display:none}
+.lk-btn.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
+.lk-btn.on .lk-sub{color:var(--accent-text)}
+.lk-btn.warn{border-color:var(--warn-edge,var(--warn));background:var(--warn-bg);color:var(--warn)}
+.lk-btn.warn .lk-sub{color:var(--warn)}
+.lk-btn[aria-busy=true],.lk-btn:disabled[aria-busy=true]{cursor:progress;opacity:1}
+.lk-btn[aria-busy=true] svg{animation:lk-pulse 1.1s ease-in-out infinite}
+@keyframes lk-pulse{50%{opacity:.3}}
+.lk-menu{position:fixed;z-index:1000;width:340px}
+.lk-menu .lk-v{min-height:48px;padding:6px 10px}
+.lk-v-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lk-v-t b{font-weight:650;font-size:13px;color:var(--text)}
+.lk-v-t small{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lk-menu .lk-live{color:var(--ok);font-weight:650}
+.lk-menu [hidden]{display:none!important}

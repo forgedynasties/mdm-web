@@ -1,0 +1,37 @@
+{{/* Lock on the device page (New view), L1 picked 19 Oct: the button locks to the
+     device's host app by itself and asks only when several builds of it are installed.
+     internal/dashboard/lock_app.go, static/js/device/lock-host.js */}}
+
+{{define "lock-host"}}{{$l := .LockApp}}
+{{$ksusp := and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}
+{{$kout := or $ksusp .KioskExit}}
+{{$can := canAdminOrOperator .Role}}
+<span class="lk-wrap">
+  <button type="button" id="lk-btn" class="cc-btn lk-btn{{if and $l.On (not $kout)}} on{{end}}{{if $kout}} warn{{end}}{{if not $can}} role-locked{{end}}"
+    data-serial="{{.Device.SerialNumber}}" data-on="{{if $l.On}}1{{else}}0{{end}}" data-kout="{{if $kout}}1{{else}}0{{end}}"
+    data-pkg="{{if eq (len $l.Variants) 1}}{{(index $l.Variants 0).Package}}{{end}}" data-name="{{$l.Name}}"
+    {{if $l.Menu}}aria-haspopup="menu" aria-expanded="false"{{end}}
+    {{if not $can}}title="Requires the operator role" data-role-need="operator"{{else if $kout}}title="Unlocked on the device with the exit PIN. Click to lock it again"{{end}}
+    onclick="lockHostClick(this)">
+    <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span class="lk-label">{{if $kout}}Lock{{else}}{{$l.Label}}{{end}}</span><span class="lk-sub">{{if $kout}}taken out{{else}}{{$l.Sub}}{{end}}</span>
+  </button>
+  {{if and $can $l.Menu}}
+  <div class="cc-menu lk-menu" id="lk-menu" role="menu" hidden>
+    {{if $l.Variants}}
+    <p class="cc-mh">{{if $l.On}}Locked to{{else}}Lock to which {{$l.Name}}?{{end}}<span class="sub">{{len $l.Variants}} installed</span></p>
+    {{range $l.Variants}}
+    <button type="button" role="menuitem" class="cc-mi lk-v{{if .Current}} active{{end}}" data-pkg="{{.Package}}">
+      <span class="lk-v-t"><b>{{$l.Name}} <span class="cc-tag {{.EnvTone}}">{{.Env}}</span></b><small class="mono">{{.Package}}{{if .Version}} · {{.Version}}{{end}}</small></span>
+      {{if .OnScreen}}<small class="lk-live">● on screen</small>{{end}}
+    </button>
+    {{end}}
+    {{else}}
+    <p class="cc-mh">Lock</p>
+    <p class="cc-mnote"><b>{{$l.Name}} isn't on this device.</b> Install it from the Apps tab, then lock.</p>
+    {{end}}
+    <hr class="cc-msep lk-off-sep"{{if not $l.On}} hidden{{end}}>
+    <button type="button" role="menuitem" class="cc-mi danger lk-off"{{if not $l.On}} hidden{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>Unlock</button>
+  </div>
+  {{end}}
+</span>
+{{end}}

@@ -269,7 +269,7 @@
     if (!orig.on) {
       if (offBtn) offBtn.hidden = true;
       applyBtn.hidden = false;
-      applyBtn.textContent = 'Enable kiosk';
+      applyBtn.textContent = 'Lock';
       applyBtn.disabled = !hasApp;
       if (n && !n.classList.contains('err')) {
         var nonAio = pkg && pkg.value && window.kioskIsAioApp && !window.kioskIsAioApp(pkg.value);
@@ -414,6 +414,7 @@
     if (f) f.setAttribute('data-locked-on', enabled ? '1' : '0');
     if (window.__kioskOrig) window.__kioskOrig.on = !!enabled;
     if (window.kioskRefreshToggle) window.kioskRefreshToggle();
+    if (window.lockHostSync) window.lockHostSync(enabled && !susp);
   };
 
   (function () {

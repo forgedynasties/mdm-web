@@ -96,12 +96,19 @@ func ClassLabel(class string) string {
 // all read from outside the app. A trailing * is a prefix; several patterns are
 // comma-separated. "" sends nothing, and a client told "" stops reporting.
 //
-// Only the T7 for now: aio.app.nugget is the guest ordering app (TSAI), and its build
-// variants (.uatv2, .qa, .internal, .stagev2…) are the same app pointed at another backend.
+// aio.app.nugget is the guest ordering app (TSAI), and its build variants (.uatv2, .qa,
+// .internal, .stagev2…) are the same app pointed at another backend. POS and the menu board
+// were added for Lock (19 Oct 2026), which locks to this app by itself; the families are
+// the ones live devices of those classes were locked to by hand. Only the firmware client
+// reads the pattern for its report, and none runs on those classes.
 func HostAppPattern(class string) string {
 	switch class {
 	case ClassT7:
 		return "aio.app.nugget*"
+	case ClassPOS:
+		return "aio.app.pos*"
+	case ClassDongle:
+		return "aio.app.menuboards*"
 	}
 	return ""
 }
