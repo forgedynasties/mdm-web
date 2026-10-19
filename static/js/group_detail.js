@@ -76,3 +76,19 @@ function dpAddSubmit(e, gid) {
     .catch(function () { if (btn) btn.disabled = false; if (window.showToast) showToast('Could not add those devices', 'error'); });
   return false;
 }
+
+// The + Add devices popover (group page, 18 Oct): closes on an outside click, on Escape, and
+// once devices have been added.
+(function () {
+  if (window.__gpAddWired) return;
+  window.__gpAddWired = true;
+  document.addEventListener('click', function (e) {
+    document.querySelectorAll('details.gp-add[open], details.gp-more[open]').forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute('open'); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') document.querySelectorAll('details.gp-add[open], details.gp-more[open]').forEach(function (d) { d.removeAttribute('open'); });
+  });
+  document.body.addEventListener('group-updated', function () {
+    var d = document.getElementById('gp-add'); if (d) d.removeAttribute('open');
+  });
+})();

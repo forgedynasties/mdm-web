@@ -2,28 +2,87 @@
 {{template "header" .}}
 
 <style>
+/* Group page, laid out like the venue page (18 Oct): the top-bar island carries the name,
+   the counts and the actions; the device picker lives only in the + Add devices popover. */
 .fl-page{max-width:1280px;margin:0 auto}
-.fl-page .cc-kpis{margin:0 0 16px}
-@media(max-width:480px){.fl-page .cc-kpis{grid-template-columns:repeat(2,1fr)}}
+.gp-add{position:relative}
+.gp-add>summary{list-style:none}.gp-add>summary::-webkit-details-marker{display:none}
+.gp-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:46;width:min(460px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:12px;text-align:left}
+.gp-pop-t{font-weight:650;font-size:13px;margin:0 0 8px}
+.gp-pop .co-rail{border:0;box-shadow:none;background:none;padding:0;margin:0}
+.gp-pop .co-r-b{padding:0}
+.gp-pop .co-hint{display:none}
+.gp-pop .co-devlist{grid-template-columns:1fr;max-height:260px;overflow:auto}
+.gp-pop .co-basket{margin:8px 0 0;border-radius:10px}
+.gp-pop .co-bk-pills{max-height:72px;overflow:auto}
+.gp-pop-ft{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted)}
+.gp-pop-ft .cc-btn{margin-left:auto}
+.gp-more{position:relative}
+.gp-more>summary{list-style:none}.gp-more>summary::-webkit-details-marker{display:none}
+.gp-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:46;min-width:190px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);padding:6px}
+.gp-menu form{margin:0}
+.gp-menu button{all:unset;box-sizing:border-box;width:100%;display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;font-size:12.5px;color:var(--danger);cursor:pointer}
+.gp-menu button:hover{background:var(--danger-bg)}
+@media(max-width:720px){.gp-pop{position:fixed;left:16px;right:16px;top:76px;width:auto;max-height:calc(100vh - 170px);overflow:auto}.gp-menu{right:auto;left:0}}
+/* With the top bar the header is the bar; the Add devices popover stays here and opens under it. */
+@media(min-width:721px){body.has-island .gp-hdr{margin:0!important;min-height:0;padding:0;height:0;overflow:visible}body.has-island #gp-add .gp-pop{position:fixed;top:68px;right:24px}}
 </style>
 
-<div class="fl-page">
 {{$onCount := 0}}{{range .Devices}}{{if index $.Online .ID}}{{$onCount = add $onCount 1}}{{end}}{{end}}
-{{$offCount := sub .Group.DeviceCount $onCount}}
-<div class="cc-top" style="margin-top:10px">
+<template id="page-island">
+  {{$n := .Group.DeviceCount}}
+  <span class="isl-dot {{if eq $n 0}}{{else if lt $onCount $n}}warn{{else}}on{{end}}"></span>
+  <span class="isl-t">{{.Group.Name}}</span>
+  <span class="isl-s">{{if $n}}<b>{{$onCount}}</b> of {{$n}} online{{else}}No devices yet{{end}} · group</span>
+  <span class="isl-acts">
+    {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('gp-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}
+    <a class="cc-btn" href="/devices?group={{.Group.ID}}">Filter in roster</a>
+    {{if canAdminOrOperator .Role}}
+    <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
+      <div class="isl-menu cc-menu" role="menu">
+        <form action="/groups/{{.Group.ID}}/delete" method="POST" onsubmit="return confirm('Delete the group {{.Group.Name}}? Its devices stay where they are; only the group goes.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete group</button></form>
+      </div>
+    </details>{{end}}
+  </span>
+</template>
+
+<div class="fl-page">
+<div class="cc-top gp-hdr" style="margin-top:10px">
   <div>
-    <div class="cc-eyebrow">Fleet · Groups</div>
-    <h1 class="cc-h1">{{.Group.Name}}</h1>
-    <div class="cc-sub"><b>{{.Group.DeviceCount}}</b> device{{if ne .Group.DeviceCount 1}}s{{end}} tagged{{if gt .Group.DeviceCount 0}} · <b>{{$onCount}}</b> online · <b>{{$offCount}}</b> offline{{end}}</div>
+    <div class="cc-eyebrow isl-dup">Fleet · Groups</div>
+    <h1 class="cc-h1 isl-dup-sr">{{.Group.Name}}</h1>
+    <div class="cc-sub isl-dup" id="kpi-live" hx-get="/groups/{{.Group.ID}}?partial=kpis" hx-select="unset" hx-trigger="group-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "group-kpis" .}}</div>
   </div>
   <div class="cc-actions">
-    <a class="cc-btn" href="/devices?group={{.Group.ID}}"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Filter in roster</a>
+    {{if canAdminOrOperator .Role}}
+    <details class="gp-add" id="gp-add">
+      <summary class="cc-btn primary isl-dup"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add devices</summary>
+      <div class="gp-pop" role="dialog" aria-label="Add devices to {{.Group.Name}}">
+        <div class="gp-pop-t">Add devices to {{.Group.Name}}</div>
+        <form action="/groups/{{.Group.ID}}/devices" method="POST" onsubmit="return dpAddSubmit(event, '{{.Group.ID}}')">
+          {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "ExcludeGroup" .Group.ID "Prompt" "Search serial, restaurant, group — or paste serials")}}
+          <div class="gp-pop-ft"><span>A device can be in any number of groups.</span>
+            <button type="submit" class="cc-btn primary" data-dp-submit disabled>Add <b data-dp-count>0</b></button></div>
+        </form>
+      </div>
+    </details>
+    <script src="/static/picker.js?v={{.AssetVer}}"></script>
+    {{end}}
+    <a class="cc-btn isl-dup" href="/devices?group={{.Group.ID}}"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Filter in roster</a>
+    {{if canAdminOrOperator .Role}}
+    <details class="gp-more isl-dup">
+      <summary class="cc-btn" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></summary>
+      <div class="gp-menu">
+        <form action="/groups/{{.Group.ID}}/delete" method="POST" onsubmit="return confirm('Delete the group {{.Group.Name}}? Its devices stay where they are; only the group goes.')">
+          <button type="submit"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete group</button>
+        </form>
+      </div>
+    </details>
+    {{end}}
   </div>
 </div>
 
-<div id="kpi-live" hx-get="/groups/{{.Group.ID}}?partial=kpis" hx-select="unset" hx-trigger="group-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "group-kpis" .}}</div>
-
-{{template "group-devices-modal" .}}
+{{template "group-members-card" .}}
 </div>
 
 {{template "footer" .}}
@@ -54,14 +113,18 @@
 <script src="/static/picker.js?v={{.AssetVer}}"></script>
 {{end}}
 
+{{template "group-members-card" .}}
+{{end}}
+
 {{/* Members list refreshes in place when a device is added/removed — the add/remove
-     handlers fire a "group-updated" body event instead of reloading the page. */}}
+     handlers fire a "group-updated" body event instead of reloading the page. Used by the
+     group page and the fleet page's add/remove popup. */}}
+{{define "group-members-card"}}
 <div class="card" id="group-members" data-morph
      hx-get="/groups/{{.Group.ID}}/members{{if $.Lean}}?lean=1{{end}}" hx-trigger="group-updated from:body"
      hx-target="this" hx-swap="innerHTML" hx-select="unset">
   {{template "group-members" .}}
 </div>
-
 <script src="/static/js/group_detail.js?v={{assetVer}}"></script>
 {{end}}
 
@@ -75,7 +138,7 @@
     <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
     <div class="empty-state-copy">
       <div class="empty-state-title">No devices in this group yet</div>
-      <div class="empty-state-text">Add devices above to target actions and exports.</div>
+      <div class="empty-state-text">Use + Add devices to target actions and exports at this group.</div>
     </div>
   </div>
   {{else}}
@@ -100,11 +163,5 @@
 {{define "group-kpis"}}
 {{$onCount := 0}}{{range .Devices}}{{if index $.Online .ID}}{{$onCount = add $onCount 1}}{{end}}{{end}}
 {{$offCount := sub .Group.DeviceCount $onCount}}
-{{if gt .Group.DeviceCount 0}}
-<div class="cc-kpis">
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>Devices</span><div class="v">{{.Group.DeviceCount}}</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span><div class="v ok">{{$onCount}}</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><div class="v{{if gt $offCount 0}} warn{{end}}">{{$offCount}}</div></div>
-</div>
-{{end}}
+<b>{{.Group.DeviceCount}}</b> device{{if ne .Group.DeviceCount 1}}s{{end}}{{if gt .Group.DeviceCount 0}} · <b>{{$onCount}}</b> online · <b>{{$offCount}}</b> offline{{end}}
 {{end}}

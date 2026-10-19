@@ -68,24 +68,9 @@ func vitalColumns(dv any, showBattery, flapping bool, pad string) []vitalCol {
 		out = append(out, vitalCol{Key: "power", Label: "Power", Value: "AC", Sub: "mains powered", Pct: 100, Tone: "muted"})
 	}
 
-	// The charging pad, a vital on a T7 (device-placement-demos.html, P2): clicking the
-	// column opens the pad's popover.
-	if pad != "" {
-		c := vitalCol{Key: "pad", Label: "Pad", Pct: 30, Tone: "muted"}
-		switch pad {
-		case "on":
-			c.Value, c.Sub, c.Pct, c.Tone = "On", "phone on it", 100, "ok"
-		case "vacant":
-			c.Value, c.Sub = "Empty", "no phone"
-		case "flapping":
-			c.Value, c.Sub, c.Tone = "Misplaced", "place it again", "warn"
-		case "na":
-			c.Value, c.Sub, c.Pct = "Off", "charging off", 0
-		default:
-			c.Value, c.Sub, c.Tone = "?", "unreadable", "warn"
-		}
-		out = append(out, c)
-	}
+	// No Pad column (removed 19 Oct): the Wireless charging row under the columns already
+	// says what the pad is doing, and two places for one state read as two different things.
+	_ = pad
 
 	if t, src, ok := deviceTempC(raw); ok {
 		lvl := tempLevel(t, src)
