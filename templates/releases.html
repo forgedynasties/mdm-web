@@ -24,6 +24,10 @@
 .ro-it .live{color:#60a5fa;font-weight:650}
 .ro-it.dev,.ro-it.rep{display:none}
 .ro-list.show-dev .ro-it.dev,.ro-list.show-rep .ro-it.rep{display:grid}
+.ro-it.ro-cut{display:none!important}
+.ro-more{display:block;width:100%;margin:4px 0 2px;padding:8px 10px;border:0;border-radius:10px;background:none;font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-text);text-align:left;cursor:pointer}
+.ro-more:hover{background:var(--hover)}
+.ro-more[hidden]{display:none}
 .ro-sep{font-size:11px;font-weight:650;color:var(--muted);padding:10px 10px 4px}
 .ro-det{padding:16px 20px}
 .ro-dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
@@ -91,6 +95,7 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
         <small>{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if $c.N}} · {{$c.N}} update{{if ne $c.N 1}}s{{end}}{{end}}{{if $c.Active}} · <span class="live">updating</span>{{end}}</small>
       </a>
       {{else}}<div class="ro-empty">No releases{{if .FilterProduct}} for this product{{end}} yet.</div>{{end}}
+      <button type="button" class="ro-more" id="ro-more" onclick="roMore(true)" hidden>Show more</button>
       {{if .HiddenReleases}}<div class="ro-sep">Hidden</div>{{range .HiddenReleases}}<a class="ro-it{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}"><b>{{.Version}}</b><span class="d">hidden</span></a>{{end}}{{end}}
     </nav>
 

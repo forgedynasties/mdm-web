@@ -13,3 +13,30 @@ function roDev(on) {
   }, 0);
   if (/[?&]new=1(&|$)/.test(location.search)) { var m = document.getElementById('create-pkg-modal'); if (m) m.classList.add('modal-open'); }
 })();
+
+// "Show more" (19 Oct): the list shows its first ROMORE_N rows that the toggles leave
+// visible, plus the selected one wherever it is; the button under them shows the rest.
+// It re-counts whenever the dev or reported toggle changes what is visible.
+var ROMORE_N = 12;
+function roMore(expand) {
+  var l = document.getElementById('ro-list'), btn = document.getElementById('ro-more');
+  if (!l || !btn) return;
+  if (expand) l.classList.add('ro-all');
+  var all = l.classList.contains('ro-all'), shown = 0, hidden = 0;
+  l.querySelectorAll('.ro-it').forEach(function (a) {
+    a.classList.remove('ro-cut');
+    // The Hidden group sits under the button and keeps its own rows.
+    if (btn.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) return;
+    if (getComputedStyle(a).display === 'none') return;
+    shown++;
+    if (!all && shown > ROMORE_N && !a.classList.contains('on')) { a.classList.add('ro-cut'); hidden++; }
+  });
+  btn.hidden = hidden === 0;
+  btn.textContent = 'Show ' + hidden + ' more';
+}
+(function () {
+  setTimeout(function () { roMore(false); }, 0);
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.type === 'checkbox') setTimeout(function () { roMore(false); }, 0);
+  });
+})();
