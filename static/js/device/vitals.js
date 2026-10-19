@@ -2507,14 +2507,17 @@ function mdmBootCharts() {
     }
     // The first draw waits (briefly) for the week's history, so the strip sweeps in once,
     // left to right, instead of drawing the last two days and then growing leftwards.
-    var navWaitUntil = performance.now() + 1500;
+    var navWaitUntil = performance.now() + 4000;
     function navReveal(l, r, n) {
       if (!navData && performance.now() < navWaitUntil && shown.n === 0) {
         setClip(l, l);
         setTimeout(function () { if (shown.n === 0 && window.vtNavSync) window.vtNavSync(); }, navWaitUntil - performance.now() + 20);
         return;
       }
-      var fresh = shown.tab !== activeTab || shown.n === 0;
+      // History that arrives after the first draw reaches further left: sweep the whole
+      // strip again from its left edge rather than snapping the clip open (19 Oct, seen
+      // when the week's history took longer than the wait on live).
+      var fresh = shown.tab !== activeTab || shown.n === 0 || l < clipAt.l - 5;
       var grew = n > shown.n;
       var from = fresh ? { l: l, r: l } : { l: clipAt.l, r: clipAt.r };
       shown.tab = activeTab; shown.n = n; shown.l = l; shown.r = r;
