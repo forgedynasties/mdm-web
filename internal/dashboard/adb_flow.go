@@ -44,6 +44,7 @@ type adbProgress struct {
 	Steps    []adbStep `json:"steps"`
 	Anywhere string    `json:"anywhere,omitempty"` // adb connect <tunnel host>:<port>
 	LAN      string    `json:"lan,omitempty"`      // adb connect <device ip>:5555
+	IP       string    `json:"ip,omitempty"`       // the device's address on its network, when it reports one
 	CanOn    bool      `json:"can_on"`             // this device can be connected from here
 	Why      string    `json:"why,omitempty"`      // why not
 	TunnelID string    `json:"tunnel_id,omitempty"`
@@ -65,6 +66,10 @@ type adbWant struct {
 }
 
 const adbWantFor = 2 * time.Hour
+
+// adbSettle is how long after a finished adb_tcp request the device gets to report adb
+// listening before the request stops counting as in progress.
+const adbSettle = 10 * time.Minute
 
 // adbTunnelHost is the host `adb connect` names for a tunnel: the configured one, else the
 // host the dashboard was reached on.
@@ -98,6 +103,14 @@ func (h *Handler) adbProgressFor(r *http.Request, devices []*db.Device) []adbPro
 		l, has := latest[d.ID]
 		listening := row.Group == "open"
 		port := 5555
+		p.IP = row.IP
+		// A finished request is history once its window has passed, or a few minutes
+		// after it finished with the device still not listening (rebooted, switched off
+		// on the device): it must not read as "in progress" for ever. Seen 19 Oct on a
+		// T7 whose 2-hour request from 7 Oct kept its pill on "adb listening…".
+		if has && !listening && adbRequestOver(l.Status, l.Hours, l.UpdatedAt, time.Now()) {
+			has = false
+		}
 
 		// 1 · Sent.
 		sent := adbStep{Key: "sent", Label: "Sent to the device", State: "pending"}
@@ -220,6 +233,21 @@ func (h *Handler) adbProgressFor(r *http.Request, devices []*db.Device) []adbPro
 		out = append(out, p)
 	}
 	return out
+}
+
+// adbRequestOver reports whether a finished adb_tcp request no longer counts for a
+// device that is not listening: its window has passed, or adbSettle has gone by since it
+// finished. A request still on its way always counts.
+func adbRequestOver(status string, hours int, finished, now time.Time) bool {
+	switch status {
+	case "completed", "failed", "expired", "cancelled", "unsupported":
+	default:
+		return false
+	}
+	if hours > 0 && now.After(finished.Add(time.Duration(hours)*time.Hour)) {
+		return true
+	}
+	return now.Sub(finished) > adbSettle
 }
 
 func firstNonEmpty(a, b string) string {

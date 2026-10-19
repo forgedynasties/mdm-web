@@ -28,6 +28,8 @@
     if (!cur) { pop.innerHTML = '<div class="cc-mh">Wireless adb</div><div class="adbp-b muted small">Checking…</div>'; return; }
     var h = '<div class="cc-mh">Wireless adb ' + S.tag(cur) + '<span class="sub">' + S.esc(cur.serial) + '</span></div><div class="adbp-b">';
     if (cur.state !== 'off' && cur.state !== 'cant') h += S.steps(cur);
+    // Where the device is on its own network, whether or not adb is open.
+    if (cur.ip) h += '<p class="small muted adbp-ip">On its network at <span class="cc-mono">' + S.esc(cur.ip) + '</span></p>';
     if (cur.anywhere || cur.lan) {
       h += '<div class="adbp-cmds">';
       if (cur.anywhere) h += S.cmd(cur.anywhere, 'from anywhere');
