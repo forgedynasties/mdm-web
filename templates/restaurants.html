@@ -18,7 +18,7 @@
 <div class="cc-top">
   <div>
     <h1 class="cc-h1 isl-dup-sr">Venues</h1>
-    <div class="cc-sub isl-dup">{{if $total}}{{if $s.NeedLook}}<b{{if ge $s.NeedLook 3}} style="color:var(--danger)"{{else}} style="color:var(--warn)"{{end}}>{{$s.NeedLook}}</b> of {{$total}} need{{if eq $s.NeedLook 1}}s{{end}} a look{{else}}All {{$total}} healthy{{end}} · <b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if $s.Offline}} · <b>{{$s.Offline}}</b> offline{{end}}{{if $s.Critical}} · <b>{{$s.Critical}}</b> critical alert{{if ne $s.Critical 1}}s{{end}}{{end}}{{else}}Where devices live: a venue's service hours, guest Wi-Fi and health.{{end}}</div>
+    <div class="cc-sub isl-dup">{{if $total}}{{if $s.NeedLook}}<b{{if ge $s.NeedLook 3}} style="color:var(--danger)"{{else}} style="color:var(--warn)"{{end}}>{{$s.NeedLook}}</b> of {{$total}} need{{if eq $s.NeedLook 1}}s{{end}} a look{{else}}All {{$total}} healthy{{end}} · <b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if $s.Offline}} · <b>{{$s.Offline}}</b> offline{{end}}{{if $s.Critical}} · <b>{{$s.Critical}}</b> critical alert{{if ne $s.Critical 1}}s{{end}}{{end}}{{else}}Where devices live: a venue's service hours, lock, Wi-Fi and health.{{end}}</div>
   </div>
   {{if and .Venues (canAdminOrOperator .Role)}}
   <div class="cc-actions isl-dup">

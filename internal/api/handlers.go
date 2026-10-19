@@ -1285,7 +1285,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 			cfg[k] = v
 		}
 	}
-	// Guest info (venue, table, guest Wi-Fi) for the firmware client's home screen. It
+	// Guest info (the venue's name) for the firmware client's home screen. It
 	// rides the HTTP check-in only: a socket gets it once on connect and again whenever
 	// it changes (PushGuest), so the telemetry frames over it don't each pay a lookup.
 	if src == sourceHTTP && !isDPCPayload(req.Extra) {

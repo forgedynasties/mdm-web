@@ -1,6 +1,5 @@
-{{/* Venue Wi-Fi (W1, picked 17 Oct): the networks every device at the venue joins — not the
-     guest Wi-Fi card above it, which is shown to guests. One side card in the venue page's own
-     style (collapsed: the networks and how far they've got; open: per-network delivery, the
+{{/* Venue Wi-Fi (W1, picked 17 Oct): the networks every device at the venue joins. One side
+     card in the venue page's own style (collapsed: the networks and how far they've got; open: per-network delivery, the
      add form for admins). internal/dashboard/venue_wifi.go */}}
 {{define "venue-wifi-card"}}
 <style>
@@ -29,7 +28,7 @@
     {{if $nets}}<span class="vn-val">{{range $i, $n := $nets}}{{if $i}}, {{end}}{{$n.SSID}}{{end}}</span>{{else}}<span class="vn-val">none set</span>{{end}}
     {{range $nets}}{{if not .Complete}}<span class="cc-tag warn">{{.Done}} of {{sub .Total .Unsupported}}</span>{{break}}{{end}}{{end}}
     {{if canAdmin $.Role}}<span class="vn-ed">{{if $nets}}Manage{{else}}Add{{end}}</span>{{end}}</summary>
-  <div class="vn-sub">The networks this venue's devices join, sent to every device here, including ones assigned later. Not the guest Wi-Fi.</div>
+  <div class="vn-sub">The networks this venue's devices join, sent to every device here, including ones assigned later.</div>
   {{range $nets}}
   <div class="vw-net">
     <span class="n">{{.SSID}}{{if .New}} <span class="cc-tag info">new</span>{{end}}</span>

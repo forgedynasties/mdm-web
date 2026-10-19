@@ -184,31 +184,6 @@
     </details>
     {{end}}
 
-    {{/* Guest Wi-Fi: shown to guests on this venue's tablets (home-screen card + QR code) */}}
-    {{$gw := .GuestWifi}}
-    <details class="vn-card">
-      <summary><h2>Guest Wi-Fi</h2>{{if $gw.SSID}}<span class="vn-val">{{$gw.SSID}} · {{if eq $gw.Security "nopass"}}open{{else}}{{$gw.Security}}{{end}}</span>{{else}}<span class="cc-tag warn">not set</span>{{end}}{{if canAdminOrOperator $.Role}}<span class="vn-ed">{{if $gw.SSID}}Edit{{else}}Set up{{end}}</span>{{end}}</summary>
-      <div class="vn-sub">Tablets show guests the network, with a QR code to join from their phone.{{if $gw.AppPackage}} The welcome card opens {{$gw.AppPackage}}.{{end}}</div>
-      {{if canAdminOrOperator .Role}}
-      <form class="vn-form" action="/restaurants/{{.Restaurant.ID}}/guest-wifi" method="POST">
-        <div class="form-row full"><label class="form-label" for="gw-ssid">Network name</label>
-          <input type="text" id="gw-ssid" name="guest_wifi_ssid" class="form-input" maxlength="32" autocomplete="off" spellcheck="false" placeholder="e.g. Diner-Guest" value="{{$gw.SSID}}"></div>
-        <div class="form-row"><label class="form-label" for="gw-sec">Security</label>
-          <select id="gw-sec" name="guest_wifi_security" class="form-input">
-            <option value="WPA"{{if and (ne $gw.Security "WEP") (ne $gw.Security "nopass")}} selected{{end}}>WPA / WPA2</option>
-            <option value="WEP"{{if eq $gw.Security "WEP"}} selected{{end}}>WEP</option>
-            <option value="nopass"{{if eq $gw.Security "nopass"}} selected{{end}}>None (open)</option>
-          </select></div>
-        <div class="form-row"><label class="form-label" for="gw-pass">Password</label>
-          <input type="text" id="gw-pass" name="guest_wifi_password" class="form-input" maxlength="64" autocomplete="off" spellcheck="false" placeholder="blank = open" value="{{$gw.Password}}"></div>
-        <div class="form-row full"><label class="form-label" for="gw-app">Guest app <span class="muted small">(optional)</span></label>
-          <input type="text" id="gw-app" name="guest_app_package" class="form-input" maxlength="200" autocomplete="off" spellcheck="false" placeholder="aio.app.nugget" value="{{$gw.AppPackage}}"></div>
-        <p>Tablets that are online get a change at once; the rest when they next check in. Blank guest app uses the standard AIO ordering app.</p>
-        <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save Wi-Fi</button>{{if $gw.SSID}}<button type="submit" name="action" value="clear" class="cc-btn sm" title="Stop showing a Wi-Fi network on this venue's tablets">Clear</button>{{end}}</div>
-      </form>
-      {{end}}
-    </details>
-
     {{template "venue-wifi-card" .}}
 
     {{if .Restaurant.Notes}}

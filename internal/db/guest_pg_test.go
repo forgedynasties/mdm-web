@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// TestGuestInfoAgainstPostgres stores a venue's guest Wi-Fi and a device's table and
-// reads them back the way the check-in and the dashboard pushes do (see
+// TestGuestInfoAgainstPostgres places a device at a venue and reads its guest info back
+// the way the check-in and the dashboard pushes do (see
 // TestShapedHistoryAgainstPostgres for how to start a throwaway database).
 func TestGuestInfoAgainstPostgres(t *testing.T) {
 	url := os.Getenv("MDM_TEST_DATABASE_URL")
@@ -35,7 +35,7 @@ func TestGuestInfoAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A lab unit: no venue, no table — every field empty, nothing about a network.
+	// A lab unit: no venue, so no venue name.
 	g, err := d.GuestForDevice(ctx, id)
 	if err != nil {
 		t.Fatal(err)
@@ -52,19 +52,11 @@ func TestGuestInfoAgainstPostgres(t *testing.T) {
 	if err := d.AssignDeviceToRestaurant(ctx, serial, &rest.ID); err != nil {
 		t.Fatal(err)
 	}
-	wifi, err := NormalizeGuestWifi(RestaurantGuestWifi{SSID: "Diner-Guest", Password: "pizza1234", AppPackage: "aio.app.nugget.uatv2"})
-	if err != nil {
+	// Whatever is left in the old guest Wi-Fi columns is never sent (removed 19 Oct).
+	if _, err := d.pool.Exec(ctx, `UPDATE restaurants SET guest_wifi_ssid = 'Diner-Guest', guest_wifi_password = 'pizza1234' WHERE id = $1`, rest.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.SetRestaurantGuestWifi(ctx, rest.ID, wifi); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := d.GetRestaurantGuestWifi(ctx, rest.ID); err != nil || got != wifi {
-		t.Fatalf("stored wifi = %+v, %v; want %+v", got, err, wifi)
-	}
-
-	want := GuestInfo{RestaurantName: "Guest Diner", WifiSSID: "Diner-Guest",
-		WifiPassword: "pizza1234", WifiSecurity: "WPA", AppPackage: "aio.app.nugget.uatv2"}
+	want := GuestInfo{RestaurantName: "Guest Diner"}
 	if g, err := d.GuestForDevice(ctx, id); err != nil || g.Guest != want {
 		t.Fatalf("GuestForDevice = %+v, %v; want %+v", g.Guest, err, want)
 	}
@@ -73,16 +65,6 @@ func TestGuestInfoAgainstPostgres(t *testing.T) {
 	}
 	if gs, err := d.GuestForDevices(ctx, []uuid.UUID{id}); err != nil || len(gs) != 1 || gs[0].Guest != want {
 		t.Fatalf("GuestForDevices = %+v, %v", gs, err)
-	}
-
-	// Clearing the network clears every Wi-Fi field the device is sent.
-	cleared, _ := NormalizeGuestWifi(RestaurantGuestWifi{})
-	if err := d.SetRestaurantGuestWifi(ctx, rest.ID, cleared); err != nil {
-		t.Fatal(err)
-	}
-	g, _ = d.GuestForDevice(ctx, id)
-	if g.Guest.WifiSSID != "" || g.Guest.WifiPassword != "" || g.Guest.WifiSecurity != "" || g.Guest.RestaurantName != "Guest Diner" {
-		t.Fatalf("after clearing the network: %+v", g.Guest)
 	}
 
 	// Deleting the venue sends the tablet back to the lab: no venue name any more.

@@ -15,10 +15,10 @@ import (
 	"mdm/internal/venueicon"
 )
 
-// Admin API for venues and guest info, so scripts (onboarding, test benches) can do what
-// the dashboard's restaurant and Placement edits do: create a restaurant, place devices
-// in it, set a device's table and the venue's guest Wi-Fi. Every change is pushed to the
-// connected firmware devices it affects, as the dashboard does.
+// Admin API for venues, so scripts (onboarding, test benches) can do what the
+// dashboard's restaurant and Placement edits do: create a restaurant, place devices in it,
+// set its icon. Every change is pushed to the connected firmware devices it affects, as
+// the dashboard does.
 
 // CreateRestaurant is POST /api/v1/restaurants {"name", "address"?, "timezone"?, "notes"?}.
 func (h *Handler) CreateRestaurant(w http.ResponseWriter, r *http.Request) {
@@ -77,40 +77,6 @@ func (h *Handler) AssignRestaurantDevices(w http.ResponseWriter, r *http.Request
 		h.PushGuest(r.Context(), did)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"restaurant_id": id, "assigned": len(ids)})
-}
-
-// SetRestaurantGuestWifi is POST /api/v1/restaurants/{id}/guest-wifi
-// {"ssid", "password"?, "security"?, "app_package"?}; an empty ssid clears the network.
-func (h *Handler) SetRestaurantGuestWifi(w http.ResponseWriter, r *http.Request) {
-	id, ok := h.restaurantFromPath(w, r)
-	if !ok {
-		return
-	}
-	var body struct {
-		SSID       string `json:"ssid"`
-		Password   string `json:"password"`
-		Security   string `json:"security"`
-		AppPackage string `json:"app_package"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
-		return
-	}
-	wifi, err := db.NormalizeGuestWifi(db.RestaurantGuestWifi{
-		SSID: body.SSID, Password: body.Password, Security: body.Security, AppPackage: body.AppPackage,
-	})
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-		return
-	}
-	if err := h.db.SetRestaurantGuestWifi(r.Context(), id, wifi); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
-	}
-	h.pushGuestToRestaurant(r.Context(), id)
-	// The password stays out of the response, as it stays out of the audit log.
-	writeJSON(w, http.StatusOK, map[string]any{"restaurant_id": id, "ssid": wifi.SSID,
-		"security": wifi.Security, "app_package": wifi.AppPackage})
 }
 
 func (h *Handler) restaurantFromPath(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {

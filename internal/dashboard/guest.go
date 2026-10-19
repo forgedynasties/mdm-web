@@ -3,7 +3,6 @@ package dashboard
 import (
 	"context"
 	"log"
-	"net/http"
 
 	"github.com/google/uuid"
 
@@ -11,11 +10,10 @@ import (
 	"mdm/internal/product"
 )
 
-// Guest info: what a guest at the table sees on a T7 — the venue's name, the table the
-// tablet sits on, and the venue's guest Wi-Fi (see db.GuestInfo). Tablets get it on
-// every HTTP check-in and when their socket connects; these push it again the moment
-// any of it changes here, so a renamed venue or a new Wi-Fi password reaches the
-// tables that are online without waiting for a check-in.
+// Guest info: what a guest at the table sees on a T7 — the venue's name (see
+// db.GuestInfo; guest Wi-Fi was removed on 19 Oct). Tablets get it on every HTTP check-in
+// and when their socket connects; these push it again the moment it changes here, so a
+// renamed venue reaches the tables that are online without waiting for a check-in.
 
 // pushGuest sends each connected firmware device its current guest info. Devices
 // that are offline pick it up when they next connect or check in.
@@ -62,51 +60,4 @@ func (h *Handler) pushGuestToRestaurant(ctx context.Context, restaurantID uuid.U
 		return
 	}
 	h.pushGuest(ctx, gs)
-}
-
-// RestaurantSetGuestWifi is POST /restaurants/{id}/guest-wifi: the venue's guest
-// Wi-Fi (and its guest ordering app, when not the default), pushed to every tablet
-// there that is online.
-func (h *Handler) RestaurantSetGuestWifi(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "groups") { // "Manage groups & venues", like service hours
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
-		return
-	}
-	back := "/restaurants/" + id.String()
-	r.ParseForm()
-	in := db.RestaurantGuestWifi{
-		SSID:       r.FormValue("guest_wifi_ssid"),
-		Password:   r.FormValue("guest_wifi_password"),
-		Security:   r.FormValue("guest_wifi_security"),
-		AppPackage: r.FormValue("guest_app_package"),
-	}
-	if r.FormValue("action") == "clear" {
-		in = db.RestaurantGuestWifi{AppPackage: in.AppPackage}
-	}
-	wifi, err := db.NormalizeGuestWifi(in)
-	if err != nil {
-		if hxReq(r) {
-			hxToast(w, err.Error(), "error")
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetRestaurantGuestWifi(r.Context(), id, wifi); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	// The network name only: the audit log is read by more people than the venue.
-	detail := "cleared"
-	if wifi.SSID != "" {
-		detail = wifi.SSID + " (" + wifi.Security + ")"
-	}
-	h.audit(r, "restaurant.guest_wifi", id.String(), detail)
-	h.pushGuestToRestaurant(r.Context(), id)
-	h.hxRedirect(w, r, back)
 }

@@ -194,7 +194,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/location", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantLocationSave)))
 	mux.HandleFunc("GET /restaurants/{id}/geocode", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantGeocode)))
 	post("POST /restaurants/{id}/rename", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantRename)))
-	post("POST /restaurants/{id}/guest-wifi", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetGuestWifi)))
 	// The venue's device Wi-Fi (venue_wifi.go): admins only, it writes a credential to every device there.
 	post("POST /restaurants/{id}/wifi", h.collectionRoute("restaurant", h.requireAdmin(h.RestaurantWifiSave)))
 	// Self-lock (S1, lost-device reporting): devices here lock themselves when they leave.

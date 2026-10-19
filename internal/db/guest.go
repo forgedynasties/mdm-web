@@ -4,36 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"regexp"
-	"strings"
 
 	"github.com/google/uuid"
 )
 
 // ── Guest info ────────────────────────────────────────────────────────────────
 //
-// What a guest sees on a T7: the venue's name and its guest Wi-Fi. The firmware client
-// keeps it and hands it to the launcher and lock screen through its status provider
-// (com.aioapp.status). The venue owns the Wi-Fi (restaurants.guest_wifi_*).
+// What a guest sees on a T7: the venue's name. The firmware client keeps it and hands it
+// to the launcher and lock screen through its status provider (com.aioapp.status).
+//
+// Guest Wi-Fi was removed on 19 Oct 2026 (server, dashboard and firmware client 1.13.3).
+// The restaurants.guest_wifi_* and guest_app_package columns are left in place, unread,
+// so an older image still runs after a rollback. The frame no longer carries them, and a
+// client reads a missing field as cleared, so a tablet that still showed a network stops.
 
-// Guest Wi-Fi security values, as the Wi-Fi QR format spells them (WIFI:T:…).
-const (
-	GuestWifiWPA    = "WPA" // WPA/WPA2 personal (also joins WPA3 transition networks)
-	GuestWifiWEP    = "WEP"
-	GuestWifiNoPass = "nopass"
-)
-
-// GuestInfo is the "guest" object the server sends to the firmware client. Every
-// field is always present (empty when unset) so a value cleared on the dashboard
-// clears on the device too. There is no table label any more (removed 14 Oct): the
-// firmware client reads a missing table_label as cleared.
+// GuestInfo is the "guest" object the server sends to the firmware client. Every field
+// is always present (empty when unset) so a value cleared on the dashboard clears on the
+// device too.
 type GuestInfo struct {
 	RestaurantName string `json:"restaurant_name"`
-	WifiSSID       string `json:"wifi_ssid"`
-	WifiPassword   string `json:"wifi_password"`
-	WifiSecurity   string `json:"wifi_security"`
-	// AppPackage is the venue's guest ordering app, when it is not the default one.
-	AppPackage string `json:"guest_app_package"`
 }
 
 // Frame is the WebSocket message that pushes guest info to a connected device. It is
@@ -52,19 +41,9 @@ type DeviceGuest struct {
 	Guest     GuestInfo
 }
 
-// RestaurantGuestWifi is a venue's guest Wi-Fi as stored.
-type RestaurantGuestWifi struct {
-	SSID       string
-	Password   string
-	Security   string
-	AppPackage string
-}
-
 // One query shape for every caller: the device row, its venue (if any), nothing else.
 const guestSelect = `
-	SELECT d.id, d.agent_kind, COALESCE(r.name, ''),
-	       COALESCE(r.guest_wifi_ssid, ''), COALESCE(r.guest_wifi_password, ''),
-	       COALESCE(r.guest_wifi_security, 'WPA'), COALESCE(r.guest_app_package, '')
+	SELECT d.id, d.agent_kind, COALESCE(r.name, '')
 	FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id`
 
 func (d *DB) queryGuests(ctx context.Context, where string, arg any) ([]DeviceGuest, error) {
@@ -76,13 +55,8 @@ func (d *DB) queryGuests(ctx context.Context, where string, arg any) ([]DeviceGu
 	var out []DeviceGuest
 	for rows.Next() {
 		var g DeviceGuest
-		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName,
-			&g.Guest.WifiSSID, &g.Guest.WifiPassword, &g.Guest.WifiSecurity, &g.Guest.AppPackage); err != nil {
+		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName); err != nil {
 			return nil, err
-		}
-		if g.Guest.WifiSSID == "" {
-			// No network: nothing about one is sent, whatever is left in the columns.
-			g.Guest.WifiPassword, g.Guest.WifiSecurity = "", ""
 		}
 		out = append(out, g)
 	}
@@ -112,82 +86,4 @@ func (d *DB) GuestForDevices(ctx context.Context, ids []uuid.UUID) ([]DeviceGues
 // GuestForRestaurant returns the guest info of every device placed at a venue.
 func (d *DB) GuestForRestaurant(ctx context.Context, restaurantID uuid.UUID) ([]DeviceGuest, error) {
 	return d.queryGuests(ctx, "d.restaurant_id = $1 AND NOT d.hidden", restaurantID)
-}
-
-// GetRestaurantGuestWifi returns a venue's guest Wi-Fi.
-func (d *DB) GetRestaurantGuestWifi(ctx context.Context, restaurantID uuid.UUID) (RestaurantGuestWifi, error) {
-	var w RestaurantGuestWifi
-	err := d.pool.QueryRow(ctx, `
-		SELECT guest_wifi_ssid, guest_wifi_password, guest_wifi_security, guest_app_package
-		FROM restaurants WHERE id = $1`, restaurantID).Scan(&w.SSID, &w.Password, &w.Security, &w.AppPackage)
-	return w, err
-}
-
-// SetRestaurantGuestWifi stores a venue's guest Wi-Fi. Pass it through
-// NormalizeGuestWifi first; this writes what it is given.
-func (d *DB) SetRestaurantGuestWifi(ctx context.Context, restaurantID uuid.UUID, w RestaurantGuestWifi) error {
-	if w.Security == "" {
-		w.Security = GuestWifiWPA
-	}
-	_, err := d.pool.Exec(ctx, `
-		UPDATE restaurants SET guest_wifi_ssid = $2, guest_wifi_password = $3,
-			guest_wifi_security = $4, guest_app_package = $5
-		WHERE id = $1`, restaurantID, w.SSID, w.Password, w.Security, w.AppPackage)
-	return err
-}
-
-var (
-	javaPackageRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$`)
-	hex64Re       = regexp.MustCompile(`^[0-9A-Fa-f]{64}$`)
-)
-
-// NormalizeGuestWifi checks a guest Wi-Fi as typed on the dashboard and returns it the
-// way it is stored and sent:
-//   - no network name clears the network (password and security go with it);
-//   - no password means an open network, and an open network keeps no password;
-//   - security is one of WPA, WEP, nopass (case-insensitive; WPA2/WPA3 read as WPA,
-//     "open"/"none" as nopass).
-//
-// The error says, in words for the person who typed it, what is wrong.
-func NormalizeGuestWifi(in RestaurantGuestWifi) (RestaurantGuestWifi, error) {
-	out := RestaurantGuestWifi{
-		SSID:       strings.TrimSpace(in.SSID),
-		Password:   strings.TrimSpace(in.Password),
-		AppPackage: strings.TrimSpace(in.AppPackage),
-	}
-	if out.AppPackage != "" && (len(out.AppPackage) > 200 || !javaPackageRe.MatchString(out.AppPackage)) {
-		return in, errors.New("The guest app must be an Android package name, like aio.app.nugget")
-	}
-	if out.SSID == "" {
-		out.Password, out.Security = "", GuestWifiWPA
-		return out, nil
-	}
-	if len(out.SSID) > 32 {
-		return in, errors.New("A Wi-Fi network name is at most 32 bytes")
-	}
-	switch strings.ToUpper(strings.TrimSpace(in.Security)) {
-	case "", "WPA", "WPA2", "WPA3", "WPA/WPA2", "SAE":
-		out.Security = GuestWifiWPA
-	case "WEP":
-		out.Security = GuestWifiWEP
-	case "NOPASS", "OPEN", "NONE":
-		out.Security = GuestWifiNoPass
-	default:
-		return in, errors.New("Security must be WPA, WEP or none")
-	}
-	if out.Password == "" || out.Security == GuestWifiNoPass {
-		out.Password, out.Security = "", GuestWifiNoPass
-		return out, nil
-	}
-	switch out.Security {
-	case GuestWifiWPA:
-		if n := len(out.Password); (n < 8 || n > 63) && !hex64Re.MatchString(out.Password) {
-			return in, errors.New("A WPA password is 8 to 63 characters")
-		}
-	case GuestWifiWEP:
-		if len(out.Password) > 64 {
-			return in, errors.New("That WEP key is too long")
-		}
-	}
-	return out, nil
 }

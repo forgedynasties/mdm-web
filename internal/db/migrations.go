@@ -1907,7 +1907,9 @@ CREATE TABLE IF NOT EXISTS alert_digests (
 -- Guest info (1 Oct): what a guest at the table sees on a T7 — the venue's guest
 -- Wi-Fi (security as the Wi-Fi QR format spells it: WPA, WEP or nopass) and the
 -- guest ordering app when it is not the default, plus the table the tablet sits on.
--- Sent to the firmware client as config.guest (see db.GuestInfo).
+-- Sent to the firmware client as config.guest (see db.GuestInfo). Guest Wi-Fi and the
+-- guest app were removed on 19 Oct 2026: these four columns stay, unread, so an older
+-- image still runs after a rollback.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_ssid     TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_password TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS guest_wifi_security TEXT NOT NULL DEFAULT 'WPA';
@@ -1969,8 +1971,7 @@ CREATE TABLE IF NOT EXISTS command_secrets (
 );
 
 -- Venue Wi-Fi (W1, picked 17 Oct): the networks every device at a venue should have, so a
--- router or password change is prepared from the dashboard before it happens. Not the
--- guest Wi-Fi (restaurants.guest_wifi_*), which is shown to guests, not joined by devices.
+-- router or password change is prepared from the dashboard before it happens.
 -- The password is sealed by the server (venue_wifi.go) before it is stored; version moves
 -- on every change so the reconciler knows which devices still have the old one.
 CREATE TABLE IF NOT EXISTS venue_wifi_networks (

@@ -274,9 +274,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}
-	gw, _ := h.db.GetRestaurantGuestWifi(r.Context(), id) // zero value: shown as not set
-	data["GuestWifi"] = gw
-	// The networks the venue's devices join (venue_wifi.go) — not the guest Wi-Fi above.
+	// The networks the venue's devices join (venue_wifi.go).
 	data["VenueWifi"] = h.venueWifiRows(r.Context(), id, devices)
 	// Self-lock (S1): minutes, 0 = off.
 	data["SelfLockMinutes"], _ = h.db.RestaurantSelfLockMinutes(r.Context(), id)
