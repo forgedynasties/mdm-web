@@ -93,7 +93,7 @@ func TestKioskPagesRender(t *testing.T) {
 	rest := uuid.New()
 	rules := []kioskRuleView{
 		{KioskPolicy: db.KioskPolicy{ID: id, Name: "Flights Vegas · Nugget", KioskPackage: "aio.app.nugget.uatv2", TargetType: "restaurant", TargetID: &rest},
-			Pos: 1, First: true, Last: true, AppName: "Nugget-uatv2", TargetLabel: "Flights Vegas (restaurant)", TargetHref: "/devices?view=restaurant&id=" + rest.String(),
+			AppName: "Nugget-uatv2", TargetLabel: "Flights Vegas (restaurant)", TargetHref: "/devices?view=restaurant&id=" + rest.String(),
 			Devices: 20, Locked: 16, Waiting: 4, Exited: 1},
 	}
 	exits := []kioskExitView{{KioskExit: db.KioskExit{DeviceID: uuid.New(), Serial: "AT070AABU00875", Restaurant: "Flights Vegas",
@@ -104,7 +104,7 @@ func TestKioskPagesRender(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	if err := kioskTmpl(t, "manage.html").ExecuteTemplate(&buf, "manage.html", map[string]any{
-		"Venues": venues, "Rules": rules, "Locked": 16, "Unlocked": 160, "Cant": 2, "NotCovered": 161, "ByHand": 0, "CanEdit": true, "Exits": exits,
+		"Venues": venues, "Rules": rules, "Locked": 16, "Unlocked": 160, "Exited": 1, "Cant": 2, "NotCovered": 161, "ByHand": 0, "CanEdit": true, "Exits": exits,
 	}); err != nil {
 		t.Fatalf("manage.html: %v", err)
 	}

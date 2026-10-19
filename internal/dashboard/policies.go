@@ -23,8 +23,6 @@ import (
 // kioskRuleView is one row of the rules list.
 type kioskRuleView struct {
 	db.KioskPolicy
-	Pos         int
-	First, Last bool
 	AppName     string
 	AppIcon     string
 	TargetLabel string
@@ -60,7 +58,7 @@ func kioskTargetHref(p db.KioskPolicy) string {
 // counts, then every venue with an on/off switch (the venue's own rule, the same one its
 // page sets), then devices taken out on site, then the few other rules (groups, single
 // devices, every device, and venue rules from before 19 Oct that still name a package).
-// Rule order is kept as stored and still decides overlaps; the page no longer reorders.
+// Rule order is kept as stored and still decides overlaps; nothing reorders it any more.
 
 // lockVenueRow is one venue on the Lock page.
 type lockVenueRow struct {
@@ -120,11 +118,11 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 	// The other rules, as compact rows with what happened on their devices.
 	views := []kioskRuleView{}
 	idx := map[uuid.UUID]int{}
-	for i, p := range rules {
+	for _, p := range rules {
 		if venueRule[p.ID] {
 			continue
 		}
-		v := kioskRuleView{KioskPolicy: p, Pos: i + 1, AppName: p.KioskPackage,
+		v := kioskRuleView{KioskPolicy: p, AppName: p.KioskPackage,
 			TargetLabel: manageTargetLabel(p, restaurants, groups), TargetHref: kioskTargetHref(p)}
 		if p.KioskPackage == "" {
 			v.AppName = roleAppWords
@@ -136,21 +134,24 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		views = append(views, v)
 	}
 
-	locked, unlocked, cant, notCovered, byHand := 0, 0, 0, 0, 0
+	locked, unlocked, exited, cant, notCovered, byHand := 0, 0, 0, 0, 0, 0
 	seenRule := map[uuid.UUID]bool{}
 	for _, k := range devs {
 		if !acc.visible(k.Dev.ID) || k.Dev.Hidden || k.Dev.Retired() {
 			continue
 		}
+		// The four counts add up to the devices shown: locked, taken out on site, can't
+		// lock (their rule's app is missing or their agent has no lock), or unlocked.
 		st := k.Status()
 		switch {
 		case lockedNow(k):
 			locked++
-		case k.State.ExitedAt == nil && !k.State.Suspended:
-			unlocked++
-		}
-		if st == "missing" || st == "cant" {
+		case k.State.ExitedAt != nil || k.State.Suspended:
+			exited++
+		case st == "missing" || st == "cant":
 			cant++
+		default:
+			unlocked++
 		}
 		if k.Dev.RestaurantID != nil {
 			if v := venues[*k.Dev.RestaurantID]; v != nil {
@@ -234,6 +235,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"Rules":      views,
 		"Locked":     locked,
 		"Unlocked":   unlocked,
+		"Exited":     exited,
 		"Cant":       cant,
 		"NotCovered": notCovered,
 		"ByHand":     byHand,
@@ -538,53 +540,6 @@ func (h *Handler) ManagePolicyDelete(w http.ResponseWriter, r *http.Request) {
 	n := h.reconcileKiosk(ctx)
 	h.audit(r, "kiosk_rule.delete", p.Name, fmt.Sprintf("devices_changed=%d", n))
 	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("Deleted %q.", p.Name)))
-}
-
-// ManagePolicyMove moves a rule up or down the order. Order decides which rule a
-// device covered by two follows, so both rules' devices must be the user's.
-func (h *Handler) ManagePolicyMove(w http.ResponseWriter, r *http.Request) {
-	if !roleCanOperate(h.role(r)) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
-		return
-	}
-	ctx := r.Context()
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	up := r.FormValue("dir") == "up"
-	rules, err := h.db.ListKioskPolicies(ctx)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	for i, p := range rules {
-		if p.ID != id {
-			continue
-		}
-		j := i + 1
-		if up {
-			j = i - 1
-		}
-		if j >= 0 && j < len(rules) {
-			var ids []uuid.UUID
-			for _, q := range []db.KioskPolicy{p, rules[j]} {
-				x, _ := h.resolvePolicyTargetIDs(ctx, q.TargetType, q.TargetID, q.TargetSerial)
-				ids = append(ids, x...)
-			}
-			if !h.kioskPolicyInScope(w, r, ids) {
-				return
-			}
-		}
-	}
-	if err := h.db.MoveKioskPolicy(ctx, id, up); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.reconcileKiosk(ctx)
-	h.audit(r, "kiosk_rule.move", id.String(), map[bool]string{true: "up", false: "down"}[up])
-	h.hxRedirect(w, r, "/kiosk")
 }
 
 // kioskPolicyInScope refuses a lock rule that reaches a device the user may not

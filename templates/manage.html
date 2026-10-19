@@ -52,7 +52,7 @@
   <div class="lk-sum" id="lock-counts">
     <div><b>{{.Locked}}</b><span>locked</span></div>
     <div><b>{{.Unlocked}}</b><span>unlocked</span></div>
-    <div class="{{if .Exits}}warn{{end}}"><b>{{len .Exits}}</b><span>taken out on site</span></div>
+    <div class="{{if .Exited}}warn{{end}}"><b>{{.Exited}}</b><span>taken out on site</span></div>
     <div class="{{if .Cant}}bad{{end}}"><b>{{.Cant}}</b><span>can't lock · app missing</span></div>
   </div>
 
