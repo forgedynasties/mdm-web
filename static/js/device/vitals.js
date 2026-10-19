@@ -2497,11 +2497,26 @@ function mdmBootCharts() {
 
     // The line draws itself in: a clip sweeps out to the points that just arrived.
     var clipR = document.getElementById('vt-nav-clip-r'), shown = { l: 0, r: 0, n: 0, tab: null }, anim = 0;
-    function setClip(l, r) { if (clipR) { clipR.setAttribute('x', l.toFixed(1)); clipR.setAttribute('width', Math.max(0, r - l).toFixed(1)); } }
+    // clipAt is where the clip actually is: a sweep that is interrupted by more data
+    // continues from there, not from where the last sweep was heading (that jumped the
+    // strip to full width as soon as the week's history arrived, 19 Oct).
+    var clipAt = { l: 0, r: 0 };
+    function setClip(l, r) {
+      clipAt.l = l; clipAt.r = r;
+      if (clipR) { clipR.setAttribute('x', l.toFixed(1)); clipR.setAttribute('width', Math.max(0, r - l).toFixed(1)); }
+    }
+    // The first draw waits (briefly) for the week's history, so the strip sweeps in once,
+    // left to right, instead of drawing the last two days and then growing leftwards.
+    var navWaitUntil = performance.now() + 1500;
     function navReveal(l, r, n) {
+      if (!navData && performance.now() < navWaitUntil && shown.n === 0) {
+        setClip(l, l);
+        setTimeout(function () { if (shown.n === 0 && window.vtNavSync) window.vtNavSync(); }, navWaitUntil - performance.now() + 20);
+        return;
+      }
       var fresh = shown.tab !== activeTab || shown.n === 0;
       var grew = n > shown.n;
-      var from = fresh ? { l: l, r: l } : { l: shown.l, r: shown.r };
+      var from = fresh ? { l: l, r: l } : { l: clipAt.l, r: clipAt.r };
       shown.tab = activeTab; shown.n = n; shown.l = l; shown.r = r;
       // A redraw with nothing new (the strip redraws on every update) must not cut a
       // sweep short: that is how the draw-in vanished once the strip redrew more often.
