@@ -151,3 +151,47 @@
   // came up without one. Wait for the swap to finish when the old page is still here.
   if (document.querySelectorAll('.ddc-main').length > 1) setTimeout(apply, 0); else apply();
 })();
+
+// Scroll cue (19 Oct): in the fitted split the right pane scrolls on its own and nothing
+// said so. While there is more below, a floating ↓ sits at the pane's foot; clicking it
+// scrolls most of a pane further down. It goes away at the end and when the page is not
+// fitted.
+(function () {
+  function setup() {
+    var pane = document.querySelector('.dd-split-r');
+    if (!pane || pane.dataset.cue === '1') return;
+    pane.dataset.cue = '1';
+    var wrap = document.createElement('div');
+    wrap.className = 'dd-cue';
+    wrap.innerHTML = '<button type="button" class="dd-cue-b" aria-label="Scroll down" title="More below">'
+      + '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="m6 13 6 6 6-6"/></svg></button>';
+    pane.appendChild(wrap);
+    var btn = wrap.firstChild, raf = 0;
+    function sync() {
+      raf = 0;
+      var fitted = document.documentElement.classList.contains('dd-fit');
+      var more = pane.scrollHeight - pane.scrollTop - pane.clientHeight > 24;
+      wrap.classList.toggle('on', fitted && more);
+    }
+    function later() { if (!raf) raf = requestAnimationFrame(sync); }
+    btn.addEventListener('click', function () {
+      pane.scrollBy({ top: Math.max(120, pane.clientHeight * 0.8), behavior: 'smooth' });
+    });
+    pane.addEventListener('scroll', later, { passive: true });
+    window.addEventListener('resize', later);
+    // Tabs switch, cards load and collapse: the pane's height changes under us.
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(later);
+      Array.prototype.forEach.call(pane.children, function (c) { ro.observe(c); });
+      if (window.MutationObserver) new MutationObserver(function (ms) {
+        ms.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, function (n) { if (n.nodeType === 1) ro.observe(n); }); });
+        later();
+      }).observe(pane, { childList: true });
+    }
+    if (window.MutationObserver) new MutationObserver(later).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.dd-tab')) setTimeout(later, 60); });
+    later();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup); else setTimeout(setup, 0);
+  window.addEventListener('load', setup);
+})();

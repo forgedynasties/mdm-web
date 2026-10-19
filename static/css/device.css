@@ -637,3 +637,12 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .lk-v-t small{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lk-menu .lk-live{color:var(--ok);font-weight:650}
 .lk-menu [hidden]{display:none!important}
+/* Scroll cue on the right pane of the fitted split (19 Oct): split.js shows it while there
+   is more below. Sticky at the pane's foot, taking no room in the flow. */
+.dd-cue{position:sticky;bottom:12px;height:0;display:flex;justify-content:center;pointer-events:none;z-index:5}
+.dd-cue-b{pointer-events:auto;transform:translateY(-100%);width:38px;height:38px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);box-shadow:var(--shadow-lg);display:grid;place-items:center;cursor:pointer;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}
+.dd-cue.on .dd-cue-b{opacity:1;visibility:visible;animation:dd-cue-bob 1.8s ease-in-out infinite}
+.dd-cue-b:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.dd-cue-b svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+@keyframes dd-cue-bob{0%,100%{transform:translateY(-100%)}50%{transform:translateY(calc(-100% + 3px))}}
+@media (prefers-reduced-motion:reduce){.dd-cue.on .dd-cue-b{animation:none}}
