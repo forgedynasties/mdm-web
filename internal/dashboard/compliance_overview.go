@@ -26,22 +26,22 @@ type compFailView struct {
 }
 
 type compDeviceView struct {
-	ID         uuid.UUID
-	Serial     string
-	Venue      string
-	Required   bool // held to at least one required check
-	Compliant  bool
-	Partly     bool // every device-reported check is unknown
-	Fails      []compFailView
-	Warns      []compFailView // recommended checks failing
-	Since      time.Time      // oldest failing required check
-	Unknown    int
+	ID        uuid.UUID
+	Serial    string
+	Venue     string
+	Required  bool // held to at least one required check
+	Compliant bool
+	Partly    bool // every device-reported check is unknown
+	Fails     []compFailView
+	Warns     []compFailView // recommended checks failing
+	Since     time.Time      // oldest failing required check
+	Unknown   int
 }
 
 type compCheckView struct {
 	compCheck
-	Level  string // the baseline's level
-	Counts compCounts
+	Level   string // the baseline's level
+	Counts  compCounts
 	Failing []compDeviceFail
 }
 
@@ -82,75 +82,7 @@ func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc := h.access(r)
-
-	byDev := map[uuid.UUID][]db.ComplianceResult{}
-	for k, res := range results {
-		if acc.visible(k.DeviceID) {
-			byDev[k.DeviceID] = append(byDev[k.DeviceID], res)
-		}
-	}
-	checkByID := map[string]compCheck{}
-	for _, c := range complianceChecks {
-		checkByID[c.ID] = c
-	}
-
-	var devices []compDeviceView
-	checkViews := map[string]*compCheckView{}
-	for _, c := range complianceChecks {
-		checkViews[c.ID] = &compCheckView{compCheck: c, Level: rules.baseSetting(c).Level}
-	}
-	for i := range devs {
-		d := &devs[i]
-		rs := byDev[d.ID]
-		if d.Hidden || d.Retired() || len(rs) == 0 {
-			continue
-		}
-		v := compDeviceView{ID: d.ID, Serial: d.SerialNumber, Venue: d.RestaurantName, Compliant: true}
-		deviceChecks, deviceUnknown := 0, 0
-		for _, res := range rs {
-			c, ok := checkByID[res.CheckID]
-			if !ok {
-				continue
-			}
-			cv := checkViews[c.ID]
-			cv.Counts.Total++
-			switch res.State {
-			case db.CompliancePass:
-				cv.Counts.Pass++
-			case db.ComplianceFail:
-				cv.Counts.Fail++
-				cv.Failing = append(cv.Failing, compDeviceFail{Serial: d.SerialNumber, Venue: d.RestaurantName, Detail: res.Detail, Level: res.Level, Since: res.Since})
-			case db.ComplianceUnknown:
-				cv.Counts.Unknown++
-				v.Unknown++
-			default:
-				cv.Counts.NA++
-			}
-			if res.Level == db.ComplianceRequired {
-				v.Required = true
-			}
-			if c.Device && res.State != db.ComplianceNA {
-				deviceChecks++
-				if res.State == db.ComplianceUnknown {
-					deviceUnknown++
-				}
-			}
-			if res.State == db.ComplianceFail {
-				f := compFailView{CheckID: c.ID, Name: c.Name, Detail: res.Detail, Level: res.Level, Since: res.Since}
-				if res.Level == db.ComplianceRequired {
-					v.Fails = append(v.Fails, f)
-					v.Compliant = false
-					if v.Since.IsZero() || res.Since.Before(v.Since) {
-						v.Since = res.Since
-					}
-				} else {
-					v.Warns = append(v.Warns, f)
-				}
-			}
-		}
-		v.Partly = deviceChecks > 0 && deviceUnknown == deviceChecks
-		devices = append(devices, v)
-	}
+	devices, checkViews, checkByID := compDeviceViews(rules, results, devs, acc.visible)
 
 	// Headline numbers, over devices held to at least one required check.
 	var inScope, compliant, partly, recOnly int
@@ -319,6 +251,81 @@ func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
 		"Counts":    counts,
 		"Scored":    len(devices),
 	})
+}
+
+// compDeviceViews is the per-device evaluation the Compliance page and the Overview's
+// compliance widget share: each visible, scored device with its failing and unknown
+// checks, and each check with its counts and failing devices.
+func compDeviceViews(rules compRules, results map[db.ComplianceResultKey]db.ComplianceResult, devs []db.Device, visible func(uuid.UUID) bool) ([]compDeviceView, map[string]*compCheckView, map[string]compCheck) {
+	byDev := map[uuid.UUID][]db.ComplianceResult{}
+	for k, res := range results {
+		if visible(k.DeviceID) {
+			byDev[k.DeviceID] = append(byDev[k.DeviceID], res)
+		}
+	}
+	checkByID := map[string]compCheck{}
+	for _, c := range complianceChecks {
+		checkByID[c.ID] = c
+	}
+
+	var devices []compDeviceView
+	checkViews := map[string]*compCheckView{}
+	for _, c := range complianceChecks {
+		checkViews[c.ID] = &compCheckView{compCheck: c, Level: rules.baseSetting(c).Level}
+	}
+	for i := range devs {
+		d := &devs[i]
+		rs := byDev[d.ID]
+		if d.Hidden || d.Retired() || len(rs) == 0 {
+			continue
+		}
+		v := compDeviceView{ID: d.ID, Serial: d.SerialNumber, Venue: d.RestaurantName, Compliant: true}
+		deviceChecks, deviceUnknown := 0, 0
+		for _, res := range rs {
+			c, ok := checkByID[res.CheckID]
+			if !ok {
+				continue
+			}
+			cv := checkViews[c.ID]
+			cv.Counts.Total++
+			switch res.State {
+			case db.CompliancePass:
+				cv.Counts.Pass++
+			case db.ComplianceFail:
+				cv.Counts.Fail++
+				cv.Failing = append(cv.Failing, compDeviceFail{Serial: d.SerialNumber, Venue: d.RestaurantName, Detail: res.Detail, Level: res.Level, Since: res.Since})
+			case db.ComplianceUnknown:
+				cv.Counts.Unknown++
+				v.Unknown++
+			default:
+				cv.Counts.NA++
+			}
+			if res.Level == db.ComplianceRequired {
+				v.Required = true
+			}
+			if c.Device && res.State != db.ComplianceNA {
+				deviceChecks++
+				if res.State == db.ComplianceUnknown {
+					deviceUnknown++
+				}
+			}
+			if res.State == db.ComplianceFail {
+				f := compFailView{CheckID: c.ID, Name: c.Name, Detail: res.Detail, Level: res.Level, Since: res.Since}
+				if res.Level == db.ComplianceRequired {
+					v.Fails = append(v.Fails, f)
+					v.Compliant = false
+					if v.Since.IsZero() || res.Since.Before(v.Since) {
+						v.Since = res.Since
+					}
+				} else {
+					v.Warns = append(v.Warns, f)
+				}
+			}
+		}
+		v.Partly = deviceChecks > 0 && deviceUnknown == deviceChecks
+		devices = append(devices, v)
+	}
+	return devices, checkViews, checkByID
 }
 
 func compFailsCheck(v compDeviceView, id string) bool {
