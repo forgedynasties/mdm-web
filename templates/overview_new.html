@@ -368,12 +368,12 @@
 
       {{if .ClassOnline}}
       <div class="ov2-chips">
-        {{range .ClassOnline}}
-        <a class="ov2-chip" href="{{if .Class}}/devices?class={{.Class}}{{else}}/devices?onboarding=pending{{end}}">
+        {{range .ClassOnline}}{{if .Class}}{{/* no Unassigned chip (20 Oct, user) */}}
+        <a class="ov2-chip" href="/devices?class={{.Class}}">
           <span class="ic{{if lt .Online .Total}} part{{end}}">{{classShort .Class}}</span>
           <span><small>{{.Online}} / {{.Total}} online</small><b>{{.Label}}</b></span>
         </a>
-        {{end}}
+        {{end}}{{end}}
       </div>
       {{end}}
 
