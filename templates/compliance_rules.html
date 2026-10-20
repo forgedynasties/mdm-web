@@ -3,7 +3,7 @@
 <style>
 /* ── Compliance rules (B1, picked 15 Oct): the fleet baseline as one list, overrides
    below it in order, and a read-only "what applies where" grid. ── */
-.cr-wrap{max-width:1120px;margin:0 auto}
+.cr-wrap{margin:0 auto}
 .cr-head{display:flex;align-items:flex-end;gap:16px;margin:4px 0 14px}
 .cr-head h1{margin:0}
 .cr-head p{margin:4px 0 0;color:var(--muted);font-size:13px}
@@ -56,12 +56,13 @@
 </style>
 
 <div class="cr-wrap">
-  <div class="cr-head">
+  <div class="cc-top">
     <div>
-      <h1>Compliance rules</h1>
-      <p>What every device at a venue should look like (devices with no venue are not checked). Checked every minute; a device is compliant when no required check fails. Unknown (its client does not report it) never counts either way.</p>
+      <div class="cc-eyebrow"><a href="/compliance" style="color:inherit">Compliance</a></div>
+      <h1 class="cc-h1">Compliance rules</h1>
+      <div class="cc-status"><b>{{.Compliant}} / {{.Devices}}</b> devices meet every required check</div>
+      <div class="cc-sub">What every device at a venue should look like (devices with no venue are not checked). Checked every minute; a device is compliant when no required check fails. Unknown (its client does not report it) never counts either way.</div>
     </div>
-    <div class="r"><b>{{.Compliant}} / {{.Devices}}</b>devices meet every required check</div>
   </div>
   {{if eq .Flash "saved"}}<div class="cr-flash">Saved. The fleet is re-scored within a minute.</div>{{else if eq .Flash "override"}}<div class="cr-flash">Override saved.</div>{{end}}
 

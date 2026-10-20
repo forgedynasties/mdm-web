@@ -43,10 +43,15 @@ details.bt-climb pre{font-size:11px;white-space:pre-wrap;word-break:break-all;co
 </style>
 
 <div class="bt-wrap">
-  <div class="bt-head"><h1>Battery data</h1>
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Admin</div>
+      <h1 class="cc-h1">Battery data</h1>
     {{/* Wear (B1, 17 Oct): every T7's charge-climb time against the fleet, next to the per-device data. */}}
-    <span class="bt-seg" style="margin-left:auto"><a href="/battery"{{if ne .Tab "wear"}} class="on"{{end}}>Devices</a><a href="/battery?tab=wear"{{if eq .Tab "wear"}} class="on"{{end}}>Wear</a></span></div>
-  <p class="bt-lede">What firmware client 1.10.1 collects for the battery health model. Every battery broadcast and screen change on T7s (at most one row per 30 s while nothing changes), and the client's summary of each charge climb. Times are the device's own clock. Kept 180 days.</p>
+      <div class="cc-sub">What firmware client 1.10.1 collects for the battery health model. Every battery broadcast and screen change on T7s (at most one row per 30 s while nothing changes), and the client's summary of each charge climb. Times are the device's own clock. Kept 180 days.</div>
+    </div>
+    <div class="cc-actions"><span class="bt-seg"><a href="/battery"{{if ne .Tab "wear"}} class="on"{{end}}>Devices</a><a href="/battery?tab=wear"{{if eq .Tab "wear"}} class="on"{{end}}>Wear</a></span></div>
+  </div>
 
   {{if eq .Tab "wear"}}{{template "battery-wear" .}}{{else}}
   <div class="bt-split">

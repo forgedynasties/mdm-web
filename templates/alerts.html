@@ -108,11 +108,10 @@
   {{$needsColor := "ok"}}{{if gt .NeedsCount 0}}{{$needsColor = "danger"}}{{else if gt .ActiveCount 0}}{{$needsColor = "warn"}}{{end}}
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow isl-dup">Alerts</div>
-      <h1 class="cc-h1 isl-dup-sr">{{.ActiveCount}} problem{{if ne .ActiveCount 1}}s{{end}} <span class="hl {{$needsColor}}">· {{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} action</span></h1>
-      <div class="cc-sub">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}}</b> need a decision now. {{end}}{{if gt .WatchCount 0}}<b>{{.WatchCount}}</b> more worth watching.{{else}}Nothing else is flagged.{{end}}{{if .AlertCount}} From {{.AlertCount}} open alert{{if ne .AlertCount 1}}s{{end}}, grouped by device.{{end}}</div>
+      <h1 class="cc-h1">Alerts</h1>
+    <div class="cc-status"><b>{{.ActiveCount}}</b> problem{{if ne .ActiveCount 1}}s{{end}}{{if .AlertCount}} from {{.AlertCount}} open alert{{if ne .AlertCount 1}}s{{end}}{{end}}{{if gt .NeedsCount 0}} · <span class="hl {{$needsColor}}">{{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} action</span>{{end}}{{if gt .WatchCount 0}} · {{.WatchCount}} worth watching{{end}}</div>
     </div>
-    <div class="cc-actions{{if canOperate .Role}} isl-dup{{end}}">
+    <div class="cc-actions">
       {{if .ActiveCount}}
       {{/* Acknowledge is the action that sticks: it keeps one row per condition and stops
            it re-appearing as new, where Clear all deletes the rows and the evaluator

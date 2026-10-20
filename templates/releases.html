@@ -66,12 +66,14 @@ a.rl-crash.warn{background:var(--warn-bg);color:var(--warn)}
 a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
 </style>
 <div class="ro-wrap">
-  <div class="ro-head">
-    <h1>Releases</h1><span class="cp-mu" style="font-size:12.5px;color:var(--muted);margin-top:6px">and the updates carrying them to devices</span>
-    <span class="r">
-      {{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
-      {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}
-    </span>
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Firmware</div>
+      <h1 class="cc-h1">Releases</h1>
+      <div class="cc-sub">Firmware builds, and the updates that carry them to devices.</div>
+    </div>
+    <div class="cc-actions">{{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
+      {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}</div>
   </div>
 
   {{range .Active}}

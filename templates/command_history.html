@@ -58,8 +58,8 @@
 <div class="ch-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow isl-dup">Jobs · History</div>
-    <h1 class="cc-h1 isl-dup-sr">{{if gt .AttnCount 0}}<span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention{{else if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> in progress{{else}}All actions settled{{end}}</h1>
+    <h1 class="cc-h1">Job history</h1>
+    <div class="cc-status">{{if gt .AttnCount 0}}<span class="hl danger">{{.AttnCount}}</span> need{{if eq .AttnCount 1}}s{{end}} attention{{else if gt .ProgCount 0}}<span class="hl accent">{{.ProgCount}}</span> in progress{{else}}All actions settled{{end}}</div>
     <div class="cc-sub">Every action sent across devices — <b>{{.Total}}</b> in this view.</div>
   </div>
 

@@ -99,7 +99,7 @@
     var n = parseInt((box.firstElementChild && box.firstElementChild.dataset.count) || '0', 10) || 0;
     var m = el('en-inbox-m'); if (m) m.textContent = n ? n + ' waiting' : 'nothing waiting';
     var k = el('en-kpi-inbox'); if (k) { k.textContent = n; k.classList.toggle('warn', n > 0); }
-    var h = el('en-h1'); if (h) h.innerHTML = n ? '<span class="hl warn">' + n + '</span> device' + (n === 1 ? '' : 's') + ' need' + (n === 1 ? 's' : '') + ' a site' : 'Every device is <span class="hl ok">placed</span>';
+    var h = el('en-h1'); if (h) h.innerHTML = n ? '<span class="hl warn">' + n + '</span> new device' + (n === 1 ? '' : 's') + ' to onboard' : 'Every device is <span class="hl ok">placed</span>';
     if (window.htmx) htmx.process(box);
   }
   var pending = null;

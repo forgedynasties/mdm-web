@@ -27,18 +27,17 @@
      the Alerts rail and from the More directory, so it needs the chrome everything else has. */}}
 {{define "report_alerts.html"}}
 {{template "header" .}}
-<div class="container">
+<div>
   {{/* The fragment carries its own small header for the Overview card it was written
        for; on its own page the <h1> says it, so that header is dropped and the card
        gets real padding instead of the 4px a card-within-a-card had. */}}
   <div class="cc-top" style="margin-bottom:14px;">
     <div>
-      <div class="cc-eyebrow">Alerts · Report</div>
       <h1 class="cc-h1">Open alerts by venue</h1>
       <div class="cc-sub">Which sites are carrying the open alerts right now, worst first. Open a venue for its devices.</div>
     </div>
   </div>
-  <div class="cc-card rab-page" style="padding:14px 16px;max-width:760px;">{{template "report-alerts-by-restaurant" .}}</div>
+  <div class="cc-card rab-page" style="padding:14px 16px;">{{template "report-alerts-by-restaurant" .}}</div>
 </div>
 {{template "footer" .}}
 {{end}}

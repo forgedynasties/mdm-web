@@ -5,7 +5,7 @@
      per device and every device's `adb connect` line in one Commands box; "Open now" below,
      with copy / turn off / end tunnel per device and in batch. The flow: adb_flow.go. */}}
 <style>
-.adb-wrap{max-width:1180px;margin:0 auto}
+.adb-wrap{margin:0 auto}
 .adb-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 4px}
 .adb-hd h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
 .adb-sub{font-size:12.5px;color:var(--muted);margin:0 0 14px;max-width:86ch;line-height:1.5}
@@ -63,9 +63,15 @@
 </style>
 
 <div class="adb-wrap">
-<div class="adb-hd"><h1>Wireless adb</h1>{{if .Open}}<span class="cc-tag warn">{{len .Open}} open</span>{{end}}
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Admin</div>
+    <h1 class="cc-h1">Wireless adb</h1>
+    <div class="cc-status adb-st">{{if .Open}}<span class="cc-tag warn">{{len .Open}} open</span>{{end}}
   {{if not .TunnelsOn}}<span class="cc-tag">tunnels off on this server · same network only</span>{{end}}</div>
-<p class="adb-sub">Turn adb on over the network and get the <span class="adb-mono">adb connect</span> line to paste — from anywhere, through a tunnel on this server, or on the same network. Only machines whose adb key a device trusts can connect. Admin only.</p>
+    <div class="cc-sub">Turn adb on over the network and get the <span class="adb-mono">adb connect</span> line to paste — from anywhere, through a tunnel on this server, or on the same network. Only machines whose adb key a device trusts can connect. Admin only.</div>
+  </div>
+</div>
 
 <section class="cc-card adb-card">
   <div class="cc-ch"><h2>Connect devices</h2><span class="m">{{.Capable}} device{{if ne .Capable 1}}s{{end}} can take it</span></div>

@@ -9,8 +9,10 @@
 
      Art is a gradient keyed off the package name with the library icon on top; we store no
      banners or screenshots, and a stable generated gradient reads as deliberate. */
-  .st-wrap{max-width:1180px;margin:0 auto}
+  .st-wrap{margin:0 auto}
   .st-top{display:flex;align-items:center;gap:11px;margin:0 0 14px;flex-wrap:wrap}
+  /* "Add apps" is the page header's action here; the shared library card (also on Settings) keeps its own elsewhere. */
+  .st-wrap .lib-card > .cc-ch .cc-btn.primary{display:none}
   .st-top h1{margin:0;font-size:21px;letter-spacing:-.02em;font-weight:780}
   .st-search{flex:1;min-width:210px;display:flex;align-items:center;gap:9px;border:1px solid var(--border);
     border-radius:12px;padding:9px 14px;background:var(--surface);transition:border-color .15s,box-shadow .15s}
@@ -69,13 +71,18 @@
   {{if canAppLibrary .Role}}<span class="isl-acts"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></span>{{end}}
 </template>
 <div class="st-wrap">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Apps</div>
+      <h1 class="cc-h1">App library</h1>
+    </div>
+    {{if canAppLibrary .Role}}<div class="cc-actions"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></div>{{end}}
+  </div>
   <div class="st-top">
-    <h1 class="isl-dup-sr">App library</h1>
     <label class="st-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
       <input id="st-q" type="search" placeholder="Search apps, packages, versions" autocomplete="off" oninput="stFilter(this.value)">
     </label>
-    {{if canAppLibrary .Role}}<button type="button" class="cc-btn primary isl-dup" onclick="libAddOpen()">Add apps</button>{{end}}
   </div>
 
   {{/* The library is the page (role model, 14 Oct): what devices run is decided on

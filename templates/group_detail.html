@@ -36,7 +36,7 @@
   <span class="isl-s">{{if $n}}<b>{{$onCount}}</b> of {{$n}} online{{else}}No devices yet{{end}} · group</span>
   <span class="isl-acts">
     {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('gp-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}
-    <a class="cc-btn" href="/devices?group={{.Group.ID}}">Filter in roster</a>
+    <a class="cc-btn" href="/devices?group={{.Group.ID}}">Open in Fleet</a>
     {{if canAdminOrOperator .Role}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
@@ -49,14 +49,14 @@
 <div class="fl-page">
 <div class="cc-top gp-hdr" style="margin-top:10px">
   <div>
-    <div class="cc-eyebrow isl-dup">Fleet · Groups</div>
-    <h1 class="cc-h1 isl-dup-sr">{{.Group.Name}}</h1>
-    <div class="cc-sub isl-dup" id="kpi-live" hx-get="/groups/{{.Group.ID}}?partial=kpis" hx-select="unset" hx-trigger="group-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "group-kpis" .}}</div>
+    <div class="cc-eyebrow">Group</div>
+    <h1 class="cc-h1">{{.Group.Name}}</h1>
+    <div class="cc-status" id="kpi-live" hx-get="/groups/{{.Group.ID}}?partial=kpis" hx-select="unset" hx-trigger="group-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "group-kpis" .}}</div>
   </div>
   <div class="cc-actions">
     {{if canAdminOrOperator .Role}}
     <details class="gp-add" id="gp-add">
-      <summary class="cc-btn primary isl-dup"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add devices</summary>
+      <summary class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add devices</summary>
       <div class="gp-pop" role="dialog" aria-label="Add devices to {{.Group.Name}}">
         <div class="gp-pop-t">Add devices to {{.Group.Name}}</div>
         <form action="/groups/{{.Group.ID}}/devices" method="POST" onsubmit="return dpAddSubmit(event, '{{.Group.ID}}')">
@@ -68,9 +68,9 @@
     </details>
     <script src="/static/picker.js?v={{.AssetVer}}"></script>
     {{end}}
-    <a class="cc-btn isl-dup" href="/devices?group={{.Group.ID}}"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Filter in roster</a>
+    <a class="cc-btn" href="/devices?group={{.Group.ID}}"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Open in Fleet</a>
     {{if canAdminOrOperator .Role}}
-    <details class="gp-more isl-dup">
+    <details class="gp-more">
       <summary class="cc-btn" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></summary>
       <div class="gp-menu">
         <form action="/groups/{{.Group.ID}}/delete" method="POST" onsubmit="return confirm('Delete the group {{.Group.Name}}? Its devices stay where they are; only the group goes.')">

@@ -116,8 +116,9 @@
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Fleet · Enroll</div>
-      <h1 class="cc-h1" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> new device{{if ne $inboxN 1}}s{{end}} to onboard{{else}}Every device is <span class="hl ok">placed</span>{{end}}</h1>
+      <div class="cc-eyebrow">Fleet</div>
+      <h1 class="cc-h1">Enroll</h1>
+    <div class="cc-status" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> new device{{if ne $inboxN 1}}s{{end}} to onboard{{else}}Every device is <span class="hl ok">placed</span>{{end}}</div>
       {{/* The KPI tiles are gone: every number on them was already on this page
            (the inbox count twice over), so the ones worth keeping live here, each
            still a link to the fleet filter it names. */}}

@@ -30,8 +30,9 @@
 <div class="sc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Schedules <span class="beta-pill">Beta</span></div>
-    <h1 class="cc-h1">{{$active := 0}}{{range .Schedules}}{{if .Enabled}}{{$active = add $active 1}}{{end}}{{end}}{{if gt (len .Schedules) 0}}<span class="hl accent">{{$active}}</span> of {{len .Schedules}} schedule{{if ne (len .Schedules) 1}}s{{end}} active{{else}}No schedules yet{{end}}</h1>
+    <div class="cc-eyebrow">Jobs <span class="beta-pill">Beta</span></div>
+    <h1 class="cc-h1">Schedules</h1>
+    <div class="cc-status">{{$active := 0}}{{range .Schedules}}{{if .Enabled}}{{$active = add $active 1}}{{end}}{{end}}{{if gt (len .Schedules) 0}}<span class="hl accent">{{$active}}</span> of {{len .Schedules}} schedule{{if ne (len .Schedules) 1}}s{{end}} active{{else}}No schedules yet{{end}}</div>
     <div class="cc-sub">Run a saved recipe on a schedule — its target is re-resolved each time it fires.</div>
   </div>
   <div class="cc-actions">
@@ -46,7 +47,7 @@
 .sch-freq{display:flex;flex-wrap:wrap;gap:6px;}
 .sfb{padding:8px 13px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:13px;color:var(--text-2);cursor:pointer;transition:all .12s;}
 .sfb:hover{border-color:var(--accent-edge);color:var(--text);}
-.sfb.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.sfb.on{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff;font-weight:600;}
 .sch-panel{margin-top:16px;}
 .sch-narrow{max-width:200px;}
 .sch-days{display:flex;flex-wrap:wrap;gap:7px;}

@@ -32,7 +32,7 @@ a.ual-row:hover{background:var(--surface2)}
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
-      <h1 class="cc-h1">Access control</h1>
+    <h1 class="cc-h1">Access control</h1>
       <div class="cc-sub">What each person sees and what they can do there. {{if .Limited}}{{.Limited}} of {{len .Rows}} account{{if ne (len .Rows) 1}}s{{end}} see{{if eq .Limited 1}}s{{end}} only part of the fleet.{{else}}Everyone sees the whole fleet.{{end}}</div>
     </div>
     <div class="cc-actions"><a class="cc-btn js-dest" href="/users/access/profiles">Profiles <span class="muted">· {{.Profiles}}</span></a></div>

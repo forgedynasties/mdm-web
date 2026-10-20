@@ -58,8 +58,8 @@
   {{/* ── Top bar ── */}}
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Users · People</div>
-      <h1 class="cc-h1">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}} · {{.Operators}} operator{{if ne .Operators 1}}s{{end}}</h1>
+      <h1 class="cc-h1">Users</h1>
+    <div class="cc-status">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}} · {{.Operators}} operator{{if ne .Operators 1}}s{{end}}</div>
       <div class="cc-sub">Super admin → Dev → Access admin → Operator → Viewer. Devs add releases and OTA on top of operator powers; access admins add user and access management. You can only manage accounts below your own level.</div>
     </div>
     <div class="cc-actions">

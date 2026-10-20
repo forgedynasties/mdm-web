@@ -164,12 +164,41 @@
   (function () {
     var bar = document.querySelector('.appbar'), slot = document.getElementById('appbar-island');
     if (!bar || !slot) return;
+    // A page with its own header (.cc-top with a visible h1 — page header H1, 20 Oct) says
+    // its name there, so the island stays hidden until that header scrolls off.
+    var io = null;
+    function watchHeader(head) {
+      if (io) { io.disconnect(); io = null; }
+      slot.classList.remove('ph', 'ph-out');
+      if (!head || !('IntersectionObserver' in window)) return false;
+      slot.classList.add('ph');
+      io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { slot.classList.toggle('ph-out', !e.isIntersecting && e.boundingClientRect.top < 0); });
+      }, { rootMargin: '-72px 0px 0px 0px' });
+      io.observe(head);
+      return true;
+    }
     function fill() {
       var tpl = document.getElementById('page-island'), h1 = document.querySelector('main .cc-h1') || document.querySelector('main .cc-top h1, main h1');
+      var head = document.querySelector('main .cc-top');
+      var headH1 = head && head.querySelector('h1.cc-h1');
+      if (headH1 && (headH1.classList.contains('isl-dup-sr') || headH1.classList.contains('sr-only') || !headH1.getClientRects().length)) head = null;
       slot.innerHTML = '';
       slot.classList.remove('always');
       document.body.classList.remove('has-island');
       bar.classList.remove('island-live');
+      if (watchHeader(head)) {
+        if (tpl && tpl.content) {
+          slot.appendChild(document.importNode(tpl.content, true));
+          if (tpl.hasAttribute('data-live')) bar.classList.add('island-live');
+          if (window.htmx) window.htmx.process(slot);
+        } else if (h1) {
+          var ht = document.createElement('span'); ht.className = 'isl-t'; ht.textContent = h1.textContent.trim();
+          slot.appendChild(ht);
+        }
+        slot.classList.add('always');
+        return;
+      }
       if (tpl && tpl.content) {
         slot.appendChild(document.importNode(tpl.content, true));
         if (tpl.hasAttribute('data-live')) bar.classList.add('island-live');

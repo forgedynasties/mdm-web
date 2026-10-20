@@ -177,7 +177,7 @@
 </nav>
 {{$cmd := .Command}}
 <style>
-  .ad-wrap{max-width:1180px;margin:0 auto}
+  .ad-wrap{margin:0}
   /* Command history. A wait is drawn as a labelled break in the rail rather than another
      bullet, because the wait is the finding — "sent 06:03:41, received 08:17:53" reads as
      two facts, where "2h 14m with no confirmation" reads as the answer. */
@@ -233,7 +233,7 @@
   .ad-toolbar{display:flex;gap:8px;margin:14px 0;flex-wrap:wrap}
   .ad-btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:8px 13px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
   .ad-btn:hover{border-color:var(--accent-edge);color:var(--accent)}
-  .ad-btn.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink)}.ad-btn.primary:hover{color:#fff;background:var(--accent-h)}
+  .ad-btn.primary{background:var(--accent-fill);border-color:transparent;color:var(--accent-ink)}.ad-btn.primary:hover{color:#fff;background:var(--accent-fill-h)}
   .ad-btn.danger{margin-left:auto}.ad-btn.danger:hover{border-color:var(--danger);color:var(--danger)}
   .ad-board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
   @media(max-width:980px){.ad-board{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.ad-board{grid-template-columns:1fr}}
@@ -260,7 +260,7 @@
   .ad-chip .row{display:flex;gap:6px;justify-content:flex-end}
   .ad-chip .row form{display:contents}
   .ad-mini{font:inherit;font-size:11.5px;font-weight:600;border-radius:7px;padding:3px 9px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none}
-  .ad-mini.primary{background:var(--accent);border-color:transparent;color:var(--accent-ink)}
+  .ad-mini.primary{background:var(--accent-fill);border-color:transparent;color:var(--accent-ink)}
   .ad-none{color:var(--text-faint);font-size:12.5px;padding:22px 8px;text-align:center;border:1px dashed var(--border);border-radius:10px}
   .ad-empty{padding:26px;color:var(--muted);text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:14px}
   .ad-shell{padding:16px 18px;display:flex;flex-direction:column;gap:11px;}

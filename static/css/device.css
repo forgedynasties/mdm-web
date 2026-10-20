@@ -154,7 +154,7 @@
 .kpk-txt{min-width:0;display:flex;flex-direction:column;flex:1;gap:1px;}
 .kpk-nm{font-size:12px;font-weight:600;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.kpk-check{width:15px;height:15px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;flex:none;}
+.kpk-check{width:15px;height:15px;border-radius:50%;background:var(--accent-fill);color:#fff;display:none;place-items:center;flex:none;}
 .kpk-opt.sel .kpk-check{display:grid;}
 .kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1;}
 .dev-map-card{margin-top:16px;overflow:hidden;}
@@ -272,7 +272,7 @@
 .install-tile.install-installed::after{content:"installed";position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
 .install-tile.install-installed.on::after{color:var(--accent-text);}
 .install-tile.on{border-color:var(--accent);background:var(--accent-soft);}
-.install-tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center;}
+.install-tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--accent-fill);color:#fff;display:none;align-items:center;justify-content:center;}
 .install-tick svg{width:12px;height:12px;}
 .install-tile.on .install-tick{display:flex;}
 .install-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px 16px;border-top:1px solid var(--border);margin-top:6px;}

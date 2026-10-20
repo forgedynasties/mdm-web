@@ -3,7 +3,7 @@
 {{$p := .Policy}}
 <style>
 /* ── Kiosk rule editor: three questions and a live preview ─────────── */
-.ke-wrap{max-width:1100px;margin:0 auto}
+.ke-wrap{max-width:1100px;margin:0}
 .ke-back{font-size:13px;color:var(--muted);text-decoration:none}
 .ke-back:hover{color:var(--text)}
 .ke-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;margin-top:12px;align-items:start}
@@ -46,7 +46,12 @@
 </style>
 
 <div class="ke-wrap cc-wrap">
-  <h1 class="cc-h1" style="margin-top:6px">{{if $p}}Edit lock rule{{else}}New lock rule{{end}}</h1>
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow"><a href="/lock" style="color:inherit">Device lock</a></div>
+      <h1 class="cc-h1">{{if $p}}Edit lock rule{{else}}New lock rule{{end}}</h1>
+    </div>
+  </div>
 
   <form id="ke-form" method="POST" action="/kiosk/policies" hx-boost="false">
     <input type="hidden" name="id" id="ke-id" value="{{if $p}}{{$p.ID}}{{end}}">
@@ -96,7 +101,7 @@
 
         <div class="ke-foot">
           <span class="ke-err" id="ke-err" role="alert"></span>
-          <a href="/kiosk" class="cc-btn">Cancel</a>
+          <a href="/lock" class="cc-btn">Cancel</a>
           <button type="submit" class="cc-btn primary" id="ke-save" disabled>Save</button>
         </div>
       </div>

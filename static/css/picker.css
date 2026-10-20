@@ -32,7 +32,7 @@
 .co-scope[data-kind="group"] .kt{background:var(--sc-group-bg);color:var(--sc-group)}
 .co-scope[data-kind="restaurant"]:hover{border-color:var(--sc-rest)}
 .co-scope[data-kind="group"]:hover{border-color:var(--sc-group)}
-.co-scope.on .ic{background:var(--accent);color:#fff}
+.co-scope.on .ic{background:var(--accent-fill);color:#fff}
 .co-scope.on .kt{background:var(--surface);color:var(--accent-text)}
 .co-stab[data-stab="restaurant"].on{color:var(--sc-rest)}
 .co-stab[data-stab="group"].on{color:var(--sc-group)}
@@ -77,7 +77,7 @@
 .co-dev.via{border-style:dashed;cursor:default}
 .co-dev.via .cb{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
 .co-dev .cb{width:15px;height:15px;flex:none;border-radius:4px;border:1.5px solid var(--rule);display:flex;align-items:center;justify-content:center;color:transparent;background:var(--surface)}
-.co-dev.on .cb{background:var(--accent);border-color:var(--accent);color:#fff}
+.co-dev.on .cb{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
 .co-dev .cb svg{width:9px;height:9px;fill:none;stroke:currentColor;stroke-width:3}
 .co-dev .bd{min-width:0}
 .co-dev .sn{display:block;font-family:var(--mono);font-size:11.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

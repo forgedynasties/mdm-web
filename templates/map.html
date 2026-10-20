@@ -14,7 +14,7 @@
 @media(max-width:800px){.fm-top{flex-direction:column;gap:10px}.fm-actions{padding-top:0;justify-content:flex-start}}
 .fm-btn{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:12.5px;font-weight:650;padding:8px 13px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);text-decoration:none;box-shadow:var(--shadow-sm);cursor:pointer;white-space:nowrap}
 .fm-btn:hover{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
-.fm-btn.primary{background:var(--accent);color:#fff;border-color:transparent}.fm-btn.primary:hover{background:var(--accent-h)}
+.fm-btn.primary{background:var(--accent-fill);color:#fff;border-color:transparent}.fm-btn.primary:hover{background:var(--accent-fill-h)}
 .fm-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 .fm-body{display:grid;grid-template-columns:320px minmax(0,1fr);gap:14px;align-items:stretch}
@@ -77,16 +77,16 @@
 </style>
 
 <div class="fm">
-  <div class="fm-top">
+  <div class="cc-top">
     <div>
-      <div class="fm-eyebrow">Overview · Fleet map</div>
-      <h1 class="fm-h1">{{if .DeviceMapCount}}<span class="hl ok">{{.DeviceMapCount}}</span> of {{.Summary.Total}} devices located{{else}}No devices located yet{{end}}</h1>
-      <div class="fm-sub">Every device with a resolved position. Filter by status, product or site; click a device to fly to it.</div>
+      <div class="cc-eyebrow">Fleet</div>
+      <h1 class="cc-h1">Fleet map</h1>
+      <div class="cc-status">{{if .DeviceMapCount}}<b>{{.DeviceMapCount}}</b> of {{.Summary.Total}} devices located{{else}}No devices located yet{{end}}</div>
+      <div class="cc-sub">Every device with a resolved position. Filter by status, product or site; click a device to fly to it.</div>
     </div>
-    <div class="fm-actions">
-      <a class="fm-btn" href="/"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Overview</a>
-      <button type="button" class="fm-btn" id="fm-fit"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Fit all</button>
-      <a class="fm-btn primary" href="/devices"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>All devices</a>
+    <div class="cc-actions">
+      <button type="button" class="cc-btn" id="fm-fit"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>Fit all</button>
+      <a class="cc-btn" href="/devices">All devices</a>
     </div>
   </div>
 

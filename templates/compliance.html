@@ -2,7 +2,7 @@
 {{template "header" .}}
 <style>
 /* ── Compliance (C1, picked 15 Oct): checks first; Venues and Devices as tabs. ── */
-.cp-wrap{max-width:1180px;margin:0 auto}
+.cp-wrap{margin:0 auto}
 .cp-head{display:flex;align-items:center;gap:12px;margin:4px 0 12px}
 .cp-head h1{margin:0}
 .cp-head .r{margin-left:auto;display:flex;gap:8px}
@@ -53,9 +53,13 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
 .cp-empty{padding:22px 4px;font-size:13px;color:var(--muted)}
 </style>
 <div class="cp-wrap">
-  <div class="cp-head">
-    <h1>Compliance</h1><span class="cp-mu" style="font-size:12.5px;margin-top:6px">devices at a venue</span>
-    <div class="r"><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Compliance</div>
+      <h1 class="cc-h1">Compliance</h1>
+      <div class="cc-sub">Devices at a venue, checked every minute.</div>
+    </div>
+    <div class="cc-actions"><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
   </div>
   <nav class="cp-tabs" aria-label="Compliance views">
     <a href="/compliance"{{if eq .Tab "checks"}} class="on" aria-current="page"{{end}}>Checks</a>
