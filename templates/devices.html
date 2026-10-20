@@ -172,10 +172,10 @@
       {{if canAdmin .Role}}<a class="cc-btn primary" href="/enrollment" hx-boost="false">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} · {{.FleetCounts.Inbox}} new{{end}}{{end}}</a>{{end}}
     </span>
   </template>
-  {{/* A venue or group view is about the collections, not the device count. */}}
-  {{if eq .View "restaurants"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailRestaurants}}</span> venue{{if ne (len .RailRestaurants) 1}}s{{end}}</h1>
-  {{else if eq .View "groups"}}<h1 class="cc-h1 fl-h1"><span class="hl accent">{{len .RailGroups}}</span> group{{if ne (len .RailGroups) 1}}s{{end}}</h1>
-  {{else}}<h1 class="cc-h1 fl-h1">{{if gt $offCount 0}}<span class="hl {{if gt $offCount .Summary.Total}}danger{{else if gt $offCount 0}}warn{{end}}">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{end}}</h1>{{end}}
+  {{/* Page header (H1): the page's name, then what it shows. A venue or group view is
+       about the collections, not the device count. */}}
+  <h1 class="cc-h1 fl-h1">Fleet</h1>
+  <div class="cc-status">{{if eq .View "restaurants"}}<b>{{len .RailRestaurants}}</b> venue{{if ne (len .RailRestaurants) 1}}s{{end}}{{else if eq .View "groups"}}<b>{{len .RailGroups}}</b> group{{if ne (len .RailGroups) 1}}s{{end}}{{else}}{{if gt $offCount 0}}<span class="hl warn">{{$onCount}} of {{.Summary.Total}}</span> device{{if ne .Summary.Total 1}}s{{end}} online{{else}}<span class="hl ok">All {{.Summary.Total}}</span> devices online{{end}}{{end}}</div>
   <div class="cc-sub">{{if eq .View "restaurants"}}Every venue{{else if eq .View "groups"}}Every group{{else}}Viewing <b>{{.SelectedCollection}}</b>{{end}} · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}{{if .RefusedSerials}} · <span class="fl-unident">{{len .RefusedSerials}} unidentified</span>{{end}}</div>
 {{end}}
 
@@ -416,7 +416,6 @@ a.fleet-rail-item{min-height:40px}
 .fl-fadd svg{width:13px;height:13px}
 .fl-fadd:hover,.fl-fadd[aria-expanded="true"]{border-style:solid;border-color:var(--accent-edge);color:var(--accent-text);background:var(--accent-soft)}
 @media(max-width:480px){
-  .fl-h1{font-size:21px!important}
   .fleet-fbtn,.btn-outline,.btn-primary{min-height:40px}
 }
 </style>
@@ -424,15 +423,14 @@ a.fleet-rail-item{min-height:40px}
 {{/* ── Fleet header: verdict headline + KPI strip ── */}}
 <script src="/static/js/devices/map-button.js?v={{assetVer}}"></script>
 <div class="fl-wrap">
-  <div class="fl-top cc-top isl-dup">
+  <div class="fl-top cc-top">
     <div>
-      <div class="cc-eyebrow isl-dup">Fleet · Devices</div>
-      <div id="fl-headline" class="isl-dup">{{template "fleet-headline" .}}</div>
+      <div id="fl-headline">{{template "fleet-headline" .}}</div>
     </div>
     <div class="cc-actions fl-actions">
-      {{if canAdmin .Role}}<a class="cc-btn isl-dup" href="/enrollment" hx-boost="false" title="Onboarding inbox and enrollment profiles"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}}<span class="n warn">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
+      {{if canAdmin .Role}}<a class="cc-btn" href="/enrollment" hx-boost="false" title="Onboarding inbox and enrollment profiles"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}}<span class="n warn">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
       {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg class="i-map" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><svg class="i-list" viewBox="0 0 24 24" hidden><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Map view</span></button>{{end}}
-      <button type="button" class="cc-btn isl-dup" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
+      <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>
   </div>
 
@@ -735,7 +733,7 @@ function sortDirWords(sort) {
 function syncSortUI() {
   var c = curSort();
   var cur = document.getElementById('sort-cur');
-  if (cur) cur.textContent = '· ' + (SORT_NAMES[c.sort] || c.sort) + ' ' + (c.dir === 'asc' ? '↑' : '↓');
+  if (cur) cur.textContent = '· ' + (SORT_NAMES[c.sort] || c.sort || SORT_NAMES.last_seen) + ' ' + (c.dir === 'asc' ? '↑' : '↓');
   document.querySelectorAll('#sort-pop .cc-mi[data-sort]').forEach(function (b) {
     var on = b.dataset.sort === c.sort;
     b.classList.toggle('active', on);
