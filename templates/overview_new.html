@@ -228,6 +228,108 @@
 .ovd-intro-alt:hover{background:var(--surface2);color:var(--text)}
 .ovd-intro-ok{font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-ink);background:var(--accent-fill);border:0;border-radius:7px;padding:7px 14px;cursor:pointer}
 .ovd-intro-ok:hover{background:var(--accent-fill-h)}
+
+/* ── O2: banner and a right-hand rail (picked 20 Oct 2026) ── */
+.ov2{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+@media(max-width:1024px){.ov2{grid-template-columns:1fr}}
+.ov2-main{min-width:0}
+.ov2-ban{position:relative;overflow:hidden;border-radius:22px;padding:24px 28px 26px;color:#fff;background:linear-gradient(120deg,var(--accent-fill),#f9674e 60%,#ff9a7a)}
+.ov2-ban.is-bad{background:linear-gradient(120deg,#b8321f,var(--accent-fill) 55%,#f9674e)}
+.ov2-ban::after{content:"";position:absolute;right:-50px;top:-70px;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.12);pointer-events:none}
+.ov2-ban::before{content:"";position:absolute;right:130px;bottom:-100px;width:230px;height:230px;border-radius:50%;background:rgba(255,255,255,.08);pointer-events:none}
+.ov2-ban.is-calm{color:var(--text);background:linear-gradient(120deg,var(--ok-bg),var(--surface) 70%);border:1px solid var(--border)}
+.ov2-ban.is-calm::after,.ov2-ban.is-calm::before{background:var(--ok-bg);opacity:.6}
+.ov2-ban>*{position:relative}
+.ov2-ban-k{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.ov2-ban h2{font-family:var(--font-display);font-weight:500;font-size:30px;letter-spacing:-.02em;line-height:1.15;margin:10px 0 6px;max-width:34ch}
+.ov2-ban p{margin:0 0 18px;font-size:14px;line-height:1.5;max-width:60ch;opacity:.92}
+.ov2-go{display:inline-flex;align-items:center;gap:10px;background:#16161c;color:#fff;border-radius:99px;padding:8px 9px 8px 16px;font-size:13px;font-weight:600;text-decoration:none}
+.ov2-go i{width:22px;height:22px;border-radius:50%;background:#fff;color:#16161c;display:grid;place-items:center;font-style:normal;font-size:12px}
+.ov2-go:hover{background:#000}
+.ov2-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0 24px}
+.ov2-chip{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 11px;text-decoration:none;color:inherit;min-width:0}
+.ov2-chip:hover{border-color:var(--rule-2)}
+.ov2-chip .ic{width:32px;height:32px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--ok-bg);color:var(--ok);font-weight:750;font-size:11.5px}
+.ov2-chip .ic.part{background:var(--warn-bg);color:var(--warn)}
+.ov2-chip small{display:block;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ov2-chip>span:last-child{min-width:0}
+.ov2-chip b{display:block;font-size:13px;font-weight:650;line-height:1.25}
+.ov2-sec{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
+.ov2-sec h2{margin:0;font-family:var(--font-display);font-size:18px;font-weight:500;letter-spacing:-.01em}
+.ov2-sec h2 span{font-family:var(--font);font-size:12.5px;color:var(--muted);font-weight:500;margin-left:6px;letter-spacing:0}
+.ov2-nav{display:flex;align-items:center;gap:6px}
+.ov2-nav button{width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;font-size:15px;line-height:1}
+.ov2-nav button:hover{border-color:var(--rule-2);color:var(--text)}
+.ov2-nav a{font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none;margin-left:6px}
+.ov2-strip{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 28px)/3);gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin-bottom:24px;padding:2px}
+.ov2-strip::-webkit-scrollbar{display:none}
+.ov2-v{scroll-snap-align:start;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;min-width:0}
+.ov2-v:hover{border-color:var(--rule-2)}
+.ov2-v .cov{height:74px;display:flex;align-items:flex-end;padding:10px 12px;background:linear-gradient(135deg,var(--ok-bg),var(--surface2))}
+.ov2-v.s-warn .cov{background:linear-gradient(135deg,var(--warn-bg),var(--surface2))}
+.ov2-v.s-danger .cov{background:linear-gradient(135deg,var(--danger-bg),var(--surface2))}
+.ov2-v.s-empty .cov{background:var(--surface2)}
+.ov2-v .cov .vicon{box-shadow:0 0 0 3px var(--surface)}
+.ov2-v .bd{display:flex;flex-direction:column;gap:4px;padding:10px 13px 13px;flex:1}
+.ov2-v .bd b{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.ov2-v .bd small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov2-st{align-self:flex-start;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--ok-bg);color:var(--ok)}
+.ov2-st.s-warn{background:var(--warn-bg);color:var(--warn)}.ov2-st.s-danger{background:var(--danger-bg);color:var(--danger)}.ov2-st.s-empty{background:var(--surface2);color:var(--muted)}
+.ov2-v .pips{display:flex;gap:3px;flex-wrap:wrap;margin-top:4px;min-height:9px}
+.ov2-v .pips i{width:9px;height:9px;border-radius:3px;background:var(--ok)}
+.ov2-v .pips i.off{background:var(--warn)}.ov2-v .pips i.dormant{background:var(--text-faint);opacity:.5}
+.ov2-v .pips em{font-style:normal;font-size:10.5px;color:var(--text-faint);line-height:9px}
+.ov2-v .hb{height:4px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:auto;position:relative;top:6px}
+.ov2-v .hb i{display:block;height:100%;background:var(--ok)}
+.ov2-v.s-warn .hb i{background:var(--warn)}.ov2-v.s-danger .hb i{background:var(--danger)}
+.ov2-v-more .bd{justify-content:center;align-items:flex-start}
+.ov2-v-more .bd small{color:var(--accent-text);font-weight:600}
+.ov2-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.ov2-t th{text-align:left;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:10px 16px;border-bottom:1px solid var(--border-soft)}
+.ov2-t td{padding:9px 16px;border-top:1px solid var(--border-soft)}
+.ov2-t tbody tr:first-child td{border-top:0}
+.ov2-t .num{text-align:right;font-variant-numeric:tabular-nums;font-weight:650}
+.ov2-t .mut{color:var(--muted)}
+.ov2-t .act{text-align:right;white-space:nowrap}
+.ov2-rail{background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.ov2-ring{position:relative;width:132px;height:132px;margin:2px auto 0;display:block;text-decoration:none;color:inherit}
+.ov2-ring svg{width:100%;height:100%}
+.ov2-ring .trk{fill:none;stroke:var(--surface2);stroke-width:10}
+.ov2-ring .val{fill:none;stroke:var(--ok);stroke-width:10;stroke-linecap:round}
+.ov2-ring.s-warn .val{stroke:var(--warn)}.ov2-ring.s-danger .val{stroke:var(--danger)}
+.ov2-ring>span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ov2-ring b{font-family:var(--font-display);font-size:32px;font-weight:500;line-height:1}
+.ov2-ring small{font-size:11px;color:var(--muted);margin-top:3px}
+.ov2-hi{text-align:center;display:flex;flex-direction:column;gap:2px}
+.ov2-hi b{font-size:15px;font-weight:650}
+.ov2-hi small{font-size:12px;color:var(--muted)}
+.ov2-hi small.down{color:var(--danger)}.ov2-hi small.up{color:var(--ok)}
+.ov2-bars{display:flex;align-items:flex-end;gap:7px;height:104px;padding:12px 12px 8px;border-radius:16px;background:var(--surface-3,var(--surface2))}
+.ov2-bars>div{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:5px}
+.ov2-bars i{width:100%;border-radius:6px;background:color-mix(in srgb,var(--accent) 28%,var(--surface));min-height:4px}
+.ov2-bars i.on{background:var(--accent)}
+.ov2-bars span{font-size:10px;color:var(--muted)}
+.ov2-rh{display:flex;align-items:center;justify-content:space-between;margin-top:4px}
+.ov2-rh h2{margin:0;font-size:15px;font-weight:650}
+.ov2-rh h2 span{font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--warn-bg);color:var(--warn);margin-left:4px;vertical-align:2px}
+.ov2-rh a{font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none}
+.ov2-att{list-style:none;margin:-4px 0 0;padding:0}
+.ov2-att li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft)}
+.ov2-att li:first-child{border-top:0}
+.ov2-att .ovd-dot{margin:0;flex:none}
+.ov2-att .t{flex:1;min-width:0}
+.ov2-att .t a{display:block;font-size:13px;font-weight:600;color:var(--text);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov2-att .t a:hover{text-decoration:underline}
+.ov2-att small{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ov2-att .ser{font-family:var(--mono);font-size:11px}
+.ov2-all{display:block;text-align:center;padding:9px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);font-weight:650;font-size:12.5px;text-decoration:none}
+.ov2-all:hover{background:color-mix(in srgb,var(--accent) 22%,var(--surface))}
+.ov2-comp{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;border:1px solid var(--border-soft);text-decoration:none;color:inherit}
+.ov2-comp:hover{border-color:var(--rule-2)}
+.ov2-comp .ovc-ring{width:56px;height:56px}
+.ov2-comp b{display:block;font-size:13.5px;font-weight:650}
+.ov2-comp small{display:block;font-size:11.5px;color:var(--muted)}
+.ov2-comp em{font-style:normal;color:var(--warn);font-weight:650}
 </style>
 
 <div class="ovd">
@@ -240,9 +342,9 @@
     <div class="ovd-intro-k">New look</div>
     <h2 id="ovd-intro-t">The Overview has been redesigned</h2>
     <ul>
-      <li><b>Venues</b>, worst first: each one's icon, a square per device and its health score.</li>
-      <li><b>A map</b> of your restaurants, with each one's device count.</li>
-      <li><b>Needs attention</b> sits beside them, so a venue's problems have a reason next to them.</li>
+      <li><b>A banner</b> that says in one sentence what needs you, with a button to start.</li>
+      <li><b>Each device type</b> with how many are online, and <b>venues</b> worst first as cards.</li>
+      <li><b>A rail on the right</b>: fleet health, the last seven days, what needs attention and compliance.</li>
     </ul>
     <div class="ovd-intro-b"><button type="button" class="ovd-intro-ok" id="ovd-intro-ok">Got it</button></div>
   </div>
@@ -250,132 +352,116 @@
   {{/* No visible title: the page is the dock's Overview. The heading stays for screen readers. */}}
   <h1 class="sr-only">Overview</h1>
 
-  {{/* ── Fleet health · right now · composition, as on the classic Overview ── */}}
-  {{template "ov3-w-hero" .}}
+  {{/* Banner and a right-hand rail (O2, picked 20 Oct 2026). Main column: a banner that
+       says in one sentence what to do next, a chip per device type, the venues worst first
+       as cards, the clean-up jobs. Rail: fleet health with a greeting and the last seven
+       days, what needs attention, compliance. A calm day gets a calm banner. */}}
+  {{$prob := .AttentionTotal}}
+  <div class="ov2">
+    <div class="ov2-main">
+      <div class="ov2-ban {{if .AttentionCritical}}is-bad{{else if $prob}}is-warn{{else}}is-calm{{end}}">
+        <div class="ov2-ban-k">Fleet health · {{.Score}} · {{.StatusWord}}</div>
+        <h2>{{if $prob}}{{$prob}} problem{{if ne $prob 1}}s{{end}} need{{if eq $prob 1}}s{{end}} you{{if .AttentionCritical}}, {{.AttentionCritical}} critical{{end}}{{else}}Everything is running{{end}}</h2>
+        <p>{{.HeroSentence}}</p>
+        {{if $prob}}<a class="ov2-go" href="{{with .AttentionRows}}{{(index . 0).Href}}{{else}}/alerts{{end}}">Start with the worst<i aria-hidden="true">→</i></a>{{else}}<a class="ov2-go" href="/devices">Open the fleet<i aria-hidden="true">→</i></a>{{end}}
+      </div>
 
-  {{/* Two independent columns, so a short attention list leaves no gap under it. Left:
-       Venues, Compliance, Devices by type; right: Needs attention, Clean up (19 Oct: the map
-       and Service uptime cards were removed, and Compliance took uptime's place). */}}
-  <div class="ovd-mid">
-    <div class="ovd-main">
-      {{/* ── Venues widget (V1, picked 19 Oct 2026): the Venues page in miniature — icon,
-           a square per device, online and problems, health score — from the same rows
-           (collRows). Venues that need a look first, ten at most. overview_venues.go ── */}}
+      {{if .ClassOnline}}
+      <div class="ov2-chips">
+        {{range .ClassOnline}}
+        <a class="ov2-chip" href="{{if .Class}}/devices?class={{.Class}}{{else}}/devices?onboarding=pending{{end}}">
+          <span class="ic{{if lt .Online .Total}} part{{end}}">{{classShort .Class}}</span>
+          <span><small>{{.Online}} / {{.Total}} online</small><b>{{.Label}}</b></span>
+        </a>
+        {{end}}
+      </div>
+      {{end}}
+
       {{with .Venues}}
-      <div class="cc-card ovd-o1">
-        <div class="cc-ch"><h2>Venues</h2><span class="ovv-sum">{{.Total}}{{if .NeedLook}} · <b>{{.NeedLook}} need{{if eq .NeedLook 1}}s{{end}} a look</b>{{end}}</span><a class="r" href="/restaurants" style="margin-left:auto">All venues</a></div>
-        {{if or .Rows .Unplaced}}
-        <div class="ovv">
-          {{range .Rows}}
-          <a class="ovv-r" href="{{.Href}}">
-            {{venueIcon .ID .Name "md"}}
-            <span class="ovv-nm"><b>{{.Name}}</b><small>{{if .Devices}}{{.Online}} of {{.Devices}} online{{if .Offline}} · {{.Offline}} offline{{end}}{{if .HasH}}{{if .H.OpenCritical}} · {{.H.OpenCritical}} critical{{end}}{{if .H.OpenWarning}} · {{.H.OpenWarning}} warning{{if ne .H.OpenWarning 1}}s{{end}}{{end}}{{end}}{{if .Dormant}} · {{.Dormant}} dormant{{end}}{{else}}no devices{{end}}</small></span>
-            <span class="ovv-pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span>
-            <span class="ovv-sc s-{{.Class}}">{{if and .Devices .HasH}}{{.H.Score}}{{else}}—{{end}}</span>
-          </a>
-          {{end}}
-          {{if .More}}<a class="ovv-more" href="/restaurants">{{.More}} more venue{{if ne .More 1}}s{{end}}</a>{{end}}
-          {{if .Unplaced}}<a class="ovv-r ovv-loose" href="/devices?onboarding=pending"><span class="ovv-nm"><b>Not at a venue</b><small>{{.Unplaced}} device{{if ne .Unplaced 1}}s{{end}} waiting for a site</small></span></a>{{end}}
-        </div>
-        {{else}}
-        <div class="ovd-empty"><b>No venues yet.</b></div>
+      <div class="ov2-sec"><h2>Venues <span>{{.Total}}{{if .NeedLook}} · {{.NeedLook}} need{{if eq .NeedLook 1}}s{{end}} a look{{end}}</span></h2>
+        <span class="ov2-nav"><button type="button" aria-label="Scroll venues left" data-ov2-strip="-1">‹</button><button type="button" aria-label="Scroll venues right" data-ov2-strip="1">›</button><a href="/restaurants">All venues</a></span></div>
+      {{if or .Rows .Unplaced}}
+      <div class="ov2-strip" id="ov2-strip">
+        {{range .Rows}}
+        <a class="ov2-v s-{{.Class}}" href="{{.Href}}">
+          <span class="cov">{{venueIcon .ID .Name "md"}}</span>
+          <span class="bd">
+            <span class="ov2-st s-{{.Class}}">{{if and .Devices .HasH}}{{if eq .Class "danger"}}At risk{{else if eq .Class "warn"}}Watch{{else}}Healthy{{end}} · {{.H.Score}}{{else}}No devices{{end}}</span>
+            <b>{{.Name}}</b>
+            <small>{{if .Devices}}{{.Online}} of {{.Devices}} online{{if .Offline}} · {{.Offline}} offline{{end}}{{if .HasH}}{{if .H.OpenCritical}} · {{.H.OpenCritical}} critical{{end}}{{end}}{{else}}no devices yet{{end}}</small>
+            <span class="pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span>
+            {{if and .Devices .HasH}}<span class="hb"><i style="width:{{.H.Score}}%"></i></span>{{end}}
+          </span>
+        </a>
         {{end}}
+        {{if .More}}<a class="ov2-v ov2-v-more" href="/restaurants"><span class="bd"><b>{{.More}} more venue{{if ne .More 1}}s{{end}}</b><small>All venues →</small></span></a>{{end}}
+        {{if .Unplaced}}<a class="ov2-v ov2-v-more" href="/devices?onboarding=pending"><span class="bd"><b>Not at a venue</b><small>{{.Unplaced}} device{{if ne .Unplaced 1}}s{{end}} waiting for a site</small></span></a>{{end}}
       </div>
+      {{else}}
+      <div class="cc-card"><div class="ovd-empty"><b>No venues yet.</b></div></div>
+      {{end}}
       {{end}}
 
-      {{/* ── Compliance widget (C1, picked 19 Oct 2026): the share of devices passing every
-           required check, then the three checks failing on the most devices, each with one
-           action. compliance_widget.go ── */}}
-      {{with .Compliance}}
-      <div class="cc-card ovd-o7">
-        <div class="cc-ch"><h2>Compliance</h2><a class="r" href="/compliance" style="margin-left:auto">Compliance</a></div>
-        {{if not .InScope}}
-        <div class="ovd-empty">No device is held to a required check yet.</div>
-        {{else}}
-        <div class="ovc-head">
-          <svg class="ovc-ring" viewBox="0 0 80 80" role="img" aria-label="{{.Pct}}% compliant">
-            <circle cx="40" cy="40" r="34" class="ovc-track"/>
-            {{if .Compliant}}<circle cx="40" cy="40" r="34" class="ovc-arc ok" stroke-dasharray="{{.OkDash}}" stroke-dashoffset="{{.OkOff}}"/>{{end}}
-            {{if .Unknown}}<circle cx="40" cy="40" r="34" class="ovc-arc unk" stroke-dasharray="{{.UnkDash}}" stroke-dashoffset="{{.UnkOff}}"/>{{end}}
-            {{if .Failing}}<circle cx="40" cy="40" r="34" class="ovc-arc fail" stroke-dasharray="{{.FailDash}}" stroke-dashoffset="{{.FailOff}}"/>{{end}}
-            <text x="40" y="45" text-anchor="middle" class="ovc-pct">{{.Pct}}%</text>
-          </svg>
-          <div class="ovc-nums">
-            <div><b>{{.Compliant}}</b> compliant</div>
-            <div{{if .Failing}} class="f"{{end}}><b>{{.Failing}}</b> failing a required check</div>
-            {{if .HasDelta}}<div class="ovc-delta{{if gt .Delta 0}} up{{else if lt .Delta 0}} down{{end}}">{{if gt .Delta 0}}▲ {{.Delta}}{{else if lt .Delta 0}}▼ {{sub 0 .Delta}}{{else}}no change{{end}}{{if ne .Delta 0}} pts{{end}} vs last week</div>{{end}}
-          </div>
-        </div>
-        {{if .Top}}
-        <ul class="ovc-list">
-          {{range .Top}}
-          <li><div class="ovc-t"><b>{{.Name}}</b>{{if .Line}}<small>{{.Line}}</small>{{end}}</div><span class="ovc-n">{{.Count}}</span><a class="cc-btn sm" href="{{.Href}}">Show</a></li>
-          {{end}}
-        </ul>
-        {{else}}
-        <div class="ovd-empty">Every device passes its required checks.</div>
-        {{end}}
-        {{if or .MoreChecks .Partly}}<div class="ovc-foot">{{if .MoreChecks}}+ {{.MoreChecks}} more check{{if ne .MoreChecks 1}}s{{end}} failing{{end}}{{if and .MoreChecks .Partly}} · {{end}}{{if .Partly}}{{.Partly}} device{{if ne .Partly 1}}s{{end}} can't be measured{{end}}</div>{{end}}
-        {{end}}
-      </div>
-      {{end}}
-
-      {{/* ── Devices by type ── */}}
-      <div class="cc-card ovd-o5">
-        <div class="cc-ch"><h2>Devices by type</h2><a class="r" href="/devices">All devices</a></div>
-        {{if .ClassOnline}}
-        <table class="ovd-t">
-          <thead><tr><th>Type</th><th class="num">Online</th><th class="num">Total</th></tr></thead>
+      {{if .Hygiene}}
+      <div class="ov2-sec"><h2>Clean up <span>{{len .Hygiene}} job{{if ne (len .Hygiene) 1}}s{{end}}</span></h2><span class="ov2-nav"><a href="/devices">Devices</a></span></div>
+      <div class="cc-card">
+        <table class="ov2-t">
+          <thead><tr><th>Job</th><th class="num">Devices</th><th>Where</th><th></th></tr></thead>
           <tbody>
-          {{range .ClassOnline}}
-          <tr><td>{{if .Class}}<a href="/devices?class={{.Class}}">{{.Label}}</a>{{else}}{{.Label}}{{end}}</td><td class="num">{{.Online}}</td><td class="num mut">{{.Total}}</td></tr>
+          {{range .Hygiene}}
+          <tr><td>{{.What}}</td><td class="num">{{.Count}}</td><td class="mut">{{.Note}}</td><td class="act"><a class="cc-btn sm" href="{{.Href}}">{{.Link}}</a></td></tr>
           {{end}}
           </tbody>
         </table>
-        {{else}}
-        <div class="ovd-empty">No devices enrolled yet.</div>
-        {{end}}
       </div>
+      {{end}}
     </div>
 
-    <div class="ovd-side">
-      {{/* ── Needs attention: problems (a device's alerts together, or a restaurant outage), worst first ── */}}
-      <div class="cc-card ovd-o2">
-        <div class="cc-ch"><h2>Needs attention</h2>{{if .AttentionTotal}}<span class="m">{{.AttentionTotal}}</span>{{end}}<a class="r" href="/alerts"{{if not .AttentionTotal}} style="margin-left:auto"{{end}}>Alerts</a></div>
-        {{if .AttentionRows}}
-        <ul class="ovd-q">
-          {{range .AttentionRows}}
-          <li>
-            <span class="ovd-dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{end}}" title="{{if eq .Severity "critical"}}Critical{{else if eq .Severity "warning"}}Warning{{else}}Info{{end}}"></span>
-            <div>
-              <a class="t" href="{{.Href}}">{{.Issue}}</a>
-              <div class="w">{{if .Serial}}<span class="ser">{{.Serial}}</span>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}{{if .Restaurant}} · {{.Restaurant}}{{else if eq .Href "/enrollment"}} · Unassigned{{end}}</div>
-            </div>
-            <span class="a">{{if .Since.IsZero}}—{{else}}<span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</span>
-          </li>
-          {{end}}
-        </ul>
-        {{if gt .AttentionTotal (len .AttentionRows)}}<a class="ovd-more" href="/alerts">{{sub .AttentionTotal (len .AttentionRows)}} more</a>{{end}}
-        {{else}}
-        <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a restaurant.</div>
-        {{end}}
-      </div>
+    <aside class="ov2-rail" aria-label="Fleet health and what needs attention">
+      <a class="ov2-ring s-{{.ScoreClass}}" href="/fleet-health" title="Why {{.Score}}?">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{ringOffset .Score 326.7}}" transform="rotate(-90 60 60)"/></svg>
+        <span><b>{{.Score}}</b><small>fleet health</small></span>
+      </a>
+      <div class="ov2-hi"><b>{{.Greeting}}{{with .FirstName}}, {{.}}{{end}}</b>
+        <small>{{.Summary.RecentlyActive}} of {{.Summary.Total}} online{{if .Crashes24h}} · {{.Crashes24h}} crash{{if ne .Crashes24h 1}}es{{end}} today{{end}}{{if .Hot}} · {{.Hot}} hot{{end}}</small>
+        {{if ne .ScoreDelta 0}}<small class="{{if lt .ScoreDelta 0}}down{{else}}up{{end}}">{{if lt .ScoreDelta 0}}↘ {{.ScoreDelta}}{{else}}↗ +{{.ScoreDelta}}{{end}} on last week</small>{{end}}</div>
 
-      {{/* ── Clean up: is the fleet list honest ── */}}
-      {{if .Hygiene}}
-      <div class="cc-card ovd-o6">
-        <div class="cc-ch"><h2>Clean up</h2><span class="m">{{len .Hygiene}} job{{if ne (len .Hygiene) 1}}s{{end}}</span><a class="r" href="/devices">Devices</a></div>
-        <ul class="ovd-hy">
-          {{range .Hygiene}}
-          <li><div class="t"><b>{{.Count}}</b> {{.What}}<small>{{.Note}}</small></div><a href="{{.Href}}">{{.Link}}</a></li>
-          {{end}}
-        </ul>
+      {{if .ActivityBars}}
+      <div class="ov2-bars" role="img" aria-label="Devices active each of the last seven days">
+        {{range .ActivityBars}}<div title="{{.Val}} devices active"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
       </div>
       {{end}}
 
-    </div>
-  </div>
+      <div class="ov2-rh"><h2>Needs attention{{if $prob}} <span>{{$prob}}</span>{{end}}</h2><a href="/alerts">Alerts</a></div>
+      {{if .AttentionRows}}
+      <ul class="ov2-att">
+        {{range $i, $r := .AttentionRows}}{{if lt $i 5}}
+        <li>
+          <span class="ovd-dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{end}}"></span>
+          <span class="t"><a href="{{.Href}}">{{.Issue}}</a><small>{{if .Serial}}<span class="ser">{{.Serial}}</span>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}{{if .Restaurant}} · {{.Restaurant}}{{end}}{{if not .Since.IsZero}} · <span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</small></span>
+          <a class="cc-btn sm" href="{{.Href}}">Open</a>
+        </li>
+        {{end}}{{end}}
+      </ul>
+      <a class="ov2-all" href="/alerts">{{if gt $prob 5}}All {{$prob}} problems{{else}}All alerts{{end}}</a>
+      {{else}}
+      <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a venue.</div>
+      {{end}}
 
+      {{with .Compliance}}{{if .InScope}}
+      <a class="ov2-comp" href="/compliance">
+        <svg class="ovc-ring" viewBox="0 0 80 80" role="img" aria-label="{{.Pct}}% compliant">
+          <circle cx="40" cy="40" r="34" class="ovc-track"/>
+          {{if .Compliant}}<circle cx="40" cy="40" r="34" class="ovc-arc ok" stroke-dasharray="{{.OkDash}}" stroke-dashoffset="{{.OkOff}}"/>{{end}}
+          {{if .Unknown}}<circle cx="40" cy="40" r="34" class="ovc-arc unk" stroke-dasharray="{{.UnkDash}}" stroke-dashoffset="{{.UnkOff}}"/>{{end}}
+          {{if .Failing}}<circle cx="40" cy="40" r="34" class="ovc-arc fail" stroke-dasharray="{{.FailDash}}" stroke-dashoffset="{{.FailOff}}"/>{{end}}
+          <text x="40" y="45" text-anchor="middle" class="ovc-pct">{{.Pct}}%</text>
+        </svg>
+        <span><b>Compliance</b><small>{{.Compliant}} compliant{{if .Failing}} · <em>{{.Failing}} failing</em>{{end}}</small>{{with .Top}}<small>Most failed: {{(index . 0).Name}}</small>{{end}}</span>
+      </a>
+      {{end}}{{end}}
+    </aside>
+  </div>
 
 </div>
 

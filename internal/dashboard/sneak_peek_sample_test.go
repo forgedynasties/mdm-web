@@ -111,10 +111,11 @@ func TestSneakPeekOverviewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h2>Venues</h2>`, `<b>Bluefin Sushi Bar</b>`, `<b>2 need a look</b>`, `3 devices waiting for a site`,
-		`<h2>Compliance</h2>`, `>84%</text>`, `all at Saffron Table · auto-fix on`,
-		`<h2>Devices by type</h2>`, `>Tableside AI</a>`, `>Menu board</a>`, `>Kitchen display</a>`,
-		`<h2>Needs attention</h2>`, `<h2>Clean up</h2>`, `class="ov3-hero`,
+		// The O2 layout (20 Oct): banner, type chips, venue cards, clean-up table, rail.
+		`class="ov2-ban`, `<b>Bluefin Sushi Bar</b>`, `2 need a look`, `3 devices waiting for a site`,
+		`<b>Compliance</b>`, `>84%</text>`,
+		`<b>Tableside AI</b>`, `<b>Menu board</b>`, `<b>Kitchen display</b>`,
+		`Needs attention`, `Clean up <span>`, `class="ov2-rail"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("sneak peek Overview is missing %q", want)

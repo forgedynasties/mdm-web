@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"sync"
 
 	"mdm/internal/db"
@@ -79,8 +80,40 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
 	}
 
+	// The rail greets by first name (O2, 20 Oct).
+	if u, err := h.db.GetUserByUsername(ctx, h.currentUsername(r)); err == nil && u != nil {
+		data["FirstName"] = u.FirstName
+	}
 	data["Venues"] = h.overviewVenueData(r, wallDevs)
 	data["Compliance"] = h.overviewCompliance(r)
+}
+
+// classShort is the tile text for a device class on the Overview's type chips.
+func classShort(class string) string {
+	switch class {
+	case "t7":
+		return "T7"
+	case "kiosk":
+		return "K"
+	case "dongle":
+		return "MB"
+	case "kds":
+		return "KDS"
+	case "pos":
+		return "POS"
+	case "mpos":
+		return "HH"
+	case "payment":
+		return "PAY"
+	case "tablet":
+		return "TAB"
+	case "":
+		return "?"
+	}
+	if len(class) > 3 {
+		return strings.ToUpper(class[:3])
+	}
+	return strings.ToUpper(class)
 }
 
 // compRole is one slice of the Overview's fleet-composition bar.

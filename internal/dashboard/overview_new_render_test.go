@@ -63,23 +63,24 @@ func TestOverviewNewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h2>Venues</h2>`, // the Venues widget (V1)
-		`<b>1 needs a look</b>`,
-		`2 of 3 online · 1 offline · 1 warning`,
+		// O2 (20 Oct): banner, venue cards, clean-up table, and the rail.
+		`class="ov2-ban is-warn"`, // one warning problem, none critical
+		`2 problems need you`,     // the overheating device and the unassigned one
+		`Fleet health · 81 · Healthy`,
+		`1 needs a look`,
+		`<b>Pho 88</b>`,
+		`2 of 3 online · 1 offline`,
 		`<i class="off"></i><i class="on"></i><i class="on"></i>`,
-		`<span class="ovv-sc s-danger">42</span>`,
+		`At risk · 42`,
 		`1 device waiting for a site`, // devices at no venue
-		`<h2>Compliance</h2>`,         // the compliance widget (C1)
+		`<b>Compliance</b>`,
 		`>75%</text>`,
-		`<b>1</b> failing a required check`,
-		`▼ 5 pts vs last week`,
-		`all at Pho 88 · auto-fix on`,
-		`href="/compliance?tab=devices&amp;show=failing&amp;check=wireless_adb_off">Show</a>`,
-		`+ 2 more checks failing · 1 device can't be measured`,
-		`id="ovd-intro"`,           // the first-visit intro
-		`class="ov3-hero is-warn"`, // the classic hero: score, right now, composition
-		`Tableside AI <b>2</b>`,
-		`<b>86</b> devices silent 14&#43; days<small>48% of the fleet, none in a restaurant.`, // clean-up checklist
+		`<em>1 failing</em>`,
+		`Most failed: Wireless adb off`,
+		`id="ovd-intro"`, // the first-visit intro
+		`class="ov2-rail"`,
+		`<td class="num">86</td>`, // clean-up table
+		`48% of the fleet, none in a restaurant.`,
 		`href="/devices?hygiene=placed-silent"`,
 		`4 are not a release: A15-v1.62-user, old-key, clean-build, …<`,
 	} {

@@ -891,6 +891,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"roleLabel":      roleLabel,
 		"roleLevel":      roleLevel,
 		"roleDesc":       roleDesc,
+		// ringOffset: stroke-dashoffset for a score ring of circumference c (Overview rail).
+		"ringOffset": func(score int, c float64) string {
+			if score < 0 {
+				score = 0
+			} else if score > 100 {
+				score = 100
+			}
+			return fmt.Sprintf("%.1f", c*float64(100-score)/100)
+		},
+		// classShort: the two-or-three-letter tile for a device class (Overview chips).
+		"classShort": classShort,
 		"rolePill":       rolePill,
 		// isCustomer: an owner or staff account (venue-walled, owner home only).
 		"isCustomer": roleIsCustomer,
