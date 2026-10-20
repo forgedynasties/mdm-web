@@ -1159,7 +1159,7 @@
     // page load waits for it — and that one is usually warmed by the idle prefetch.
     var entities = [], entitiesAt = 0, entitiesLoading = false;
     function loadEntities() {
-      if (entitiesLoading || Date.now() - entitiesAt < 15000) return;
+      if (entitiesLoading || Date.now() - entitiesAt < 15000 || location.pathname.indexOf('/sneak-peek') === 0) return;
       entitiesLoading = true;
       fetch('/cmdk-index', { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -1557,6 +1557,7 @@
     }
 
     if (!document.getElementById('alerts-wrap')) return; // no bell (restaurant owner) → no stream
+    if (location.pathname.indexOf('/sneak-peek') === 0) return; // preview: no session, no stream
     var es = new EventSource('/alerts/events');
     es.addEventListener('alert-update', function (e) {
       var n = parseInt(e.data, 10);
@@ -1652,7 +1653,7 @@
       }
     }
     function load() {
-      if (busy || document.hidden) return;
+      if (busy || document.hidden || location.pathname.indexOf('/sneak-peek') === 0) return;
       busy = true;
       fetch('/dock/status', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : null; })

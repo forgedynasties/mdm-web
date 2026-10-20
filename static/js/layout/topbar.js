@@ -61,9 +61,11 @@
     // the popover's content is always already there before you click — fixes
     // it at the source instead of fighting the resulting repaint.
     var alertsListReady = false;
+    // Sneak peek has no session: /alerts/recent would answer with a redirect to /login.
+    var preview = location.pathname.indexOf('/sneak-peek') === 0;
     window.refreshAlertsList = function () {
       var p = document.getElementById('alerts-pop');
-      if (!p) return;
+      if (!p || preview) return;
       if (!p.hasAttribute('hidden')) return; // never mutate while visible
       if (!window.htmx) return;
       htmx.ajax('GET', '/alerts/recent', { target: '#alerts-pop-body', swap: 'innerHTML' }).then(function () {
@@ -79,7 +81,7 @@
       // populated this before anyone clicks. If it somehow hasn't (fired
       // before htmx was ready, or the very first paint), fetch now rather
       // than show a permanently empty list.
-      if (willOpen && !alertsListReady && window.htmx) {
+      if (willOpen && !alertsListReady && !preview && window.htmx) {
         htmx.ajax('GET', '/alerts/recent', { target: '#alerts-pop-body', swap: 'innerHTML' }).then(function () {
           alertsListReady = true;
         });

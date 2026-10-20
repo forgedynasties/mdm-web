@@ -9,7 +9,7 @@
           if (!a) return;
           var href = a.getAttribute('href') || '';
           if (href.charAt(0) !== '/') return;                 // external / anchor
-          if (href.indexOf('/sneak-peek') === 0 || href === '/login') return; // already fine
+          if (href.indexOf('/sneak-peek') === 0 || href === '/login' || a.hasAttribute('data-preview-exit')) return; // already fine
           e.preventDefault(); e.stopPropagation();
           var path = href.split('?')[0].split('#')[0];
           window.location.href = MAP[path] || '/login';
