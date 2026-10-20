@@ -7017,9 +7017,6 @@ body .cc-h1 .vicon { width: 30px; height: 30px; border-radius: 8px; flex: none; 
 .cc-status .hl.ok { color: var(--ok); } .cc-status .hl.warn { color: var(--warn); } .cc-status .hl.danger { color: var(--danger); } .cc-status .hl.accent { color: var(--accent-text); }
 body .cc-status + .cc-sub { font-size: 13px; margin-top: 3px; }
 .cc-top .cc-actions { align-self: flex-end; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-/* The top-bar island repeats the page's name: on a page with this header it stays out of
-   the way until the header has scrolled off (chrome.js sets .ph-out). */
-.appbar .appbar-island.ph:not(.ph-out) { opacity: 0; transform: translateY(-4px); pointer-events: none; }
 body .cc-h1 .hl, body .ov3-h1 .hl { color: var(--accent); }
 body .cc-h1 .hl.ok { color: var(--ok); } body .cc-h1 .hl.warn { color: var(--warn); } body .cc-h1 .hl.danger { color: var(--danger); }
 body .cc-eyebrow, body .ov3-eyebrow { font-weight: 500; letter-spacing: .12em; color: var(--accent-text); }
@@ -7594,9 +7591,9 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .ft td.ft-cb { padding: 0 0 0 16px; }
 /* Device is wide enough for a whole serial: its last characters are what people read out,
    so a serial is never cut short (16-character stock serials included). Venue takes the rest. */
-.ft th.ft-dev { width: 214px; }
+.ft th.ft-dev { width: 196px; }
 .ft td.ft-dev { overflow: visible; }
-.ft th.ft-type { width: 116px; }
+.ft th.ft-type { width: 108px; }
 .ft th.ft-bat { width: 92px; }
 .ft th.ft-temp { width: 68px; }
 .ft th.ft-ram { width: 52px; }

@@ -56,7 +56,7 @@
   <div class="cc-actions">
     {{if canAdminOrOperator .Role}}
     <details class="gp-add" id="gp-add">
-      <summary class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add devices</summary>
+      <summary class="cc-btn primary isl-dup"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add devices</summary>
       <div class="gp-pop" role="dialog" aria-label="Add devices to {{.Group.Name}}">
         <div class="gp-pop-t">Add devices to {{.Group.Name}}</div>
         <form action="/groups/{{.Group.ID}}/devices" method="POST" onsubmit="return dpAddSubmit(event, '{{.Group.ID}}')">
@@ -68,9 +68,9 @@
     </details>
     <script src="/static/picker.js?v={{.AssetVer}}"></script>
     {{end}}
-    <a class="cc-btn" href="/devices?group={{.Group.ID}}"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Open in Fleet</a>
+    <a class="cc-btn isl-dup" href="/devices?group={{.Group.ID}}"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Open in Fleet</a>
     {{if canAdminOrOperator .Role}}
-    <details class="gp-more">
+    <details class="gp-more isl-dup">
       <summary class="cc-btn" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg></summary>
       <div class="gp-menu">
         <form action="/groups/{{.Group.ID}}/delete" method="POST" onsubmit="return confirm('Delete the group {{.Group.Name}}? Its devices stay where they are; only the group goes.')">

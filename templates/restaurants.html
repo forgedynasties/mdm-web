@@ -22,7 +22,7 @@
     <div class="cc-status">{{if $total}}{{if $s.NeedLook}}<b{{if ge $s.NeedLook 3}} style="color:var(--danger)"{{else}} style="color:var(--warn)"{{end}}>{{$s.NeedLook}}</b> of {{$total}} need{{if eq $s.NeedLook 1}}s{{end}} a look{{else}}All {{$total}} healthy{{end}} · <b>{{$s.Devices}}</b> device{{if ne $s.Devices 1}}s{{end}}{{if $s.Offline}} · <b>{{$s.Offline}}</b> offline{{end}}{{if $s.Critical}} · <b>{{$s.Critical}}</b> critical alert{{if ne $s.Critical 1}}s{{end}}{{end}}{{else}}Where devices live: a venue's service hours, lock, Wi-Fi and health.{{end}}</div>
   </div>
   {{if and .Venues (canAdminOrOperator .Role)}}
-  <div class="cc-actions">
+  <div class="cc-actions isl-dup">
     <a href="/restaurants/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New venue</a>
   </div>
   {{end}}
