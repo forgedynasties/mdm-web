@@ -25,12 +25,16 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	role := h.role(r)
 	data["Role"] = role
-	// Fleet cards have one layout, the serial-led one (Classic removed 15 Oct); an old
-	// fleet_layout cookie is ignored. The keys stay for the templates that pass them on.
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
 	data["CurrentUser"] = h.currentDisplayName(r)
+	// Pages that list devices draw them as the user chose (table or cards).
+	if p := r.URL.Path; strings.HasPrefix(p, "/devices") || strings.HasPrefix(p, "/restaurants/") || strings.HasPrefix(p, "/groups/") || strings.HasPrefix(p, "/productions/") {
+		if _, set := data["FleetView"]; !set {
+			data["FleetView"] = h.fleetView(r)
+		}
+	}
 	if userBubbleFn != nil {
 		data["CurrentBubble"] = userBubbleFn(h.currentUsername(r))
 	}

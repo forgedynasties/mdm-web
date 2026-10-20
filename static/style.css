@@ -7592,6 +7592,10 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .ft th:first-child, .ft td:first-child { padding-left: 18px; }
 .ft th.ft-cb { width: 38px; padding: 0 0 0 16px; }
 .ft td.ft-cb { padding: 0 0 0 16px; }
+/* Device is wide enough for a whole serial: its last characters are what people read out,
+   so a serial is never cut short (16-character stock serials included). Venue takes the rest. */
+.ft th.ft-dev { width: 214px; }
+.ft td.ft-dev { overflow: visible; }
 .ft th.ft-type { width: 116px; }
 .ft th.ft-bat { width: 92px; }
 .ft th.ft-temp { width: 68px; }
@@ -7630,7 +7634,7 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .ft-l1 .dl-status i { width: 7px; height: 7px; margin: 0; border-radius: 50%; background: var(--text-faint); }
 .ft-l1 .dl-status.on i { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
 .ft-l1 .dl-status.checkin i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent); }
-.ft-sn { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+.ft-sn { flex: none; overflow: visible; text-overflow: clip; white-space: nowrap; font-family: var(--mono); font-size: 12.5px; font-weight: 600;
   letter-spacing: .01em; color: var(--text); text-decoration: none; }
 .ft a.ft-sn.link-detail, .ft a.ft-sn.link-detail:hover { padding: 0; border: 0; border-radius: 0; background: none; color: var(--text); }
 .ft-sn .pre { color: var(--text-faint); font-weight: 500; }
@@ -7692,3 +7696,7 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 @container ft (max-width: 680px) {
   .ft .ft-type, .ft .ft-ram { display: none; }
 }
+
+/* Cards view (users.fleet_view = cards): the serial never truncates there either. */
+.dl-sc-l1 .dl-sc-sn { flex: none; overflow: visible; text-overflow: clip; }
+.dl-cards-sel { display: flex; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--border-soft); }

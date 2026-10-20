@@ -801,6 +801,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	assetVer := assetVersion("static")
 	funcMap := template.FuncMap{
 		"assetVer":      func() string { return assetVer },
+		// isCards: the user draws device lists as cards (fleet_view), safe on pages that never set it.
+		"isCards": func(v any) bool { s, _ := v.(string); return s == "cards" },
 		"venueIcon":     func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
 		"userURL":       userURL,
 		"userBubble":    userBubble,

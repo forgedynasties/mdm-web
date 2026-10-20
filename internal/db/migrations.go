@@ -2061,5 +2061,8 @@ CREATE TABLE IF NOT EXISTS device_trail (
 CREATE INDEX IF NOT EXISTS idx_device_trail_dev_at ON device_trail(device_id, at DESC);
 CREATE INDEX IF NOT EXISTS idx_device_trail_pending ON device_trail(device_id) WHERE resolved_at IS NULL;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS self_lock_minutes INT NOT NULL DEFAULT 0;
+-- Device lists per user (20 Oct): '' is the table (the default), 'cards' the two-line
+-- cards from before the table. Set from Fleet's Table/Cards switch, kept across sessions.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS fleet_view TEXT NOT NULL DEFAULT '';
 
 `

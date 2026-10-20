@@ -17,11 +17,11 @@
   // that enrolled while you were looking. First render is silent: everything is new.
   (function () {
     var seen = null;
-    function serials() { var o = {}; document.querySelectorAll('#device-table-container .ft-row[data-serial]').forEach(function (c) { o[c.getAttribute('data-serial')] = 1; }); return o; }
+    function serials() { var o = {}; document.querySelectorAll('#device-table-container .ft-row[data-serial], #device-table-container .dl-card[data-serial]').forEach(function (c) { o[c.getAttribute('data-serial')] = 1; }); return o; }
     document.addEventListener('htmx:afterSwap', function (e) {
       if (!e.target || e.target.id !== 'device-table-container') return;
       var now = serials();
-      if (seen) { for (var k in now) if (!seen[k]) { var c = document.querySelector('#device-table-container .ft-row[data-serial="' + k.replace(/"/g, '') + '"]'); if (c) c.classList.add('m-arrive'); } }
+      if (seen) { for (var k in now) if (!seen[k]) { var c = document.querySelector('#device-table-container [data-serial="' + k.replace(/"/g, '') + '"]'); if (c) c.classList.add('m-arrive'); } }
       seen = now;
     });
     document.addEventListener('DOMContentLoaded', function () { seen = serials(); });
@@ -33,8 +33,9 @@
     if (!window.EventSource) return;
 
     function patchRow(d) {
-      var card = document.querySelector('.ft-row[data-serial="' + d.serial + '"]');
+      var card = document.querySelector('.ft-row[data-serial="' + d.serial + '"], .dl-card[data-serial="' + d.serial + '"]');
       if (!card) return;
+      var isCard = card.classList.contains('dl-card');
 
       // A device that just became hidden should leave the (hidden-excluded) fleet view.
       if (d.hidden) { card.remove(); return; }
@@ -47,6 +48,25 @@
       // design, so they never repaint as a pack reading or a missing pack.
       var dongle = card.dataset.kind === 'dongle';
       var pv = card.querySelector('[data-m="power"] .pv');
+      // Table rows and cards (the user's fleet_view) draw the battery differently.
+      if (isCard) {
+      if (pv) {
+        if (d.battery_missing && !dongle) {
+          pv.innerHTML = '<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>';
+        } else if (d.has_battery && !dongle) {
+          var fill = Math.max(2, Math.min(18, Math.round(d.battery_pct * 18 / 100)));
+          var mk = d.flapping ? '<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>'
+            : d.charging ? '<svg class="mk chg" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-bolt"/></svg>' : '';
+          pv.innerHTML = '<span class="pw pw-bat ' + d.battery_class + '" role="img" aria-label="Battery ' + d.battery_pct + '%' +
+            (d.flapping ? ', charger flapping" title="Charger flapping — charging toggling ~' + d.flap_rate + '×/min; faulty charger, dock, or cable suspected"' : d.charging ? ', charging" title="Charging"' : '"') + '>' +
+            '<span class="v"><span class="pc">' + d.battery_pct + '%</span><span class="mk-s">' + mk + '</span></span><span class="gb">' +
+            '<svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="' + fill + '" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg>' +
+            '</span></span>';
+        } else {
+          pv.innerHTML = '<span class="pw mains" role="img" aria-label="AC powered" title="AC powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>';
+        }
+      }
+      } else {
       if (pv) {
         if (d.battery_missing && !dongle) {
           pv.innerHTML = '<span class="ft-pw danger" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail.">No pack</span>';
@@ -60,6 +80,7 @@
         } else {
           pv.innerHTML = '<span class="ft-pw mains" title="Mains powered — no battery">Mains</span>';
         }
+      }
       }
 
       var ram = card.querySelector('[data-m="ram"] .v');
@@ -96,13 +117,19 @@
         // MDM Lite (data-always) has no live connection: its last check-in is always shown.
         var always = sy.dataset.always === '1';
         var live = d.online && !always;
-        sy.textContent = live ? 'Online' : d.time_since;
-        sy.className = 'dl-synced' + (d.online ? ' is-on' : '');
+        if (isCard) {
+          // Cards: hidden while the WebSocket is live (the Online badge says it), else "3 min ago".
+          sy.textContent = d.time_since;
+          sy.className = 'dl-synced' + (live ? ' hidden' : '');
+        } else {
+          sy.textContent = live ? 'Online' : d.time_since;
+          sy.className = 'dl-synced' + (d.online ? ' is-on' : '');
+        }
       }
 
       // Preserve inspector selection, which lives in a class the patch would clobber.
       var keepSel = window.mdmInspectorSelected && window.mdmInspectorSelected() === d.serial;
-      card.className = 'ft-row ' + d.row_classes + (keepSel ? ' row-selected' : '');
+      card.className = (isCard ? 'dl-card dl-sc ' : 'ft-row ') + d.row_classes + (keepSel ? ' row-selected' : '');
     }
 
     var es = window.mdmStream('/events/devices');
@@ -128,10 +155,10 @@
     function esc(s) { return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/"/g, '\\"'); }
 
     function highlight(serial) {
-      document.querySelectorAll('#device-table-container .ft-row.row-selected')
+      document.querySelectorAll('#device-table-container .ft-row.row-selected, #device-table-container .dl-card.row-selected')
         .forEach(function (el) { el.classList.remove('row-selected'); });
       if (serial) {
-        var card = document.querySelector('#device-table-container .ft-row[data-serial="' + esc(serial) + '"]');
+        var card = document.querySelector('#device-table-container .ft-row[data-serial="' + esc(serial) + '"], #device-table-container .dl-card[data-serial="' + esc(serial) + '"]');
         if (card) card.classList.add('row-selected');
       }
     }

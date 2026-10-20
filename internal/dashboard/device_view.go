@@ -28,3 +28,27 @@ func (h *Handler) deviceViewTemplate(r *http.Request) string {
 	}
 	return "device_classic.html"
 }
+
+// fleetView is how device lists (Fleet, venue, group and production pages) are drawn:
+// "table" (the default since 20 Oct) or "cards", the two-line cards from before it. A
+// ?fleet_view= link switches and the choice is kept on the user, like the device page's.
+func (h *Handler) fleetView(r *http.Request) string {
+	user := h.currentUsername(r)
+	switch v := r.URL.Query().Get("fleet_view"); v {
+	case "cards", "table":
+		if user != "" {
+			stored := v
+			if v == "table" {
+				stored = ""
+			}
+			_ = h.db.SetFleetView(r.Context(), user, stored)
+		}
+		return v
+	}
+	if user != "" {
+		if v, _ := h.db.FleetView(r.Context(), user); v == "cards" {
+			return "cards"
+		}
+	}
+	return "table"
+}

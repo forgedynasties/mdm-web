@@ -506,7 +506,7 @@ function bulkExport() {
 // MDM Firmware devices of a single model; that model is passed on so the Deploy page
 // opens with it selected. (The server re-checks, e.g. for "select all N matching".)
 function pushUpdateCheck() {
-  var cards = Array.from(document.querySelectorAll('.device-cb:checked')).map(function (cb) { return cb.closest('.ft-row'); }).filter(Boolean);
+  var cards = Array.from(document.querySelectorAll('.device-cb:checked')).map(function (cb) { return cb.closest('.ft-row, .dl-card'); }).filter(Boolean);
   var models = {}, notFw = 0;
   cards.forEach(function (c) {
     if (c.dataset.agent !== 'firmware') { notFw++; return; }
