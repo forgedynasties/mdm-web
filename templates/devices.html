@@ -600,6 +600,17 @@ a.fleet-rail-item{min-height:40px}
            the previous (or no) collection's controls. ── */}}
       <span id="coll-tools-wrap">{{template "coll-tools-block" .}}</span>
       <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
+      {{/* View switch (V1, picked 20 Oct): the table or the two-line cards, as an icon pair
+           on the line that names the list. Kept on the user (users.fleet_view). */}}
+      <span class="fl-viewsw" role="group" aria-label="Show devices as">
+        <a href="?fleet_view=table" class="{{if not (isCards .FleetView)}}on{{end}}" onclick="return flView('table')" title="Table: one line per device" aria-label="Table"{{if not (isCards .FleetView)}} aria-current="true"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></a>
+        <a href="?fleet_view=cards" class="{{if isCards .FleetView}}on{{end}}" onclick="return flView('cards')" title="Cards: two lines per device" aria-label="Cards"{{if isCards .FleetView}} aria-current="true"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6.5" rx="2"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="2"/></svg></a>
+      </span>
+  <script>
+    // Switch keeps the current filters; the choice is saved server-side (users.fleet_view).
+    function flView(v) { var u = new URL(location.href); u.searchParams.set('fleet_view', v); location.href = u.toString(); return false; }
+    (function () { try { var u = new URL(location.href); if (u.searchParams.has('fleet_view')) { u.searchParams.delete('fleet_view'); history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash); } } catch (e) {} })();
+  </script>
     </div>
 
     {{/* ── Product tabs. The old All/Online/Offline quick views are values of Status
@@ -681,17 +692,6 @@ a.fleet-rail-item{min-height:40px}
       </div>
     </div>
   </div>
-
-  {{/* ── View: the table (default) or the two-line cards; kept on the user. ── */}}
-  <div class="cc-seg fl-viewseg" role="group" aria-label="Device list view">
-    <a href="?fleet_view=table" class="{{if not (isCards .FleetView)}}on{{end}}" onclick="return flView('table')" title="One line per device, in columns">Table</a>
-    <a href="?fleet_view=cards" class="{{if isCards .FleetView}}on{{end}}" onclick="return flView('cards')" title="Two-line cards">Cards</a>
-  </div>
-  <script>
-    // Switch keeps the current filters; the choice is saved server-side (users.fleet_view).
-    function flView(v) { var u = new URL(location.href); u.searchParams.set('fleet_view', v); location.href = u.toString(); return false; }
-    (function () { try { var u = new URL(location.href); if (u.searchParams.has('fleet_view')) { u.searchParams.delete('fleet_view'); history.replaceState(history.state, '', u.pathname + (u.search || '') + u.hash); } } catch (e) {} })();
-  </script>
 
   {{/* ── Sort (S1, picked 16 Oct): one button that names the order, and one menu — the
        fields, then a direction switch whose words follow the field. ── */}}

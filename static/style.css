@@ -7703,3 +7703,10 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 
 /* Island status links (e.g. Releases "1 updating") read as part of the line. */
 .appbar-island .isl-s a { color: inherit; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 2px; }
+
+/* Fleet view switch (V1): an icon pair at the right end of the list's title line. */
+.fl-viewsw { margin-left: auto; display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.fl-viewsw a { display: grid; place-items: center; width: 30px; height: 26px; border-radius: 7px; color: var(--muted); }
+.fl-viewsw a:hover { color: var(--text); background: var(--hover); }
+.fl-viewsw a.on { color: var(--text); background: var(--surface2); box-shadow: inset 0 0 0 1px var(--border); }
+.fl-viewsw svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
