@@ -15,10 +15,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// The two fleet layouts are chosen by a cookie and rendered server-side, so a bad call
-// inside one of them fails at render time — after the deploy, on a page someone is
-// looking at. This renders every layout with a synthetic device and asserts the parts
-// that are the whole point of the serial layouts.
+// The fleet table is rendered server-side on four pages, so a bad call inside it fails
+// at render time — after the deploy, on a page someone is looking at. This renders it
+// the way each page does with a synthetic device and asserts the parts that matter.
 func TestFleetCardLayoutsRender(t *testing.T) {
 	// Every function the dashboard registers, stubbed generically. Hand-listing them is
 	// whack-a-mole: the card markup calls a dozen helpers and the list drifts as the page
@@ -50,6 +49,14 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 	} {
 		funcs[name] = fn
 	}
+	// The sortable headers are a sub-template fed through dict.
+	funcs["dict"] = func(kv ...any) map[string]any {
+		m := map[string]any{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			m[kv[i].(string)] = kv[i+1]
+		}
+		return m
+	}
 	funcs["serialHead"] = func(s string) string { return s[:len(s)-serialTailLen(s)] }
 	funcs["serialTail"] = func(s string) string { return s[len(s)-serialTailLen(s):] }
 
@@ -68,42 +75,64 @@ func TestFleetCardLayoutsRender(t *testing.T) {
 		LatestExtra:  json.RawMessage(`{}`),
 	}
 
-	// Every value renders the serial cards: Classic was removed (15 Oct), and "new" and
-	// "table" are retired values still sitting in older cookies.
-	for _, layout := range []string{"classic", "serial", "new", "table"} {
+	// The fleet table (R1, 20 Oct) renders the same way on every page; the Fleet roster
+	// adds the sortable headers and the select-all box, a venue page drops Venue.
+	for _, tc := range []struct {
+		name string
+		data map[string]any
+	}{
+		{"fleet", map[string]any{"Selectable": true, "SelectAll": true, "FilterTotal": 1, "Sortable": true, "Sort": "battery", "SortDir": "asc"}},
+		{"venue", map[string]any{"RemovePath": "/restaurants/x/devices/", "HideVenue": true}},
+		{"group", map[string]any{"RemovePath": "/groups/x/devices/", "Selectable": true}},
+		{"production", map[string]any{}},
+	} {
 		var buf bytes.Buffer
 		data := map[string]any{
 			"Devices":             []db.Device{dev},
 			"Online":              map[uuid.UUID]bool{dev.ID: true},
 			"ActiveThresholdSecs": 300,
-			"Classic":             layout == "classic",
-			"Layout":              layout,
+		}
+		for k, v := range tc.data {
+			data[k] = v
 		}
 		if err := tmpl.ExecuteTemplate(&buf, "device-cards", data); err != nil {
-			t.Fatalf("layout %q failed to render: %v", layout, err)
+			t.Fatalf("%s: failed to render: %v", tc.name, err)
 		}
 		out := buf.String()
 		if !strings.Contains(out, "AT070AABU00281") {
-			t.Errorf("layout %q did not render the serial", layout)
+			t.Errorf("%s: did not render the serial", tc.name)
 		}
-		// The serial cards exist to make the number takeable, so the copy control is
-		// not decoration — its absence is the feature missing.
+		// The serial is there to be taken, so the copy control is not decoration.
 		if !strings.Contains(out, `class="dl-copy"`) {
-			t.Errorf("layout %q renders no copy control", layout)
+			t.Errorf("%s: renders no copy control", tc.name)
 		}
-		{
-			// The tail is the last three characters: the split rule is shared with the
-			// browser demo, and a hardware serial of this shape keeps its batch letter.
-			if !strings.Contains(out, `<span class="tail">281</span>`) {
-				t.Errorf("layout %q did not split the serial's tail", layout)
-			}
-			if !strings.Contains(out, `<span class="pre">AT070AABU00</span>`) {
-				t.Errorf("layout %q did not split the serial's prefix", layout)
-			}
-			// A firmware device's card carries its build under the agent line.
-			if !strings.Contains(out, `<div class="dl-sc-l3" title="Firmware build">v2.1.017</div>`) {
-				t.Errorf("layout %q does not show the firmware build", layout)
-			}
+		// The tail is the last three characters: the split rule is shared with the
+		// browser demo, and a hardware serial of this shape keeps its batch letter.
+		if !strings.Contains(out, `<span class="tail">281</span>`) || !strings.Contains(out, `<span class="pre">AT070AABU00</span>`) {
+			t.Errorf("%s: did not split the serial", tc.name)
+		}
+		// A firmware device's row carries its build (the live patch writes .dl-buildid).
+		if !strings.Contains(out, `<span class="dl-buildid" title="Firmware build">v2.1.017</span>`) {
+			t.Errorf("%s: does not show the firmware build", tc.name)
+		}
+		if got := strings.Count(out, `<tr class="ft-row`); got != 1 {
+			t.Errorf("%s: %d device rows, want 1", tc.name, got)
+		}
+		if hide := tc.data["HideVenue"] == true; strings.Contains(out, `<th class="ft-venue"`) == hide {
+			t.Errorf("%s: Venue column shown=%v, want %v", tc.name, !hide, !hide)
+		}
+		sortable := tc.data["Sortable"] == true
+		if strings.Contains(out, `onclick="sortBy('battery')"`) != sortable {
+			t.Errorf("%s: sortable headers=%v, want %v", tc.name, !sortable, sortable)
+		}
+		if sortable && !strings.Contains(out, `aria-sort="ascending"`) {
+			t.Errorf("%s: the active sort column is not marked", tc.name)
+		}
+		if strings.Contains(out, `id="select-all"`) != (tc.data["SelectAll"] == true) {
+			t.Errorf("%s: select-all box in the wrong place", tc.name)
+		}
+		if strings.Contains(out, `class="dl-remove"`) != (tc.data["RemovePath"] != nil) {
+			t.Errorf("%s: remove control in the wrong place", tc.name)
 		}
 	}
 }

@@ -1,12 +1,12 @@
 // Loaded by templates/devices.html.
-// The whole card opens the device (same as its arrow link, so the fleet inspector
-// still catches it); controls inside the card and text selection keep their own
+// The whole row opens the device (same as its arrow link, so the fleet inspector
+// still catches it); controls inside the row and text selection keep their own
 // behaviour. Registered once — the list is re-rendered by htmx swaps.
 if (!window.__dlRowNav) {
   window.__dlRowNav = true;
   document.addEventListener('click', function (e) {
-    var card = e.target.closest && e.target.closest('.dl-card');
-    if (!card || e.target.closest('a, button, input, label, select, form, .dl-legacy-tag')) return;
+    var card = e.target.closest && e.target.closest('.ft-row');
+    if (!card || e.target.closest('a, button, input, label, select, form, .ft-legacy')) return;
     var sel = window.getSelection && window.getSelection();
     if (sel && String(sel).length) return;
     var link = card.querySelector('.dl-view');
@@ -20,9 +20,9 @@ if (!window.__dlRowNav) {
   // the last box clicked without shift; it survives list re-renders by serial.
   var anchorSerial = null;
   document.addEventListener('click', function (e) {
-    var cb = e.target.closest && e.target.closest('.dl-card .device-cb');
+    var cb = e.target.closest && e.target.closest('.ft-row .device-cb');
     if (!cb) return;
-    var boxes = Array.prototype.slice.call(document.querySelectorAll('.dl-list .device-cb'));
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.ft .device-cb'));
     var from = anchorSerial ? boxes.findIndex(function (b) { return b.value === anchorSerial; }) : -1;
     if (e.shiftKey && from >= 0) {
       var to = boxes.indexOf(cb), lo = Math.min(from, to), hi = Math.max(from, to);

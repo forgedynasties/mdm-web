@@ -98,7 +98,6 @@ function scopeRoster(anchor, u) {
   htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML', headers: { 'X-Roster-Meta': '1' } }).then(function () {
     history.pushState(null, '', url);
     syncFilterUI();
-    applyCols();
     document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
   });
 }
@@ -362,44 +361,8 @@ function ffPick(k, v) {
 }
 window.addEventListener('resize', function () { var m = document.getElementById('ff-menu'); if (m && !m.hidden && ffState.anchor) ffPlace(ffState.anchor); });
 
-// Column-count control (1/2/3, persisted). The chosen count is remembered, but
-// only takes effect when the list is wide enough (container queries) — a wider
-// choice gracefully falls back to fewer columns when space is tight. The active
-// highlight reflects the *rendered* column count, not just the saved preference.
-function applyColsClass(n) {
-  var list = document.querySelector('.dl-list');
-  if (!list) return;
-  list.classList.remove('cols-2', 'cols-3');
-  if (n === 2) list.classList.add('cols-2');
-  else if (n === 3) list.classList.add('cols-3');
-}
-function renderedCols() {
-  var list = document.querySelector('.dl-list');
-  if (!list) return 1;
-  var gtc = getComputedStyle(list).gridTemplateColumns;
-  if (!gtc || gtc === 'none') return 1;
-  return gtc.split(' ').filter(Boolean).length;
-}
-function syncColsUI() {
-  var n = renderedCols();
-  document.querySelectorAll('.cols-seg button').forEach(function (b) { b.classList.toggle('on', String(n) === b.dataset.cols); });
-}
-function setCols(n) {
-  applyColsClass(n);
-  try { localStorage.setItem('mdm-cols', String(n)); } catch (e) {}
-  syncColsUI();
-}
-function applyCols() {
-  var n = 1;
-  try { n = parseInt(localStorage.getItem('mdm-cols') || '1', 10) || 1; } catch (e) {}
-  applyColsClass(n);
-  syncColsUI();
-}
-document.addEventListener('DOMContentLoaded', applyCols);
-window.addEventListener('resize', syncColsUI);
 document.body.addEventListener('htmx:afterSwap', function (evt) {
   if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') {
-    applyCols();
     // A "select all matching" set survives plain page turns — reflect it on this
     // page's freshly-rendered checkboxes and refresh the bulk bar/count.
     if (selectAllMatchingSet) {
@@ -543,7 +506,7 @@ function bulkExport() {
 // MDM Firmware devices of a single model; that model is passed on so the Deploy page
 // opens with it selected. (The server re-checks, e.g. for "select all N matching".)
 function pushUpdateCheck() {
-  var cards = Array.from(document.querySelectorAll('.device-cb:checked')).map(function (cb) { return cb.closest('.dl-card'); }).filter(Boolean);
+  var cards = Array.from(document.querySelectorAll('.device-cb:checked')).map(function (cb) { return cb.closest('.ft-row'); }).filter(Boolean);
   var models = {}, notFw = 0;
   cards.forEach(function (c) {
     if (c.dataset.agent !== 'firmware') { notFw++; return; }

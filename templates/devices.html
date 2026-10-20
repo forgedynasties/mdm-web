@@ -1,63 +1,91 @@
-{{/* Reusable fleet-style device card list. Context: Devices (full db.Device list),
-     Online (map id→bool), ActiveThresholdSecs, optional Selectable (show checkbox).
-     Used by the fleet table and by device rosters on other pages.
-     Each card is two lines: who it is (name, model · agent · build, status) over
-     how it is (power, temperature, RAM), with the worst problem on the right. */}}
-{{/* Fleet cards: the serial-led stat-block layout, the only one since 15 Oct (the
-     Classic option and its intro were removed). The row-click handler below serves it. */}}
+{{/* Reusable fleet device table. Context: Devices (full db.Device list), Online (map
+     id→bool), ActiveThresholdSecs; optional Selectable (checkbox per row), SelectAll
+     (the header checkbox drives the Fleet selection bar) or GroupSelectAll (a group's
+     members bar), Sortable + Sort/SortDir (the
+     headers sort the Fleet roster), HideVenue (a venue's own page), RemovePath,
+     Nicknames, Custody, Flapping. Used by the Fleet roster and by the device lists on
+     venue, group and production pages.
+     R1 (picked 20 Oct): one header row and one line per device, so the vitals read down
+     a column instead of repeating TEMP / RAM / CYCLES on every card. */}}
 {{define "device-cards"}}
-{{/* The dk-* icon sprite moved to layout.html's <body> (global) so the device wall, the
-     client pill and the Commands picker can use the same icons without their own copy. */}}
-{{template "device-cards-serial" .}}
+{{/* The dk-* icon sprite lives in layout.html's <body> (global). */}}
+{{template "device-table-rows" .}}
 <script src="/static/js/devices/cards.js?v={{assetVer}}"></script>
 {{end}}
 
-{{/* Serial-leads cards: the serial is the headline, split into a quiet batch prefix and
-     a bold tail — the last few characters are what gets read out loud, and what differs
-     between two units of the same model. The name and model drop to the line beneath,
-     where they still identify the device without competing with it. */}}
-{{define "device-cards-serial"}}
-<div class="dl-list dl-serial-list">
+{{/* A sortable header cell: the button sorts the roster by its key (sortBy in
+     roster.js), the arrow names the direction in force. */}}
+{{define "ft-th-sort"}}{{$on := eq .Sort .Key}}<th class="{{.Class}}{{if $on}} on{{end}}"{{if $on}} aria-sort="{{if eq .Dir "asc"}}ascending{{else}}descending{{end}}"{{end}} scope="col"><button type="button" class="ft-sort" onclick="sortBy('{{.Key}}')" title="Sort by {{.Title}}">{{.Label}}<span class="ft-dir" aria-hidden="true">{{if $on}}{{if eq .Dir "asc"}}↑{{else}}↓{{end}}{{else}}↓{{end}}</span></button></th>{{end}}
+
+{{define "device-table-rows"}}
+{{$srt := ""}}{{$dir := ""}}{{if .Sortable}}{{$srt = .Sort}}{{$dir = .SortDir}}{{end}}
+<div class="ft-wrap">
+<table class="ft{{if .RemovePath}} ft-rm{{end}}">
+  <thead>
+    <tr>
+      {{if .Selectable}}<th class="ft-cb" scope="col">{{if .SelectAll}}<input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" data-page-total="{{len .Devices}}" data-filter-total="{{.FilterTotal}}" aria-label="Select every device on this page" title="Select every device on this page">{{else if .GroupSelectAll}}<input type="checkbox" id="grp-select-all" onchange="grpToggleAll(this)" aria-label="Select every member" title="Select every member">{{else}}<span class="sr-only">Select</span>{{end}}</th>{{end}}
+      {{if .Sortable}}{{template "ft-th-sort" (dict "Key" "serial" "Label" "Device" "Title" "serial" "Class" "ft-dev" "Sort" $srt "Dir" $dir)}}{{else}}<th class="ft-dev" scope="col">Device</th>{{end}}
+      <th class="ft-type" scope="col">Type</th>
+      {{if not .HideVenue}}<th class="ft-venue" scope="col">Venue</th>{{end}}
+      {{if .Sortable}}{{template "ft-th-sort" (dict "Key" "battery" "Label" "Battery" "Title" "battery" "Class" "ft-bat" "Sort" $srt "Dir" $dir)}}{{else}}<th class="ft-bat" scope="col">Battery</th>{{end}}
+      {{if .Sortable}}{{template "ft-th-sort" (dict "Key" "temp" "Label" "Temp" "Title" "temperature" "Class" "ft-num ft-temp" "Sort" $srt "Dir" $dir)}}{{else}}<th class="ft-num ft-temp" scope="col">Temp</th>{{end}}
+      {{if .Sortable}}{{template "ft-th-sort" (dict "Key" "ram" "Label" "RAM" "Title" "RAM use" "Class" "ft-num ft-ram" "Sort" $srt "Dir" $dir)}}{{else}}<th class="ft-num ft-ram" scope="col">RAM</th>{{end}}
+      {{if .Sortable}}{{template "ft-th-sort" (dict "Key" "build" "Label" "Build" "Title" "build" "Class" "ft-build" "Sort" $srt "Dir" $dir)}}{{else}}<th class="ft-build" scope="col">Build</th>{{end}}
+      <th class="ft-client" scope="col">Client</th>
+      {{if .Sortable}}{{template "ft-th-sort" (dict "Key" "last_seen" "Label" "Last seen" "Title" "last seen" "Class" "ft-num ft-seen" "Sort" $srt "Dir" $dir)}}{{else}}<th class="ft-num ft-seen" scope="col">Last seen</th>{{end}}
+      <th class="ft-act" scope="col"><span class="sr-only">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
   {{range .Devices}}
   {{$kind := deviceIcon .}}
-  <div class="dl-card dl-sc {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
-    {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
-    {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
-    {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
-          <span class="dl-pw" data-m="power"><span class="pv">{{if $noPack}}<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="pw pw-bat {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%{{if $flap}}, charger flapping{{else if and .HasCharging (charging .LatestExtra)}}, charging{{end}}"{{if $flap}} title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected"{{else if and .HasCharging (charging .LatestExtra)}} title="Charging"{{end}}><span class="v"><span class="pc">{{.BatteryPct}}%</span><span class="mk-s">{{if $flap}}<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>{{else if and .HasCharging (charging .LatestExtra)}}<svg class="mk chg" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-bolt"/></svg>{{end}}</span></span><span class="gb"><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><rect x="1" y="1" width="21" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="23.3" y="4.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="8" rx="1.5" fill="currentColor" transform="scale(.94 1)"/></svg></span></span>{{else}}<span class="pw mains" role="img" aria-label="AC powered" title="AC powered — no battery"><svg class="g-plug" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-plug"/></svg></span>{{end}}</span></span>
-          <span class="dl-ic {{$kind}}" role="img" aria-label="{{.ClassLabel}}" title="{{.ClassLabel}}"><svg><use href="#dk-{{$kind}}"/></svg></span>
-    <div class="dl-sc-id">
-      <div class="dl-sc-l1">
-                  {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not (index $.Online .ID)) (legacyCheckingIn .LastSeenAt)}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}
-                  {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
-               product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
-        <a href="/devices/{{.SerialNumber}}" class="dl-sc-sn link-detail" data-full="1" hx-boost="false" title="{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}"><span class="pre">{{serialHead .SerialNumber}}</span><span class="tail">{{serialTail .SerialNumber}}</span></a>
+  {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
+  {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
+  {{$nick := .Nickname}}{{if $.Nicknames}}{{with index $.Nicknames .ID}}{{$nick = .}}{{end}}{{end}}
+  {{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
+       product key; T7s report no model and keep their catalog label. */}}
+  {{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
+  {{$online := index $.Online .ID}}
+  <tr class="ft-row {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
+    {{if $.Selectable}}<td class="ft-cb"><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}"></td>{{end}}
+    <td class="ft-dev">
+      <div class="ft-l1">
+        {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not $online) (legacyCheckingIn .LastSeenAt)}}
+        {{if $online}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}
+        <a href="/devices/{{.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false" title="{{if $nick}}{{$nick}} · {{end}}{{$model}}"><span class="pre">{{serialHead .SerialNumber}}</span><span class="tail">{{serialTail .SerialNumber}}</span></a>
+        {{if .KioskEnabled}}<span class="dl-kiosk" title="Locked" aria-label="Locked"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
         <button type="button" class="dl-copy" data-copy="{{.SerialNumber}}" title="Copy serial number" aria-label="Copy serial number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
-        <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
-      {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
-      {{if deviceLost .LatestExtra}}<span class="dl-ktag lost" title="In lost mode: its screen is locked to a return message">Lost</span>{{end}}
-      {{$cu := ""}}{{if $.Custody}}{{with index $.Custody .ID}}{{$cu = .Server}}{{end}}{{end}}
-      {{if $cu}}<span class="dl-elsewhere" title="This device reports to {{$cu}}. It is not offline — it was pointed at another MDM, so it checks in there.">on {{$cu}}</span>{{end}}
-      {{if .NeedsOnboarding}}<span class="dl-ktag new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else if eq .EnrollmentStatus "unenrolled"}}Unenrolled{{else}}Retired{{end}}</span>{{end}}
-      {{if isLegacyBuild .BuildID}}<span class="dl-legacy-tag" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
       </div>
-      <div class="dl-sc-l2">{{if $nick}}<span>{{$nick}}</span><span class="sep">·</span>{{end}}<span>{{$model}}</span><span class="sep">·</span><span class="dl-agent">{{.KindLabel}}</span></div>
-      {{/* The firmware build, under the agent: our images name their builds (v2.1.022),
-           which is what someone scanning the fleet for stragglers looks for. DPC and
-           Lite report the stock Android fingerprint, too long to help here. */}}
-      {{if and (not .IsDPC) .BuildID}}<div class="dl-sc-l3" title="Firmware build">{{.BuildID}}</div>{{end}}
-    </div>
-    <div class="dl-stats">
-      <span class="dl-blk" data-m="temp"{{if eq (tempSource .LatestExtra) "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}><span class="k">{{if eq (tempSource .LatestExtra) "cpu"}}CPU{{else}}Temp{{end}}</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
-      <span class="dl-blk" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
-      {{if and .HasBattery (ne $kind "dongle")}}<span class="dl-blk" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>{{end}}
-    </div>
-    <div class="dl-act">
-      {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
-      <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
-    </div>
-  </div>
+      {{$cu := ""}}{{if $.Custody}}{{with index $.Custody .ID}}{{$cu = .Server}}{{end}}{{end}}
+      {{$lost := deviceLost .LatestExtra}}
+      {{if or $nick $lost $cu .NeedsOnboarding .Retired $legacy}}<div class="ft-l2">
+        {{if $lost}}<span class="dl-ktag lost" title="In lost mode: its screen is locked to a return message">Lost</span>{{end}}
+        {{if $nick}}<span class="ft-nick">{{$nick}}</span>{{end}}
+        {{if $cu}}<span class="dl-elsewhere" title="This device reports to {{$cu}}. It is not offline — it was pointed at another MDM, so it checks in there.">on {{$cu}}</span>{{end}}
+        {{if .NeedsOnboarding}}<span class="ft-new" title="Waiting for a site — see Fleet › Enroll">New</span>{{else if .Retired}}<span class="dl-ktag ret">{{if eq .EnrollmentStatus "wiped"}}Wiped{{else if eq .EnrollmentStatus "unenrolled"}}Unenrolled{{else}}Retired{{end}}</span>{{end}}
+        {{if $legacy}}<span class="ft-legacy" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. 'Last seen' reflects their most recent check-in.">Legacy</span>{{end}}
+      </div>{{end}}
+    </td>
+    <td class="ft-type" title="{{$model}}"><span class="ft-ell">{{.ClassLabel}}</span></td>
+    {{if not $.HideVenue}}<td class="ft-venue">{{if .RestaurantID}}<span class="ft-vn" title="{{.RestaurantName}}">{{venueIcon .RestaurantID .RestaurantName "sm"}}<span class="ft-ell">{{.RestaurantName}}</span></span>{{else}}<span class="ft-none">No venue</span>{{end}}</td>{{end}}
+    <td class="ft-bat" data-m="power"><span class="pv">{{if $noPack}}<span class="ft-pw danger" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail.">No pack</span>{{else if and .HasBattery (ne $kind "dongle")}}<span class="ft-pw {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%{{if $flap}}, charger flapping{{else if and .HasCharging (charging .LatestExtra)}}, charging{{end}}"{{if $flap}} title="Charger flapping — charging toggling ~{{$flap}}×/min; faulty charger, dock, or cable suspected"{{else if and .HasCharging (charging .LatestExtra)}} title="Charging"{{end}}><span class="ft-bar"><i style="width:{{.BatteryPct}}%"></i></span><span class="pc">{{.BatteryPct}}%</span>{{if $flap}}<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>{{else if and .HasCharging (charging .LatestExtra)}}<svg class="mk chg" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-bolt"/></svg>{{end}}</span>{{else}}<span class="ft-pw mains" title="Mains powered — no battery">Mains</span>{{end}}</span></td>
+    {{$tsrc := tempSource .LatestExtra}}
+    <td class="ft-num ft-temp" data-m="temp"{{if eq $tsrc "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}>{{if eq $tsrc "cpu"}}<span class="ft-src">CPU</span>{{end}}{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</td>
+    <td class="ft-num ft-ram" data-m="ram">{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</td>
+    {{/* Our images name their builds (v2.1.022); DPC and Lite report the stock Android
+         fingerprint, too long to help here — it stays in the tooltip. */}}
+    <td class="ft-build">{{if not .BuildID}}<span class="ft-none">—</span>{{else if .IsDPC}}<span class="ft-none" title="{{.BuildID}}">Stock</span>{{else}}<span class="dl-buildid" title="Firmware build">{{.BuildID}}</span>{{end}}</td>
+    {{$ver := extraField .LatestExtra "agent_version"}}{{if eq $ver "—"}}{{$ver = ""}}{{end}}
+    <td class="ft-client" title="{{.KindLabel}}{{if $ver}} {{$ver}}{{end}}">{{if $ver}}<span class="ft-ver">{{$ver}}</span>{{else}}<span class="ft-none">—</span>{{end}}<span class="ft-k">{{if .IsMDMLite}}Lite{{else if .IsDPC}}Std{{else}}FW{{end}}</span></td>
+    <td class="ft-num ft-seen"><span class="dl-synced{{if $online}} is-on{{end}}"{{if .IsMDMLite}} data-always="1"{{end}} title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{if and $online (not .IsMDMLite)}}Online{{else}}{{timeSince .LastSeenAt}}{{end}}</span></td>
+    <td class="ft-act">
+      {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
+      <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
+    </td>
+  </tr>
   {{end}}
+  </tbody>
+</table>
 </div>
 {{end}}
 
@@ -174,17 +202,6 @@
 {{end}}
 
 {{define "device-table"}}
-<div class="table-toolbar selbar">
-  <label class="checkbox-label selbar-check">
-    <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" data-page-total="{{len .Devices}}" data-filter-total="{{.Total}}"> Select all
-  </label>
-  <div class="cols-seg" role="group" aria-label="Column layout">
-    <button type="button" data-cols="1" onclick="setCols(1)" title="1 column" aria-label="One column"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/></svg></button>
-    <button type="button" data-cols="2" onclick="setCols(2)" title="2 columns" aria-label="Two columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="6.5" height="14" rx="1"/><rect x="13.5" y="5" width="6.5" height="14" rx="1"/></svg></button>
-    <button type="button" data-cols="3" onclick="setCols(3)" title="3 columns" aria-label="Three columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="4.5" height="14" rx="1"/><rect x="9.75" y="5" width="4.5" height="14" rx="1"/><rect x="16.5" y="5" width="4.5" height="14" rx="1"/></svg></button>
-  </div>
-</div>
-
 {{if and .RefusedSerials (le .Page 1)}}
 {{/* Tablets refused for a corrupted serial have no device record — nothing they send is
      stored — so they appear here, at the top of the roster, as what they are: devices
@@ -203,7 +220,7 @@
 </div>
 {{end}}
 {{if .Devices}}
-{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Custody" .Custody "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true "Classic" .ClassicCards "Layout" .FleetLayout)}}
+{{template "device-cards" (dict "Devices" .Devices "Online" .Online "Custody" .Custody "Flapping" .Flapping "Nicknames" .Nicknames "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true "SelectAll" true "FilterTotal" .Total "Sortable" true "Sort" .Sort "SortDir" .SortDir)}}
 {{else}}
 <div class="dl-list">
   <div class="empty-state" style="padding:40px 20px;">
@@ -627,6 +644,7 @@ a.fleet-rail-item{min-height:40px}
       <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="temp" onclick="sortBy('temp')">Temperature</button>
       <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="ram" onclick="sortBy('ram')">RAM</button>
       <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="serial" onclick="sortBy('serial')">Serial</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="build" onclick="sortBy('build')">Build</button>
       <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-sort="created_at" onclick="sortBy('created_at')">Onboarded</button>
       <div class="cc-msep"></div>
       <div class="sort-dir" role="radiogroup" aria-label="Direction">
@@ -706,11 +724,11 @@ function curSort() {
   var dir = p.get('dir') || (p.get('sort') ? ((sort === 'last_seen' || sort === 'created_at') ? 'desc' : 'asc') : d.dir);
   return {sort: sort, dir: dir};
 }
-var SORT_NAMES = {last_seen: 'Last seen', battery: 'Battery', cycles: 'Battery cycles', temp: 'Temperature', ram: 'RAM', serial: 'Serial', created_at: 'Onboarded'};
+var SORT_NAMES = {last_seen: 'Last seen', battery: 'Battery', cycles: 'Battery cycles', temp: 'Temperature', ram: 'RAM', serial: 'Serial', build: 'Build', created_at: 'Onboarded'};
 // What each direction is called for a field: time reads newest/oldest, numbers high/low,
 // the serial A→Z.
 function sortDirWords(sort) {
-  if (sort === 'serial') return {asc: 'A→Z', desc: 'Z→A'};
+  if (sort === 'serial' || sort === 'build') return {asc: 'A→Z', desc: 'Z→A'};
   if (sort === 'last_seen' || sort === 'created_at') return {desc: 'Newest first', asc: 'Oldest first'};
   return {desc: 'High first', asc: 'Low first'};
 }

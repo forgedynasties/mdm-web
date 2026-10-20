@@ -147,15 +147,12 @@
   {{template "device-cards-lean" (dict "Devices" .Devices "RemovePath" $rm)}}
   {{else}}
   {{if $sel}}
-  <div class="grp-bulk-tb" style="display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--border);">
-    <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);"><input type="checkbox" id="grp-select-all" onchange="grpToggleAll(this)"> Select all</label>
-    <div id="grp-bulk-bar" style="display:none;align-items:center;gap:10px;">
-      <span class="muted small" id="grp-bulk-count">0 selected</span>
-      <button type="button" class="btn-danger-sm" onclick="grpRemoveSelected('{{.Group.ID}}')">Remove from group</button>
-    </div>
+  <div class="grp-bulk-tb" id="grp-bulk-bar" style="display:none;align-items:center;gap:10px;padding:8px 20px;border-bottom:1px solid var(--border);">
+    <span class="muted small" id="grp-bulk-count">0 selected</span>
+    <button type="button" class="btn-danger-sm" onclick="grpRemoveSelected('{{.Group.ID}}')">Remove from group</button>
   </div>
   {{end}}
-  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "Selectable" $sel "Classic" $.ClassicCards "Layout" $.FleetLayout)}}
+  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "Selectable" $sel "GroupSelectAll" $sel)}}
   {{end}}
   {{end}}
 {{end}}
