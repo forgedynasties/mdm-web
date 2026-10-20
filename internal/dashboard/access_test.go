@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -70,19 +71,32 @@ func TestDecide(t *testing.T) {
 		{"remote explicit allow on devices", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("device", &d1, "remote")}}, "remote", &d1, true},
 		{"remote explicit allow elsewhere", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("device", &d1, "remote")}}, "remote", &d2, false},
 		{"shell never for operator even if granted", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
-		{"ota never for access admin", "user_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "ota")}}, "ota", &d1, false},
-		{"shell never for super op even if granted", "super_op", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
-		{"super op holds ota by default", "super_op", db.AccessPolicy{}, "ota", &d1, true},
-		{"super op holds remote by default", "super_op", db.AccessPolicy{}, "remote", &d1, true},
-		{"super op ota scoped to venue", "super_op", db.AccessPolicy{Grants: []db.AccessGrant{deny("all", nil, "ota"), allow("restaurant", &v, "ota")}}, "ota", &d1, false},
-		{"super op ota scoped: base deny + venue allow in", "super_op", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d2, true},
-		{"super op ota scoped: base deny + venue allow out", "super_op", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d3, false},
+		{"ota never for operator even if granted", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "ota")}}, "ota", &d1, false},
+		{"shell never for admin even if granted", "fleet_admin", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
+		{"admin holds ota by default", "fleet_admin", db.AccessPolicy{}, "ota", &d1, true},
+		{"admin holds remote by default", "fleet_admin", db.AccessPolicy{}, "remote", &d1, true},
+		{"admin ota scoped to venue", "fleet_admin", db.AccessPolicy{Grants: []db.AccessGrant{deny("all", nil, "ota"), allow("restaurant", &v, "ota")}}, "ota", &d1, false},
+		{"admin ota scoped: base deny + venue allow in", "fleet_admin", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d2, true},
+		{"admin ota scoped: base deny + venue allow out", "fleet_admin", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d3, false},
+		{"fleet manager holds remote by default", "fleet_manager", db.AccessPolicy{}, "remote", &d1, true},
+		{"fleet manager has no ota without a rule", "fleet_manager", db.AccessPolicy{}, "ota", &d1, false},
+		{"fleet manager ota by rule", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d1, true},
+		{"fleet manager never shell", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
+		{"support reboots", "support", db.AccessPolicy{}, "reboot", &d1, true},
+		{"support locks", "support", db.AccessPolicy{}, "kiosk", &d1, true},
+		{"support never installs", "support", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "install_apk", &d1, false},
+		{"viewer never screenshots", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "screenshot")}}, "screenshot", &d1, false},
 		{"viewer sees by default", "viewer", db.AccessPolicy{}, "view", &d1, true},
 		{"viewer hidden by deny", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{deny("restaurant", &v, "view")}}, "view", &d1, false},
 		{"viewer never reboots", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "reboot", &d1, false},
 		{"owner sees nothing by default", "owner", db.AccessPolicy{}, "view", &d1, false},
 		{"owner sees granted venue", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "view", &d1, true},
-		{"owner never acts", "owner", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "reboot", &d1, false},
+		{"owner reboots at their venue", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "reboot", &d1, true},
+		{"owner never reboots elsewhere", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "reboot", &d3, false},
+		{"owner never sees through an all-scope rule", "owner", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "view", &d3, false},
+		{"owner never installs", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "install_apk", &d1, false},
+		{"staff reboots at their venue", "staff", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "reboot", &d1, true},
+		{"staff never locks", "staff", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "kiosk", &d1, false},
 		{"fleet action: venue rule does not apply", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "alerts")}}, "alerts", nil, false},
 		{"fleet action: all rule applies", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("all", nil, "alerts")}}, "alerts", nil, true},
 		{"unknown device id", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "*")}}, "reboot", ptr(uuid.New()), false},
@@ -118,7 +132,7 @@ func TestVisibleIDsAndHiding(t *testing.T) {
 	}
 	// a super op allowed to see one device sees only that device, flag or not
 	for _, hide := range []bool{false, true} {
-		a = newAccess("super_op", db.AccessPolicy{Base: "deny", HideOutOfScope: hide, Grants: []db.AccessGrant{allow("device", &d4, "view")}})
+		a = newAccess("fleet_manager", db.AccessPolicy{Base: "deny", HideOutOfScope: hide, Grants: []db.AccessGrant{allow("device", &d4, "view")}})
 		if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d4 {
 			t.Fatalf("hide=%v: got %v", hide, ids)
 		}
@@ -168,17 +182,28 @@ func TestExpiredGrantsAreNotLoaded(t *testing.T) {
 
 func TestRoleCeilings(t *testing.T) {
 	for _, k := range []string{"shell", "ota"} {
-		if roleCeiling("operator")[k] || roleCeiling("user_manager")[k] || roleCeiling("viewer")[k] {
-			t.Fatalf("%s leaked below the super op", k)
+		if roleCeiling("operator")[k] || roleCeiling("support")[k] || roleCeiling("viewer")[k] || roleCeiling("owner")[k] || roleCeiling("staff")[k] {
+			t.Fatalf("%s leaked below the fleet manager", k)
 		}
 	}
-	if roleCeiling("super_op")["shell"] || !roleCeiling("super_op")["ota"] {
-		t.Fatal("super op ceiling must hold ota and not shell")
+	for _, r := range []string{"fleet_manager", "fleet_admin"} {
+		if roleCeiling(r)["shell"] || !roleCeiling(r)["ota"] {
+			t.Fatalf("%s ceiling must hold ota and not shell", r)
+		}
+	}
+	// Each level holds everything the one below it can.
+	ladder := []string{"viewer", "support", "operator", "fleet_manager", "fleet_admin"}
+	for i := 1; i < len(ladder); i++ {
+		for k := range roleCeiling(ladder[i-1]) {
+			if !roleCeiling(ladder[i])[k] {
+				t.Errorf("%s can %s but %s can't", ladder[i-1], k, ladder[i])
+			}
+		}
 	}
 	if roleCeiling("admin") != nil {
 		t.Fatal("admin must be unrestricted")
 	}
-	if n := len(grantableActions("owner")); n != 1 {
+	if n := len(grantableActions("owner")); n != 6 {
 		t.Fatalf("owner grantable = %d", n)
 	}
 }
@@ -258,8 +283,9 @@ func TestRoleWidens(t *testing.T) {
 	}{
 		{"viewer", "operator", true},
 		{"operator", "viewer", false},
-		{"operator", "super_op", true},
-		{"super_op", "operator", false},
+		{"operator", "fleet_manager", true},
+		{"fleet_manager", "operator", false},
+		{"viewer", "support", true},
 		{"operator", "admin", true},
 		{"admin", "operator", false},
 		{"operator", "operator", false},
@@ -277,13 +303,14 @@ func TestGrantRedundant(t *testing.T) {
 		g          db.AccessGrant
 		want       bool
 	}{
-		{"super_op", "allow", remoteAll, true},  // promoted operator: super ops have remote
-		{"operator", "allow", remoteAll, false}, // the rule is what gives an operator remote
-		{"super_op", "deny", remoteAll, false},  // base nothing: the rule is the only allow
+		{"fleet_manager", "allow", remoteAll, true}, // promoted operator: fleet managers have remote
+		{"operator", "allow", remoteAll, false},     // the rule is what gives an operator remote
+		{"fleet_manager", "deny", remoteAll, false}, // base nothing: the rule is the only allow
 		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"reboot", "*"}}, true},
 		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"shell"}}, false}, // outside the ceiling
-		{"super_op", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"ota"}}, true},
-		{"super_op", "allow", db.AccessGrant{Effect: "deny", Actions: []string{"remote"}}, false},
+		{"fleet_admin", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"ota"}}, true},
+		{"fleet_manager", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"ota"}}, false}, // a fleet manager's OTA rule is what grants it
+		{"fleet_manager", "allow", db.AccessGrant{Effect: "deny", Actions: []string{"remote"}}, false},
 		{"owner", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"view"}}, false},
 	}
 	for _, c := range cases {
@@ -315,5 +342,40 @@ func TestIdentityAlertsSuperAdminOnly(t *testing.T) {
 				t.Errorf("role %q: identity alert leaked", role)
 			}
 		}
+	}
+}
+
+// TestRoleLadder pins who may manage whom: strictly below on one rank order where every
+// customer sits under the whole AIO team, and only fleet manager up manages anyone.
+func TestRoleLadder(t *testing.T) {
+	cases := []struct {
+		actor, target, newRole string
+		want                   bool
+	}{
+		{"fleet_manager", "operator", "", true},
+		{"fleet_manager", "owner", "", true},
+		{"fleet_manager", "staff", "owner", true},
+		{"fleet_manager", "fleet_manager", "", false},
+		{"fleet_manager", "operator", "fleet_manager", false},
+		{"fleet_admin", "fleet_manager", "", true},
+		{"fleet_admin", "fleet_admin", "", false},
+		{"operator", "viewer", "", false},
+		{"support", "viewer", "", false},
+		{"owner", "staff", "", false}, // owner self-service is venue-checked, not this ladder
+		{"admin", "admin", "admin", true},
+	}
+	for _, c := range cases {
+		if got := mayManageUser(c.actor, c.target, c.newRole); got != c.want {
+			t.Errorf("mayManageUser(%s, %s, %q) = %v, want %v", c.actor, c.target, c.newRole, got, c.want)
+		}
+	}
+	if got := assignableRoles("fleet_manager"); strings.Join(got, ",") != "operator,support,viewer,owner,staff" {
+		t.Errorf("fleet manager assigns %v", got)
+	}
+	if assignableRoles("operator") != nil || assignableRoles("owner") != nil {
+		t.Error("operators and owners must assign nothing on the Users page")
+	}
+	if roleCanOperate("owner") || roleCanSupport("staff") || roleManagesUsers("owner") {
+		t.Error("a customer reached a team gate")
 	}
 }

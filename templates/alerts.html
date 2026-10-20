@@ -117,12 +117,12 @@
            it re-appearing as new, where Clear all deletes the rows and the evaluator
            re-creates anything still true within the minute. */}}
       <form action="/alerts/ack-all" method="POST" hx-confirm="Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.">
-        <button type="submit" class="cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge all</button>
+        <button type="submit" class="cc-btn{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} title="Requires the Support role" data-role-need="support"{{end}}><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge all</button>
       </form>
       {{/* Resolve closes the alerts out and keeps the rows as history; anything whose
            condition still holds simply fires again, which is the honest outcome. */}}
       <form action="/alerts/resolve-all" method="POST" hx-confirm="Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.">
-        <button type="submit" class="cc-btn{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve all</button>
+        <button type="submit" class="cc-btn{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} title="Requires the Support role" data-role-need="support"{{end}}><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve all</button>
       </form>
       {{end}}
     </div>

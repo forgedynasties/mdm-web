@@ -269,3 +269,26 @@ func (d *DB) MigrateAccessRules(ctx context.Context) (moved, dropped int, err er
 	}
 	return moved, dropped, nil
 }
+
+// RestaurantCustomers lists the owner and staff accounts whose venue rule covers the
+// restaurant, oldest first.
+func (d *DB) RestaurantCustomers(ctx context.Context, restaurantID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT u.id FROM access_grants g JOIN users u ON u.id = g.user_id
+		WHERE g.scope_type = 'restaurant' AND g.restaurant_id = $1 AND g.effect = 'allow'
+		  AND u.role IN ('owner', 'staff') AND (g.expires_at IS NULL OR g.expires_at > NOW())
+		GROUP BY u.id, u.created_at ORDER BY u.created_at`, restaurantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}

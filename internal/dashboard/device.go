@@ -566,7 +566,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ShowBattery":       device.HasBattery() && deviceReportsBattery(device, chartCheckins),
 		"ChartCharge":       chartCharge,
 		"ChartFocus":        focusParam,
-		"IsOwner":           h.role(r) == "owner",
+		"IsOwner":           roleIsCustomer(h.role(r)),
 		"Nickname":          func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
 		"HardwareSerial":    h.db.HardwareSerialOf(ctx, device.SerialNumber),
 		"NuggetIDs":         nuggetAndroidIDs(device.LatestExtra),

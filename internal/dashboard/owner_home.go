@@ -24,7 +24,7 @@ func ownerAllowedPath(p string) bool {
 	if p == "/" || p == "/profile" || p == "/logout" || p == "/maintenance" || p == "/alerts/events" {
 		return true
 	}
-	for _, pre := range []string{"/devices/", "/icon/", "/tour/", "/overview/layout", "/theme"} {
+	for _, pre := range []string{"/devices/", "/icon/", "/tour/", "/overview/layout", "/theme", "/team/"} {
 		if strings.HasPrefix(p, pre) {
 			return true
 		}
@@ -155,7 +155,28 @@ func (h *Handler) ownerHomeData(r *http.Request) map[string]any {
 		}
 	}
 
+	// The owner's team (U3, 20 Oct): their venues' staff, invited and removed from here.
+	var team []venuePerson
+	var teamVenues []venueRef
+	isOwner := h.role(r) == "owner"
+	if isOwner {
+		teamVenues = h.customerVenues(ctx, h.currentUsername(r))
+		ids := make([]uuid.UUID, 0, len(teamVenues))
+		for _, v := range teamVenues {
+			ids = append(ids, v.ID)
+		}
+		for _, p := range h.venuePeople(ctx, ids) {
+			if p.Username != h.currentUsername(r) {
+				team = append(team, p)
+			}
+		}
+	}
+
 	return map[string]any{
+		"IsOwnerRole":   isOwner,
+		"Team":          team,
+		"TeamVenues":    teamVenues,
+		"TeamMsg":       r.URL.Query().Get("team"),
 		"ReportURL":     reportURL,
 		"ReportMetrics": reportMetrics,
 		"ReportFrom":    reportFrom,

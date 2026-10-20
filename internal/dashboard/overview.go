@@ -23,7 +23,7 @@ import (
 // sparklines, the cached AI fleet report, quick actions, and recent activity.
 // The devices table itself lives on /devices.
 func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
-	if h.role(r) == "owner" {
+	if roleIsCustomer(h.role(r)) {
 		h.OwnerHome(w, r)
 		return
 	}
@@ -47,7 +47,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	var summary db.Summary
 	var err error
 	if h.access(r).hidesDPC() {
-		// DPC devices are admin/super_op-only: totals exclude them for everyone else.
+		// DPC devices used to be hidden below super op; hidesDPC is false now, so this counts all.
 		summary, err = h.db.GetSummaryFiltered(ctx, db.DeviceFilter{AgentKind: "firmware", Connected: h.connectedSlice(), ActiveThresholdSecs: activeSecs})
 	} else {
 		summary, err = h.db.GetSummary(ctx, h.connectedSlice())

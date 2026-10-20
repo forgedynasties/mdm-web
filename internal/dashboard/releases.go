@@ -255,15 +255,9 @@ func modelLabel(manufacturer, model string) string {
 // roleSeesDev reports whether a role may see releases still marked dev. Everyone
 // who works the fleet can: the flag keeps work in progress out of the DEFAULT view
 // (the list folds dev releases away behind a toggle), not out of reach — so anyone
-// with OTA rights can push one when that is what the job needs. Viewers, who only
-// read, and owners, who see no fleet at all, do not.
-func roleSeesDev(role string) bool {
-	switch role {
-	case "", "viewer", "owner":
-		return false
-	}
-	return true
-}
+// with OTA rights can push one when that is what the job needs. Operator and up;
+// viewers and support, who don't touch releases, and customers do not.
+func roleSeesDev(role string) bool { return roleCanOperate(role) }
 
 // visibleReleases drops dev-only releases for roles that may not see them.
 func visibleReleases(role string, in []db.Release) []db.Release {

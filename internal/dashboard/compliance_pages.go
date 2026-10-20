@@ -139,7 +139,7 @@ func (h *Handler) compNames(ctx context.Context) (map[uuid.UUID]string, map[uuid
 }
 
 func (h *Handler) ComplianceRulesPage(w http.ResponseWriter, r *http.Request) {
-	if h.role(r) == "owner" {
+	if roleIsCustomer(h.role(r)) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

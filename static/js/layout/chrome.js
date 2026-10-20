@@ -41,10 +41,11 @@
   //      the toast is a live region so it is spoken, not just drawn.
   function mdmLockReason(el) {
     var need = el.getAttribute('data-role-need') || 'operator';
+    var label = {support: 'Support', operator: 'Operator', fleet_manager: 'Fleet manager', fleet_admin: 'Admin', admin: 'Super admin'}[need] || need;
     return el.getAttribute('data-lock-msg') ||
       (/rule/.test(need)
-        ? 'Needs a ' + need + ' — ask an access admin to add one for you.'
-        : 'Needs the ' + need + ' role — ask an admin to raise your access.');
+        ? 'Needs a ' + need + ' — ask a fleet manager to add one for you.'
+        : 'Needs the ' + label + ' role — ask a fleet manager to raise your access.');
   }
   function mdmShowLockReason(el) {
     var t = document.getElementById('role-lock-toast');

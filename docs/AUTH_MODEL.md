@@ -58,17 +58,26 @@ Two layers: a **role** (the ceiling: what an account can ever do) and per-accoun
 
 ### 4.1 Roles
 
-| Role (session `Role`) | Ceiling | Rules editable by |
-|---|---|---|
-| `admin` (super admin) | everything, everywhere; rules never apply | nobody |
-| `dev` | operator ceiling + `shell` + `ota` | admin |
-| `user_manager` (access admin) | operator ceiling + Users pages | admin |
-| `super_op` (super op) | operator ceiling + Users pages (rules, roles, passwords; no create / delete / merge) + `ota` (deploy releases, add targets, retry / cancel); no release-package management | admin |
-| `operator` | device actions, kiosk, notes, queue, logcat, fleet actions, `remote` (explicit only) | admin, access admin |
-| `viewer` | `view`, `screenshot` | admin, access admin |
-| `owner` | `view` on allowed venues only, owner home | admin, access admin |
+Two ladders since 20 Oct 2026 (`roleDefs` in `internal/dashboard/roles.go`). On the AIO
+team each level holds everything below it; an account manages only accounts below its own
+level (the super admin manages anyone). Customers sit below the whole AIO team and are walled
+to their venues.
 
-Route wrappers still gate by role first (`requireAuth`, `requireOperatorOrAdmin`, `requireAdminOrOperator`, `requireReleaseAdmin` = admin/dev, `requireOTA` = admin/dev/super_op, `requireUserManager` = admin/user_manager/super_op, `requireStrictAdmin` = admin, `requireDev`). Rules only ever narrow what a role permits.
+| Role key (label) | Ceiling | Managed by |
+|---|---|---|
+| `admin` (Super admin) | everything, everywhere; rules never apply | admin |
+| `fleet_admin` (Admin) | fleet manager + `ota` by default; no `shell`, no Releases / Lineup / Settings | admin |
+| `fleet_manager` (Fleet manager) | operator + `remote` by default, app library, client updates, Users pages; `ota` only where a rule names it | admin, Admin |
+| `operator` (Operator) | device actions, lock, notes, queue, logcat, venues / groups / lock rules; `remote` only by rule | Fleet manager up |
+| `support` (Support) | `view`, `screenshot`, `reboot`, `kiosk`, `lost_mode`, `notes`, `alerts` | Fleet manager up |
+| `viewer` (Viewer) | `view` (no screenshot) | Fleet manager up |
+| `owner` (Owner) | on their venues only: `view`, `screenshot`, `reboot`, `kiosk`, `lost_mode`, `alerts`; owner home; invites / removes their own staff (`/team/*`) | Fleet manager up |
+| `staff` (Staff) | on their venue only: `view`, `reboot`, `lost_mode`, `alerts`; owner home | Fleet manager up, their owner |
+
+`super_op` and `user_manager` were folded into `fleet_manager` by migration. A customer's
+venues are its `allow view` rules on restaurants (`decideCustomer`); no other rule widens it.
+
+Route wrappers still gate by role first (`requireAuth`, `requireSupport` = support up, `requireOperatorOrAdmin` / `requireAdminOrOperator` = operator up, `requireOTA` = fleet manager up, `requireUserManager` / `requireAccountAdmin` = fleet manager up, `requireReleaseAdmin` / `requireStrictAdmin` / `requireDev` = admin). Rules only ever narrow what a role permits.
 
 ### 4.2 Access rules (`access_grants`)
 
@@ -77,7 +86,7 @@ One row per rule: `effect` allow/deny · `scope_type` all/restaurant/group/devic
 Evaluation, `access.decide(action, device)`:
 
 1. admin → allow.
-2. action outside the role ceiling → deny (`shell`/`ota` for anyone but dev).
+2. action outside the role ceiling → deny (`shell` for anyone but the super admin, `ota` below fleet manager). Customers then go to the venue wall.
 3. any matching **deny** rule → deny. A deny of `*` covers everything, sensitive actions included.
 4. any matching **allow** rule → allow. An allow of `*` never covers `remote`, `shell` or `ota`.
 5. owner → deny. Sensitive action for a non-dev → deny (explicit rule required).

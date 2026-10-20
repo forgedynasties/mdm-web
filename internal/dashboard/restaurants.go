@@ -293,6 +293,8 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	data["Location"] = h.venueLocationView(rest, devices)
 	data["Timezones"] = restaurantTimezones
 	data["Open"] = r.URL.Query().Get("open")
+	// People (U3, 20 Oct): the venue's owner and staff accounts, invited from here.
+	data["People"] = h.venuePeople(r.Context(), []uuid.UUID{id})
 	_, _, data["IconSource"], _ = h.db.RestaurantIcon(r.Context(), id)
 	// Power and usage over the chosen window: uptime, guest-pad time and what it costs
 	// the tablet's own battery, and the battery levels staff plug and unplug at. The

@@ -45,6 +45,11 @@
 .vl-tz b{color:var(--text)}.vl-tzhint{color:var(--muted)}
 .vl-tz .vl-tzchange{margin-left:auto}
 .vl-tzsel{width:100%}
+.vp-person{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border-soft);font-size:12.5px}
+.vp-person .t{flex:1;min-width:0}.vp-person b{display:block;font-weight:600;font-size:13px}
+.vp-person small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vp-person form{margin:0}
+.vp-av{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-text);font-weight:700;font-size:11px}
 </style>
 {{$r := .Restaurant}}{{$can := canAdminOrOperator .Role}}
 <div class="vs-card" id="vn-settings">
@@ -174,6 +179,35 @@
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
   {{end}}
+  </div>
+</details>
+{{end}}
+
+{{/* People (U3, picked 20 Oct): the venue's owner and staff accounts. The AIO team
+     invites them here; owners invite their own staff from their home page. venue_people.go */}}
+{{if canManageUsers $.Role}}
+<details class="vs-row" name="vn-set" id="vn-people"{{if eq $.Open "people"}} open{{end}}>
+  <summary><span class="vs-k">People</span><span class="vs-v"><span>{{with .People}}{{range $i, $p := .}}{{if lt $i 2}}{{if $i}}, {{end}}{{$p.Name}}{{end}}{{end}}{{if gt (len .) 2}} <small>+{{sub (len .) 2}}</small>{{end}}{{else}}<small>No owner or staff accounts</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  {{range .People}}
+  <div class="vp-person">
+    <span class="vp-av">{{.Initial}}</span>
+    <span class="t"><b>{{.Name}}</b><small>{{.Email}} · {{if .Invited}}invite sent{{else if .LastAt}}active {{timeSince (deref .LastAt)}}{{else}}never signed in{{end}}</small></span>
+    <span class="cc-tag {{rolePill .Role}}">{{roleLabel .Role}}</span>
+    {{if .Invited}}<form method="POST" action="/users/{{.ID}}/invite"><input type="hidden" name="redirect" value="/restaurants/{{$r.ID}}?open=people"><button type="submit" class="vp-link" title="Send the invite again">Resend</button></form>{{end}}
+  </div>
+  {{end}}
+  <form class="vn-form" action="/users" method="POST">
+    <input type="hidden" name="restaurants" value="{{$r.ID}}"><input type="hidden" name="redirect" value="/restaurants/{{$r.ID}}?open=people">
+    <div class="form-row full"><label class="form-label" for="vp-inv-email">Invite someone from this venue</label>
+      <input type="email" id="vp-inv-email" name="email" class="form-input" placeholder="their@email.com" required autocomplete="off"></div>
+    <div class="vp-row">
+      <label class="checkbox-label"><input type="radio" name="role" value="owner"{{if not .People}} checked{{end}}> Owner</label>
+      <label class="checkbox-label"><input type="radio" name="role" value="staff"{{if .People}} checked{{end}}> Staff</label>
+      <span style="flex:1"></span><button type="submit" class="cc-btn sm primary">Send invite</button>
+    </div>
+    <p>They get an email to choose a password and only ever see this venue{{if .People}} (and any other venue they're added to){{end}}. Owners can also invite their own staff from their home page.</p>
+  </form>
   </div>
 </details>
 {{end}}

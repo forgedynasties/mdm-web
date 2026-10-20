@@ -28,7 +28,7 @@ var labDurations = []int{2, 8, 24, 72}
 
 // canLab reports whether a dashboard role may open lab sessions: the testing and
 // firmware teams' accounts and super admins.
-func canLab(role string) bool { return role == "admin" || role == "super_op" }
+func canLab(role string) bool { return roleAtLeast(role, "fleet_manager") }
 
 // requireLab guards the lab routes.
 func (h *Handler) requireLab(next http.HandlerFunc) http.HandlerFunc {

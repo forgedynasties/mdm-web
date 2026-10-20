@@ -64,7 +64,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	// The dock's three shortcuts: the pages this person opens most, from the page-view
 	// audit the dashboard already writes. Cached per user for a few minutes — the dock
 	// is rendered on every navigation and these habits move over days, not seconds.
-	if role != "" && role != "owner" {
+	if role != "" && !roleIsCustomer(role) {
 		if b, err := json.Marshal(h.frequentPaths(r)); err == nil {
 			// template.JS so it lands as raw JSON inside the script tag rather than
 			// as an escaped string the page would have to unwrap twice.
@@ -278,7 +278,7 @@ func (h *Handler) NotFoundMiddleware(mux *http.ServeMux) http.Handler {
 func (h *Handler) maintenanceGate(w http.ResponseWriter, r *http.Request) bool {
 	// Restaurant owners get a single page: their home plus their own devices'
 	// pages (visibility-filtered) and their profile. Anything else goes home.
-	if h.role(r) == "owner" && !ownerAllowedPath(r.URL.Path) {
+	if roleIsCustomer(h.role(r)) && !ownerAllowedPath(r.URL.Path) {
 		if hxReq(r) {
 			w.Header().Set("HX-Redirect", "/")
 			w.WriteHeader(http.StatusOK)

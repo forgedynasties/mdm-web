@@ -203,7 +203,7 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 	switch u.Role {
 	case "admin":
 		return []string{"Super admin: everything, everywhere. No rules apply."}
-	case "owner":
+	case "owner", "staff":
 		var venues []string
 		for _, g := range pol.Grants {
 			if g.Effect == "allow" && g.ScopeType == "restaurant" && g.Has("view") {
@@ -213,7 +213,10 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 		if len(venues) == 0 {
 			return []string{"Sees no devices yet. Add an allow rule for their venue."}
 		}
-		return []string{"Sees the devices of " + joinAnd(venues) + ", read-only."}
+		if u.Role == "staff" {
+			return []string{"Sees the devices of " + joinAnd(venues) + ", and can reboot them and find a missing tablet."}
+		}
+		return []string{"Sees the devices of " + joinAnd(venues) + ", and can reboot, lock and unlock them, use lost mode and take screenshots."}
 	}
 	var out []string
 	base := "Starts with everything " + strings.ToLower(roleArticle(u.Role)) + " can do"
@@ -223,15 +226,19 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 	if pol.Base == "deny" {
 		base = "Starts with nothing"
 	}
-	if u.Role == "operator" {
+	if u.Role == "operator" || u.Role == "fleet_manager" {
+		sens := "remote"
+		if u.Role == "fleet_manager" {
+			sens = "ota"
+		}
 		hasRemote := false
 		for _, g := range pol.Grants {
-			if g.Effect == "allow" && g.Has("remote") {
+			if g.Effect == "allow" && g.Has(sens) {
 				hasRemote = true
 			}
 		}
 		if !hasRemote {
-			base += ", except remote control"
+			base += map[string]string{"remote": ", except remote control", "ota": ", except firmware updates"}[sens]
 		}
 	}
 	out = append(out, base+".")
@@ -244,25 +251,10 @@ func (h *Handler) policySummary(ctx context.Context, u *db.User, pol db.AccessPo
 	return out
 }
 
-func roleArticle(role string) string {
-	switch role {
-	case "user_manager":
-		return "an access admin"
-	case "super_op":
-		return "a super op"
-	case "viewer":
-		return "a viewer"
-	case "owner":
-		return "an owner"
-	default:
-		return "an operator"
-	}
-}
-
 // usersRedirect returns to the Manage page when the form says so (redirect=
 // /users/…), else to the people list.
 func (h *Handler) usersRedirect(w http.ResponseWriter, r *http.Request) {
-	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+	if to := r.FormValue("redirect"); (strings.HasPrefix(to, "/users") || strings.HasPrefix(to, "/restaurants/")) && !strings.Contains(to, "//") {
 		http.Redirect(w, r, to, http.StatusFound)
 		return
 	}
@@ -348,26 +340,17 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 		"Summary":      h.policySummary(ctx, u, pol),
 		"RoleSentence": roleCeilingSentence(u.Role),
 		"RoleLower":    strings.ToLower(roleLabel(u.Role)),
-		"HasBase":      u.Role == "operator" || u.Role == "user_manager" || u.Role == "super_op",
+		"HasBase":      roleAtLeast(u.Role, "support") && u.Role != "admin",
 		"ActorIsAdmin": actor.unrestricted(),
 		"UsersTab":     "access",
 	})
 }
 
 func roleCeilingSentence(role string) string {
-	switch role {
-	case "user_manager":
-		return "An access admin can do everything an operator can, and manage users. Rules say where."
-	case "super_op":
-		return "A super op can do everything an operator can, edit access rules, and push firmware updates — but not create accounts or manage release packages. Rules say where."
-	case "viewer":
-		return "A viewer only looks. Rules say which devices they see."
-	case "owner":
-		return "A restaurant owner sees only the venues you allow, read-only."
-	case "admin":
-		return "Super admin. Nothing to configure."
+	if d, ok := roleByKey[role]; ok {
+		return d.Ceiling
 	}
-	return "An operator can act on devices: commands, kiosk, notes, alerts, and remote control when a rule names it. Rules say where."
+	return roleByKey["operator"].Ceiling
 }
 
 // AccessScopeSearch answers the editor's scope picker: venues, groups and
@@ -560,7 +543,7 @@ func parseExpires(r *http.Request) (*time.Time, error) {
 // canWiden reports whether the actor may widen target's access without limits — set
 // their base to "allow everything", or lift a deny rule. The super admin may; anyone
 // else only when their own access is unlimited (base allow, no deny rules) and their
-// role's ceiling covers the target's. Otherwise a restricted access admin could give
+// role's ceiling covers the target's. Otherwise a restricted fleet manager could give
 // an account more than they hold themselves (30 Sep access audit).
 func (h *Handler) canWiden(r *http.Request, target *db.User) error {
 	if h.role(r) == "admin" {
@@ -911,7 +894,7 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = append(rows, rw)
 	}
-	order := map[string]int{"operator": 0, "user_manager": 1, "super_op": 1, "viewer": 3, "owner": 4, "admin": 5}
+	order := map[string]int{"operator": 0, "support": 1, "fleet_manager": 2, "fleet_admin": 2, "viewer": 3, "owner": 4, "staff": 5, "admin": 6}
 	sort.SliceStable(rows, func(i, j int) bool { return order[rows[i].User.Role] < order[rows[j].User.Role] })
 	h.render(w, r, "users_access.html", map[string]any{
 		"Title":     "Access control",
@@ -924,7 +907,7 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// whoHasAccess lists, for admins and access admins, every rule that covers a
+// whoHasAccess lists, for fleet managers and up, every rule that covers a
 // device, grouped per user, so the device page can answer "who can touch this?".
 type accessHolder struct {
 	Username, Name, Role string

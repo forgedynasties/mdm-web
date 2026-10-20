@@ -40,9 +40,9 @@ var accessActions = []accessAction{
 	{Key: "lost_mode", Label: "Lost mode", Group: "Device", Help: "Put a missing device in lost mode (a full-screen return message) and take it out again."},
 	{Key: "notes", Label: "Device notes", Group: "Device"},
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
-	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Dev, super op and access admin have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
+	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Fleet managers and admins have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
 	{Key: "shell", Label: "Shell", Group: "Sessions", Sensitive: true, DevOnly: true, Help: "Raw shell on the device. Super admins only."},
-	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Super admins and super ops only."},
+	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Admins have it by default; a fleet manager needs a rule that names it."},
 	{Key: "alerts", Label: "Acknowledge / resolve alerts", Group: "Fleet", Fleet: true},
 	{Key: "groups", Label: "Manage groups & venues", Group: "Fleet", Fleet: true},
 	{Key: "deploy", Label: "Cancel deployments", Group: "Fleet", Fleet: true},
@@ -72,37 +72,49 @@ func isAccessAction(k string) bool { _, ok := accessActionByKey[k]; return ok }
 // sensitiveActionKeys are the actions the overview flags with an amber dot.
 var sensitiveActionKeys = []string{"remote", "shell", "ota"}
 
-// roleCeiling lists what a role can ever do; nil means unrestricted (admin).
+// roleCeiling lists what a role can ever do; nil means unrestricted (super admin).
+// It follows the ladder in roles.go: each AIO level holds everything below it.
 func roleCeiling(role string) map[string]bool {
+	set := func(keys ...string) map[string]bool {
+		m := map[string]bool{}
+		for _, k := range keys {
+			m[k] = true
+		}
+		return m
+	}
 	switch role {
 	case "admin":
 		return nil
 	case "viewer":
-		return map[string]bool{"view": true, "screenshot": true}
+		return set("view")
+	case "support":
+		return set("view", "screenshot", "reboot", "kiosk", "lost_mode", "notes", "alerts")
 	case "owner":
-		return map[string]bool{"view": true}
+		return set("view", "screenshot", "reboot", "kiosk", "lost_mode", "alerts")
+	case "staff":
+		return set("view", "reboot", "lost_mode", "alerts")
+	case "operator", "fleet_manager", "fleet_admin":
+	default:
+		return map[string]bool{} // unknown role: nothing
 	}
 	m := map[string]bool{}
 	for _, a := range accessActions {
-		// DevOnly actions sit above every ceiling but the super admin's; the super op
-		// gets exactly one of them, the firmware push.
-		if a.DevOnly && !(role == "super_op" && a.Key == "ota") {
+		// DevOnly actions (shell, OTA) sit above every ceiling but the super admin's,
+		// except firmware pushes: an admin's by default, a fleet manager's by rule.
+		if a.DevOnly && !(a.Key == "ota" && (role == "fleet_admin" || role == "fleet_manager")) {
 			continue
 		}
 		m[a.Key] = true
 	}
-	if role == "operator" || role == "user_manager" || role == "super_op" {
-		return m
-	}
-	return map[string]bool{} // unknown role: nothing
+	return m
 }
 
-// sensitiveByDefault: the sensitive actions a role holds without a rule — the super
-// op firmware pushes, and remote control for the super op and the access admin.
-// Everyone else needs an allow rule that names the action.
+// sensitiveByDefault: the sensitive actions a role holds without a rule — firmware
+// pushes for the admin, remote control from fleet manager up. Everyone else (an
+// operator's remote, a fleet manager's OTA) needs an allow rule that names the action.
 func sensitiveByDefault(role, action string) bool {
-	return (role == "super_op" && action == "ota") ||
-		(action == "remote" && (role == "super_op" || role == "user_manager"))
+	return (action == "ota" && role == "fleet_admin") ||
+		(action == "remote" && (role == "fleet_admin" || role == "fleet_manager"))
 }
 
 // grantRedundant reports an allow rule that gives nothing the role does not already
@@ -110,7 +122,7 @@ func sensitiveByDefault(role, action string) bool {
 // either not sensitive or one the role holds by default. An operator's "remote
 // control everywhere" becomes one of these the moment they are made a super op.
 func grantRedundant(role, base string, g db.AccessGrant) bool {
-	if g.Effect != "allow" || base == "deny" || role == "owner" || len(g.Actions) == 0 {
+	if g.Effect != "allow" || base == "deny" || roleIsCustomer(role) || len(g.Actions) == 0 {
 		return false
 	}
 	c := roleCeiling(role)
@@ -263,6 +275,36 @@ type decision struct {
 	Grant   *db.AccessGrant // the grant that decided it, when one did
 }
 
+// decideCustomer is the venue wall for owners and staff: a device is theirs when an
+// allow rule gives them "See device" on it (one per venue, set when the account is
+// made), and on their devices they may do everything their role can. Nothing else —
+// no base, no fleet-wide actions — so no rule can show them another customer's venue.
+func (a *access) decideCustomer(action string, dev *uuid.UUID) decision {
+	if dev == nil {
+		return decision{false, roleLabel(a.role) + " accounts only act on their own venue's devices", nil}
+	}
+	var mine *db.AccessGrant
+	for i := range a.pol.Grants {
+		g := &a.pol.Grants[i]
+		if g.ScopeType != "restaurant" && g.ScopeType != "device" {
+			continue
+		}
+		if !a.grantCovers(*g, "view", dev) {
+			continue
+		}
+		if g.Effect == "deny" {
+			return decision{false, "Denied by a rule", g}
+		}
+		if mine == nil {
+			mine = g
+		}
+	}
+	if mine == nil {
+		return decision{false, "Not one of their venues", nil}
+	}
+	return decision{true, "One of their venues", mine}
+}
+
 // decide is the single evaluation path (see docs/access-control-plan.md §2).
 func (a *access) decide(action string, dev *uuid.UUID) decision {
 	if a.role == "admin" {
@@ -273,10 +315,13 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 		return decision{false, "Unknown action", nil}
 	}
 	if dev != nil && a.hidesDPC() && a.isDPC(*dev) {
-		return decision{false, "DPC-managed devices are limited to super admins and super ops", nil}
+		return decision{false, "DPC-managed devices are limited to super admins", nil}
 	}
 	if c := roleCeiling(a.role); !c[action] {
 		return decision{false, roleLabel(a.role) + " accounts never get " + lowerFirst(act.Label), nil}
+	}
+	if roleIsCustomer(a.role) {
+		return a.decideCustomer(action, dev)
 	}
 	var deny, allow *db.AccessGrant
 	for i := range a.pol.Grants {
@@ -298,13 +343,9 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	if allow != nil {
 		return decision{true, "Allowed by a rule", allow}
 	}
-	if a.role == "owner" {
-		return decision{false, "Owners only see what a rule grants", nil}
-	}
-	// Sensitive actions need an explicit allow rule — except for the roles whose
-	// ceiling exists for them: dev (all of them), the super op (firmware pushes),
-	// and remote control, which the super op and the access admin have by default.
-	// Operators still need a rule that names the device.
+	// Sensitive actions need an explicit allow rule — except where the role holds
+	// them by default (sensitiveByDefault). Operators still need a rule that names
+	// the device for remote control, fleet managers one for firmware pushes.
 	if act.Sensitive && !sensitiveByDefault(a.role, action) {
 		return decision{false, act.Label + " needs an explicit allow rule", nil}
 	}
@@ -349,7 +390,7 @@ func (a *access) hidesDevices() bool {
 	if a.unrestricted() {
 		return false
 	}
-	if a.role == "owner" {
+	if roleIsCustomer(a.role) {
 		return true
 	}
 	return a.hasViewRestriction()

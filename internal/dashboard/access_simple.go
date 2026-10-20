@@ -29,9 +29,9 @@ import (
 // place-limited "everything a <role> can" rule has to name explicitly.
 func roleExtras(role string) []string {
 	switch role {
-	case "super_op":
+	case "fleet_admin":
 		return []string{"remote", "ota"}
-	case "user_manager":
+	case "fleet_manager":
 		return []string{"remote"}
 	}
 	return nil
@@ -111,7 +111,7 @@ func lookOnly(profiles []db.AccessProfile) string {
 func deriveSimple(role string, pol db.AccessPolicy, profiles []db.AccessProfile, scopes map[uuid.UUID]db.DeviceScope) simpleAccess {
 	s := simpleAccess{OK: true}
 	grants := pol.Grants
-	baseAllow := pol.Base != "deny" && role != "owner"
+	baseAllow := pol.Base != "deny" && !roleIsCustomer(role)
 	if baseAllow {
 		// Allow rules that only repeat what the role already has (a super op's
 		// "remote control everywhere") change nothing.
@@ -176,7 +176,7 @@ func deriveSimple(role string, pol db.AccessPolicy, profiles []db.AccessProfile,
 			return s
 		}
 	}
-	if role != "owner" && sameActions(first.Actions, roleActions(role)) {
+	if !roleIsCustomer(role) && sameActions(first.Actions, roleActions(role)) {
 		s.Do = "role"
 		return s
 	}
@@ -206,7 +206,7 @@ func (h *Handler) simpleChoices(role string, profiles []db.AccessProfile) []simp
 	for _, p := range profiles {
 		out = append(out, simpleProfileView{Value: "profile:" + p.ID.String(), Name: p.Name, Desc: p.Description, Fits: profileFits(p, role)})
 	}
-	if role != "owner" {
+	if !roleIsCustomer(role) {
 		out = append(out, simpleProfileView{Value: "role", Name: "Everything " + roleArticle(role) + " can", Desc: roleEverything(role), Fits: true})
 	}
 	return out
@@ -214,12 +214,14 @@ func (h *Handler) simpleChoices(role string, profiles []db.AccessProfile) []simp
 
 func roleEverything(role string) string {
 	switch role {
-	case "super_op":
+	case "fleet_admin":
 		return "Every action, including remote control and firmware updates."
-	case "user_manager":
-		return "Every action, including remote control."
+	case "fleet_manager":
+		return "Every action, including remote control. Firmware updates need Custom."
+	case "support":
+		return "Screenshot, reboot, lock and unlock, lost mode, alerts and notes."
 	case "viewer":
-		return "See devices and take screenshots."
+		return "See devices."
 	}
 	return "Every action except remote control, which needs Custom."
 }
@@ -231,7 +233,7 @@ func (h *Handler) parseSimple(ctx context.Context, r *http.Request, u *db.User) 
 	do := r.FormValue("do")
 	switch {
 	case do == "role":
-		if u.Role == "owner" {
+		if roleIsCustomer(u.Role) {
 			return "", nil, fmt.Errorf("pick what they can do")
 		}
 		actions = roleActions(u.Role)
@@ -273,7 +275,7 @@ func (h *Handler) parseSimple(ctx context.Context, r *http.Request, u *db.User) 
 		note = note[:200]
 	}
 	every := r.FormValue("see") == "all"
-	if every && do == "role" && expires == nil && u.Role != "owner" {
+	if every && do == "role" && expires == nil && !roleIsCustomer(u.Role) {
 		return "allow", nil, nil // the plain default: no rules at all
 	}
 	mk := func(typ string, id *uuid.UUID) db.AccessGrant {

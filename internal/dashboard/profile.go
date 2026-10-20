@@ -68,7 +68,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 	// A restaurant owner's own profile is just their account and their venues;
 	// none of the operator statistics apply to them.
 	var ownerVenues []string
-	if !viewingOther && h.role(r) == "owner" {
+	if !viewingOther && roleIsCustomer(h.role(r)) {
 		if pol, err := h.db.GetUserAccess(ctx, username); err == nil {
 			rs, _ := h.db.ListRestaurants(ctx)
 			byID := map[string]string{}
@@ -105,7 +105,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"ViewingOther":   viewingOther,
 		"CanManage":      canManage,
 		"CanSeeActivity": !viewingOther || h.role(r) == "admin", // only a super admin reads someone else's activity
-		"OwnerSelf":      !viewingOther && h.role(r) == "owner",
+		"OwnerSelf":      !viewingOther && roleIsCustomer(h.role(r)),
 		"OwnerVenues":    ownerVenues,
 		"UsersTab":       map[bool]string{true: "access", false: ""}[canManage],
 		"Assignable":     assignableRoles(h.role(r)),

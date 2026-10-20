@@ -72,23 +72,25 @@ func InstallShapedSQL() string {
 // shared (and never written to) across entries.
 var (
 	rolesAdmin = []string{"admin"}
-	// rolesOperator: the everyday action set. Operators, the access admin and the
-	// super op carry it; viewers do not. Where it is allowed is the access policy's
-	// business, not this table's.
-	rolesOperator = []string{"admin", "operator", "user_manager", "super_op"}
-	// rolesViewer: rolesOperator plus viewer — read-only actions that narrow the
-	// fleet rather than change it (a viewer's screenshot is visibility).
-	rolesViewer = []string{"admin", "operator", "user_manager", "super_op", "viewer"}
+	// rolesOperator: the everyday action set, operator and up. Where it is allowed is
+	// the access policy's business, not this table's.
+	rolesOperator = []string{"admin", "fleet_admin", "fleet_manager", "operator"}
+	// rolesSupport: the safe actions Support holds, plus owners at their own venues.
+	rolesSupport = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner"}
+	// rolesFloor: what restaurant staff may also do — reboot, find a tablet.
+	rolesFloor = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"}
+	// rolesOTA: firmware pushes — admin up by default, fleet managers where a rule says.
+	rolesOTA = []string{"admin", "fleet_admin", "fleet_manager"}
 )
 
 var commands = []Command{
 	// ── Everyday device actions ──────────────────────────────────────────────
 	// Raw shell is limited to admin/dev; operators reach vetted commands through
 	// the device-query catalog instead (the "diagnostic" action on the Actions page).
-	{Type: "screenshot", Cap: CapScreenCapture, Roles: rolesViewer, API: true},
+	{Type: "screenshot", Cap: CapScreenCapture, Roles: rolesSupport, API: true},
 	{Type: "install_apk", Cap: CapInstallAPK, Roles: rolesOperator, API: true, InstallShaped: true},
 	{Type: "uninstall", Cap: CapUninstall, Roles: rolesOperator, API: true},
-	{Type: "reboot", Cap: CapReboot, Roles: rolesOperator, API: true},
+	{Type: "reboot", Cap: CapReboot, Roles: rolesFloor, API: true},
 	{Type: "shell", Cap: CapShell, Roles: rolesAdmin, API: true},
 
 	// ── MDM-lite app controls ────────────────────────────────────────────────
@@ -125,7 +127,7 @@ var commands = []Command{
 	{Type: "logcat", Cap: CapLogcat, Roles: rolesAdmin},
 
 	// ── Firmware-level writes ───────────────────────────────────────────────
-	{Type: "ota", Cap: CapOTA, Roles: []string{"admin", "super_op"}, API: true},
+	{Type: "ota", Cap: CapOTA, Roles: rolesOTA, API: true},
 
 	// Boot logo write. Evaluated as "ota" — a system-partition image write, dev
 	// ceiling, sensitive — because as its own name it matched no access action and
@@ -153,7 +155,7 @@ var commands = []Command{
 	// lock task, until the server lifts it (nothing on the device does).
 	// Operator-level like reboot — reacting to a missing tablet must not wait for an admin
 	// — under its own access action, so a policy can grant or withhold it per venue.
-	{Type: "lost_mode", Cap: CapLostMode, Roles: rolesOperator, API: true, Access: "lost_mode"},
+	{Type: "lost_mode", Cap: CapLostMode, Roles: rolesFloor, API: true, Access: "lost_mode"},
 
 	// Add or forget a Wi-Fi network. Admin-only: a wrong network pushed to a venue can take
 	// every device there off the air, and the payload carries the network's password,

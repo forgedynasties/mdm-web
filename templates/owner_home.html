@@ -97,6 +97,20 @@
 .oh .empty b{display:block;color:var(--text);font-weight:400;font-family:var(--font-display);font-size:22px;letter-spacing:-.02em;margin-bottom:6px}
 @media(max-width:900px){.oh .soon{grid-template-columns:repeat(2,1fr)}.oh .tile:nth-child(odd){border-left:0}.oh .tile:nth-child(n+3){border-top:1px solid var(--border-soft)}.oh .soon2{grid-template-columns:1fr}.oh .help{grid-template-columns:repeat(2,1fr)}.oh .hb:nth-child(3){border-left:0}.oh .hb:nth-child(n+3){border-top:1px solid var(--border-soft)}.oh .cards{grid-template-columns:repeat(2,1fr)}.oh .cards .kpi:nth-child(3){border-left:0}.oh .cards .kpi:nth-child(n+3){border-top:1px solid var(--border-soft)}}
 @media(max-width:720px){.oh{padding:18px 14px 110px}.oh .row{grid-template-columns:12px 1fr auto;grid-template-areas:"s n w" ". b b" ". d d";gap:8px 12px}.oh .st{grid-area:s}.oh .nm{grid-area:n}.oh .word{grid-area:w}.oh .batt{grid-area:b}.oh .do{grid-area:d}.oh .soon{grid-template-columns:1fr}.oh .tile{border-left:0;border-top:1px solid var(--border-soft)}.oh .tile:first-child{border-top:0}.oh .help{grid-template-columns:1fr}.oh .hb{border-left:0;border-top:1px solid var(--border-soft)}.oh .hb:first-child{border-top:0}.oh .week{grid-template-columns:1fr}.oh .week .kpi{border-left:0;border-top:1px solid var(--border-soft)}.oh .week .kpi:first-child{border-top:0}.oh .day{height:56px;gap:2px}.oh .axis{gap:2px}}
+/* Your team (U3, 20 Oct): the owner's staff accounts, invited and removed here. */
+.oh .team{background:var(--surface);border-radius:24px;box-shadow:var(--shadow-lg);overflow:hidden}
+.oh .tm-row{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--border-soft)}
+.oh .tm-row:first-child{border-top:0}
+.oh .tm-av{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-text);font-weight:600;font-size:13px;text-transform:uppercase}
+.oh .tm-row .t{flex:1;min-width:0}.oh .tm-row b{display:block;font-weight:500;font-size:15px}
+.oh .tm-row p{margin:2px 0 0;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.oh .tm-row form{margin:0}
+.oh .tm-empty{padding:18px 20px;font-size:13.5px;color:var(--muted)}
+.oh .tm-add{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:end;padding:16px 20px;border-top:1px solid var(--border-soft);background:var(--surface-3,var(--surface2))}
+.oh .tm-add label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)}
+.oh .tm-add .vs{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 16px;font-size:13px;color:var(--text-2)}
+.oh .tm-add .vs label{flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+.oh .tm-msg{margin:0 0 10px;font-size:13px;color:var(--ok)}.oh .tm-msg.bad{color:var(--danger)}
 </style>
 {{/* The refresh poller lives OUTSIDE the content: htmx attributes are inherited,
      so hx-target/hx-select on the container would hijack every boosted link
@@ -213,6 +227,32 @@
     </div>
     {{end}}
   </div>
+
+  {{if .IsOwnerRole}}
+  <h2 id="team">Your team <span>staff see your stations and can reboot them or find a missing tablet</span></h2>
+  {{if eq .TeamMsg "invited"}}<p class="tm-msg">Invite sent. The link works for 7 days.</p>{{else if eq .TeamMsg "removed"}}<p class="tm-msg">Removed. They can't sign in any more.</p>{{else if eq .TeamMsg "invite_failed"}}<p class="tm-msg bad">The account was made but the email didn't go out. Use Send again below.</p>{{end}}
+  <div class="team">
+    {{range .Team}}
+    <div class="tm-row">
+      <span class="tm-av">{{.Initial}}</span>
+      <div class="t"><b>{{.Name}}{{if eq .Role "owner"}} · owner{{end}}</b><p>{{.Email}}{{if gt (len $.TeamVenues) 1}} · {{.VenueList}}{{end}} · {{if .Invited}}invite sent, not used yet{{else if .LastAt}}active {{timeSince (deref .LastAt)}}{{else}}hasn't signed in yet{{end}}</p></div>
+      {{if eq .Role "staff"}}
+      {{if .Invited}}<form method="POST" action="/team/{{.ID}}/invite"><button type="submit" class="cc-btn sm">Send again</button></form>{{end}}
+      <form method="POST" action="/team/{{.ID}}/remove" onsubmit="return confirm('Remove {{.Name}}? They lose access straight away.')"><button type="submit" class="cc-btn sm">Remove</button></form>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="tm-empty">No staff accounts yet. Invite someone below and they get an email to choose a password.</div>
+    {{end}}
+    <form class="tm-add" method="POST" action="/team/invite">
+      <label>Email<input type="email" name="email" class="form-input" required autocomplete="off"></label>
+      <label>First name<input type="text" name="first_name" class="form-input" autocomplete="off"></label>
+      <label>Last name<input type="text" name="last_name" class="form-input" autocomplete="off"></label>
+      <button type="submit" class="cc-btn primary">Invite staff</button>
+      {{if gt (len .TeamVenues) 1}}<div class="vs"><span>Works at</span>{{range .TeamVenues}}<label><input type="checkbox" name="restaurants" value="{{.ID}}" checked>{{.Name}}</label>{{end}}</div>{{end}}
+    </form>
+  </div>
+  {{end}}
 
   <h2>Help <span>the MDM team answers within the day</span></h2>
   <div class="help">

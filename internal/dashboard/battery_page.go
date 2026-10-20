@@ -29,7 +29,7 @@ const (
 
 var batteryRanges = map[string]time.Duration{"6h": 6 * time.Hour, "24h": 24 * time.Hour, "7d": 7 * 24 * time.Hour, "30d": 30 * 24 * time.Hour}
 
-func batteryRoleOK(role string) bool { return role == "admin" || role == "dev" || role == "super_op" }
+func batteryRoleOK(role string) bool { return roleAtLeast(role, "fleet_manager") }
 
 func batteryRange(r *http.Request) (string, time.Time, time.Time) {
 	key := r.URL.Query().Get("range")

@@ -15,26 +15,26 @@ import (
 // ends up able to wipe a device, and narrowing it is how a button that is offered
 // stops working.
 var wantCommandRoles = map[string][]string{
-	"screenshot":       {"admin", "operator", "user_manager", "super_op", "viewer"},
-	"install_apk":      {"admin", "operator", "user_manager", "super_op"},
-	"uninstall":        {"admin", "operator", "user_manager", "super_op"},
-	"reboot":           {"admin", "operator", "user_manager", "super_op"},
-	"app_reload":       {"admin", "operator", "user_manager", "super_op"},
-	"app_restart":      {"admin", "operator", "user_manager", "super_op"},
-	"app_clear_cache":  {"admin", "operator", "user_manager", "super_op"},
-	"app_update_check": {"admin", "operator", "user_manager", "super_op"},
-	"app_update":       {"admin", "operator", "user_manager", "super_op"},
+	"screenshot":       {"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner"},
+	"install_apk":      {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"uninstall":        {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"reboot":           {"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"},
+	"app_reload":       {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"app_restart":      {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"app_clear_cache":  {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"app_update_check": {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"app_update":       {"admin", "fleet_admin", "fleet_manager", "operator"},
 	"shell":            {"admin"},
-	"query":            {"admin", "operator", "user_manager", "super_op"},
-	"collect_logs":     {"admin", "operator", "user_manager", "super_op"},
-	"ota":              {"admin", "super_op"},
+	"query":            {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"collect_logs":     {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"ota":              {"admin", "fleet_admin", "fleet_manager"},
 	"update_splash":    {"admin"},
 	"logcat":           {"admin"},
 	"wipe":             {"admin"},
 	"unenroll":         {"admin"},
 	"mic_gain_read":    {"admin"},
 	"adb_tcp":          {"admin"},
-	"lost_mode":        {"admin", "operator", "user_manager", "super_op"},
+	"lost_mode":        {"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"},
 	"wifi_config":      {"admin"},
 }
 
@@ -130,10 +130,10 @@ func TestNonAdminCanReachTheOfferedCommands(t *testing.T) {
 			t.Errorf("an operator is offered %q (%v) but the policy refuses it: %s", c.Type, c.Roles, d.Reason)
 		}
 	}
-	// A super op, likewise, for the one sensitive type it holds by default.
-	so := newAccess("super_op", db.AccessPolicy{})
+	// An admin, likewise, for the one sensitive type it holds by default.
+	so := newAccess("fleet_admin", db.AccessPolicy{})
 	if d := so.decide(policyActionForCommand("ota"), &d1); !d.Allowed {
-		t.Errorf("a super op is offered %q but the policy refuses it: %s", "ota", d.Reason)
+		t.Errorf("an admin is offered %q but the policy refuses it: %s", "ota", d.Reason)
 	}
 }
 

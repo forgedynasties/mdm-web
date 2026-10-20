@@ -13,7 +13,9 @@ func TestDeriveSimple(t *testing.T) {
 	profiles := []db.AccessProfile{look}
 	rid := uuid.New()
 	venue := db.AccessGrant{Effect: "allow", ScopeType: "restaurant", ScopeID: &rid, ScopeName: "Flights Vegas", Actions: []string{"view"}}
-	all := func(acts ...string) db.AccessGrant { return db.AccessGrant{Effect: "allow", ScopeType: "all", Actions: acts} }
+	all := func(acts ...string) db.AccessGrant {
+		return db.AccessGrant{Effect: "allow", ScopeType: "all", Actions: acts}
+	}
 	cases := []struct {
 		name, role string
 		pol        db.AccessPolicy
@@ -21,12 +23,12 @@ func TestDeriveSimple(t *testing.T) {
 		do         string
 	}{
 		{"default", "operator", db.AccessPolicy{}, true, true, "role"},
-		{"super op, redundant remote", "super_op", db.AccessPolicy{Grants: []db.AccessGrant{all("remote")}}, true, true, "role"},
+		{"fleet manager, redundant remote", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{all("remote")}}, true, true, "role"},
 		{"operator with remote on top", "operator", db.AccessPolicy{Grants: []db.AccessGrant{all("remote")}}, false, false, ""},
-		{"venue look only", "super_op", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{venue}}, true, false, "profile:" + look.ID.String()},
-		{"nothing", "super_op", db.AccessPolicy{Base: "deny"}, true, false, "profile:" + look.ID.String()},
+		{"venue look only", "fleet_manager", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{venue}}, true, false, "profile:" + look.ID.String()},
+		{"nothing", "fleet_manager", db.AccessPolicy{Base: "deny"}, true, false, "profile:" + look.ID.String()},
 		{"deny rule", "operator", db.AccessPolicy{Grants: []db.AccessGrant{{Effect: "deny", ScopeType: "all", Actions: []string{"reboot"}}}}, false, false, ""},
-		{"everything, place-limited", "super_op", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{{Effect: "allow", ScopeType: "restaurant", ScopeID: &rid, Actions: []string{"*", "remote", "ota"}}}}, true, false, "role"},
+		{"everything, place-limited", "fleet_admin", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{{Effect: "allow", ScopeType: "restaurant", ScopeID: &rid, Actions: []string{"*", "remote", "ota"}}}}, true, false, "role"},
 	}
 	for _, c := range cases {
 		s := deriveSimple(c.role, c.pol, profiles, nil)

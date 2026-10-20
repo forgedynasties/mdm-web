@@ -8,72 +8,71 @@
 </nav>
 
 <style>
-[hidden]{display:none !important;} /* .form-row is display:flex; keep the hidden attribute authoritative */
-/* ── Team · Command center ─────────────────────────────── */
-.user-pw{position:relative;display:inline-block}
-.user-pw>summary{list-style:none;cursor:pointer}
-.user-pw>summary::-webkit-details-marker{display:none}
-.user-pw-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md,0 8px 30px rgba(28,26,24,.14));padding:8px}
-.user-pw-pop input{width:158px}
-.user-pw-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
-.user-pw-btn:hover{border-color:var(--rule-2);color:var(--text)}
-.user-pw-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
-/* .cc-card clips overflow for its rounded corners, which was cutting off the Edit
-   name / Change password popover — let it escape the card while one is open. */
-.cc-card:has(.user-pw[open]){overflow:visible}
+[hidden]{display:none !important;}
+/* ── Users (U1, picked 20 Oct): one table, AIO team / Customers ── */
+.uu-av{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;text-transform:uppercase;background:var(--surface2);color:var(--muted)}
 .uu-row{display:flex;align-items:center;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);flex-wrap:wrap}
-.uu-row:first-of-type{border-top:none}
-.uu-av{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-text)}
-.uu-av.role-admin{background:var(--danger-bg);color:var(--danger)}
-.uu-av.role-operator{background:var(--info-bg);color:var(--info)}
-.uu-av.role-viewer{background:var(--surface2);color:var(--muted)}
-.uu-av.has-img{overflow:hidden;background:var(--surface2)}.uu-av.has-img img{width:100%;height:100%;object-fit:cover;display:block}
-.uu-id{flex:1;min-width:160px}
-.uu-name{font-size:13.5px;font-weight:650}
-.uu-open{color:inherit;text-decoration:none}.uu-open:hover .uu-av{box-shadow:0 0 0 3px var(--accent-soft,rgba(249,103,78,.2))}.uu-name .uu-open:hover{text-decoration:underline;text-underline-offset:3px}
-.uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+.uu-id{flex:1;min-width:160px}.uu-name{font-size:13.5px;font-weight:650}.uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
 .uu-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.uu-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 17px;border-bottom:1px solid var(--border-soft);background:var(--surface-3)}
-.uu-filters .form-input{width:auto;font-size:12.5px;padding:6px 10px}
-.uu-filters #uf-q{flex:1;min-width:200px}
-.uu-row[hidden]{display:none!important}
-.uu-none{padding:26px 17px;text-align:center;color:var(--muted);font-size:13px}
-.uu-manage{flex:none}
-.user-del{border:1px solid var(--border);background:var(--surface);color:var(--muted);width:30px;height:30px;border-radius:8px;font-size:16px;line-height:1;cursor:pointer}
-.user-del:hover{border-color:var(--danger-edge);color:var(--danger);background:var(--danger-bg)}
-@media(max-width:600px){.uu-row{gap:9px}.uu-act{width:100%;justify-content:flex-start}}
-/* People who signed up but can't sign in yet (email not verified); super admin only. */
 .vf-strip{border:1px solid var(--warn-edge,var(--border));background:var(--warn-bg);border-radius:var(--r-4,12px);margin-bottom:16px;overflow:hidden}
 .vf-strip-h{display:flex;align-items:center;gap:10px;padding:12px 17px;font-size:13.5px}
 .vf-strip-h h2{font-size:13.5px;font-weight:700;margin:0}
 .vf-strip-h .i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--surface);color:var(--warn);flex:none}
 .vf-strip-h .i svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .vf-strip-h small{display:block;font-size:12px;color:var(--text-2);margin-top:1px}
-.vf-strip .uu-row{background:var(--surface);border-top:1px solid var(--border-soft)}
+.vf-strip .uu-row{background:var(--surface)}
 .vf-strip .uu-act form{margin:0}
+.up-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
+.up-bar .rt{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.up-q{font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:240px}
+.ft.up th.c-role{width:140px}.ft.up th.c-acc{width:270px}.ft.up th.c-venue{width:300px}.ft.up th.c-seen{width:120px}.ft.up th.c-act{width:52px}
+.up-who{display:flex;align-items:center;gap:10px;min-width:0}
+.up-who .ubub{width:30px;height:30px;font-size:12px;flex:none}
+.up-who .t{min-width:0}.up-who b{display:block;font-weight:650;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.up-who small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
+.up-acc{color:var(--text-2)}.up-sn{color:var(--warn);font-weight:700;margin-left:6px;font-size:11.5px}
+.up-ven{display:inline-flex;align-items:center;gap:6px;margin-right:10px;color:var(--text-2)}
+.up-mute{color:var(--muted)}
+.ft.up td.c-act{overflow:visible;text-align:right;padding-right:14px}
+.up-more{position:relative;display:inline-block}
+.up-more>summary{list-style:none;cursor:pointer;width:30px;height:30px;border-radius:8px;display:inline-grid;place-items:center;color:var(--muted);font-size:17px;letter-spacing:1px}
+.up-more>summary::-webkit-details-marker{display:none}
+.up-more>summary:hover,.up-more[open]>summary{background:var(--hover);color:var(--text)}
+.up-more .cc-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:30}
+.cc-card:has(.up-more[open]){overflow:visible}
+.up-none{padding:26px 17px;text-align:center;color:var(--muted);font-size:13px}
+/* invite */
+.iv-b{padding:16px 18px;display:grid;gap:14px}
+.iv-b .form-input{width:100%;box-sizing:border-box}
+.iv-l{display:block;font-size:12px;font-weight:650;color:var(--text-2);margin-bottom:5px}
+.iv-names{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.iv-roles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.iv-team{grid-column:1/-1;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.iv-role{display:block;position:relative;border:1px solid var(--border);border-radius:10px;padding:9px 11px;cursor:pointer;font-size:12px;color:var(--text-2);line-height:1.4}
+.iv-role input{position:absolute;opacity:0;pointer-events:none}
+.iv-role b{display:block;font-size:13px;color:var(--text)}
+.iv-role:has(input:checked){border-color:var(--accent-edge);background:var(--accent-soft)}
+.iv-role:has(input:focus-visible){box-shadow:var(--ring)}
+.iv-ven{max-height:180px;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px}
+.iv-ven label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:13px;cursor:pointer}
+.iv-ven label:hover{background:var(--hover)}
+.iv-foot{display:flex;justify-content:flex-end;gap:8px}
 </style>
 
 <div class="cc-wrap">
 
-  {{/* ── Top bar ── */}}
   <div class="cc-top">
     <div>
       <h1 class="cc-h1">Users</h1>
-    <div class="cc-status">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}} · {{.Operators}} operator{{if ne .Operators 1}}s{{end}}</div>
-      <div class="cc-sub">Super admin → Dev → Access admin → Operator → Viewer. Devs add releases and OTA on top of operator powers; access admins add user and access management. You can only manage accounts below your own level.</div>
+      <div class="cc-status"><b>{{len .Team}}</b> on the AIO team · <b>{{len .Customers}}</b> customer{{if ne (len .Customers) 1}}s{{end}}{{if .Invites}} · <span class="hl warn">{{.Invites}} invite{{if ne .Invites 1}}s{{end}} not used yet</span>{{end}}</div>
     </div>
     <div class="cc-actions">
       <a class="cc-btn js-dest" href="/users/access"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Access control</a>
-      {{if canCreateUsers .Role}}<button type="button" class="cc-btn primary" onclick="document.getElementById('add-user-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add user</button>{{end}}
+      {{if .Assignable}}<button type="button" class="cc-btn primary" onclick="upInviteOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Invite</button>{{end}}
     </div>
   </div>
 
-  {{/* ── KPI strip ── */}}
-  <div class="cc-kpis">
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Admins</span><div class="v">{{.Admins}}</div><div class="d">full access</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Operators</span><div class="v">{{.Operators}}</div><div class="d">actions + queries</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Viewers</span><div class="v">{{.Viewers}}</div><div class="d">read-only</div></div>
-  </div>
+  {{if .InviteFailed}}<div class="vf-strip"><div class="vf-strip-h"><span class="i"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></span><div><h2>The account was made, but the invite email to {{.InviteFailed}} didn't go out</h2><small>Use "Send invite again" in their row's ⋯ menu.</small></div></div></div>{{end}}
 
   {{if .Waiting}}
   <div class="vf-strip" id="waiting-signups">
@@ -109,7 +108,7 @@
       <div class="uu-act">
         <select name="to" class="form-input user-role-sel" required>
           <option value="">Merge into…</option>
-          {{range $.Users}}<option value="{{.ID}}">{{.DisplayName}} ({{.Username}})</option>{{end}}
+          {{range $.AllUsers}}<option value="{{.ID}}">{{.DisplayName}} ({{.Username}})</option>{{end}}
         </select>
         <button type="submit" class="cc-btn sm">Merge</button>
       </div>
@@ -118,92 +117,101 @@
   </div>
   {{end}}
 
-  <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h2>Team</h2><span class="m">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}}</span></div>
-
-    <div class="uu-filters">
-      <input type="search" class="form-input" id="uf-q" placeholder="Search name, username or email…" aria-label="Search users">
-      <select class="form-input" id="uf-role" aria-label="Role"><option value="">Any role</option>{{range .Roles}}<option value="{{.}}">{{roleLabel .}}</option>{{end}}</select>
-      <select class="form-input" id="uf-access" aria-label="Access"><option value="">Any access</option><option value="default">Default for role</option><option value="custom">Custom rules</option><option value="sessions">Live sessions granted</option></select>
-      <select class="form-input" id="uf-status" aria-label="Status"><option value="">Any status</option><option value="active7">Active in the last 7 days</option><option value="idle30">Idle 30+ days</option><option value="never">Never active</option><option value="unverified">Email unverified</option></select>
-      <span class="muted small" id="uf-count"></span>
-      <button type="button" class="cc-btn sm" id="uf-clear" hidden onclick="ufClear()">Clear</button>
-    </div>
-    {{if .Users}}
-    {{range .Users}}{{$uid := .ID}}{{$g := index $.Grants .ID}}{{$sm := index $.Summaries .Username}}
-    <div class="uu-row" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}" data-role="{{.Role}}" data-access="{{if $g.Grants}}custom{{else}}default{{end}}" data-sessions="{{if $g.Sensitive}}1{{else}}0{{end}}" data-verified="{{if .Email}}{{if .EmailVerifiedAt}}1{{else}}0{{end}}{{else}}1{{end}}" data-last="{{if and $sm $sm.LastAt}}{{timeISO (deref $sm.LastAt)}}{{end}}">
-      <a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{if .HasAvatar}}<span class="uu-av has-img"><img src="/users/{{.ID}}/avatar.png?v={{.AvatarVer}}" alt=""></span>{{else}}<span class="uu-av role-{{.Role}}">{{.Initial}}</span>{{end}}</a>
-      <div class="uu-id">
-        <div class="uu-name"><a class="uu-open js-dest" href="/users/{{.ID}}/profile" title="Open profile">{{.DisplayName}}</a> <span class="cc-pill {{if eq .Role "admin"}}danger{{else if eq .Role "user_manager"}}warn{{else if eq .Role "operator"}}info{{else}}{{end}}" style="margin-left:6px;vertical-align:middle;">{{roleLabel .Role}}</span></div>
-        <div class="uu-meta mono">
-          {{.Username}} · Joined {{shortDate .CreatedAt}}
-          {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
-          {{if $g.Grants}} · <a href="/users/{{$uid}}/manage#ua-rules" class="js-dest" style="color:inherit">{{$g.Grants}} access rule{{if ne $g.Grants 1}}s{{end}}</a>{{if $g.Sensitive}} <span title="Has a rule granting remote control, shell or OTA" style="color:var(--warn);font-weight:700;">● sessions</span>{{end}}{{end}}
-          {{with $sm}} · {{.Actions}} action{{if ne .Actions 1}}s{{end}} · {{.Commands}} command{{if ne .Commands 1}}s{{end}}{{if .LastAt}} · active {{timeSince (deref .LastAt)}}{{end}}{{end}}
-        </div>
+  <div class="cc-card" id="up-card">
+    <div class="up-bar">
+      <div class="cc-seg" role="tablist">
+        <button type="button" role="tab" data-tab="team" class="{{if eq .Tab "team"}}on{{end}}" aria-selected="{{eq .Tab "team"}}">AIO team <span class="n">{{len .Team}}</span></button>
+        <button type="button" role="tab" data-tab="customers" class="{{if eq .Tab "customers"}}on{{end}}" aria-selected="{{eq .Tab "customers"}}">Customers <span class="n">{{len .Customers}}</span></button>
       </div>
-      {{if or (eq $.Role "admin") (lt (roleLevel .Role) (roleLevel $.Role))}}
-      <a class="cc-btn sm js-dest uu-manage" href="/users/{{.ID}}/manage" title="Name, role, password, picture, access rules"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Manage</a>
-      {{else}}
-      <span class="muted small" title="At or above your level">view only</span>
-      {{end}}
+      <div class="rt">
+        <input type="search" class="up-q" id="up-q" placeholder="Search name, email{{if eq .Tab "customers"}} or venue{{end}}…" aria-label="Search people">
+        <span class="cc-seg" data-for="team" {{if ne .Tab "team"}}hidden{{end}}><button type="button" class="on" data-role="">Any role</button>{{range .TeamRoles}}<button type="button" data-role="{{.}}">{{roleLabel .}}</button>{{end}}</span>
+        <span class="cc-seg" data-for="customers" {{if ne .Tab "customers"}}hidden{{end}}><button type="button" class="on" data-role="">Any role</button>{{range .CustomerRoles}}<button type="button" data-role="{{.}}">{{roleLabel .}}</button>{{end}}</span>
+      </div>
     </div>
-    {{end}}
-    <div class="uu-none" id="uf-none" hidden>No one matches these filters.</div>
-    {{else}}
-    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span><div><b>No users yet</b>Use "Add user" above to create the first one.</div></div>
-    {{end}}
+
+    {{template "users-pane" (dict "Tab" "team" "Rows" .Team "Cur" .Tab "Role" .Role)}}
+    {{template "users-pane" (dict "Tab" "customers" "Rows" .Customers "Cur" .Tab "Role" .Role)}}
   </div>
 
 </div>
 
-<div id="add-user-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
-  <div class="modal-box" style="max-width:440px;">
+{{if .Assignable}}
+<div id="invite-modal" class="modal-backdrop" onclick="if(event.target===this)upInviteClose()">
+  <div class="modal-box" style="max-width:560px;" role="dialog" aria-labelledby="iv-title" aria-modal="true">
     <div class="card-header">
-      <h2>Add user</h2>
-      <button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('add-user-modal').classList.remove('modal-open')">&times;</button>
+      <h2 id="iv-title">Invite someone</h2>
+      <button class="modal-close" aria-label="Close" type="button" onclick="upInviteClose()">&times;</button>
     </div>
-    <form action="/users" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
-      <div style="display:flex;gap:12px;">
-        <div class="form-row" style="flex:1;">
-          <label class="form-label" for="f-first">First name</label>
-          <input type="text" name="first_name" id="f-first" class="form-input" autocomplete="off">
+    <form action="/users" method="POST" class="iv-b" id="iv-form">
+      <div><label class="iv-l" for="iv-email">Email</label><input type="email" name="email" id="iv-email" class="form-input" required autocomplete="off"></div>
+      <div class="iv-names">
+        <div><label class="iv-l" for="iv-first">First name <span class="up-mute">(optional)</span></label><input type="text" name="first_name" id="iv-first" class="form-input" autocomplete="off"></div>
+        <div><label class="iv-l" for="iv-last">Last name <span class="up-mute">(optional)</span></label><input type="text" name="last_name" id="iv-last" class="form-input" autocomplete="off"></div>
+      </div>
+      <fieldset style="border:0;margin:0;padding:0"><legend class="iv-l">Role</legend>
+        <div class="iv-roles">
+          {{$team := false}}{{$cust := false}}
+          {{range .Assignable}}{{if not (isCustomer .)}}{{if not $team}}<div class="iv-team">AIO team</div>{{$team = true}}{{end}}
+          <label class="iv-role"><input type="radio" name="role" value="{{.}}" {{if eq . "viewer"}}checked{{end}}><b>{{roleLabel .}}</b>{{roleDesc .}}</label>{{end}}{{end}}
+          {{range .Assignable}}{{if isCustomer .}}{{if not $cust}}<div class="iv-team">Customer · only ever sees their venues</div>{{$cust = true}}{{end}}
+          <label class="iv-role"><input type="radio" name="role" value="{{.}}"><b>{{roleLabel .}}</b>{{roleDesc .}}</label>{{end}}{{end}}
         </div>
-        <div class="form-row" style="flex:1;">
-          <label class="form-label" for="f-last">Last name</label>
-          <input type="text" name="last_name" id="f-last" class="form-input" autocomplete="off">
-        </div>
+      </fieldset>
+      <div id="iv-venues" hidden>
+        <span class="iv-l">Venues</span>
+        <div class="iv-ven">{{range .Restaurants}}<label><input type="checkbox" name="restaurants" value="{{.ID}}">{{venueIcon .ID .Name "sm"}}{{.Name}}</label>{{else}}<div class="up-mute" style="padding:8px">No venues yet.</div>{{end}}</div>
       </div>
-      <div class="form-row">
-        <label class="form-label" for="f-email">Email</label>
-        <input type="email" name="email" id="f-email" class="form-input" required aria-required="true" autocomplete="off">
-      </div>
-      <div class="form-row">
-        <label class="form-label" for="f-password">Password</label>
-        <input type="password" name="password" id="f-password" class="form-input" required aria-required="true" autocomplete="new-password">
-      </div>
-      <div class="form-row">
-        <label class="form-label" for="f-role">Role</label>
-        <select name="role" id="f-role" class="form-input">
-          {{range .Assignable}}<option value="{{.}}"{{if eq . "viewer"}} selected{{end}}>{{roleLabel .}}{{if eq . "viewer"}} — read-only + screenshot{{else if eq . "operator"}} — actions, queries, QA, per access policy{{else if eq . "user_manager"}} — operator + manage users &amp; access control{{else if eq . "admin"}} — everything{{else if eq . "owner"}} — sees only their restaurant's devices{{end}}</option>{{end}}
-        </select>
-      </div>
-      <div class="form-row" id="f-restaurants-row" hidden>
-        <label class="form-label" for="f-restaurants">Restaurant(s) this owner may see</label>
-        <select name="restaurants" id="f-restaurants" class="form-input" multiple size="5">
-          {{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-        </select>
-        <div class="muted small">Hold Ctrl / ⌘ to pick several. Can be changed later under Access control.</div>
-      </div>
-      <script src="/static/js/users/role-field.js?v={{assetVer}}"></script>
-      <button type="submit" class="cc-btn primary" style="justify-self:start;">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-        Create user
-      </button>
+      <p class="up-mute" style="margin:0;font-size:12px">They get an email with a link to choose their password. It works for 7 days.</p>
+      <div class="iv-foot"><button type="button" class="cc-btn" onclick="upInviteClose()">Cancel</button><button type="submit" class="cc-btn primary">Send invite</button></div>
     </form>
   </div>
 </div>
+{{end}}
 <script src="/static/js/users/list.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}
+{{end}}
+
+{{define "users-pane"}}
+    <div class="up-pane" data-pane="{{.Tab}}" {{if ne .Cur .Tab}}hidden{{end}}>
+      {{if .Rows}}
+      <table class="ft up">
+        <thead><tr>
+          <th><button type="button" class="ft-sort" data-sort="name">Name <span class="ft-dir">↑</span></button></th>
+          <th class="c-role on"><button type="button" class="ft-sort" data-sort="rank">Role <span class="ft-dir">↓</span></button></th>
+          {{if eq $.Tab "team"}}<th class="c-acc">Access</th>{{else}}<th class="c-venue">Venues</th>{{end}}
+          <th class="c-seen ft-num"><button type="button" class="ft-sort" data-sort="seen">Last active <span class="ft-dir">↓</span></button></th>
+          <th class="c-act"><span class="sr-only">Actions</span></th>
+        </tr></thead>
+        <tbody>
+        {{range .Rows}}
+        <tr class="ft-row" data-href="/users/{{.ID}}/profile" data-role="{{.Role}}" data-rank="{{.Rank}}" data-name="{{.DisplayName}}" data-seen="{{if .LastAt}}{{timeISO (deref .LastAt)}}{{end}}" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}{{range .Venues}} {{.Name}}{{end}}">
+          <td><a class="up-who js-dest" href="/users/{{.ID}}/profile" style="color:inherit;text-decoration:none">{{template "ubub" (userBubble .Username)}}<span class="t"><b>{{.DisplayName}}</b><small>{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}</small></span></a></td>
+          <td><span class="cc-pill {{rolePill .Role}}">{{roleLabel .Role}}</span></td>
+          {{if eq $.Tab "team"}}
+          <td class="up-acc">{{.Access}}{{range .Sensitive}}<span class="up-sn" title="An access rule adds this">● {{.}}</span>{{end}}</td>
+          {{else}}
+          <td>{{range .Venues}}<span class="up-ven">{{venueIcon .ID .Name "sm"}}{{.Name}}</span>{{else}}<span class="up-mute">No venue yet</span>{{end}}</td>
+          {{end}}
+          <td class="ft-num">{{if .Invited}}<span class="cc-tag warn" title="Invite sent {{timeSince (deref .Invited)}}">invite sent</span>{{else if .LastAt}}{{timeSince (deref .LastAt)}}{{else}}<span class="up-mute">never</span>{{end}}</td>
+          <td class="c-act">{{if .CanManage}}
+            <details class="up-more"><summary aria-label="More for {{.DisplayName}}">⋯</summary>
+              <div class="cc-menu" role="menu">
+                <a class="cc-mi js-dest" role="menuitem" href="/users/{{.ID}}/manage"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Role and access</a>
+                <a class="cc-mi js-dest" role="menuitem" href="/users/{{.ID}}/profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>Profile</a>
+                {{if .Invited}}<form method="POST" action="/users/{{.ID}}/invite" hx-boost="true"><input type="hidden" name="redirect" value="/users{{if eq $.Tab "customers"}}?tab=customers{{end}}"><button type="submit" class="cc-mi" role="menuitem"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Send invite again</button></form>{{end}}
+                {{if canCreateUsers $.Role}}<hr class="cc-msep">
+                <form method="POST" action="/users/{{.ID}}/delete" hx-boost="true" hx-confirm="Remove {{.DisplayName}} ({{.Username}})? They lose access straight away."><button type="submit" class="cc-mi danger" role="menuitem"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove</button></form>{{end}}
+              </div>
+            </details>{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+      <div class="up-none" hidden>No one matches.</div>
+      {{else}}
+      <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span><div><b>{{if eq $.Tab "team"}}No one on the AIO team yet{{else}}No customer accounts yet{{end}}</b>{{if eq $.Tab "customers"}}Invite a restaurant's owner or staff with Invite above. They only ever see their own venues.{{else}}Use Invite above.{{end}}</div></div>
+      {{end}}
+    </div>
 {{end}}

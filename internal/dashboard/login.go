@@ -297,7 +297,8 @@ func (h *Handler) ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Invalid": true, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
+	_, perr := h.db.PeekUserToken(r.Context(), token, "invite")
+	h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Invite": perr == nil, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 }
 
 // ResetPasswordSubmit validates the token, sets the new password, and — since a
@@ -313,7 +314,7 @@ func (h *Handler) ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Invalid": true, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 	}
 	retry := func(msg string) {
-		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Error": msg, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
+		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Invite": r.FormValue("invite") == "1", "Error": msg, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 	}
 
 	if len(password) < 6 {
@@ -325,10 +326,14 @@ func (h *Handler) ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The same page sets the first password of an invited account (an "invite"
+	// token, 7 days) and resets a forgotten one (a "reset" token, 1 hour).
 	userID, err := h.db.ConsumeUserToken(r.Context(), token, "reset")
 	if err != nil {
-		invalid()
-		return
+		if userID, err = h.db.ConsumeUserToken(r.Context(), token, "invite"); err != nil {
+			invalid()
+			return
+		}
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {

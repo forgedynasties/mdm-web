@@ -16,7 +16,7 @@ import (
 type User struct {
 	ID              uuid.UUID  `json:"id"`
 	Username        string     `json:"username"`
-	Role            string     `json:"role"` // "viewer" | "operator"
+	Role            string     `json:"role"` // see roleDefs in dashboard/roles.go
 	PasswordHash    string     `json:"-"`
 	Email           *string    `json:"email,omitempty"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
@@ -560,6 +560,30 @@ func (d *DB) ConsumeUserToken(ctx context.Context, token, purpose string) (uuid.
 		return uuid.Nil, err
 	}
 	return userID, nil
+}
+
+// PendingInvites maps each user with an unused, unexpired invite to when the latest
+// one was sent — the people who were invited and haven't set a password yet.
+func (d *DB) PendingInvites(ctx context.Context) (map[uuid.UUID]time.Time, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT user_id, MAX(created_at) FROM user_tokens
+		WHERE purpose = 'invite' AND used_at IS NULL AND expires_at > NOW()
+		GROUP BY user_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[uuid.UUID]time.Time{}
+	for rows.Next() {
+		var id uuid.UUID
+		var at time.Time
+		if err := rows.Scan(&id, &at); err != nil {
+			return nil, err
+		}
+		out[id] = at
+	}
+	return out, rows.Err()
 }
 
 // GetUserLayout returns the saved layout JSON for one user + page, or nil when the

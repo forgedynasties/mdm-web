@@ -890,6 +890,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canCreateUsers": roleCreatesUsers,
 		"roleLabel":      roleLabel,
 		"roleLevel":      roleLevel,
+		"roleDesc":       roleDesc,
+		"rolePill":       rolePill,
+		// isCustomer: an owner or staff account (venue-walled, owner home only).
+		"isCustomer": roleIsCustomer,
+		// canSupport: the safe device actions — screenshot, reboot, lock, lost mode,
+		// alerts, notes. Support and up; mirrors requireSupport.
+		"canSupport": roleCanSupport,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.
 		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },

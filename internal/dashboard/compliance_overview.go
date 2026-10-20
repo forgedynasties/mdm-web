@@ -61,7 +61,7 @@ type compVenueView struct {
 }
 
 func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
-	if h.role(r) == "owner" {
+	if roleIsCustomer(h.role(r)) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

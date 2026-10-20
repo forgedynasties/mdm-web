@@ -106,7 +106,7 @@
   </form>
 </div>
 {{else}}
-{{/* Read-only view (operators, super ops): the release facts always render, so the
+{{/* Read-only view (operators, fleet managers): the release facts always render, so the
      page is never blank; the changelog shows when there is one. */}}
 {{$full := 0}}{{$inc := 0}}{{range .Packages}}{{if eq .Status "active"}}{{if eq .Type "full"}}{{$full = add $full 1}}{{else}}{{$inc = add $inc 1}}{{end}}{{end}}{{end}}
 <div class="cc-kpis" style="margin-bottom:18px;">

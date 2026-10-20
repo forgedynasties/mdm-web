@@ -64,9 +64,8 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// requireAdminOrOperator extends requireAdmin (admin/dev) to also allow operators, for
-// the fleet-organisation tasks the test team owns: creating groups and restaurants
-// and setting locked mode. Viewers and operators still can't reach these.
+// requireAdminOrOperator: operator and up, for the fleet-organisation tasks — groups,
+// venues, lock settings. Same check as requireOperatorOrAdmin.
 func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -86,23 +85,32 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 	}
 }
 
-// requireStrictAdmin guards the two areas a dev must never reach: settings and
-// user management. Only the env-configured "admin" passes.
-// requireUserManager guards the Users pages: admin or user_manager. Per-target
-// elevation checks (who may edit whom) live in the handlers via mayManageUser.
-// requireOTA guards firmware pushes: admin, dev, or the super op (who may deploy
-// releases but not manage the release packages themselves).
-// roleAboveOperator is true for the roles ranked above operator in roleLevels:
-// access admin, super op, dev and admin.
-func roleAboveOperator(role string) bool {
-	return roleLevels[role] > roleLevels["operator"]
+// requireSupport guards the safe device actions Support holds — lock / unlock,
+// notes, alerts — on top of the per-device access check in deviceRoute.
+func (h *Handler) requireSupport(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			redirectLogin(w, r)
+			return
+		}
+		if !roleCanSupport(s.Role) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if h.maintenanceGate(w, r) {
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
 }
 
-// roleCanAppLibrary: the app library (browse, upload, register) is open to the
-// roles that push software: admin, dev and super op. Removing an APK is admin-only.
-func roleCanAppLibrary(role string) bool {
-	return role == "admin" || role == "super_op"
-}
+// requireStrictAdmin guards Settings and the other super-admin-only areas.
+// requireUserManager guards the Users pages: fleet manager and up. Per-target
+// checks (who may edit whom) live in the handlers via mayManageUser.
+// requireOTA guards firmware pushes: admin and up, plus fleet managers, whose
+// targets the access policy then limits to devices a rule names for OTA.
 
 // requireAppLibrary guards the app library page and its upload endpoints.
 func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
@@ -135,8 +143,7 @@ func (h *Handler) requireOTA(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// requireAccountAdmin guards account creation / deletion / merge: admin or access
-// admin. A super op may open the Users pages and edit rules but not add accounts.
+// requireAccountAdmin guards account creation / deletion / merge: fleet manager and up.
 func (h *Handler) requireAccountAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -230,9 +237,8 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 	}
 }
 
-// requireOperatorRole gates QA result-marking to the operator role only. Managing test
-// cases stays admin-only; recording pass/fail is the operator's job and nobody
-// else's (viewer/operator/admin all see results read-only).
+// requireOperatorRole gates QA result-marking to the test team (operator to admin).
+// Managing test cases stays with the super admin.
 func (h *Handler) requireOperatorRole(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)

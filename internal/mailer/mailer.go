@@ -128,6 +128,17 @@ func ResetPasswordHTML(resetURL string) string {
 		html.EscapeString(resetURL)))
 }
 
+// InviteHTML builds the invitation email: who invited them, as what, and the link
+// that lets them choose their own password.
+func InviteHTML(inviteURL, inviter, role string) string {
+	return emailShell("You're invited to AIO MDM", fmt.Sprintf(
+		`<p>%s added you to AIO MDM as <b>%s</b>.</p>
+		<p>Choose a password to sign in. Your email address is your username.</p>
+		<p><a href="%s" style="display:inline-block;padding:10px 20px;background:#cf4529;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Set your password</a></p>
+		<p style="color:#666;font-size:13px;">This link expires in 7 days. If you weren't expecting this, you can ignore this email.</p>`,
+		html.EscapeString(inviter), html.EscapeString(role), html.EscapeString(inviteURL)))
+}
+
 func emailShell(title, bodyHTML string) string {
 	return fmt.Sprintf(`<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:480px;margin:0 auto;padding:24px;">
 <h2 style="margin:0 0 12px;">%s</h2>

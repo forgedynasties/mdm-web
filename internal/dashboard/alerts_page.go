@@ -180,7 +180,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	if canAct {
 		if users, err := h.db.ListUsers(r.Context()); err == nil {
 			for _, u := range users {
-				if u.Role == "viewer" {
+				if !roleCanSupport(u.Role) {
 					continue
 				}
 				assignees = append(assignees, assigneeOption{u.Username, names[u.Username]})

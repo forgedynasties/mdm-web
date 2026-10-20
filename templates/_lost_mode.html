@@ -2,9 +2,9 @@
      and a red band at the top of the page while the device is lost. internal/dashboard/lost_mode.go */}}
 
 {{define "lost-menu-item"}}{{if supports .Device "lost_mode"}}{{if .Lost.On}}
-<button type="button" class="cc-mi danger{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} data-role-need="operator"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-lift-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Lift lost mode…<span class="rt">Lost</span></button>
+<button type="button" class="cc-mi danger{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} data-role-need="support"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-lift-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Lift lost mode…<span class="rt">Lost</span></button>
 {{else}}
-<button type="button" class="cc-mi danger{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} data-role-need="operator"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Mark as lost…{{if .Lost.Waiting}}<span class="rt">sending</span>{{end}}</button>
+<button type="button" class="cc-mi danger{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} data-role-need="support"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Mark as lost…{{if .Lost.Waiting}}<span class="rt">sending</span>{{end}}</button>
 {{end}}{{end}}{{end}}
 
 {{define "lost-band"}}{{if or .Lost.On .Lost.Waiting}}
@@ -21,7 +21,7 @@
   </span>
   <span class="lb-acts">
     <button type="button" class="cc-btn sm" onclick="var t=document.getElementById('dd-tab-location'); if(t){t.click(); var c=document.getElementById('lost-report')||t; setTimeout(function(){c.scrollIntoView({behavior:'smooth',block:'start'})},60)}">{{if .LostReport}}Where it's been{{else}}Show on map{{end}}</button>
-    {{if .Lost.On}}<button type="button" class="cc-btn sm{{if not (canOperate .Role)}} role-locked{{end}}"{{if not (canOperate .Role)}} data-role-need="operator"{{end}} onclick="document.getElementById('lost-lift-dlg').showModal()">Found it — lift lost mode</button>{{end}}
+    {{if .Lost.On}}<button type="button" class="cc-btn sm{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} data-role-need="support"{{end}} onclick="document.getElementById('lost-lift-dlg').showModal()">Found it — lift lost mode</button>{{end}}
   </span>
 </div>
 {{end}}{{end}}

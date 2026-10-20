@@ -46,7 +46,7 @@ type compWidgetCheck struct {
 // overviewCompliance builds the widget; nil for viewers the Compliance page refuses, or
 // when the data can't be read.
 func (h *Handler) overviewCompliance(r *http.Request) *compWidget {
-	if h.role(r) == "owner" {
+	if roleIsCustomer(h.role(r)) {
 		return nil
 	}
 	ctx := r.Context()

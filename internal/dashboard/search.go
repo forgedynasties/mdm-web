@@ -40,7 +40,7 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// People: anyone signed in may open a colleague's profile (owners have no Users area).
-	if h.role(r) != "owner" {
+	if !roleIsCustomer(h.role(r)) {
 		if us, err := h.db.ListUsers(r.Context()); err == nil {
 			for _, u := range us {
 				sub := roleLabel(u.Role)
