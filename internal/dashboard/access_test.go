@@ -2,6 +2,8 @@ package dashboard
 
 import (
 	"context"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -377,5 +379,25 @@ func TestRoleLadder(t *testing.T) {
 	}
 	if roleCanOperate("owner") || roleCanSupport("staff") || roleManagesUsers("owner") {
 		t.Error("a customer reached a team gate")
+	}
+}
+
+// TestRoleConstraintCoversEveryRole: the users.role check the migration script leaves in
+// place last must allow every role in roleDefs, or saving that role fails in production
+// (20 Oct: a 7 Oct step re-set the old list after the new one).
+func TestRoleConstraintCoversEveryRole(t *testing.T) {
+	src, err := os.ReadFile("../db/migrations.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := regexp.MustCompile(`users_role_check CHECK \(role IN \(([^)]*)\)\)`).FindAllStringSubmatch(string(src), -1)
+	if len(all) == 0 {
+		t.Fatal("no users_role_check in the migrations")
+	}
+	last := all[len(all)-1][1]
+	for _, r := range roleOrder {
+		if !strings.Contains(last, "'"+r+"'") {
+			t.Errorf("the last users_role_check (%s) does not allow %q", last, r)
+		}
 	}
 }

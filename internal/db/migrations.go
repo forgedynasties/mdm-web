@@ -1536,7 +1536,7 @@ ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','sup
 -- + remote + access rules). Remap before the constraint drops the value.
 UPDATE users SET role = 'super_op' WHERE role = 'dev';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','super_op','admin','owner'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','admin','owner','staff'));
 
 -- The one adb key pair the firmware trusts (2026-10-07, for the AIO Enroll Android app).
 -- One row; the private key is sealed with FLEET_ADB_KEY_SECRET before it gets here. The
@@ -2074,5 +2074,9 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS staff_pin TEXT NOT NULL DEFAULT
 -- Sessions carry the role too, so open sessions move with their user.
 UPDATE users    SET role = 'fleet_manager' WHERE role IN ('super_op', 'user_manager');
 UPDATE sessions SET role = 'fleet_manager' WHERE role IN ('super_op', 'user_manager');
+-- The effective role constraint: exactly the roles in roleDefs (dashboard/roles.go).
+-- Keep it last; TestRoleConstraintCoversEveryRole checks it.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','admin','owner','staff'));
 
 `
