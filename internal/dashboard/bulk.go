@@ -242,9 +242,9 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	h.markKioskManual(r.Context(), deviceIDs)
 	h.pushKioskConfigToDevices(r.Context(), deviceIDs)
-	verb := "Disabled kiosk on"
+	verb := "Unlocked"
 	if enabled {
-		verb = "Enabled kiosk on"
+		verb = "Locked"
 	}
 	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("%s %d device%s", verb, len(deviceIDs), plural(len(deviceIDs))), "success", "refresh-devices")
 }

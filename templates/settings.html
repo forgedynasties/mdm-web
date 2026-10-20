@@ -175,7 +175,7 @@
 {{$keyOK := and .FleetAdbKey.SecretSet .FleetAdbKey.Keys}}{{$apkOK := .AgentAPKHosted}}{{$scanOK := .AnyVenueScanning}}
 {{if not (and $keyOK $apkOK $scanOK)}}
 <div class="cc-card st-start" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><h2>Getting started</h2><span class="m">{{if $keyOK}}1{{else}}0{{end}}{{if $apkOK}}+1{{end}}{{if $scanOK}}+1{{end}} of 3 done</span></div>
+  <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><h2>Getting started</h2><span class="m">{{$done := 0}}{{if $keyOK}}{{$done = add $done 1}}{{end}}{{if $apkOK}}{{$done = add $done 1}}{{end}}{{if $scanOK}}{{$done = add $done 1}}{{end}}{{$done}} of 3 done</span></div>
   <div class="st-steps">
     <a class="cs {{if $keyOK}}ok{{else}}on{{end}}" href="/settings#fleet-adb-key"><span class="n">{{if $keyOK}}✓{{else}}1{{end}}</span><div><b>Upload the fleet adb key</b><span>{{if $keyOK}}Uploaded — scouts can open devices that trust it.{{else}}The key our images trust. Scouts cannot open a device without it.{{end}}</span></div></a>
     <a class="cs {{if $apkOK}}ok{{else if $keyOK}}on{{end}}" href="/lineup?client=dpc"><span class="n">{{if $apkOK}}✓{{else}}2{{end}}</span><div><b>Host the standard client</b><span>{{if $apkOK}}Hosted — QR and scout enrolment have something to install.{{else}}Publish an APK to the dpc slot so QR and scout enrolment have something to install.{{end}}</span></div></a>

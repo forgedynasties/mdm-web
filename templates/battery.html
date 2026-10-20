@@ -113,7 +113,7 @@ details.bt-climb pre{font-size:11px;white-space:pre-wrap;word-break:break-all;co
         {{else}}<div class="bt-empty" style="padding:14px 8px">None yet. A climb arrives after a charge from low enough to climb the rungs.</div>{{end}}
       </section>
     {{else}}
-      <section class="cc-card bt-card"><div class="bt-empty">Pick a device on the left.</div></section>
+      <section class="cc-card bt-card"><div class="bt-empty">{{if .Devices}}Pick a device on the left.{{else}}Nothing to show yet. Devices appear on the left once they send battery data.{{end}}</div></section>
     {{end}}
     </div>
   </div>

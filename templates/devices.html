@@ -987,11 +987,11 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 <div id="bulk-kiosk-modal" class="modal-backdrop" onclick="closeBulkKioskModal(event)">
   <div class="modal-box">
     <div class="modal-header">
-      <span class="modal-title">Kiosk Mode</span>
+      <span class="modal-title">Lock</span>
       <button class="modal-close" aria-label="Close" type="button" onclick="closeBulkKioskModal()">&times;</button>
     </div>
     <div class="modal-body">
-      <div class="muted small">Apply kiosk settings to <span id="bulk-kiosk-count">0</span> selected device(s).</div>
+      <div class="muted small">Apply lock settings to <span id="bulk-kiosk-count">0</span> selected device(s).</div>
       <form action="/devices/bulk-kiosk" method="POST" id="bulk-kiosk-form" class="command-form" style="padding:0;margin-top:14px;">
         <input type="hidden" name="kiosk_enabled" id="bulk-kiosk-enabled" value="1">
         <div class="ddc-kpop-row">

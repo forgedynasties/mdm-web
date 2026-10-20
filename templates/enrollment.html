@@ -117,7 +117,7 @@
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Fleet · Enroll</div>
-      <h1 class="cc-h1" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> device{{if ne $inboxN 1}}s{{end}} need{{if eq $inboxN 1}}s{{end}} a site{{else}}Every device is <span class="hl ok">placed</span>{{end}}</h1>
+      <h1 class="cc-h1" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> new device{{if ne $inboxN 1}}s{{end}} to onboard{{else}}Every device is <span class="hl ok">placed</span>{{end}}</h1>
       {{/* The KPI tiles are gone: every number on them was already on this page
            (the inbox count twice over), so the ones worth keeping live here, each
            still a link to the fleet filter it names. */}}
@@ -477,9 +477,9 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     <input type="hidden" name="from" value="/enrollment">
     <select class="en-sel" name="restaurant_id" aria-label="Site">
       <option value="">Site…</option>
-      {{range $.Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+      {{$rid := ""}}{{with .RestaurantID}}{{$rid = .String}}{{end}}{{range $.Restaurants}}<option value="{{.ID}}"{{if eq .ID.String $rid}} selected{{end}}>{{.Name}}</option>{{end}}
     </select>
-    <button type="submit" class="cc-btn primary sm">Done</button>
+    <button type="submit" class="cc-btn sm">Done</button>
   </form>
   {{else}}<div></div>{{end}}
 </div>

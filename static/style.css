@@ -5302,7 +5302,9 @@ html[data-theme="dark"] .ddc-gtag { color: #a9adfb; }
 .ddc-gtag .gtag-x { border: 0; background: none; color: #4b50c4; opacity: .6; cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
 .ddc-gtag .gtag-x:hover { opacity: 1; }
 html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
-.ddc-kv .kv-add { font-size: 12px; font-weight: 600; color: var(--muted); text-decoration: none; border: 1px dashed var(--border); border-radius: 7px; padding: 2px 8px; }
+.ddc-kv .kv-add { font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); background: none; text-decoration: none; border: 1px dashed var(--border); border-radius: 7px; padding: 2px 8px; cursor: pointer; }
+/* White on the dark theme's lighter --danger is 3:1; the badge keeps a deeper red there (5:1). */
+html[data-theme="dark"] .nav-badge { background: #c24444; }
 .ddc-kv .kv-add:hover { color: var(--accent-text); border-color: var(--accent); }
 .ddc-actsec { margin-top: 18px; }
 .ddc-act-h { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 6px; }
@@ -5855,8 +5857,8 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
 .dock .di-m { flex: 1; min-width: 0; }
 .dock .di-t { display: block; font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dock .di-s { display: block; font-size: 11.5px; color: #a0a1ab; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dock .di-go { flex: none; font-size: 12px; font-weight: 650; background: #ff5b5b; color: #fff; border-radius: 99px; padding: 6px 13px; text-decoration: none; }
-.dock .di-go:hover { background: #ff7070; }
+.dock .di-go { flex: none; font-size: 12px; font-weight: 650; background: #d83a3a; color: #fff; border-radius: 99px; padding: 6px 13px; text-decoration: none; }
+.dock .di-go:hover { background: #c93636; }
 .dock .di-x { flex: none; width: 28px; height: 28px; border: 0; border-radius: 50%; background: transparent; color: #a0a1ab; font-size: 18px; line-height: 1; cursor: pointer; }
 .dock .di-x:hover { background: #262633; color: #fff; }
 @media (prefers-reduced-motion: reduce) {
@@ -6998,7 +7000,7 @@ html[data-theme="dark"] .tour-spot{box-shadow:0 0 0 9999px rgba(0,0,0,.72),0 0 0
 body .cc-h1, body .ov3-h1 { font-family: var(--font-display); font-weight: 300; font-size: 34px; letter-spacing: -.035em; line-height: 1.1; text-wrap: balance; }
 body .cc-h1 .hl, body .ov3-h1 .hl { color: var(--accent); }
 body .cc-h1 .hl.ok { color: var(--ok); } body .cc-h1 .hl.warn { color: var(--warn); } body .cc-h1 .hl.danger { color: var(--danger); }
-body .cc-eyebrow, body .ov3-eyebrow { font-weight: 500; letter-spacing: .12em; color: var(--accent); }
+body .cc-eyebrow, body .ov3-eyebrow { font-weight: 500; letter-spacing: .12em; color: var(--accent-text); }
 body .cc-sub, body .ov3-sub { font-size: 14px; }
 body .cc-big, body .ov3-big { font-weight: 300; letter-spacing: -.04em; }
 body .cc-kpi .v, body .ov3-kpi .v { font-weight: 300; font-size: 30px; letter-spacing: -.04em; }
@@ -7409,6 +7411,7 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .appbar-island .isl-acts { display: flex; gap: 6px; flex: none; align-items: center; }
 .appbar-island .isl-acts form { margin: 0; display: inline-flex; gap: 6px; align-items: center; }
 .appbar-island .isl-acts .cc-btn { padding: 5px 11px; font-size: 12px; box-shadow: none; }
+.appbar-island .isl-acts .cc-btn:focus-visible { box-shadow: var(--ring); }
 .appbar-island .isl-acts select { font: inherit; font-size: 12px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 .appbar.island-live.is-scrolled { box-shadow: 0 0 0 2px var(--warn), 0 12px 40px rgba(0,0,0,.12) !important; }
 /* Phones: the bar scrolls away, so the island would never be seen; pages keep their own header. */

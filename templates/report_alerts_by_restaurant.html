@@ -1,6 +1,6 @@
 {{define "report-alerts-by-restaurant"}}
 <div class="rab-h">
-  <span class="rab-t">Open alerts by restaurant</span>
+  <span class="rab-t">Open alerts by venue</span>
   <span class="rab-total">{{.Total}} open · live</span>
 </div>
 {{if .Rows}}
@@ -16,9 +16,10 @@
   </a>
   {{end}}
 </div>
-{{if .More}}<a class="rab-more" href="/alerts?status=open">+{{.More}} more restaurant{{if ne .More 1}}s{{end}} with open alerts →</a>{{end}}
+{{if .More}}<a class="rab-more" href="/alerts?status=open">+{{.More}} more venue{{if ne .More 1}}s{{end}} with open alerts →</a>{{end}}
+{{if .Elsewhere}}<a class="rab-more" href="/alerts?status=open">+{{.Elsewhere}} open alert{{if ne .Elsewhere 1}}s{{end}} not at a venue →</a>{{end}}
 {{else}}
-<div class="rab-empty">No open alerts — every restaurant is quiet.</div>
+<div class="rab-empty">{{if .Elsewhere}}No open alerts at a venue.{{else}}No open alerts — every venue is quiet.{{end}}</div>
 {{end}}
 {{end}}
 

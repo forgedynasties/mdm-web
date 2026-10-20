@@ -32,6 +32,21 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.56.0",
+		Date:    "2026-10-20",
+		Changes: []string{
+			"Kiosk is the product, Lock is the feature. Locking a device to one app is now called Lock everywhere in the dashboard, with a Device lock page of venues and an on/off switch each. Every role names its app on Lineup, and Lock uses it: the Lock button on a device locks to its role's app by itself.",
+			"Venues get icons, found from the venue's website, and one Venue settings card where Profile, Location, Service hours, Device lock and Device Wi-Fi each open in place. Location searches addresses and can use where the venue's devices are. A venue's Wi-Fi networks are pushed to every device there, new ones included.",
+			"Lost mode: mark a tablet as lost and it shows a lost screen with the venue and a support number; nearby tablets listen for it, and a venue can have tablets lock themselves when they leave its Wi-Fi.",
+			"Compliance: one page with the share of devices passing every required check, per check, per venue and per device, the rules behind it, and a compliance section in the venue reports.",
+			"Clients keep themselves up to date. Each client has a standing instruction to keep devices on the hosted build, inside each venue's own quiet hours.",
+			"A new device page view with Overview, Apps, Activity, Health, Location and About tabs, a week-long graph finder, a Host app card that shows the app a tablet is there to run, and a Battery wear card. The classic view stays one click away.",
+			"A new Overview: venues with their health, compliance, devices by type, what needs attention and a clean-up list. Wireless adb connects from the device page with live progress, ending in the command to copy.",
+			"Retired: the rotating unlock code (the exit PIN stays), guest Wi-Fi, the boot logo page, and the Overview map card.",
+			"Polish: Forgot password and Reset password match the sign-in page and follow dark mode, the sign-up form fits the screen, keyboard focus shows on every header button, and empty pages say what to do next.",
+		},
+	},
+	{
 		Version: "1.55.0",
 		Date:    "2026-10-07",
 		Changes: []string{

@@ -112,7 +112,7 @@
       <div class="pv-name" id="pv-name">New venue</div>
       <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg><span id="pv-addr">No address yet</span></div>
       <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="pv-tz">Per-device timezone</span></div>
-      <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span data-dp-count>0</span> device(s) to deploy</div>
+      <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span data-dp-count>0</span> device<span data-dp-s>s</span> to deploy</div>
     </aside>
     {{end}}
   </div>
@@ -124,7 +124,7 @@
       {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Prompt" "Search serial, restaurant, group — or paste serials")}}
     
     <div class="rf-bottom" style="padding:16px 20px;">
-      <span class="muted small">Creating <b id="rf-sum-name" style="color:var(--text);">a new venue</b> · deploying <b data-dp-count style="color:var(--text);">0</b> device(s)</span>
+      <span class="muted small">Creating <b id="rf-sum-name" style="color:var(--text);">a new venue</b> · deploying <b data-dp-count style="color:var(--text);">0</b> device<span data-dp-s>s</span></span>
       <span style="flex:1;"></span>
       <a href="/restaurants" class="btn-outline">Cancel</a>
       <button type="submit" class="btn-primary" id="rf-create-btn" disabled>Create restaurant</button>

@@ -162,9 +162,9 @@ func (d Device) KindLabel() string {
 	case d.IsMDMLite():
 		return "MDM Lite"
 	case d.IsDPC():
-		return "MDM DPC"
+		return "Standard MDM"
 	}
-	return "MDM Firmware" // the system-app client on our own firmware
+	return "Firmware MDM" // the system-app client on our own firmware
 }
 
 // Retired reports whether the device has left the fleet (retired, wiped or unenrolled).

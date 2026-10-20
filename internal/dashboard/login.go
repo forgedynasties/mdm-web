@@ -251,7 +251,7 @@ func (h *Handler) ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 
 	sent := func() {
-		h.tmpl.ExecuteTemplate(w, "forgot_password.html", map[string]any{"Sent": true, "Brand": h.cfg.CustomBrand()})
+		h.tmpl.ExecuteTemplate(w, "forgot_password.html", map[string]any{"Sent": true, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 	}
 
 	ip := ratelimit.ClientIP(r)
@@ -310,10 +310,10 @@ func (h *Handler) ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	confirm := r.FormValue("confirm")
 
 	invalid := func() {
-		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Invalid": true, "Brand": h.cfg.CustomBrand()})
+		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Invalid": true, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 	}
 	retry := func(msg string) {
-		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Error": msg, "Brand": h.cfg.CustomBrand()})
+		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Error": msg, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 	}
 
 	if len(password) < 6 {

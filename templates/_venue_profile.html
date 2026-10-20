@@ -126,10 +126,10 @@
   <div class="vs-note">{{if $sw.HasOwn}}Set for this venue{{else}}Fleet default{{end}}{{if $sw.TZ}} · {{$sw.TZ}}{{else if $r.Timezone}} · {{$r.Timezone}}{{end}}. Offline and battery alerts count only inside these hours.</div>
   {{if $can}}
   <form class="vn-form" action="/restaurants/{{$r.ID}}/service-window" method="POST">
-    <div class="form-row"><label class="form-label">Open</label><input type="time" name="open" class="form-input" value="{{$sw.Open}}"></div>
-    <div class="form-row"><label class="form-label">Close</label><input type="time" name="close" class="form-input" value="{{$sw.Close}}"></div>
-    <div class="form-row"><label class="form-label">Overnight open</label><input type="time" name="night_open" class="form-input" value="{{$sw.NightOpen}}"></div>
-    <div class="form-row"><label class="form-label">Overnight close</label><input type="time" name="night_close" class="form-input" value="{{$sw.NightClose}}"></div>
+    <div class="form-row"><label class="form-label">Open</label><input type="time" name="open" aria-label="Open" class="form-input" value="{{$sw.Open}}"></div>
+    <div class="form-row"><label class="form-label">Close</label><input type="time" name="close" aria-label="Close" class="form-input" value="{{$sw.Close}}"></div>
+    <div class="form-row"><label class="form-label">Overnight open</label><input type="time" name="night_open" aria-label="Overnight open" class="form-input" value="{{$sw.NightOpen}}"></div>
+    <div class="form-row"><label class="form-label">Overnight close</label><input type="time" name="night_close" aria-label="Overnight close" class="form-input" value="{{$sw.NightClose}}"></div>
     <div class="form-row full"><label class="form-label">Time zone <span class="muted small">(blank = each device's own)</span></label><input type="text" name="timezone" class="form-input" value="{{$sw.TZ}}" placeholder="GMT-8"></div>
     <p>Window-gated alerts (offline during service, low battery during service, overnight charging) fire only for deployed units during these hours.</p>
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save hours</button>{{if $sw.HasOwn}}<button type="submit" name="action" value="reset" class="cc-btn sm" title="Revert to the fleet default window">Use fleet default</button>{{end}}</div>

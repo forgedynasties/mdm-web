@@ -73,6 +73,7 @@
         <td><span class="lk-tags">{{if .Exited}}<a class="warn" href="#lock-exits">{{.Exited}} taken out</a>{{end}}{{if .Missing}}<span class="bad" title="Their app isn't installed, or their role has no app on Lineup">{{.Missing}} app missing</span>{{end}}{{if .Cant}}<span class="bad" title="Their agent can't lock the screen">{{.Cant}} can't lock</span>{{end}}</span></td>
       </tr>
       {{end}}
+      {{if .NoVenue}}<tr><td><span class="lk-quiet">Not at a venue</span></td><td></td><td><span class="lk-quiet">{{.NoVenue}} device{{if ne .NoVenue 1}}s{{end}} · lock them with a rule below</span></td><td></td></tr>{{end}}
       </tbody>
     </table>
     {{else}}

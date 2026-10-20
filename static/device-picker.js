@@ -40,6 +40,7 @@
     var f = field();
     if (f) f.value = staged.map(function (it) { return it.serial; }).join('\n');
     document.querySelectorAll('[data-dp-count]').forEach(function (el) { el.textContent = staged.length; });
+    document.querySelectorAll('[data-dp-s]').forEach(function (el) { el.textContent = staged.length === 1 ? '' : 's'; });
     var moves = staged.filter(function (it) { return it.move; }).length;
     document.querySelectorAll('[data-dp-moves]').forEach(function (el) {
       el.style.display = moves ? '' : 'none';

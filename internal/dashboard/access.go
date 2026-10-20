@@ -36,7 +36,7 @@ var accessActions = []accessAction{
 	{Key: "app_control", Label: "App control (reload, restart, clear cache, update check)", Group: "Commands", Help: "MDM Lite devices: control the menu board app itself."},
 	{Key: "query", Label: "Run diagnostic query", Group: "Commands"},
 	{Key: "logcat", Label: "Request logcat", Group: "Commands"},
-	{Key: "kiosk", Label: "Kiosk settings", Group: "Device"},
+	{Key: "kiosk", Label: "Lock settings", Group: "Device"},
 	{Key: "lost_mode", Label: "Lost mode", Group: "Device", Help: "Put a missing device in lost mode (a full-screen return message) and take it out again."},
 	{Key: "notes", Label: "Device notes", Group: "Device"},
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},

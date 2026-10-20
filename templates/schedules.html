@@ -134,7 +134,7 @@
     </div>
     <p class="muted small" style="margin:12px 0 0;">Only Install / Uninstall / Reboot / Screenshot / Shell / Boot-logo recipes can be scheduled.</p>
     {{else}}
-    <p class="muted small" style="margin:0;">No schedulable recipes yet. A recipe is an action saved for reuse; nothing in the dashboard saves one since the action console was retired, so this stays empty until saving a recipe is rebuilt where the actions now live.</p>
+    <p class="muted small" style="margin:0;">Nothing can be scheduled yet. A schedule repeats a saved action (a recipe), and saving actions is not available in the dashboard at the moment.</p>
     {{end}}
   </form>
 </div>
@@ -143,7 +143,7 @@
 <div class="card cc-card">
   <div class="card-header cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Schedules</h2><span class="m">{{len .Schedules}}</span></div>
     {{if not .Schedules}}
-    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><b>No schedules yet</b>Pick a recipe and a schedule above to run an action automatically.</div></div>
+    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><b>No schedules yet</b>{{if .Recipes}}Pick a recipe and a schedule above to run an action automatically.{{else}}Schedules appear here once there is a saved action to repeat.{{end}}</div></div>
     {{else}}
     {{range .Schedules}}
     <div class="sc-row">

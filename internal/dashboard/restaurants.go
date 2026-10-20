@@ -44,7 +44,13 @@ func (h *Handler) ReportAlertsByRestaurant(w http.ResponseWriter, r *http.Reques
 		more = len(shown) - 8
 		shown = shown[:8]
 	}
-	data := map[string]any{"Rows": shown, "Total": total, "More": more}
+	// Alerts on devices with no venue (bench units) or on no device at all are not in
+	// any row; say how many, so the rows plus this line add up to the bell.
+	elsewhere := 0
+	if all, err := h.db.CountOpenAlerts(r.Context(), false); err == nil && all > total {
+		elsewhere = all - total
+	}
+	data := map[string]any{"Rows": shown, "Total": total, "More": more, "Elsewhere": elsewhere}
 	// The bare fragment is what the Overview card embeds; a direct visit gets the
 	// page, with the chrome and the Alerts rail around it.
 	if r.Header.Get("HX-Request") != "" && r.Header.Get("HX-Boosted") == "" {

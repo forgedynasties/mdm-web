@@ -26,14 +26,14 @@
   <div class="co-r-b">
     <div class="co-srch">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input id="pk-q" type="text" autocomplete="off" placeholder="{{if .Prompt}}{{.Prompt}}{{else}}Search serial, restaurant, group — or paste serials{{end}}">
+      <input id="pk-q" type="text" autocomplete="off" aria-label="Search devices" placeholder="{{if .Prompt}}{{.Prompt}}{{else}}Search serial, restaurant, group — or paste serials{{end}}">
     </div>
     <div class="co-hint">Paste a list of serials to add them all, or press <span class="k">Enter</span>. A dash or comma in front of a serial is fine.</div>
     <div class="co-quick" id="pk-quick">
       <button type="button" class="co-qf" data-qf="online">Online <span class="n"></span></button>
       <button type="button" class="co-qf" data-qf="offline">Offline <span class="n"></span></button>
-      <button type="button" class="co-qf" data-qf="dpc">DPC <span class="n"></span></button>
-      <button type="button" class="co-qf" data-qf="kiosk">In kiosk</button>
+      <button type="button" class="co-qf" data-qf="dpc">Standard MDM <span class="n"></span></button>
+      <button type="button" class="co-qf" data-qf="kiosk">Locked</button>
       <button type="button" class="co-qf" data-qf="legacyonly" hidden title="Devices the legacy path is the only way to update — the rest of these also take an MDM OTA">Legacy only <span class="n"></span></button>
     </div>
     {{if .Scopes}}

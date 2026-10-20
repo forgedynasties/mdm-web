@@ -250,7 +250,7 @@
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
     {{/* The search field: devices, restaurants, pages and actions, the same ⌘K palette. */}}
-    {{if ne .Role "owner"}}<button type="button" class="dock-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices, restaurants and pages" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search devices, restaurants, actions…</span><kbd>⌘K</kbd></button>{{end}}
+    {{if ne .Role "owner"}}<button type="button" class="dock-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices, restaurants and pages" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search…</span><kbd>⌘K</kbd></button>{{end}}
   </nav>
 
   {{/* Everyone gets the same dock: the four pages the job is done in. Everything

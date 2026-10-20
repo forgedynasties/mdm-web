@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
 </head>
 <body class="auth2-body">
-  <div class="auth2-wrap">
+  <main class="auth2-wrap">
     <div class="auth2-hero">
       <div class="auth2-hero-top">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</div>
       <div>
@@ -48,12 +48,12 @@
         {{end}}
 
         <form action="/signup" method="POST" class="auth2-form">
-          <div style="display:flex;gap:12px;">
-            <div class="auth2-field" style="flex:1;">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
+            <div class="auth2-field">
               <label for="first_name">First name</label>
               <input type="text" id="first_name" name="first_name" autocomplete="given-name" value="{{.FirstName}}" required>
             </div>
-            <div class="auth2-field" style="flex:1;">
+            <div class="auth2-field">
               <label for="last_name">Last name</label>
               <input type="text" id="last_name" name="last_name" autocomplete="family-name" value="{{.LastName}}" required>
             </div>
@@ -89,7 +89,7 @@
         {{end}}
       </div>
     </div>
-  </div>
+  </main>
 <script src="/static/js/signup.js?v={{assetVer}}"></script>
 </body>
 </html>

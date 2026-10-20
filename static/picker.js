@@ -207,6 +207,7 @@
     }).join('');
     var f = el('pk-serials'); if (f) f.value = serials.join('\n');
     document.querySelectorAll('[data-dp-count]').forEach(function (e) { e.textContent = serials.length; });
+    document.querySelectorAll('[data-dp-s]').forEach(function (e) { e.textContent = serials.length === 1 ? '' : 's'; });
     document.querySelectorAll('[data-dp-submit]').forEach(function (e) { e.disabled = serials.length === 0; });
     document.dispatchEvent(new CustomEvent('pk:change', { detail: { serials: serials } }));
   }

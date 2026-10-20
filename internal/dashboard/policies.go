@@ -134,7 +134,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		views = append(views, v)
 	}
 
-	locked, unlocked, exited, cant, notCovered, byHand := 0, 0, 0, 0, 0, 0
+	locked, unlocked, exited, cant, notCovered, byHand, noVenue := 0, 0, 0, 0, 0, 0, 0
 	seenRule := map[uuid.UUID]bool{}
 	for _, k := range devs {
 		if !acc.visible(k.Dev.ID) || k.Dev.Hidden || k.Dev.Retired() {
@@ -152,6 +152,9 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 			cant++
 		default:
 			unlocked++
+		}
+		if k.Dev.RestaurantID == nil {
+			noVenue++
 		}
 		if k.Dev.RestaurantID != nil {
 			if v := venues[*k.Dev.RestaurantID]; v != nil {
@@ -238,6 +241,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"Exited":     exited,
 		"Cant":       cant,
 		"NotCovered": notCovered,
+		"NoVenue":    noVenue,
 		"ByHand":     byHand,
 		"CanEdit":    roleCanOperate(h.role(r)),
 		"Flash":      r.URL.Query().Get("flash"),

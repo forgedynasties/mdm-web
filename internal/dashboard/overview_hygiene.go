@@ -33,14 +33,14 @@ func hygieneRows(h db.FleetHygiene) []hygieneRow {
 		default:
 			note += fmt.Sprintf(", %d still in a restaurant. Retire what is gone.", h.SilentPlaced)
 		}
-		out = append(out, hygieneRow{h.Silent, "devices silent 14+ days", note, "/devices?hygiene=silent", "Review"})
+		out = append(out, hygieneRow{h.Silent, "device" + plural(h.Silent) + " silent 14+ days", note, "/devices?hygiene=silent", "Review"})
 	}
 	if h.PlacedSilent > 0 {
-		out = append(out, hygieneRow{h.PlacedSilent, "restaurant devices not reporting",
+		out = append(out, hygieneRow{h.PlacedSilent, "restaurant device" + plural(h.PlacedSilent) + " not reporting",
 			strings.Join(h.PlacedSilentAt, ", ") + ". On site, or moved?", "/devices?hygiene=placed-silent", "Review"})
 	}
 	if h.DeadPad > 0 {
-		out = append(out, hygieneRow{h.DeadPad, "dead wireless pads in 14 days", "Replace the pad or the tablet.", "/devices?hygiene=pad", "Review"})
+		out = append(out, hygieneRow{h.DeadPad, "dead wireless pad" + plural(h.DeadPad) + " in 14 days", "Replace the pad or the tablet.", "/devices?hygiene=pad", "Review"})
 	}
 	// One build is the goal; a handful across products and lines is normal. Only
 	// builds that are not a release are worth a nudge.
@@ -49,13 +49,17 @@ func hygieneRows(h db.FleetHygiene) []hygieneRow {
 		if len(names) > 3 {
 			names = names[:3]
 		}
-		note := fmt.Sprintf("%d are not a release: %s", n, strings.Join(names, ", "))
+		verb := "are"
+		if n == 1 {
+			verb = "is"
+		}
+		note := fmt.Sprintf("%d %s not a release: %s", n, verb, strings.Join(names, ", "))
 		if n > 3 {
 			note += ", …"
 		} else {
 			note += "."
 		}
-		out = append(out, hygieneRow{h.Builds, "builds running", note, "/releases", "Releases"})
+		out = append(out, hygieneRow{h.Builds, "build" + plural(h.Builds) + " running", note, "/releases", "Releases"})
 	}
 	return out
 }

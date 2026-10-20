@@ -91,7 +91,7 @@ var alertRuleDefs = []struct {
 	{"memory_low", "Memory low (available)", "Fires when available RAM (total − used) holds below the floor for >8 min — Android's low-memory killer territory.", "System", []alertParamField{
 		{"avail_mb", "Available floor", "MB", 10, 400},
 	}, false, true},
-	{"device_crash", "Device crash / ANR", "Fires when the device reports an app/system crash, ANR, or native tombstone (from DropBox) within the window.", "System", []alertParamField{
+	{"device_crash", "Device crash / ANR", "Fires when the device reports an app or system crash, or an app that stopped responding, within the window.", "System", []alertParamField{
 		{"window_min", "Look-back", "min", 1, 15},
 	}, false, true},
 	{"host_app_away", "Host app not on screen", "Fires during service when the app the device is there to run has been off the screen this long while the screen is on and the device is reporting (firmware client 1.11.0+). Auto-resolves when the app is back in front.", "System", []alertParamField{

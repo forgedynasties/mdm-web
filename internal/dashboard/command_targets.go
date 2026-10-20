@@ -678,7 +678,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		verb = "Disabled"
 	}
 	h.audit(r, "device.kiosk_bulk", verb, fmt.Sprintf("devices=%d, package=%s", len(ids), pkg))
-	h.hxRedirect(w, r, "/kiosk?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
+	h.hxRedirect(w, r, "/lock?flash="+url.QueryEscape(fmt.Sprintf("%s %d device%s.", map[string]string{"Enabled": "Locked", "Disabled": "Unlocked"}[verb], len(ids), plural(len(ids))))+"&flash_type=success")
 }
 
 // resolvePolicyTargetIDs resolves a stored lock rule's target to the matching

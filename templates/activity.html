@@ -133,7 +133,7 @@
       </table>
     </div>
     {{else}}
-    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><div><b>No activity yet</b>Actions taken in the dashboard will show up here.</div></div>
+    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><div><b>No activity yet</b>{{if and (canAdmin .Role) (not .ShowAdmin)}}Actions by admin accounts are hidden. <a href="/activity?admin=1">Show them</a>{{else}}Actions taken in the dashboard will show up here.{{end}}</div></div>
     {{end}}
 
     {{if gt .TotalPages 1}}

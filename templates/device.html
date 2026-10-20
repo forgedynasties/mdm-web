@@ -14,7 +14,7 @@
     {{end}}
   </div>
   <div class="dd-drow">
-    <span class="dd-row-label">Kiosk package</span>
+    <span class="dd-row-label">Locked to</span>
     <span class="dd-row-val mono">{{if .KioskConfig.KioskPackage}}{{.KioskConfig.KioskPackage}}{{else}}—{{end}}</span>
   </div>
   <div class="dd-drow">
@@ -281,7 +281,7 @@
         {{/* Kind, class and lifecycle: the same three tags for every device, so a
              firmware tablet and a DPC-managed POS read the same way. */}}
         {{if .Device.Class}}<span class="cc-tag" title="Product">{{.Device.ClassLabel}}</span>{{end}}
-        {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Waiting for a site — Fleet › Enroll">New · needs a site</a>{{else}}<span class="cc-tag warn">New · needs a site</span>{{end}}{{else if and .Device.Retired (ne .Device.EnrollmentStatus "unenrolled")}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
+        {{if .Device.NeedsOnboarding}}{{if canAdmin .Role}}<a class="cc-tag warn" href="/enrollment#dev-{{.Device.SerialNumber}}" title="Not onboarded yet — Fleet › Enroll">New · {{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</a>{{else}}<span class="cc-tag warn">New · {{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{end}}{{else if and .Device.Retired (ne .Device.EnrollmentStatus "unenrolled")}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}Wiped{{else}}Retired{{end}}</span>{{end}}
       </div>
       <div class="cc-sub"><span class="ddc-build isl-dup">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span>{{if and .OTAGate (.OTAGate.Legacy)}} <a href="/updates/legacy" class="cc-tag warn" style="text-decoration:none;" title="{{.OTAGate.Reason}} — push it from Updates › Legacy OTA">legacy OTA</a>{{end}}{{if .OtaUpdate}}{{if and .OtaUpdate.OtaPackage (or (eq .OtaUpdate.DeviceStatus "reboot_sent") (eq .OtaUpdate.DeviceStatus "awaiting_reboot"))}} <span class="cc-tag info" title="{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}Reboot pushed. The build ID changes once the device checks in on the new build.{{else}}Installed to the inactive slot; takes effect at the next reboot.{{end}}">{{if eq .OtaUpdate.DeviceStatus "reboot_sent"}}reboot pending{{else}}reboot needed{{end}} → {{.OtaUpdate.OtaPackage.TargetBuildID}}</span>{{end}}{{end}}<span class="isl-dup"> · </span>{{if .IsDPC}}Enrolled{{else}}Onboarded{{end}} {{shortDate .Device.EnrolledAt}}{{if .EnrolledByName}} by {{.EnrolledByName}}{{end}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span></div>
     </div></div>
@@ -348,8 +348,8 @@
   <span class="isl-dot{{if .Online}} on{{end}}"></span>
   {{if .Device.Class}}<svg class="isl-cls" aria-hidden="true"><use href="#dk-{{.Device.Class}}"/></svg>{{end}}
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
-  <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{.Device.ProductLabel}}{{end}} · {{.Device.SerialNumber}}</span>
-  {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.BuildID}}<span class="isl-tagn isl-build mono" title="Firmware build">{{.Device.BuildID}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">needs a site</span>{{end}}
+  <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}{{end}} · {{.Device.SerialNumber}}</span>
+  {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.BuildID}}<span class="isl-tagn isl-build mono" title="Firmware build">{{.Device.BuildID}}</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">{{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{end}}
   <span class="isl-s">{{if .Lab}}in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
   <span class="isl-acts">
     {{/* Wireless adb (D2, picked 17 Oct): a live pill — off / the step it is on / ready — that
@@ -647,10 +647,10 @@
         {{/* A lock rule on the Policies page covers this device. */}}
         <div class="kiosk-rule-note" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border-radius:9px;background:var(--surface-3);font-size:13px">
           {{if .KioskOverride}}
-          <span>Set by hand here. The kiosk rule <a href="/kiosk"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
+          <span>Set by hand here. The lock rule <a href="/lock"><b>{{.KioskRule.Name}}</b></a> covers this device but isn't applied to it.</span>
           {{if canAdminOrOperator .Role}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/kiosk/follow-rule" style="margin:0 0 0 auto"><button type="submit" class="cc-btn sm">Follow the rule again</button></form>{{end}}
           {{else}}
-          <span>Managed by the kiosk rule <a href="/kiosk"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
+          <span>Managed by the lock rule <a href="/lock"><b>{{.KioskRule.Name}}</b></a>. Changing it here makes this device an exception to the rule.</span>
           {{end}}
         </div>
         {{end}}
@@ -692,7 +692,7 @@
                 {{if ne .KioskConfig.KioskPackage ""}}The locked app <span class="mono">{{.KioskConfig.KioskPackage}}</span> is not installed on this device. {{end}}No apps have been reported for this device yet — kiosk can be turned on once it reports its installed apps.
               </div>
             {{end}}
-            <span class="muted small">Pick the app, then turn kiosk on.</span>
+            <span class="muted small">Pick the app, then lock.</span>
           </div>
         </form>
         {{end}}
@@ -1211,7 +1211,7 @@ window.DEVICE_VITALS = {
     {{/* Enrollment facts: how this device got here. Its actions (key, server, retire,
          unenroll, wipe, wireless adb) are in the ⋯ menu. */}}
     <div class="ddc-card en-card" id="enrollment-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">needs a site</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else if eq .Device.EnrollmentStatus "unenrolled"}}unenrolled{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
+      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">{{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else if eq .Device.EnrollmentStatus "unenrolled"}}unenrolled{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
     {{with .Custody}}{{if .Server}}
     {{/* The device is not here. Said plainly and at the top, because every action on
          this page is about a device this server can reach, and this one it cannot. */}}
@@ -1812,8 +1812,8 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
 <div class="empty-state" style="padding:28px 18px;">
   <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
   <div class="empty-state-copy">
-    <div class="empty-state-title">No package data</div>
-    <div class="empty-state-text">The device client must include <code>packages</code> in its checkin payload.</div>
+    <div class="empty-state-title">No apps reported yet</div>
+    <div class="empty-state-text">This device lists its apps when it checks in. They show here after its next check-in.</div>
   </div>
 </div>
 {{end}}

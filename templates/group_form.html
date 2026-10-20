@@ -30,7 +30,7 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
       <div class="gf-preview">
         <span class="lab">Preview</span>
         <span class="gf-chip"><span class="gf-ic"></span><span id="gf-chip-name" class="muted">Group name</span></span>
-        <span class="muted small"><span data-dp-count>0</span> device(s)</span>
+        <span class="muted small"><span data-dp-count>0</span> device<span data-dp-s>s</span></span>
       </div>
     </div>
 
@@ -39,7 +39,7 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
       {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Prompt" "Search serial, restaurant, group — or paste serials")}}
     
     <div style="padding:14px 20px;display:flex;gap:12px;align-items:center;border-top:1px solid var(--border-soft);margin-top:14px;">
-      <span class="muted small">Creating <b id="gf-sum-name" style="color:var(--text);">a new group</b> with <b data-dp-count style="color:var(--text);">0</b> device(s)</span>
+      <span class="muted small">Creating <b id="gf-sum-name" style="color:var(--text);">a new group</b> with <b data-dp-count style="color:var(--text);">0</b> device<span data-dp-s>s</span></span>
       <span style="flex:1;"></span>
       <a href="/groups" class="btn-outline">Cancel</a>
       <button type="submit" class="btn-primary" id="create-group-btn" disabled>Create group</button>

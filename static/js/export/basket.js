@@ -6,7 +6,9 @@
   var sum = document.getElementById('summary-devices');
   document.addEventListener('pk:change', function (e) {
     var n = (e.detail && e.detail.serials ? e.detail.serials.length : 0);
-    if (head) head.textContent = n ? (n + ' device' + (n === 1 ? '' : 's')) : 'no devices yet';
+    if (head) head.textContent = n + ' device' + (n === 1 ? '' : 's');
+    var forEl = document.getElementById('ex-head-for');
+    if (forEl) forEl.hidden = !n;
     if (sum) {
       sum.textContent = n;
       var tail = sum.nextSibling;

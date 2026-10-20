@@ -201,7 +201,7 @@
     {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "ExcludeRestaurant" .Restaurant.ID "Prompt" "Search serial, restaurant, group — or paste serials")}}
     
     <div class="dp-bar">
-      <span class="summary">Deploying <b data-dp-count>0</b> device(s) to <b>{{.Restaurant.Name}}</b></span>
+      <span class="summary">Deploying <b data-dp-count>0</b> device<span data-dp-s>s</span> to <b>{{.Restaurant.Name}}</b></span>
       <span style="flex:1"></span>
       <button type="button" class="btn-outline" onclick="pkClear()">Clear</button>
       <button type="submit" class="btn-primary" data-dp-submit disabled>Deploy devices</button>
