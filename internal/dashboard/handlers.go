@@ -11,6 +11,7 @@ import (
 	_ "image/jpeg"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -197,7 +198,28 @@ func (h *Handler) hxDoneToast(w http.ResponseWriter, r *http.Request, redirectUR
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+	http.Redirect(w, r, flashURL(redirectURL, msg, typ), http.StatusSeeOther)
+}
+
+// flashURL carries a toast across a plain (non-htmx) form post's redirect: the page
+// shows ?flash=…&flash_type=… once and strips it (chrome.js). Without it a form with
+// hx-boost="false" lands back on its page with no word of what happened — the Enrol
+// button on Enrollment › Found looked dead when its error was dropped this way.
+func flashURL(redirectURL, msg, typ string) string {
+	if msg == "" {
+		return redirectURL
+	}
+	u, err := url.Parse(redirectURL)
+	if err != nil {
+		return redirectURL
+	}
+	q := u.Query()
+	q.Set("flash", msg)
+	if typ != "" {
+		q.Set("flash_type", typ)
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // hxDoneToastEvents is hxDoneToast that ALSO fires named client events in the same
@@ -217,7 +239,7 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+	http.Redirect(w, r, flashURL(redirectURL, msg, typ), http.StatusSeeOther)
 }
 
 type Handler struct {

@@ -156,6 +156,21 @@ func (s *Service) pickScout(ctx context.Context, restaurantID uuid.UUID) (db.Sco
 	return db.ScoutCandidate{}, errors.New("no Tableside AI online at this venue")
 }
 
+// pickScoutFor is pickScout for one sighting: when no tablet at the venue is online, the
+// tablet that found the device may still do it — it was on the device's network, and it
+// may have been moved off the venue since (20 Oct: AT070AA2600030 found a TV box at AIO
+// Test Bistro, was then unplaced, and Enrol could never run).
+func (s *Service) pickScoutFor(ctx context.Context, sg db.Sighting) (db.ScoutCandidate, error) {
+	c, err := s.pickScout(ctx, sg.RestaurantID)
+	if err == nil || sg.ScoutSerial == "" {
+		return c, err
+	}
+	if d, derr := s.db.GetDevice(ctx, sg.ScoutSerial); derr == nil && d != nil && s.hub.IsConnected(d.ID) {
+		return db.ScoutCandidate{ID: d.ID, Serial: d.SerialNumber}, nil
+	}
+	return db.ScoutCandidate{}, fmt.Errorf("no Tableside AI is online at this venue, and %s, which found the device, is offline", sg.ScoutSerial)
+}
+
 // StartScan sends a scout a net_scan for its whole venue, or (host set) a re-probe of one
 // device. The key rides in the frame and is used only for this scan.
 func (s *Service) StartScan(ctx context.Context, restaurantID uuid.UUID, host string) error {
@@ -197,8 +212,8 @@ func (s *Service) Approve(ctx context.Context, sightingID uuid.UUID, class, appr
 		return errors.New("unknown device class")
 	}
 	sg, err := s.db.GetSighting(ctx, sightingID)
-	if err != nil {
-		return err
+	if err != nil || sg == nil {
+		return errors.New("this device is no longer in the found list — scan again")
 	}
 	if sg.State != "ready" && sg.State != "failed" {
 		return errors.New("this device is not ready to enrol")
@@ -207,7 +222,7 @@ func (s *Service) Approve(ctx context.Context, sightingID uuid.UUID, class, appr
 	if err != nil {
 		return err
 	}
-	c, err := s.pickScout(ctx, sg.RestaurantID)
+	c, err := s.pickScoutFor(ctx, *sg)
 	if err != nil {
 		return err
 	}
