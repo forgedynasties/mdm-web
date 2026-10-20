@@ -322,14 +322,16 @@ const alertClearMin = 10
 
 // resolveClearedAlerts closes alerts whose condition has stayed clear for the whole window.
 // Muted rows are left open deliberately: a flapping condition waits for an operator rather
-// than quietly resolving itself and starting over.
+// than quietly resolving itself and starting over. Except "Left the venue": a tablet that
+// is back at its venue for the whole window is simply back, snoozed or not (20 Oct, asked:
+// a flap-snoozed one otherwise stayed open for 24h with the tablet in service).
 func (d *DB) resolveClearedAlerts(ctx context.Context) (int64, error) {
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
 		WHERE status <> 'resolved'
 		  AND cleared_at IS NOT NULL
 		  AND cleared_at < NOW() - make_interval(mins => $1::int)
-		  AND (muted_until IS NULL OR muted_until < NOW())
+		  AND (muted_until IS NULL OR muted_until < NOW() OR type = 'left_venue')
 	`, alertClearMin)
 	if err != nil {
 		return 0, err
