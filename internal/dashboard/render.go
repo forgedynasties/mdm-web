@@ -27,8 +27,6 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	data["Role"] = role
 	// Fleet cards have one layout, the serial-led one (Classic removed 15 Oct); an old
 	// fleet_layout cookie is ignored. The keys stay for the templates that pass them on.
-	data["FleetLayout"] = "serial"
-	data["ClassicCards"] = false
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
