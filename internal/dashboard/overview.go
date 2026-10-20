@@ -471,7 +471,11 @@ func (h *Handler) overviewViewModel(r *http.Request, summary db.Summary, groups 
 		Class string // the template links a row to /devices?class= when set
 	}
 	var products []productRow
-	for _, p := range h.productFilters(r.Context()) {
+	var catalog []product.Product
+	if len(prodCounts) > 0 { // the sneak peek passes none: its composition is by role
+		catalog = h.productFilters(r.Context())
+	}
+	for _, p := range catalog {
 		if n := prodCounts[p.Key]; n > 0 {
 			pct := 0
 			if summary.Total > 0 {

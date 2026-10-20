@@ -97,6 +97,12 @@ func (h *Handler) overviewProducts(ctx context.Context, excludeDPC bool) ([]comp
 	if err != nil {
 		return nil, false
 	}
+	return compRolesFrom(cc), true
+}
+
+// compRolesFrom is the composition from per-class counts: most devices first,
+// unassigned last. The sneak peek feeds it its sample counts.
+func compRolesFrom(cc []db.ClassCount) []compRole {
 	var roles []compRole
 	unassigned := 0
 	for _, c := range cc {
@@ -110,5 +116,5 @@ func (h *Handler) overviewProducts(ctx context.Context, excludeDPC bool) ([]comp
 	if unassigned > 0 {
 		roles = append(roles, compRole{"", "Unassigned", unassigned})
 	}
-	return roles, true
+	return roles
 }

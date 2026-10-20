@@ -446,6 +446,10 @@ func (g *GroupHealth) computeScore() {
 	}
 }
 
+// Rescore recomputes Score and ScoreClass from the metrics already set, for health
+// built outside the database (the dashboard's sneak-peek sample).
+func (g *GroupHealth) Rescore() { g.computeScore() }
+
 // capPenalty rounds a penalty and holds it to a ceiling, so no single dimension can
 // sink a score by itself. Kept here rather than inlined because health_explain.go
 // mirrors these numbers exactly, and the two drifting apart is how a score stops

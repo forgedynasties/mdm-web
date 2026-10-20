@@ -113,8 +113,12 @@ func (h *Handler) collRows(r *http.Request, kind string) ([]venueRow, venueSumma
 // online / offline / dormant counts, the health score where there is one, and when the
 // collection last checked in.
 func (h *Handler) rowsFor(items []collMember) ([]venueRow, venueSummary) {
-	online := h.onlineMap()
-	stale := time.Duration(h.cfg.CheckinInterval()*3) * time.Second
+	return collRowsFrom(items, h.onlineMap(), time.Duration(h.cfg.CheckinInterval()*3)*time.Second)
+}
+
+// collRowsFrom is rowsFor given the live set and the staleness window, so the sneak
+// peek can build the same rows from its sample devices.
+func collRowsFrom(items []collMember, online map[uuid.UUID]bool, stale time.Duration) ([]venueRow, venueSummary) {
 	rows := make([]venueRow, 0, len(items))
 	var sum venueSummary
 	for _, it := range items {

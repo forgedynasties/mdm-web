@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -138,53 +137,4 @@ func mainIssue(why []string) string {
 		s = s[:i]
 	}
 	return s
-}
-
-// sneakPeekOverviewExtras fills the Overview fields the live handler reads from
-// alerts and the hub, from the synthetic fleet: one attention row per at-risk
-// venue and a devices-by-type split of the synthetic totals.
-func sneakPeekOverviewExtras(data map[string]any, summary db.Summary, groups []db.GroupHealth) {
-	now := time.Now()
-	var rows []attentionRow
-	for i, g := range groups {
-		if g.ScoreClass != "danger" {
-			continue
-		}
-		if g.OfflineCount > 0 {
-			rows = append(rows, attentionRow{Severity: "critical", Issue: "Device offline", Devices: g.OfflineCount,
-				Restaurant: g.Name, Since: now.Add(-time.Duration(40+i*25) * time.Minute), Href: "/sneak-peek/alerts"})
-		}
-		if g.TempMax != nil && g.TempMaxSerial != nil {
-			rows = append(rows, attentionRow{Severity: "warning", Issue: "Device overheating", Devices: 1, Serial: *g.TempMaxSerial,
-				Restaurant: g.Name, Since: now.Add(-time.Duration(12+i*7) * time.Minute), Href: "/sneak-peek/alerts"})
-		}
-	}
-	crit := 0
-	for _, r := range rows {
-		if r.Severity == "critical" {
-			crit++
-		}
-	}
-	data["AttentionRows"] = rows
-	data["AttentionTotal"] = len(rows)
-	data["AttentionCritical"] = crit
-
-	split := []struct {
-		class string
-		pct   int
-	}{{"t7", 62}, {"kiosk", 18}, {"dongle", 12}, {"kds", 8}}
-	var cls []classOnlineRow
-	left, leftOn := summary.Total, summary.RecentlyActive
-	for i, c := range split {
-		n, on := summary.Total*c.pct/100, summary.RecentlyActive*c.pct/100
-		if i == len(split)-1 {
-			n, on = left, leftOn
-		}
-		left, leftOn = left-n, leftOn-on
-		cls = append(cls, classOnlineRow{c.class, product.ClassLabel(c.class), n, on})
-	}
-	data["ClassOnline"] = cls
-	if summary.Total > 0 {
-		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
-	}
 }

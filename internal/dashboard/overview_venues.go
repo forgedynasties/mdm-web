@@ -29,7 +29,6 @@ type overviewVenues struct {
 func (h *Handler) overviewVenueData(r *http.Request, wallDevs []db.WallDevice) overviewVenues {
 	acc := h.access(r)
 	rows, _ := h.collRows(r, "restaurants")
-	var out overviewVenues
 	keep := rows[:0]
 	for _, v := range rows {
 		// A scoped viewer sees only the venues they have a device in.
@@ -38,6 +37,19 @@ func (h *Handler) overviewVenueData(r *http.Request, wallDevs []db.WallDevice) o
 		}
 		keep = append(keep, v)
 	}
+	unplaced := 0
+	for _, d := range wallDevs {
+		if d.RestaurantID == nil && (!acc.hidesDevices() || acc.visible(d.ID)) {
+			unplaced++
+		}
+	}
+	return venueWidget(keep, unplaced)
+}
+
+// venueWidget orders the venue rows for the widget (those needing a look first, then
+// by name), counts them and keeps the first ten. Shared with the sneak peek.
+func venueWidget(keep []venueRow, unplaced int) overviewVenues {
+	out := overviewVenues{Unplaced: unplaced}
 	sort.SliceStable(keep, func(i, j int) bool {
 		if keep[i].NeedsLook != keep[j].NeedsLook {
 			return keep[i].NeedsLook
@@ -54,10 +66,5 @@ func (h *Handler) overviewVenueData(r *http.Request, wallDevs []db.WallDevice) o
 		out.More, keep = len(keep)-overviewVenueRows, keep[:overviewVenueRows]
 	}
 	out.Rows = keep
-	for _, d := range wallDevs {
-		if d.RestaurantID == nil && (!acc.hidesDevices() || acc.visible(d.ID)) {
-			out.Unplaced++
-		}
-	}
 	return out
 }
