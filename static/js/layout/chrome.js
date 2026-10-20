@@ -159,41 +159,8 @@
     document.addEventListener('htmx:afterSwap', apply);
     apply();
   })();
-  // ── Context island: copy the page's <template id="page-island"> (or, failing that, its
-  // <h1>) into the top bar. Runs on load and after every swap, so it always matches the
-  // page in <main>. data-live on the template rings the pill (a lab session, say).
-  (function () {
-    var bar = document.querySelector('.appbar'), slot = document.getElementById('appbar-island');
-    if (!bar || !slot) return;
-    function fill() {
-      var tpl = document.getElementById('page-island'), h1 = document.querySelector('main .cc-h1') || document.querySelector('main .cc-top h1, main h1');
-      slot.innerHTML = '';
-      slot.classList.remove('always');
-      document.body.classList.remove('has-island');
-      bar.classList.remove('island-live');
-      if (tpl && tpl.content) {
-        slot.appendChild(document.importNode(tpl.content, true));
-        if (tpl.hasAttribute('data-live')) bar.classList.add('island-live');
-        // A page with its own island drops what it repeats (marked .isl-dup / .isl-dup-sr in
-        // the page).
-        slot.classList.add('always');
-        document.body.classList.add('has-island');
-        if (window.htmx) window.htmx.process(slot);
-      } else if (h1) {
-        var t = document.createElement('span'); t.className = 'isl-t'; t.textContent = h1.textContent.trim();
-        slot.appendChild(t);
-        slot.classList.add('always');
-      }
-    }
-    fill();
-    // Only when the page itself changed: a polling pane swapping in place must not reset a
-    // half-used control in the island.
-    document.addEventListener('htmx:afterSettle', function (e) {
-      var t = e.detail && e.detail.target;
-      if (t && (t.tagName === 'MAIN' || (t.querySelector && t.querySelector('#page-island')))) fill();
-    });
-    window.mdmIslandRefresh = fill;
-  })();
+  // The context island is filled by an inline script right after </main> (layout.html
+  // footer), so it is in place at the first paint instead of after this file loads.
   // ── List tools: one search box, filter chips and a "Show all N" cap for long lists.
   // Root: .lt[data-lt-n="25"]. Rows: .lt-row[data-grp][data-f-<facet>][data-lt-text].
   // Chips: .lt-chip[data-f][data-v] — same facet = OR, across facets = AND. Group

@@ -423,6 +423,49 @@
 {{define "footer"}}
   </main>
 {{if not .Boosted}}
+  {{/* Context island: copy the page's <template id="page-island"> (or, failing that, its
+       <h1>) into the top bar. Inline and straight after </main> so it runs as soon as the
+       page is parsed, before the first paint, instead of after chrome.js loads (the page's
+       own header used to show first, then the island, 20 Oct). Refills when a navigation
+       swaps <main>. data-live on the template rings the pill (a lab session, say). */}}
+  <script>
+  (function () {
+    var bar = document.querySelector('.appbar'), slot = document.getElementById('appbar-island');
+    if (!bar || !slot) return;
+    function fill() {
+      var tpl = document.getElementById('page-island'), h1 = document.querySelector('main .cc-h1') || document.querySelector('main .cc-top h1, main h1');
+      slot.innerHTML = '';
+      slot.classList.remove('always');
+      document.body.classList.remove('has-island');
+      bar.classList.remove('island-live');
+      if (tpl && tpl.content) {
+        slot.appendChild(document.importNode(tpl.content, true));
+        if (tpl.hasAttribute('data-live')) bar.classList.add('island-live');
+        // A page with its own island drops what it repeats (.isl-dup / .isl-dup-sr).
+        slot.classList.add('always');
+        document.body.classList.add('has-island');
+        if (window.htmx) window.htmx.process(slot);
+      } else if (h1) {
+        var t = document.createElement('span'); t.className = 'isl-t'; t.textContent = h1.textContent.trim();
+        slot.appendChild(t);
+        slot.classList.add('always');
+      }
+    }
+    // The first fill lands without the fade, so the island is simply there.
+    slot.style.transition = 'none';
+    fill();
+    void slot.offsetWidth;
+    slot.style.transition = '';
+    // Only when the page itself changed: a polling pane swapping in place must not reset a
+    // half-used control in the island. afterSwap, not afterSettle, so the new page and its
+    // island arrive together.
+    document.addEventListener('htmx:afterSwap', function (e) {
+      var t = e.detail && e.detail.target;
+      if (t && (t.tagName === 'MAIN' || (t.querySelector && t.querySelector('#page-island')))) fill();
+    });
+    window.mdmIslandRefresh = fill;
+  })();
+  </script>
   <script src="/static/js/layout/chrome.js?v={{assetVer}}"></script>
 
   {{/* Per-page navigation skeletons. Inert <template>s (rendered once, live
