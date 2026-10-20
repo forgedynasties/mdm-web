@@ -66,13 +66,24 @@ a.rl-crash.warn{background:var(--warn-bg);color:var(--warn)}
 a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
 </style>
 <div class="ro-wrap">
+  {{/* Context island: what is released, what is moving, the two actions. */}}
+  {{$tr := 0}}{{range .Versions}}{{if .Tracked}}{{$tr = add $tr 1}}{{end}}{{end}}
+  <template id="page-island">
+    <span class="isl-dot{{if .Active}} warn{{else}} on{{end}}"></span>
+    <span class="isl-t">Releases</span>
+    <span class="isl-s"><b>{{$tr}}</b> release{{if ne (printf "%v" $tr) "1"}}s{{end}}{{if .Active}} · <a href="{{(index .Active 0).URL}}" class="w">{{len .Active}} updating</a>{{end}}{{if .NotTracked}} · {{.NotTracked}} build{{if ne .NotTracked 1}}s{{end}} not added{{end}}</span>
+    <span class="isl-acts">
+      {{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
+      {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}
+    </span>
+  </template>
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Firmware</div>
       <h1 class="cc-h1">Releases</h1>
       <div class="cc-sub">Firmware builds, and the updates that carry them to devices.</div>
     </div>
-    <div class="cc-actions">{{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
+    <div class="cc-actions isl-dup">{{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
       {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}</div>
   </div>
 

@@ -157,7 +157,14 @@ type LostConfig struct {
 	Lost            bool     // this device has an open lost session
 	DPC             bool     // the Standard client, which has no self-lock
 	VenueIconV      int64    // the venue icon's version (unix secs of icon_at), 0 when none
+	StaffPIN        string   // the venue's staff PIN, "" = DefaultStaffPIN
 }
+
+// DefaultStaffPIN is the firmware client's built-in staff PIN (KioskExit.DEFAULT_PIN). A device
+// with no venue PIN is sent it explicitly, so clearing a venue's PIN, or moving a tablet off
+// the venue, takes the venue's PIN off the tablet too: the client keeps the last PIN it was
+// sent and ignores an empty one.
+const DefaultStaffPIN = "147147"
 
 // Lost-listen scan cadence the listeners are told: scan_s seconds of Bluetooth LE every
 // every_s seconds, only while a device at their venue is lost.
@@ -180,6 +187,13 @@ func LostConfigKeys(c LostConfig, phone string) map[string]any {
 	if c.DPC {
 		return out
 	}
+	// The staff PIN (client 1.13.7: corner + Power, then the PIN pad, opens staff mode).
+	// Every client version reads offline_exit.pin; older ones keep their own settings beside it.
+	pin := c.StaffPIN
+	if pin == "" {
+		pin = DefaultStaffPIN
+	}
+	out["offline_exit"] = map[string]any{"pin": pin}
 	// venue and venue_icon_v ride along whether self-lock is on or not: the lost screen
 	// (client 1.13.4, L1) names the venue and shows its icon, fetched once per version
 	// from /api/v1/venue-icon, for a lost_mode command that carries none too.
@@ -211,9 +225,10 @@ func (d *DB) LostConfigFor(ctx context.Context, deviceID uuid.UUID) (LostConfig,
 		                   AND o.restaurant_id = d.restaurant_id AND o.id <> d.id), '{}'),
 		       EXISTS (SELECT 1 FROM lost_sessions s WHERE s.device_id = d.id AND s.ended_at IS NULL),
 		       COALESCE(d.agent_kind, '') = 'dpc',
-		       COALESCE(EXTRACT(EPOCH FROM r.icon_at)::bigint, 0)
+		       COALESCE(EXTRACT(EPOCH FROM r.icon_at)::bigint, 0),
+		       COALESCE(r.staff_pin, '')
 		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE d.id = $1`, deviceID).Scan(&c.VenueID, &c.Venue, &c.SelfLockMinutes, &c.Beacons, &c.Lost, &c.DPC, &c.VenueIconV)
+		WHERE d.id = $1`, deviceID).Scan(&c.VenueID, &c.Venue, &c.SelfLockMinutes, &c.Beacons, &c.Lost, &c.DPC, &c.VenueIconV, &c.StaffPIN)
 	return c, err
 }
 
@@ -246,6 +261,23 @@ func (d *DB) SetRestaurantSelfLock(ctx context.Context, restaurantID uuid.UUID, 
 		lostConfigGen.Add(1)
 	}
 	return err
+}
+
+// SetRestaurantStaffPIN sets a venue's staff PIN ("" = the client default) and moves the
+// config generation so its devices' next answer carries it.
+func (d *DB) SetRestaurantStaffPIN(ctx context.Context, restaurantID uuid.UUID, pin string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET staff_pin = $2 WHERE id = $1`, restaurantID, pin)
+	if err == nil {
+		lostConfigGen.Add(1)
+	}
+	return err
+}
+
+// RestaurantStaffPIN is a venue's own staff PIN, "" when it uses the client default.
+func (d *DB) RestaurantStaffPIN(ctx context.Context, restaurantID uuid.UUID) (string, error) {
+	var pin string
+	err := d.pool.QueryRow(ctx, `SELECT staff_pin FROM restaurants WHERE id = $1`, restaurantID).Scan(&pin)
+	return pin, err
 }
 
 // ── B: what the neighbours heard ──────────────────────────────────────────────

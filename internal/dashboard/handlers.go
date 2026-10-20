@@ -1658,6 +1658,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canSeeBattery": batteryRoleOK,
 		// Lost mode as the device reports it (lost_mode.go): the fleet's red "Lost" tag.
 		"deviceLost": deviceLost,
+		"staffMode":  staffMode,
 		// pctOfF is pctOf for the float durations the power/usage bars are drawn from.
 		"pctOfF": func(n, total float64) int {
 			if total <= 0 {

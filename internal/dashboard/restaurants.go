@@ -284,6 +284,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	data["VenueWifi"] = h.venueWifiRows(r.Context(), id, devices)
 	// Self-lock (S1): minutes, 0 = off.
 	data["SelfLockMinutes"], _ = h.db.RestaurantSelfLockMinutes(r.Context(), id)
+	data["StaffPIN"], _ = h.db.RestaurantStaffPIN(r.Context(), id)
 	// The Device lock card (venue_kiosk.go). Wired into GroupDetail by mistake on 11 Oct,
 	// so the venue page never showed it until 18 Oct.
 	data["Kiosk"] = h.venueKiosk(r, id)
@@ -878,6 +879,7 @@ func (h *Handler) RestaurantSetServiceWindow(w http.ResponseWriter, r *http.Requ
 	if r.FormValue("action") == "reset" {
 		_ = h.db.DeleteServiceWindow(r.Context(), id)
 		h.audit(r, "restaurant.service_window", id.String(), "reset")
+		h.pushGuestToRestaurant(r.Context(), id) // the welcome screens' closed-hours screen
 		http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 		return
 	}
@@ -894,6 +896,7 @@ func (h *Handler) RestaurantSetServiceWindow(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	h.audit(r, "restaurant.service_window", id.String(), "")
+	h.pushGuestToRestaurant(r.Context(), id) // the welcome screens' closed-hours screen
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
 

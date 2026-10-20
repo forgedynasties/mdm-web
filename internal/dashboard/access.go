@@ -587,7 +587,8 @@ func (a *access) keepVisible(devs []db.Device) []db.Device {
 // security finding about the fleet's own identity — it names the addresses a serial
 // was used from, and the only answer to it is a key reset, which is an admin action.
 // Super admin sees it; every other role does not, in the inbox, the Overview, the
-// dock, the bell and their counts.
+// dock, the bell and their counts. "No proven control" and "Key not registered" are
+// treated the same way (db.IsSuperAdminAlert, 20 Oct).
 func (a *access) hidesIdentityAlerts() bool { return a.role != "admin" }
 
 // keepVisibleAlerts drops alerts about devices the user may not see. Fleet
@@ -599,7 +600,7 @@ func (a *access) keepVisibleAlerts(alerts []db.Alert) []db.Alert {
 	}
 	out := alerts[:0:0]
 	for _, x := range alerts {
-		if hideIdentity && x.Type == db.AlertTypeIdentityConflict {
+		if hideIdentity && db.IsSuperAdminAlert(x.Type) {
 			continue
 		}
 		if x.DeviceID == nil || !a.hidesDevices() || a.canDevice("view", *x.DeviceID) {

@@ -73,6 +73,9 @@ type Handler struct {
 	geocoder    *geolocate.Geocoder
 	remote      *remote.Manager
 	tunnels     *adbtunnel.Manager
+	// kioskRelock locks a device again after an exit on site, the same way the
+	// dashboard's "Lock again" does (dashboard.Handler.RelockFromDevice, set in main.go).
+	kioskRelock func(ctx context.Context, deviceID uuid.UUID, relockedAt time.Time) bool
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
@@ -1304,6 +1307,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		cfg["host_app_pattern"] = product.HostAppPattern(h.db.RoleAppBase(ctx, p.Class))
 	}
 	h.processOfflineExit(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
+	h.processRelock(ctx, deviceID, req.SerialNumber, req.Extra, deviceCfg, cfg)
 	cfg["temp_fast_sec"] = h.recordTempFast(ctx, deviceID, req.Extra, tag)
 	// Lost-device reporting (lost_reporting.go): what this device should listen for, its
 	// venue's self-lock opt-in, and the lost-mode parts of what it just reported.
@@ -1438,7 +1442,7 @@ func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, se
 			cfg.KioskEnabled = false
 			cfgMap["kiosk_enabled"] = false
 			if marked {
-				summary := "Taken out of kiosk on site: someone used the exit PIN or code on the device. It stays unlocked until someone locks it again."
+				summary := "Taken out of kiosk on site: someone used the staff PIN on the tablet. It stays unlocked until staff tap Back to guest mode or it is re-locked here."
 				if created, err := h.db.CreateAlertIfAbsent(ctx, nil, "kiosk_exited", deviceID, "warning", summary, map[string]any{"at": e.OfflineExitAt}); err == nil && created {
 					h.alerts.Dispatch(ctx, []db.AlertNotification{{Type: "kiosk_exited", Severity: "warning", Summary: summary,
 						Serial: serial, DeviceID: deviceID, EventAt: time.Unix(e.OfflineExitAt, 0).UTC()}})
@@ -1449,6 +1453,43 @@ func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, se
 	}
 	h.db.RecordOfflineExit(ctx, deviceID, e.OfflineExitAt)
 	cfgMap["offline_exit_ack"] = e.OfflineExitAt
+}
+
+// SetKioskRelocker wires the dashboard's re-lock into the check-in path.
+func (h *Handler) SetKioskRelocker(f func(ctx context.Context, deviceID uuid.UUID, relockedAt time.Time) bool) {
+	h.kioskRelock = f
+}
+
+// processRelock handles a re-lock done on the tablet: staff tapped "Back to guest mode"
+// on the staff pill (client 1.13.7), which locks the host app again on the spot and
+// reports extra.kiosk_relocked_at (epoch secs) until the config has the lock back on.
+// Without this the server's answer to the exit (lock off) undid it at the next config.
+// An open exit from before that moment is answered as "Lock again" would answer it, and
+// this check-in's config is re-read so its answer already carries the lock.
+func (h *Handler) processRelock(ctx context.Context, deviceID uuid.UUID, serial string, extra json.RawMessage, cfg *db.DeviceConfig, cfgMap map[string]any) {
+	if len(extra) == 0 || h.kioskRelock == nil || cfg.KioskEnabled {
+		return
+	}
+	var e struct {
+		RelockedAt int64 `json:"kiosk_relocked_at"`
+	}
+	if json.Unmarshal(extra, &e) != nil || e.RelockedAt <= 0 {
+		return
+	}
+	if !h.kioskRelock(ctx, deviceID, time.Unix(e.RelockedAt, 0)) {
+		return
+	}
+	log.Printf("[kiosk] device %s (%s) re-locked on the tablet at %d", serial, deviceID, e.RelockedAt)
+	if fresh, err := h.db.GetOrCreateDeviceConfig(ctx, deviceID); err == nil {
+		*cfg = *fresh
+		cfgMap["kiosk_enabled"] = fresh.KioskEnabled
+		cfgMap["kiosk_package"] = fresh.KioskPackage
+		cfgMap["kiosk_features"] = fresh.KioskFeatures
+		cfgMap["kiosk_mode"] = fresh.KioskMode
+		cfgMap["kiosk_packages"] = fresh.KioskPackages
+		cfgMap["kiosk_url"] = fresh.KioskURL
+		cfgMap["kiosk_url_allow"] = fresh.KioskURLAllow
+	}
 }
 
 // notifyDeviceOnboarded records a persistent "new_device" alert and dispatches it

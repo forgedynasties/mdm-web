@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,33 +37,65 @@ func (h *Handler) DeviceKioskRelock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back := kioskExitBack(r, serial)
-	ex, err := h.db.ClearKioskExit(ctx, dev.ID)
+	how, ok, err := h.relockAfterExit(ctx, *dev)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	if ex == nil {
+	if !ok {
 		h.hxRedirect(w, r, withFlash(back, "It had already been answered."))
 		return
 	}
-	how := "its own kiosk setting"
-	if ex.RuleID != nil && h.kioskRuleFor(ctx, *dev) != nil {
-		// Back under its rule: the enforcer locks it to whatever the rule says now.
+	h.auditDev(r, "kiosk.relock", dev.ID, serial, "after an exit on site, by "+how)
+	h.hxRedirect(w, r, withFlash(back, "Locked again. It locks at its next check-in."))
+}
+
+// relockAfterExit answers an exit on site by locking the device again to what locked it:
+// back under its rule (the enforcer locks it to whatever the rule says now), else to the
+// package it was locked to. It resolves the "taken out" alert. ok is false when there was
+// no open exit. Both "Lock again" here and a re-lock done on the tablet (staff tapped
+// "Back to guest mode", extra.kiosk_relocked_at) come through it.
+func (h *Handler) relockAfterExit(ctx context.Context, dev db.Device) (how string, ok bool, err error) {
+	ex, err := h.db.ClearKioskExit(ctx, dev.ID)
+	if err != nil || ex == nil {
+		return "", false, err
+	}
+	how = "its own kiosk setting"
+	if ex.RuleID != nil && h.kioskRuleFor(ctx, dev) != nil {
 		_ = h.db.SetKioskOverride(ctx, dev.ID, false)
 		h.reconcileKiosk(ctx)
 		how = "its lock rule"
 	} else if ex.Package != "" {
 		if err := h.db.SetKioskConfig(ctx, dev.ID, true, ex.Package, 0); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
+			return "", false, err
 		}
 		_ = h.db.MarkKioskManual(ctx, dev.ID, false)
 		h.pushKioskConfigToDevices(ctx, []uuid.UUID{dev.ID})
 	}
 	_, _ = h.db.ResolveOpenAlert(ctx, "kiosk_exited", dev.ID)
 	h.hub.PublishAlertUpdate()
-	h.auditDev(r, "kiosk.relock", dev.ID, serial, "after an exit on site, by "+how)
-	h.hxRedirect(w, r, withFlash(back, "Locked again. It locks at its next check-in."))
+	return how, true, nil
+}
+
+// RelockFromDevice is the check-in side of relockAfterExit: the tablet says staff put it
+// back in guest mode at relockedAt. Only an exit from before that is answered, so a later
+// exit is never undone by an old report. Wired into the api handler (main.go); reports
+// whether it locked the device again.
+func (h *Handler) RelockFromDevice(ctx context.Context, deviceID uuid.UUID, relockedAt time.Time) bool {
+	ex := h.db.GetKioskExit(ctx, deviceID)
+	if ex == nil || ex.At.After(relockedAt) {
+		return false
+	}
+	dev, err := h.db.GetDeviceByID(ctx, deviceID)
+	if err != nil || dev == nil {
+		return false
+	}
+	how, ok, err := h.relockAfterExit(ctx, *dev)
+	if err != nil || !ok {
+		return false
+	}
+	_ = h.db.InsertAudit(ctx, "device", "kiosk.relock", dev.SerialNumber, "on the tablet (Back to guest mode), by "+how)
+	return true
 }
 
 // DeviceKioskLeaveOut is POST /devices/{serial}/kiosk/leave-out.
@@ -137,4 +171,63 @@ func (h *Handler) lateSpansFor(r *http.Request, dev *db.Device) []db.TimeSpan {
 		return []db.TimeSpan{}
 	}
 	return spans
+}
+
+// staffMode reports whether a device says staff mode is up (client 1.13.7): someone used
+// the staff PIN, the host app is unlocked and the staff pill is on screen until they tap
+// "Back to guest mode". Shown as a "Staff mode" chip on the device page and in lists.
+func staffMode(extra json.RawMessage) bool {
+	var x struct {
+		On bool `json:"kiosk_staff_mode"`
+	}
+	return len(extra) > 0 && json.Unmarshal(extra, &x) == nil && x.On
+}
+
+// APISetDeviceKiosk locks or unlocks one device (POST /api/v1/devices/{serial}/kiosk,
+// admin key, {"enabled": bool, "package": "…"}): what the device page's Lock does by hand,
+// for test benches. A lock set this way is an exception to any lock rule, like one set on
+// the device page. The config is pushed at once to a connected device.
+func (h *Handler) APISetDeviceKiosk(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Enabled bool   `json:"enabled"`
+		Package string `json:"package"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "body must be {\"enabled\": bool, \"package\": string}")
+		return
+	}
+	body.Package = strings.TrimSpace(body.Package)
+	if body.Enabled && body.Package == "" {
+		writeJSONError(w, http.StatusBadRequest, "package is required to lock")
+		return
+	}
+	ctx := r.Context()
+	dev, err := h.db.GetDevice(ctx, r.PathValue("serial"))
+	if err != nil || dev == nil {
+		writeJSONError(w, http.StatusNotFound, "device not found")
+		return
+	}
+	pkg := body.Package
+	if !body.Enabled && pkg == "" {
+		if cfg, err := h.db.GetOrCreateDeviceConfig(ctx, dev.ID); err == nil {
+			pkg = cfg.KioskPackage
+		}
+	}
+	if err := h.db.SetKioskConfig(ctx, dev.ID, body.Enabled, pkg, 0); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	_ = h.db.MarkKioskManual(ctx, dev.ID, h.kioskRuleFor(ctx, *dev) != nil)
+	if body.Enabled {
+		_, _ = h.db.ResolveOpenAlert(ctx, "kiosk_exited", dev.ID)
+	}
+	h.pushKioskConfigToDevices(ctx, []uuid.UUID{dev.ID})
+	detail := "off"
+	if body.Enabled {
+		detail = "on, " + pkg
+	}
+	_ = h.db.InsertAudit(ctx, "API key", "device.kiosk", dev.SerialNumber, detail)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"serial": dev.SerialNumber, "enabled": body.Enabled, "package": pkg,
+		"connected": h.hub.IsConnected(dev.ID)})
 }

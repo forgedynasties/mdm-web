@@ -165,6 +165,14 @@
     <p>…while it's off its charger and off its guest pad, and the networks around it have changed too, so a router outage never locks a tablet at its table. It shows the lost screen until it's back at the venue or someone lifts it from its page. Firmware client 1.13.0+.</p>
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
+  {{/* Staff PIN (20 Oct): what staff type on a locked tablet to open its app for themselves
+       (staff mode). Sent to this venue's tablets as offline_exit.pin. lost_reporting.go */}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/staff-pin" method="POST">
+    <div class="form-row full"><label class="form-label" for="staff-pin">Staff PIN</label>
+      <input id="staff-pin" name="staff_pin" class="form-input" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" value="{{$.StaffPIN}}" placeholder="Built-in default" style="max-width:180px"></div>
+    <p>4 to 8 digits. Staff type it on a locked tablet to open its app for themselves; the tablet shows a staff pill until they tap Back to guest mode. Leave it empty for the built-in default.</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
   {{end}}
   </div>
 </details>

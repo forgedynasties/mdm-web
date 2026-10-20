@@ -417,7 +417,18 @@ func (h *Handler) AlertsRecent(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	if alerts = h.access(r).keepVisibleAlerts(alerts); len(alerts) > 6 {
+	// Snoozed alerts (by hand, or auto-snoozed while flapping) are not "needs attention":
+	// the Alerts page files them under Snoozed and the dock leaves them out of its count,
+	// so the bell does too (20 Oct: a flap-snoozed "Left the venue" sat in the bell only).
+	now := time.Now()
+	shown := alerts[:0:0]
+	for _, a := range h.access(r).keepVisibleAlerts(alerts) {
+		if a.MutedUntil != nil && a.MutedUntil.After(now) {
+			continue
+		}
+		shown = append(shown, a)
+	}
+	if alerts = shown; len(alerts) > 6 {
 		alerts = alerts[:6]
 	}
 	h.tmpl.ExecuteTemplate(w, "alerts-recent", map[string]any{"Alerts": humanizeAll(alerts)})

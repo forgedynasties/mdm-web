@@ -155,3 +155,29 @@ func (h *Handler) SetRestaurantIcon(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "has_icon": icon != nil, "bytes": len(icon), "source": source})
 }
+
+// UnassignRestaurantDevice takes a device off a venue (DELETE
+// /api/v1/restaurants/{id}/devices/{serial}, admin key): the same as removing it on the venue
+// page. 404 when the device is not at that venue. Its guest info is pushed so the tablet
+// stops showing the venue.
+func (h *Handler) UnassignRestaurantDevice(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid restaurant id"})
+		return
+	}
+	serial := r.PathValue("serial")
+	d, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil || d == nil || d.RestaurantID == nil || *d.RestaurantID != id {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not at this venue"})
+		return
+	}
+	if err := h.db.AssignDeviceToRestaurant(r.Context(), serial, nil); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	_ = h.db.InsertAudit(r.Context(), "API key", "restaurant.unassign", id.String(), serial)
+	h.hub.PublishDeviceUpdate(d.ID)
+	h.PushGuest(r.Context(), d.ID)
+	writeJSON(w, http.StatusOK, map[string]any{"restaurant_id": id, "unassigned": serial})
+}

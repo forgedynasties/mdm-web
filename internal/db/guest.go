@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -23,6 +24,25 @@ import (
 // device too.
 type GuestInfo struct {
 	RestaurantName string `json:"restaurant_name"`
+	// ServiceHours are the venue's hours, for the welcome screens' closed-hours screen
+	// (20 Oct). null for a device with no venue. A venue without hours of its own has the
+	// fleet default (Settings). open == close means that window never applies.
+	ServiceHours *GuestHours `json:"service_hours"`
+}
+
+// GuestHours is a venue's service window as the client shows it: local "HH:MM" times and
+// the venue's timezone ("" = the device's own).
+type GuestHours struct {
+	Open       string `json:"open"`
+	Close      string `json:"close"`
+	NightOpen  string `json:"night_open"`
+	NightClose string `json:"night_close"`
+	Timezone   string `json:"timezone"`
+}
+
+func hhmm(min int) string {
+	min = ((min % 1440) + 1440) % 1440
+	return fmt.Sprintf("%02d:%02d", min/60, min%60)
 }
 
 // Frame is the WebSocket message that pushes guest info to a connected device. It is
@@ -41,10 +61,17 @@ type DeviceGuest struct {
 	Guest     GuestInfo
 }
 
-// One query shape for every caller: the device row, its venue (if any), nothing else.
+// One query shape for every caller: the device row, its venue (if any) and the venue's
+// service window (its own, else the fleet default).
 const guestSelect = `
-	SELECT d.id, d.agent_kind, COALESCE(r.name, '')
-	FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id`
+	SELECT d.id, d.agent_kind, COALESCE(r.name, ''), d.restaurant_id IS NOT NULL,
+	       COALESCE(sw.open_min, fw.open_min, 420), COALESCE(sw.close_min, fw.close_min, 1380),
+	       COALESCE(sw.night_open_min, fw.night_open_min, 1410), COALESCE(sw.night_close_min, fw.night_close_min, 360),
+	       COALESCE(NULLIF(sw.timezone, ''), NULLIF(r.timezone, ''), NULLIF(fw.timezone, ''), '')
+	FROM devices d
+	LEFT JOIN restaurants r ON r.id = d.restaurant_id
+	LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
+	LEFT JOIN LATERAL (SELECT * FROM service_windows WHERE restaurant_id IS NULL AND group_id IS NULL LIMIT 1) fw ON true`
 
 func (d *DB) queryGuests(ctx context.Context, where string, arg any) ([]DeviceGuest, error) {
 	rows, err := d.pool.Query(ctx, guestSelect+" WHERE "+where, arg)
@@ -55,8 +82,14 @@ func (d *DB) queryGuests(ctx context.Context, where string, arg any) ([]DeviceGu
 	var out []DeviceGuest
 	for rows.Next() {
 		var g DeviceGuest
-		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName); err != nil {
+		var placed bool
+		var open, close, nOpen, nClose int
+		var tz string
+		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName, &placed, &open, &close, &nOpen, &nClose, &tz); err != nil {
 			return nil, err
+		}
+		if placed {
+			g.Guest.ServiceHours = &GuestHours{Open: hhmm(open), Close: hhmm(close), NightOpen: hhmm(nOpen), NightClose: hhmm(nClose), Timezone: tz}
 		}
 		out = append(out, g)
 	}

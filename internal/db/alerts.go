@@ -485,6 +485,18 @@ func (d *DB) ListAlertsPage(ctx context.Context, status, severity string, types 
 // passes hideIdentity for anyone else (dashboard: access.hidesIdentityAlerts).
 const AlertTypeIdentityConflict = "identity_conflict"
 
+// superAdminAlertSQL is the alert types shown to super admins only (hideIdentity): the
+// impersonation finding above, and two more about the fleet's own plumbing that only an
+// admin can act on — "No proven control" (control_stale: nothing sent completes) and "Key
+// not registered" (key_not_registered: a key reset the device has not answered). Asked
+// 20 Oct. Keep IsSuperAdminAlert in step.
+const superAdminAlertSQL = `('` + AlertTypeIdentityConflict + `', 'control_stale', 'key_not_registered')`
+
+// IsSuperAdminAlert reports whether alerts of this type are for super admins only.
+func IsSuperAdminAlert(t string) bool {
+	return t == AlertTypeIdentityConflict || t == "control_stale" || t == "key_not_registered"
+}
+
 // AlertSummaryCounts returns headline counts for the alerts page in a single query.
 // hideIdentity leaves identity_conflict out, so the headline agrees with the list
 // below it for a user who cannot see those alerts.
@@ -499,7 +511,7 @@ func (d *DB) AlertSummaryCounts(ctx context.Context, hideIdentity bool) (AlertSu
 		       COUNT(*) FILTER (WHERE severity = 'warning'  AND status <> 'resolved'),
 		       COUNT(*) FILTER (WHERE severity = 'info'     AND status <> 'resolved')
 		FROM alerts
-		WHERE NOT ($1 AND type = '`+AlertTypeIdentityConflict+`')
+		WHERE NOT ($1 AND type IN `+superAdminAlertSQL+`)
 	`, hideIdentity).Scan(&s.Total, &s.Open, &s.Acknowledged, &s.Resolved, &s.Critical, &s.Warning, &s.Info)
 	return s, err
 }
@@ -515,7 +527,7 @@ func (d *DB) CountOpenAlerts(ctx context.Context, hideIdentity bool) (int, error
 		SELECT COUNT(*) FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		WHERE a.status = 'open' AND (a.device_id IS NULL OR NOT d.hidden)
-		  AND NOT ($1 AND a.type = '`+AlertTypeIdentityConflict+`')`, hideIdentity).Scan(&n)
+		  AND NOT ($1 AND a.type IN `+superAdminAlertSQL+`)`, hideIdentity).Scan(&n)
 	return n, err
 }
 
@@ -530,7 +542,7 @@ func (d *DB) DockCounts(ctx context.Context, hideIdentity bool) (critical, runni
 			 WHERE a.status = 'open' AND a.severity = 'critical'
 			   AND (a.muted_until IS NULL OR a.muted_until < NOW())
 			   AND (a.device_id IS NULL OR NOT dv.hidden)
-			   AND NOT ($1 AND a.type = '`+AlertTypeIdentityConflict+`')),
+			   AND NOT ($1 AND a.type IN `+superAdminAlertSQL+`)),
 			(SELECT COUNT(*) FROM commands c
 			 WHERE c.created_at > NOW() - INTERVAL '15 minutes'
 			   AND EXISTS (SELECT 1 FROM command_status cs

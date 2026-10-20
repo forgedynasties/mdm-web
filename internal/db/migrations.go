@@ -2064,5 +2064,8 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS self_lock_minutes INT NOT NULL 
 -- Device lists per user (20 Oct): '' is the table (the default), 'cards' the two-line
 -- cards from before the table. Set from Fleet's Table/Cards switch, kept across sessions.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS fleet_view TEXT NOT NULL DEFAULT '';
+-- Staff PIN per venue (20 Oct): what staff type on a locked tablet to unlock the host app
+-- (staff mode). '' = the client's built-in default. Sent as config offline_exit.pin.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS staff_pin TEXT NOT NULL DEFAULT '';
 
 `

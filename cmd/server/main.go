@@ -622,6 +622,10 @@ func main() {
 
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
+	apiHandler.SetKioskRelocker(dash.RelockFromDevice)
+	// Test-bench routes (admin key): lock/unlock one device, take one off a venue.
+	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))
+	mux.Handle("DELETE /api/v1/restaurants/{id}/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.UnassignRestaurantDevice)))
 	dash.SetAdbTunnels(tunnelMgr)
 	dash.SetIngestStats(apiHandler.IngestStats)
 	dash.SetKeyResetHook(apiHandler.ForgetOwnKey)

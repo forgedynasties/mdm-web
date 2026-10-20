@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"strings"
+	"regexp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -162,6 +164,44 @@ func (h *Handler) RestaurantSelfLock(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
+
+// RestaurantStaffPIN sets the PIN staff type on a locked tablet to unlock its app (staff
+// mode, client 1.13.7): 4–8 digits, or empty for the client's built-in default. Admin only,
+// audited (without the PIN); the venue's devices are asked to check in so they have it.
+//
+//	POST /restaurants/{id}/staff-pin
+func (h *Handler) RestaurantStaffPIN(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	pin := strings.TrimSpace(r.FormValue("staff_pin"))
+	if pin != "" && !staffPINRe.MatchString(pin) {
+		h.hxDoneToast(w, r, "/restaurants/"+id.String()+"?open=lock", "The staff PIN is 4 to 8 digits.", "error")
+		return
+	}
+	if err := h.db.SetRestaurantStaffPIN(r.Context(), id, pin); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	detail := "set"
+	if pin == "" {
+		detail = "cleared (built-in default)"
+	}
+	h.audit(r, "restaurant.staff_pin", id.String(), detail)
+	if devs, err := h.db.ListRestaurantDevices(r.Context(), id); err == nil {
+		ids := make([]uuid.UUID, 0, len(devs))
+		for _, d := range devs {
+			ids = append(ids, d.ID)
+		}
+		h.nudgeCheckin(ids)
+	}
+	http.Redirect(w, r, "/restaurants/"+id.String()+"?open=lock", http.StatusFound)
+}
+
+var staffPINRe = regexp.MustCompile(`^[0-9]{4,8}$`)
 
 // Newest is the timeline newest first, as the Location tab lists it.
 func (r *lostReport) Newest() []db.LostEvent {

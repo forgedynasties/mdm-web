@@ -567,7 +567,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ChartCharge":       chartCharge,
 		"ChartFocus":        focusParam,
 		"IsOwner":           h.role(r) == "owner",
-		"WhoHasAccess":      h.whoHasAccess(r, device.ID),
 		"Nickname":          func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
 		"HardwareSerial":    h.db.HardwareSerialOf(ctx, device.SerialNumber),
 		"NuggetIDs":         nuggetAndroidIDs(device.LatestExtra),
