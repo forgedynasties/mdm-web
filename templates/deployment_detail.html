@@ -72,13 +72,23 @@
             {{if and .Reboot $.LegacyDep}}<form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" hx-confirm="Reboot {{.Serial}} now to apply the installed update?"><button type="submit" class="cc-btn xs primary">Reboot to apply</button></form>{{end}}
             {{if and .Retry $.LegacyDep}}<form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-btn xs">Retry</button></form>{{end}}
           {{else}}
-            {{if .Open}}<a class="cc-btn xs" href="/devices/{{.Serial}}">Open</a>{{end}}
-            {{if .Retry}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-btn xs" title="Send it again the same way (incremental if it qualifies, else full)">Retry</button></form>{{end}}
-            {{if .RetryFull}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><input type="hidden" name="delivery" value="full"><button type="submit" class="cc-btn xs" title="Send the full image, skipping any incremental">Full image</button></form>{{end}}
-            {{if .RetryStalled}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-btn xs" title="Nothing heard for over 30 minutes: start the download again">Retry</button></form>{{end}}
-            {{if .Reboot}}<form action="{{$base}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" hx-confirm="Reboot {{.Serial}} now to apply the installed update?"><button type="submit" class="cc-btn xs primary">Reboot to apply</button></form>{{end}}
-            {{if .Cancel}}<form action="{{$base}}/devices/{{.Serial}}/cancel-ota" method="POST" hx-boost="true" hx-confirm="Cancel the download on {{.Serial}}? Safe while it is downloading; an install already under way is never aborted. The row is marked failed so you can retry."><button type="submit" class="cc-btn xs">Cancel</button></form>{{end}}
-            {{if .Remove}}<form action="{{$base}}/devices/{{.Serial}}/remove" method="POST" hx-boost="true" hx-confirm="Remove {{.Serial}} from this rollout?{{if eq .Key "wait"}} It will not receive the update.{{else}} It stops counting in this rollout's numbers.{{end}}"><button type="submit" class="cc-btn xs">Remove</button></form>{{end}}
+            {{/* One button per row, the rest under ···: three side by side ran past the card. */}}
+            {{if .Open}}<a class="cc-btn xs" href="/devices/{{.Serial}}">Open</a>
+            {{else if or .Retry .RetryStalled}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-btn xs" title="Send it again the same way (incremental if it qualifies, else full)">Retry</button></form>
+            {{else if .Reboot}}<form action="{{$base}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" hx-confirm="Reboot {{.Serial}} now to apply the installed update?"><button type="submit" class="cc-btn xs primary">Reboot to apply</button></form>
+            {{else if .Cancel}}<form action="{{$base}}/devices/{{.Serial}}/cancel-ota" method="POST" hx-boost="true" hx-confirm="Cancel the download on {{.Serial}}? Safe while it is downloading; an install already under way is never aborted. The row is marked failed so you can retry."><button type="submit" class="cc-btn xs">Cancel</button></form>
+            {{else if .Remove}}<form action="{{$base}}/devices/{{.Serial}}/remove" method="POST" hx-boost="true" hx-confirm="Remove {{.Serial}} from this rollout?{{if eq .Key "wait"}} It will not receive the update.{{else}} It stops counting in this rollout's numbers.{{end}}"><button type="submit" class="cc-btn xs">Remove</button></form>{{end}}
+            {{$more := or (and .Open (or .RetryStalled .Cancel)) (and (or .Retry .RetryStalled) (or .RetryFull .Remove .Cancel))}}
+            {{if $more}}
+            <div class="oc-cm dp1-rm"><button type="button" class="cc-btn xs" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More for {{.Serial}}">···</button>
+              <div class="cc-menu" hidden>
+                {{if and .Open .RetryStalled}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-mi">Retry the download</button></form>{{end}}
+                {{if .RetryFull}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><input type="hidden" name="delivery" value="full"><button type="submit" class="cc-mi">Retry with the full image</button></form>{{end}}
+                {{if .Cancel}}<form action="{{$base}}/devices/{{.Serial}}/cancel-ota" method="POST" hx-boost="true" hx-confirm="Cancel the download on {{.Serial}}? Safe while it is downloading; an install already under way is never aborted. The row is marked failed so you can retry."><button type="submit" class="cc-mi">Cancel the download</button></form>{{end}}
+                {{if .Remove}}<form action="{{$base}}/devices/{{.Serial}}/remove" method="POST" hx-boost="true" hx-confirm="Remove {{.Serial}} from this rollout? It stops counting in this rollout's numbers."><button type="submit" class="cc-mi">Remove from this rollout</button></form>{{end}}
+              </div>
+            </div>
+            {{end}}
           {{end}}
           {{end}}
         </td>
@@ -132,7 +142,9 @@
   .dp1-line{margin:12px 0 0!important;font-size:13.5px!important;max-width:70ch}
   .ov2-ban.is-calm .dp1-line{opacity:.8}
   .dp1-bar-f{margin:0}
-  .dp1-t{width:100%;border-collapse:collapse;font-size:12.5px}
+  .dp1-t{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
+  .dp1-t th:nth-child(1){width:178px}.dp1-t th:nth-child(2){width:22%}.dp1-t th:nth-child(4){width:150px}
+  .dp1-t td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dp1-t th{text-align:left;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border-soft)}
   .dp1-t td{padding:9px 10px;border-top:1px solid var(--border-soft);vertical-align:middle}
   .dp1-t tbody tr:first-child td{border-top:0}
@@ -148,12 +160,15 @@
   .dp1-st.ok i{background:var(--ok)}.dp1-st.run i{background:var(--accent)}.dp1-st.warn i{background:var(--warn)}.dp1-st.bad i{background:var(--danger)}
   .dp1-st.q i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
   .dp1-st.warn{color:var(--warn)}.dp1-st.bad{color:var(--danger)}.dp1-st.muted{color:var(--muted)}
-  .dp1-sub{display:flex;align-items:center;font-size:11.5px;color:var(--muted);margin:2px 0 0 15px;max-width:520px;line-height:1.4}
+  .dp1-t td>small.dp1-sub{display:flex;align-items:center;font-size:11.5px;color:var(--muted);margin:2px 0 0 15px;max-width:420px;line-height:1.4;white-space:normal}
   .dp1-pb{display:inline-block;flex:none;width:72px;height:5px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-right:8px}
   .dp1-pb i{display:block;height:5px;background:var(--accent)}
   .dp1-acts{text-align:right;white-space:nowrap}
   .dp1-acts form{display:inline;margin:0}
   .dp1-acts .cc-btn{margin-left:4px}
+  .dp1-rm{display:inline-block;position:relative;text-align:left}
+  .dp1-rm .cc-menu form{margin:0}
+  .dp1-rm .cc-menu .cc-mi{width:100%;text-align:left}
   .dp1-none{padding:18px;text-align:center;color:var(--muted);font-size:12.5px}
   .dp1-ven{list-style:none;margin:-4px 0 0;padding:0}
   .dp1-ven li{padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}

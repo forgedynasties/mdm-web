@@ -163,13 +163,20 @@ func TestDeployD1Renders(t *testing.T) {
 	}
 	funcs["canOperate"] = func(string) bool { return true }
 	funcs["canOTA"] = func(string) bool { return true }
-	funcs["otaErrorText"] = func(s string) string { return "error " + s }
+	funcs["otaErrorText"] = func(s string) string {
+		return "Download failed — the device couldn't fetch the OTA package (check the URL is reachable from the device)."
+	}
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
 	tmpl = template.Must(tmpl.ParseFiles("../../templates/deployment_detail.html"))
 
 	now := time.Date(2026, 10, 21, 11, 15, 0, 0, time.UTC)
 	in := d1Sample(now)
 	in.Dep.Release = &db.Release{ID: 10862, Version: "v2.0.997", Product: "t7"}
+	for i := range in.Targets {
+		if in.Targets[i].SerialNumber == "AT070AABU00450" {
+			in.Targets[i].Status, in.Targets[i].ErrorCode = "failed", "DOWNLOAD_ERROR"
+		}
+	}
 	data := map[string]any{
 		"Role": "admin", "Deployment": in.Dep, "Release": in.Dep.Release, "SummaryTotal": len(in.Targets),
 		"D1": buildDeployD1(in),
@@ -180,12 +187,13 @@ func TestDeployD1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h2>1 thing to look at</h2>`, `href="/devices/AT070AABU00644">Open device</a>`,
+		`<h2>2 things to look at</h2>`, `href="/devices/AT070AABU00644">Open device</a>`,
 		`class="dp1-st warn"><i></i>Not back from its reboot</span>`, `class="dp1-st q"><i></i>Waiting</span>`,
 		`from v2.0.6l · full image`, `<i style="width:41%"></i>`,
 		`action="/releases/10862/deployments/422/devices/AT070AABU00116/cancel-ota"`,
-		`action="/releases/10862/deployments/422/devices/AT070AABU00450/remove"`,
-		`data-dp1-set="state" data-val="wait">Waiting · 7</button>`, `data-dp1-set="venue" data-val="Huanchaco Peruvian"`,
+		`action="/releases/10862/deployments/422/devices/AT070AABU00527/remove"`,
+		`aria-label="More for AT070AABU00450"`, `>Retry with the full image</button>`, `>Remove from this rollout</button>`,
+		`data-dp1-set="state" data-val="wait">Waiting · 6</button>`, `data-dp1-set="venue" data-val="Huanchaco Peruvian"`,
 		`<span><b>52%</b><small>installed</small></span>`, `onclick="dplOpen('dpl-reboot-modal')">Change</button>`,
 		`3 per venue, 8 in all`, `data-copy-serials="#deployment-targets"`, `id="dpl-reboot-modal"`,
 	} {
@@ -193,7 +201,7 @@ func TestDeployD1Renders(t *testing.T) {
 			t.Errorf("deployment page is missing %q", want)
 		}
 	}
-	for _, gone := range []string{`dpl-hero`, `class="cc-card dpl-reboot"`, `Retry with full image`} {
+	for _, gone := range []string{`dpl-hero`, `class="cc-card dpl-reboot"`} {
 		if strings.Contains(out, gone) {
 			t.Errorf("old page piece %q is still there", gone)
 		}
