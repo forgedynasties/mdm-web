@@ -41,6 +41,13 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// is the half that has to survive it, because nothing else shows work in flight.
 	if r.URL.Path == "/jobs" {
 		data["JobsView"] = true
+		h.jobsJ1Data(r, data)
+		// The count cards refresh on their own, like the list (J1, 21 Oct 2026).
+		if r.URL.Query().Get("partial") == "jobscards" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			h.tmpl.ExecuteTemplate(w, "jobs-cards", h.withRole(r, data))
+			return
+		}
 		h.render(w, r, "jobs.html", data)
 		return
 	}
@@ -203,7 +210,7 @@ func (h *Handler) commandListData(r *http.Request) (map[string]any, error) {
 	// partial re-runs this handler on every feed tick and doesn't need them). ──
 	var paletteJSON []byte
 	var recents []recentSendView
-	if r.URL.Query().Get("partial") != "histlive" {
+	if p := r.URL.Query().Get("partial"); p != "histlive" && p != "jobscards" {
 		palActions, palAllowed := h.paletteActions(role, actionQueries)
 		paletteJSON = h.commandPaletteJSON(r, palActions, in, groups, scopeRestaurants, actionQueries)
 		recents = h.recentSends(r, cmds, apps, batches, clusters, palAllowed, groupNames)
@@ -216,6 +223,9 @@ func (h *Handler) commandListData(r *http.Request) (map[string]any, error) {
 		"Attention":        attnShown,
 		"InProgress":       progShown,
 		"Completed":        doneShown,
+		"AttnAll":          attn,
+		"ProgAll":          prog,
+		"DoneAll":          doneAll,
 		"AttnCount":        len(attn),
 		"ProgCount":        len(prog),
 		"DoneCount":        len(doneAll),

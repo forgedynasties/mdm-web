@@ -6392,6 +6392,7 @@ html[data-theme="dark"] .composer { background: var(--surface2); }
 .hist-day{padding:10px 18px 4px;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);}
 .htrow{display:flex;align-items:center;gap:11px;padding:9px 18px;border-top:1px solid var(--border-soft);}
 .htrow:hover{background:var(--surface2);}
+.htrow .ht-chip{display:none;} /* the Jobs page (J1) shows it as a column */
 /* Timeline rail dot (replaces the old icon-box per row, matching the chosen
    history-hierarchy demo exactly): a small state dot with a hairline connecting
    it to the next row, drawn via the wrapper's own padding so it reads as one

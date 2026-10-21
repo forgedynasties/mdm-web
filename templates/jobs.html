@@ -11,6 +11,38 @@
   <span class="isl-s">{{if gt .ProgCount 0}}<b>{{.ProgCount}}</b> in flight{{else}}Nothing in flight{{end}}{{if gt .AttnCount 0}} · <span class="w">{{.AttnCount}} need{{if eq .AttnCount 1}}s{{end}} a look</span>{{end}}</span>
   <span class="isl-acts"><a class="cc-btn" href="/schedules">Schedules</a><a class="cc-btn" href="/apps">Apps</a><a class="cc-btn primary" href="/devices">Devices</a></span>
 </template>
+<style>
+/* ── Jobs J1 (21 Oct 2026): count cards, rollouts, filter pills, the job table ── */
+.jz-cards .oc-stats{margin:0 0 18px}
+.jz-ro{margin:0 0 18px}
+.jz-ro .oc-tl{grid-template-columns:200px minmax(0,1fr);column-gap:14px}
+.jz-bar{justify-content:flex-start;margin:0 0 10px}
+.jz-bar .cnt{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.jz-bar .cnt b{color:var(--text)}
+.jz-bar .cc-menu{left:0;right:auto;max-height:340px;overflow-y:auto}
+.jz-tbl{padding:0;overflow:hidden}
+.jz-th,.jz-tbl .htrow{display:grid;grid-template-columns:36px minmax(0,1fr) 112px 160px 72px 132px;align-items:center;gap:12px;padding:10px 18px}
+.jz-th{font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border-soft);padding-top:12px;padding-bottom:10px}
+.jz-th span:nth-child(5){text-align:right}
+.jz-tbl .htrow{border-top:1px solid var(--border-soft)}
+.jz-tbl .ht-body{min-width:0}
+.jz-tbl .ht-meter{flex:0 0 100%;max-width:none;display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--surface2);margin-top:2px}
+.jz-tbl .ht-meter i{display:block;height:100%}
+.jz-tbl .ht-meter .ok{background:var(--ok)}.jz-tbl .ht-meter .fail{background:var(--danger)}.jz-tbl .ht-meter .run{background:var(--accent)}
+.jz-tbl .ht-chip{display:inline-flex;align-items:center;gap:6px;justify-self:start;font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:99px;white-space:nowrap;color:var(--ok);background:var(--ok-bg)}
+.jz-tbl .ht-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.jz-tbl .ht-chip.run{color:var(--accent-text);background:var(--accent-soft)}
+.jz-tbl .ht-chip.fail{color:var(--danger);background:var(--danger-bg)}
+.jz-tbl .ht-by,.jz-tbl .ht-auto{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:var(--text-2)}
+.jz-tbl .ht-when{text-align:right;font-size:12px;color:var(--muted);white-space:nowrap}
+.jz-tbl .hact{display:flex;justify-content:flex-end;align-items:center;gap:6px}
+.jz-tbl .hact form{margin:0}
+.jz-tbl .hretry{white-space:nowrap}
+.jz-tbl .hgrp-h{padding:16px 18px 6px}
+.jz-tbl .hist-day{padding-left:18px}
+.jz-none{padding:18px;font-size:12.5px;color:var(--muted)}
+.jz-tbl [hidden]{display:none!important} /* rows and headers set their own display */
+</style>
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
@@ -25,16 +57,83 @@
     </div>
   </div>
 
+  {{/* J1 (21 Oct 2026): In flight / Needs a look / Done today, refreshed with the list. */}}
+  <div class="jz-cards" id="jz-cards" hx-get="/jobs?partial=jobscards" hx-target="this" hx-swap="innerHTML"
+       hx-trigger="command-updated from:body, every 30s">{{template "jobs-cards" .}}</div>
+
+  {{/* The Overview's Rollouts card: jobs on two or more devices and firmware pushes over
+       the last seven days. Fleet-wide, so only for viewers who see the whole fleet. */}}
+  {{with .JobRollouts}}{{if .Bars}}{{$ro := .}}
+  <div class="oc-card jz-ro">
+    <div class="oc-ch"><h2>Rollouts <span>last 7 days{{if .Running}} · {{.Running}} running{{end}}{{if .Stalled}} · {{.Stalled}} stalled{{end}}</span></h2></div>
+    <div class="oc-tl" style="--now:{{.NowPct}}%">
+      {{range .Bars}}
+      <div class="oc-tl-l"><b title="{{.Name}}">{{.Name}}</b><small>{{.Sub}}</small></div>
+      <div class="oc-tl-r"><a class="oc-tb {{.Tone}}" href="{{.Href}}" title="{{.Title}}" style="left:min({{.Left}}%, calc(100% - 104px));width:{{.Width}}%"><span class="ic">{{.Icon}}</span>{{if .Initials}}<span class="av" style="background:hsl({{.Hue}} 45% 46%)">{{.Initials}}</span>{{end}}<span class="n">{{.Count}}</span></a></div>
+      {{end}}
+      <div class="oc-tl-ax">{{range $ro.Days}}<span>{{.}}</span>{{end}}</div>
+    </div>
+    <div class="oc-foot"><span><i class="k-on"></i>Done</span><span><i class="k-run"></i>Running</span><span><i class="k-al"></i>Stalled</span><span><i class="k-off"></i>Scheduled</span><span class="tot">Total: <b>{{.Devices}} devices</b></span></div>
+  </div>
+  {{end}}{{end}}
+
+  {{/* Filter pills: they filter the rows on the page (each bucket shows its newest jobs;
+       History has the rest). */}}
+  {{with .JobFilters}}
+  <div class="oc-bar jz-bar" role="group" aria-label="Filter the jobs">
+    <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-jz-pill="state">State: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+      <div class="cc-menu" hidden>
+        <button class="cc-mi active" type="button" data-jz-set="state" data-val="">All</button>
+        <button class="cc-mi" type="button" data-jz-set="state" data-val="prog">In progress</button>
+        <button class="cc-mi" type="button" data-jz-set="state" data-val="attn">Needs a look</button>
+        <button class="cc-mi" type="button" data-jz-set="state" data-val="done">Done</button>
+      </div></div>
+    {{if .Types}}<div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-jz-pill="type">Type: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+      <div class="cc-menu" hidden>
+        <button class="cc-mi active" type="button" data-jz-set="type" data-val="">All</button>
+        {{range .Types}}<button class="cc-mi" type="button" data-jz-set="type" data-val="{{.Href}}">{{.Label}}</button>{{end}}
+      </div></div>{{end}}
+    {{if .Senders}}<div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-jz-pill="by">Sent by: <b>Anyone</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+      <div class="cc-menu" hidden>
+        <button class="cc-mi active" type="button" data-jz-set="by" data-val="">Anyone</button>
+        {{range .Senders}}<button class="cc-mi" type="button" data-jz-set="by" data-val="{{.Href}}">{{.Label}}</button>{{end}}
+      </div></div>{{end}}
+    <span class="cnt" id="jz-count" hidden></span>
+  </div>
+  {{end}}
+
   {{/* Jobs start where the thing they act on lives: an install from the app's card in the
        library (which knows which devices are missing it), a shell or reboot from a device
        selection on the Devices page. This page is where they are watched, not started. */}}
-  <div class="cc-card" style="padding:0;overflow:hidden">
+  <div class="cc-card jz-tbl">
+    <div class="jz-th" aria-hidden="true"><span></span><span>Job and progress</span><span>Status</span><span>Sent by</span><span>When</span><span></span></div>
     <div id="cmd-timeline" class="hist-wrap"
          hx-get="/jobs?partial=histlive" hx-target="this" hx-swap="innerHTML"
          hx-trigger="command-updated from:body, every 30s">
       {{template "cmd-timeline-inner" .}}
     </div>
+    <div class="jz-none" id="jz-none" hidden>No jobs on this page match. <a href="/jobs/history">History</a> has every job.</div>
   </div>
 </div>
+<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
+<script src="/static/js/jobs_j1.js?v={{assetVer}}"></script>
 {{template "footer" .}}
+{{end}}
+
+{{/* J1 count cards; also the ?partial=jobscards fragment. */}}
+{{define "jobs-cards"}}
+  {{with .JobCards}}
+  <div class="oc-stats">
+    {{range .}}
+    <div class="oc-st">
+      <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+      <a class="oc-stm" href="{{.Href}}">
+        {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+        {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+      </a>
+      {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/></svg>{{end}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
 {{end}}

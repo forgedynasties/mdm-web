@@ -629,7 +629,7 @@ window.CMD_PREFILL = {{.Prefill}};
 {{$total := add (add $s.Completed $s.Failed) (add $s.Pending $s.Delivered)}}
 {{$rest := add $s.Pending $s.Delivered}}
 {{$state := "ok"}}{{if gt $s.Failed 0}}{{$state = "fail"}}{{else if gt $rest 0}}{{$state = "run"}}{{end}}
-<div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}"{{if authorIsAdmin $c.CreatedBy}} data-admin="1"{{end}} data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdTitle $c}} {{cmdHint $c}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
+<div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}" data-bucket="{{.Bucket}}" data-by="{{if $c.CreatedBy}}{{$c.CreatedBy}}{{else}}auto{{end}}"{{if authorIsAdmin $c.CreatedBy}} data-admin="1"{{end}} data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdTitle $c}} {{cmdHint $c}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
   {{if $appBatch}}
   <a class="ht-dotwrap {{$state}} cluster n{{len .Batch}}" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML" title="{{len .Batch}} apps in one send">
     {{range $i, $m := .Batch}}{{if lt $i 3}}{{$ic := index $.AppIcons $m.ApkURL}}<span class="ci">{{if $ic}}<img src="{{iconSrc $ic}}" alt="">{{else}}{{$nm := index $.AppNames $m.ApkURL}}{{if $nm}}{{slice $nm 0 1}}{{else}}·{{end}}{{end}}</span>{{end}}{{end}}
@@ -664,6 +664,8 @@ window.CMD_PREFILL = {{.Prefill}};
          empty remainder — same counts the summary already carries. */}}
     {{if gt $total 0}}<span class="ht-meter{{if eq $state "run"}} live{{end}}" title="{{$s.Completed}} completed · {{$s.Failed}} failed · {{$s.Delivered}} delivered · {{$s.Pending}} pending"><i class="ok" style="width:{{pct $s.Completed $total}}%"></i><i class="fail" style="width:{{pct $s.Failed $total}}%"></i><i class="run" style="width:{{pct $s.Delivered $total}}%"></i></span>{{end}}
   </div>
+  {{/* Status chip: shown on /jobs only (J1, 21 Oct 2026); hidden elsewhere by style.css. */}}
+  <span class="ht-chip {{$state}}">{{if eq $state "fail"}}{{if eq .Bucket "attn"}}Needs a look{{else}}Failed{{end}}{{else if eq $state "run"}}{{if eq $total 0}}Waiting{{else}}Running{{end}}{{else}}Done{{end}}</span>
   {{if $c.CreatedBy}}<span class="ht-by" title="Sent by {{$c.CreatedBy}}">{{$u := userURL $c.CreatedBy}}{{if $u}}<a href="{{$u}}" class="ht-user" hx-target="main" hx-swap="outerHTML">{{$c.CreatedBy}}</a>{{else}}{{$c.CreatedBy}}{{end}}{{template "ubub" (userBubble $c.CreatedBy)}}</span>{{else if and (eq $c.Type "reboot") (not $c.CreatedBy)}}<span class="ht-auto" title="Triggered by an OTA rollout, not by a person">Sent automatically</span>{{else}}<span class="ht-by empty"></span>{{end}}
   <span class="ht-when">{{timeSince $c.CreatedAt}}</span>
   <div class="hact">
