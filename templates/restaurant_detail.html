@@ -85,7 +85,10 @@
 </template>
 <div class="vn-page">
 <div class="cc-top vn-hdr" style="margin-top:10px">
-  <div>
+  {{/* The island carries the name, counts and buttons, and the header folds to nothing
+       under it (68747c1c), so its text leaves the page too (it showed through the content
+       below, 21 Oct). It stays for screen readers. */}}
+  <div class="isl-dup-sr">
     <div class="cc-eyebrow">Venue</div>
     <h1 class="cc-h1">{{venueIcon .Restaurant.ID .Restaurant.Name "md"}}{{.Restaurant.Name}}</h1>
     <div class="cc-status" id="kpi-live" hx-get="/restaurants/{{.Restaurant.ID}}?partial=kpis" hx-select="unset" hx-trigger="restaurant-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "restaurant-kpis" .}}</div>
