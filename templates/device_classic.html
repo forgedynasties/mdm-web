@@ -646,6 +646,27 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
   </div>
   {{end}}
+  {{/* Screen brightness (21 Oct): set and optionally lock from the dashboard; the client
+       holds a locked level and greys out the slider. Empty = not managed. */}}
+  <div class="ddc-card" id="brightness-card">
+    <div class="ddc-card-t"><h2>Screen brightness</h2></div>
+    <div class="ddc-kv"><span class="k" title="1-255; the T7 shows at most 122. Empty = not managed.">Level</span><span class="v">
+      {{$bri := extraField .Device.LatestExtra "screen_brightness"}}{{$canBri := canAdminOrOperator .Role}}
+      <form class="bri-form{{if not $canBri}} role-locked{{end}}" data-serial="{{.Device.SerialNumber}}" onsubmit="return briSave(this)"{{if not $canBri}} title="Requires the operator role" data-role-need="operator"{{end}}>
+        <input type="number" name="screen_brightness" min="1" max="255" placeholder="not set" aria-label="Brightness level, 1-255"
+               value="{{with .KioskConfig.ScreenBrightness}}{{.}}{{end}}"{{if not $canBri}} disabled{{end}}>
+        <label><input type="checkbox" name="screen_brightness_locked" value="1"{{if .KioskConfig.ScreenBrightnessLocked}} checked{{end}}{{if not $canBri}} disabled{{end}}> Lock</label>
+        <button type="submit" class="btn btn-sm"{{if not $canBri}} disabled{{end}}>Save</button>
+        <span class="muted small bri-st">device at {{if and $bri (ne $bri "—")}}{{$bri}}{{if extraBool .Device.LatestExtra "screen_brightness_locked"}}, locked{{end}}{{else}}—{{end}}</span>
+      </form>
+    </span></div>
+    <style>
+      .bri-form{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+      .bri-form input[type=number]{width:78px}
+      .bri-form label{display:inline-flex;align-items:center;gap:5px}
+      </style>
+      <script src="/static/js/device/brightness.js?v={{assetVer}}"></script>
+  </div>
   {{template "classic-device-notes" .}}
 </aside>
 <div class="ddc-main">

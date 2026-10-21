@@ -159,6 +159,8 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"kiosk_url":                cfg.KioskURL,
 			"kiosk_url_allow":          cfg.KioskURLAllow,
 			"wlc_charging_enabled":     cfg.WlcChargingEnabled,
+			"screen_brightness":        cfg.ScreenBrightness,
+			"screen_brightness_locked": cfg.ScreenBrightnessLocked,
 			"checkin_interval_seconds": interval,
 		}
 		// Every config frame carries the lost-reporting keys: the firmware client reads a

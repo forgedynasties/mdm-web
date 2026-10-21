@@ -35,6 +35,17 @@ func humanizeAudit(e db.AuditEntry) string {
 		return "adb tunnel: " + d
 	case "device.wlc_charging":
 		return onOff(d, "wireless charging")
+	case "device.screen_brightness":
+		// detail is "122, locked", "122" or "off".
+		switch {
+		case d == "":
+			return "changed screen brightness"
+		case d == "off":
+			return "stopped managing screen brightness"
+		case strings.HasSuffix(d, ", locked"):
+			return "locked screen brightness at " + strings.TrimSuffix(d, ", locked")
+		}
+		return "set screen brightness to " + d
 	case "device.kiosk":
 		// detail is "enabled (single_app)" or "disabled".
 		if strings.HasPrefix(d, "enabled") {

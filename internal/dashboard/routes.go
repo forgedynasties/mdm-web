@@ -98,6 +98,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/kiosk/leave-out", h.requireSupport(h.deviceRoute("kiosk", h.DeviceKioskLeaveOut)))
 	post("POST /devices/{serial}/kiosk/follow-rule", h.requireSupport(h.deviceRoute("kiosk", h.DeviceKioskFollowRule)))
 	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceWlcUpdate)))
+	post("POST /devices/{serial}/brightness", h.requireAdminOrOperator(h.deviceRoute("kiosk", h.DeviceBrightnessUpdate)))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.deviceRoute("view", h.DeviceClearOTA)))
 	// Remote screen capture + input injection is highly sensitive (full control of the
 	// device), so it is restricted to admins only.

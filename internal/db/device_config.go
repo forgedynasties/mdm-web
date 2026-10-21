@@ -41,13 +41,15 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	// only ever fires once per device.
 	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features,
 		offline_exit_enabled, offline_exit_relock, wlc_charging_enabled, updated_at,
-		kiosk_mode, kiosk_packages, kiosk_url, kiosk_url_allow
+		kiosk_mode, kiosk_packages, kiosk_url, kiosk_url_allow,
+		screen_brightness, screen_brightness_locked
 		FROM device_config WHERE device_id = $1`
 	var cfg DeviceConfig
 	scan := func(row pgx.Row) error {
 		return row.Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures,
 			&cfg.OfflineExitEnabled, &cfg.OfflineExitRelock, &cfg.WlcChargingEnabled, &cfg.UpdatedAt,
-			&cfg.KioskMode, &cfg.KioskPackages, &cfg.KioskURL, &cfg.KioskURLAllow)
+			&cfg.KioskMode, &cfg.KioskPackages, &cfg.KioskURL, &cfg.KioskURLAllow,
+			&cfg.ScreenBrightness, &cfg.ScreenBrightnessLocked)
 	}
 	err := scan(d.pool.QueryRow(ctx, sel, deviceID))
 	if err == nil {
@@ -142,6 +144,23 @@ func (d *DB) SetWlcCharging(ctx context.Context, deviceID uuid.UUID, enabled boo
 			SET wlc_charging_enabled = EXCLUDED.wlc_charging_enabled,
 			    updated_at           = NOW()
 	`, deviceID, enabled)
+	return err
+}
+
+// SetScreenBrightness sets the brightness a device is held at. A nil level stops managing
+// it (and unlocks); locked without a level is stored as unlocked.
+func (d *DB) SetScreenBrightness(ctx context.Context, deviceID uuid.UUID, level *int, locked bool) error {
+	if level == nil {
+		locked = false
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_config (device_id, screen_brightness, screen_brightness_locked, updated_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (device_id) DO UPDATE
+			SET screen_brightness        = EXCLUDED.screen_brightness,
+			    screen_brightness_locked = EXCLUDED.screen_brightness_locked,
+			    updated_at               = NOW()
+	`, deviceID, level, locked)
 	return err
 }
 

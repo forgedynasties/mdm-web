@@ -625,6 +625,7 @@ func main() {
 	apiHandler.SetKioskRelocker(dash.RelockFromDevice)
 	// Test-bench routes (admin key): lock/unlock one device, take one off a venue.
 	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))
+	mux.Handle("POST /api/v1/devices/{serial}/brightness", adminAuth(http.HandlerFunc(dash.APISetDeviceBrightness)))
 	mux.Handle("DELETE /api/v1/restaurants/{id}/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.UnassignRestaurantDevice)))
 	dash.SetAdbTunnels(tunnelMgr)
 	dash.SetIngestStats(apiHandler.IngestStats)

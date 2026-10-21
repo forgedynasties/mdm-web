@@ -1279,6 +1279,8 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		"kiosk_url":                deviceCfg.KioskURL,
 		"kiosk_url_allow":          deviceCfg.KioskURLAllow,
 		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
+		"screen_brightness":        deviceCfg.ScreenBrightness,
+		"screen_brightness_locked": deviceCfg.ScreenBrightnessLocked,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
 	// Fleet-wide policy (update_policy, location_enabled, network, app_restrictions…)

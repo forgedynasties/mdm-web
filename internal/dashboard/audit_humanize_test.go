@@ -15,6 +15,9 @@ func TestHumanizeAuditReadsAsASentence(t *testing.T) {
 	}{
 		{"device.wlc_charging", "AT070", "disabled", "disabled wireless charging"},
 		{"device.wlc_charging", "AT070", "enabled", "enabled wireless charging"},
+		{"device.screen_brightness", "AT070", "122, locked", "locked screen brightness at 122"},
+		{"device.screen_brightness", "AT070", "90", "set screen brightness to 90"},
+		{"device.screen_brightness", "AT070", "off", "stopped managing screen brightness"},
 		{"device.kiosk", "AT070", "enabled (single_app)", "enabled locked mode (single_app)"},
 		{"device.kiosk", "AT070", "disabled", "disabled locked mode"},
 		{"device.nickname", "AT070", "Register 3", `named the device "Register 3"`},

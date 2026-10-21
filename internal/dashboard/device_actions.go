@@ -468,3 +468,89 @@ func (h *Handler) DeviceWlcUpdate(w http.ResponseWriter, r *http.Request) {
 	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
+
+// DeviceBrightnessUpdate sets the screen brightness the client holds the device at
+// (form screen_brightness 1-255, empty = stop managing; screen_brightness_locked=1 to
+// lock). Pushed at once to a connected device.
+func (h *Handler) DeviceBrightnessUpdate(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	r.ParseForm()
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if !h.requireDeviceAction(w, r, "kiosk", device.ID) {
+		return
+	}
+	level, err := parseBrightness(r.FormValue("screen_brightness"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	locked := level != nil && r.FormValue("screen_brightness_locked") == "1"
+	if err := h.db.SetScreenBrightness(r.Context(), device.ID, level, locked); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.auditDev(r, "device.screen_brightness", device.ID, serial, brightnessDetail(level, locked))
+	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
+}
+
+// APISetDeviceBrightness is DeviceBrightnessUpdate for scripts (POST
+// /api/v1/devices/{serial}/brightness, admin key, {"level": 1-255|null, "locked": bool}).
+func (h *Handler) APISetDeviceBrightness(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Level  *int `json:"level"`
+		Locked bool `json:"locked"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "body must be {\"level\": 1-255 or null, \"locked\": bool}")
+		return
+	}
+	if body.Level != nil && (*body.Level < 1 || *body.Level > 255) {
+		writeJSONError(w, http.StatusBadRequest, "level must be 1-255, or null to stop managing it")
+		return
+	}
+	locked := body.Level != nil && body.Locked
+	ctx := r.Context()
+	dev, err := h.db.GetDevice(ctx, r.PathValue("serial"))
+	if err != nil || dev == nil {
+		writeJSONError(w, http.StatusNotFound, "device not found")
+		return
+	}
+	if err := h.db.SetScreenBrightness(ctx, dev.ID, body.Level, locked); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	h.pushKioskConfigToDevices(ctx, []uuid.UUID{dev.ID})
+	_ = h.db.InsertAudit(ctx, "API key", "device.screen_brightness", dev.SerialNumber, brightnessDetail(body.Level, locked))
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"serial": dev.SerialNumber, "level": body.Level, "locked": locked,
+		"connected": h.hub.IsConnected(dev.ID)})
+}
+
+// parseBrightness reads the form value: empty means not managed.
+func parseBrightness(v string) (*int, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return nil, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 || n > 255 {
+		return nil, fmt.Errorf("brightness must be 1-255, or empty to stop managing it")
+	}
+	return &n, nil
+}
+
+// brightnessDetail is the audit detail: "122, locked", "122", or "off" (not managed).
+func brightnessDetail(level *int, locked bool) string {
+	if level == nil {
+		return "off"
+	}
+	if locked {
+		return strconv.Itoa(*level) + ", locked"
+	}
+	return strconv.Itoa(*level)
+}

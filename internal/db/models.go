@@ -357,6 +357,10 @@ type DeviceConfig struct {
 	// WlcChargingEnabled controls wireless-charging on the pad (client writes the
 	// customer_gpio line). Default true.
 	WlcChargingEnabled bool `json:"wlc_charging_enabled"`
+	// ScreenBrightness is the level the client sets (1-255), nil when the dashboard does
+	// not manage it; ScreenBrightnessLocked holds it there on the device.
+	ScreenBrightness       *int `json:"screen_brightness"`
+	ScreenBrightnessLocked bool `json:"screen_brightness_locked"`
 	// Offline kiosk-exit (the on-device exit PIN). The per-device rotating code (TOTP seed)
 	// was removed on 17 Oct; the offline_exit_seed column is left in place, unused.
 	OfflineExitEnabled bool   `json:"offline_exit_enabled"`

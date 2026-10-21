@@ -176,6 +176,10 @@ ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_relock TEXT NOT 
 -- Wireless-charging control: the client writes the customer_gpio line to enable/disable
 -- charging on the pad. Default true (charging on); pushed to the device like kiosk config.
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS wlc_charging_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+-- Screen brightness (21 Oct 2026): the level the client sets (1-255, NULL = not managed)
+-- and whether it holds it there (QS slider greyed out, any change put back).
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS screen_brightness SMALLINT;
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS screen_brightness_locked BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- A named, standing kiosk-lock policy assigned to a restaurant/group/device/the whole
 -- fleet — the Manage page's unit, not a one-shot command. Applying/editing/deleting a
