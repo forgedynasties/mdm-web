@@ -77,7 +77,7 @@ to their venues.
 `super_op` and `user_manager` were folded into `fleet_manager` by migration. A customer's
 venues are its `allow view` rules on restaurants (`decideCustomer`); no other rule widens it.
 
-Route wrappers still gate by role first (`requireAuth`, `requireSupport` = support up, `requireOperatorOrAdmin` / `requireAdminOrOperator` = operator up, `requireOTA` = fleet manager up, `requireUserManager` / `requireAccountAdmin` = fleet manager up, `requireReleaseAdmin` / `requireStrictAdmin` / `requireDev` = admin). Rules only ever narrow what a role permits.
+Route wrappers still gate by role first (`requireAuth`, `requireSupport` = support up, `requireOperatorOrAdmin` / `requireAdminOrOperator` = operator up, `requireOTA` = fleet manager up, `requireUserManager` / `requireAccountAdmin` = fleet manager up, `requireReleaseAdmin` / `requireStrictAdmin` = admin). Rules only ever narrow what a role permits.
 
 ### 4.2 Access rules (`access_grants`)
 
@@ -92,7 +92,7 @@ Evaluation, `access.decide(action, device)`:
 5. owner → deny. Sensitive action for a non-dev → deny (explicit rule required).
 6. viewer + `view` → allow. `base == deny` → deny. Otherwise allow.
 
-Scope match: `all` always; `restaurant`/`group` by the device's current membership (`DeviceScopes`, read per request); `device` by id. Fleet-level actions (`alerts`, `groups`, `qa`, `deploy`) match `all` rules only. Expired rows are excluded at load; a sweep deletes them every minute and audits `user.access.expired`.
+Scope match: `all` always; `restaurant`/`group` by the device's current membership (`DeviceScopes`, read per request); `device` by id. Fleet-level actions (`alerts`, `groups`, `deploy`) match `all` rules only. Expired rows are excluded at load; a sweep deletes them every minute and audits `user.access.expired`.
 
 ### 4.3 Where it is enforced
 

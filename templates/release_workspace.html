@@ -1,7 +1,8 @@
 {{define "release_workspace.html"}}
 {{template "header" .}}
 {{/* Lean release detail (Manage): version + product + changelog + update packages. Pushing
-     OTA is a separate page (/updates). QA/sign-off/testing/problems/branches removed. */}}
+     OTA is a separate page (/updates). The QA checklist, sign-off and testing-done were
+     removed on 21 Oct 2026. */}}
 {{$rel := .Release}}
 {{$role := .Role}}
 {{$isAdmin := canRelease $role}}
@@ -226,83 +227,11 @@
 {{template "footer" .}}
 {{end}}
 
-{{/* ── QA / Problems partials — kept so the (now-unlinked) QA/problem action handlers
-      don't 500 if hit directly. Not rendered by the lean page above. ── */}}
-
-{{define "rd-qa-badge"}}{{if gt .QA.Total 0}}<span class="pill">{{.QA.Pass}}/{{.QA.Total}}</span>{{end}}{{end}}
+{{/* ── Problems partials — rendered by the problem handlers' htmx responses. ── */}}
 
 {{define "rd-prob-badge"}}{{if gt .ProblemSummary.Open 0}}<span class="pill"{{if gt .ProblemSummary.Blockers 0}} style="background:var(--danger-bg);color:var(--danger)"{{end}}>{{.ProblemSummary.Open}}</span>{{end}}{{end}}
 
 {{define "rd-prob-count"}}{{.ProblemSummary.Open}} open{{if gt .ProblemSummary.Blockers 0}} · {{.ProblemSummary.Blockers}} blocker{{if ne .ProblemSummary.Blockers 1}}s{{end}}{{end}} · {{.ProblemSummary.Total}} total{{end}}
-
-{{define "rd-qa-summary"}}
-  {{if gt .QA.Total 0}}
-  <div class="qa-progress">
-    <div class="qa-bar" title="{{.QA.Pass}} pass · {{.QA.Fail}} fail · {{.QA.Blocked}} blocked · {{.QA.Skip}} skip · {{.QA.Untested}} untested">
-      {{if gt .QA.Pass 0}}<i class="pass" style="width:{{pctOf .QA.Pass .QA.Total}}%"></i>{{end}}
-      {{if gt .QA.Fail 0}}<i class="fail" style="width:{{pctOf .QA.Fail .QA.Total}}%"></i>{{end}}
-      {{if gt .QA.Blocked 0}}<i class="blocked" style="width:{{pctOf .QA.Blocked .QA.Total}}%"></i>{{end}}
-      {{if gt .QA.Skip 0}}<i class="skip" style="width:{{pctOf .QA.Skip .QA.Total}}%"></i>{{end}}
-    </div>
-    <div class="qa-legend">
-      <span><i class="pass"></i>{{.QA.Pass}} pass</span>
-      {{if gt .QA.Fail 0}}<span><i class="fail"></i>{{.QA.Fail}} fail</span>{{end}}
-      {{if gt .QA.Blocked 0}}<span><i class="blocked"></i>{{.QA.Blocked}} blocked</span>{{end}}
-      {{if gt .QA.Skip 0}}<span><i class="skip"></i>{{.QA.Skip}} skip</span>{{end}}
-      {{if gt .QA.Untested 0}}<span><i class="untested"></i>{{.QA.Untested}} untested</span>{{end}}
-    </div>
-  </div>
-  {{end}}
-  {{$blockers := .ProblemSummary.Blockers}}
-  {{$ready := and (or (eq .QA.Total 0) .QA.Passed) (eq $blockers 0)}}
-  <div class="rd-ready {{if $ready}}ok{{else}}warn{{end}}">
-    <span class="rd-ready-verdict">{{if $ready}}Ready to publish{{else}}Not ready{{end}}</span>
-    <span class="rd-ready-detail">
-      {{if not $ready}}{{.QA.Untested}} untested · {{.QA.Fail}} failed · {{$blockers}} open blocker{{if ne $blockers 1}}s{{end}} · {{end}}{{if .Release.SignedOffBy}}dev sign-off ✓ {{.Release.SignedOffBy}}{{else}}dev sign-off pending{{end}}
-    </span>
-  </div>
-  {{if and (gt .QA.Total 0) (not .CanRecord)}}<div class="qa-flash">Read-only — only the operator role can mark cases. {{if gt .QA.Untested 0}}{{.QA.Untested}} still untested.{{end}}</div>{{end}}
-  {{if and (not (eq .Role "admin")) .Release.SkipBaseTests}}<div class="qa-flash">Base cases skipped — only this release's own cases apply.</div>{{end}}
-{{end}}
-
-{{define "rd-qa-list"}}
-{{if .Checklist}}
-{{$canRecord := .CanRecord}}{{$role := .Role}}{{$relID := .Release.ID}}
-{{range .Checklist}}{{template "rd-qa-row" (dict "Item" . "CanRecord" $canRecord "Role" $role "RelID" $relID)}}{{end}}
-{{else}}
-<div class="empty" style="padding:18px;">No test cases apply to this release yet.{{if eq .Role "admin"}} Add base cases from the Releases page, or a release-specific case below.{{end}}</div>
-{{end}}
-{{end}}
-
-{{define "rd-qa-row"}}
-{{$st := .Item.Status}}{{$role := .Role}}{{$relID := .RelID}}
-<div class="qa-row {{$st}}" data-status="{{$st}}" data-area="{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}">
-  <span class="qa-dot"></span>
-  <div class="qa-id">
-    <div class="qa-title">{{.Item.Title}}{{if .Item.Base}} <span class="qa-star" title="standard case — every release">★</span>{{end}}</div>
-    <div class="qa-meta">{{if hasPrefix .Item.Title "Verify fix:"}}{{.Item.Steps}}{{else}}{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}{{if .Item.Steps}} · {{.Item.Steps}}{{end}}{{if .Item.Expected}} · Expected: {{.Item.Expected}}{{end}}{{end}}{{if and (not .Item.Base) (eq $role "admin")}} · <a href="#" onclick="document.getElementById('qa-del-{{.Item.ID}}').submit();return false;" class="qa-del">remove</a>{{end}}</div>
-    {{if and (not .Item.Base) (eq $role "admin")}}<form id="qa-del-{{.Item.ID}}" action="/test-cases/{{.Item.ID}}/delete" method="POST" hidden hx-confirm="Remove this test case from this release?"><input type="hidden" name="redirect" value="/releases/{{$relID}}?tab=qa"></form>{{end}}
-  </div>
-  {{if .CanRecord}}
-  <form class="qa-rec" action="/releases/{{$relID}}/test-results" method="POST"
-        hx-post="/releases/{{$relID}}/test-results" hx-swap="none">
-    <input type="hidden" name="test_case_id" value="{{.Item.ID}}">
-    <input name="notes" class="qa-notes form-input" value="{{.Item.Notes}}" placeholder="notes…">
-    <div class="qa-pills">
-      <button type="submit" name="status" value="pass" class="qa-pill pass{{if eq $st "pass"}} on{{end}}">Pass</button>
-      <button type="submit" name="status" value="fail" class="qa-pill fail{{if eq $st "fail"}} on{{end}}">Fail</button>
-      <button type="submit" name="status" value="blocked" class="qa-pill blocked{{if eq $st "blocked"}} on{{end}}">Block</button>
-      <button type="submit" name="status" value="skip" class="qa-pill skip{{if eq $st "skip"}} on{{end}}">Skip</button>
-    </div>
-  </form>
-  {{else}}
-  <div class="qa-ro">
-    <span class="status-badge {{if eq $st "pass"}}ok{{else if eq $st "fail"}}danger{{else if eq $st "blocked"}}warn{{else}}muted{{end}}">{{$st}}</span>
-    {{if .Item.TestedBy}}<span class="qa-tested">{{.Item.TestedBy}}{{if .Item.Notes}} — {{.Item.Notes}}{{end}}</span>{{end}}
-  </div>
-  {{end}}
-</div>
-{{end}}
 
 {{define "prob-card"}}
 {{$p := .P}}{{$relID := .RelID}}{{$canAct := .CanAct}}
@@ -312,13 +241,11 @@
   <div class="prob-h">
     <span class="prob-sev {{$p.Severity}}">{{$p.Severity}}</span>
     <span class="prob-title">{{$p.Title}}</span>
-    {{if eq $p.Source "qa"}}<span class="prob-qa" title="Auto-created from a failed QA case; resolves when the case passes">from QA</span>{{end}}
     {{if $p.Inherited}}<span class="prob-carry" title="Carried over from an earlier build — fix &amp; verify it here">↪ carried</span>{{end}}
-    {{if $failedVerify}}<span class="prob-status st-failverify" title="Reported fixed in an earlier build, but QA verification failed">verify failed</span>{{else}}<span class="prob-status st-{{$p.Status}}">{{$p.Status}}</span>{{end}}
+    {{if $failedVerify}}<span class="prob-status st-failverify" title="Reported fixed in an earlier build, but verification failed">verify failed</span>{{else}}<span class="prob-status st-{{$p.Status}}">{{$p.Status}}</span>{{end}}
   </div>
   {{if $p.Description}}<div class="prob-desc">{{$p.Description}}</div>{{end}}
   <div class="prob-meta">
-    {{if $p.TestCaseTitle}}case: <b>{{$p.TestCaseTitle}}</b> · {{end}}
     {{if $p.DeviceSerial}}<a href="/devices/{{$p.DeviceSerial}}" class="link-detail mono">{{$p.DeviceSerial}}</a> · {{end}}
     {{if $p.ReportedBy}}{{$p.ReportedBy}} · {{end}}{{timeSince $p.CreatedAt}}
   </div>
@@ -334,25 +261,25 @@
         hx-post="/releases/{{$relID}}/problems/{{$p.ID}}" hx-swap="none">
     {{if $p.Inherited}}
       {{if eq $p.Status "fixed"}}
-        <span class="prob-resolved">Fixed{{if $p.FixedInVersion}} in {{$p.FixedInVersion}}{{end}} — added to QA to verify</span>
-        <button name="status" value="open" class="qa-pill">Reopen</button>
+        <span class="prob-resolved">Fixed{{if $p.FixedInVersion}} in {{$p.FixedInVersion}}{{end}} — awaiting verification</span>
+        <button name="status" value="open" class="rp-pill">Reopen</button>
       {{else if eq $p.Status "verified"}}
         <span class="prob-resolved">Verified fixed{{if $p.VerifiedInVersion}} in {{$p.VerifiedInVersion}}{{end}}</span>
-        <button name="status" value="open" class="qa-pill">Reopen</button>
+        <button name="status" value="open" class="rp-pill">Reopen</button>
       {{else if eq $p.Status "wontfix"}}
         <span class="prob-resolved">Won't fix</span>
-        <button name="status" value="open" class="qa-pill">Reopen</button>
+        <button name="status" value="open" class="rp-pill">Reopen</button>
       {{else}}
-        {{if $p.FixedInVersion}}<span class="prob-failverify" title="A previous build claimed this fixed, but QA verification failed — it rides the train until a fix holds">Reported fixed in {{$p.FixedInVersion}} — QA verification failed</span>{{end}}
-        <button name="status" value="fixed" class="qa-pill" title="This is fixed in this build — adds a QA case so the test team verifies the fix">Fixed here</button>
+        {{if $p.FixedInVersion}}<span class="prob-failverify" title="A previous build claimed this fixed, but verification failed — it rides the train until a fix holds">Reported fixed in {{$p.FixedInVersion}} — verification failed</span>{{end}}
+        <button name="status" value="fixed" class="rp-pill" title="This is fixed in this build — awaiting verification here">Fixed here</button>
       {{end}}
     {{else if $open}}
-      <button name="status" value="fixed" class="qa-pill{{if eq $p.Status "fixed"}} on{{end}}" title="Mark the fix as landed in this build (awaiting verification)">Fixed here</button>
-      <button name="status" value="verified" class="qa-pill pass" title="Confirm the fix on this build">Verified ✓</button>
-      <button name="status" value="wontfix" class="qa-pill skip">Won't fix</button>
+      <button name="status" value="fixed" class="rp-pill{{if eq $p.Status "fixed"}} on{{end}}" title="Mark the fix as landed in this build (awaiting verification)">Fixed here</button>
+      <button name="status" value="verified" class="rp-pill pass" title="Confirm the fix on this build">Verified ✓</button>
+      <button name="status" value="wontfix" class="rp-pill skip">Won't fix</button>
     {{else}}
       <span class="prob-resolved">{{if eq $p.Status "verified"}}Verified fixed{{if $p.VerifiedInVersion}} in {{$p.VerifiedInVersion}}{{end}}{{else}}Won't fix{{end}}</span>
-      <button name="status" value="open" class="qa-pill">Reopen</button>
+      <button name="status" value="open" class="rp-pill">Reopen</button>
     {{end}}
   </form>
   {{end}}
@@ -371,7 +298,7 @@
   {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" $isAdmin)}}{{end}}
 </div>
 {{else}}
-<div class="empty" style="padding:16px;">No problems reported on this build.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
+<div class="empty" style="padding:16px;">No problems reported on this build.</div>
 {{end}}
 {{end}}
 
@@ -379,7 +306,7 @@
 {{$relID := .Release.ID}}{{$canReport := .CanReport}}{{$isAdmin := canRelease .Role}}
 {{if .Carried}}
 <div class="carried-sec">
-  <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; mark them <b>fixed here</b> and a QA case is added to verify the fix</span></div>
+  <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; mark them <b>fixed here</b>, then <b>verified</b> once confirmed on this build</span></div>
   <div class="prob-list">
     {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" $isAdmin)}}{{end}}
   </div>
@@ -395,13 +322,13 @@
   <span class="prob-crash-sum">{{if $g.Signature}}{{$g.Signature}}{{else}}—{{end}}</span>
   <span class="crash-devs muted small">{{$g.DeviceCount}} device{{if ne $g.DeviceCount 1}}s{{end}}</span>
   <span class="prob-crash-when muted small">{{timeSince $g.LastOccurred}}</span>
-  <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{$g.Kind}}" data-serial="{{$g.SampleSerial}}" data-sum="{{$g.Signature}}">Report</button>
-  {{if eq $role "admin"}}<form action="/releases/{{$relID}}/crashes/group/delete" method="POST" style="display:inline;" hx-confirm="Remove all {{$g.Count}} occurrences of this crash? It also clears them from the Alerts page."><input type="hidden" name="kind" value="{{$g.Kind}}"><input type="hidden" name="signature" value="{{$g.Signature}}"><input type="hidden" name="redirect" value="{{.Back}}"><button type="submit" class="qa-pill" title="Remove this crash group — also clears from Alerts">Remove</button></form>{{end}}
+  <button type="button" class="rp-pill" onclick="probFromCrash(this)" data-kind="{{$g.Kind}}" data-serial="{{$g.SampleSerial}}" data-sum="{{$g.Signature}}">Report</button>
+  {{if eq $role "admin"}}<form action="/releases/{{$relID}}/crashes/group/delete" method="POST" style="display:inline;" hx-confirm="Remove all {{$g.Count}} occurrences of this crash? It also clears them from the Alerts page."><input type="hidden" name="kind" value="{{$g.Kind}}"><input type="hidden" name="signature" value="{{$g.Signature}}"><input type="hidden" name="redirect" value="{{.Back}}"><button type="submit" class="rp-pill" title="Remove this crash group — also clears from Alerts">Remove</button></form>{{end}}
   {{if $g.SampleDetail}}
   <details class="prob-crash-trace">
     <summary class="muted small">View latest trace</summary>
     <div class="trace-wrap">
-      <button type="button" class="qa-pill trace-copy" onclick="copyText(this.parentNode.querySelector('pre').textContent, this)">Copy</button>
+      <button type="button" class="rp-pill trace-copy" onclick="copyText(this.parentNode.querySelector('pre').textContent, this)">Copy</button>
       <pre class="logcat-terminal">{{colorizeLogcat $g.SampleDetail}}</pre>
     </div>
   </details>
@@ -410,11 +337,8 @@
 {{end}}
 
 {{define "release-oob"}}
-<span id="rd-qa-badge" hx-swap-oob="innerHTML">{{template "rd-qa-badge" .}}</span>
 <span id="rd-prob-badge" hx-swap-oob="innerHTML">{{template "rd-prob-badge" .}}</span>
 <span id="rd-prob-count" hx-swap-oob="innerHTML">{{template "rd-prob-count" .}}</span>
-<div id="rd-qa-summary" hx-swap-oob="innerHTML">{{template "rd-qa-summary" .}}</div>
-<div id="rd-qa-list" hx-swap-oob="innerHTML">{{template "rd-qa-list" .}}</div>
 <div id="rd-prob-list" hx-swap-oob="innerHTML">{{template "rd-prob-list" .}}</div>
 <div id="rd-carried-list" hx-swap-oob="innerHTML">{{template "rd-carried-list" .}}</div>
 {{end}}

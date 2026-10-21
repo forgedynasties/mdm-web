@@ -197,27 +197,6 @@ func (h *Handler) requireStrictAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// requireDev gates the release sign-off ("tested at our end") to the super admin —
-// the dev role it was named for was folded into super op on 2026-10-07.
-func (h *Handler) requireDev(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		s, ok := h.currentSession(r)
-		if !ok {
-			redirectLogin(w, r)
-			return
-		}
-		if s.Role != "admin" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
-		if h.maintenanceGate(w, r) {
-			return
-		}
-		h.touchSession(r)
-		next(w, r)
-	}
-}
-
 func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -226,27 +205,6 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			return
 		}
 		if !roleCanOperate(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
-		if h.maintenanceGate(w, r) {
-			return
-		}
-		h.touchSession(r)
-		next(w, r)
-	}
-}
-
-// requireOperatorRole gates QA result-marking to the test team (operator to admin).
-// Managing test cases stays with the super admin.
-func (h *Handler) requireOperatorRole(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		s, ok := h.currentSession(r)
-		if !ok {
-			redirectLogin(w, r)
-			return
-		}
-		if !roleIsOperatorLike(s.Role) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}

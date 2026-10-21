@@ -193,12 +193,12 @@ func (d *DB) GetReleaseByVersion(ctx context.Context, version, product string) (
 func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, version, product, name, changelog, status, skip_base_tests, is_dev, created_at, published_at,
-		       signed_off_by, signed_off_at, testing_done_at, testing_done_by, parent_release_id, is_branch,
+		SELECT id, version, product, name, changelog, status, is_dev, created_at, published_at,
+		       parent_release_id, is_branch,
 		       merged_from_release_id, merged_into_release_id, merged_at, merged_by
 		FROM releases WHERE id = $1
-	`, id).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.IsDev, &r.CreatedAt, &r.PublishedAt,
-		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch,
+	`, id).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.IsDev, &r.CreatedAt, &r.PublishedAt,
+		&r.ParentReleaseID, &r.IsBranch,
 		&r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy)
 	if err != nil {
 		return nil, err
@@ -209,7 +209,6 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.id, r.version, r.product, r.name, r.changelog, r.status, r.hidden, r.is_dev, r.created_at, r.published_at,
-		       r.signed_off_by, r.signed_off_at, r.testing_done_at, r.testing_done_by,
 		       r.parent_release_id, r.is_branch,
 		       r.merged_from_release_id, r.merged_into_release_id, r.merged_at, r.merged_by,
 		       COUNT(DISTINCT p.id) AS package_count,
@@ -227,7 +226,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.IsDev, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.IsDev, &r.CreatedAt, &r.PublishedAt, &r.ParentReleaseID, &r.IsBranch, &r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -796,33 +795,6 @@ func (d *DB) SetReleaseStatus(ctx context.Context, id int, status string) error 
 	return err
 }
 
-// SetReleaseSignOff records a dev's smoke-test sign-off on a release (the
-// "tested at our end, OK for QA" gate). signer is the dev's username.
-func (d *DB) SetReleaseSignOff(ctx context.Context, id int, signer string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE releases SET signed_off_by = $2, signed_off_at = NOW() WHERE id = $1`, id, signer)
-	return err
-}
-
-// ClearReleaseSignOff revokes a previously recorded dev sign-off.
-func (d *DB) ClearReleaseSignOff(ctx context.Context, id int) error {
-	_, err := d.pool.Exec(ctx, `UPDATE releases SET signed_off_by = '', signed_off_at = NULL WHERE id = $1`, id)
-	return err
-}
-
-// SetReleaseTestingDone marks a release's testing complete — the finish line. This
-// retires it from the active slot (ActiveRelease skips finished releases). by is the
-// username who closed it out.
-func (d *DB) SetReleaseTestingDone(ctx context.Context, id int, by string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE releases SET testing_done_at = NOW(), testing_done_by = $2 WHERE id = $1`, id, by)
-	return err
-}
-
-// ClearReleaseTestingDone reopens a finished release, making it active again.
-func (d *DB) ClearReleaseTestingDone(ctx context.Context, id int) error {
-	_, err := d.pool.Exec(ctx, `UPDATE releases SET testing_done_at = NULL, testing_done_by = '' WHERE id = $1`, id)
-	return err
-}
-
 // CreateBranchRelease forks an off-mainline branch build from parentID: a new release with
 // is_branch + parent_release_id set. version must be unique. Returns the new release id.
 func (d *DB) CreateBranchRelease(ctx context.Context, parentID int, version, name, changelog string) (int, error) {
@@ -843,8 +815,7 @@ func (d *DB) CreateBranchRelease(ctx context.Context, parentID int, version, nam
 // lookup rejects a non-branch or already-merged source. Returns the new release id.
 //
 // The merge carries the branch's delta onto the new release:
-//   - QA ledger (always): the branch's results on shared BASE cases seed the new release's
-//     QA, and its still-open problems carry over as open problems on main.
+//   - Problems (always): its still-open problems carry over as open problems on main.
 //   - Build (carryBuild): the branch's newest full OTA package + active QFIL bundles are
 //     copied onto the new release, relabelled to newVersion. Opt-in, because a firmware
 //     image usually must be rebuilt to report the new version rather than relabelled.
@@ -856,12 +827,9 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 	defer tx.Rollback(ctx)
 
 	var baseID *int // what the branch forked from; the new node lands on that line
-	// Enforce the "branch testing must be done" gate at the SQL level too (the handler
-	// also checks it) so no other caller — or a race that clears testing_done between
-	// the handler's read and here — can merge an untested branch. No row → ErrNoRows →
-	// the merge aborts.
+	// Only an unmerged branch can merge. No row → ErrNoRows → the merge aborts.
 	if err := tx.QueryRow(ctx,
-		`SELECT parent_release_id FROM releases WHERE id = $1 AND is_branch AND merged_into_release_id IS NULL AND testing_done_at IS NOT NULL`,
+		`SELECT parent_release_id FROM releases WHERE id = $1 AND is_branch AND merged_into_release_id IS NULL`,
 		branchID).Scan(&baseID); err != nil {
 		return 0, err
 	}
@@ -878,19 +846,8 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 		return 0, err
 	}
 
-	// Seed the new release's QA from the branch's results on shared BASE cases, so operators
-	// pick up where the branch left off instead of a blank checklist.
-	if _, err := tx.Exec(ctx, `
-		INSERT INTO release_test_results (release_id, test_case_id, status, notes, tested_by, tested_at)
-		SELECT $2, r.test_case_id, r.status, r.notes, r.tested_by, r.tested_at
-		FROM release_test_results r JOIN test_cases c ON c.id = r.test_case_id
-		WHERE r.release_id = $1 AND c.base
-		ON CONFLICT (release_id, test_case_id) DO NOTHING`, branchID, newID); err != nil {
-		return 0, err
-	}
 	// Carry the branch's still-open problems onto main as manual problems on the new
-	// release (test_case link dropped — the branch's cases don't belong to the mainline
-	// board). They land as 'open' regardless of their branch status: the branch's
+	// release. They land as 'open' regardless of their branch status: the branch's
 	// fix trail (fixed_in/verified_in) is branch-scoped and not copied, so carrying a
 	// 'fixed' status would leave an inconsistent 'fixed'-with-no-fix-build row that can
 	// never be verified. On main they must be (re-)triaged and verified afresh.
@@ -930,31 +887,6 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 	return newID, nil
 }
 
-// ListBranchReleases returns the branch builds forked from parentID, newest first, each
-// with its open-problem count so the parent's Branches tab can summarise them.
-func (d *DB) ListBranchReleases(ctx context.Context, parentID int) ([]Release, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, version, name, status, created_at, signed_off_by, testing_done_at
-		FROM releases WHERE parent_release_id = $1 AND is_branch
-		ORDER BY created_at DESC`, parentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []Release
-	for rows.Next() {
-		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Status, &r.CreatedAt, &r.SignedOffBy, &r.TestingDoneAt); err != nil {
-			return nil, err
-		}
-		r.IsBranch = true
-		pid := parentID
-		r.ParentReleaseID = &pid
-		out = append(out, r)
-	}
-	return out, rows.Err()
-}
-
 // SetReleaseMeta updates the editable release fields (name, changelog).
 func (d *DB) SetReleaseMeta(ctx context.Context, id int, name, changelog string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE releases SET name = $2, changelog = $3 WHERE id = $1`, id, name, changelog)
@@ -974,13 +906,6 @@ func (d *DB) SetReleaseName(ctx context.Context, id int, name string) error {
 // keys off, so editing it moves the release consistently in both.
 func (d *DB) SetReleaseCreatedAt(ctx context.Context, id int, t time.Time) error {
 	_, err := d.pool.Exec(ctx, `UPDATE releases SET created_at = $2 WHERE id = $1`, id, t)
-	return err
-}
-
-// SetReleaseSkipBaseTests sets whether a release's QA skips base (standard) cases,
-// testing only its release-specific cases.
-func (d *DB) SetReleaseSkipBaseTests(ctx context.Context, id int, skip bool) error {
-	_, err := d.pool.Exec(ctx, `UPDATE releases SET skip_base_tests = $2 WHERE id = $1`, id, skip)
 	return err
 }
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	_ "image/gif"
 	_ "image/jpeg"
-	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -62,11 +61,7 @@ type versionRow struct {
 	DeviceCount       int
 	PackageCount      int
 	DeployCount       int
-	QA                db.QASummary      // QA/test status; zero value (Total 0) when not tracked
 	Problems          db.ProblemSummary // open/blocker problem counts for the tracked release
-	SignedOffBy       string            // dev who signed off ("" = not signed off)
-	SignedOffAt       *time.Time
-	TestingDone       bool             // testing finished — the release is inactive (retired from active slot)
 	IsBranch          bool             // off-mainline branch build (shown nested under its parent in the list)
 	IsDev             bool             // dev-only release — listed for devs/admins, invisible to everyone else
 	ParentID          *int             // for a branch/derivative, the release id it forks from / matches
@@ -449,10 +444,7 @@ func (h *Handler) releaseVersionRows(r *http.Request) (releaseVersions, error) {
 			ca := rel.CreatedAt
 			row.ReleasedAt = &ca
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
-			row.SignedOffBy, row.SignedOffAt = rel.SignedOffBy, rel.SignedOffAt
-			row.TestingDone = rel.TestingDoneAt != nil
 			branchRow(&row, rel)
-			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
 			row.Problems = badgeFor(rel.ID)
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
 			row.Crash = crashTags[rel.ID]
@@ -476,19 +468,16 @@ func (h *Handler) releaseVersionRows(r *http.Request) (releaseVersions, error) {
 		}
 		id := rel.ID
 		ca := rel.CreatedAt
-		qa, _ := h.db.ReleaseQASummary(r.Context(), rel.ID)
 		row := versionRow{
 			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
 			Product:    rel.Product,
 			Changelog:  rel.Changelog,
 			ReleasedAt: &ca,
 			Status:     rel.Status, Hidden: rel.Hidden, IsDev: rel.IsDev,
-			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
-			Problems:    badgeFor(rel.ID),
-			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
-			TestingDone: rel.TestingDoneAt != nil,
-			QfilURL:     h.latestQfilURL(r, rel.ID),
-			Crash:       crashTags[rel.ID],
+			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount,
+			Problems: badgeFor(rel.ID),
+			QfilURL:  h.latestQfilURL(r, rel.ID),
+			Crash:    crashTags[rel.ID],
 		}
 		branchRow(&row, rel)
 		addRow(row)
@@ -982,7 +971,7 @@ func (h *Handler) ReleaseCrashDelete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.audit(r, "release.crash.delete", strconv.Itoa(id), eid.String())
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/crashes", id), http.StatusSeeOther)
 }
 
 // ReleaseCrashes is the full, paginated list of a release's auto-detected crashes,
@@ -1064,7 +1053,7 @@ func (h *Handler) ReleaseCrashGroupDelete(w http.ResponseWriter, r *http.Request
 	h.audit(r, "release.crash.group.delete", strconv.Itoa(id), kind+" "+sig)
 	redirect := strings.TrimSpace(r.FormValue("redirect"))
 	if !strings.HasPrefix(redirect, "/releases") {
-		redirect = fmt.Sprintf("/releases/%d/qa", id)
+		redirect = fmt.Sprintf("/releases/%d/crashes", id)
 	}
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
@@ -1139,11 +1128,8 @@ func (h *Handler) ReleaseDeleteQFIL(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
-// ReleaseWorkspace is the unified per-release workspace: Overview / QA / Problems /
-// Packages / Rollout tabs on one page (release_workspace.html). It replaces the old
-// split between the release detail page and a separate QA page. ReleaseDetail serves
-// /releases/{id} (tab from ?tab=, default overview); ReleaseQAPage serves the legacy
-// /releases/{id}/qa URL as a deep-link to the QA tab.
+// ReleaseDetail serves /releases/{id}, the release's own page (release_workspace.html):
+// version, product, changelog and packages (tab from ?tab=, default overview).
 func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	h.renderReleaseWorkspace(w, r, r.URL.Query().Get("tab"))
 }
@@ -1163,23 +1149,21 @@ func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
-	// Live refresh: a hidden element on the workspace refetches ?partial=problems on the
-	// problem-updated body event, and the returned OOB fragments swap the QA summary,
-	// problem lists and tab badges in place — so another user's change lands here too.
+	// Live refresh: ?partial=problems returns the OOB fragments that swap the problem
+	// lists and badges in place — so another user's change lands here too.
 	if r.URL.Query().Get("partial") == "problems" {
-		h.writeReleaseQAResponse(w, r, id, nil)
+		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
 	h.render(w, r, "release_workspace.html", h.releaseWorkspaceData(r, rel, tab))
 }
 
-// releaseWorkspaceData assembles the union of the release overview data and the
-// QA/Problems data for the unified tabbed workspace. It builds on releaseQAData (which
-// supplies Release/Role/Checklist/QA/Problems/ProblemSummary/CanRecord/CanReport) and
-// adds packages, deployments, crashes and rollout facts.
+// releaseWorkspaceData assembles the release page's data. It builds on
+// releaseProblemsData (Release/Role/Problems/ProblemSummary/CanReport/CanAct) and adds
+// packages, deployments, crashes and rollout facts.
 func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab string) map[string]any {
 	ctx := r.Context()
-	data := h.releaseQAData(r, rel)
+	data := h.releaseProblemsData(r, rel)
 	role, _ := data["Role"].(string)
 
 	packages, _ := h.db.ListPackagesByRelease(ctx, rel.ID)
@@ -1216,7 +1200,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	}
 
 	switch tab {
-	case "overview", "qa", "problems", "packages", "rollout":
+	case "overview", "problems", "packages", "rollout":
 		// valid
 	default:
 		tab = "overview"
@@ -1235,10 +1219,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 		}
 	}
 	title := "Release " + rel.Version
-	switch tab {
-	case "qa":
-		title = "QA · " + rel.Version
-	case "problems":
+	if tab == "problems" {
 		title = "Problems · " + rel.Version
 	}
 
@@ -1278,7 +1259,7 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
+		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
 		return
 	}
 	p := db.ReleaseProblem{
@@ -1289,12 +1270,7 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 		Severity:    r.FormValue("severity"),
 		ReportedBy:  h.currentUsername(r),
 	}
-	if tc := strings.TrimSpace(r.FormValue("test_case_id")); tc != "" {
-		if tcid, err := uuid.Parse(tc); err == nil {
-			p.TestCaseID = &tcid
-		}
-	}
-	// Device is picked by serial (the QA-relevant identifier).
+	// Device is picked by serial.
 	if serial := strings.TrimSpace(r.FormValue("device_serial")); serial != "" {
 		if dev, err := h.db.GetDevice(r.Context(), serial); err == nil {
 			p.DeviceID = &dev.ID
@@ -1310,10 +1286,10 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "release.problem.create", rel.Version, fmt.Sprintf("severity=%s, title=%s", p.Severity, title))
 	h.hub.PublishProblemUpdate() // live-refresh the hub board + any open workspace
 	if hxReq(r) {
-		h.writeReleaseQAResponse(w, r, id, nil)
+		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
 }
 
 // ReleaseProblemUpdate changes a problem's status (and optionally severity).
@@ -1337,13 +1313,6 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 	switch status {
 	case "fixed":
 		uerr = h.db.MarkProblemFixedIn(r.Context(), pid, id)
-		// Marking a bug fixed in this build adds a "Verify fix: …" case to QA so the test
-		// team confirms it (best-effort; de-duped per release+problem).
-		if uerr == nil {
-			if e := h.db.EnsureFixVerificationCase(r.Context(), id, pid, h.currentUsername(r)); e != nil {
-				log.Printf("[qa] add fix-verify case: %v", e)
-			}
-		}
 	case "verified":
 		uerr = h.db.VerifyProblem(r.Context(), pid, id)
 	case "open":
@@ -1358,10 +1327,10 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "release.problem.update", strconv.Itoa(id), fmt.Sprintf("problem=%s, status=%s", pid, status))
 	h.hub.PublishProblemUpdate()
 	if hxReq(r) {
-		h.writeReleaseQAResponse(w, r, id, nil)
+		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
 }
 
 // ReleaseProblemDelete removes a problem (admin only).
@@ -1382,10 +1351,10 @@ func (h *Handler) ReleaseProblemDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	h.hub.PublishProblemUpdate()
 	if hxReq(r) {
-		h.writeReleaseQAResponse(w, r, id, nil)
+		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
 }
 
 // ReleasePublish moves a release to published (deployable).
@@ -1410,37 +1379,6 @@ func releaseBack(r *http.Request, id int) string {
 		return v
 	}
 	return fmt.Sprintf("/releases/%d", id)
-}
-
-// ReleaseSignOff records the current dev's smoke-test sign-off on a release
-// ("tested at our end, OK for QA to pick up"). Dev-only (see requireDev).
-func (h *Handler) ReleaseSignOff(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetReleaseSignOff(r.Context(), id, h.currentUsername(r)); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "release.sign_off", strconv.Itoa(id), "")
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
-}
-
-// ReleaseClearSignOff revokes a previously recorded dev sign-off. Dev-only.
-func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.ClearReleaseSignOff(r.Context(), id); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "release.sign_off_clear", strconv.Itoa(id), "")
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
 // ReleaseCreateBranch forks an off-mainline branch build from a release (admin/dev) — a
@@ -1477,10 +1415,9 @@ func (h *Handler) ReleaseCreateBranch(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", newID), http.StatusSeeOther)
 }
 
-// ReleaseMerge merges a validated branch onto the main line as a new draft mainline
-// release at the given version. Gated on the branch being testing-done — its proving run
-// must be complete before its delta graduates to main. The new release starts as a draft
-// so the real v-next build is attached via the normal release-first flow.
+// ReleaseMerge merges a branch onto the main line as a new draft mainline release at the
+// given version. The new release starts as a draft so the real v-next build is attached
+// via the normal release-first flow.
 func (h *Handler) ReleaseMerge(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -1498,10 +1435,6 @@ func (h *Handler) ReleaseMerge(w http.ResponseWriter, r *http.Request) {
 	}
 	if branch.MergedIntoReleaseID != nil {
 		http.Error(w, "This branch has already been merged.", http.StatusBadRequest)
-		return
-	}
-	if branch.TestingDoneAt == nil {
-		http.Error(w, "Finish testing on this branch before merging it to main.", http.StatusBadRequest)
 		return
 	}
 	r.ParseForm()
@@ -1525,106 +1458,16 @@ func (h *Handler) ReleaseMerge(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", newID), http.StatusSeeOther)
 }
 
-// ── Test team / QA handlers ──────────────────────────────────────────────────
-
-var validTestStatuses = map[string]bool{
-	"untested": true, "pass": true, "fail": true, "blocked": true, "skip": true,
-}
-
-// TestCaseCreate adds a base case (from the Releases page) or a release-specific case (when
-// release_id is set, e.g. from the release detail page).
-func (h *Handler) TestCaseCreate(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	tc := db.TestCase{
-		Title:     strings.TrimSpace(r.FormValue("title")),
-		Area:      strings.TrimSpace(r.FormValue("area")),
-		Steps:     strings.TrimSpace(r.FormValue("steps")),
-		Expected:  strings.TrimSpace(r.FormValue("expected")),
-		CreatedBy: h.currentUsername(r),
-	}
-	if tc.Title == "" {
-		http.Error(w, "Title required", http.StatusBadRequest)
-		return
-	}
-	redirect := strings.TrimSpace(r.FormValue("redirect"))
-	if redirect == "" {
-		redirect = "/releases"
-	}
-	if rid := strings.TrimSpace(r.FormValue("release_id")); rid != "" {
-		if id, err := strconv.Atoi(rid); err == nil {
-			tc.ReleaseID = &id
-			redirect = fmt.Sprintf("/releases/%d/qa", id)
-		}
-	} else {
-		tc.Base = true // a library case applies to every release
-	}
-	if _, err := h.db.CreateTestCase(r.Context(), tc); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "testcase.create", tc.Title, "")
-	http.Redirect(w, r, redirect, http.StatusSeeOther)
-}
-
-// TestCaseUpdate edits a base case's content / active flag.
-func (h *Handler) TestCaseUpdate(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	r.ParseForm()
-	title := strings.TrimSpace(r.FormValue("title"))
-	if title == "" {
-		http.Error(w, "Title required", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.UpdateTestCase(r.Context(), id,
-		title, strings.TrimSpace(r.FormValue("area")),
-		strings.TrimSpace(r.FormValue("steps")), strings.TrimSpace(r.FormValue("expected")),
-		r.FormValue("active") == "on"); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "testcase.update", id.String(), "")
-	redirect := strings.TrimSpace(r.FormValue("redirect"))
-	if redirect == "" {
-		redirect = "/releases"
-	}
-	http.Redirect(w, r, redirect, http.StatusSeeOther)
-}
-
-// TestCaseDelete removes a test case (and its results).
-func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	redirect := r.FormValue("redirect")
-	if redirect == "" {
-		redirect = "/releases"
-	}
-	if err := h.db.DeleteTestCase(r.Context(), id); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "testcase.delete", id.String(), "")
-	http.Redirect(w, r, redirect, http.StatusSeeOther)
-}
-
-// releaseQAData gathers the QA + Problems state that the release page and its htmx
+// releaseProblemsData gathers the problems state that the release page and its htmx
 // OOB fragments render from. Keys match what the rd-* partials expect.
-func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any {
+func (h *Handler) releaseProblemsData(r *http.Request, rel *db.Release) map[string]any {
 	ctx := r.Context()
-	checklist, _ := h.db.GetReleaseChecklist(ctx, rel.ID)
-	qa, _ := h.db.ReleaseQASummary(ctx, rel.ID)
 	problems, _ := h.db.ListReleaseProblems(ctx, rel.ID)
 	ps, _ := h.db.ReleaseProblemSummary(ctx, rel.ID)
 	role := h.role(r)
 	// Bugs that ride the release train onto this build (reported on an earlier build and
 	// not yet verified fixed, plus any claimed fixed in this build awaiting verification).
-	// Carry-forward is a dev/admin concern — operators/operators don't see it.
+	// Carry-forward is a super-admin concern — operators don't see it.
 	var carried []db.ReleaseProblem
 	if role == "admin" {
 		carried, _ = h.db.CarriedForwardProblems(ctx, rel.ID)
@@ -1633,33 +1476,23 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 		"Release":        rel,
 		"RelVersion":     rel.Version,
 		"Role":           role,
-		"Checklist":      checklist,
-		"QA":             qa,
 		"Problems":       problems,
 		"Carried":        carried,
 		"ProblemSummary": ps,
-		"CanRecord":      roleIsOperatorLike(role),
 		"CanReport":      roleCanOperate(role),
 		"CanAct":         role == "admin", // act on existing problems (fixed/verified/wontfix) — operators file only
 	}
 }
 
-// writeReleaseQAResponse renders the htmx response for a QA/Problems mutation: the
-// changed qa-row (when markedCase is non-nil) followed by out-of-band fragments that
-// refresh the QA summary, problems list, counts and tab badges — so the page updates
-// in place with no full reload.
-func (h *Handler) writeReleaseQAResponse(w http.ResponseWriter, r *http.Request, releaseID int, markedCase *uuid.UUID) {
+// writeReleaseProblemsResponse renders the htmx response for a problem change:
+// out-of-band fragments that refresh the problem lists, counts and badges in place.
+func (h *Handler) writeReleaseProblemsResponse(w http.ResponseWriter, r *http.Request, releaseID int) {
 	rel, err := h.db.GetRelease(r.Context(), releaseID)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	data := h.releaseQAData(r, rel)
-	// Everything updates via the out-of-band swap set (which now includes the full QA
-	// checklist), so QA marks and problem changes stay live without a reload — including a
-	// newly-added "Verify fix" case appearing in the checklist.
-	_ = markedCase // retained for call-site clarity; the whole checklist is re-rendered
-	_ = h.tmpl.ExecuteTemplate(w, "release-oob", data)
+	_ = h.tmpl.ExecuteTemplate(w, "release-oob", h.releaseProblemsData(r, rel))
 }
 
 // ReleaseEditMeta updates a release's editable metadata (name + changelog) after

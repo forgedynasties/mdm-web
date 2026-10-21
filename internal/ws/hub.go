@@ -65,8 +65,7 @@ type AlertUpdateEvent struct{}
 // open deployment pages re-fetch their own (scoped, ETag-cached) targets partial.
 type DeploymentUpdateEvent struct{}
 
-// ProblemUpdateEvent is emitted when a release problem (or a QA test result that
-// creates/resolves one) changes anywhere. Payload-less: the releases hub board and any
+// ProblemUpdateEvent is emitted when a release problem changes anywhere. Payload-less: the releases hub board and any
 // open release workspace re-fetch their own (release-scoped) fragments.
 type ProblemUpdateEvent struct{}
 
@@ -321,8 +320,7 @@ func (h *Hub) UnsubscribeProblemUpdates(ch chan ProblemUpdateEvent) {
 	h.problemMu.Unlock()
 }
 
-// PublishProblemUpdate notifies subscribers that a release problem (or a QA result that
-// creates/resolves one) changed.
+// PublishProblemUpdate notifies subscribers that a release problem changed.
 func (h *Hub) PublishProblemUpdate() {
 	h.problemMu.RLock()
 	defer h.problemMu.RUnlock()

@@ -182,16 +182,12 @@ func (d *DB) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) erro
 var actorColumns = [][2]string{
 	{"audit_log", "actor"},
 	{"commands", "created_by"},
-	{"test_cases", "created_by"},
 	{"command_recipes", "created_by"},
 	{"scheduled_recipes", "created_by"},
 	{"device_queries", "created_by"},
-	{"release_test_results", "tested_by"},
 	{"qfil_packages", "added_by"},
 	{"dismissed_commands", "dismissed_by"},
 	{"release_problems", "reported_by"},
-	{"releases", "signed_off_by"},
-	{"releases", "testing_done_by"},
 	{"releases", "merged_by"},
 }
 
@@ -295,15 +291,9 @@ type UserStats struct {
 	DevicesTouched int64        // distinct devices directly targeted by their commands
 	Installs       int64
 
-	ReleasesSignedOff int64
-	ReleasesTested    int64
-	ReleasesMerged    int64
-	TestResults       int64
-	TestsPassed       int64
-	TestsFailed       int64
-	QueriesCreated    int64
-	RecipesCreated    int64
-	TestCasesCreated  int64
+	ReleasesMerged int64
+	QueriesCreated int64
+	RecipesCreated int64
 }
 
 // NamedCount is a label with a count, for small breakdown lists.
@@ -474,17 +464,10 @@ func (d *DB) UserStats(ctx context.Context, username, excludeFromRank string) (*
 	rows.Close()
 	err = d.pool.QueryRow(ctx, `
 		SELECT
-		  (SELECT COUNT(*) FROM releases WHERE signed_off_by = $1),
-		  (SELECT COUNT(*) FROM releases WHERE testing_done_by = $1),
 		  (SELECT COUNT(*) FROM releases WHERE merged_by = $1),
-		  (SELECT COUNT(*) FROM release_test_results WHERE tested_by = $1 AND status <> 'untested'),
-		  (SELECT COUNT(*) FROM release_test_results WHERE tested_by = $1 AND status = 'pass'),
-		  (SELECT COUNT(*) FROM release_test_results WHERE tested_by = $1 AND status = 'fail'),
 		  (SELECT COUNT(*) FROM device_queries WHERE created_by = $1),
-		  (SELECT COUNT(*) FROM command_recipes WHERE created_by = $1),
-		  (SELECT COUNT(*) FROM test_cases WHERE created_by = $1)`, username).Scan(
-		&st.ReleasesSignedOff, &st.ReleasesTested, &st.ReleasesMerged, &st.TestResults, &st.TestsPassed, &st.TestsFailed,
-		&st.QueriesCreated, &st.RecipesCreated, &st.TestCasesCreated)
+		  (SELECT COUNT(*) FROM command_recipes WHERE created_by = $1)`, username).Scan(
+		&st.ReleasesMerged, &st.QueriesCreated, &st.RecipesCreated)
 	if err != nil {
 		return nil, err
 	}

@@ -174,20 +174,11 @@ func buildR2Banner(in r2Inputs) r2Banner {
 			Post: fmt.Sprintf("/releases/%d/dev", id), Field: "dev", Value: "0",
 			Confirm: fmt.Sprintf("Release %s to everyone? It stops being folded away behind the dev toggle.", row.Version)})
 	}
-	if row.SignedOffBy == "" && !row.TestingDone && row.QA.Total > 0 && !row.QA.Passed() {
-		todos = append(todos, r2Todo{Title: "Not signed off yet",
-			Sub:    fmt.Sprintf("QA: %d of %d cases passed", row.QA.Pass, row.QA.Total),
-			Action: "Open QA", Href: fmt.Sprintf("/releases/%d/qa", id)})
-	}
-
 	if len(todos) == 0 {
 		b.Headline = "Nothing waiting on this release"
 		bits := []string{fmt.Sprintf("on %d device%s", row.DeviceCount, sIfN(row.DeviceCount))}
 		if n := len(in.Rollouts); n > 0 {
 			bits = append(bits, fmt.Sprintf("%d update%s sent", n, sIfN(n)))
-		}
-		if row.SignedOffBy != "" {
-			bits = append(bits, "signed off by "+row.SignedOffBy)
 		}
 		b.Calm = strings.ToUpper(bits[0][:1]) + bits[0][1:]
 		if len(bits) > 1 {

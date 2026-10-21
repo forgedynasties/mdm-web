@@ -469,8 +469,8 @@
       form.classList.add('form-submitting');
       window.mdmBeginBusy();
       // A disabled submit button is omitted from the form payload — disabling the
-      // clicked button below would otherwise drop its name/value (e.g. a QA pill's
-      // status=pass), so forms with multiple submit buttons would post no value and
+      // clicked button below would otherwise drop its name/value (e.g. a problem card's
+      // status=fixed), so forms with multiple submit buttons would post no value and
       // the server would reject it. Preserve the submitter as a hidden field first.
       if (submitter && submitter.name) {
         var keep = document.createElement('input');
@@ -482,7 +482,7 @@
       form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
         btn.disabled = true;
         // Show the loading state only on the button that was actually clicked, so a
-        // form with several submit buttons (e.g. the QA Pass/Fail/Block/Skip pills)
+        // form with several submit buttons (e.g. a problem's Fixed / Verified / Won't fix)
         // doesn't light every button up at once. The rest are just disabled to
         // prevent a double-submit.
         if (!submitter || btn === submitter) {
