@@ -534,6 +534,11 @@ func main() {
 		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/battery", qaCORS(http.NotFoundHandler()))
 		mux.Handle("GET /api/v1/testdata/devices/{serial}/battery/climbs", qaCORS(qaAuth(http.HandlerFunc(apiHandler.GetTestDataDeviceBatteryClimbs))))
 		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/battery/climbs", qaCORS(http.NotFoundHandler()))
+		// Host app on screen (21 Oct 2026): every device's state now, and one device's spans.
+		mux.Handle("GET /api/v1/testdata/host-app", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataHostApp))))
+		mux.Handle("OPTIONS /api/v1/testdata/host-app", qaCORS(http.NotFoundHandler()))
+		mux.Handle("GET /api/v1/testdata/devices/{serial}/host-app", qaCORS(qaAuth(http.HandlerFunc(apiHandler.GetTestDataDeviceHostApp))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/host-app", qaCORS(http.NotFoundHandler()))
 	}
 
 	// WebSocket — device connects here for server-push command delivery

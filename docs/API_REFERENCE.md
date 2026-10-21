@@ -109,7 +109,6 @@ each change is pushed to the connected firmware devices it affects:
 |---|---|---|
 | `POST /api/v1/restaurants` | `{"name", "address"?, "timezone"?, "notes"?}` | creates a restaurant (`201`, the restaurant) |
 | `POST /api/v1/restaurants/{id}/devices` | `{"serials": [...]}` | places the devices at the venue |
-| `POST /api/v1/restaurants/{id}/guest-wifi` | `{"ssid", "password"?, "security"?, "app_package"?}` | sets the venue's guest Wi-Fi (empty `ssid` clears it; same checks as the dashboard; the password is not echoed back) |
 
 ### POST `/api/v1/checkins/backfill`
 Readings a firmware client (1.7.0+) kept while it could not reach the server:
@@ -304,6 +303,8 @@ unknown one. Lists take `?group=<name>` and/or `?restaurant=<name>` (exact name,
 | GET | `/api/v1/testdata/battery` | Devices that sent battery rows in the last 7 days, most rows first |
 | GET | `/api/v1/testdata/devices/{serial}/battery` | That device's battery rows, oldest first. `?format=csv` for CSV |
 | GET | `/api/v1/testdata/devices/{serial}/battery/climbs` | Its charge climbs, newest first. `?limit=` (default 50, max 500) |
+| GET | `/api/v1/testdata/host-app` | Devices that report a host app: state now and on-screen share over the window (default 24 h, at most 7 days) |
+| GET | `/api/v1/testdata/devices/{serial}/host-app` | When that device's host app was on screen and when not: spans, totals and the raw transitions |
 
 `/devices` row: `serial_number, device_class, restaurant_name, groups[], last_seen_at, battery_pct,
 battery_temp_c, charging, wlc_state, charging_pad, ram_used_pct, storage_free_pct,
@@ -349,6 +350,26 @@ sent. One climb is one charge, read as a ladder of voltage rungs: `mv0` is the f
 at that rung. `end` is how the climb ended (`top` = reached full), `plug` the charger, `ichg_ma` and
 `temp_c` the [min, max] over the climb, `iin_ma` the input current (-1 = not read), `gap_s` the
 longest gap between samples, `n` the samples behind it, and `at` the time (device ms).
+
+**Host app on screen** (21 Oct 2026; firmware client 1.11.0+, kept since 17 Oct 2026). Both
+routes take the window as `?range=6h|24h|7d|30d` (default 24h) or `?start=&end=` (RFC 3339; at
+most 31 days per device, 7 days on the list). Each span says what was on screen:
+
+| `state` | `why` | Meaning |
+|---|---|---|
+| `on_screen` | `app_in_foreground` | The host app's variant in use is in front and the screen is on (or its screen state was never reported) |
+| `off_screen` | `app_not_in_foreground` | Something else is in front: the launcher, Settings, another app |
+| `off_screen` | `screen_off` | The host app is in front but the screen is off |
+| `unknown` | `no_report` | No host app report is kept for that time (older client, or before the first report) |
+| `unknown` | `device_offline` | After the device's last check-in, while it is offline |
+
+`/devices/{serial}/host-app`: `{serial_number, package, start, end, last_seen_at, now:{state, why,
+since}, totals:{on_screen_s, off_screen_s, unknown_s, on_screen_pct}, spans:[{from, to, state, why,
+seconds}], events:[{t, key, to}]}`. `on_screen_pct` is of the time the state is known (null when
+none is). `events` are the raw transitions (`key` `host_app_fg` or `screen_on`), server time.
+
+`/host-app` row: `serial_number, restaurant_name, package, last_seen_at, state, why, since,
+on_screen_s, off_screen_s, unknown_s, on_screen_pct`; `{start, end, count, devices:[…]}`.
 
 Errors are JSON `{"error":"…"}`: 401 bad or missing key, 404 unknown device/group/restaurant,
 400 bad window.
