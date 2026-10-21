@@ -477,20 +477,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/legacy/deployments/{id}/devices/{serial}/reboot", h.requireOTA(h.LegacyOTAReboot))
 	post("POST /updates", h.requireOTA(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireOTA(h.ReleaseDeploy))
-	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
-	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
 	post("POST /releases/{id}/branch", h.requireReleaseAdmin(h.ReleaseCreateBranch))
 	post("POST /releases/{id}/merge", h.requireReleaseAdmin(h.ReleaseMerge))
 	// Problem reports: any operator/operator can file and triage; admins can delete.
 	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
 	post("POST /releases/{id}/problems/{pid}", h.requireOperatorOrAdmin(h.ReleaseProblemUpdate))
 	post("POST /releases/{id}/problems/{pid}/delete", h.requireReleaseAdmin(h.ReleaseProblemDelete))
-
-	// Test team / QA — base cases are managed inline on the Releases page (admin),
-	// operators mark results per-release. No standalone Testing/Test-cases pages.
-	post("POST /test-cases", h.requireReleaseAdmin(h.TestCaseCreate))
-	post("POST /test-cases/{id}/edit", h.requireReleaseAdmin(h.TestCaseUpdate))
-	post("POST /test-cases/{id}/delete", h.requireReleaseAdmin(h.TestCaseDelete))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrOperator(h.DeploymentDetail))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrOperator(drainable(h.DeploymentEvents)))
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOTA(h.DeploymentUpdateSettings))

@@ -497,7 +497,7 @@ func (h *Handler) requireDeviceAction(w http.ResponseWriter, r *http.Request, ac
 	return false
 }
 
-// requireFleetAction guards fleet-level operator actions (QA, groups, alerts…).
+// requireFleetAction guards fleet-level operator actions (groups, alerts…).
 func (h *Handler) requireFleetAction(w http.ResponseWriter, r *http.Request, action string) bool {
 	d := h.access(r).decide(action, nil)
 	if d.Allowed {

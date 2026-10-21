@@ -199,7 +199,6 @@ html,body{margin:0;padding:0;background:#0E0F1C;overflow:hidden;}
     <p class="wr-sub wr-in d3">
       {{if .Me.Commands}}{{.Me.Commands}} command{{if ne .Me.Commands 1}}s{{end}} sent{{if .Me.DevicesTouched}} to {{.Me.DevicesTouched}} device{{if ne .Me.DevicesTouched 1}}s{{end}}{{end}}. {{end}}
 
-      {{if .Me.ReleasesSignedOff}}{{.Me.ReleasesSignedOff}} release{{if ne .Me.ReleasesSignedOff 1}}s{{end}} signed off. {{end}}
       Across {{.Me.ActiveDays}} active day{{if ne .Me.ActiveDays 1}}s{{end}}.
     </p>
     <p class="wr-sub wr-in d3" style="margin-top:14px;"><a href="/profile" style="color:inherit;text-decoration:underline;">See your full profile →</a></p>

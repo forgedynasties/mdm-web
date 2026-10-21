@@ -880,13 +880,9 @@ func (d *DB) withAdvisoryLock(ctx context.Context, key int64, fn func(context.Co
 	return fn(ctx)
 }
 
-// advisoryKeyUUID / advisoryKeyIntUUID derive a stable advisory-lock key from a
-// uuid, or an (int, uuid) pair. Occasional key collisions only cause unrelated
-// operations to serialize briefly, which is harmless.
+// advisoryKeyUUID derives a stable advisory-lock key from a uuid. Occasional key
+// collisions only cause unrelated operations to serialize briefly, which is harmless.
 func advisoryKeyUUID(id uuid.UUID) int64 { return int64(binary.BigEndian.Uint64(id[:8])) }
-func advisoryKeyIntUUID(n int, id uuid.UUID) int64 {
-	return int64(n)<<32 | int64(binary.BigEndian.Uint32(id[:4]))
-}
 
 // ClearPendingOTACommands marks in-progress OTA commands for a device as
 // failed so HasPendingOTACommand returns false, allowing immediate retry.

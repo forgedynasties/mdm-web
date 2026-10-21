@@ -497,7 +497,7 @@ func (h *Handler) DeploymentEvents(w http.ResponseWriter, r *http.Request) {
 
 // ReleaseProblemEvents streams SSE notifications to the releases hub and any open
 // release workspace, so the cross-release problems board and the workspace fragments
-// refresh live when a problem (or a QA result that creates/resolves one) changes
+// refresh live when a problem changes
 // anywhere — no polling. Payload-less; each listener re-fetches its own scoped fragment.
 func (h *Handler) ReleaseProblemEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)

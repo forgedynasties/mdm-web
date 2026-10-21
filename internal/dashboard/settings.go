@@ -61,7 +61,6 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	dbStats, _ := h.db.TableStats(r.Context())
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	channels, _ := h.db.ListAlertChannels(r.Context(), false)
-	baseCases, _ := h.db.ListBaseTestCases(r.Context(), false)
 	// Kiosk allowlist picker: only apps that show in a launcher (DPC agents
 	// report the launchable flag; older clients fall back to "user app").
 	allPkgs, _ := h.db.ListPackagesAdmin(r.Context(), "")
@@ -96,7 +95,6 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"AppFamilyMode":         setMode,
 		"Productions":           productions,
 		"DeviceQueries":         deviceQueries,
-		"BaseCases":             baseCases,
 		"ExtraColumns":          h.cfg.Columns(),
 		"LegacyCheckin":         h.cfg.LegacyCheckin(),
 		"CommandCanary":         h.cfg.CommandCanary(),

@@ -18,7 +18,7 @@ import (
 )
 
 // ProfilePage shows the signed-in user their own account details and footprint:
-// actions, commands, devices touched, QA and release work, recent activity.
+// actions, commands, devices touched, release work, recent activity.
 func (h *Handler) ProfilePage(w http.ResponseWriter, r *http.Request) {
 	h.renderProfile(w, r, h.currentUsername(r), false, false)
 }

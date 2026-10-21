@@ -159,8 +159,8 @@ func roleCanOperate(role string) bool { return roleAtLeast(role, "operator") }
 // themselves stay with the super admin (requireReleaseAdmin).
 func roleCanOTA(role string) bool { return roleAtLeast(role, "fleet_manager") }
 
-// roleIsOperatorLike: the "test team" roles that mark QA results — operator up to
-// admin, not the super admin.
+// roleIsOperatorLike: operator up to admin, not the super admin (hides super-admin-only
+// command types from their pickers).
 func roleIsOperatorLike(role string) bool {
 	l := roleLevel(role)
 	return l >= roleByKey["operator"].Level && l < roleByKey["admin"].Level

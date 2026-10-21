@@ -85,7 +85,7 @@ Why a table: foreign keys clean up on delete, reverse lookups ("who can shell th
 | remote | device | Sessions | yes (explicit-only) |
 | shell | device | Sessions | dev ceiling only |
 | ota | device | Updates | dev ceiling only |
-| alerts, groups, qa, deploy_cancel | fleet | Fleet | |
+| alerts, groups, deploy_cancel | fleet | Fleet | |
 
 `ota` on a device means: may include this device as a target of a deployment. `ota` with scope `all` means any device. Creating releases, uploading packages, publishing stay admin/dev.
 

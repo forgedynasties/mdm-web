@@ -436,13 +436,8 @@ type Release struct {
 	Changelog           string     `json:"changelog"`
 	Status              string     `json:"status"`          // "draft" | "published"
 	Hidden              bool       `json:"hidden"`          // hidden from the main releases list (irrelevant)
-	SkipBaseTests       bool       `json:"skip_base_tests"` // QA tests only release-specific cases, not base
 	CreatedAt           time.Time  `json:"created_at"`
 	PublishedAt         *time.Time `json:"published_at"`
-	SignedOffBy         string     `json:"signed_off_by"` // dev who smoke-tested; "" when not signed off
-	SignedOffAt         *time.Time `json:"signed_off_at"`
-	TestingDoneAt       *time.Time `json:"testing_done_at"` // finish line: nil = active (under test), set = inactive
-	TestingDoneBy       string     `json:"testing_done_by"`
 	ParentReleaseID     *int       `json:"parent_release_id"`       // set for branch builds — the release this forked from
 	IsBranch            bool       `json:"is_branch"`               // off-mainline temporary test build
 	IsDev               bool       `json:"is_dev"`                  // work in progress: only devs/admins see it
