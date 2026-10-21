@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -82,6 +83,47 @@ func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	acc := h.access(r)
+	tab := r.URL.Query().Get("tab")
+	if tab != "venues" && tab != "devices" {
+		tab = "checks"
+	}
+
+	// K1 (21 Oct 2026): the Venue and Type pills scope every number on the page to the
+	// devices they name; the options are the venues and types of the scored devices.
+	venueNames := map[string]string{}
+	classSeen := map[string]int{}
+	for i := range devs {
+		d := &devs[i]
+		if d.Hidden || d.Retired() || !acc.visible(d.ID) {
+			continue
+		}
+		if d.RestaurantID != nil && d.RestaurantName != "" {
+			venueNames[d.RestaurantID.String()] = d.RestaurantName
+		}
+		if c := d.Class(); c != "" {
+			classSeen[c]++
+		}
+	}
+	var classes []string
+	for c := range classSeen {
+		classes = append(classes, c)
+	}
+	sort.Slice(classes, func(i, j int) bool { return classSeen[classes[i]] > classSeen[classes[j]] })
+	sc := parseK1Scope(r.URL.Query(), tab, venueNames, classes)
+	if sc.On {
+		kept := devs[:0:0]
+		for i := range devs {
+			d := devs[i]
+			if sc.Venue != "" && (d.RestaurantID == nil || d.RestaurantID.String() != sc.Venue) {
+				continue
+			}
+			if sc.Class != "" && d.Class() != sc.Class {
+				continue
+			}
+			kept = append(kept, d)
+		}
+		devs = kept
+	}
 	devices, checkViews, checkByID := compDeviceViews(rules, results, devs, acc.visible)
 
 	// Headline numbers, over devices held to at least one required check.
@@ -229,11 +271,42 @@ func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
 		checkName = c.Name
 	}
 
-	tab := r.URL.Query().Get("tab")
-	if tab != "venues" && tab != "devices" {
-		tab = "checks"
+	// The trend and the deltas: the scored devices' stored state changes, replayed per day.
+	now := time.Now()
+	ids := make([]uuid.UUID, 0, len(devices))
+	for _, v := range devices {
+		ids = append(ids, v.ID)
 	}
+	checkIDs := make([]string, 0, len(complianceChecks))
+	deviceCheck := map[string]bool{}
+	autoFixOn := 0
+	for _, c := range complianceChecks {
+		checkIDs = append(checkIDs, c.ID)
+		deviceCheck[c.ID] = c.Device
+		if rules.autoFix(c) {
+			autoFixOn++
+		}
+	}
+	const trendDays = 14
+	var trend []k1Day
+	if _, events, err := h.db.ComplianceHistory(ctx, ids, checkIDs, now.AddDate(0, 0, -trendDays)); err == nil {
+		trend = compTrend(ids, events, deviceCheck, now, trendDays)
+	} else {
+		log.Printf("[compliance] history: %v", err)
+	}
+	fixes, err := h.db.SystemFixes(ctx, ids, now.AddDate(0, 0, -trendDays))
+	if err != nil {
+		log.Printf("[compliance] system fixes: %v", err)
+	}
+	fixesDaily, fixesWeek := k1FixesDaily(fixes, now, trendDays)
+	failingN := inScope - compliant
+
 	h.render(w, r, "compliance.html", map[string]any{
+		"Scope":     sc,
+		"K1Banner":  buildK1Banner(checks, rules, fixesWeek, sc, pct, failingN, inScope, partly),
+		"K1Cards":   buildK1Cards(trend, fixesDaily, autoFixOn, pct, failingN, inScope, partly, sc),
+		"K1Groups":  buildK1Groups(checks, rules, fixesWeek, sc),
+		"K1Rail":    buildK1Rail(pct, compliant, inScope, partly, trend, venues, h.cfg.ComplianceReportsCustomers(), now),
 		"Title":     "Compliance",
 		"Tab":       tab,
 		"Pct":       pct,

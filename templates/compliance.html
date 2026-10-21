@@ -51,62 +51,148 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
 .cp-filters a{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);text-decoration:none}
 .cp-filters a.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
 .cp-empty{padding:22px 4px;font-size:13px;color:var(--muted)}
+/* ── K1 (21 Oct 2026): banner, cards, grouped check table and a rail ── */
+.k1-bar{justify-content:space-between}
+.k1-bar .cp-tabs{margin:0}
+.k1-pills{display:flex;gap:8px;flex-wrap:wrap}
+.k1-who{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.02em;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.22);margin-left:8px;vertical-align:1px;white-space:nowrap}
+.is-calm .k1-who{background:var(--surface2)}
+.k1-ban .oc-todo small{white-space:normal}
+.k1-tbl{width:100%}
+.k1-th{display:grid;grid-template-columns:minmax(0,2.1fr) 104px minmax(0,1.5fr) 74px 92px 16px;gap:14px;padding:8px 2px;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border-soft)}
+.k1-th .n{text-align:right}
+.k1-grp{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:16px 2px 4px}
+details.k1-row{border-top:1px solid var(--border-soft)}
+.k1-grp+details.k1-row{border-top:0}
+details.k1-row>summary{list-style:none;display:grid;grid-template-columns:minmax(0,2.1fr) 104px minmax(0,1.5fr) 74px 92px 16px;gap:14px;align-items:center;padding:10px 2px;cursor:pointer;font-size:13px}
+details.k1-row>summary::-webkit-details-marker{display:none}
+details.k1-row>summary:hover{background:var(--hover);border-radius:8px}
+details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
+.k1-act{justify-self:end}
+.k1-act .cc-btn{font-size:12px;padding:4px 11px;min-height:0;height:auto;line-height:1.4}
+.cp-wrap .oc-stm small{white-space:normal;overflow:visible}
+.k1-af{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--info-bg);color:var(--info);white-space:nowrap;margin-left:6px;vertical-align:1px}
+.k1-af.off{background:var(--surface2);color:var(--muted)}
+.k1-ven{list-style:none;margin:0;padding:0}
+.k1-ven li{display:grid;grid-template-columns:minmax(0,1fr) 46px;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border-soft)}
+.k1-ven li:first-child{border-top:0}
+.k1-ven a{font-size:12.5px;font-weight:650;color:var(--text);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k1-ven a:hover{color:var(--accent-text)}
+.k1-ven small{font-size:11px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.k1-ven .p{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+.k1-rep{display:flex;align-items:center;gap:12px;padding:12px;border-radius:16px;border:1px solid var(--border-soft)}
+.k1-rep .ic{width:42px;height:42px;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center;font-weight:800;font-size:11px;flex:none}
+.k1-rep b{display:block;font-size:13px}.k1-rep small{display:block;font-size:11.5px;color:var(--muted);line-height:1.4}
+.k1-rep .cc-btn{margin-left:auto;flex:none}
+.k1-cap{margin-top:-6px}
+.k1-trend-empty{font-size:12px;color:var(--muted);padding:8px 0}
 </style>
+<template id="page-island">
+  <span class="isl-dot {{if ge .Pct 90}}on{{else}}warn{{end}}"></span><span class="isl-t">Compliance</span>
+  <span class="isl-s"><b>{{.Pct}}%</b> of {{.InScope}} meet every required check{{if .Failing}} · {{.Failing}} failing{{end}}{{if .Scope.On}} · {{if .Scope.VenueName}}{{.Scope.VenueName}}{{end}}{{if and .Scope.VenueName .Scope.ClassName}} · {{end}}{{if .Scope.ClassName}}{{.Scope.ClassName}}{{end}}{{end}}</span>
+  <span class="isl-acts"><a class="cc-btn" href="/compliance/rules">Rules</a></span>
+</template>
 <div class="cp-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Compliance</div>
+      <div class="cc-eyebrow">Fleet</div>
       <h1 class="cc-h1">Compliance</h1>
-      <div class="cc-sub">Devices at a venue, checked every minute.</div>
+      <div class="cc-status">{{.InScope}} device{{if ne .InScope 1}}s{{end}} at a venue · checked every minute{{if .Partly}} · {{.Partly}} partly measurable{{end}}{{if .RecOnly}} · {{.RecOnly}} held to recommendations only{{end}}</div>
     </div>
-    <div class="cc-actions"><a class="cc-btn sm" href="/compliance/rules">Rules</a></div>
+    <div class="cc-actions"><a class="cc-btn sm isl-dup" href="/compliance/rules">Rules</a></div>
   </div>
-  <nav class="cp-tabs" aria-label="Compliance views">
-    <a href="/compliance"{{if eq .Tab "checks"}} class="on" aria-current="page"{{end}}>Checks</a>
-    <a href="/compliance?tab=venues"{{if eq .Tab "venues"}} class="on" aria-current="page"{{end}}>Venues</a>
-    <a href="/compliance?tab=devices"{{if eq .Tab "devices"}} class="on" aria-current="page"{{end}}>Devices</a>
-  </nav>
 
-  <div class="cp-kpis">
-    <div class="cc-card cp-kpi big"><b class="{{if ge .Pct 90}}cp-ok{{else if ge .Pct 70}}cp-wa{{else}}cp-bad{{end}}">{{.Pct}}%</b><span>of {{.InScope}} device{{if ne .InScope 1}}s{{end}} meet every required check</span></div>
-    <a class="cc-card cp-kpi" href="/compliance?tab=devices&amp;show=failing" style="text-decoration:none"><b class="{{if .Failing}}cp-bad{{end}}">{{.Failing}}</b><span>failing a required check</span></a>
-    <div class="cc-card cp-kpi" title="Their client reports none of the device checks (v2.0 images): only the server's checks apply."><b>{{.Partly}}</b><span>partly measurable: server checks only</span></div>
-    <a class="cc-card cp-kpi" href="/compliance?tab=devices&amp;show=recommended" style="text-decoration:none"><b>{{.RecOnly}}</b><span>held to recommendations only (in a lab session)</span></a>
+  {{/* K1 (21 Oct 2026): tabs left, the Venue and Type pills (and Level on Checks) right.
+       Venue and Type scope every number on the page. */}}
+  <div class="oc-bar k1-bar">
+    <nav class="cp-tabs" aria-label="Compliance views">
+      <a href="{{.Scope.TabHref "checks"}}"{{if eq .Tab "checks"}} class="on" aria-current="page"{{end}}>Checks</a>
+      <a href="{{.Scope.TabHref "venues"}}"{{if eq .Tab "venues"}} class="on" aria-current="page"{{end}}>Venues</a>
+      <a href="{{.Scope.TabHref "devices"}}"{{if eq .Tab "devices"}} class="on" aria-current="page"{{end}}>Devices</a>
+    </nav>
+    <div class="k1-pills">
+      {{with .Scope}}
+      {{if eq $.Tab "checks"}}<div class="oc-f"><button class="oc-fb{{if .Level}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Level: <b>{{if eq .Level "required"}}Required{{else if eq .Level "recommended"}}Recommended{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>{{range .Levels}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>{{end}}
+      <div class="oc-f"><button class="oc-fb{{if .Venue}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+      <div class="oc-f"><button class="oc-fb{{if .Class}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .ClassName}}{{.ClassName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>{{range .Types}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="ov2">
+  <div class="ov2-main">
+  {{with .K1Banner}}
+  <div class="ov2-ban is-{{.Tone}} k1-ban">
+    <div class="ov2-ban-k">{{.Kicker}}</div>
+    <h2>{{.Headline}}</h2>
+    {{if .Todos}}
+    <ol class="oc-todo">
+      {{range .Todos}}<li><span class="t">{{.Title}}<span class="k1-who">{{.Who}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+    </ol>
+    {{if .More}}<a class="oc-more" href="#checks">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
+    {{else}}<p>{{.Calm}}</p>{{end}}
+  </div>
+  {{end}}
+
+  <div class="oc-stats">
+    {{range .K1Cards}}
+    <div class="oc-st">
+      <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+      <a class="oc-stm" href="{{.Href}}">
+        {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+        {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
+      </a>
+      {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/></svg>{{else}}<div style="height:16px"></div>{{end}}
+    </div>
+    {{end}}
   </div>
 
   {{if eq .Tab "checks"}}
-  <section class="cc-card cp-card">
-    <div class="cp-ch"><h2>Checks</h2><span class="m cp-key">failing first<i style="background:var(--ok)"></i>pass<i style="background:var(--danger)"></i>fail<i style="background:var(--text-faint);opacity:.5"></i>unknown</span></div>
-    {{range .Checks}}
-    <details class="cp-row">
-      <summary>
-        <span class="cp-nm"><b>{{.Name}}</b><small>{{if .Help}}{{.Help}}{{else if .Device}}Reported by the device{{else}}Known to the server{{end}}</small></span>
-        <span class="cp-lv {{.Level}}">{{if eq .Level "required"}}Required{{else if eq .Level "recommended"}}Recommended{{else}}Off{{end}}</span>
-        <span class="cp-bar" aria-hidden="true">{{if .Counts.Pass}}<i class="p" style="flex:{{.Counts.Pass}}"></i>{{end}}{{if .Counts.Fail}}<i class="f" style="flex:{{.Counts.Fail}}"></i>{{end}}{{if .Counts.Unknown}}<i class="u" style="flex:{{.Counts.Unknown}}"></i>{{end}}{{if .Counts.NA}}<i class="n" style="flex:{{.Counts.NA}}"></i>{{end}}</span>
-        <span class="cp-cnt">{{if .Counts.Fail}}<span class="cp-bad">{{.Counts.Fail}} fail</span>{{else if .Counts.Pass}}<span class="cp-ok">all pass</span>{{else if .Counts.Unknown}}<span class="cp-mu">{{.Counts.Unknown}} unknown</span>{{else}}<span class="cp-mu">n/a</span>{{end}}</span>
-        <span class="cp-chev" aria-hidden="true">›</span>
-      </summary>
-      <div class="cp-devs">
-        {{if .Failing}}
-        {{range $i, $f := .Failing}}{{if lt $i 12}}
-        <div class="cp-dev"><a href="/devices/{{$f.Serial}}">{{$f.Serial}}</a><span>{{$f.Detail}}</span><span>{{$f.Venue}}</span><span class="s">since <span class="reltime" data-ts="{{$f.Since.Unix}}"></span></span></div>
-        {{end}}{{end}}
-        <a class="cp-more" href="/compliance?tab=devices&amp;show=all&amp;check={{.ID}}">{{if gt (len .Failing) 12}}All {{len .Failing}} devices{{else}}Show in Devices{{end}} →</a>
-        {{else}}
-        <div class="cp-empty" style="padding:8px 4px">Nothing failing. {{.Counts.Pass}} pass{{if .Counts.Unknown}}, {{.Counts.Unknown}} unknown (not reported by their client){{end}}{{if .Counts.NA}}, {{.Counts.NA}} not applicable{{end}}.</div>
-        {{end}}
-      </div>
-    </details>
-    {{end}}
+  <section class="oc-card" id="checks">
+    <div class="oc-ch"><h2>Checks <span>failing first{{if .Scope.Level}} · {{if eq .Scope.Level "required"}}required only{{else}}recommended only{{end}}{{end}}</span></h2></div>
+    {{if .K1Groups}}
+    <div class="k1-tbl">
+      <div class="k1-th"><span>Check</span><span>Level</span><span>Pass · fail · unknown</span><span class="n">Failing</span><span></span><span></span></div>
+      {{range .K1Groups}}
+      <div class="k1-grp">{{.Name}}</div>
+      {{range .Rows}}
+      <details class="k1-row">
+        <summary>
+          <span class="cp-nm"><b>{{.Name}}</b>{{if .AutoFix}}<span class="k1-af" title="Auto-fix {{.Fix}}">auto-fix on{{if .FixedWeek}} · {{.FixedWeek}} this week{{end}}</span>{{else if .HasFix}}<span class="k1-af off">auto-fix off</span>{{end}}<small>{{if .Help}}{{.Help}}{{else if .Device}}Reported by the device{{else}}Known to the server{{end}}</small></span>
+          <span class="cp-lv {{.Level}}">{{if eq .Level "required"}}Required{{else if eq .Level "recommended"}}Recommended{{else}}Off{{end}}</span>
+          <span class="cp-bar" aria-hidden="true">{{if .Counts.Pass}}<i class="p" style="flex:{{.Counts.Pass}}"></i>{{end}}{{if .Counts.Fail}}<i class="f" style="flex:{{.Counts.Fail}}"></i>{{end}}{{if .Counts.Unknown}}<i class="u" style="flex:{{.Counts.Unknown}}"></i>{{end}}{{if .Counts.NA}}<i class="n" style="flex:{{.Counts.NA}}"></i>{{end}}</span>
+          <span class="cp-cnt">{{if .Counts.Fail}}<span class="{{if eq .Level "required"}}cp-bad{{else}}cp-wa{{end}}">{{.Counts.Fail}}</span>{{else if .Counts.Pass}}<span class="cp-ok">0</span>{{else if .Counts.Unknown}}<span class="cp-mu">{{.Counts.Unknown}} unknown</span>{{else}}<span class="cp-mu">n/a</span>{{end}}</span>
+          <span class="k1-act">{{if .Action}}<a class="cc-btn xs" href="{{.Href}}" onclick="event.stopPropagation()">{{.Action}}</a>{{end}}</span>
+          <span class="cp-chev" aria-hidden="true">›</span>
+        </summary>
+        <div class="cp-devs">
+          {{if .Failing}}
+          {{range $i, $f := .Failing}}{{if lt $i 12}}
+          <div class="cp-dev"><a href="/devices/{{$f.Serial}}">{{$f.Serial}}</a><span>{{$f.Detail}}</span><span>{{$f.Venue}}</span><span class="s">since <span class="reltime" data-ts="{{$f.Since.Unix}}"></span></span></div>
+          {{end}}{{end}}
+          <a class="cp-more" href="{{.MoreHref}}">{{if gt (len .Failing) 12}}All {{len .Failing}} devices{{else}}Show in Devices{{end}} →</a>
+          {{else}}
+          <div class="cp-empty" style="padding:8px 4px">Nothing failing. {{.Counts.Pass}} pass{{if .Counts.Unknown}}, {{.Counts.Unknown}} unknown (not reported by their client){{end}}{{if .Counts.NA}}, {{.Counts.NA}} not applicable{{end}}.</div>
+          {{end}}
+        </div>
+      </details>
+      {{end}}
+      {{end}}
+    </div>
+    {{else}}<div class="cp-empty">{{if .Scope.Level}}No check at this level.{{else}}No device has been scored yet: results appear within a minute of the server starting.{{end}}</div>{{end}}
+    <div class="oc-foot"><span><i style="background:var(--ok)"></i>Pass</span><span><i style="background:var(--danger)"></i>Fail</span><span><i style="background:var(--text-faint)"></i>Unknown (not reported by its client, e.g. v2.0 images)</span></div>
   </section>
   {{end}}
 
   {{if eq .Tab "venues"}}
-  <section class="cc-card cp-card">
-    <div class="cp-ch"><h2>Venues</h2><span class="m">worst first</span></div>
+  <section class="oc-card">
+    <div class="oc-ch"><h2>Venues <span>worst first</span></h2></div>
     {{if .Venues}}
     <table class="cp-t">
-      <tr><th>Venue</th><th>Devices</th><th>Compliant</th><th>Failing</th><th>Most common problem</th><th>Measurable</th></tr>
+      <tr><th>Venue</th><th>Devices</th><th>Compliant</th><th>Failing</th><th>Most common problem</th><th>Measurable</th><th></th></tr>
       {{range .Venues}}
       <tr>
         <td>{{if .ID}}<a href="/restaurants/{{.ID}}"><b>{{.Name}}</b></a>{{else}}<span class="cp-mu">{{.Name}}</span>{{end}}</td>
@@ -115,6 +201,7 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
         <td>{{if .Fails}}<span class="cp-bad">{{.Fails}}</span>{{else}}0{{end}}</td>
         <td>{{if .Worst}}{{.Worst}}{{else}}<span class="cp-mu">—</span>{{end}}</td>
         <td>{{if eq .Partly .Devices}}server checks only{{else if .Partly}}{{.Partly}} of {{.Devices}} partly{{else}}fully{{end}}</td>
+        <td style="text-align:right">{{if .ID}}<a class="cc-btn xs" href="/restaurants/{{.ID}}/compliance.pdf" hx-boost="false" title="This month's device-security report for {{.Name}}">PDF</a>{{end}}</td>
       </tr>
       {{end}}
     </table>
@@ -123,14 +210,14 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
   {{end}}
 
   {{if eq .Tab "devices"}}
-  <section class="cc-card cp-card">
+  <section class="oc-card">
     <div class="cp-filters">
-      <a href="/compliance?tab=devices&amp;show=failing{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "failing"}} class="on"{{end}}>Failing {{index .Counts "failing"}}</a>
-      <a href="/compliance?tab=devices&amp;show=unknown{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "unknown"}} class="on"{{end}}>Passing, with unknowns {{index .Counts "unknown"}}</a>
-      <a href="/compliance?tab=devices&amp;show=compliant{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "compliant"}} class="on"{{end}}>Compliant {{index .Counts "compliant"}}</a>
-      <a href="/compliance?tab=devices&amp;show=recommended{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "recommended"}} class="on"{{end}}>Recommendations only {{index .Counts "recommended"}}</a>
-      <a href="/compliance?tab=devices&amp;show=all{{if .CheckF}}&amp;check={{.CheckF}}{{end}}"{{if eq .Show "all"}} class="on"{{end}}>All {{.Scored}}</a>
-      {{if .CheckF}}<a href="/compliance?tab=devices&amp;show={{.Show}}" class="on" title="Clear the check filter">{{.CheckName}} ×</a>{{end}}
+      <a href="{{$.Scope.DevHref "failing" .CheckF}}"{{if eq .Show "failing"}} class="on"{{end}}>Failing {{index .Counts "failing"}}</a>
+      <a href="{{$.Scope.DevHref "unknown" .CheckF}}"{{if eq .Show "unknown"}} class="on"{{end}}>Passing, with unknowns {{index .Counts "unknown"}}</a>
+      <a href="{{$.Scope.DevHref "compliant" .CheckF}}"{{if eq .Show "compliant"}} class="on"{{end}}>Compliant {{index .Counts "compliant"}}</a>
+      <a href="{{$.Scope.DevHref "recommended" .CheckF}}"{{if eq .Show "recommended"}} class="on"{{end}}>Recommendations only {{index .Counts "recommended"}}</a>
+      <a href="{{$.Scope.DevHref "all" .CheckF}}"{{if eq .Show "all"}} class="on"{{end}}>All {{.Scored}}</a>
+      {{if .CheckF}}<a href="{{$.Scope.DevHref .Show ""}}" class="on" title="Clear the check filter">{{.CheckName}} ×</a>{{end}}
     </div>
     {{if .List}}
     <table class="cp-t">
@@ -147,6 +234,34 @@ table.cp-t{width:100%;border-collapse:collapse;font-size:13px}
     {{else}}<div class="cp-empty">No devices here.</div>{{end}}
   </section>
   {{end}}
+  </div>
+
+  {{with .K1Rail}}
+  <aside class="ov2-rail" aria-label="Compliance over time and the venues behind">
+    <a class="ov2-ring s-{{.Tone}}" href="{{$.Scope.TabHref "devices"}}" title="{{.Compliant}} of {{.InScope}} meet every required check">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
+      <span><b>{{.Pct}}%</b><small>compliant</small></span>
+    </a>
+    <div class="ov2-hi"><b>{{.Compliant}} of {{.InScope}} device{{if ne .InScope 1}}s{{end}}</b><small>meet every required check{{if .Partly}} · {{.Partly}} measured on server checks only{{end}}</small></div>
+    {{if .HasTrend}}
+    <div class="ov2-bars" role="img" aria-label="Percent compliant each of the last fourteen days">
+      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+    </div>
+    <div class="ov2-hi k1-cap"><small>% compliant each day, last 14 days</small></div>
+    {{else}}<div class="k1-trend-empty">No history yet: the trend fills in as checks change state.</div>{{end}}
+    <div class="ov2-rh"><h2>Venues behind</h2><a href="{{$.Scope.TabHref "venues"}}">All venues</a></div>
+    {{if .Behind}}
+    <ul class="k1-ven">
+      {{range .Behind}}<li><span><a href="/restaurants/{{.ID}}">{{.Name}}</a><small>{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Worst}} · {{.Worst}}{{end}}</small></span><span class="p {{if ge .Pct 90}}cp-ok{{else if ge .Pct 70}}cp-wa{{else}}cp-bad{{end}}">{{.Pct}}%</span></li>{{end}}
+    </ul>
+    {{else}}<div class="ovd-empty"><b>None.</b> Every scored venue meets its required checks.</div>{{end}}
+    {{with .Report}}
+    <div class="k1-rep"><span class="ic">PDF</span><span><b>Venue report</b><small>{{if .On}}monthly to owners · next {{.Next}} · {{.Venues}} venue{{if ne .Venues 1}}s{{end}}{{else}}not sent to owners: Settings › customer compliance reports is off{{end}}</small></span>{{if .VenueID}}<a class="cc-btn xs" href="/restaurants/{{.VenueID}}/compliance.pdf" hx-boost="false" title="This month's report for {{.VenueName}}">Preview</a>{{end}}</div>
+    {{end}}
+  </aside>
+  {{end}}
+  </div>
 </div>
+<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}
