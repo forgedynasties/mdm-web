@@ -118,6 +118,22 @@ func TestOverviewScopeAgainstPostgres(t *testing.T) {
 		cmd, ids[0], ids[1]); err != nil {
 		t.Fatal(err)
 	}
+	// An app install from the library, one job per device; installs end 'installed'.
+	if _, err := d.pool.Exec(ctx, `INSERT INTO apps (name, apk_url, package_name) VALUES ('OVS Nugget', 'https://x/ovs-nugget.apk', 'aio.app.ovsnugget')`); err != nil {
+		t.Fatal(err)
+	}
+	defer d.pool.Exec(ctx, `DELETE FROM apps WHERE apk_url = 'https://x/ovs-nugget.apk'`)
+	for _, id := range ids[:2] {
+		var c uuid.UUID
+		if err := d.pool.QueryRow(ctx, `INSERT INTO commands (type, apk_url, target_type, created_by, payload)
+			VALUES ('install_apk', 'https://x/ovs-nugget.apk', 'devices', 'ovs-tester', '{}') RETURNING id`).Scan(&c); err != nil {
+			t.Fatal(err)
+		}
+		defer d.pool.Exec(ctx, `DELETE FROM commands WHERE id = $1`, c)
+		if _, err := d.pool.Exec(ctx, `INSERT INTO command_status (command_id, device_id, status) VALUES ($1, $2, 'installed')`, c, id); err != nil {
+			t.Fatal(err)
+		}
+	}
 	rs, err := d.RecentRollouts(ctx, 7)
 	if err != nil {
 		t.Fatal(err)
@@ -130,6 +146,18 @@ func TestOverviewScopeAgainstPostgres(t *testing.T) {
 				t.Errorf("rollout = %+v", r)
 			}
 		}
+	}
+	app := false
+	for _, r := range rs {
+		if r.Kind == "install_apk" && r.Who == "ovs-tester" {
+			app = true
+			if r.Name != "OVS Nugget" || r.Total != 2 || r.Done != 2 || r.Failed != 0 || r.Commands != 2 || r.AppPackage != "aio.app.ovsnugget" {
+				t.Errorf("app rollout = %+v", r)
+			}
+		}
+	}
+	if !app {
+		t.Error("the two-job app install is not a rollout")
 	}
 	if !found {
 		t.Errorf("the client update is not among %d rollouts", len(rs))

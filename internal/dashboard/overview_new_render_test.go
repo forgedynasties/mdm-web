@@ -79,10 +79,10 @@ func TestOverviewNewRenders(t *testing.T) {
 			Top: []compWidgetCheck{{ID: "wireless_adb_off", Name: "Wireless adb off", Line: "all at Pho 88 · auto-fix on", Count: 1, Href: "/compliance?tab=devices&show=failing&check=wireless_adb_off"}}},
 		"OverviewSwitch": true, "Role": "admin", "AlertsOpenCount": 1, "DateLine": "Tuesday, October 21",
 		"Scope":      sc,
-		"OvBanner":   buildOvBanner(att, attN, nil, nil, tr, sc, 3, 4),
+		"OvBanner":   buildOvBanner(att, attN, nil, nil, nil, tr, sc, 3, 4),
 		"OvStats":    buildOvStats(tr, devs, sc, now),
 		"OvPills":    buildOvPills(devs, alerts, sc),
-		"OvRollouts": buildOvRollouts(rollouts, now),
+		"OvRollouts": buildOvRollouts(rollouts, now, true),
 		"Hygiene": hygieneRows(db.FleetHygiene{Fleet: 181, Silent: 86, PlacedSilent: 10, PlacedSilentAt: []string{"Huanchaco Peruvian 6", "Flights Vegas 4"},
 			DeadPad: 9, Builds: 19, OddBuilds: []string{"A15-v1.62-user", "old-key", "clean-build", "4.0.87"}}),
 	}
@@ -174,8 +174,11 @@ func TestOvBannerOrder(t *testing.T) {
 		{Severity: "info", Issue: "Waiting for a restaurant", Devices: 3, Href: "/enrollment"},
 	}
 	gid := uuid.New()
-	groups := []db.GroupHealth{{GroupID: gid, Name: "Mom's Biryani", DeviceCount: 5, OfflineCount: 2, ScoreClass: "danger", Score: 40}}
-	b := buildOvBanner(att, 3, groups, nil, db.ScopedTrend{Crashes24h: 12, CrashesPrev: 4}, ovScope{}, 50, 60)
+	stale := 57.8
+	groups := []db.GroupHealth{{GroupID: gid, Name: "Mom's Biryani", DeviceCount: 5, OfflineCount: 2, ScoreClass: "danger", Score: 40, TempMax: &stale}}
+	// The 57.8 °C is an offline tablet's last reading: not "running hot".
+	hotNow := ovHotVenues([]ovDev{{ID: uuid.New(), Venue: &gid, Online: false, TempC: &stale}})
+	b := buildOvBanner(att, 3, groups, nil, hotNow, db.ScopedTrend{Crashes24h: 12, CrashesPrev: 4}, ovScope{}, 50, 60)
 	if b.Tone != "bad" || b.Headline != "5 things to look at today" || len(b.Todos) != 3 || b.More != 2 {
 		t.Fatalf("banner = %+v", b)
 	}
@@ -185,7 +188,7 @@ func TestOvBannerOrder(t *testing.T) {
 			t.Errorf("row %d = %q, want %q", i, b.Todos[i].Title, w)
 		}
 	}
-	calm := buildOvBanner(nil, 0, nil, nil, db.ScopedTrend{}, ovScope{}, 52, 216)
+	calm := buildOvBanner(nil, 0, nil, nil, nil, db.ScopedTrend{}, ovScope{}, 52, 216)
 	if calm.Tone != "calm" || calm.Headline != "Everything is running" || calm.Calm != "52 of 216 devices online. Nothing needs you right now." {
 		t.Errorf("calm = %+v", calm)
 	}
@@ -203,7 +206,7 @@ func TestOvRolloutsLayout(t *testing.T) {
 	rs = append(rs, db.Rollout{Kind: "ota", Name: "v2.1.040", Status: "active", Start: now.Add(-150 * time.Hour), Total: 10, Done: 2, InFlight: 8, ReleaseID: 1, DeploymentID: 2})
 	// An empty "pending" deployment from weeks ago is not a rollout.
 	rs = append(rs, db.Rollout{Kind: "ota", Name: "v2.0.96l", Status: "pending", Start: now.Add(-800 * time.Hour), End: now.Add(-800 * time.Hour), ReleaseID: 3, DeploymentID: 156})
-	out := buildOvRollouts(rs, now)
+	out := buildOvRollouts(rs, now, true)
 	for _, b := range out.Bars {
 		if b.Name == "Firmware v2.0.96l" {
 			t.Error("a deployment with no devices is on the timeline")
@@ -222,12 +225,17 @@ func TestOvRolloutsLayout(t *testing.T) {
 	}{
 		{db.Rollout{Kind: "install_apk", CommandID: one, Commands: 1}, "/commands/" + one.String()},
 		{db.Rollout{Kind: "app_update", Who: "auto-update", CommandID: one, Commands: 76}, "/clients"},
-		{db.Rollout{Kind: "install_apk", CommandID: one, Commands: 3}, "/jobs/history"},
+		{db.Rollout{Kind: "install_apk", CommandID: one, Commands: 2, AppPackage: "aio.app.nugget"}, "/apps/aio.app.nugget"},
+		{db.Rollout{Kind: "install_apk", CommandID: one, Commands: 3}, "/commands/" + one.String()},
 		{db.Rollout{Kind: "ota", ReleaseID: 7, DeploymentID: 11}, "/releases/7/deployments/11"},
 	} {
-		if got := ovRolloutHref(c.r); got != c.want {
+		if got := ovRolloutHref(c.r, true); got != c.want {
 			t.Errorf("href(%+v) = %q, want %q", c.r, got, c.want)
 		}
+	}
+	// Below Fleet manager the app library is closed, so the newest job opens instead.
+	if got := ovRolloutHref(db.Rollout{Kind: "install_apk", CommandID: one, Commands: 2, AppPackage: "aio.app.nugget"}, false); got != "/commands/"+one.String() {
+		t.Errorf("without the app library: %q", got)
 	}
 	if out.Days[6] != "Today" || out.Days[0] != "Thu 15" {
 		t.Errorf("axis = %v", out.Days)

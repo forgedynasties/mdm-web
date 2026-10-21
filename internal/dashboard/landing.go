@@ -121,10 +121,10 @@ func (h *Handler) sneakPeekOverview(r *http.Request, s *sneakPeekSample, activeS
 	}
 	data["Venues"] = venues
 	data["Scope"] = sc
-	data["OvBanner"] = buildOvBanner(att, attN, scopedGroups, s.CrashStats().ByRestaurant, tr, sc, online, total)
+	data["OvBanner"] = buildOvBanner(att, attN, scopedGroups, s.CrashStats().ByRestaurant, ovHotVenues(devs), tr, sc, online, total)
 	data["OvStats"] = buildOvStats(tr, devs, sc, s.now)
 	data["OvPills"] = buildOvPills(devs, alerts, sc)
-	data["OvRollouts"] = buildOvRollouts(s.RolloutBars(), s.now)
+	data["OvRollouts"] = buildOvRollouts(s.RolloutBars(), s.now, false)
 	if summary.Total > 0 {
 		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
 	}

@@ -155,6 +155,7 @@ type Rollout struct {
 	ReleaseID    int
 	CommandID    uuid.UUID // commands only: the newest of the rollout's commands
 	Commands     int       // commands only: how many commands it took (one per device for auto-update)
+	AppPackage   string    // install_apk only: the library app's package, for its page
 }
 
 // RecentRollouts lists rollouts that started in the last `days` days or are still
@@ -196,21 +197,23 @@ func (d *DB) RecentRollouts(ctx context.Context, days int) ([]Rollout, error) {
 		return nil, err
 	}
 
-	// Commands, one rollout per (type, who, build). In-flight past the install deadline
-	// (15 min) counts as failed, the same expiry the Jobs page applies.
+	// Commands, one rollout per (type, who, build). An install ends 'installed', anything
+	// else 'completed' (both done, as on the Jobs page). In-flight past the install
+	// deadline (15 min) counts as failed, the same expiry the Jobs page applies.
 	rows, err = d.pool.Query(ctx, `
 		SELECT c.type, c.created_by,
 		       COALESCE(NULLIF(c.payload->>'package', ''), '') AS pkg,
 		       COALESCE(NULLIF(COALESCE(c.payload->>'version', ''), ''), NULLIF(MAX(a.name), ''), c.apk_url) AS name,
 		       MIN(c.created_at), MAX(GREATEST(c.created_at, cs.updated_at)),
 		       COUNT(*),
-		       COUNT(*) FILTER (WHERE cs.status = 'completed'),
+		       COUNT(*) FILTER (WHERE cs.status IN ('completed', 'installed')),
 		       COUNT(*) FILTER (WHERE cs.status IN ('failed', 'expired', 'cancelled')
-		                          OR (cs.status NOT IN ('completed', 'failed', 'expired', 'cancelled')
+		                          OR (cs.status NOT IN ('completed', 'installed', 'failed', 'expired', 'cancelled')
 		                              AND c.created_at <= NOW() - INTERVAL '15 minutes')),
-		       COUNT(*) FILTER (WHERE cs.status NOT IN ('completed', 'failed', 'expired', 'cancelled')
+		       COUNT(*) FILTER (WHERE cs.status NOT IN ('completed', 'installed', 'failed', 'expired', 'cancelled')
 		                          AND c.created_at > NOW() - INTERVAL '15 minutes'),
-		       (array_agg(c.id ORDER BY c.created_at DESC))[1], COUNT(DISTINCT c.id)
+		       (array_agg(c.id ORDER BY c.created_at DESC))[1], COUNT(DISTINCT c.id),
+		       COALESCE(MAX(a.package_name), '')
 		FROM commands c
 		JOIN command_status cs ON cs.command_id = c.id
 		LEFT JOIN apps a ON a.apk_url = c.apk_url AND c.apk_url <> ''
@@ -225,7 +228,7 @@ func (d *DB) RecentRollouts(ctx context.Context, days int) ([]Rollout, error) {
 	for rows.Next() {
 		var r Rollout
 		if err := rows.Scan(&r.Kind, &r.Who, &r.Package, &r.Name, &r.Start, &r.End,
-			&r.Total, &r.Done, &r.Failed, &r.InFlight, &r.CommandID, &r.Commands); err != nil {
+			&r.Total, &r.Done, &r.Failed, &r.InFlight, &r.CommandID, &r.Commands, &r.AppPackage); err != nil {
 			return nil, err
 		}
 		out = append(out, r)

@@ -342,7 +342,7 @@ func buildOvStats(tr db.ScopedTrend, devs []ovDev, sc ovScope, now time.Time) []
 		if d.Online {
 			online++
 		}
-		if d.TempC != nil && *d.TempC >= 45 && now.Sub(d.SeenAt) < 24*time.Hour {
+		if ovHotNow(d) {
 			hot++
 		}
 		// Battery: devices that have one and reported in the last day, so a unit in a
@@ -622,7 +622,7 @@ func ovRolloutName(r db.Rollout) (name, icon string) {
 
 // buildOvRollouts lays the last seven days' rollouts on a Wed…Today track. Running and
 // stalled ones are kept first when there are more than six.
-func buildOvRollouts(rs []db.Rollout, now time.Time) ovRollouts {
+func buildOvRollouts(rs []db.Rollout, now time.Time, appLibrary bool) ovRollouts {
 	var out ovRollouts
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	start := dayStart.AddDate(0, 0, -6)
@@ -660,7 +660,7 @@ func buildOvRollouts(rs []db.Rollout, now time.Time) ovRollouts {
 		b.Initials, b.Hue = ini, hue
 		b.Sub = fmt.Sprintf("%s · %d device%s", who, r.Total, sIfN(r.Total))
 		b.Count = fmt.Sprintf("%d / %d", r.Done, r.Total)
-		b.Href = ovRolloutHref(r)
+		b.Href = ovRolloutHref(r, appLibrary)
 		from, to := r.Start, r.End
 		live := r.InFlight > 0 // devices still on their way, not just a status never closed
 		switch {
@@ -712,9 +712,10 @@ func buildOvRollouts(rs []db.Rollout, now time.Time) ovRollouts {
 }
 
 // ovRolloutHref opens the rollout itself: the deployment, or the job when it was one
-// command. A rollout of many commands (the client policy queues one per device) has no
-// page of its own, so it opens where it is run from: Clients, Lock, or the job history.
-func ovRolloutHref(r db.Rollout) string {
+// job. An app sent as one job per device opens the app's page (which devices have it)
+// for those who may see the app library; the client policy (one job per device) opens
+// Clients; lock opens Lock; anything else opens its newest job.
+func ovRolloutHref(r db.Rollout, appLibrary bool) string {
 	switch {
 	case r.Kind == "ota" && r.ReleaseID > 0:
 		return fmt.Sprintf("/releases/%d/deployments/%d", r.ReleaseID, r.DeploymentID)
@@ -722,10 +723,14 @@ func ovRolloutHref(r db.Rollout) string {
 		return "/releases"
 	case r.Commands == 1 && r.CommandID != uuid.Nil:
 		return "/commands/" + r.CommandID.String()
+	case r.Kind == "install_apk" && r.AppPackage != "" && appLibrary:
+		return "/apps/" + url.PathEscape(r.AppPackage)
 	case r.Kind == "app_update" && r.Who == "auto-update":
 		return "/clients"
 	case r.Kind == "set_kiosk" || r.Kind == "kiosk_set":
 		return "/lock"
+	case r.CommandID != uuid.Nil:
+		return "/commands/" + r.CommandID.String()
 	}
 	return "/jobs/history"
 }
@@ -757,8 +762,12 @@ const ovTodoRows = 3
 // buildOvBanner orders what needs doing: critical alerts, the worst venue, a crash
 // spike, warnings, then devices waiting for a venue. The headline counts every item,
 // the rows show the first three, and "N more" says where the rest are.
+//
+// hotNow is the venues with a device running hot that is online now: a venue's stored
+// maximum also holds the last reading of a tablet that died days ago (Mom's Biryani,
+// 21 Oct: both units offline for days, last seen at 57.8 °C), which is not news.
 func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, crashByVenue map[uuid.UUID]int,
-	tr db.ScopedTrend, sc ovScope, online, total int) ovBanner {
+	hotNow map[uuid.UUID]bool, tr db.ScopedTrend, sc ovScope, online, total int) ovBanner {
 	var crit, warn, info []ovTodo
 	critVenues := map[string]bool{}
 	alertTodo := func(a attentionRow) ovTodo {
@@ -811,7 +820,7 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 		if g.OfflineCount > 0 {
 			bits = append(bits, fmt.Sprintf("%d offline", g.OfflineCount))
 		}
-		if g.TempMax != nil && *g.TempMax >= 45 {
+		if hotNow[g.GroupID] {
 			bits = append(bits, "a unit running hot")
 		}
 		if c := crashByVenue[g.GroupID]; c > 0 {
@@ -865,6 +874,21 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 	b.Todos = all
 	b.More = n - len(all)
 	return b
+}
+
+// ovHotNow: at or over 45 °C and online now. An offline device's temperature is its
+// last reading, however old.
+func ovHotNow(d ovDev) bool { return d.Online && d.TempC != nil && *d.TempC >= 45 }
+
+// ovHotVenues is the venues with a device running hot right now.
+func ovHotVenues(devs []ovDev) map[uuid.UUID]bool {
+	out := map[uuid.UUID]bool{}
+	for _, d := range devs {
+		if d.Venue != nil && ovHotNow(d) {
+			out[*d.Venue] = true
+		}
+	}
+	return out
 }
 
 // ovScopeAlerts keeps the alerts inside the scope. An alert on a device the wall

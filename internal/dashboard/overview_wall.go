@@ -144,10 +144,10 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		}
 	}
 	data["Scope"] = sc
-	data["OvBanner"] = buildOvBanner(att, attN, scopedGroups, crashStats.ByRestaurant, trend, sc, online, total)
+	data["OvBanner"] = buildOvBanner(att, attN, scopedGroups, crashStats.ByRestaurant, ovHotVenues(devs), trend, sc, online, total)
 	data["OvStats"] = buildOvStats(trend, devs, sc, now)
 	data["OvPills"] = buildOvPills(devs, active, sc)
-	data["OvRollouts"] = buildOvRollouts(rollouts, now)
+	data["OvRollouts"] = buildOvRollouts(rollouts, now, roleCanAppLibrary(h.role(r)))
 
 	// The rail greets by first name (O2, 20 Oct).
 	if u, err := h.db.GetUserByUsername(ctx, h.currentUsername(r)); err == nil && u != nil {
