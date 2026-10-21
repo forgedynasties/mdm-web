@@ -7536,7 +7536,7 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .ft td.ft-dev { overflow: visible; }
 .ft th.ft-type { width: 108px; }
 .ft th.ft-bat { width: 92px; }
-.ft th.ft-temp { width: 68px; }
+.ft th.ft-temp { width: 92px; }  /* "CPU 61.4°C" whole */
 .ft th.ft-ram { width: 52px; }
 .ft th.ft-build { width: 80px; }
 .ft th.ft-client { width: 84px; }
