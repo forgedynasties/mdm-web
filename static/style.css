@@ -1909,7 +1909,6 @@ input[type="checkbox"]:hover {
 }
 .ws-dot.online {
   background: var(--ok);
-  box-shadow: 0 0 0 3px var(--ok-bg);
 }
 
 /* ── Segmented control ───────────────────────────── */
@@ -4840,8 +4839,9 @@ html[data-theme="dark"] .dl-ic.tablet { background: rgba(40,90,171,.26); color: 
    faint "3 h ago" beside it. Legacy builds (offline by design) stay grey too. */
 .dl-l1 .dl-status { display: inline-flex; align-items: center; flex: none; }
 .dl-l1 .dl-status i { width: 8px; height: 8px; border-radius: 50%; margin: 0; background: var(--text-faint); }
-.dl-l1 .dl-status.on i { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
-.dl-l1 .dl-status.checkin i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent); }
+.dl-l1 .dl-status.on i { background: var(--ok); }
+.dl-l1 .dl-status.off i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-faint); }
+.dl-l1 .dl-status.checkin i { background: var(--warn); }
 .dl-l1 .dl-synced { font-size: 11.5px; color: var(--text-faint); opacity: .8; white-space: nowrap; }
 .dl-l1 .dl-synced.hidden { display: none; }
 .dl-card .dl-l3 { font-family: var(--mono); font-size: 11px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -5175,9 +5175,10 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
 .ddc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .ddc-id { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .ddc-status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; }
-.ddc-status i { width: 8px; height: 8px; border-radius: 50%; }
-.ddc-status.on { color: var(--ok); } .ddc-status.on i { background: var(--ok); box-shadow: 0 0 0 3px rgba(43,182,115,.18); }
-.ddc-status.off { color: var(--muted); } .ddc-status.off i { background: var(--text-faint); }
+.ddc-status i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+/* Online (O1, 21 Oct 2026): a flat dot and the word in plain text; hollow dot offline. */
+.ddc-status.on { color: var(--text); } .ddc-status.on i { background: var(--ok); }
+.ddc-status.off { color: var(--muted); font-weight: 500; } .ddc-status.off i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-faint); }
 .ddc-serial { font-size: 23px; font-weight: 700; letter-spacing: -.01em; }
 .ddc-meta { color: var(--muted); font-size: 12.5px; }
 .ddc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -7361,6 +7362,7 @@ html[data-theme="dark"] .cc-card { background: rgba(30, 28, 26, .6); border-colo
 .appbar-island .isl-s { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 .appbar-island .isl-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--muted); flex: none; }
 .appbar-island .isl-dot.on { background: var(--ok); }
+.appbar-island .isl-dot.off { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-faint); }
 .appbar-island .isl-dot.warn { background: var(--warn); }
 .appbar-island .isl-dot.danger, .appbar-island .isl-dot.bad { background: var(--danger); }
 .appbar-island .isl-s b { color: var(--text); font-weight: 650; }
@@ -7570,7 +7572,8 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .ft-l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .ft-l1 .dl-status { display: inline-flex; flex: none; }
 .ft-l1 .dl-status i { width: 7px; height: 7px; margin: 0; border-radius: 50%; background: var(--text-faint); }
-.ft-l1 .dl-status.on i { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 18%, transparent); }
+.ft-l1 .dl-status.on i { background: var(--ok); }
+.ft-l1 .dl-status.off i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-faint); }
 .ft-l1 .dl-status.checkin i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 18%, transparent); }
 .ft-sn { flex: none; overflow: visible; text-overflow: clip; white-space: nowrap; font-family: var(--mono); font-size: 12.5px; font-weight: 600;
   letter-spacing: .01em; color: var(--text); text-decoration: none; }
@@ -7626,7 +7629,7 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .ft-k { margin-left: 6px; font-size: 10px; font-weight: 650; color: var(--text-faint); }
 /* Last seen */
 .ft td.ft-seen { color: var(--muted); }
-.ft-seen .dl-synced.is-on { color: var(--ok); font-weight: 600; }
+.ft-seen .dl-synced.is-on { color: var(--text-2); }
 /* open ↗ / remove × */
 .ft td.ft-act { padding: 0 10px 0 0; text-align: right; overflow: visible; }
 .ft td.ft-act form { display: inline; margin: 0; }

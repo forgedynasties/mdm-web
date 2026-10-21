@@ -345,7 +345,7 @@
 <script src="/static/js/device/actions-menu.js?v={{assetVer}}"></script>
 
 <template id="page-island"{{if .Lab}} data-live{{end}}>
-  <span class="isl-dot{{if .Online}} on{{end}}"></span>
+  <span class="isl-dot {{if .Online}}on{{else}}off{{end}}"></span>
   {{if .Device.Class}}<svg class="isl-cls" aria-hidden="true"><use href="#dk-{{.Device.Class}}"/></svg>{{end}}
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
   <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}{{end}} · {{.Device.SerialNumber}}</span>

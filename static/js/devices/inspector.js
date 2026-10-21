@@ -122,7 +122,7 @@
           sy.textContent = d.time_since;
           sy.className = 'dl-synced' + (live ? ' hidden' : '');
         } else {
-          sy.textContent = live ? 'Online' : d.time_since;
+          sy.textContent = live ? 'now' : d.time_since;
           sy.className = 'dl-synced' + (d.online ? ' is-on' : '');
         }
       }

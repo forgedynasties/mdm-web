@@ -6,7 +6,7 @@
   function sync() {
     var on = b.classList.contains('on');
     var d = document.querySelector('#appbar-island .isl-dot'), w = document.querySelector('#appbar-island .isl-on');
-    if (d) d.classList.toggle('on', on);
+    if (d) { d.classList.toggle('on', on); d.classList.toggle('off', !on); }
     if (w) w.textContent = on ? 'online' : 'offline';
   }
   new MutationObserver(sync).observe(b, { attributes: true, attributeFilter: ['class'] });
