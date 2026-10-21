@@ -1217,10 +1217,9 @@ func (h *Handler) clientDetail(r *http.Request, devices []db.Device, selected st
 		}
 		switch {
 		case real != sel.Slot:
-			// Its image trusts a different platform key, so the hosted build cannot be
-			// installed on it from here — it needs a firmware OTA first. The version it
-			// reports is real and stays on the row; only the update is withheld.
-			row.State = "nobuild"
+			// Its image trusts a different platform key: it is measured against the build
+			// hosted for that key, and withheld ("nobuild") when there is none.
+			row.State = h.foldedStanding(d, real, code)
 		case code == 0 || !versionComparable(d, sel.Build.Package):
 			row.State = "unknown"
 		case sel.Hosted && code >= sel.Build.VersionCode:
@@ -1450,6 +1449,24 @@ func clientDisplaySlot(slot string) string {
 		return "firmware-qcom"
 	}
 	return slot
+}
+
+// foldedStanding measures a device folded into another slot's row (clientDisplaySlot)
+// against the build hosted for its OWN slot, since that is the only one it can install:
+// "current", "behind" or "unknown", or "nobuild" when its slot hosts nothing. Since
+// 21 Oct 2026 firmware-gms hosts a build again (v2.0.x T7s), so those rows can be behind
+// and updated; a Kiosk 22 (firmware-kiosk22) still has nothing.
+func (h *Handler) foldedStanding(d *db.Device, real string, code int64) string {
+	b, hosted := h.cfg.AgentAPKSlot(real)
+	switch {
+	case !hosted || b.VersionCode == 0:
+		return "nobuild"
+	case code == 0 || !versionComparable(d, b.Package):
+		return "unknown"
+	case code >= b.VersionCode:
+		return "current"
+	}
+	return "behind"
 }
 
 func agentSlotFor(d *db.Device) string {
@@ -1908,7 +1925,7 @@ func (h *Handler) clientSlotSummaries(r *http.Request, devices []db.Device) (map
 	variants := map[string]string{}
 	notes := map[string]string{
 		"dpc":           "Stock Android devices running the Device Owner agent. This build is also what a factory-reset device downloads from the enrollment QR, or what tools/enroll-adb.sh installs over adb.",
-		"firmware-qcom": "Our own hardware — T7 and the kiosks — on the v2.1.x build line. Published from the AOSP tree that signs it, and the only firmware line that is built.",
+		"firmware-qcom": "Our own hardware — T7 and the kiosks. T7s still on a v2.0.x image get the same client signed for their image, and update the same way.",
 	}
 
 	views := map[string]*ClientSlotView{}
@@ -1935,8 +1952,17 @@ func (h *Handler) clientSlotSummaries(r *http.Request, devices []db.Device) (map
 		name, code := clientVersionOf(d)
 		switch {
 		case real != v.Slot:
-			// Folded in from a slot with nothing published: counted, never offered.
-			v.NoBuild++
+			// Folded in from another signing key: measured against that key's build.
+			switch h.foldedStanding(d, real, code) {
+			case "nobuild":
+				v.NoBuild++
+			case "unknown":
+				v.Unknown++
+			case "current":
+				v.UpToDate++
+			default:
+				v.Behind++
+			}
 		case code == 0 || !versionComparable(d, v.Build.Package):
 			v.Unknown++
 		case v.Hosted && code >= v.Build.VersionCode:

@@ -405,10 +405,18 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		var behind []string
 		for i := range roleDevs {
 			d := &roleDevs[i]
-			if agentSlotFor(d) != slot || !v.Hosted {
+			real := agentSlotFor(d)
+			if clientDisplaySlot(real) != slot {
 				continue
 			}
-			if _, code := clientVersionOf(d); code > 0 && versionComparable(d, v.Build.Package) && code < v.Build.VersionCode {
+			_, code := clientVersionOf(d)
+			if real != slot {
+				if h.foldedStanding(d, real, code) == "behind" {
+					behind = append(behind, d.SerialNumber)
+				}
+				continue
+			}
+			if v.Hosted && code > 0 && versionComparable(d, v.Build.Package) && code < v.Build.VersionCode {
 				behind = append(behind, d.SerialNumber)
 			}
 		}

@@ -66,7 +66,7 @@ func clientVersionRows(sel *ClientSlotView, hosted string) []ClientVersionRow {
 	byVer := map[string]*ClientVersionRow{}
 	var nobuild, unknown ClientVersionRow
 	nobuild = ClientVersionRow{Key: "nobuild", Kind: "nobuild", Title: "Signed for another firmware tree",
-		Detail: "Older T7 images (v2.0) and Kiosk 22s trust another platform key: they need a build signed for their tree"}
+		Detail: "Kiosk 22s trust another platform key and no build is hosted for it"}
 	unknown = ClientVersionRow{Key: "unknown", Kind: "unknown", Title: "Never reported a version",
 		Detail: "A client older than version reporting: it needs a firmware OTA"}
 	for _, r := range sel.Rows {
@@ -74,6 +74,9 @@ func clientVersionRows(sel *ClientSlotView, hosted string) []ClientVersionRow {
 		case r.State == "nobuild":
 			nobuild.Devices = append(nobuild.Devices, r)
 			continue
+		case r.Misreported && r.Code > 0:
+			// A 1.0.0/1.0.1 client: it reports the platform's version, but it can update.
+			r.Version = "pre-1.0.2"
 		case r.Version == "" || r.Code == 0:
 			if r.State != "updating" {
 				unknown.Devices = append(unknown.Devices, r)

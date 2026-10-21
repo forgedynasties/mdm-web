@@ -252,6 +252,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	type cmdItem struct {
 		apkURL  string
 		payload json.RawMessage
+		ids     []uuid.UUID // when set, only these targets get this command
 	}
 	var items []cmdItem
 	switch cmdType {
@@ -282,18 +283,25 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		slots := map[string]bool{}
+		// Each device gets only its own slot's command: a v2.0 T7 sent the v2.1 build (or
+		// the reverse) refuses it as signed with another key.
+		slots := map[string][]uuid.UUID{}
 		for i := range targets {
 			if targets[i].Supports("app_update") {
-				slots[agentSlotFor(&targets[i])] = true
+				sl := agentSlotFor(&targets[i])
+				slots[sl] = append(slots[sl], targets[i].ID)
 			}
 		}
-		for slot := range slots {
+		for slot, ids := range slots {
 			url, pkg, version, _, sha, ok := h.agentUpdateTarget(r, slot)
 			if !ok {
 				continue
 			}
-			items = append(items, cmdItem{apkURL: url, payload: agentUpdatePayload(pkg, version, sha)})
+			it := cmdItem{apkURL: url, payload: agentUpdatePayload(pkg, version, sha)}
+			if targetType == "devices" {
+				it.ids = ids
+			}
+			items = append(items, it)
 		}
 		if len(items) == 0 {
 			http.Error(w, "No agent build is hosted for the targeted devices' agents and signing keys — publish one first.", http.StatusBadRequest)
@@ -347,6 +355,9 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, it := range items {
 		ids := targetIDs
+		if it.ids != nil {
+			ids = it.ids
+		}
 		if cmdType == "install_apk" && targetType == "devices" && len(ids) > 0 && !reinstall {
 			skip := make(map[uuid.UUID]bool)
 			inflight, err := h.db.DevicesWithPendingInstall(r.Context(), it.apkURL, ids, h.cfg.CommandExpiry())

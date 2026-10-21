@@ -44,8 +44,8 @@ const (
 // slot whose policy is on and not paused. Safe to call every minute.
 func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 	var active []string
-	for _, slot := range clientSlotOrder {
-		if h.cfg.ClientAutoUpdate(slot).Active() {
+	for _, slot := range autoUpdateSlots() {
+		if h.autoUpdatePolicy(slot).Active() {
 			active = append(active, slot)
 		}
 	}
@@ -60,7 +60,7 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 	seenWithin := time.Duration(h.cfg.CheckinInterval()*autoUpdateSeenFactor) * time.Second
 
 	for _, slot := range active {
-		pol := h.cfg.ClientAutoUpdate(slot)
+		pol := h.autoUpdatePolicy(slot)
 		build, hosted := h.cfg.AgentAPKSlot(slot)
 		if !hosted || build.Package == "" || build.VersionCode == 0 {
 			continue
@@ -134,6 +134,23 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			log.Printf("[client-auto-update] %s: queued %s for %d device(s)", slot, build.Version, sent)
 		}
 	}
+}
+
+// autoUpdateSlots are the slots the job serves: the clients on the page, plus
+// firmware-gms (v2.0.x T7s, user 21 Oct 2026: "add auto update for gms devices also"),
+// which the page folds into Firmware MDM.
+func autoUpdateSlots() []string {
+	return append(append([]string{}, clientSlotOrder...), "firmware-gms")
+}
+
+// autoUpdatePolicy is the slot's standing instruction. firmware-gms has no switch of its
+// own: it is one Firmware MDM client on the page, so it follows firmware-qcom's (on,
+// paused, window).
+func (h *Handler) autoUpdatePolicy(slot string) config.ClientAutoUpdate {
+	if slot == "firmware-gms" {
+		slot = "firmware-qcom"
+	}
+	return h.cfg.ClientAutoUpdate(slot)
 }
 
 // deviceNow is the wall clock where the device stands, so a 02:00–05:00 window means
