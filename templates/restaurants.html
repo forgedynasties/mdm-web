@@ -1,9 +1,9 @@
 {{define "restaurants.html"}}
 {{template "header" .}}
 
-{{/* Venues (static/venues-demos.html, L1, picked 14 Oct): one row per venue, so 24+ venues
-     can be scanned, sorted and filtered. A square per device says how many are there and
-     how many are down. */}}
+{{/* Venues: cards and a rail (V1, picked 21 Oct 2026) by default; ?view=compact is the
+     one-row-per-venue table (L1, 14 Oct), for long lists. A square per device says how
+     many are there and how many are down. */}}
 
 
 {{$total := len .Venues}}{{$s := .Summary}}
@@ -36,15 +36,118 @@
     {{if canAdminOrOperator .Role}}<a href="/restaurants/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create venue</a>{{end}}
   </div>
 </div>
-{{else}}
+{{else if .Compact}}
+<div class="vc1-cswitch">{{template "vc1-viewsw" "compact"}}</div>
 {{template "coll-table" (dict "Rows" .Venues "Sum" .Summary "Kind" "restaurants")}}
-{{end}}
+{{else}}{{with .V1}}
+{{/* V1 (picked 21 Oct 2026): the Overview's venue cards as a grid, worst first, with
+     filter pills, and a rail: average health, venues open by hour from each venue's
+     service hours, and what needs a look. Compact (?view=compact) is the table above. */}}
+<style>
+.vc1-bar{justify-content:flex-start}
+.vc1-q{flex:1;min-width:200px;max-width:320px;font:inherit;font-size:12.5px;padding:7px 14px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.vc1-bar .vc1-n{margin-left:auto;font-size:12.5px;color:var(--muted)}
+.vc1-bar .cc-menu button.cc-mi{font:inherit;background:none;border:0;cursor:pointer;text-align:left}
+.vc1-bar .cc-mi .rt{margin-left:auto;color:var(--muted);font-size:12px}
+.vc1-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.vc1-grid .ov2-v[hidden]{display:none}
+.vc1-grid .ov2-v .cov{justify-content:space-between;align-items:flex-end}
+.vc1-open{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--surface);color:var(--muted);box-shadow:0 0 0 1px var(--border)}
+.vc1-open.on{color:var(--ok);box-shadow:0 0 0 1px color-mix(in srgb,var(--ok) 40%,transparent)}
+.vc1-flags{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.vc1-flag{font-size:10.5px;font-weight:650;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.vc1-flag.hot{background:var(--danger-bg);color:var(--danger)}
+.vc1-none{padding:28px 0;text-align:center;font-size:13px;color:var(--muted)}
+.vc1-cswitch{display:flex;justify-content:flex-end;margin:0 0 8px}
+.vc1-railcap{margin-top:-6px}
+@media(max-width:1180px){.vc1-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<div class="ov2">
+  <div class="ov2-main">
+    <div class="oc-bar vc1-bar" role="search">
+      <input type="search" class="vc1-q" id="vc1-q" placeholder="Search venue or address…" aria-label="Search venues" autocomplete="off">
+      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu data-vc1-pill="health" aria-haspopup="true" aria-expanded="false">Health: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>
+          <button type="button" class="cc-mi active" data-vc1="health" data-val="" data-label="All">All<span class="rt">{{len .Cards}}</span></button>
+          {{if .Look}}<button type="button" class="cc-mi" data-vc1="health" data-val="look" data-label="Needs a look">Needs a look<span class="rt">{{.Look}}</span></button>{{end}}
+          {{if .Healthy}}<button type="button" class="cc-mi" data-vc1="health" data-val="ok" data-label="Healthy">Healthy<span class="rt">{{.Healthy}}</span></button>{{end}}
+          {{if .Empty}}<button type="button" class="cc-mi" data-vc1="health" data-val="empty" data-label="No devices">No devices<span class="rt">{{.Empty}}</span></button>{{end}}
+        </div></div>
+      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu data-vc1-pill="open" aria-haspopup="true" aria-expanded="false">Open: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>
+          <button type="button" class="cc-mi active" data-vc1="open" data-val="" data-label="Any">Any</button>
+          <button type="button" class="cc-mi" data-vc1="open" data-val="1" data-label="Open now">Open now<span class="rt">{{.Open}}</span></button>
+          <button type="button" class="cc-mi" data-vc1="open" data-val="0" data-label="Closed">Closed now</button>
+        </div></div>
+      {{if .Types}}
+      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu data-vc1-pill="type" aria-haspopup="true" aria-expanded="false">Type: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>
+          <button type="button" class="cc-mi active" data-vc1="type" data-val="" data-label="All">All types</button>
+          {{range .Types}}<button type="button" class="cc-mi" data-vc1="type" data-val="{{.Key}}" data-label="{{.Label}}">{{.Label}}<span class="rt">{{.Venues}}</span></button>{{end}}
+        </div></div>
+      {{end}}
+      <span class="vc1-n" id="vc1-n">{{len .Cards}} venue{{if ne (len .Cards) 1}}s{{end}}</span>
+      {{template "vc1-viewsw" "cards"}}
+    </div>
+    <div class="vc1-grid" id="vc1-grid">
+      {{range .Cards}}
+      <a class="ov2-v s-{{.Class}}" href="{{.Href}}" data-text="{{.Text}}" data-health="{{if not .Devices}}empty{{else if .NeedsLook}}look{{else}}ok{{end}}" data-open="{{if .HasHours}}{{if .Open}}1{{else}}0{{end}}{{end}}" data-types="{{.Classes}}">
+        <span class="cov">{{venueIcon .ID .Name "md"}}{{if .HasHours}}<span class="vc1-open{{if .Open}} on{{end}}">{{if .Open}}Open now{{else}}Closed{{end}}</span>{{end}}</span>
+        <span class="bd">
+          <span class="ov2-st s-{{.Class}}">{{if and .Devices .HasH}}{{if eq .Class "danger"}}At risk{{else if eq .Class "warn"}}Watch{{else}}Healthy{{end}} · {{.H.Score}}{{else}}No devices{{end}}</span>
+          <b>{{.Name}}</b>
+          <small>{{if .Devices}}{{.Online}} of {{.Devices}} online{{if .Offline}} · {{.Offline}} offline{{end}}{{if .HasH}}{{if .H.OpenCritical}} · {{.H.OpenCritical}} critical{{end}}{{end}}{{else}}{{.Sub}}{{end}}</small>
+          {{if or .HotNow .DefaultPIN}}<span class="vc1-flags">{{if .HotNow}}<span class="vc1-flag hot">{{.HotNow}} running hot</span>{{end}}{{if .DefaultPIN}}<span class="vc1-flag">default staff PIN</span>{{end}}</span>{{end}}
+          <span class="pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span>
+          {{if and .Devices .HasH}}<span class="hb"><i style="width:{{.H.Score}}%"></i></span>{{end}}
+        </span>
+      </a>
+      {{end}}
+    </div>
+    <div class="vc1-none" id="vc1-none" hidden>No venue matches these filters.</div>
+  </div>
+
+  {{with .Rail}}
+  <aside class="ov2-rail" aria-label="Venues at a glance">
+    {{if .HasAvg}}
+    <div class="ov2-ring s-{{.Tone}}" title="Mean health of the venues that have devices">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
+      <span><b>{{.Avg}}</b><small>average health</small></span>
+    </div>
+    {{end}}
+    <div class="ov2-hi"><b>{{if .WithHours}}{{.OpenNow}} of {{.WithHours}} open now{{else}}{{.Venues}} venue{{if ne .Venues 1}}s{{end}}{{end}}</b>
+      <small>{{if .NeedLook}}{{.NeedLook}} need{{if eq .NeedLook 1}}s{{end}} a look{{else}}none need a look{{end}} · {{.Venues}} venue{{if ne .Venues 1}}s{{end}}</small></div>
+    {{if .WithHours}}
+    <div class="ov2-bars" role="img" aria-label="Venues open from five hours ago to six hours ahead">
+      {{range .Hours}}<div title="{{.N}} open"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+    </div>
+    <div class="ov2-hi vc1-railcap"><small>venues open by hour, each in its own timezone</small></div>
+    {{end}}
+    <div class="ov2-rh"><h2>Needs a look{{if .Looks}} <span>{{add (len .Looks) .MoreLooks}}</span>{{end}}</h2></div>
+    {{if .Looks}}
+    <ul class="ov2-att">
+      {{range .Looks}}<li><span class="ovd-dot {{.Tone}}"></span><span class="t"><a href="{{.Href}}">{{.Name}}</a><small>{{.Sub}}</small></span><a class="cc-btn sm" href="{{.Href}}">Open</a></li>{{end}}
+    </ul>
+    {{if .MoreLooks}}<div class="ov2-hi"><small>and {{.MoreLooks}} more</small></div>{{end}}
+    {{else}}<div class="ovd-empty"><b>Nothing.</b> Every venue is healthy and set up.</div>{{end}}
+  </aside>
+  {{end}}
+</div>
+<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
+<script src="/static/js/venues_v1.js?v={{assetVer}}"></script>
+{{end}}{{end}}
 </div>
 
 
 
 {{template "footer" .}}
 {{end}}
+
+{{/* Cards / Compact switch on the Venues list (V1); the argument is the current view. */}}
+{{define "vc1-viewsw"}}<span class="fl-viewsw" role="group" aria-label="View">
+  <a href="/restaurants" class="{{if eq . "cards"}}on{{end}}" title="Cards"{{if eq . "cards"}} aria-current="page"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
+  <a href="/restaurants?view=compact" class="{{if eq . "compact"}}on{{end}}" title="Compact"{{if eq . "compact"}} aria-current="page"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></a>
+</span>{{end}}
 
 {{/* The collection table (venues-demos.html, L1): one row per venue, group or release,
      shared by Venues and Fleet's Restaurants, Groups and Releases views (15 Oct).

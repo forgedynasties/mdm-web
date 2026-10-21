@@ -125,12 +125,63 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 	// rail — the nav said one thing and the page said another.
 	// One row per venue (venues-demos.html, L1), built by collRows, which Fleet's
 	// Restaurants, Groups and Releases views share.
-	rows, sum := h.collRows(r, "restaurants")
-	h.render(w, r, "restaurants.html", map[string]any{
+	rows, sum, devices := h.collRowsDevs(r, "restaurants")
+	data := map[string]any{
 		"Title":   "Venues",
 		"Venues":  rows,
 		"Summary": sum,
-	})
+	}
+	// V1 (21 Oct 2026): cards and a rail; ?view=compact keeps the table.
+	if r.URL.Query().Get("view") == "compact" {
+		data["Compact"] = true
+	} else {
+		data["V1"] = buildVenuesV1(rows, h.venueExtras(r.Context(), devices), time.Now())
+	}
+	h.render(w, r, "restaurants.html", data)
+}
+
+// venueExtras gathers, per venue, its effective service hours, whether its staff PIN is
+// still the default, its device types, and how many of its devices run hot right now.
+func (h *Handler) venueExtras(ctx context.Context, devices []db.Device) map[string]vcExtra {
+	out := map[string]vcExtra{}
+	rests, _ := h.db.ListRestaurants(ctx)
+	fleet, fleetErr := h.db.GetFleetServiceWindow(ctx)
+	own, _ := h.db.ListRestaurantServiceWindows(ctx)
+	pins, _ := h.db.RestaurantStaffPINs(ctx)
+	for _, rest := range rests {
+		e := vcExtra{TZ: rest.Timezone, Classes: map[string]int{}}
+		if wnd, ok := own[rest.ID]; ok {
+			e.Window = &wnd
+		} else if fleetErr == nil {
+			f := fleet
+			e.Window = &f
+		}
+		if pin, ok := pins[rest.ID]; ok && pin == "" {
+			e.DefaultPIN = true
+		}
+		out[rest.ID.String()] = e
+	}
+	online := h.onlineMap()
+	stale := time.Duration(h.cfg.CheckinInterval()*3) * time.Second
+	for i := range devices {
+		d := &devices[i]
+		if d.RestaurantID == nil {
+			continue
+		}
+		e, ok := out[d.RestaurantID.String()]
+		if !ok {
+			continue
+		}
+		if c := d.Class(); c != "" {
+			e.Classes[c]++
+		}
+		t, _, tok := deviceTempC(d.LatestExtra)
+		if vcHotNow(online[d.ID] || time.Since(d.LastSeenAt) < stale, t, tok) {
+			e.HotNow++
+		}
+		out[d.RestaurantID.String()] = e
+	}
+	return out
 }
 
 // venueRow is one venue on the Venues list.
