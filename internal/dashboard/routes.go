@@ -515,6 +515,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
 	mux.HandleFunc("GET /users/access/scope-search", h.requireUserManager(h.fleetWide(h.AccessScopeSearch)))
+	mux.HandleFunc("GET /users/access/who", h.requireUserManager(h.fleetWide(h.AccessWhoCanSee)))
 	mux.HandleFunc("GET /users/{id}/access", h.requireUserManager(h.UserAccessPage))
 	mux.HandleFunc("GET /users/{id}/manage", h.requireUserManager(h.UserAccessPage))
 	mux.HandleFunc("GET /users/{id}/access/check", h.requireUserManager(h.UserAccessCheck))

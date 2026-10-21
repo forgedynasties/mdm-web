@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -855,104 +854,84 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	counts, _ := h.db.CountAccessGrants(ctx, sensitiveActionKeys)
 	profiles, _ := h.db.ListAccessProfiles(ctx)
 	scopes, _ := h.db.DeviceScopes(ctx)
-	profileName := map[string]string{}
-	for _, p := range profiles {
-		profileName["profile:"+p.ID.String()] = p.Name
+	ids := make([]uuid.UUID, 0, len(scopes))
+	for id := range scopes {
+		ids = append(ids, id)
 	}
-	type row struct {
-		User      db.User
-		Bubble    any
-		Sees      string
-		Devices   int
-		Does      string
-		Advanced  string // why the two questions can't show it
-		Expires   string
-		Sensitive bool
-		Limited   bool
-		CanEdit   bool
-	}
-	var rows []row
-	limited, sensitive := 0, 0
+	var people []ac1Person
 	for _, u := range users {
-		u := u
 		pol, _ := h.db.GetUserAccess(ctx, u.Username)
-		rw := row{User: u, Bubble: userBubbleFn(u.Username), Sensitive: counts[u.ID].Sensitive,
-			CanEdit: u.Role != "admin" && mayManageUser(h.role(r), u.Role, "")}
 		a := &access{h: h, ctx: ctx, role: u.Role, pol: pol, scopes: scopes}
 		a.once.Do(func() {})
-		for id := range scopes {
-			if a.canDevice("view", id) {
-				rw.Devices++
-			}
-		}
-		if u.Role == "admin" {
-			rw.Sees, rw.Does = "Every device", "Everything"
-		} else if sa := deriveSimple(u.Role, pol, profiles, scopes); !sa.OK {
-			rw.Advanced = sa.Why
-			rw.Sees = fmt.Sprintf("%d of %d devices", rw.Devices, len(scopes))
-			rw.Does = "Custom rules"
-		} else {
-			switch {
-			case sa.Every:
-				rw.Sees = "Every device"
-			case len(sa.Places) == 0:
-				rw.Sees = "Nothing"
-			default:
-				var names []string
-				for i, p := range sa.Places {
-					if i == 2 {
-						names = append(names, fmt.Sprintf("%d more", len(sa.Places)-2))
-						break
-					}
-					names = append(names, p.Name)
-				}
-				rw.Sees = joinAnd(names)
-			}
-			switch {
-			case sa.Do == "role":
-				rw.Does = "Everything " + roleArticle(u.Role) + " can"
-			case profileName[sa.Do] != "":
-				rw.Does = profileName[sa.Do]
-			default:
-				var labels []string
-				for _, k := range sa.Actions {
-					if k != "view" {
-						labels = append(labels, lowerFirst(accessActionByKey[k].Label))
-					}
-				}
-				if len(labels) == 0 {
-					rw.Does = "Look only"
-				} else {
-					rw.Does = strings.ToUpper(labels[0][:1]) + joinAnd(labels)[1:]
-				}
-			}
-			if sa.Expires != nil {
-				rw.Expires = "ends " + humanUntil(*sa.Expires)
-			}
-		}
-		rw.Limited = u.Role != "admin" && rw.Devices < len(scopes)
-		if rw.Limited {
-			limited++
-		}
-		if rw.Sensitive {
-			sensitive++
-		}
-		rows = append(rows, rw)
+		people = append(people, ac1Person{User: u, Bubble: userBubbleFn(u.Username), Pol: pol, Acc: a,
+			Simple:  deriveSimple(u.Role, pol, profiles, scopes),
+			CanEdit: u.Role != "admin" && mayManageUser(h.role(r), u.Role, "")})
 	}
-	order := map[string]int{"operator": 0, "support": 1, "fleet_manager": 2, "fleet_admin": 2, "viewer": 3, "owner": 4, "staff": 5, "admin": 6}
-	sort.SliceStable(rows, func(i, j int) bool { return order[rows[i].User.Role] < order[rows[j].User.Role] })
+	show := r.URL.Query().Get("show")
+	switch show {
+	case "extras", "ending", "odd", "novenue", "whole", "part":
+	default:
+		show = ""
+	}
 	h.render(w, r, "users_access.html", map[string]any{
-		"Title":     "Access control",
-		"Rows":      rows,
-		"Limited":   limited,
-		"Sensitive": sensitive,
-		"Profiles":  len(profiles),
-		"FleetSize": len(scopes),
-		"UsersTab":  "access",
+		"Title":      "Access control",
+		"AC1":        buildAccessAC1(ac1Inputs{People: people, Profiles: profiles, FleetSize: len(scopes), DeviceIDs: ids, Now: time.Now()}),
+		"Show":       show,
+		"Assignable": assignableRoles(h.role(r)),
+		"FleetSize":  len(scopes),
+		"UsersTab":   "access",
 	})
+}
+
+// AccessWhoCanSee answers "Who can see a device?" across every account (the AC1 rail):
+// the same check as one person's "Check a device" (UserAccessCheck), asked once per
+// account for one device. JSON.
+func (h *Handler) AccessWhoCanSee(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	w.Header().Set("Content-Type", "application/json")
+	serial := strings.TrimSpace(r.URL.Query().Get("serial"))
+	dev, err := h.db.GetDevice(ctx, serial)
+	if serial == "" || err != nil || dev == nil {
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "No device with serial " + serial})
+		return
+	}
+	users, err := h.db.ListUsers(ctx)
+	if err != nil {
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "Could not load the accounts"})
+		return
+	}
+	scopes, _ := h.db.DeviceScopes(ctx)
+	type person struct {
+		Name string `json:"name"`
+		Role string `json:"role"`
+		Why  string `json:"why"`
+	}
+	var who []person
+	for _, u := range users {
+		pr := person{Name: u.DisplayName(), Role: roleLabel(u.Role)}
+		if u.Role == "admin" {
+			pr.Why = "super admin"
+			who = append(who, pr)
+			continue
+		}
+		pol, _ := h.db.GetUserAccess(ctx, u.Username)
+		a := &access{h: h, ctx: ctx, role: u.Role, pol: pol, scopes: scopes}
+		a.once.Do(func() {})
+		d := a.decide("view", &dev.ID)
+		if !d.Allowed {
+			continue
+		}
+		if d.Grant != nil {
+			pr.Why = grantSentence(*d.Grant)
+		} else {
+			pr.Why = "every device, as " + roleArticle(u.Role)
+		}
+		who = append(who, pr)
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"serial": dev.SerialNumber, "venue": dev.RestaurantName,
+		"count": len(who), "total": len(users), "people": who})
 }
 
 // whoHasAccess lists, for fleet managers and up, every rule that covers a

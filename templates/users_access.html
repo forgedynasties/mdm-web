@@ -7,47 +7,176 @@
   <a href="/users/access" class="{{if hasPrefix .ActivePath "/users/access"}}on{{end}}">Access control</a>
 </nav>
 <style>
-.ual-row{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(0,1.2fr) minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background var(--dur)}
-.ual-row:first-child{border-top:none}
-a.ual-row:hover{background:var(--surface2)}
-.ual-who{display:flex;align-items:center;gap:11px;min-width:0}
-.ual-who .ubub{width:34px;height:34px;font-size:14px;flex:none}
-.ual-name{font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ual-role{margin-top:3px}
-.ual-k{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:2px}
-.ual-v{font-size:13px;color:var(--text);line-height:1.4}
-.ual-v small{color:var(--muted);font-size:12px}
-.ual-v.adv{color:var(--warn)}
-.ual-hot{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:99px;background:var(--warn-bg);color:var(--warn);margin-left:4px;vertical-align:1px}
-.ual-head{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(0,1.2fr) minmax(0,1fr) auto;gap:14px;padding:10px 17px;border-bottom:1px solid var(--border-soft)}
-.ual-head span{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint)}
-@media(max-width:720px){
-  .ual-head{display:none}
-  .ual-row{grid-template-columns:1fr 1fr;gap:10px}
-  .ual-who{grid-column:1/-1}
-  .ual-row>.cc-btn{grid-column:1/-1;justify-self:start}
-}
-@media(min-width:721px){.ual-k{display:none}}
+/* Access control AC1 + matrix M2 (21 Oct 2026). Builder: internal/dashboard/access_ac1.go */
+.ac1-line{margin:12px 0 0!important;font-size:13.5px!important}
+.ov2-ban.is-calm .ac1-line{opacity:.8}
+.ac1-t{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
+.ac1-t th{font-size:10.5px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:8px 6px;border-bottom:1px solid var(--border-soft);text-align:center;white-space:nowrap}
+.ac1-t th.l{text-align:left}
+.ac1-t th.c-who{width:auto}.ac1-t th.c-role{width:128px}.ac1-t th.c-sees{width:130px}.ac1-t th.c-p{width:50px}
+.ac1-t td{padding:8px 6px;border-top:1px solid var(--border-soft);vertical-align:middle;text-align:center}
+.ac1-t td.l{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac1-t tbody tr:first-child td{border-top:0}
+.ac1-t tr[hidden]{display:none}
+.ac1-r{cursor:pointer}
+.ac1-r:hover>td{background:var(--hover)}
+.ac1-r.open>td{background:var(--accent-soft)}
+.ac1-r.ro{cursor:default}
+.ac1-who{display:flex;align-items:center;gap:9px;min-width:0}
+.ac1-who .ubub{width:26px;height:26px;font-size:11px;flex:none}
+.ac1-who b{font-weight:650;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac1-role select{font:inherit;font-size:12px;font-weight:650;padding:4px 6px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);max-width:100%;cursor:pointer}
+.ac1-sees small{display:block;color:var(--muted);font-size:11px}
+.ac1-d{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle}
+.ac1-d.all{background:var(--ok)}
+.ac1-d.part{background:transparent;box-shadow:inset 0 0 0 2px var(--ok)}
+.ac1-d.off{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--border)}
+.ac1-d.extra{background:var(--warn)}.ac1-d.part.extra{background:transparent;box-shadow:inset 0 0 0 2px var(--warn)}
+.ac1-dash{color:var(--text-faint)}
+.ac1-edr>td{padding:0;background:var(--surface-3,var(--surface2));text-align:left}
+.ac1-ed{padding:14px 18px 16px;display:grid;gap:12px}
+.ac1-q{display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px}
+.ac1-q .n{width:22px;height:22px;border-radius:50%;background:var(--accent-fill);color:#fff;font-size:11.5px;font-weight:750;display:grid;place-items:center}
+.ac1-q h4{margin:2px 0 8px;font-size:13px;font-weight:700}
+.ac1-opts{display:flex;flex-wrap:wrap;gap:6px}
+.ac1-opt{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--border);border-radius:99px;background:var(--surface);font-size:12.5px;font-weight:600;cursor:pointer}
+.ac1-opt input{accent-color:var(--accent);margin:0}
+.ac1-opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.ac1-opt.off{opacity:.45;cursor:not-allowed}
+.ac1-opt.hot{color:var(--warn)}
+.ac1-places{margin-top:8px;position:relative}
+.ac1-places input[type=text]{width:100%;max-width:420px}
+.ac1-dd{position:absolute;left:0;top:calc(100% + 2px);z-index:30;width:420px;max-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg,0 10px 30px rgba(0,0,0,.18));max-height:240px;overflow:auto;padding:4px}
+.ac1-dd button{display:block;width:100%;text-align:left;border:0;background:none;padding:7px 9px;border-radius:7px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--text)}
+.ac1-dd button:hover{background:var(--surface2)}
+.ac1-dd small{color:var(--muted);margin-left:6px}
+.ac1-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ac1-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:4px 6px 4px 10px;border-radius:99px;background:var(--surface);border:1px solid var(--border)}
+.ac1-chip button{border:0;background:var(--surface2);border-radius:50%;width:18px;height:18px;line-height:1;cursor:pointer;color:var(--text-2)}
+.ac1-conf{display:flex;gap:8px;align-items:flex-start;padding:9px 12px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:12.5px}
+.ac1-ends{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px}
+.ac1-ends select.form-input{width:170px;flex:none}
+.ac1-ends input[type=datetime-local].form-input{width:210px;flex:none}
+.ac1-ed [hidden]{display:none!important}
+.ac1-pv{padding:9px 12px;border-radius:10px;background:var(--surface);border:1px dashed var(--border);font-size:12.5px;line-height:1.5}
+.ac1-pv.err{border-color:var(--danger);color:var(--danger)}
+.ac1-foot{display:flex;gap:8px;align-items:center}
+.ac1-foot a{margin-left:auto;font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none}
+.ac1-odd{font-size:13px;line-height:1.5}
+.ac1-prof{list-style:none;margin:-4px 0 0;padding:0}
+.ac1-prof li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.ac1-prof li:first-child{border-top:0}
+.ac1-prof .t{flex:1;min-width:0}.ac1-prof b{font-weight:650}
+.ac1-prof small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac1-prof .n{font-size:12px;color:var(--muted);white-space:nowrap}
+.ac1-who-f{display:flex;gap:8px}.ac1-who-f .form-input{flex:1;min-width:0}
+.ac1-who-r{font-size:12.5px;line-height:1.5;color:var(--text-2)}
+.ac1-who-r ul{list-style:none;margin:6px 0 0;padding:0}
+.ac1-who-r li{padding:5px 0;border-top:1px solid var(--border-soft)}
+.ac1-who-r li small{display:block;color:var(--muted);font-size:11.5px}
 </style>
+
+<template id="page-island">
+  <span class="isl-dot {{if .AC1.Banner.Todos}}warn{{else}}on{{end}}"></span>
+  <span class="isl-t">Access control</span>
+  <span class="isl-s">{{.AC1.Status}}</span>
+  <span class="isl-acts"><a class="cc-btn js-dest" href="/users/access/profiles">Profiles</a></span>
+</template>
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
-    <h1 class="cc-h1">Access control</h1>
-      <div class="cc-sub">What each person sees and what they can do there. {{if .Limited}}{{.Limited}} of {{len .Rows}} account{{if ne (len .Rows) 1}}s{{end}} see{{if eq .Limited 1}}s{{end}} only part of the fleet.{{else}}Everyone sees the whole fleet.{{end}}</div>
+      <h1 class="cc-h1">Access control</h1>
+      <div class="cc-status">{{.AC1.Status}}</div>
     </div>
-    <div class="cc-actions"><a class="cc-btn js-dest" href="/users/access/profiles">Profiles <span class="muted">· {{.Profiles}}</span></a></div>
+    <div class="cc-actions isl-dup"><a class="cc-btn js-dest" href="/users/access/profiles"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</a></div>
   </div>
-  <div class="cc-card">
-    <div class="ual-head"><span>Person</span><span>Sees</span><span>Can do</span><span></span></div>
-    {{range .Rows}}
-    {{if .CanEdit}}<a class="ual-row js-dest" href="/users/{{.User.ID}}/manage">{{else}}<div class="ual-row">{{end}}
-      <div class="ual-who">{{template "ubub" .Bubble}}<div style="min-width:0"><div class="ual-name">{{.User.DisplayName}}</div><div class="ual-role"><span class="cc-pill {{rolePill .User.Role}}">{{roleLabel .User.Role}}</span></div></div></div>
-      <div><div class="ual-k">Sees</div><div class="ual-v">{{.Sees}}{{if ne .Sees "Every device"}} <small>· {{.Devices}} device{{if ne .Devices 1}}s{{end}}</small>{{end}}</div></div>
-      <div><div class="ual-k">Can do</div><div class="ual-v{{if .Advanced}} adv{{end}}"{{if .Advanced}} title="{{.Advanced}}"{{end}}>{{.Does}}{{if .Sensitive}}<span class="ual-hot" title="A rule grants remote control, shell or OTA">sessions</span>{{end}}{{if .Expires}} <small>· {{.Expires}}</small>{{end}}</div></div>
-      {{if .CanEdit}}<span class="cc-btn sm">Edit</span>{{else}}<span></span>{{end}}
-    {{if .CanEdit}}</a>{{else}}</div>{{end}}
+
+  <div class="ov2">
+  <div class="ov2-main">
+    {{with .AC1.Banner}}
+    <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}}">
+      <div class="ov2-ban-k">{{.Kicker}}</div>
+      <h2>{{.Headline}}</h2>
+      {{if .Todos}}
+      <ol class="oc-todo">
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+      </ol>
+      {{if .More}}<a class="oc-more" href="#ac1-matrix">{{.More}} more in the matrix <i aria-hidden="true">→</i></a>{{end}}
+      {{end}}
+      {{with .Line}}<p class="ac1-line">{{.}}</p>{{end}}
+    </div>
     {{end}}
+
+    <div class="oc-stats">
+      {{range .AC1.Cards}}
+      <div class="oc-st">
+        <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+        <a class="oc-stm" href="{{.Href}}">
+          {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+          {{with .B}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+        </a>
+        <div style="height:16px"></div>
+      </div>
+      {{end}}
+    </div>
+
+    <section class="oc-card" id="ac1-matrix" data-show="{{.Show}}">
+      <div class="oc-ch"><h2>Who can do what <span>click a person to change it</span></h2>
+        <div class="oc-bar" style="margin:0" role="group" aria-label="Filter the people">
+          <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-ac1-pill="sees">Sees: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+            <div class="cc-menu" hidden>
+              <button type="button" class="cc-mi active" data-ac1-set="sees" data-val="">Any</button>
+              <button type="button" class="cc-mi" data-ac1-set="sees" data-val="whole">The whole fleet</button>
+              <button type="button" class="cc-mi" data-ac1-set="sees" data-val="part">Part of it</button>
+              <button type="button" class="cc-mi" data-ac1-set="sees" data-val="extras">Extras beyond the role</button>
+              <button type="button" class="cc-mi" data-ac1-set="sees" data-val="ending">Ending this week</button>
+              <button type="button" class="cc-mi" data-ac1-set="sees" data-val="odd">Setups the questions can't show</button>
+              <button type="button" class="cc-mi" data-ac1-set="sees" data-val="novenue">Customers with no venue</button>
+            </div></div>
+          <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-ac1-pill="role">Role: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+            <div class="cc-menu" hidden>
+              <button type="button" class="cc-mi active" data-ac1-set="role" data-val="">Any</button>
+              {{range $.AC1.Roles}}<button type="button" class="cc-mi" data-ac1-set="role" data-val="{{.}}">{{roleLabel .}}</button>{{end}}
+            </div></div>
+        </div>
+      </div>
+      <table class="ac1-t">
+        <thead><tr><th class="l c-who">Person</th><th class="l c-role">Role</th><th class="l c-sees">Sees</th>{{range .AC1.Cols}}<th class="c-p" title="{{.Label}}">{{.Short}}</th>{{end}}</tr></thead>
+        <tbody>
+        {{range .AC1.Rows}}{{$r := .}}
+        <tr class="ac1-r{{if not .CanEdit}} ro{{end}}" data-id="{{.User.ID}}" data-name="{{.User.DisplayName}}" data-role="{{.User.Role}}" data-sees="{{if .Whole}}whole{{else}}part{{end}}" data-flags="{{if .Sensitive}} extras{{end}}{{if .Ending}} ending{{end}}{{if .Odd}} odd{{end}}{{if .NoVenue}} novenue{{end}}" data-edit="{{if .CanEdit}}1{{end}}">
+          <td class="l"><span class="ac1-who">{{template "ubub" .Bubble}}<b>{{.User.DisplayName}}</b></span></td>
+          <td class="l ac1-role">{{if .CanEdit}}<form action="/users/{{.User.ID}}/role" method="POST" hx-boost="false"><input type="hidden" name="redirect" value="/users/access"><select name="role" aria-label="Role for {{.User.DisplayName}}" data-was="{{.User.Role}}" onchange="ac1Role(this)">{{$cur := .User.Role}}{{range $.Assignable}}{{if eq (isCustomer .) (isCustomer $cur)}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}</option>{{end}}{{end}}{{if not (hasStr $.Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}</select></form>{{else}}<span class="cc-pill {{rolePill .User.Role}}">{{roleLabel .User.Role}}</span>{{end}}</td>
+          <td class="l ac1-sees">{{.Sees}}{{with .Profile}}<small>{{.}} · profile</small>{{end}}</td>
+          {{range .Cells}}<td title="{{.Title}}">{{if eq .State "above"}}<span class="ac1-dash" aria-label="{{.Title}}">–</span>{{else}}<i class="ac1-d {{.State}}{{if .Extra}} extra{{end}}" role="img" aria-label="{{.Title}}"></i>{{end}}</td>{{end}}
+        </tr>
+        {{if .CanEdit}}<tr class="ac1-edr" hidden data-for="{{.User.ID}}"><td colspan="{{add 3 (len $.AC1.Cols)}}"><div class="ac1-ed" data-id="{{.User.ID}}" data-name="{{.User.DisplayName}}"></div><script type="application/json" class="ac1-data">{{.EditJSON}}</script></td></tr>{{end}}
+        {{end}}
+        </tbody>
+      </table>
+      <div class="oc-foot"><span><i style="background:var(--ok)"></i>every device</span><span><i style="background:transparent;box-shadow:inset 0 0 0 2px var(--ok)"></i>part of the fleet</span><span><i style="background:var(--warn)"></i>beyond the role</span><span><i style="background:var(--surface2);box-shadow:inset 0 0 0 1px var(--border)"></i>off</span><span>– above the role</span><span class="tot">Super admins have everything, with no rules to edit</span></div>
+    </section>
+  </div>
+
+  {{with .AC1.Rail}}
+  <aside class="ov2-rail" aria-label="Access across the fleet">
+    <a class="ov2-ring" href="/users/access?show=part#ac1-matrix" title="{{.Whole}} of {{.Total}} people see every device">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
+      <span><b>{{.Pct}}%</b><small>whole fleet</small></span>
+    </a>
+    <div class="ov2-hi"><b>{{.Whole}} of {{.Total}} people</b><small>{{if .Limited}}{{.Limited}} {{if eq .Limited 1}}is{{else}}are{{end}} limited to part of it{{else}}nobody is limited{{end}}</small></div>
+    <div class="ov2-rh"><h2>Profiles</h2><a class="js-dest" href="/users/access/profiles">+ New</a></div>
+    {{if .Profiles}}
+    <ul class="ac1-prof">{{range .Profiles}}<li><span class="t"><a class="js-dest" href="/users/access/profiles" style="color:inherit;text-decoration:none"><b>{{.Name}}</b></a><small>{{.Desc}}</small></span><span class="n">{{.Users}} {{if eq .Users 1}}person{{else}}people{{end}}</span></li>{{end}}</ul>
+    {{else}}<div class="ovd-empty">No profiles yet.</div>{{end}}
+    <div class="ov2-rh"><h2>Who can see a device?</h2></div>
+    <form class="ac1-who-f" onsubmit="return ac1Who(this)"><input type="text" class="form-input" name="serial" placeholder="Serial number" aria-label="Serial number" autocomplete="off"><button type="submit" class="cc-btn sm">Check</button></form>
+    <div class="ac1-who-r" id="ac1-who-r"></div>
+  </aside>
+  {{end}}
   </div>
 </div>
+<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
+<script src="/static/js/users/access_ac1.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}
