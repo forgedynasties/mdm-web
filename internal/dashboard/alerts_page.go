@@ -166,6 +166,22 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 			watching = append(watching, p)
 		}
 	}
+	alAnchors(needs)
+	alAnchors(watching)
+	alAnchors(snoozed)
+	// A1 (21 Oct 2026): banner, count cards and rail. Fleet-wide counts (alerts raised,
+	// crashes) only for viewers who see the whole fleet and no device filter.
+	var raised *db.AlertsRaised
+	var crashStats *db.FleetCrashStats
+	if deviceID == nil && !acc.hidesDevices() {
+		if rc, err := h.db.AlertsRaisedCounts(r.Context(), acc.hidesIdentityAlerts()); err == nil {
+			raised = &rc
+		}
+		if cs, err := h.db.GetFleetCrashStats(r.Context(), 1); err == nil {
+			crashStats = &cs
+		}
+	}
+	now := time.Now()
 	// Crash signatures on several devices are release issues, not device problems —
 	// and a release concern, so the section is super-admin only.
 	var issues []releaseIssueView
@@ -226,6 +242,10 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"Reasons":       problemReasons(),
 		"CanAct":        canAct,
 		"Me":            h.currentUsername(r),
+		"AlBanner":      buildAlertBanner(needs, watching, now),
+		"AlCards":       buildAlertCards(needs, watching, raised, crashStats, now),
+		"AlRail":        buildAlertRail(needs, watching, crashStats, now),
+		"AlVenues":      alVenues(needs, watching, snoozed),
 	})
 }
 

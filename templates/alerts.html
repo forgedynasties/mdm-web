@@ -83,6 +83,61 @@
 .alx-snz>summary{cursor:pointer;font-size:12.5px;color:var(--muted);list-style:none;padding:8px 0}
 .alx-snz>summary::-webkit-details-marker{display:none}
 
+
+/* ── A1 (21 Oct 2026): banner, count cards, problem table and a rail ── */
+.al-wrap .ov2{margin-top:4px}
+.alr-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.alr-ctl .al-search{flex:1 1 220px;min-width:200px}
+.alr-pill{position:relative;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:0 10px 0 14px;height:38px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2)}
+.alr-pill.set{border-color:var(--accent);background:var(--accent-soft)}
+.alr-pill select{font:inherit;font-weight:650;color:var(--text);background:none;border:0;padding:0 2px;cursor:pointer;max-width:170px}
+.alr-pill select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.alr-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:4px 0 2px;margin:0 0 16px}
+.alr-card>h2{display:flex;align-items:center;gap:8px;margin:0;padding:12px 16px 8px;font-family:var(--font-display);font-size:17px;font-weight:500}
+.alr-card>h2 .n{font-family:var(--font);font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.alr-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.alr-t th{text-align:left;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+.alr-t td{padding:10px 12px;border-top:1px solid var(--border-soft);vertical-align:top}
+.alr-t tbody tr:first-child td{border-top:0}
+.alr-t tr:target td{background:var(--accent-soft)}
+.alr-t tbody tr:hover td{background:var(--surface2)}
+.alr-sev{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;color:var(--muted);background:var(--surface2)}
+.alr-sev::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.alr-sev.critical{color:var(--danger);background:var(--danger-bg)}
+.alr-sev.warning{color:var(--warn);background:var(--warn-bg)}
+.alr-what{min-width:200px}
+.alr-what>b{display:block;font-size:13.5px;font-weight:650;color:var(--text);overflow-wrap:anywhere}
+.alr-what>small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.45}
+.alr-what .alx-syms{margin-top:6px}
+.alr-what .alx-fold-g{margin-top:6px}
+.alr-where{white-space:nowrap}
+.alr-where a{font-family:var(--mono);font-size:12px;color:var(--text);border-bottom:1px solid var(--rule-2);text-decoration:none}
+.alr-where small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px;white-space:normal}
+.alr-since{white-space:nowrap;color:var(--text-2)}
+.alr-chip{display:inline-block;font-size:11px;font-weight:650;padding:2px 8px;border-radius:99px;background:var(--surface2);color:var(--text-2);white-space:nowrap;margin:0 4px 4px 0}
+.alr-chip.none{color:var(--text-faint);background:none;border:1px dashed var(--border)}
+.alr-chip.ok{color:var(--ok);background:var(--ok-bg)}
+.alr-chip.hot{color:var(--warn);background:var(--warn-bg)}
+.alr-act{width:1%}
+.alr-act-in{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:112px}
+.alr-act-in>.cc-btn,.alr-act-in>.alx-menu>summary{justify-content:center;width:100%;box-sizing:border-box;white-space:nowrap}
+.alr-act-in>.alx-menu{display:block}
+.alr-act .alx-menu{text-align:left}
+.alr-act .alx-pop{left:auto;right:0}
+.alr-more .alx-pop{min-width:240px;max-height:420px;overflow:auto}
+.alr-more .alx-pop form+form,.alr-more .alx-pop form+.alx-pop-h{margin-top:4px;border-top:1px solid var(--border-soft);padding-top:4px}
+.alr-snz>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;padding:12px 16px;font-family:var(--font-display);font-size:17px}
+.alr-snz>summary::-webkit-details-marker{display:none}
+.alr-snz>summary .n{font-family:var(--font);font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.alr-snz>summary::after{content:"▸";font-size:11px;color:var(--muted)}
+.alr-snz[open]>summary::after{content:"▾"}
+.alr-rlist{list-style:none;margin:-4px 0 0;padding:0}
+.alr-rlist li{padding:9px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.alr-rlist li:first-child{border-top:0}
+.alr-rlist b{display:block;font-weight:650;color:var(--text);overflow-wrap:anywhere}
+.alr-rlist small{display:block;color:var(--muted);font-size:11.5px;margin-top:1px}
+.alr-rlist a{font-weight:650;color:var(--accent-text);text-decoration:none}
+.alr-ringcap small{display:block}
 @media(max-width:640px){
   .alx-pop{position:fixed;left:16px;right:16px;top:auto;bottom:16px}
   .alx-al{flex-wrap:wrap}
@@ -129,68 +184,136 @@
   </div>
 
 
-  {{$dev := ""}}{{if .DeviceFilter}}{{$dev = printf "&device=%s" .DeviceFilter}}{{end}}
-  <div class="al-controls">
-    <div class="al-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
-    <button type="button" class="cc-btn sm" data-copy-serials="#alerts-live" title="Copy the serials of every device in this list, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
-  </div>
-
-  {{if .DeviceFilter}}
-  <div class="al-filter">
-    <svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
-    <span class="lbl">Device</span><span class="mono">{{.DeviceFilter}}</span>
-    <a class="x" href="/alerts{{if ne .View ""}}?view={{.View}}{{end}}" title="Clear device filter" aria-label="Clear device filter">Clear ×</a>
-  </div>
-  {{end}}
-
-  {{if eq .View "crashes"}}
-
-  {{if .Crashes}}
-  <div class="cc-sec alx-sec">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}{{if and .CrashGroups (ne .CrashGroups .CrashCount)}} · {{.CrashGroups}} distinct{{end}}<span class="n">{{.CrashCount}}</span></div>
-  {{range .Crashes}}{{template "alx-crash" .}}{{end}}
-  {{if gt .CrashPages 1}}
-  <div class="alx-pager">
-    {{if gt .CrashPage 1}}<a class="pg" href="{{.CrashPageBase}}&page={{sub .CrashPage 1}}">← Prev</a>{{else}}<span class="pg disabled">← Prev</span>{{end}}
-    <span class="pg-info">Page {{.CrashPage}} of {{.CrashPages}}</span>
-    {{if lt .CrashPage .CrashPages}}<a class="pg" href="{{.CrashPageBase}}&page={{add .CrashPage 1}}">Next →</a>{{else}}<span class="pg disabled">Next →</span>{{end}}
-  </div>
-  {{end}}
-  {{else}}
-  <div class="cc-card"><div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><b>No crashes</b>No app crashes, ANRs, or tombstones reported {{if .DeviceFilter}}for {{.DeviceFilter}}{{else}}across the fleet in the last 7 days{{end}}.</div></div>
-  {{end}}
-
-  {{else}}
-
-  {{if and (not .ActiveCount) (not .Issues)}}
-  <div class="cc-card"><div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><b>All clear</b>Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div>
-  {{end}}
-
   {{$root := .}}
-  {{if and .Needs (ne .View "watching")}}
-  <div class="cc-sec alx-sec">Needs attention now<span class="n">{{.NeedsCount}}</span></div>
-  {{range .Needs}}{{template "alx-problem" (dict "P" . "Root" $root)}}{{end}}
-  {{end}}
+  <div class="ov2">
+    <div class="ov2-main">
+      {{if ne .View "crashes"}}
+      {{with .AlBanner}}
+      <div class="ov2-ban is-{{.Tone}}">
+        <div class="ov2-ban-k">Alerts · {{$root.ActiveCount}} problem{{if ne $root.ActiveCount 1}}s{{end}}{{if $root.AlertCount}} from {{$root.AlertCount}} open alert{{if ne $root.AlertCount 1}}s{{end}}{{end}}</div>
+        <h2>{{.Headline}}</h2>
+        {{if .Todos}}
+        <ol class="oc-todo">
+          {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+        </ol>
+        {{if .More}}<a class="oc-more" href="#alr-problems">{{.More}} more in the table below <i aria-hidden="true">↓</i></a>{{end}}
+        {{else}}<p>{{.Calm}}</p>{{end}}
+      </div>
+      {{end}}
+      {{with .AlCards}}
+      <div class="oc-stats" style="grid-template-columns:repeat({{len .}},minmax(0,1fr))">
+        {{range .}}
+        <div class="oc-st">
+          <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+          <a class="oc-stm" href="{{.Href}}">
+            {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+            {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+          </a>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+      {{end}}
 
-  {{if and .Issues (eq .View "")}}
-  <div class="cc-sec alx-sec">Release issues · last 14 days<span class="n">{{len .Issues}}</span></div>
-  {{range .Issues}}{{template "alx-issue" .}}{{end}}
-  {{end}}
+      <div class="alr-ctl">
+        <div class="al-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
+        {{if ne .View "crashes"}}
+        <label class="alr-pill" data-f="sev">Severity:<select aria-label="Severity" onchange="alxPill(this)"><option value="">All</option><option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option></select></label>
+        <label class="alr-pill" data-f="owner">Owner:<select aria-label="Owner" onchange="alxPill(this)"><option value="">Anyone</option><option value="none">Nobody</option><option value="me">Me</option><option value="restaurant">The restaurant</option><option value="someone">Someone else</option></select></label>
+        {{if .AlVenues}}<label class="alr-pill" data-f="venue">Venue:<select aria-label="Venue" onchange="alxPill(this)"><option value="">All</option>{{range .AlVenues}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>{{end}}
+        {{end}}
+        <button type="button" class="cc-btn sm" data-copy-serials="#alerts-live" title="Copy the serials of every device in this list, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
+      </div>
 
-  {{if and .WatchingP (ne .View "needs")}}
-  <div class="cc-sec alx-sec">Worth watching<span class="n">{{.WatchCount}}</span></div>
-  {{range .WatchingP}}{{template "alx-problem" (dict "P" . "Root" $root)}}{{end}}
-  {{end}}
+      {{if .DeviceFilter}}
+      <div class="al-filter">
+        <svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+        <span class="lbl">Device</span><span class="mono">{{.DeviceFilter}}</span>
+        <a class="x" href="/alerts{{if ne .View ""}}?view={{.View}}{{end}}" title="Clear device filter" aria-label="Clear device filter">Clear ×</a>
+      </div>
+      {{end}}
 
-  {{if and .Snoozed (eq .View "")}}
-  <details class="alx-snz">
-    <summary class="cc-sec alx-sec">Snoozed<span class="n">{{len .Snoozed}}</span></summary>
-    {{range .Snoozed}}{{template "alx-problem" (dict "P" . "Root" $root)}}{{end}}
-  </details>
-  {{end}}
+      {{if eq .View "crashes"}}
 
-  {{end}}
+      {{if .Crashes}}
+      <div class="cc-sec alx-sec">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}{{if and .CrashGroups (ne .CrashGroups .CrashCount)}} · {{.CrashGroups}} distinct{{end}}<span class="n">{{.CrashCount}}</span></div>
+      {{range .Crashes}}{{template "alx-crash" .}}{{end}}
+      {{if gt .CrashPages 1}}
+      <div class="alx-pager">
+        {{if gt .CrashPage 1}}<a class="pg" href="{{.CrashPageBase}}&page={{sub .CrashPage 1}}">← Prev</a>{{else}}<span class="pg disabled">← Prev</span>{{end}}
+        <span class="pg-info">Page {{.CrashPage}} of {{.CrashPages}}</span>
+        {{if lt .CrashPage .CrashPages}}<a class="pg" href="{{.CrashPageBase}}&page={{add .CrashPage 1}}">Next →</a>{{else}}<span class="pg disabled">Next →</span>{{end}}
+      </div>
+      {{end}}
+      {{else}}
+      <div class="cc-card"><div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><b>No crashes</b>No app crashes, ANRs, or tombstones reported {{if .DeviceFilter}}for {{.DeviceFilter}}{{else}}across the fleet in the last 7 days{{end}}.</div></div>
+      {{end}}
 
-  <div id="alx-nomatch">No alerts match your search.</div>
+      {{else}}
+
+      {{if not .ActiveCount}}
+      <div class="cc-card"><div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><b>All clear</b>Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div>
+      {{end}}
+
+      {{if or (and .Needs (ne .View "watching")) (and .WatchingP (ne .View "needs"))}}
+      <div class="alr-card" id="alr-problems">
+        <h2>Problems <span class="n">{{if eq .View "needs"}}{{.NeedsCount}}{{else if eq .View "watching"}}{{.WatchCount}}{{else}}{{add .NeedsCount .WatchCount}}{{end}}</span></h2>
+        <table class="alr-t">
+          <thead><tr><th>Severity</th><th>Problem</th><th>Where</th><th>Since</th><th>Owner</th><th>State</th><th></th></tr></thead>
+          <tbody>
+          {{if ne .View "watching"}}{{range .Needs}}{{template "alr-row" (dict "P" . "Root" $root)}}{{end}}{{end}}
+          {{if ne .View "needs"}}{{range .WatchingP}}{{template "alr-row" (dict "P" . "Root" $root)}}{{end}}{{end}}
+          </tbody>
+        </table>
+      </div>
+      {{end}}
+
+      {{if and .Snoozed (eq .View "")}}
+      <details class="alr-card alr-snz" id="alr-snoozed">
+        <summary>Snoozed <span class="n">{{len .Snoozed}}</span></summary>
+        <table class="alr-t">
+          <thead><tr><th>Severity</th><th>Problem</th><th>Where</th><th>Since</th><th>Owner</th><th>State</th><th></th></tr></thead>
+          <tbody>{{range .Snoozed}}{{template "alr-row" (dict "P" . "Root" $root)}}{{end}}</tbody>
+        </table>
+      </details>
+      {{end}}
+
+      {{end}}
+      <div id="alx-nomatch">No alerts match your search.</div>
+    </div>
+
+    <aside class="ov2-rail" aria-label="How the alerts are being handled">
+      {{with .AlRail}}
+      <div class="ov2-ring s-{{.Tone}}" title="{{.Acked}} of {{.Total}} open problems acknowledged">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
+        <span><b>{{.Pct}}%</b><small>acknowledged</small></span>
+      </div>
+      <div class="ov2-hi alr-ringcap"><b>{{if .Total}}{{.Acked}} of {{.Total}} acknowledged{{else}}Nothing open{{end}}</b>
+        {{if .Total}}<small>{{.Owned}} of {{.Total}} have an owner{{if .OldestUnowned}} · oldest unowned {{.OldestUnowned}}{{end}}</small>{{end}}</div>
+      {{if .Bars}}
+      <div class="ov2-bars" role="img" aria-label="Crashes each of the last seven days">
+        {{range .Bars}}<div title="{{.Detail}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+      </div>
+      <div class="ov2-hi" style="margin-top:-6px"><small>{{.CrashWeek}} crash{{if ne .CrashWeek 1}}es{{end}} in 7 days · <a href="/alerts?view=crashes">all crashes</a></small></div>
+      {{end}}
+      {{end}}
+
+      {{if .Snoozed}}
+      <div class="ov2-rh"><h2>Snoozed <span>{{len .Snoozed}}</span></h2>{{if eq .View ""}}<a href="#alr-snoozed" onclick="var d=document.getElementById('alr-snoozed'); if (d) d.open=true">Show</a>{{end}}</div>
+      <ul class="alr-rlist">
+        {{range $i, $p := .Snoozed}}{{if lt $i 4}}<li><b>{{$p.Title}}{{if $p.Restaurant}} at {{$p.Restaurant}}{{end}}</b><small>{{if not $p.SnoozedTil.IsZero}}until {{$p.SnoozedTil.Format "Mon 2 Jan 15:04"}}{{else}}quiet until resolved{{end}}{{if $p.Assignee}} · {{if eq $p.Assignee "restaurant"}}the restaurant{{else}}{{$p.Assignee}}{{end}}{{end}}</small></li>{{end}}{{end}}
+      </ul>
+      {{end}}
+
+      {{if .Issues}}
+      <div class="ov2-rh"><h2>Release issues <span>{{len .Issues}}</span></h2><a href="/releases">Releases</a></div>
+      <ul class="alr-rlist">
+        {{range .Issues}}<li><b>{{if .BuildID}}{{.BuildID}}: {{end}}{{if .Pkg}}{{.Pkg}}{{else}}crash{{end}}</b><small>{{.KindLabel}} ×{{.Events}}</small><small>last 14 days · {{.Devices}} devices · latest {{timeSince .LastAt}}</small>{{if .ReleaseID}}<small><a href="/releases/{{.ReleaseID}}/crashes">Open release →</a></small>{{end}}</li>{{end}}
+      </ul>
+      <div class="ov2-hi"><small>The same crash on every device: a release problem, not paged per device.</small></div>
+      {{end}}
+    </aside>
+  </div>
 </div>
 
 </div>
@@ -331,6 +454,92 @@
     </div>
   </div>
 </div>
+{{end}}
+
+{{/* A1: one problem as a table row (dict "P" problemView "Root" page data). The
+     workflow is the card's: Open, Acknowledge with a note, and Assign / Snooze /
+     Resolve with a reason (and the device actions) under ···. */}}
+{{define "alr-row"}}
+{{$p := .P}}{{$root := .Root}}
+<tr id="{{$p.Anchor}}" data-search="{{$p.Search}}" data-sev="{{$p.Severity}}" data-owner="{{if not $p.Assignee}}none{{else if eq $p.Assignee "restaurant"}}restaurant{{else if eq $p.Assignee $root.Me}}me{{else}}someone{{end}}" data-venue="{{$p.Restaurant}}">
+  <td><span class="alr-sev {{$p.Severity}}">{{if eq $p.Severity "critical"}}Critical{{else if eq $p.Severity "warning"}}Warning{{else}}Info{{end}}</span></td>
+  <td class="alr-what"><b>{{$p.Title}}</b>
+    {{if $p.Why}}<small>{{$p.Why}}</small>{{end}}
+    {{if $p.Note}}<div class="alx-note">{{$p.Note}}</div>{{end}}
+    {{if gt (len $p.Symptoms) 1}}<div class="alx-syms">{{range $p.Symptoms}}<span class="alx-sym {{.Severity}}">{{.Label}}{{if gt .Count 1}} ×{{.Count}}{{end}}</span>{{end}}</div>{{end}}
+    <details class="alx-fold-g">
+      <summary>{{if eq (len $p.Members) 1}}Show the alert{{else}}Show the {{len $p.Members}} alerts{{end}}</summary>
+      {{range $p.Members}}
+      <div class="alx-gm">
+        <div class="alx-gm-h">
+          <b>{{.Headline}}</b>
+          {{if and .Serial (gt $p.Devices 1)}}<a href="/devices/{{.Serial}}">{{.Serial}}</a>{{end}}
+          {{if gt .Occurrences 1}}<span class="alx-occ">×{{.Occurrences}}</span>{{end}}
+          <span class="alx-when">{{timeSince .FiredAt}}</span>
+        </div>
+        <div class="alx-s">{{.Sentence}}</div>
+        {{if .Trace}}{{template "crash-trace" .Trace}}{{end}}
+      </div>
+      {{end}}
+    </details>
+  </td>
+  <td class="alr-where">{{if $p.Serial}}<a href="/devices/{{$p.Serial}}">{{$p.Serial}}</a>{{else if gt $p.Devices 1}}{{$p.Devices}} devices{{else}}—{{end}}{{if $p.Restaurant}}<small>{{$p.Restaurant}}</small>{{end}}</td>
+  <td class="alr-since">{{timeSince $p.Since}}</td>
+  <td>{{if not $p.Assignee}}<span class="alr-chip none">Nobody</span>{{else if eq $p.Assignee "restaurant"}}<span class="alr-chip">Restaurant</span>{{else}}<span class="alr-chip">{{$p.Assignee}}</span>{{end}}</td>
+  <td>
+    {{if $p.NewSymptom}}<span class="alr-chip hot" title="Acknowledged, but a new alert has opened on it since">new since acknowledged</span>{{else if $p.Acked}}<span class="alr-chip ok">Acknowledged</span>{{else}}<span class="alr-chip">Open</span>{{end}}
+    {{if $p.AfterHours}}<span class="alr-chip" title="Raised while the restaurant was closed, so it did not page anyone. It goes in the morning digest, and becomes critical if it is still happening when the restaurant opens.">after hours</span>{{end}}
+    {{if $p.Snoozed}}<span class="alr-chip" title="{{$p.SnoozedTil.Format "Mon 2 Jan 15:04"}}">snoozed · {{timeUntil $p.SnoozedTil}}</span>{{end}}
+  </td>
+  <td class="alr-act"><div class="alr-act-in">
+    {{if $p.Href}}<a class="cc-btn sm" href="{{$p.Href}}">{{$p.HrefLabel}}</a>{{end}}
+    {{if $p.CanAct}}
+    {{if not $p.Acked}}
+    <details class="alx-menu">
+      <summary class="cc-btn sm">Acknowledge</summary>
+      <div class="alx-pop"><form action="/alerts/problem" method="POST">
+        <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="ack">
+        <input type="text" name="note" maxlength="500" placeholder="Note (optional): what's being done" aria-label="Note">
+        <button class="alx-opt" type="submit">Acknowledge</button>
+      </form></div>
+    </details>
+    {{end}}
+    <details class="alx-menu alr-more">
+      <summary class="cc-btn sm" aria-label="More for {{$p.Title}}">···</summary>
+      <div class="alx-pop">
+        <div class="alx-pop-h">Assign</div>
+        <form action="/alerts/problem" method="POST">
+          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="assign">
+          <button class="alx-opt" name="value" value="me">Me</button>
+          <button class="alx-opt" name="value" value="restaurant">The restaurant<small>they need to act: power, Wi-Fi, a charger</small></button>
+          {{range $root.Assignees}}{{if ne .Username $root.Me}}<button class="alx-opt" name="value" value="{{.Username}}">{{.Name}}</button>{{end}}{{end}}
+          {{if $p.Assignee}}<button class="alx-opt" name="value" value="">Unassign</button>{{end}}
+        </form>
+        <div class="alx-pop-h">Snooze</div>
+        <form action="/alerts/problem" method="POST">
+          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="snooze">
+          <button class="alx-opt" name="value" value="1">1 hour</button>
+          <button class="alx-opt" name="value" value="4">4 hours</button>
+          <button class="alx-opt" name="value" value="24">1 day</button>
+          <button class="alx-opt" name="value" value="168">1 week</button>
+          {{if $p.Snoozed}}<button class="alx-opt" name="value" value="0">Wake it now</button>{{end}}
+        </form>
+        <div class="alx-pop-h">{{if $p.LeftVenue}}It's fine{{else}}Resolve{{end}}: why</div>
+        <form action="/alerts/problem" method="POST">
+          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="resolve">
+          {{range $root.Reasons}}<button class="alx-opt" name="value" value="{{.Key}}">{{.Label}}{{if eq .Key "false_alarm"}}<small>counted against the rule; quiet for a day</small>{{else if eq .Key "known_issue"}}<small>quiet for a week</small>{{end}}</button>{{end}}
+        </form>
+        {{if $p.KioskExit}}
+        <div class="alx-pop-h">Device</div>
+        <form method="POST" action="/devices/{{$p.Serial}}/kiosk/relock" hx-boost="false"><input type="hidden" name="back" value="/alerts"><button type="submit" class="alx-opt">Lock again</button></form>
+        <form method="POST" action="/devices/{{$p.Serial}}/kiosk/leave-out" hx-boost="false"><input type="hidden" name="back" value="/alerts"><button type="submit" class="alx-opt">Leave it out</button></form>
+        {{end}}
+      </div>
+    </details>
+    {{end}}
+    {{if $p.KeyReset}}<a class="cc-btn sm danger" href="/devices/{{$p.Serial}}#reset-key" title="If the device was just factory reset, this is it asking to come back">Reset its key…</a>{{end}}
+  </div></td>
+</tr>
 {{end}}
 
 {{/* One release issue: a crash signature on one build across several devices. Dot is a
