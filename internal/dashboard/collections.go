@@ -23,6 +23,13 @@ type collMember struct {
 
 // collRows builds the table rows for one kind: "restaurants", "groups" or "releases".
 func (h *Handler) collRows(r *http.Request, kind string) ([]venueRow, venueSummary) {
+	rows, sum, _ := h.collRowsDevs(r, kind)
+	return rows, sum
+}
+
+// collRowsDevs is collRows plus the visible devices it was built from, so the Venues
+// list can add what its cards need (types, running hot) without a second read.
+func (h *Handler) collRowsDevs(r *http.Request, kind string) ([]venueRow, venueSummary, []db.Device) {
 	ctx := r.Context()
 	devices, _ := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 100000, "serial", "asc")
 	devices = h.access(r).keepVisible(devices)
@@ -106,7 +113,8 @@ func (h *Handler) collRows(r *http.Request, kind string) ([]venueRow, venueSumma
 				Text: rel.Name + " " + rel.Version, Devices: by[rel.Version]})
 		}
 	}
-	return h.rowsFor(items)
+	rows, sum := h.rowsFor(items)
+	return rows, sum, devices
 }
 
 // rowsFor turns collections into table rows: a square per device (problems first),
