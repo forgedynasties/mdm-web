@@ -64,6 +64,23 @@ table.ro-t{width:100%;border-collapse:collapse;font-size:12.5px}
 a.rl-crash{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;text-decoration:none;background:var(--danger-bg);color:var(--danger);white-space:nowrap}
 a.rl-crash.warn{background:var(--warn-bg);color:var(--warn)}
 a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+/* ── R2 (21 Oct 2026): the selected release as a banner and cards ── */
+.r2-ban{padding:20px 24px 22px;border-radius:18px;margin:4px 0 0}
+.r2-ban h2{font-size:24px}
+.r2-ban .oc-todo{max-width:none}
+.r2-ban .oc-todo li{min-width:0}
+.r2-stats{margin:14px 0 14px}
+.r2-ct{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.r2-bar{margin:6px 0 16px;min-width:0}
+.r2-bar i{min-width:0}
+.r2-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2);margin:0 0 14px}
+.r2-line a{color:var(--text)}
+.r2-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin:0 0 14px}
+.r2-two .oc-card,.r2-up{padding:14px 16px 12px}
+.r2-pk{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.r2-pk li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);flex-wrap:wrap}
+.r2-none{font-size:12.5px;color:var(--muted);margin:0}
+.r2-up .oc-ch{margin-bottom:6px}
 </style>
 <div class="ro-wrap">
   {{/* Context island: what is released, what is moving, the two actions. */}}
@@ -153,12 +170,63 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
         </span>
       </div>
       {{if .Name}}<p class="ro-name">{{.Name}}</p>{{end}}
-      <div class="ro-kv"><span class="k">On devices</span><span class="ro-cov"><span class="cc-meter"><i class="{{if eq .Status "published"}}ok{{else}}warn{{end}}" style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></span>{{if .DeviceCount}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}{{if .Crash}} <a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}</span></div>
-      {{if or .Problems.Open .Problems.Blockers}}<div class="ro-kv"><span class="k">Problems</span><span><a href="/releases/{{.ReleaseID}}?tab=problems">{{.Problems.Open}} open{{if .Problems.Blockers}} · <span class="ro-bad">{{.Problems.Blockers}} blocking</span>{{end}}</a></span></div>{{end}}
-      <div class="ro-kv"><span class="k">Packages</span><span>{{if $.Packages}}{{range $i, $p := $.Packages}}{{if $i}} · {{end}}{{if eq $p.Type "incremental"}}incremental from <span class="mono">{{$p.SourceBuildID}}</span>{{else}}full{{end}}{{if $p.Wipe}} (wipes){{end}}{{if ne $p.Status "active"}} <span class="ro-bad">{{$p.Status}}</span>{{end}}{{end}}{{else}}<span class="ro-bad">none yet</span> · <a href="/releases/{{.ReleaseID}}?tab=packages">add one</a>{{end}}</span></div>
-      <div class="ro-kv" style="align-items:start"><span class="k">Changes</span>{{if .Changelog}}<p class="ro-chg">{{.Changelog}}</p>{{else}}<span class="ro-empty" style="padding:0;text-align:left">No changelog.</span>{{end}}</div>
+      {{/* R2 (21 Oct 2026): what this release needs, three cards, then packages, changes
+           and its updates as cards. The actions above stay where they were. */}}
+      {{$sel := .}}
+      {{with $.R2}}
+      {{with .Banner}}
+      <div class="ov2-ban is-{{.Tone}} r2-ban">
+        <div class="ov2-ban-k">{{.Kicker}}</div>
+        <h2>{{.Headline}}</h2>
+        {{if .Todos}}
+        <ol class="oc-todo">
+          {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>
+            {{if .Post}}<form action="{{.Post}}" method="POST"{{if .Confirm}} hx-confirm="{{.Confirm}}"{{end}}><input type="hidden" name="redirect" value="/releases?release={{$sel.ReleaseID}}">{{if .Field}}<input type="hidden" name="{{.Field}}" value="{{.Value}}">{{end}}<button type="submit">{{.Action}}</button></form>
+            {{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
+        </ol>
+        {{if .More}}<a class="oc-more" href="/releases/{{$sel.ReleaseID}}">{{.More}} more on the release page <i aria-hidden="true">→</i></a>{{end}}
+        {{else}}<p>{{.Calm}}</p>{{end}}
+      </div>
+      {{end}}
 
-      <div class="ro-sec">Updates</div>
+      <div class="oc-stats r2-stats">
+        {{range .Cards}}
+        <div class="oc-st">
+          <div class="oc-sth">{{if .Href}}<a href="{{.Href}}">{{.Title}}</a>{{else}}<span class="r2-ct">{{.Title}}</span>{{end}}</div>
+          {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
+          <div class="oc-stm">
+            {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+            {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+          </div>
+          {{if .Bar}}<span class="ro-bar r2-bar">{{range .Bar}}<i class="{{.Tone}}" style="flex:{{.Flex}}"></i>{{end}}</span>{{end}}
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+
+      <div class="r2-two">
+        <div class="oc-card">
+          <div class="oc-ch"><h2>Packages <span>{{len .Packages}}</span></h2>{{if canRelease $.Role}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}?tab=packages">Add package</a>{{end}}</div>
+          {{if .Packages}}
+          <ul class="r2-pk">
+            {{range .Packages}}<li><span class="cc-tag{{if .Full}} ok{{end}}">{{if .Full}}full{{else}}incremental{{end}}</span>
+              <span>{{if not .Full}}from <span class="mono">{{.From}}</span>{{else}}any build{{end}}{{with .Size}} · {{.}}{{end}} · added {{.Date}}{{if .Wipe}} · <span class="ro-bad">wipes the device</span>{{end}}{{if .Yanked}} · <span class="ro-bad">{{.Status}}</span>{{end}}</span></li>{{end}}
+          </ul>
+          {{else}}<p class="r2-none"><span class="ro-bad">None yet.</span> A full package lets devices take it from any build.</p>{{end}}
+        </div>
+        <div class="oc-card">
+          <div class="oc-ch"><h2>Changes</h2>{{if canRelease $.Role}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}">Edit</a>{{end}}</div>
+          {{if $sel.Changelog}}<p class="ro-chg">{{$sel.Changelog}}</p>{{else}}<p class="r2-none">No changelog.</p>{{end}}
+        </div>
+      </div>
+      {{end}}
+
+      {{if or .Crash .Problems.Open .Problems.Blockers}}<p class="r2-line">
+        {{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}
+        {{if or .Problems.Open .Problems.Blockers}}<span>Problems: <a href="/releases/{{.ReleaseID}}?tab=problems">{{.Problems.Open}} open{{if .Problems.Blockers}} · <span class="ro-bad">{{.Problems.Blockers}} blocking</span>{{end}}</a></span>{{end}}
+      </p>{{end}}
+      <div class="oc-card r2-up">
+        <div class="oc-ch"><h2>Updates <span>{{with $.Rollouts}}{{len .}}{{else}}0{{end}}</span></h2>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn sm primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}</div>
       {{if $.Rollouts}}
       <table class="ro-t">
         <tr><th>Update</th><th>Started</th><th>Progress</th><th></th><th>State</th></tr>
@@ -170,7 +238,8 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
           <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}updating{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
         {{end}}
       </table>
-      {{else}}<p class="ro-empty" style="text-align:left;padding:6px 0">No updates sent yet.{{if and (canOTA $.Role) $.CanPush}} <a href="/updates/new?release={{.ReleaseID}}">Update devices</a>.{{end}}</p>{{end}}
+      {{else}}<p class="r2-none">No updates sent yet.{{if and (canOTA $.Role) $.CanPush}} <a href="/updates/new?release={{.ReleaseID}}">Update devices</a>.{{end}}</p>{{end}}
+      </div>
       {{else}}
       <div class="ro-dh"><h2>{{.Version}}</h2><span class="cc-tag">reported</span>{{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}</div>
       <p class="ro-name">Seen on devices, not a release yet: there is no changelog, package or update for it.</p>

@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -204,6 +205,23 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 			data["HasFull"] = hasFull
 			data["QFILPackages"], _ = h.db.ListQFILPackagesByRelease(ctx, rel.ID)
 			data["DevicesCount"], _ = h.db.CountDevicesByVersion(ctx, rel.Version, rel.Product)
+
+			// R2 (21 Oct 2026): the detail as a banner and cards.
+			role := h.role(r)
+			in := r2Inputs{Row: *sel, Rel: rel, ProductLabel: product.Label(rel.Product), Packages: pkgs,
+				Rollouts: byRelease[rel.ID], FleetTotal: rv.FleetTotal, ShowCrashes: !h.access(r).hidesDevices(),
+				CanRelease: role == "admin", CanOTA: roleCanOTA(role)}
+			if n, err := h.db.ReleaseInstallsSince(ctx, rel.ID, 7); err == nil {
+				in.InstallsWeek = n
+			}
+			if in.ShowCrashes {
+				if c, err := h.db.BuildCrashCounts(ctx, rel.Version); err == nil {
+					in.Crashes = c
+				} else {
+					log.Printf("[releases] crash counts: %v", err)
+				}
+			}
+			data["R2"] = buildReleaseR2(in)
 		}
 	}
 	h.render(w, r, "releases.html", data)

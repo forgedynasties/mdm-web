@@ -7842,6 +7842,9 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .oc-todo small{display:block;opacity:.85;font-size:12px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .oc-todo a{flex:none;background:#16161c;color:#fff;border-radius:99px;padding:6px 13px;font-size:12px;font-weight:650;text-decoration:none}
 .oc-todo a:hover{background:#000}
+.oc-todo form{margin:0;flex:none}
+.oc-todo button{font:inherit;border:0;cursor:pointer;background:#16161c;color:#fff;border-radius:99px;padding:6px 13px;font-size:12px;font-weight:650}
+.oc-todo button:hover{background:#000}
 .oc-more{display:inline-flex;gap:6px;margin-top:12px;color:inherit;font-size:12.5px;font-weight:650;text-decoration:none;opacity:.92}
 .oc-more:hover{text-decoration:underline}.oc-more i{font-style:normal}
 .oc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 24px}
