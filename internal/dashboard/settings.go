@@ -76,7 +76,18 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	deviceQueries, _ := h.db.ListDeviceQueries(r.Context())
 	repoApps, _ := h.db.ListApps(r.Context())
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
+	// People & sign-in (S1): who is signed in now, by name, and the access profiles.
+	signedIn, _ := h.db.SignedInNow(r.Context())
+	names := map[string]string{}
+	if us, err := h.db.ListUsers(r.Context()); err == nil {
+		for _, u := range us {
+			names[u.Username] = u.DisplayName()
+		}
+	}
+	accessProfiles, _ := h.db.ListAccessProfiles(r.Context())
 	h.render(w, r, "settings.html", map[string]any{
+		"S1": buildSettingsS1(s1Inputs{TimeoutSecs: h.cfg.SessionTimeout(), SignedIn: signedIn, Names: names, Profiles: accessProfiles, Now: time.Now()}),
+		"SignedInN": len(signedIn),
 		"Title":            "Settings",
 		"AgentAPKURL":      h.cfg.AgentAPKURL(),
 		"AgentAPKChecksum": h.cfg.AgentAPKChecksum(),

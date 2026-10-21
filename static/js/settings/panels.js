@@ -16,7 +16,7 @@
   });
   var initial = (location.hash || '').replace('#', '');
   // legacy deep-links from older tabs
-  var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'general', tools: 'devices', testing: 'general' };
+  var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'people', sessions: 'people', tools: 'devices', testing: 'general' };
   if (alias[initial]) initial = alias[initial];
   if (!initial || !show(initial)) show('general');
   // in-page links to /settings#tab (and back/forward) switch tabs too
@@ -82,3 +82,11 @@ document.addEventListener('submit', function (e) {
     });
   });
 })();
+
+// People & sign-in (S1): a switch row's On/Off word follows its switch after the
+// in-place toggle swaps the button.
+document.body.addEventListener('htmx:afterSettle', function () {
+  document.querySelectorAll('.s1-sw').forEach(function (row) {
+    var st = row.querySelector('.s1-st'); if (st) st.textContent = row.querySelector('.sw-toggle.on') ? 'On' : 'Off';
+  });
+});

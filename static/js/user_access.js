@@ -11,7 +11,8 @@
   };
   function $(id){ return document.getElementById(id); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-  function go(msg, type){ location.href = BASE + '?flash=' + encodeURIComponent(msg) + '&flash_type=' + (type || 'ok'); }
+  // I1 (21 Oct 2026): the editor lives on the person's page; saving comes back to it.
+  function go(msg, type){ location.href = '/users/' + UID + '/profile?flash=' + encodeURIComponent(msg) + '&flash_type=' + (type || 'ok'); }
   function post(url, body){
     // FormData → urlencoded: the handlers read r.Form (ParseForm), which does not parse multipart.
     var enc = new URLSearchParams(); if (body) body.forEach(function(v, k){ enc.append(k, v); });
@@ -254,3 +255,15 @@
     placesRender(); sPreview();
   }
 })();
+
+// I1: Edit on an answer opens the two-question editor in place; Advanced rules opens the
+// rules under the Access card.
+function i1Edit(more) {
+  var box = document.getElementById('i1-edit'); if (!box) return;
+  box.hidden = false;
+  if (more) { var m = box.querySelector('.ua-more'); if (m) m.open = true; }
+  box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function i1EditClose() { var box = document.getElementById('i1-edit'); if (box) box.hidden = true; }
+function i1Rules() { var d = document.getElementById('ua-adv'); if (d) { d.open = true; d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } }
+(function () { if (/[?&]open=rules/.test(location.search)) { var d = document.getElementById('ua-adv'); if (d) d.open = true; } })();
