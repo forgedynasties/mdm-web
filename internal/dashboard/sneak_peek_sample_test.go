@@ -111,10 +111,13 @@ func TestSneakPeekOverviewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		// The O2 layout (20 Oct): banner, type chips, venue cards, clean-up table, rail.
+		// The C layout (21 Oct): filters, to-do banner, delta cards, pill chart, rollouts;
+		// venue cards, clean-up table and the rail from O2.
 		`class="ov2-ban`, `<b>Bluefin Sushi Bar</b>`, `2 need a look`, `3 devices waiting for a site`,
 		`<b>Compliance</b>`, `>84%</text>`,
-		`<b>Tableside AI</b>`, `<b>Menu board</b>`, `<b>Kitchen display</b>`,
+		`href="/sneak-peek?type=kds"`, `to look at today`, `class="oc-todo"`,
+		`<span class="lb">TSAI</span>`, `<span class="lb">Menu</span>`, `<span class="lb">KDS</span>`,
+		`Firmware MDM 1.13.10`, `>Stability</a>`,
 		`Needs attention`, `Clean up <span>`, `class="ov2-rail"`,
 	} {
 		if !strings.Contains(out, want) {

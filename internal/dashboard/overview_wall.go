@@ -3,10 +3,14 @@ package dashboard
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"sort"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/google/uuid"
 
 	"mdm/internal/db"
 	"mdm/internal/product"
@@ -35,7 +39,7 @@ func overviewChoice(r *http.Request) string {
 // view model: the needs-attention list, devices by type, the venues and compliance.
 // The device wall and the map were removed (19 Oct 2026: the Venues widget replaced the
 // wall, and the map left the Overview; /map is unchanged).
-func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary db.Summary, groups []db.GroupHealth, inboxN int) {
+func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary db.Summary, groups []db.GroupHealth, inboxN int, crashStats db.FleetCrashStats) {
 	ctx := r.Context()
 	acc := h.access(r)
 	var (
@@ -45,16 +49,19 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		products []compRole
 		hygiene  db.FleetHygiene
 		hygErr   error
+		rollouts []db.Rollout
 		wg       sync.WaitGroup
 	)
 	run := func(f func()) {
 		wg.Add(1)
 		go func() { defer wg.Done(); f() }()
 	}
+	connected := h.connectedSlice()
 	run(func() { active, _ = h.db.ListActiveAlerts(ctx, 300) })
-	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, h.connectedSlice(), acc.hidesDPC()) })
+	run(func() { classOn, _ = h.db.FleetClassOnline(ctx, connected, acc.hidesDPC()) })
 	run(func() { wallDevs, _ = h.db.FleetWall(ctx, acc.hidesDPC()) })
 	run(func() { products, _ = h.overviewProducts(ctx, acc.hidesDPC()) })
+	run(func() { rollouts, _ = h.db.RecentRollouts(ctx, 7) })
 	// The clean-up checklist is about the whole fleet list, so it is for viewers who
 	// see the whole fleet.
 	if !acc.hidesDevices() {
@@ -64,11 +71,42 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	}
 	wg.Wait()
 
+	// The filter pills (C, 21 Oct 2026): types present in the fleet, venues with devices.
+	byCount := append([]db.ClassOnline(nil), classOn...)
+	sort.SliceStable(byCount, func(i, j int) bool { return byCount[i].Total > byCount[j].Total })
+	var classes []string
+	for _, c := range byCount { // biggest first, like the pill chart
+		if c.Class != "" && c.Total > 0 {
+			classes = append(classes, c.Class)
+		}
+	}
+	var venueOpts []ovVenueOpt
+	for _, g := range groups {
+		if g.DeviceCount > 0 {
+			venueOpts = append(venueOpts, ovVenueOpt{g.GroupID, g.Name})
+		}
+	}
+	sort.SliceStable(venueOpts, func(i, j int) bool {
+		return strings.ToLower(venueOpts[i].Name) < strings.ToLower(venueOpts[j].Name)
+	})
+	sc := parseOvScope(r, "/", classes, venueOpts)
+	trend, err := h.db.OverviewTrend(ctx, sc.dbScope(), ovTrendDays(sc.Window))
+	if err != nil {
+		log.Printf("[overview] trend: %v", err)
+	}
+
+	conn := make(map[uuid.UUID]bool, len(connected))
+	for _, id := range connected {
+		conn[id] = true
+	}
+	devs := ovDevsFromWall(wallDevs, conn)
+	now := time.Now()
+
 	if products != nil {
 		data["Products"] = products
 	}
-	active = acc.keepVisibleAlerts(active)
-	att, attN, attCrit := buildAttention(active, inboxN)
+	active = ovScopeAlerts(acc.keepVisibleAlerts(active), devs, sc)
+	att, attN, attCrit := buildAttention(active, ovScopeInbox(inboxN, devs, sc))
 	data["AttentionRows"] = att
 	data["AttentionTotal"] = attN
 	data["AttentionCritical"] = attCrit
@@ -80,11 +118,42 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
 	}
 
+	// Venues for the banner's "worst venue" row: those inside the scope.
+	scopedGroups := groups
+	if sc.Class != "" {
+		has := map[uuid.UUID]bool{}
+		for _, d := range devs {
+			if d.Venue != nil && d.Class == sc.Class {
+				has[*d.Venue] = true
+			}
+		}
+		scopedGroups = nil
+		for _, g := range groups {
+			if has[g.GroupID] {
+				scopedGroups = append(scopedGroups, g)
+			}
+		}
+	}
+	online, total := 0, 0
+	for _, d := range devs {
+		if sc.keeps(d.Class, d.Venue) {
+			total++
+			if d.Online {
+				online++
+			}
+		}
+	}
+	data["Scope"] = sc
+	data["OvBanner"] = buildOvBanner(att, attN, scopedGroups, crashStats.ByRestaurant, trend, sc, online, total)
+	data["OvStats"] = buildOvStats(trend, devs, sc, now)
+	data["OvPills"] = buildOvPills(devs, active, sc)
+	data["OvRollouts"] = buildOvRollouts(rollouts, now)
+
 	// The rail greets by first name (O2, 20 Oct).
 	if u, err := h.db.GetUserByUsername(ctx, h.currentUsername(r)); err == nil && u != nil {
 		data["FirstName"] = u.FirstName
 	}
-	data["Venues"] = h.overviewVenueData(r, wallDevs)
+	data["Venues"] = h.overviewVenueData(r, wallDevs, sc)
 	data["Compliance"] = h.overviewCompliance(r)
 }
 

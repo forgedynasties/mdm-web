@@ -26,20 +26,37 @@ type overviewVenues struct {
 
 // overviewVenueData builds the widget. wallDevs is the device list the rest of the
 // Overview already loaded; it only supplies the count of devices at no venue.
-func (h *Handler) overviewVenueData(r *http.Request, wallDevs []db.WallDevice) overviewVenues {
+// sc is the Overview's filter: a chosen venue shows only itself, a chosen type only
+// the venues with a device of that type (C, 21 Oct 2026).
+func (h *Handler) overviewVenueData(r *http.Request, wallDevs []db.WallDevice, sc ovScope) overviewVenues {
 	acc := h.access(r)
 	rows, _ := h.collRows(r, "restaurants")
+	hasClass := map[string]bool{}
+	if sc.Class != "" {
+		for _, d := range wallDevs {
+			if d.RestaurantID != nil && d.Class == sc.Class {
+				hasClass[d.RestaurantID.String()] = true
+			}
+		}
+	}
 	keep := rows[:0]
 	for _, v := range rows {
 		// A scoped viewer sees only the venues they have a device in.
 		if acc.hidesDevices() && v.Devices == 0 {
 			continue
 		}
+		if sc.Venue != nil && v.ID != sc.Venue.String() {
+			continue
+		}
+		if sc.Class != "" && !hasClass[v.ID] {
+			continue
+		}
 		keep = append(keep, v)
 	}
 	unplaced := 0
 	for _, d := range wallDevs {
-		if d.RestaurantID == nil && (!acc.hidesDevices() || acc.visible(d.ID)) {
+		if d.RestaurantID == nil && (!acc.hidesDevices() || acc.visible(d.ID)) && sc.Venue == nil &&
+			(sc.Class == "" || d.Class == sc.Class) {
 			unplaced++
 		}
 	}

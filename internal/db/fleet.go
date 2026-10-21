@@ -142,6 +142,9 @@ type WallDevice struct {
 	Class        string
 	RestaurantID *uuid.UUID
 	LastSeenAt   time.Time
+	BatteryPct   int      // latest reported; meaningless when HasBattery is false
+	HasBattery   bool     // false for mains-powered devices (kiosk, KDS, POS, menu board)
+	TempC        *float64 // latest battery_temp_c, nil when not reported
 }
 
 // FleetWall lists every active device with its class and restaurant, for the
@@ -152,7 +155,10 @@ func (d *DB) FleetWall(ctx context.Context, excludeDPC bool) ([]WallDevice, erro
 		kindWhere = " AND agent_kind <> 'dpc'"
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, serial_number, `+derivedClassSQL()+`, restaurant_id, last_seen_at
+		SELECT id, serial_number, `+derivedClassSQL()+`, restaurant_id, last_seen_at,
+		       latest_battery_pct, (`+prod.BatteryPredicateSQL("devices")+`),
+		       CASE WHEN latest_extra->>'battery_temp_c' ~ '^-?[0-9]+(\.[0-9]+)?$'
+		            THEN (latest_extra->>'battery_temp_c')::float8 END
 		FROM devices
 		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`+kindWhere+`
 		ORDER BY serial_number`)
@@ -163,7 +169,8 @@ func (d *DB) FleetWall(ctx context.Context, excludeDPC bool) ([]WallDevice, erro
 	var out []WallDevice
 	for rows.Next() {
 		var w WallDevice
-		if err := rows.Scan(&w.ID, &w.Serial, &w.Class, &w.RestaurantID, &w.LastSeenAt); err != nil {
+		if err := rows.Scan(&w.ID, &w.Serial, &w.Class, &w.RestaurantID, &w.LastSeenAt,
+			&w.BatteryPct, &w.HasBattery, &w.TempC); err != nil {
 			return nil, err
 		}
 		out = append(out, w)

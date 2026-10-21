@@ -94,7 +94,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	data := h.overviewViewModel(r, summary, groups, hot, d14, openCount, crashStats, versions, deployments, prodCounts, activeSecs, inbox, inboxN)
 	data["OverviewSwitch"] = true
 	if newOverview {
-		h.overviewNewData(r, data, summary, groups, inboxN)
+		h.overviewNewData(r, data, summary, groups, inboxN, crashStats)
 		h.render(w, r, "overview_new.html", data)
 		return
 	}

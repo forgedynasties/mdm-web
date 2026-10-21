@@ -571,3 +571,48 @@ func (s *sneakPeekSample) OpenAlerts() int { return len(s.alerts) }
 func f64Ptr(v float64) *float64 { return &v }
 func f32Ptr(v float32) *float32 { return &v }
 func strPtr(v string) *string   { return &v }
+
+// OvDevs is the sample fleet as the Overview's C builders read it.
+func (s *sneakPeekSample) OvDevs() []ovDev {
+	out := make([]ovDev, 0, len(s.devices))
+	for _, d := range s.devices {
+		t := d.temp
+		od := ovDev{ID: d.ID, Class: d.class, Online: d.online, SeenAt: d.LastSeenAt, Battery: d.BatteryPct,
+			HasBatt: product.ClassIsBatteryPowered(d.class), TempC: &t, Unplaced: d.venue < 0}
+		if d.venue >= 0 {
+			id := sneakPeekVenueID(d.venue)
+			od.Venue = &id
+		}
+		out = append(out, od)
+	}
+	return out
+}
+
+// Trend is the delta cards' history: the 14 days of Daily, with a few crashes a day
+// ending at today's 24 h count.
+func (s *sneakPeekSample) Trend(sum db.Summary) db.ScopedTrend {
+	var tr db.ScopedTrend
+	cs := s.CrashStats()
+	for i, d := range s.Daily(sum) {
+		tr.Days = append(tr.Days, db.ScopedDay{Day: d.Day, Active: d.Active, LowBattery: d.LowBattery, Hot: d.Hot,
+			BatteryAvg: d.BatteryAvg, Crashes: 2 + (i*5)%7})
+	}
+	if n := len(tr.Days); n > 0 {
+		tr.Days[n-1].Crashes = cs.Total24h
+	}
+	tr.Crashes24h, tr.CrashesPrev = cs.Total24h, cs.Total24h+3
+	return tr
+}
+
+// RolloutBars is the last week's rollouts: the firmware stragglers still going, and a
+// finished client auto-update and app install before them.
+func (s *sneakPeekSample) RolloutBars() []db.Rollout {
+	return []db.Rollout{
+		{Kind: "app_update", Package: "com.aioapp.mdm", Name: "1.13.10", Who: "auto-update",
+			Start: s.now.Add(-122 * time.Hour), End: s.now.Add(-70 * time.Hour), Total: 76, Done: 76},
+		{Kind: "install_apk", Name: "Menu Boards 3.4.1", Who: "maria.lopez@aioapp.com",
+			Start: s.now.Add(-50 * time.Hour), End: s.now.Add(-46 * time.Hour), Total: 18, Done: 17, Failed: 1},
+		{Kind: "ota", Name: "v2.1.034", Product: product.KeyT7, Who: "ops", Status: "active",
+			Start: s.now.Add(-50 * time.Minute), End: s.now, Total: 5, InFlight: 5, ReleaseID: 90000, DeploymentID: 9001},
+	}
+}

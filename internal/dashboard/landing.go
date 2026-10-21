@@ -9,6 +9,7 @@ import (
 	_ "image/jpeg"
 	"log"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -62,8 +63,68 @@ func (h *Handler) sneakPeekOverview(r *http.Request, s *sneakPeekSample, activeS
 	data["AttentionRows"], data["AttentionTotal"], data["AttentionCritical"] = att, attN, attCrit
 	data["ClassOnline"] = classOnlineRows(classOn)
 	data["Hygiene"] = hygieneRows(s.Hygiene(summary))
-	data["Venues"] = s.Venues(groups)
 	data["Compliance"] = s.Compliance()
+
+	// Overview C: the filters work in the preview too, against the sample.
+	devs := s.OvDevs()
+	byCount := append([]db.ClassOnline(nil), classOn...)
+	sort.SliceStable(byCount, func(i, j int) bool { return byCount[i].Total > byCount[j].Total })
+	var classes []string
+	for _, c := range byCount {
+		classes = append(classes, c.Class)
+	}
+	var venueOpts []ovVenueOpt
+	for i, v := range spVenues {
+		venueOpts = append(venueOpts, ovVenueOpt{sneakPeekVenueID(i), v.name})
+	}
+	sc := parseOvScope(r, "/sneak-peek", classes, venueOpts)
+	tr := s.Trend(summary)
+	alerts := ovScopeAlerts(s.alerts, devs, sc)
+	att, attN, attCrit = buildAttention(alerts, ovScopeInbox(s.Inbox(), devs, sc))
+	data["AttentionRows"], data["AttentionTotal"], data["AttentionCritical"] = att, attN, attCrit
+	online, total := 0, 0
+	has := map[uuid.UUID]bool{}
+	for _, d := range devs {
+		if sc.keeps(d.Class, d.Venue) {
+			total++
+			if d.Online {
+				online++
+			}
+			if d.Venue != nil {
+				has[*d.Venue] = true
+			}
+		}
+	}
+	var scopedGroups []db.GroupHealth
+	for _, g := range groups {
+		if !sc.On || has[g.GroupID] {
+			scopedGroups = append(scopedGroups, g)
+		}
+	}
+	venues := s.Venues(groups)
+	if sc.On {
+		rows := venues.Rows[:0]
+		for _, v := range venues.Rows {
+			if id, err := uuid.Parse(v.ID); err == nil && has[id] {
+				rows = append(rows, v)
+			}
+		}
+		venues.Rows, venues.Total, venues.NeedLook = rows, len(rows), 0
+		for _, v := range rows {
+			if v.NeedsLook {
+				venues.NeedLook++
+			}
+		}
+		if sc.Venue != nil {
+			venues.Unplaced = 0
+		}
+	}
+	data["Venues"] = venues
+	data["Scope"] = sc
+	data["OvBanner"] = buildOvBanner(att, attN, scopedGroups, s.CrashStats().ByRestaurant, tr, sc, online, total)
+	data["OvStats"] = buildOvStats(tr, devs, sc, s.now)
+	data["OvPills"] = buildOvPills(devs, alerts, sc)
+	data["OvRollouts"] = buildOvRollouts(s.RolloutBars(), s.now)
 	if summary.Total > 0 {
 		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
 	}

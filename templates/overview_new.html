@@ -246,14 +246,6 @@
 .ov2-go{display:inline-flex;align-items:center;gap:10px;background:#16161c;color:#fff;border-radius:99px;padding:8px 9px 8px 16px;font-size:13px;font-weight:600;text-decoration:none}
 .ov2-go i{width:22px;height:22px;border-radius:50%;background:#fff;color:#16161c;display:grid;place-items:center;font-style:normal;font-size:12px}
 .ov2-go:hover{background:#000}
-.ov2-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin:14px 0 24px}
-.ov2-chip{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 11px;text-decoration:none;color:inherit;min-width:0}
-.ov2-chip:hover{border-color:var(--rule-2)}
-.ov2-chip .ic{width:32px;height:32px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--ok-bg);color:var(--ok);font-weight:750;font-size:11.5px}
-.ov2-chip .ic.part{background:var(--warn-bg);color:var(--warn)}
-.ov2-chip small{display:block;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.ov2-chip>span:last-child{min-width:0}
-.ov2-chip b{display:block;font-size:13px;font-weight:650;line-height:1.25}
 .ov2-sec{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px}
 .ov2-sec h2{margin:0;font-family:var(--font-display);font-size:18px;font-weight:500;letter-spacing:-.01em}
 .ov2-sec h2 span{font-family:var(--font);font-size:12.5px;color:var(--muted);font-weight:500;margin-left:6px;letter-spacing:0}
@@ -330,6 +322,94 @@
 .ov2-comp b{display:block;font-size:13.5px;font-weight:650}
 .ov2-comp small{display:block;font-size:11.5px;color:var(--muted)}
 .ov2-comp em{font-style:normal;color:var(--warn);font-weight:650}
+
+/* ── C: filter pills, to-do banner, delta cards, pill chart, rollouts (21 Oct 2026) ── */
+.oc-bar{display:flex;align-items:center;gap:8px;margin:0 0 12px;justify-content:flex-end;flex-wrap:wrap}
+.oc-bar .lbl{margin-right:auto;font-size:12.5px;color:var(--muted)}
+.oc-bar .lbl b{color:var(--text);font-weight:650}
+.oc-f,.oc-cm{position:relative}
+.oc-fb{font:inherit;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:7px 12px 7px 14px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;max-width:260px}
+.oc-fb b{color:var(--text);font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-fb:hover{border-color:var(--rule-2)}
+.oc-fb.set{border-color:var(--accent);background:var(--accent-soft)}
+.oc-fb svg{width:12px;height:12px;flex:none;stroke:currentColor;fill:none;stroke-width:2}
+.oc-f .cc-menu,.oc-cm .cc-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:200px}
+.oc-scroll{max-height:340px;overflow-y:auto}
+.oc-clear{font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none;padding:6px}
+.oc-clear:hover{text-decoration:underline}
+.oc-scope{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;font-size:12px;font-weight:600;background:rgba(255,255,255,.18);border-radius:99px;padding:4px 5px 4px 12px}
+.oc-scope a{display:grid;place-items:center;background:rgba(0,0,0,.25);color:#fff;border-radius:99px;width:20px;height:20px;text-decoration:none;line-height:1}
+.is-calm .oc-scope{background:var(--surface2)}.is-calm .oc-scope a{background:var(--text-faint)}
+.oc-todo{list-style:none;counter-reset:oc;margin:4px 0 2px;padding:0;display:grid;gap:8px;max-width:680px}
+.oc-todo li{counter-increment:oc;display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.14);border-radius:14px;padding:9px 9px 9px 12px;font-size:13.5px;font-weight:550}
+.oc-todo li::before{content:counter(oc);width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.92);color:#b8321f;display:grid;place-items:center;font-size:11.5px;font-weight:800;flex:none}
+.oc-todo .t{flex:1;min-width:0}
+.oc-todo small{display:block;opacity:.85;font-size:12px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-todo a{flex:none;background:#16161c;color:#fff;border-radius:99px;padding:6px 13px;font-size:12px;font-weight:650;text-decoration:none}
+.oc-todo a:hover{background:#000}
+.oc-more{display:inline-flex;gap:6px;margin-top:12px;color:inherit;font-size:12.5px;font-weight:650;text-decoration:none;opacity:.92}
+.oc-more:hover{text-decoration:underline}.oc-more i{font-style:normal}
+.oc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 24px}
+.oc-st{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px 16px 0;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.oc-st:hover{border-color:var(--rule-2)}
+.oc-sth{display:flex;justify-content:space-between;align-items:center}
+.oc-sth>a{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-decoration:none}
+.oc-sth>a:hover{color:var(--text)}
+.oc-dots{font:inherit;border:0;background:none;color:var(--muted);cursor:pointer;font-size:15px;letter-spacing:1px;padding:0 3px;line-height:1;border-radius:6px}
+.oc-dots:hover{color:var(--text);background:var(--surface2)}
+.oc-stm{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 4px;text-decoration:none;color:inherit}
+.oc-stm>span{min-width:0}
+.oc-tri{display:block;font-size:11px;font-weight:700;min-height:15px}
+.oc-tri.good{color:var(--ok)}.oc-tri.bad{color:var(--danger)}.oc-tri.flat{color:var(--muted)}
+.oc-stm b{display:block;font-family:var(--font-display);font-weight:500;font-size:28px;letter-spacing:-.02em;line-height:1.05;font-variant-numeric:tabular-nums}
+.oc-stm small{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-sp{display:block;width:calc(100% + 32px);margin:4px -16px 0;height:54px}
+.oc-sp path{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.oc-sp .a{stroke:var(--ok)}.oc-sp .b{stroke:var(--warn)}
+.oc-sp .fa{fill:color-mix(in srgb,var(--ok) 12%,transparent);stroke:none}
+.oc-empty{margin:10px 0 16px;font-size:12.5px;color:var(--muted);line-height:1.5}
+.oc-two{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,1.25fr);gap:14px;margin:0 0 24px}
+.oc-two.solo{grid-template-columns:1fr}
+.oc-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px 18px 12px;display:flex;flex-direction:column;min-width:0}
+.oc-ch{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
+.oc-ch h2{margin:0;font-family:var(--font-display);font-size:18px;font-weight:500}
+.oc-ch h2 span{font-family:var(--font);font-size:12.5px;color:var(--muted);font-weight:500;margin-left:6px}
+.oc-foot{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px;border-top:1px solid var(--border-soft);margin-top:auto;padding-top:10px;font-size:11.5px;color:var(--muted)}
+.oc-foot span{display:inline-flex;align-items:center;gap:6px}
+.oc-foot i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.oc-foot .tot{margin-left:auto}.oc-foot .tot b{color:var(--text)}
+.k-on{background:#8fd47a}.k-run{background:var(--accent)}.k-al{background:#f6a43c}.k-off{background:var(--surface);box-shadow:inset 0 0 0 1.5px var(--text-faint)}
+.oc-pc{display:grid;gap:6px;align-items:stretch;min-height:250px;margin-bottom:10px}
+.oc-pcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;position:relative;text-decoration:none;color:inherit;min-width:0}
+.oc-pcol::before{content:"";position:absolute;top:0;bottom:26px;left:50%;border-left:1px dashed var(--border)}
+.oc-pcol>*{position:relative}
+.oc-pill{width:36px;border-radius:99px;display:grid;place-items:center;font-size:11.5px;font-weight:750;font-variant-numeric:tabular-nums;min-height:28px}
+.oc-pill.on{background:#8fd47a;color:#14301c}
+.oc-pill.off{background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1.5px var(--border)}
+.oc-pill.al{background:#f6a43c;color:#2b1a00}
+.oc-pdot{width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
+.oc-pcol .lb{font-size:11.5px;font-weight:650;color:var(--text-2);height:16px;white-space:nowrap}
+.oc-pcol:hover .lb{color:var(--text);text-decoration:underline}
+.oc-tl{display:grid;grid-template-columns:132px minmax(0,1fr);column-gap:10px;margin-bottom:10px}
+.oc-two.solo .oc-tl{grid-template-columns:200px minmax(0,1fr);column-gap:14px}
+.oc-tl-l{display:flex;flex-direction:column;justify-content:center;min-width:0;height:44px}
+.oc-tl-l b{font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-tl-l small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oc-tl-r{position:relative;height:44px;overflow:hidden;background-image:repeating-linear-gradient(90deg,var(--border-soft) 0 1px,transparent 1px calc(100%/7))}
+.oc-tl-r::after{content:"";position:absolute;top:0;bottom:0;left:var(--now);border-left:1.5px dashed var(--accent);opacity:.6}
+.oc-tb{position:absolute;top:8px;height:28px;border-radius:99px;display:flex;align-items:center;gap:6px;padding:0 10px 0 3px;font-size:11.5px;font-weight:700;color:#14301c;text-decoration:none;white-space:nowrap;box-sizing:border-box;overflow:hidden;min-width:104px;max-width:100%}
+.oc-tb:hover{filter:brightness(1.05);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.oc-tb .ic{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;font-weight:800;background:rgba(255,255,255,.85);color:#222;flex:none}
+.oc-tb .av{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:8.5px;font-weight:800;color:#fff;flex:none;margin-left:-4px;box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+.oc-tb .n{margin-left:auto;font-variant-numeric:tabular-nums;padding-left:4px}
+.oc-tb.ok{background:#8fd47a}
+.oc-tb.run{background:var(--accent);color:#fff}
+.oc-tb.warn{background:#f6a43c;color:#2b1a00}
+.oc-tb.q{background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1.5px var(--border)}
+.oc-tb.q .ic{background:var(--surface2)}
+.oc-tl-ax{grid-column:2;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:10.5px;color:var(--muted);margin-top:6px}
+.oc-tl-ax span{white-space:nowrap;overflow:hidden}
+.oc-tl-ax span:last-child{color:var(--accent-text);font-weight:700}
 </style>
 
 <div class="ovd">
@@ -342,9 +422,9 @@
     <div class="ovd-intro-k">New look</div>
     <h2 id="ovd-intro-t">The Overview has been redesigned</h2>
     <ul>
-      <li><b>A banner</b> that says in one sentence what needs you, with a button to start.</li>
-      <li><b>Each device type</b> with how many are online, and <b>venues</b> worst first as cards.</li>
-      <li><b>A rail on the right</b>: fleet health, the last seven days, what needs attention and compliance.</li>
+      <li><b>Filters</b> at the top narrow the page to one device type, one venue, or both.</li>
+      <li><b>The banner</b> is a short to-do list, each item with its own button, and three cards show what changed since yesterday.</li>
+      <li><b>Devices by type</b> as a chart, and <b>Rollouts</b>: every firmware push, client update and app install of the last seven days.</li>
     </ul>
     <div class="ovd-intro-b"><button type="button" class="ovd-intro-ok" id="ovd-intro-ok">Got it</button></div>
   </div>
@@ -352,28 +432,60 @@
   {{/* No visible title: the page is the dock's Overview. The heading stays for screen readers. */}}
   <h1 class="sr-only">Overview</h1>
 
-  {{/* Banner and a right-hand rail (O2, picked 20 Oct 2026). Main column: a banner that
-       says in one sentence what to do next, a chip per device type, the venues worst first
-       as cards, the clean-up jobs. Rail: fleet health with a greeting and the last seven
-       days, what needs attention, compliance. A calm day gets a calm banner. */}}
+  {{/* Overview C (picked 21 Oct 2026): filter pills (type · venue · window) that scope the
+       page; a banner that is a short to-do list (W3); Devices / Stability / Battery delta
+       cards; the venues worst first; devices by type as a pill chart beside the last seven
+       days' rollouts; clean up. The rail stays from O2 (20 Oct). Rollouts, Clean up and the
+       rail's ring, greeting and bars are fleet-wide; the rest follows the filters. */}}
   {{$prob := .AttentionTotal}}
   <div class="ov2">
     <div class="ov2-main">
-      <div class="ov2-ban {{if .AttentionCritical}}is-bad{{else if $prob}}is-warn{{else}}is-calm{{end}}">
-        <div class="ov2-ban-k">Fleet health · {{.Score}} · {{.StatusWord}}</div>
-        <h2>{{if $prob}}{{$prob}} problem{{if ne $prob 1}}s{{end}} need{{if eq $prob 1}}s{{end}} you{{if .AttentionCritical}}, {{.AttentionCritical}} critical{{end}}{{else}}Everything is running{{end}}</h2>
-        <p>{{.HeroSentence}}</p>
-        {{if $prob}}<a class="ov2-go" href="{{with .AttentionRows}}{{(index . 0).Href}}{{else}}/alerts{{end}}">Start with the worst<i aria-hidden="true">→</i></a>{{else}}<a class="ov2-go" href="/devices">Open the fleet<i aria-hidden="true">→</i></a>{{end}}
+      {{with .Scope}}
+      <div class="oc-bar" role="group" aria-label="Filter the Overview">
+        <span class="lbl">{{$.DateLine}}{{if .On}} · <b>{{.Label}}</b>{{end}}</span>
+        {{if .On}}<a class="oc-clear" href="{{.ClearHref}}">Clear filters</a>{{end}}
+        <div class="oc-f"><button class="oc-fb{{if .Class}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .Class}}{{.ClassLabel}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden>{{range .Types}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+        <div class="oc-f"><button class="oc-fb{{if .Venue}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .Venue}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Window: <b>{{.WindowLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden>{{range .Windows}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
       </div>
+      {{end}}
 
-      {{if .ClassOnline}}
-      <div class="ov2-chips">
-        {{range .ClassOnline}}{{if .Class}}{{/* no Unassigned chip (20 Oct, user) */}}
-        <a class="ov2-chip" href="/devices?class={{.Class}}">
-          <span class="ic{{if lt .Online .Total}} part{{end}}">{{classShort .Class}}</span>
-          <span><small>{{.Online}} / {{.Total}} online</small><b>{{.Label}}</b></span>
-        </a>
-        {{end}}{{end}}
+      {{with .OvBanner}}
+      <div class="ov2-ban is-{{.Tone}}">
+        {{if $.Scope.On}}<div class="oc-scope">Showing {{$.Scope.Label}} only <a href="{{$.Scope.ClearHref}}" aria-label="Clear filters">×</a></div>{{end}}
+        <div class="ov2-ban-k">Fleet health · {{$.Score}} · {{$.StatusWord}}</div>
+        <h2>{{.Headline}}</h2>
+        {{if .Todos}}
+        <ol class="oc-todo">
+          {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+        </ol>
+        {{if .More}}<a class="oc-more" href="/alerts">{{.More}} more in Needs attention <i aria-hidden="true">→</i></a>{{end}}
+        {{else}}
+        <p>{{.Calm}}</p>
+        <a class="ov2-go" href="/devices">Open the fleet<i aria-hidden="true">→</i></a>
+        {{end}}
+      </div>
+      {{end}}
+
+      {{with .OvStats}}
+      <div class="oc-stats">
+        {{range .}}
+        <div class="oc-st">
+          <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a>
+            <span class="oc-cm"><button class="oc-dots" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More about {{.Title}}">···</button>
+              <div class="cc-menu" hidden>{{range .Links}}<a class="cc-mi" href="{{.Href}}">{{.Label}}</a>{{end}}</div></span></div>
+          {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
+          <a class="oc-stm" href="{{.Href}}">
+            {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+            {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+          </a>
+          {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/>{{with .LineB}}<path class="b" d="{{.}}"/>{{end}}</svg>{{end}}
+          {{end}}
+        </div>
+        {{end}}
       </div>
       {{end}}
 
@@ -398,8 +510,47 @@
         {{if .Unplaced}}<a class="ov2-v ov2-v-more" href="/devices?onboarding=pending"><span class="bd"><b>Not at a venue</b><small>{{.Unplaced}} device{{if ne .Unplaced 1}}s{{end}} waiting for a site</small></span></a>{{end}}
       </div>
       {{else}}
-      <div class="cc-card"><div class="ovd-empty"><b>No venues yet.</b></div></div>
+      <div class="cc-card"><div class="ovd-empty"><b>{{if $.Scope.On}}No venues match these filters.{{else}}No venues yet.{{end}}</b></div></div>
       {{end}}
+      {{end}}
+
+      {{$pills := .OvPills}}{{$ro := .OvRollouts}}
+      {{if or $pills.Cols $ro.Bars}}
+      <div class="oc-two{{if not (and $pills.Cols $ro.Bars)}} solo{{end}}">
+        {{if $pills.Cols}}
+        <div class="oc-card">
+          <div class="oc-ch"><h2>Devices <span>by type</span></h2>
+            <span class="oc-cm"><button class="oc-dots" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More about devices by type">···</button>
+              <div class="cc-menu" hidden><a class="cc-mi" href="/devices">Open Fleet</a><a class="cc-mi" href="/lineup">Lineup</a></div></span></div>
+          <div class="oc-pc" style="grid-template-columns:repeat({{len $pills.Cols}},minmax(0,1fr))">
+            {{range $pills.Cols}}
+            <a class="oc-pcol" href="{{.Href}}" title="{{.Label}}: {{.Online}} online, {{.Offline}} offline{{if .Alerts}}, {{.Alerts}} with alerts{{end}}">
+              {{if .Alerts}}<span class="oc-pill al" style="height:{{.HAl}}px">{{.Alerts}}</span><span class="oc-pdot"></span>{{end}}
+              {{if .Offline}}<span class="oc-pill off" style="height:{{.HOff}}px">{{.Offline}}</span><span class="oc-pdot"></span>{{end}}
+              <span class="oc-pill on" style="height:{{.HOn}}px">{{.Online}}</span>
+              <span class="lb">{{.Short}}</span>
+            </a>
+            {{end}}
+          </div>
+          <div class="oc-foot"><span><i class="k-on"></i>Online</span><span><i class="k-off"></i>Offline</span><span><i class="k-al"></i>Alerts</span><span class="tot">Total: <b>{{$pills.Total}}</b></span></div>
+        </div>
+        {{end}}
+        {{if $ro.Bars}}
+        <div class="oc-card">
+          <div class="oc-ch"><h2>Rollouts <span>last 7 days{{if $ro.Running}} · {{$ro.Running}} running{{end}}{{if $ro.Stalled}} · {{$ro.Stalled}} stalled{{end}}</span></h2>
+            <span class="oc-cm"><button class="oc-dots" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More about rollouts">···</button>
+              <div class="cc-menu" hidden><a class="cc-mi" href="/releases">Releases</a><a class="cc-mi" href="/clients">Clients</a><a class="cc-mi" href="/jobs">Jobs</a></div></span></div>
+          <div class="oc-tl" style="--now:{{$ro.NowPct}}%">
+            {{range $ro.Bars}}
+            <div class="oc-tl-l"><b title="{{.Name}}">{{.Name}}</b><small>{{.Sub}}</small></div>
+            <div class="oc-tl-r"><a class="oc-tb {{.Tone}}" href="{{.Href}}" title="{{.Title}}" style="left:min({{.Left}}%, calc(100% - 104px));width:{{.Width}}%"><span class="ic">{{.Icon}}</span>{{if .Initials}}<span class="av" style="background:hsl({{.Hue}} 45% 46%)">{{.Initials}}</span>{{end}}<span class="n">{{.Count}}</span></a></div>
+            {{end}}
+            <div class="oc-tl-ax">{{range $ro.Days}}<span>{{.}}</span>{{end}}</div>
+          </div>
+          <div class="oc-foot"><span><i class="k-on"></i>Done</span><span><i class="k-run"></i>Running</span><span><i class="k-al"></i>Stalled</span><span><i class="k-off"></i>Scheduled</span><span class="tot">Total: <b>{{$ro.Devices}} devices</b></span></div>
+        </div>
+        {{end}}
+      </div>
       {{end}}
 
       {{if .Hygiene}}
