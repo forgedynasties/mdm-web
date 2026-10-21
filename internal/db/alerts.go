@@ -1022,3 +1022,27 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 	}
 	return out, rows.Err()
 }
+
+// AlertsRaised is how many alerts were raised in the last 24 hours and in the 24 before,
+// by severity, for the Alerts page's count cards (A1, 21 Oct 2026). Alerts on hidden
+// devices are left out, as everywhere else that counts them.
+type AlertsRaised struct {
+	Critical24, CriticalPrev int
+	Warning24, WarningPrev   int
+}
+
+func (d *DB) AlertsRaisedCounts(ctx context.Context, hideIdentity bool) (AlertsRaised, error) {
+	var r AlertsRaised
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FILTER (WHERE a.severity = 'critical' AND a.fired_at >  NOW() - INTERVAL '24 hours'),
+		       COUNT(*) FILTER (WHERE a.severity = 'critical' AND a.fired_at <= NOW() - INTERVAL '24 hours'),
+		       COUNT(*) FILTER (WHERE a.severity = 'warning'  AND a.fired_at >  NOW() - INTERVAL '24 hours'),
+		       COUNT(*) FILTER (WHERE a.severity = 'warning'  AND a.fired_at <= NOW() - INTERVAL '24 hours')
+		FROM alerts a
+		LEFT JOIN devices d ON d.id = a.device_id
+		WHERE a.fired_at > NOW() - INTERVAL '48 hours'
+		  AND (a.device_id IS NULL OR NOT d.hidden)
+		  AND NOT ($1 AND a.type IN `+superAdminAlertSQL+`)`, hideIdentity).
+		Scan(&r.Critical24, &r.CriticalPrev, &r.Warning24, &r.WarningPrev)
+	return r, err
+}

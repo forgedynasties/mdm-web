@@ -16,6 +16,7 @@ import (
 // the likely cause in the title and the alerts as its symptoms (30 Sep alert review).
 type problemView struct {
 	Key        string
+	Anchor     string // a safe HTML id for the row ("p-" + a hash of Key), set by alAnchors
 	Severity   string // the worst member's
 	Cause      alerts.Cause
 	Title      string
