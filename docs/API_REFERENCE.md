@@ -358,8 +358,8 @@ most 31 days per device, 7 days on the list). Each span says what was on screen:
 | `state` | `why` | Meaning |
 |---|---|---|
 | `on_screen` | `app_in_foreground` | The host app's variant in use is in front and the screen is on (or its screen state was never reported) |
-| `off_screen` | `app_not_in_foreground` | Something else is in front: the launcher, Settings, another app |
-| `off_screen` | `screen_off` | The host app is in front but the screen is off |
+| `off_screen` | `screen_off` | The screen is off (whatever app was in front) |
+| `off_screen` | `app_not_in_foreground` | The screen is on and something else is in front: the launcher, Settings, another app |
 | `unknown` | `no_report` | No host app report is kept for that time (older client, or before the first report) |
 | `unknown` | `device_offline` | After the device's last check-in, while it is offline |
 

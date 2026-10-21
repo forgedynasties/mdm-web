@@ -15,8 +15,8 @@ import (
 // and screen_on transitions (db.HostAppScreenEvents) into spans:
 //
 //	on_screen  · app_in_foreground       the host app's variant in use is in front, screen on
-//	off_screen · app_not_in_foreground   something else is in front (launcher, settings, …)
-//	off_screen · screen_off              the app is in front but the screen is off
+//	off_screen · screen_off              the screen is off (whatever was in front)
+//	off_screen · app_not_in_foreground   screen on, something else in front (launcher, settings, …)
 //	unknown    · no_report               no host app report kept yet for that time
 //	unknown    · device_offline          after the device's last check-in, while it is offline
 //
@@ -50,13 +50,15 @@ type qaScreenEvent struct {
 }
 
 func screenState(fg, scr string) (string, string) {
+	// Screen off wins: with the screen off nothing is on screen, and the client also
+	// reports the app as no longer in front a moment later (seen on live, 21 Oct).
 	switch {
 	case fg == "":
 		return "unknown", "no_report"
-	case fg != "true":
-		return "off_screen", "app_not_in_foreground"
 	case scr == "false":
 		return "off_screen", "screen_off"
+	case fg != "true":
+		return "off_screen", "app_not_in_foreground"
 	}
 	return "on_screen", "app_in_foreground"
 }

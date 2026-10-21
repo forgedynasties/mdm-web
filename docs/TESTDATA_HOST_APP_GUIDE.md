@@ -104,8 +104,8 @@ curl -s -H "X-API-Key: $QA_KEY" \
 | `state` | `why` | Meaning |
 |---|---|---|
 | `on_screen` | `app_in_foreground` | The host app is in front and the screen is on |
-| `off_screen` | `app_not_in_foreground` | Something else is in front: the launcher, Settings, another app |
-| `off_screen` | `screen_off` | The host app is in front but the screen is off |
+| `off_screen` | `screen_off` | The screen is off (whatever app was in front) |
+| `off_screen` | `app_not_in_foreground` | The screen is on and something else is in front: the launcher, Settings, another app |
 | `unknown` | `no_report` | No host app report for that time (client older than 1.11.0, or before 17 Oct) |
 | `unknown` | `device_offline` | After the device's last check-in, while it is offline |
 

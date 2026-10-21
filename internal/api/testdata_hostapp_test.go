@@ -47,6 +47,12 @@ func TestHostAppSpans(t *testing.T) {
 	if len(spans) != 2 || spans[0].Why != "no_report" || spans[1].State != "on_screen" || *tot.OnScreenPct != 100 {
 		t.Errorf("no-report start: %+v %+v", spans, tot)
 	}
+	// Screen off wins over "not in foreground" (the client drops the app when the screen goes).
+	spans, _ = hostAppSpans(map[string]string{"host_app_fg": "true", "screen_on": "true"},
+		[]db.ScreenStateEvent{ev(10, "screen_on", "false"), ev(10, "host_app_fg", "false")}, from, at(20), time.Time{})
+	if len(spans) != 2 || spans[1].Why != "screen_off" {
+		t.Errorf("screen off: %+v", spans)
+	}
 	// Nothing known at all.
 	spans, tot = hostAppSpans(nil, nil, from, to, time.Time{})
 	if len(spans) != 1 || spans[0].State != "unknown" || tot.OnScreenPct != nil {
