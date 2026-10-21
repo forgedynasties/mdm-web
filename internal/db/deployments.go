@@ -717,9 +717,11 @@ func (d *DB) CancelDeployment(ctx context.Context, updateID int) error {
 func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at, d.last_seen_at,
-		       ud.started_at, ud.completed_at, ud.reboot_sent_at
+		       ud.started_at, ud.completed_at, ud.reboot_sent_at,
+		       d.restaurant_id, COALESCE(r.name, ''), ud.source_build_id, ud.force_full
 		FROM update_devices ud
 		JOIN devices d ON d.id = ud.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE ud.update_id = $1
 		ORDER BY d.serial_number
 	`, updateID)
@@ -731,7 +733,8 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	var out []UpdateTarget
 	for rows.Next() {
 		var t UpdateTarget
-		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.LastSeenAt, &t.StartedAt, &t.CompletedAt, &t.RebootSentAt); err != nil {
+		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.LastSeenAt, &t.StartedAt, &t.CompletedAt, &t.RebootSentAt,
+			&t.VenueID, &t.Venue, &t.SourceBuildID, &t.ForceFull); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -962,8 +965,8 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 // host and the uplink are shared too. Both are deliberately small: an OTA that takes
 // twice as long but lands is better than four that race and all fail.
 const (
-	otaWavePerSite  = 3
-	otaWavePerFleet = 8
+	OTAWavePerSite  = 3
+	OTAWavePerFleet = 8
 	// A command sent but never acknowledged holds its slot for this long, after which
 	// the slot is reused — otherwise one device that went dark freezes a wave.
 	otaWaveSlotHold = 30 * time.Minute
@@ -997,5 +1000,5 @@ func (d *DB) OTAWaveAllows(ctx context.Context, updateID int, deviceID uuid.UUID
 	if err != nil {
 		return false, err
 	}
-	return site < otaWavePerSite && fleet < otaWavePerFleet, nil
+	return site < OTAWavePerSite && fleet < OTAWavePerFleet, nil
 }

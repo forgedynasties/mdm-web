@@ -479,8 +479,18 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		FROM updates u
 		WHERE ud.update_id = u.id
 		  AND u.status = 'active'
-		  AND ud.status IN ('pending', 'downloading')
 		  AND ud.updated_at <= NOW() - make_interval(mins => $1)
+		  -- A pending row is only stalled once it was handed the OTA and that was
+		  -- stallMinutes ago. Without a command it is waiting its turn in a wave
+		  -- (OTAWaveAllows): on 21 Oct ten tablets at one venue were failed while
+		  -- still in line, 30 minutes after the deployment was created.
+		  AND (ud.status = 'downloading'
+		       OR (ud.status = 'pending' AND EXISTS (
+		             SELECT 1 FROM commands c
+		             JOIN command_targets ct ON ct.command_id = c.id
+		             WHERE ct.target_id = ud.device_id AND c.type = 'ota'
+		               AND c.created_at >= u.created_at
+		               AND c.created_at <= NOW() - make_interval(mins => $1))))
 		  AND NOT EXISTS (
 		      SELECT 1 FROM command_status cs
 		      JOIN commands c ON c.id = cs.command_id
@@ -490,6 +500,44 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		        AND cs.updated_at > NOW() - make_interval(mins => $1))
 		RETURNING ud.update_id, ud.device_id
 	`, stallMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StalledInstall
+	for rows.Next() {
+		var updateID int
+		var s StalledInstall
+		if err := rows.Scan(&updateID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// RequeueNeverOfferedOTAs puts back in line the rows of an active deployment that were
+// failed as 'stalled' without ever being handed the OTA (no started_at, no OTA command
+// since the deployment began): devices that were waiting for a wave slot when the sweep
+// still failed pending rows. They go back to 'pending' and are offered on a later
+// check-in like any other device in line.
+func (d *DB) RequeueNeverOfferedOTAs(ctx context.Context) ([]StalledInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		UPDATE update_devices ud
+		SET status = 'pending', error_code = '', updated_at = NOW()
+		FROM updates u
+		WHERE ud.update_id = u.id
+		  AND u.status = 'active'
+		  AND ud.status = 'failed' AND ud.error_code = 'stalled'
+		  AND ud.started_at IS NULL
+		  AND ud.updated_at > NOW() - INTERVAL '1 day'
+		  AND NOT EXISTS (
+		      SELECT 1 FROM commands c
+		      JOIN command_targets ct ON ct.command_id = c.id
+		      WHERE ct.target_id = ud.device_id AND c.type = 'ota'
+		        AND c.created_at >= u.created_at)
+		RETURNING ud.update_id, ud.device_id
+	`)
 	if err != nil {
 		return nil, err
 	}

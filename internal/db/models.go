@@ -509,6 +509,11 @@ type UpdateTarget struct {
 	CompletedAt  *time.Time `json:"completed_at"`   // when the device reported installed (nil if not yet)
 	RebootSentAt *time.Time `json:"reboot_sent_at"` // when the applying reboot was pushed to the device (nil if not yet)
 	LastSeenAt   time.Time  `json:"last_seen_at"`   // the device's own last check-in, joined from devices
+
+	VenueID       *uuid.UUID `json:"venue_id,omitempty"` // the device's restaurant, joined
+	Venue         string     `json:"venue,omitempty"`
+	SourceBuildID string     `json:"source_build_id,omitempty"` // the build it was on when offered
+	ForceFull     bool       `json:"force_full,omitempty"`      // pinned to the full image
 }
 
 // GetLastSeenAt lets the dashboard ask a row whether its device is still there.

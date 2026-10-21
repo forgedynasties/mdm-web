@@ -1909,7 +1909,15 @@ func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
 		h.hub.PublishDeviceUpdate(s.DeviceID)
 		log.Printf("[ota-sweep] revived OTA device=%s (still reporting after a stall verdict)", s.DeviceID)
 	}
-	if len(revived) > 0 {
+	requeued, err := h.db.RequeueNeverOfferedOTAs(ctx)
+	if err != nil {
+		log.Printf("[ota-sweep] RequeueNeverOfferedOTAs error: %v", err)
+	}
+	for _, s := range requeued {
+		h.hub.PublishDeviceUpdate(s.DeviceID)
+		log.Printf("[ota-sweep] back in line device=%s (failed as stalled while waiting for a wave slot)", s.DeviceID)
+	}
+	if len(revived) > 0 || len(requeued) > 0 {
 		h.hub.PublishDeploymentUpdate()
 	}
 	stalled, err := h.db.ExpireStalledOTAs(ctx, stallMinutes)

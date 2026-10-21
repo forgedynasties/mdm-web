@@ -523,6 +523,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	upd.Targets = targets
 
 	otaProgress := make(map[string]any)
+	progressByID := map[uuid.UUID]otaRowView{}
 	// What the devices have actually reported, from command_status — written on every
 	// progress frame. In-memory progress (shell.Manager) is a cache: it is empty after a
 	// restart and holds nothing for a device reporting over HTTP to another replica, and
@@ -532,8 +533,16 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// Older clients send only a percent. The package's size turns that into something
 	// legible; it is an estimate and the page says so.
 	var pkgSize int64
+	incremental, hasFullPkg := map[string]bool{}, false
 	if pkgs, err := h.db.ListPackagesByRelease(r.Context(), relID); err == nil {
 		for _, p := range pkgs {
+			if p.Status == "active" {
+				if p.Type == "full" {
+					hasFullPkg = true
+				} else if p.SourceBuildID != "" {
+					incremental[p.SourceBuildID] = true
+				}
+			}
 			if p.PayloadSize > pkgSize {
 				pkgSize = p.PayloadSize
 			}
@@ -597,6 +606,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 					v.AdvancedAt = *started
 				}
 				otaProgress[t.DeviceID.String()] = v
+				progressByID[t.DeviceID] = v
 				// The row's updated_at only moves at status checkpoints, so on its own it
 				// says nothing about a download in flight. Last contact is the honest
 				// clock for "is this device still working on it".
@@ -738,6 +748,16 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		"LegacyDep":    legacyDep,
 		"LegacyRows":   legacyRows,
 	}
+	version := ""
+	if upd.Release != nil {
+		version = upd.Release.Version
+	}
+	data["D1"] = buildDeployD1(dp1Inputs{
+		Dep: upd, Version: version, Targets: targets, Progress: progressByID, Legacy: legacyRows,
+		Incremental: incremental, HasFull: hasFullPkg, Rebootable: rebootable,
+		CanOperate: roleCanOperate(h.role(r)), Base: fmt.Sprintf("/releases/%d/deployments/%d", relID, did),
+		SeenSecs: h.cfg.CheckinInterval() * 3, Now: time.Now(),
+	})
 
 	// HTMX polling target: just the device-status table. Use the ETag/304 helper so an
 	// unchanged poll short-circuits and htmx skips the swap — otherwise the every-3s

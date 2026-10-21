@@ -84,3 +84,46 @@ function toggleAll(master, name) {
     if (cb.closest('.send-item').style.display !== 'none') cb.checked = master.checked;
   });
 }
+
+// D1 (21 Oct 2026): the State and Venue pills filter the device rows in the page. The
+// live region is re-rendered on every refresh, so the choice is kept here and applied
+// again after each swap.
+(function () {
+  if (window.__dp1Filters) return;
+  window.__dp1Filters = true;
+  var F = {state: '', venue: ''};
+  function apply() {
+    var rows = document.querySelectorAll('.dp1-r'), shown = 0;
+    rows.forEach(function (r) {
+      var ok = (!F.state || r.dataset.state === F.state) && (!F.venue || r.dataset.venue === F.venue);
+      r.hidden = !ok;
+      if (ok) shown++;
+    });
+    var none = document.querySelector('.dp1-none');
+    if (none) none.hidden = shown > 0 || rows.length === 0;
+    ['state', 'venue'].forEach(function (k) {
+      var pill = document.querySelector('[data-dp1-pill="' + k + '"]');
+      if (!pill) return;
+      var label = 'All';
+      document.querySelectorAll('[data-dp1-set="' + k + '"]').forEach(function (i) {
+        var on = i.dataset.val === F[k];
+        i.classList.toggle('active', on);
+        if (on) label = i.textContent.replace(/ · \d+$/, '');
+      });
+      if (F[k] && label === 'All') { F[k] = ''; } // the choice is gone from the list
+      pill.querySelector('b').textContent = label;
+      pill.classList.toggle('set', !!F[k]);
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var i = e.target.closest('[data-dp1-set]');
+    if (!i) return;
+    F[i.dataset.dp1Set] = i.dataset.val;
+    if (window.ocCloseMenus) window.ocCloseMenus();
+    apply();
+  });
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.target && e.target.id === 'deployment-targets') apply();
+  });
+  document.addEventListener('htmx:load', apply);
+})();
