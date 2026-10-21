@@ -175,7 +175,8 @@ func TestLineupRolePaneRenders(t *testing.T) {
 		"Role": "admin", "CanEdit": true, "RoleKey": "t7", "RoleLabel": "Tableside AI", "HWDevices": 160,
 		"Roles":   []pipeRole{{Key: "t7", Label: "Tableside AI", Status: "160 devices · 1 model", Tone: "ok", On: true}, {Key: "kds", Label: "Kitchen display", Status: "4 devices · 1 model", Tone: "ok"}},
 		"Clients": []pipeClient{{Slot: "dpc", Label: "Standard client", Status: "all on 0.4.0", Tone: "ok"}},
-		"NoneCount": 2, "RunCount": 4,
+		"NoneCount": 2, "RunCount": 4, "Tab": "products", "BehindTotal": 23,
+		"ClientStrips": lineupClientStrips(in.Clients),
 		"LU": buildLineupPane(in), "HWModels": in.HW, "Models": in.Models, "App": in.App,
 		"FwRollout": config.ClientAutoUpdate{WindowStart: "02:00", WindowEnd: "05:00"},
 	}
@@ -185,7 +186,11 @@ func TestLineupRolePaneRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`class="lu1-chip on"`, `<span class="ic tone-ok">T7</span>`, `Not attached`, `Production runs`,
+		`class="lu1-chip on"`, `<span class="ic tone-ok">T7</span>`,
+		// N1: three tabs; the chip row is products only; the client is one line here.
+		`aria-current="page">Products</a>`, `MDM clients <i>23 behind</i>`, `Setup <i>2</i>`,
+		`<b>Firmware MDM 1.13.10</b><small>131 of 160 on it · 23 behind · Auto-update off for every product</small>`,
+		`href="/lineup?client=firmware-qcom" hx-get="/lineup?client=firmware-qcom"`, `Manage in MDM clients →`,
 		`3 things to decide`, `Tableside AI · AIO T7 · 160 devices`,
 		`action="/pipeline/firmware"`, `name="release_id" value="35"`, `>Promote to prod</button>`,
 		`href="/lineup?client=firmware-qcom">Open client</a>`,
@@ -202,5 +207,51 @@ func TestLineupRolePaneRenders(t *testing.T) {
 	}
 	if strings.Contains(out, `class="pl-side"`) {
 		t.Error("the side list is back")
+	}
+	for _, gone := range []string{`Production runs</b>`, `Standard client</b>`, `Keep devices on it`, `Switch on</button>`} {
+		if strings.Contains(out, gone) {
+			t.Errorf("Products tab still shows %q (clients and setup have their own tabs)", gone)
+		}
+	}
+
+	// The MDM clients tab: a card per client, the chosen one marked.
+	views := map[string]*ClientSlotView{
+		"firmware-qcom": in.Clients[0],
+		"dpc":           {Slot: "dpc", Label: "Standard MDM", Hosted: true, Build: config.AgentAPKBuild{Version: "0.4.0", VersionCode: 24}, Devices: 12, UpToDate: 12, Auto: config.ClientAutoUpdate{On: true}},
+	}
+	dev := []db.Device{{ID: uuid.New(), DeviceClass: "kds", Product: "d2s", AgentKind: product.KindDPC}}
+	cards := lineupClientCards(views, dev, "dpc")
+	if len(cards) != 2 || cards[0].On || !cards[1].On || cards[1].Auto != "Auto-update on · any time" || len(cards[1].Products) != 1 {
+		t.Fatalf("cards = %+v", cards)
+	}
+	sel := views["dpc"]
+	data["Tab"], data["View"], data["ClientCards"], data["Client"], data["Selected"] = "clients", "clients", cards, sel, sel
+	buf.Reset()
+	if err := tmpl.ExecuteTemplate(&buf, "pipeline.html", data); err != nil {
+		t.Fatalf("clients tab failed to render: %v", err)
+	}
+	out = buf.String()
+	for _, want := range []string{`aria-current="page">MDM clients`, `class="lu1-cl on"`, `0.4.0<span>hosted · code 24</span>`, `Auto-update on · any time`, `Kitchen display 1`, `Lineup · MDM clients · Standard MDM`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("clients tab is missing %q", want)
+		}
+	}
+	if strings.Contains(out, `class="lu1-chips"`) {
+		t.Error("the product chips belong to the Products tab only")
+	}
+
+	// Setup: models without a role, then the production runs.
+	data["Tab"], data["View"], data["Client"], data["Selected"] = "setup", "setup", nil, nil
+	data["None"] = []hwModel{{Key: "rk3566_box", Display: "RK3566 box", Devices: 3}}
+	data["ClassKeys"] = product.Classes()
+	buf.Reset()
+	if err := tmpl.ExecuteTemplate(&buf, "pipeline.html", data); err != nil {
+		t.Fatalf("setup tab failed to render: %v", err)
+	}
+	out = buf.String()
+	for _, want := range []string{`aria-current="page">Setup`, `Not attached</h2>`, `rk3566_box`, `Production runs</h2>`, `Lineup · Setup`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("setup tab is missing %q", want)
+		}
 	}
 }

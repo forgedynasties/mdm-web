@@ -195,9 +195,28 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		}
 		clients = append(clients, pc)
 	}
-	// Everything the side list and every pane share.
+	// N1 (21 Oct 2026): three tabs. Products (the role chips and pane), MDM clients (both
+	// clients and the chosen one's versions; the only place the auto-update switch lives)
+	// and Setup (models without a role, production runs). Old links still land:
+	// ?client= opens the MDM clients tab, ?role=none and ?view=runs open Setup.
+	tab := "products"
+	switch {
+	case view == "clients" || clientSel != "":
+		tab = "clients"
+	case view == "setup" || view == "runs" || sel == "none":
+		tab = "setup"
+	}
+	behindTotal := 0
+	for _, slot := range clientSlotOrder {
+		if v := views[slot]; v != nil && v.Hosted {
+			behindTotal += v.Behind
+		}
+	}
+	// Everything the tabs and every pane share.
 	common := func(m map[string]any) map[string]any {
 		m["Title"] = "Lineup"
+		m["Tab"] = tab
+		m["BehindTotal"] = behindTotal
 		m["Roles"] = roles
 		m["Clients"] = clients
 		m["NoneCount"] = len(hw.None)
@@ -211,19 +230,29 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		m["Flash"] = r.URL.Query().Get("flash")
 		return m
 	}
-	// Models attached to no role, and the production runs: panes of their own.
-	if sel == "none" {
-		h.render(w, r, "pipeline.html", common(map[string]any{"View": "none", "None": hw.None, "ClassKeys": prod.Classes()}))
+	// Setup: models attached to no role, then the production runs.
+	if tab == "setup" {
+		h.render(w, r, "pipeline.html", common(map[string]any{"View": "setup", "None": hw.None, "ClassKeys": prod.Classes(),
+			"Productions": productions, "Models": h.modelOptions(ctx)}))
 		return
 	}
-	if view == "runs" {
-		h.render(w, r, "pipeline.html", common(map[string]any{"View": "runs", "Productions": productions, "Models": h.modelOptions(ctx)}))
-		return
-	}
-	// An MDM client's pane: the old Clients page, whole. ?partial=1 is the pane alone,
-	// for the refreshes it runs while an update is in flight.
-	if v, ok := h.clientDetail(r, devices, clientSel); ok {
-		data := common(map[string]any{"Client": v, "Selected": v, "ServerURL": h.baseURL(r)})
+	// MDM clients: a card per client, then the chosen one (the first by default) whole.
+	// ?partial=1 is the chosen pane alone, for the refreshes it runs while an update is in
+	// flight.
+	if tab == "clients" {
+		if clientSel == "" {
+			clientSel = clientSlotOrder[0]
+		}
+		for i := range clients {
+			clients[i].On = clients[i].Slot == clientSel
+		}
+		cards := lineupClientCards(views, devices, clientSel)
+		v, ok := h.clientDetail(r, devices, clientSel)
+		if !ok {
+			http.Redirect(w, r, "/lineup?view=clients", http.StatusSeeOther)
+			return
+		}
+		data := common(map[string]any{"View": "clients", "ClientCards": cards, "Client": v, "Selected": v, "ServerURL": h.baseURL(r)})
 		if r.URL.Query().Get("partial") == "1" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			h.tmpl.ExecuteTemplate(w, "clients-detail", h.withRole(r, data))
@@ -409,6 +438,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("[lineup] firmware history: %v", err)
 	}
+	strips := lineupClientStrips(roleClients)
 	pane := buildLineupPane(luInputs{
 		RoleKey: sel, RoleLabel: selLabel, Models: models, HW: hw.ByRole[sel], App: app,
 		Clients: roleClients, Full: full, Deployed: deployed, Moves: moves, History: fwHistory,
@@ -417,6 +447,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 
 	h.render(w, r, "pipeline.html", common(map[string]any{
 		"LU":          pane,
+		"ClientStrips": strips,
 		"HWModels":    hw.ByRole[sel],
 		"RolePic":     rolePic(sel, hw.ByRole[sel]),
 		"HWDevices":   hw.Devices[sel],

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"mdm/internal/db"
+	prod "mdm/internal/product"
 )
 
 // Lineup L1 (picked 21 Oct 2026, from the Lineup demos): the role pane in the Overview's
@@ -525,4 +526,117 @@ func lineupFullOn(devices []db.Device, role string, models []pipeModel, views ma
 		}
 	}
 	return
+}
+
+// ── N1 (21 Oct 2026): MDM clients get a tab of their own ─────────────────────
+
+// luClientCard is one MDM client on the MDM clients tab: its hosted build, the devices
+// on it, the products that run it. Clicking it opens its versions below; the
+// auto-update switch lives there, once.
+type luClientCard struct {
+	Slot, Label, Note string
+	Hosted            bool
+	Version           string
+	Code              int64
+	Devices, UpToDate int
+	Behind, NoBuild   int
+	Unknown           int
+	Auto              string // On · any time / On · 02:00–05:00 / Paused / Off
+	AutoOn            bool
+	Bar               []luSeg
+	Products          []luCount
+	On                bool
+}
+
+type luCount struct {
+	Label string
+	N     int
+}
+
+func lineupClientCards(views map[string]*ClientSlotView, devices []db.Device, sel string) []luClientCard {
+	byClass := map[string]map[string]int{}
+	for i := range devices {
+		d := &devices[i]
+		if d.Hidden || d.Retired() {
+			continue
+		}
+		slot := clientDisplaySlot(agentSlotFor(d))
+		if byClass[slot] == nil {
+			byClass[slot] = map[string]int{}
+		}
+		byClass[slot][d.Class()]++
+	}
+	var out []luClientCard
+	for _, slot := range clientSlotOrder {
+		v := views[slot]
+		if v == nil {
+			continue
+		}
+		c := luClientCard{Slot: slot, Label: v.Label, Note: v.Note, Hosted: v.Hosted, Devices: v.Devices,
+			UpToDate: v.UpToDate, Behind: v.Behind, NoBuild: v.NoBuild, Unknown: v.Unknown, On: slot == sel}
+		if v.Hosted {
+			c.Version, c.Code = v.Build.Version, v.Build.VersionCode
+		}
+		c.Auto, c.AutoOn = luAutoLabel(v)
+		c.Bar = luClientBar(v)
+		for _, cl := range prod.Classes() {
+			if n := byClass[slot][cl]; n > 0 {
+				c.Products = append(c.Products, luCount{prod.ClassLabel(cl), n})
+			}
+		}
+		if n := byClass[slot][""]; n > 0 {
+			c.Products = append(c.Products, luCount{"No role", n})
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+func luAutoLabel(v *ClientSlotView) (string, bool) {
+	switch {
+	case !v.Auto.On:
+		return "Auto-update off", false
+	case v.Auto.Paused:
+		return "Auto-update paused", false
+	case v.Auto.WindowStart != "" && v.Auto.WindowEnd != "":
+		return "Auto-update on · " + v.Auto.WindowStart + "–" + v.Auto.WindowEnd, true
+	}
+	return "Auto-update on · any time", true
+}
+
+func luClientBar(v *ClientSlotView) []luSeg {
+	return []luSeg{{luPct(v.UpToDate, v.Devices), "ok", fmt.Sprintf("%d up to date", v.UpToDate)},
+		{luPct(v.Behind, v.Devices), "wait", fmt.Sprintf("%d behind", v.Behind)},
+		{luPct(v.NoBuild, v.Devices), "other", fmt.Sprintf("%d on an image that cannot take it", v.NoBuild)},
+		{luPct(v.Unknown, v.Devices), "none", fmt.Sprintf("%d not reporting a version", v.Unknown)}}
+}
+
+// luClientStrip is a product's client as one read-only line (counts over this product's
+// devices), linking to the MDM clients tab where it is managed.
+type luClientStrip struct {
+	Slot, Label, Version, Line, Auto string
+	Hosted                          bool
+	Bar                             []luSeg
+}
+
+func lineupClientStrips(roleClients []*ClientSlotView) []luClientStrip {
+	var out []luClientStrip
+	for _, v := range roleClients {
+		s := luClientStrip{Slot: v.Slot, Label: v.Label, Hosted: v.Hosted, Bar: luClientBar(v)}
+		s.Auto, _ = luAutoLabel(v)
+		if v.Hosted {
+			s.Version = v.Build.Version
+			s.Line = fmt.Sprintf("%d of %d on it", v.UpToDate, v.Devices)
+			if v.Behind > 0 {
+				s.Line += fmt.Sprintf(" · %d behind", v.Behind)
+			}
+			if v.NoBuild > 0 {
+				s.Line += fmt.Sprintf(" · %d can't take it", v.NoBuild)
+			}
+		} else {
+			s.Line = fmt.Sprintf("%d device%s · nothing hosted", v.Devices, plural(v.Devices))
+		}
+		out = append(out, s)
+	}
+	return out
 }

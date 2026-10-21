@@ -16,41 +16,45 @@
        one page. The side list swaps the pane in place. */}}
   <div class="pl-split" id="pl-split">
 <template id="page-island">
-  {{if eq .View "none"}}<span class="isl-t">Lineup · Not attached</span>
-  {{else if eq .View "runs"}}<span class="isl-t">Lineup · Production runs</span>
-  {{else if .Client}}{{with .Client}}<span class="isl-t">Lineup · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
+  {{if eq .View "setup"}}<span class="isl-t">Lineup · Setup</span><span class="isl-s">{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} without a role · {{.RunCount}} production run{{if ne .RunCount 1}}s{{end}}</span>
+  {{else if .Client}}{{with .Client}}<span class="isl-t">Lineup · MDM clients · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
   {{else}}<span class="isl-t">Lineup · {{.RoleLabel}}</span><span class="isl-s">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}} · {{len .HWModels}} model{{if ne (len .HWModels) 1}}s{{end}}</span>{{end}}
 </template>
 
-    {{/* L1 (21 Oct 2026): the side list is a chip row: roles, then MDM clients and Setup. */}}
-    <nav class="lu1-chips" aria-label="Lineup">
+    {{/* N1 (21 Oct 2026): three tabs, each with one job. The chip row under Products is
+         products only; MDM clients and Setup have tabs of their own. */}}
+    <nav class="lu1-tabs" aria-label="Lineup">
+      <a href="/lineup" hx-get="/lineup" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="{{if eq .Tab "products"}}on{{end}}"{{if eq .Tab "products"}} aria-current="page"{{end}}>Products</a>
+      <a href="/lineup?view=clients" hx-get="/lineup?view=clients" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="{{if eq .Tab "clients"}}on{{end}}"{{if eq .Tab "clients"}} aria-current="page"{{end}}>MDM clients{{if .BehindTotal}} <i>{{.BehindTotal}} behind</i>{{end}}</a>
+      <a href="/lineup?view=setup" hx-get="/lineup?view=setup" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="{{if eq .Tab "setup"}}on{{end}}"{{if eq .Tab "setup"}} aria-current="page"{{end}}>Setup{{if .NoneCount}} <i>{{.NoneCount}}</i>{{end}}</a>
+    </nav>
+    {{if eq .Tab "products"}}
+    <nav class="lu1-chips" aria-label="Products">
       {{range .Roles}}
       <a href="/lineup?role={{.Key}}" hx-get="/lineup?role={{.Key}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-chip{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
         <span class="ic tone-{{.Tone}}">{{classShort .Key}}</span><span><b>{{.Label}}</b><small>{{.Status}}</small></span>
       </a>
       {{end}}
-      <span class="lu1-sep" aria-hidden="true"></span>
-      {{range .Clients}}
-      <a href="/lineup?client={{.Slot}}" hx-get="/lineup?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-chip{{if .On}} on{{end}}"{{if .On}} aria-current="page"{{end}}>
-        <span class="ic tone-{{.Tone}}"><svg aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg></span><span><b>{{.Label}}</b><small>{{.Status}}</small></span>
-      </a>
-      {{end}}
-      {{if .NoneCount}}
-      <a href="/lineup?role=none" hx-get="/lineup?role=none" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-chip{{if eq .View "none"}} on{{end}}">
-        <span class="ic tone-warn"><svg aria-hidden="true"><use href="#lu-unattached"/></svg></span><span><b>Not attached</b><small>{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} without a role</small></span>
-      </a>
-      {{end}}
-      <a href="/lineup?view=runs" hx-get="/lineup?view=runs" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-chip{{if eq .View "runs"}} on{{end}}">
-        <span class="ic tone-muted"><svg aria-hidden="true"><use href="#lu-runs"/></svg></span><span><b>Production runs</b><small>{{.RunCount}} run{{if ne .RunCount 1}}s{{end}}</small></span>
-      </a>
     </nav>
+    {{end}}
 
     <div class="pl-main">
-    {{if eq .View "none"}}
-      {{template "lu-none" .}}
-    {{else if eq .View "runs"}}
+    {{if eq .View "setup"}}
+      {{if .None}}{{template "lu-none" .}}<div style="height:28px"></div>{{end}}
       {{template "lu-runs" .}}
     {{else if .Client}}
+      <div class="lu1-clients">
+        {{range .ClientCards}}
+        <a href="/lineup?client={{.Slot}}" hx-get="/lineup?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-cl{{if .On}} on{{end}}"{{if .On}} aria-current="true"{{end}}>
+          <span class="hd"><span class="ic"><svg aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg></span><span><b>{{.Label}}</b><small>{{.Note}}</small></span></span>
+          {{if .Hosted}}<span class="big">{{.Version}}<span>hosted · code {{.Code}}</span></span>{{else}}<span class="big none">Nothing hosted</span>{{end}}
+          {{if .Devices}}<span class="lu1-bar">{{range .Bar}}<i class="lu1-s-{{.Tone}}" style="width:{{.Pct}}%" title="{{.Title}}"></i>{{end}}</span>{{end}}
+          <span class="row">{{if .Hosted}}{{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{if .NoBuild}} · {{.NoBuild}} on an image that can't take it{{end}}{{if .Unknown}} · {{.Unknown}} not reporting{{end}}{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}</span>
+          <span class="row"><span class="lu1-auto{{if .AutoOn}} on{{end}}"></span>{{.Auto}}</span>
+          {{if .Products}}<span class="lu1-prods">{{range .Products}}<span>{{.Label}} {{.N}}</span>{{end}}</span>{{end}}
+        </a>
+        {{end}}
+      </div>
       {{template "clients-detail" .}}
       {{if or .KeysOwn .KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling.</div>{{end}}
     {{else}}{{with .LU}}
@@ -140,9 +144,16 @@
           </div>
           {{end}}
 
-          {{if $.RoleClients}}
-          <div class="ov2-sec" style="margin-top:24px"><h2>MDM client <span>the agent on this role's devices · counts are this role's devices</span></h2></div>
-          {{range $.RoleClients}}{{template "pl-client" (dict "C" . "Root" $ "InRole" true)}}{{end}}
+          {{with $.ClientStrips}}
+          <div class="ov2-sec" style="margin-top:24px"><h2>MDM client <span>counts are this product's devices</span></h2></div>
+          {{range .}}
+          <div class="lu1-strip">
+            <span class="ic"><svg aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg></span>
+            <span class="t"><b>{{.Label}}{{with .Version}} {{.}}{{end}}</b><small>{{.Line}} · {{.Auto}} for every product</small></span>
+            {{if .Hosted}}<span class="lu1-bar">{{range .Bar}}<i class="lu1-s-{{.Tone}}" style="width:{{.Pct}}%" title="{{.Title}}"></i>{{end}}</span>{{end}}
+            <a href="/lineup?client={{.Slot}}" hx-get="/lineup?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true">Manage in MDM clients →</a>
+          </div>
+          {{end}}
           {{end}}
         </div>
 
@@ -384,50 +395,38 @@
   .lu1-win small em { color: var(--warn); font-style: normal; font-weight: 650; }
   .lu1-win summary .cc-btn { margin-left: auto; }
   .lu1-win form { display: grid; gap: 8px; margin-top: 12px; font-size: 12.5px; }
+
+  /* ── N1 (21 Oct 2026): tabs, MDM client cards, a product's client strip ── */
+  .lu1-tabs { display: inline-flex; gap: 3px; padding: 4px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--border); margin: 0 0 14px; }
+  .lu1-tabs a { font-size: 13px; font-weight: 650; padding: 7px 16px; border-radius: 10px; color: var(--text-2); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+  .lu1-tabs a:hover { color: var(--text); }
+  .lu1-tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .lu1-tabs a i { font-style: normal; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: var(--warn-bg); color: var(--warn); }
+  .lu1-clients { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin: 0 0 22px; }
+  .lu1-cl { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 9px; text-decoration: none; color: inherit; min-width: 0; }
+  .lu1-cl:hover { border-color: var(--rule-2); }
+  .lu1-cl.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .lu1-cl .hd { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .lu1-cl .hd .ic, .lu1-strip .ic { width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; flex: none; }
+  .lu1-cl .hd .ic svg, .lu1-strip .ic svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .lu1-cl .hd b { font-size: 15px; display: block; } .lu1-cl .hd small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
+  .lu1-cl .big { font-family: var(--font-display); font-size: 28px; font-weight: 500; line-height: 1; }
+  .lu1-cl .big span { font-family: var(--font); font-size: 12.5px; color: var(--muted); margin-left: 6px; }
+  .lu1-cl .big.none { font-size: 18px; color: var(--muted); }
+  .lu1-cl .lu1-bar { margin: 0; }
+  .lu1-cl .row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); flex-wrap: wrap; }
+  .lu1-auto { width: 9px; height: 9px; border-radius: 50%; background: var(--text-faint); flex: none; }
+  .lu1-auto.on { background: var(--ok); }
+  .lu1-prods { display: flex; gap: 6px; flex-wrap: wrap; }
+  .lu1-prods span { font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 99px; background: var(--surface2); color: var(--text-2); }
+  .lu1-strip { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 12px 16px; margin: 0 0 10px; }
+  .lu1-strip .ic { width: 36px; height: 36px; border-radius: 11px; }
+  .lu1-strip .t { min-width: 0; } .lu1-strip .t b { font-size: 13.5px; display: block; } .lu1-strip .t small { display: block; color: var(--muted); font-size: 12px; }
+  .lu1-strip .lu1-bar { flex: 1; max-width: 240px; margin: 0; }
+  .lu1-strip > a { margin-left: auto; font-size: 12.5px; font-weight: 650; color: var(--accent-text); text-decoration: none; white-space: nowrap; }
+  .lu1-strip > a:hover { text-decoration: underline; }
 </style>
 {{template "footer" .}}
-{{end}}
-
-{{define "pl-client"}}
-      <div class="pl-lanehead">{{if $.InRole}}<h3 class="pl-h3">{{$.C.Label}}</h3>{{else}}<h2>MDM client · {{$.C.Label}}</h2>{{end}}<span class="pl-faint">{{$.C.Note}}</span></div>
-      <div class="pl-lane fw">
-        <div class="pl-col">
-          <div class="pl-ct">How it ships</div>
-          <div class="pl-none">{{if eq $.C.Slot "dpc"}}Built and published by AIO. Devices install it silently as Device Owner.{{else}}Built by AIO with the firmware and signed with its key; each device accepts only a build signed for its own image.{{end}}</div>
-        </div>
-        <div class="pl-col">
-          <div class="pl-ct">Keep devices on it</div>
-          {{if $.C.Auto.On}}
-            <div class="pl-bk"><span class="v">{{if $.C.Auto.Paused}}Paused{{else}}On{{end}}</span>
-              <div class="m">{{if and $.C.Auto.WindowStart $.C.Auto.WindowEnd}}{{$.C.Auto.WindowStart}}–{{$.C.Auto.WindowEnd}} in each device's own timezone{{else}}any time of day{{end}}{{if $.C.Auto.By}} · set by {{$.C.Auto.By}}{{end}}</div></div>
-          {{else}}<div class="pl-none">Off — devices stay on the client they have.</div>{{end}}
-          {{if canAdmin $.Root.Role}}
-          <form method="POST" action="/clients/auto-update" class="pl-inline">
-            <input type="hidden" name="back" value="pipeline"><input type="hidden" name="slot" value="{{$.C.Slot}}">
-            <input type="hidden" name="on" value="{{if $.C.Auto.On}}0{{else}}1{{end}}">
-            <input type="hidden" name="window_start" value="{{$.C.Auto.WindowStart}}"><input type="hidden" name="window_end" value="{{$.C.Auto.WindowEnd}}">
-            <button class="cc-btn xs" type="submit">{{if $.C.Auto.On}}Switch off{{else}}Switch on{{end}}</button>
-          </form>
-          {{if $.C.Auto.On}}
-          <form method="POST" action="/clients/auto-update" class="pl-inline" style="margin-top:6px">
-            <input type="hidden" name="back" value="pipeline"><input type="hidden" name="slot" value="{{$.C.Slot}}"><input type="hidden" name="on" value="1">
-            <input type="hidden" name="paused" value="{{if $.C.Auto.Paused}}0{{else}}1{{end}}">
-            <input type="hidden" name="window_start" value="{{$.C.Auto.WindowStart}}"><input type="hidden" name="window_end" value="{{$.C.Auto.WindowEnd}}">
-            <button class="cc-btn xs" type="submit">{{if $.C.Auto.Paused}}Resume{{else}}Pause{{end}}</button>
-          </form>
-          {{end}}{{end}}
-        </div>
-        <div class="pl-col prod">
-          <div class="pl-ct">Hosted build</div>
-          {{if $.C.Hosted}}
-          <div class="pl-bk"><span class="v">{{$.C.Build.Version}}</span> <span class="pl-faint">code {{$.C.Build.VersionCode}}</span>
-            {{if $.C.Devices}}<div class="pl-bar"><i style="width:{{pct $.C.UpToDate $.C.Devices}}%;background:var(--ok)"></i><i style="width:{{pct $.C.Behind $.C.Devices}}%;background:var(--accent-2)"></i><i style="width:{{pct $.C.NoBuild $.C.Devices}}%;background:var(--warn)"></i><i style="width:{{pct $.C.Unknown $.C.Devices}}%;background:var(--muted)"></i></div>{{end}}
-            <div class="m">{{$.C.UpToDate}} of {{$.C.Devices}} on it{{if $.C.Behind}} · {{$.C.Behind}} behind{{end}}{{if $.C.NoBuild}} · {{$.C.NoBuild}} on an image that cannot take it{{end}}{{if $.C.Unknown}} · {{$.C.Unknown}} not reporting a version{{end}}</div>
-            <div class="m"><a href="/lineup?client={{$.C.Slot}}">Devices and release history →</a></div>
-          </div>
-          {{else}}<div class="pl-none">Nothing hosted for this client yet.</div>{{end}}
-        </div>
-      </div>
 {{end}}
 
 {{/* ── Lineup L1: models as picture cards (21 Oct 2026); same controls as the table had ── */}}
