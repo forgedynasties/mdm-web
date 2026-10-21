@@ -43,27 +43,27 @@ type a1Chan struct {
 }
 
 type a1Row struct {
-	Href        string // the app page: the prod variant's, or the package's
-	Name        string
-	Package     string
-	Icon        string
-	Role        string // the Lineup role whose app this is, "" if none
-	RoleLabel   string
-	LibVersion  string // library's newest prod-variant version, "" if none
-	InLibrary   bool
-	Devices     int
-	OnLib       int
-	Other       int
-	Unknown     int
-	OnLibPct    int // bar widths, of Devices
-	OtherPct    int
-	UnknownPct  int
-	Channels    []a1Chan // variants with devices, biggest first (shown when more than one variant)
-	MoreChans   int
-	Note        string // what the row's numbers say, in words
-	Single      string // the one package when the family has one variant (Install on… in place)
-	Look        bool   // something on this row needs a look
-	Search      string
+	Href       string // the app page: the prod variant's, or the package's
+	Name       string
+	Package    string
+	Icon       string
+	Role       string // the Lineup role whose app this is, "" if none
+	RoleLabel  string
+	LibVersion string // library's newest prod-variant version, "" if none
+	InLibrary  bool
+	Devices    int
+	OnLib      int
+	Other      int
+	Unknown    int
+	OnLibPct   int // bar widths, of Devices
+	OtherPct   int
+	UnknownPct int
+	Channels   []a1Chan // variants with devices, biggest first (shown when more than one variant)
+	MoreChans  int
+	Note       string // what the row's numbers say, in words
+	Single     string // the one package when the family has one variant (Install on… in place)
+	Look       bool   // something on this row needs a look
+	Search     string
 }
 
 type a1RoleApp struct {
@@ -90,11 +90,11 @@ type ovRailBar struct {
 }
 
 type appsA1 struct {
-	Banner  a1Banner
-	Cards   []ovStat
-	Rows    []a1Row
-	Rail    a1Rail
-	Hidden  int // packages seen on devices, not in the library and not a role app
+	Banner a1Banner
+	Cards  []ovStat
+	Rows   []a1Row
+	Rail   a1Rail
+	Hidden int // packages seen on devices, not in the library and not a role app
 }
 
 type a1Inputs struct {
@@ -411,7 +411,7 @@ func buildAppsA1(in a1Inputs) appsA1 {
 		inst.LineA, _, inst.Fill = ovLines(s, nil)
 	}
 	ver := ovStat{Title: "Versions", Href: "#a1-apps",
-		A: ovMetric{Value: strconv.Itoa(totOnLib), Label: "on library version", Delta: fmt.Sprintf("of %d that report one", totKnown), Tone: "flat"},
+		A: ovMetric{Value: strconv.Itoa(totOnLib), Label: "on library version", Delta: fmt.Sprintf("of %d reporting", totKnown), Tone: "flat"},
 		B: ovMetric{Value: strconv.Itoa(totUnknown), Label: "report no version", Tone: "flat"}}
 	v.Cards = []ovStat{lib, inst, ver}
 

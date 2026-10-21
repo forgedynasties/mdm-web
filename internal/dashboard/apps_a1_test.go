@@ -121,7 +121,7 @@ func TestAppsA1Builder(t *testing.T) {
 		t.Errorf("installs card = %+v", c)
 	}
 	// On library: KA 25 + Nugget 13 + uatv2 5 + Speedtest 12 = 55; known 55 + 46 + 1 + 23 = 125.
-	if c := v.Cards[2]; c.A.Value != "55" || c.A.Delta != "of 125 that report one" || c.B.Value != "97" {
+	if c := v.Cards[2]; c.A.Value != "55" || c.A.Delta != "of 125 reporting" || c.B.Value != "97" {
 		t.Errorf("versions card = %+v", c)
 	}
 	rl := v.Rail

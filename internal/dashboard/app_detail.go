@@ -2,67 +2,17 @@ package dashboard
 
 import (
 	"net/http"
-	"sort"
 	"strings"
-
-	"mdm/internal/db"
 )
 
-// The app detail page: one app, every device that has it, and every version in service.
+// The app page: one package, every device that has it, every version in service, and
+// (D1, 21 Oct 2026) what to do about it, with the library's versions, the family's
+// channels and the family tools in a rail. The builder is app_d1.go.
 //
 // This is the page a store is actually about, and ours can say something a consumer store
 // cannot — not "4.5 stars from 2M people" but "108 of your 187 devices have this, 44 are on
-// a version other than the library's, and 50 will not say". There are no screenshots to
-// show because we store none; the version histogram is the honest thing to put in their
-// place, since it is what you came to look at.
-//
-// Every number here comes from the coverage query already on the library page. Nothing new
-// is collected to render this.
-
-type appVersionRow struct {
-	Version string // "" → the device reported no version
-	Devices int
-	Pct     int
-	Latest  bool
-}
-
-type appDeviceRow struct {
-	Serial  string
-	Version string
-	Venue   string
-}
-
-type appDetailView struct {
-	Package string
-	Name    string
-	Icon    string
-	Initial string
-	Art     int
-
-	// Library side
-	InLibrary   bool
-	LibVersion  string
-	LibAdded    string
-	LibVersions int
-	ApkURL      string
-	FamilyName  string
-	Channels    int
-
-	// Fleet side
-	Fleet    int
-	Devices  int
-	OnLatest int
-	Other    int
-	Unknown  int
-	Versions []appVersionRow
-	Rows     []appDeviceRow
-	More     int
-
-	// What a send would reach, resolved before anything is sent.
-	MissingCount int
-	OtherCount   int
-	CanSend      bool
-}
+// a version other than the library's, and 50 will not say". Every fleet number comes from
+// the coverage query the library page already runs, plus the device rows behind it.
 
 // AppDetailPage renders /apps/{pkg}.
 func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
@@ -78,91 +28,57 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	c := cov.Of(pkg)
-	fams, _, _ := h.libraryData(ctx)
+	fams, _, mode := h.libraryData(ctx)
 
-	v := appDetailView{
-		Package: pkg, Name: c.AppName, Art: artSlot(pkg),
-		Fleet: cov.Totals.Devices, Devices: c.Devices,
-		OnLatest: c.OnLatest, Unknown: c.Unknown,
-		InLibrary: c.InLibrary, LibVersion: c.LibLatest,
+	in := d1Inputs{Package: pkg, Cov: cov.Of(pkg), Fleet: cov.Totals.Devices, Apps: apps, Families: fams,
+		Siblings: map[string]map[string]bool{}, SiblingCov: map[string]pkgCoverage{}}
+	if rows, err := h.db.DevicesWithPackage(ctx, pkg); err == nil {
+		in.Devices = rows
 	}
-	v.Other = c.Known - c.OnLatest
-
-	// Library side: name, icon, how many versions we hold, and the channel this belongs to.
-	var newest *db.App
-	for i := range apps {
-		if apps[i].PackageName != pkg {
+	// The other channels of its family: who runs them, so "without it" can say how many
+	// of those devices already have the app under another package.
+	for _, f := range fams {
+		mine := false
+		for _, vr := range f.Variants {
+			if vr.Package == pkg {
+				mine = true
+			}
+		}
+		if !mine {
 			continue
 		}
-		v.LibVersions++
-		if newest == nil || apps[i].CreatedAt.After(newest.CreatedAt) {
-			newest = &apps[i]
-		}
-	}
-	if newest != nil {
-		if newest.Name != "" {
-			v.Name = newest.Name
-		}
-		v.Icon = newest.Icon
-		v.ApkURL = newest.ApkURL
-		v.LibAdded = newest.CreatedAt.Format("2 Jan 2006")
-	}
-	for i := range fams {
-		for _, variant := range fams[i].Variants {
-			if variant.Package == pkg {
-				v.FamilyName = fams[i].Name
-				v.Channels = len(fams[i].Variants)
+		for _, vr := range f.Variants {
+			if vr.Package == pkg {
+				continue
 			}
-		}
-	}
-	if v.Name == "" {
-		v.Name = pkg
-	}
-	if v.Icon == "" {
-		v.Initial = string([]rune(v.Name)[0:1])
-	}
-
-	// Versions in service, biggest share first, with "no version" kept distinct — folding
-	// it into a number would be the same lie as counting it as up to date.
-	for _, vc := range c.Versions {
-		row := appVersionRow{Version: vc.Version, Devices: vc.Devices, Latest: vc.Latest}
-		if c.Devices > 0 {
-			row.Pct = vc.Devices * 100 / c.Devices
-		}
-		v.Versions = append(v.Versions, row)
-	}
-
-	// Where it is installed. Capped: a 108-device app does not need 108 rows to make the
-	// point, and the full list is a filter away on the Devices page.
-	if rows, err := h.db.DevicesWithPackage(ctx, pkg); err == nil {
-		sort.SliceStable(rows, func(i, j int) bool { return rows[i].Version > rows[j].Version })
-		const cap = 40
-		for i, d := range rows {
-			if i >= cap {
-				v.More = len(rows) - cap
-				break
+			in.SiblingCov[vr.Package] = cov.Of(vr.Package)
+			set := map[string]bool{}
+			if rows, err := h.db.DevicesWithPackage(ctx, vr.Package); err == nil {
+				for _, d := range rows {
+					set[d.Serial] = true
+				}
 			}
-			v.Rows = append(v.Rows, appDeviceRow{Serial: d.Serial, Version: d.Version, Venue: d.Venue})
+			in.Siblings[vr.Package] = set
 		}
 	}
-
-	// What a send would reach. Resolved now so both buttons carry a count and nothing is
-	// sent blind; the unknown-version devices are excluded by the same rule as the dialog.
-	// Roles no longer carry an app (14 Oct), so apps are sent from here again.
-	v.CanSend = v.InLibrary && h.commandTypeAllowed(h.role(r), "install_apk")
-	if v.CanSend {
+	// What a send would reach, resolved now so both buttons carry a count and nothing is
+	// sent blind; the unknown-version devices are excluded by the same rule as the chooser.
+	in.CanSend = in.Cov.InLibrary && h.commandTypeAllowed(h.role(r), "install_apk")
+	if in.CanSend {
 		if t, err := h.db.SerialsMissingPackage(ctx, pkg); err == nil {
-			v.MissingCount = len(t.Serials)
+			in.Missing = t.Serials
 		}
-		if t, err := h.db.SerialsOnOtherVersion(ctx, pkg, v.LibVersion); err == nil {
-			v.OtherCount = len(t.Serials)
+		if t, err := h.db.SerialsOnOtherVersion(ctx, pkg, in.Cov.LibLatest); err == nil {
+			in.OtherCount = len(t.Serials)
 		}
 	}
+	v := buildAppD1(in)
 
 	h.render(w, r, "app_detail.html", map[string]any{
-		"Title":      v.Name,
-		"ActivePage": "apps",
-		"App":        v,
+		"Title":         v.Name,
+		"ActivePage":    "apps",
+		"App":           v,
+		"Families":      fams, // the family tools' "add to a family" list
+		"AppFamilyMode": mode,
 	})
 }
