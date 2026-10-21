@@ -155,75 +155,126 @@
 .ua-pv-t.no{color:var(--muted)}
 .ua-pv-err{margin-top:10px;font-size:12.5px;color:var(--danger)}
 .ua-dev b{color:var(--text)}
+/* I1 (21 Oct 2026): the person's page */
+.i1-line{margin:12px 0 0!important;font-size:13.5px!important}
+.ov2-ban.is-calm .i1-line{opacity:.8}
+.i1-link{font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:2px}
+.i1-link:hover{text-decoration:underline}
+.i1-q{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--border-soft)}
+.i1-access .oc-ch+.i1-q{border-top:0}
+.i1-q .n{width:24px;height:24px;border-radius:50%;background:var(--surface2);display:grid;place-items:center;font-size:12px;font-weight:750}
+.i1-q .t{min-width:0}
+.i1-q b{display:block;font-size:12px;font-weight:650;color:var(--muted)}
+.i1-q .a{display:block;font-size:14px;font-weight:650;margin-top:2px}
+.i1-q small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.i1-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.i1-chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.i1-chip.mut{color:var(--muted)}
+.i1-edit{margin:6px -18px 0;padding:14px 18px;border-top:1px solid var(--border-soft);background:var(--surface-3,var(--surface2))}
+.i1-edit[hidden]{display:none}
+.i1-edit-h{display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:13px}
+.i1-edit-h span{color:var(--muted);font-size:12px}
+.i1-edit-h .cc-btn{margin-left:auto}
+.i1-edit-g{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;align-items:start}
+.i1-form{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.i1-pv{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;position:sticky;top:80px}
+.i1-pv .cc-ch{display:flex;align-items:center;gap:8px;margin:0 0 6px;padding:0;border:0}
+.i1-pv .cc-ch .ic{display:none}
+.i1-pv .cc-ch h2{margin:0;font-size:13px;font-weight:700}
+.i1-pv .cc-ch .m{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.i1-pv .ua-pad{padding:0}
+.i1-words{margin-top:6px;border-top:1px solid var(--border-soft);padding-top:8px}
+.i1-words>summary{cursor:pointer;font-size:12.5px;font-weight:650;color:var(--muted);list-style:none}
+.i1-words>summary::-webkit-details-marker{display:none}
+.i1-words .ua-words{margin-top:8px}
+.ov2-main>.ua-adv{margin:14px 0}
+#i1-activity{margin-top:14px}
+.i1-two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.i1-two h3,.i1-h3{margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.i1-h3{margin-top:16px}
+.i1-bar{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.i1-bar:first-of-type{border-top:0}
+.i1-bar .k{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.i1-bar .b{flex:0 0 90px;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.i1-bar .b i{display:block;height:6px;background:var(--accent)}
+.i1-bar .n{min-width:30px;text-align:right;font-variant-numeric:tabular-nums;font-weight:650}
+.i1-empty{font-size:12.5px;color:var(--muted);padding:6px 0}
+.i1-tl{list-style:none;margin:0;padding:0}
+.i1-tl li{display:grid;grid-template-columns:70px minmax(0,1fr);gap:10px;padding:7px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.i1-tl li:first-child{border-top:0}
+.i1-tl li>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.i1-tl .w{color:var(--muted);font-variant-numeric:tabular-nums}
+.i1-all{display:inline-block;margin:8px 0 2px;font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none}
+.ov2-rail .vs-k{width:74px}
+.ov2-rail .vs-h h2 small{font-weight:500;color:var(--muted);font-size:11.5px;margin-left:6px}
+.i1-f{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 14px}
+.i1-f .form-input{flex:1;min-width:0}
+.i1-f select.form-input{width:100%}
+.i1-av{width:20px;height:20px;font-size:10px;flex:none}
+.i1-danger .vs-k,.i1-danger .vs-v>span{color:var(--danger)}
+.i1-check .ua-cr .why{max-width:50%}
 </style>
 
 <div class="cc-wrap">
+  {{/* I1 (picked 21 Oct 2026): Profile and Manage in one page for whoever may manage the
+       person. Builder: internal/dashboard/user_i1.go; the access editor is today's, opened
+       in place (static/js/user_access.js). */}}
+  {{$u := .User}}{{$base := printf "/users/%s/profile" .User.ID}}
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Users · Manage · <a href="/users/{{.User.ID}}/profile" class="js-dest" style="color:inherit">{{.User.DisplayName}}</a></div>
-      <h1 class="cc-h1 ua-h1">{{template "ubub" .Bubble}}<span>{{.User.DisplayName}} <span class="cc-pill {{rolePill .User.Role}}" style="vertical-align:middle;margin-left:6px">{{roleLabel .User.Role}}</span></span></h1>
-      <div class="cc-sub">{{.RoleSentence}}</div>
+      <div class="cc-eyebrow"><a href="/users" class="js-dest" style="color:inherit">Users</a> · person</div>
+      <h1 class="cc-h1 ua-h1">{{template "ubub" .Bubble}}<span>{{$u.DisplayName}} <span class="cc-pill {{rolePill $u.Role}}" style="vertical-align:middle;margin-left:6px">{{roleLabel $u.Role}}</span></span></h1>
+      <div class="cc-status">{{.I1.Status}}</div>
     </div>
     <div class="cc-actions">
-      <a class="cc-btn js-dest" href="/users/{{.User.ID}}/profile">Profile</a>
-      <a class="cc-btn js-dest" href="/users">People</a>
+      {{if .CanSeeActivity}}<a class="cc-btn js-dest" href="/activity?actor={{$u.Username}}">Activity log</a>{{end}}
+      <a class="cc-btn js-dest" href="/users/access"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Access control</a>
     </div>
   </div>
 
-  {{if eq .User.Role "admin"}}
-  <div class="cc-grid ua-grid"><div>
-      <div class="cc-card ua-card" id="ua-account">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h2>Account</h2><span class="m mono">{{.User.Username}}</span></div>
-        <div class="ua-acct">
-          <div class="ua-acct-av">
-            <span class="ubub big">{{if .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{.Bubble.Initial}}{{end}}</span>
-            {{if .CanEditAvatar}}
-            <form action="/users/{{.User.ID}}/avatar" method="POST" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><label class="cc-btn sm">{{if .Bubble.URL}}Change{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label></form>
-            {{if .Bubble.URL}}<form action="/users/{{.User.ID}}/avatar/delete" method="POST" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Remove</button></form>{{end}}
-            {{end}}
-          </div>
-          <div class="ua-acct-forms">
-            <form action="/users/{{.User.ID}}/name" method="POST" hx-boost="false" class="ua-f">
-              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
-              <label class="ua-lbl">Name</label>
-              <div class="ua-f-row"><input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.User.FirstName}}"><input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.User.LastName}}"><button type="submit" class="cc-btn sm">Save</button></div>
-            </form>
-            <div class="ua-f">
-              <label class="ua-lbl">Email</label>
-              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{if and (not .User.EmailVerifiedAt) .ActorIsAdmin}}<form method="POST" action="/users/{{.User.ID}}/verify-email" hx-boost="false" style="margin:0"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Mark as verified</button></form>{{end}}{{end}}</div>{{if .User.Email}}{{if not .User.EmailVerifiedAt}}<p class="muted small" style="margin:6px 0 0">They signed up {{shortDate .User.CreatedAt}} and haven't clicked the link we emailed. Until the address is verified they can't sign in.</p>{{end}}{{end}}
-            </div>
-            <form action="/users/{{.User.ID}}/role" method="POST" hx-boost="false" class="ua-f">
-              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
-              <label class="ua-lbl">Role <span class="muted" style="font-weight:500">· sets the ceiling; rules below say where</span></label>
-              <div class="ua-f-row">
-                <select name="role" class="form-input" style="width:auto;min-width:220px;">
-                  {{$cur := .User.Role}}{{range .Assignable}}{{if eq (isCustomer .) (isCustomer $cur)}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}} — {{roleDesc .}}</option>{{end}}{{end}}
-                  {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
-                </select>
-                <button type="submit" class="cc-btn sm">Change role</button>
-              </div>
-            </form>
-            <form action="/users/{{.User.ID}}/password" method="POST" hx-boost="false" class="ua-f" autocomplete="off">
-              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
-              <label class="ua-lbl">Password</label>
-              <div class="ua-f-row"><input type="password" name="password" class="form-input" placeholder="New password" autocomplete="new-password" minlength="6" required style="max-width:260px;"><button type="submit" class="cc-btn sm">Set password</button></div>
-            </form>
-          </div>
-        </div>
-        {{if .CanDelete}}
-        {{if canCreateUsers .Role}}<div class="ua-danger">
-          <div><b>Delete this account</b><div class="muted small">Their past actions stay in history under the username.</div></div>
-          <form action="/users/{{.User.ID}}/delete" method="POST" hx-boost="true" hx-confirm="Delete {{.User.DisplayName}} ({{.User.Username}})? This cannot be undone."><button type="submit" class="cc-btn sm danger">Delete user</button></form>
-        </div>{{end}}
-        {{end}}
+  <div class="ov2">
+  <div class="ov2-main">
+    {{with .I1.Banner}}
+    <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}}">
+      <div class="ov2-ban-k">{{.Kicker}}</div>
+      <h2>{{.Headline}}</h2>
+      {{if .Todos}}
+      <ol class="oc-todo">
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}<form action="{{.Post}}" method="POST" hx-boost="false"><input type="hidden" name="redirect" value="{{$base}}"><button type="submit">{{.Action}}</button></form>{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
+      </ol>
+      {{end}}
+      {{with .Line}}<p class="i1-line">{{.}}</p>{{end}}
+    </div>
+    {{end}}
+
+    <div class="oc-stats">
+      {{range .I1.Cards}}
+      <div class="oc-st">
+        <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+        <a class="oc-stm" href="{{.Href}}">
+          {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+          {{with .B}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+        </a>
+        <div style="height:16px"></div>
       </div>
-  <div class="cc-card ua-card"><div class="ua-empty">Super admins have every permission everywhere. There are no access rules to configure.</div></div>
-  </div></div>
-  {{else}}
-  <div class="cc-grid ua-grid">
-    <div>
-      <form class="cc-card ua-card" id="ua-simple" hx-boost="false" onsubmit="return uaSimpleSave(event)">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><h2>Access</h2><span class="m">two questions</span></div>
+      {{end}}
+    </div>
+
+    <section class="oc-card i1-access" id="ua-access">
+      <div class="oc-ch"><h2>Access <span>what {{$u.DisplayName}} sees and can do</span></h2>{{if ne $u.Role "admin"}}<button type="button" class="i1-link" onclick="i1Rules()">Advanced rules</button>{{end}}</div>
+      {{range .I1.Answers}}
+      <div class="i1-q">
+        <span class="n">{{.N}}</span>
+        <div class="t"><b>{{.Q}}</b><span class="a">{{.A}}</span>{{if .Chips}}<span class="i1-chips">{{range .Chips}}<span class="i1-chip">{{.}}</span>{{end}}{{if .More}}<span class="i1-chip mut">+{{.More}} more</span>{{end}}</span>{{end}}{{with .Sub}}<small>{{.}}</small>{{end}}</div>
+        {{if ne $u.Role "admin"}}<button type="button" class="cc-btn sm" onclick="i1Edit({{if eq .N "+"}}true{{end}})">Edit</button>{{end}}
+      </div>
+      {{end}}
+      {{if ne $u.Role "admin"}}
+      <div class="i1-edit" id="i1-edit"{{if not (or (eq .Open "access") (not .Simple.OK))}} hidden{{end}}>
+        <div class="i1-edit-h"><b>Change access</b><span>the same two questions; saving replaces what is there</span><button type="button" class="cc-btn sm" onclick="i1EditClose()">Close</button></div>
+        <div class="i1-edit-g">
+          <form class="i1-form" id="ua-simple" hx-boost="false" onsubmit="return uaSimpleSave(event)">
+        
         {{if not .Simple.OK}}<div class="ua-warnbox"><b>This account has a setup the two questions can't show.</b> {{.Simple.Why}} It is under <a href="#ua-adv" onclick="document.getElementById('ua-adv').open=true">Advanced rules</a>. Answering the questions and saving replaces it.</div>{{end}}
         <div class="ua-q">
           <div class="ua-qh"><span class="n">1</span><div><h3>Which devices can they see?</h3><small>Devices outside this are hidden everywhere: lists, alerts, the map and counts.</small></div></div>
@@ -268,53 +319,23 @@
           <span class="err" id="ua-s-err"></span>
         </div>
       </form>
-
-      <div class="cc-card ua-card" id="ua-account">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span><h2>Account</h2><span class="m mono">{{.User.Username}}</span></div>
-        <div class="ua-acct">
-          <div class="ua-acct-av">
-            <span class="ubub big">{{if .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{.Bubble.Initial}}{{end}}</span>
-            {{if .CanEditAvatar}}
-            <form action="/users/{{.User.ID}}/avatar" method="POST" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><label class="cc-btn sm">{{if .Bubble.URL}}Change{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label></form>
-            {{if .Bubble.URL}}<form action="/users/{{.User.ID}}/avatar/delete" method="POST" hx-boost="false"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Remove</button></form>{{end}}
-            {{end}}
-          </div>
-          <div class="ua-acct-forms">
-            <form action="/users/{{.User.ID}}/name" method="POST" hx-boost="false" class="ua-f">
-              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
-              <label class="ua-lbl">Name</label>
-              <div class="ua-f-row"><input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.User.FirstName}}"><input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.User.LastName}}"><button type="submit" class="cc-btn sm">Save</button></div>
-            </form>
-            <div class="ua-f">
-              <label class="ua-lbl">Email</label>
-              <div class="ua-f-row"><input type="text" class="form-input" value="{{if .User.Email}}{{.User.Email}}{{else}}—{{end}}" readonly>{{if .User.Email}}<span class="cc-pill {{if .User.EmailVerifiedAt}}ok{{else}}warn{{end}}">{{if .User.EmailVerifiedAt}}verified{{else}}unverified{{end}}</span>{{if and (not .User.EmailVerifiedAt) .ActorIsAdmin}}<form method="POST" action="/users/{{.User.ID}}/verify-email" hx-boost="false" style="margin:0"><input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage"><button type="submit" class="cc-btn sm">Mark as verified</button></form>{{end}}{{end}}</div>{{if .User.Email}}{{if not .User.EmailVerifiedAt}}<p class="muted small" style="margin:6px 0 0">They signed up {{shortDate .User.CreatedAt}} and haven't clicked the link we emailed. Until the address is verified they can't sign in.</p>{{end}}{{end}}
-            </div>
-            <form action="/users/{{.User.ID}}/role" method="POST" hx-boost="false" class="ua-f">
-              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
-              <label class="ua-lbl">Role <span class="muted" style="font-weight:500">· sets the ceiling; rules below say where</span></label>
-              <div class="ua-f-row">
-                <select name="role" class="form-input" style="width:auto;min-width:220px;">
-                  {{$cur := .User.Role}}{{range .Assignable}}{{if eq (isCustomer .) (isCustomer $cur)}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}} — {{roleDesc .}}</option>{{end}}{{end}}
-                  {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
-                </select>
-                <button type="submit" class="cc-btn sm">Change role</button>
-              </div>
-            </form>
-            <form action="/users/{{.User.ID}}/password" method="POST" hx-boost="false" class="ua-f" autocomplete="off">
-              <input type="hidden" name="redirect" value="/users/{{.User.ID}}/manage">
-              <label class="ua-lbl">Password</label>
-              <div class="ua-f-row"><input type="password" name="password" class="form-input" placeholder="New password" autocomplete="new-password" minlength="6" required style="max-width:260px;"><button type="submit" class="cc-btn sm">Set password</button></div>
-            </form>
-          </div>
+          <div class="i1-pv" id="ua-pv">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><h2>If you save</h2><span class="m" id="ua-pv-state"></span></div>
+        <div class="ua-pad">
+          <div class="ua-pv-big" id="ua-pv-n">…</div>
+          <div class="ua-pv-l">Can</div><div class="ua-pv-t" id="ua-pv-can"></div>
+          <div class="ua-pv-l">Can't</div><div class="ua-pv-t no" id="ua-pv-cannot"></div>
+          <div class="ua-pv-err" id="ua-pv-err" hidden></div>
         </div>
-        {{if .CanDelete}}
-        {{if canCreateUsers .Role}}<div class="ua-danger">
-          <div><b>Delete this account</b><div class="muted small">Their past actions stay in history under the username.</div></div>
-          <form action="/users/{{.User.ID}}/delete" method="POST" hx-boost="true" hx-confirm="Delete {{.User.DisplayName}} ({{.User.Username}})? This cannot be undone."><button type="submit" class="cc-btn sm danger">Delete user</button></form>
-        </div>{{end}}
-        {{end}}
       </div>
-      <details class="ua-adv" id="ua-adv"{{if not .Simple.OK}} open{{end}}>
+        </div>
+      </div>
+      {{end}}
+      <details class="i1-words"><summary>In plain words</summary><ul class="ua-words">{{range .Summary}}<li>{{.}}</li>{{end}}</ul></details>
+    </section>
+
+    {{if ne $u.Role "admin"}}
+    <details class="ua-adv" id="ua-adv"{{if not .Simple.OK}} open{{end}}>
       <summary>Advanced rules <small>· starting point, allow and deny rules — what the questions above save</small></summary>
       {{if .HasBase}}
       <div class="cc-card ua-card">
@@ -431,33 +452,94 @@
         </form>
       </div>
       </details>
+    {{end}}
+
+    <section class="oc-card" id="i1-activity">
+      <div class="oc-ch"><h2>Their work <span>{{.Stats.Actions}} actions · {{.Stats.Commands}} commands · {{.Stats.DevicesTouched}} devices touched{{if .Enrolled}} · {{len .Enrolled}} enrolled{{end}}</span></h2></div>
+      <div class="i1-two">
+        <div><h3>What they do most</h3>
+          {{if .Stats.TopActions}}{{range .Stats.TopActions}}<div class="i1-bar"><span class="k mono">{{.Name}}</span><span class="b"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.Count}}</span></div>{{end}}{{else}}<div class="i1-empty">No actions recorded under this account yet.</div>{{end}}
+        </div>
+        <div><h3>Command mix</h3>
+          {{if .Stats.CommandTypes}}{{range .Stats.CommandTypes}}<div class="i1-bar"><span class="k">{{cmdLabel .Name}}</span><span class="b"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.Count}}</span></div>{{end}}{{else}}<div class="i1-empty">No commands sent yet.</div>{{end}}
+        </div>
+      </div>
+      {{if .CanSeeActivity}}
+      <h3 class="i1-h3">Recent activity</h3>
+      {{if .Recent}}<ul class="i1-tl">{{range .Recent}}<li><span class="w">{{timeSince .CreatedAt}}</span><span><b class="mono">{{.Action}}</b> {{.Target}}{{if .Detail}} · {{.Detail}}{{end}}</span></li>{{end}}</ul>
+      <a class="i1-all js-dest" href="/activity?actor={{$u.Username}}">All activity →</a>
+      {{else}}<div class="i1-empty">Nothing yet.</div>{{end}}
+      {{end}}
+    </section>
+  </div>
+
+  <aside class="ov2-rail" aria-label="Account">
+    <div class="vs-card" id="ua-account">
+      <div class="vs-h"><h2>Account <small class="mono">{{$u.Username}}</small></h2></div>
+      <details class="vs-row" name="i1-acct" id="i1-name"{{if eq .Open "name"}} open{{end}}>
+        <summary><span class="vs-k">Name</span><span class="vs-v"><span>{{$u.DisplayName}}</span></span><svg class="vs-ch" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></summary>
+        <div class="vs-body"><form action="/users/{{$u.ID}}/name" method="POST" hx-boost="false" class="i1-f">
+          <input type="hidden" name="redirect" value="{{$base}}?open=name">
+          <input type="text" name="first_name" class="form-input" placeholder="First name" value="{{$u.FirstName}}" aria-label="First name">
+          <input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{$u.LastName}}" aria-label="Last name">
+          <button type="submit" class="cc-btn sm primary">Save</button>
+        </form></div>
+      </details>
+      <details class="vs-row" name="i1-acct" id="i1-email"{{if eq .Open "email"}} open{{end}}>
+        <summary><span class="vs-k">Email</span><span class="vs-v"><span>{{if $u.Email}}{{$u.Email}}{{else}}none{{end}}</span>{{if $u.Email}}<small>{{if $u.EmailVerifiedAt}}verified{{else}}unverified{{end}}</small>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></summary>
+        <div class="vs-body">
+          {{if and $u.Email (not $u.EmailVerifiedAt)}}<div class="vs-note">They signed up {{shortDate $u.CreatedAt}} and haven't clicked the link we emailed. Until the address is verified they can't sign in.</div>
+          {{if .ActorIsAdmin}}<form method="POST" action="/users/{{$u.ID}}/verify-email" hx-boost="false" class="i1-f"><input type="hidden" name="redirect" value="{{$base}}?open=email"><button type="submit" class="cc-btn sm primary">Mark as verified</button></form>{{end}}{{end}}
+          <div class="vs-note">The address can't be changed here; it is how they sign in.</div>
+        </div>
+      </details>
+      <details class="vs-row" name="i1-acct" id="i1-role"{{if eq .Open "role"}} open{{end}}>
+        <summary><span class="vs-k">Role</span><span class="vs-v"><span>{{roleLabel $u.Role}}</span></span><svg class="vs-ch" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></summary>
+        <div class="vs-body"><form action="/users/{{$u.ID}}/role" method="POST" hx-boost="false" class="i1-f">
+          <input type="hidden" name="redirect" value="{{$base}}?open=role">
+          <select name="role" class="form-input" aria-label="Role">
+            {{$cur := $u.Role}}{{range .Assignable}}{{if eq (isCustomer .) (isCustomer $cur)}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}} — {{roleDesc .}}</option>{{end}}{{end}}
+            {{if not (hasStr .Assignable $u.Role)}}<option value="{{$u.Role}}" selected>{{roleLabel $u.Role}}</option>{{end}}
+          </select>
+          <button type="submit" class="cc-btn sm primary">Save</button>
+        </form><div class="vs-note">{{.RoleSentence}}</div></div>
+      </details>
+      <details class="vs-row" name="i1-acct" id="i1-password"{{if eq .Open "password"}} open{{end}}>
+        <summary><span class="vs-k">Password</span><span class="vs-v"><span>Set a new one</span></span><svg class="vs-ch" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></summary>
+        <div class="vs-body"><form action="/users/{{$u.ID}}/password" method="POST" hx-boost="false" class="i1-f" autocomplete="off">
+          <input type="hidden" name="redirect" value="{{$base}}?open=password">
+          <input type="password" name="password" class="form-input" placeholder="New password" autocomplete="new-password" minlength="6" required aria-label="New password">
+          <button type="submit" class="cc-btn sm primary">Set</button>
+        </form></div>
+      </details>
+      <details class="vs-row" name="i1-acct" id="i1-picture"{{if eq .Open "picture"}} open{{end}}>
+        <summary><span class="vs-k">Picture</span><span class="vs-v"><span class="ubub i1-av">{{if .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{.Bubble.Initial}}{{end}}</span><span>{{if .Bubble.URL}}A picture{{else}}Initial{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></summary>
+        <div class="vs-body">
+          {{if .CanEditAvatar}}<div class="i1-f">
+          <form action="/users/{{$u.ID}}/avatar" method="POST" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="{{$base}}?open=picture"><label class="cc-btn sm">{{if .Bubble.URL}}Change{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label></form>
+          {{if .Bubble.URL}}<form action="/users/{{$u.ID}}/avatar/delete" method="POST" hx-boost="false"><input type="hidden" name="redirect" value="{{$base}}?open=picture"><button type="submit" class="cc-btn sm">Remove</button></form>{{end}}
+          </div><div class="vs-note">PNG, JPEG or GIF, squared to 128 px.</div>
+          {{else}}<div class="vs-note">Only they or a super admin can change it.</div>{{end}}
+        </div>
+      </details>
+      {{if and .CanDelete (canCreateUsers .Role)}}
+      <details class="vs-row i1-danger" name="i1-acct" id="i1-delete"{{if eq .Open "delete"}} open{{end}}>
+        <summary><span class="vs-k">Delete</span><span class="vs-v"><span>Delete account</span></span><svg class="vs-ch" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></summary>
+        <div class="vs-body"><div class="vs-note">Their past actions stay in history under the username, and can be merged into another account later.</div>
+          <form action="/users/{{$u.ID}}/delete" method="POST" hx-boost="true" class="i1-f" hx-confirm="Delete {{$u.DisplayName}} ({{$u.Username}})? This cannot be undone."><button type="submit" class="cc-btn sm danger">Delete {{$u.DisplayName}}</button></form>
+        </div>
+      </details>
+      {{end}}
     </div>
 
-    <div class="ua-side">
-      <div class="cc-card ua-card" style="margin:0" id="ua-pv">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><h2>If you save</h2><span class="m" id="ua-pv-state"></span></div>
-        <div class="ua-pad">
-          <div class="ua-pv-big" id="ua-pv-n">…</div>
-          <div class="ua-pv-l">Can</div><div class="ua-pv-t" id="ua-pv-can"></div>
-          <div class="ua-pv-l">Can't</div><div class="ua-pv-t no" id="ua-pv-cannot"></div>
-          <div class="ua-pv-err" id="ua-pv-err" hidden></div>
-        </div>
-      </div>
-      <div class="cc-card ua-card" style="margin:0">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span><h2>In plain words</h2></div>
-        <div class="ua-pad"><ul class="ua-words">{{range .Summary}}<li>{{.}}</li>{{end}}</ul></div>
-      </div>
-      <div class="cc-card ua-card" style="margin:0">
-        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><h2>Check a device</h2><span class="m">what would they see?</span></div>
-        <div class="ua-pad">
-          <div class="ua-search"><input type="text" class="form-input" id="ua-cq" placeholder="Type a serial number…" autocomplete="off"><div class="ua-dd" id="ua-cdd" hidden></div></div>
+    <div class="ov2-rh"><h2>Check a device</h2></div>
+    <div class="i1-check">
+      <div class="ua-search"><input type="text" class="form-input" id="ua-cq" placeholder="Type a serial number…" autocomplete="off"><div class="ua-dd" id="ua-cdd" hidden></div></div>
           <div class="ua-dev" id="ua-cdev"></div>
           <div class="ua-check-res" id="ua-cres"><div class="ua-cr-h">Fleet-wide actions</div><div id="ua-cres-fleet" class="muted small">Loading…</div></div>
-        </div>
-      </div>
     </div>
+  </aside>
   </div>
-  {{end}}
 </div>
 
 <script>window.USER_ACCESS_PAGE = {id: {{.User.ID | printf "%s"}}, name: {{.User.DisplayName}}, places: {{.Simple.Places}}};</script>

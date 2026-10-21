@@ -284,7 +284,7 @@
           <td class="c-act">{{if .CanManage}}
             <details class="up-more"><summary aria-label="More for {{.DisplayName}}">⋯</summary>
               <div class="cc-menu" role="menu">
-                <a class="cc-mi js-dest" role="menuitem" href="/users/{{.ID}}/manage"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Role and access</a>
+                <a class="cc-mi js-dest" role="menuitem" href="/users/{{.ID}}/profile?open=access"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Role and access</a>
                 <a class="cc-mi js-dest" role="menuitem" href="/users/{{.ID}}/profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>Profile</a>
                 {{if .Invited}}<form method="POST" action="/users/{{.ID}}/invite" hx-boost="true"><input type="hidden" name="redirect" value="/users{{if eq $.Tab "customers"}}?tab=customers{{end}}"><button type="submit" class="cc-mi" role="menuitem"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Send invite again</button></form>{{end}}
                 {{if canCreateUsers $.Role}}<hr class="cc-msep">

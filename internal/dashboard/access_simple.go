@@ -416,7 +416,7 @@ func (h *Handler) UserAccessSimpleSave(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.audit(r, "user.access.set", u.Username, detail)
-	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/manage", "Access saved", "ok")
+	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/profile", "Access saved", "ok")
 }
 
 // ── Access profiles: /users/access/profiles ─────────────────────────────────

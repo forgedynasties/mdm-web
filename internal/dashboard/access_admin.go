@@ -261,13 +261,24 @@ func (h *Handler) usersRedirect(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
-// UserAccessPage renders the Manage page: account settings plus the access
-// rule editor (also served at /users/{id}/access).
+// UserAccessPage is where the Manage page was (/users/{id}/manage and /users/{id}/access).
+// Since I1 (21 Oct 2026) that is the person's own page, so old links land there with the
+// access editor open; ?open= and a flash message carry over.
 func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 	u, ok := h.loadAccessTarget(w, r)
 	if !ok {
 		return
 	}
+	q := r.URL.Query()
+	if q.Get("open") == "" {
+		q.Set("open", "access")
+	}
+	http.Redirect(w, r, "/users/"+u.ID.String()+"/profile?"+q.Encode(), http.StatusFound)
+}
+
+// renderUserI1 renders a person's page for someone who may manage them (I1): the old
+// Profile and Manage pages in one (user_access.html, builder in user_i1.go).
+func (h *Handler) renderUserI1(w http.ResponseWriter, r *http.Request, u *db.User) {
 	ctx := r.Context()
 	pol, err := h.db.GetUserAccess(ctx, u.Username)
 	if err != nil {
@@ -317,15 +328,52 @@ func (h *Handler) UserAccessPage(w http.ResponseWriter, r *http.Request) {
 	if simple.Expires != nil {
 		simpleExp = simple.Expires.Local().Format("2006-01-02T15:04")
 	}
+	// I1: what the person did, what they can see, whether an invite is still out.
+	stats, err := h.db.UserStats(ctx, u.Username, legacyAdminActor)
+	if err != nil || stats == nil {
+		stats = &db.UserStats{Username: u.Username}
+	}
+	week, _ := h.db.ActorWeekCounts(ctx, u.Username)
+	var invited *time.Time
+	if inv, err := h.db.PendingInvites(ctx); err == nil {
+		if at, ok := inv[u.ID]; ok {
+			invited = &at
+		}
+	}
+	target := h.accessFor(ctx, u.Role, u.Username)
+	visible, venueSet := 0, map[uuid.UUID]bool{}
+	for id, sc := range scopes {
+		if u.Role == "admin" || target.canDevice("view", id) {
+			visible++
+			if sc.RestaurantID != nil {
+				venueSet[*sc.RestaurantID] = true
+			}
+		}
+	}
+	var recent []db.AuditEntry
+	seeActivity := h.role(r) == "admin" // only a super admin reads someone else's activity
+	if seeActivity {
+		recent, _ = h.db.ListAuditFiltered(ctx, u.Username, 12)
+	}
+	enrolled, _ := h.db.RecentEnrollments(ctx, u.Username, time.Time{}, 50)
+	choices := h.simpleChoices(u.Role, profiles)
 	h.render(w, r, "user_access.html", map[string]any{
+		"I1": buildUserI1(i1Inputs{User: u, Simple: simple, Choices: choices, Grants: views, Week: week,
+			LastAt: stats.LastAt, Invited: invited, Visible: visible, Venues: len(venueSet), FleetSize: len(scopes),
+			ActorAdmin: actor.unrestricted(), CanInvite: true, Now: time.Now()}),
+		"Open":           r.URL.Query().Get("open"),
+		"Stats":          stats,
+		"Recent":         recent,
+		"Enrolled":       enrolled,
+		"CanSeeActivity": seeActivity,
 		"Simple":        simple,
 		"SimpleHas":     has,
 		"SimpleExp":     simpleExp,
-		"Choices":       h.simpleChoices(u.Role, profiles),
+		"Choices":       choices,
 		"CustomActions": custom,
 		"FleetSize":     len(scopes),
 		"RoleArticle":   roleArticle(u.Role),
-		"Title":        "Manage · " + u.DisplayName(),
+		"Title":        u.DisplayName(),
 		"Assignable":   assignableRoles(h.role(r)),
 		"CanEditAvatar": h.mayEditAvatar(r, u),
 		"CanDelete":    u.Username != h.currentUsername(r),
@@ -488,7 +536,7 @@ func (h *Handler) UserAccessSetBase(w http.ResponseWriter, r *http.Request) {
 	}
 	invalidatePolicy(u.Username)
 	h.audit(r, "user.access.base", u.Username, "base="+pol.Base+fmt.Sprintf(" hide_out_of_scope=%v", pol.HideOutOfScope))
-	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/access", "Saved", "ok")
+	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/profile?open=rules", "Saved", "ok")
 }
 
 // parseGrantForm reads effect / actions / note / expiry shared by add and edit.
@@ -722,7 +770,7 @@ func (h *Handler) UserAccessAddGrant(w http.ResponseWriter, r *http.Request) {
 	if len(saved) > 1 {
 		msg = fmt.Sprintf("%d rules added", len(saved))
 	}
-	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/access", msg, "ok")
+	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/profile?open=rules", msg, "ok")
 }
 
 func (h *Handler) loadGrant(w http.ResponseWriter, r *http.Request, u *db.User) (*db.AccessGrant, bool) {
@@ -767,7 +815,7 @@ func (h *Handler) UserAccessEditGrant(w http.ResponseWriter, r *http.Request) {
 	}
 	invalidatePolicy(u.Username)
 	h.audit(r, "user.access.edit", u.Username, describeGrant(*g)+" → "+describeGrant(next))
-	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/access", "Rule updated", "ok")
+	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/profile?open=rules", "Rule updated", "ok")
 }
 
 func (h *Handler) UserAccessDeleteGrant(w http.ResponseWriter, r *http.Request) {
@@ -792,7 +840,7 @@ func (h *Handler) UserAccessDeleteGrant(w http.ResponseWriter, r *http.Request) 
 	}
 	invalidatePolicy(u.Username)
 	h.audit(r, "user.access.revoke", u.Username, describeGrant(*g))
-	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/access", "Rule removed", "ok")
+	h.hxDoneToast(w, r, "/users/"+u.ID.String()+"/profile?open=rules", "Rule removed", "ok")
 }
 
 // ── Overview: /users/access ─────────────────────────────────────────────────

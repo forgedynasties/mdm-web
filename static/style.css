@@ -7852,3 +7852,26 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .oc-tl-ax{grid-column:2;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));font-size:10.5px;color:var(--muted);margin-top:6px}
 .oc-tl-ax span{white-space:nowrap;overflow:hidden}
 .oc-tl-ax span:last-child{color:var(--accent-text);font-weight:700}
+
+/* Settings rows (S1 venue settings, 19 Oct 2026; shared since 21 Oct by the person page's
+   Account card and Settings › People & sign-in): a card of rows, each showing its value
+   and opening its form in place (<details class="vs-row">). */
+.vs-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-width:0;overflow:hidden}
+.vs-h{padding:12px 14px 10px}.vs-h h2{font-size:13.5px;font-weight:650;margin:0}
+.vs-row>summary{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border-soft);list-style:none;cursor:pointer;font-size:13px}
+.vs-row>summary::-webkit-details-marker{display:none}
+.vs-row>summary:hover{background:var(--hover)}
+.vs-row>summary:focus-visible{outline:none;box-shadow:inset var(--ring)}
+.vs-row[open]>summary{background:var(--accent-soft)}
+.vs-k{width:96px;flex:none;color:var(--muted);font-size:12.5px}
+.vs-v{flex:1;min-width:0;display:flex;align-items:center;gap:7px;color:var(--text);white-space:nowrap;overflow:hidden}
+.vs-v>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.vs-v small{color:var(--muted);font-size:12px}
+.vs-ch{flex:none;width:14px;height:14px;fill:none;stroke:var(--text-faint);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.vs-row[open] .vs-ch{transform:rotate(90deg);stroke:var(--accent-text)}
+.vs-body{border-top:1px solid var(--border-soft)}
+.vs-body .vn-form{border-top:0}
+.vs-body .vn-form+.vn-form{border-top:1px solid var(--border-soft)}
+.vs-note{padding:10px 14px 2px;font-size:11.5px;color:var(--text-faint);line-height:1.5}
+.vs-note:last-child{padding-bottom:12px}
+.vs-ro{padding:10px 14px 12px;font-size:12.5px;color:var(--text-2);line-height:1.5;white-space:pre-wrap}
