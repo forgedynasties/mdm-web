@@ -20,7 +20,13 @@ func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 	families, suggestions, mode := h.libraryData(r.Context())
 	apps, _ := h.db.ListApps(r.Context())
 	cov := h.appCoverage(r.Context(), apps)
+	roleApps, _ := h.db.ListRoleApps(r.Context())
+	installs, _ := h.db.AppInstallsDaily(r.Context(), 14)
+	added, _ := h.db.AppsAddedSince(r.Context(), time.Now().AddDate(0, 0, -30))
 	h.render(w, r, "apps.html", map[string]any{
+		// A1 (picked 21 Oct 2026): banner, cards, one app table and a rail. apps_a1.go.
+		"A1": buildAppsA1(a1Inputs{Families: families, Apps: apps, Cov: cov, RoleApps: roleApps,
+			Installs: installs, AddedLast: added, Now: time.Now()}),
 		"Title":         "App library",
 		"ActivePage":    "apps",
 		"Apps":          apps,
