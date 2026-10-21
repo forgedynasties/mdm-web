@@ -29,6 +29,8 @@ type userRow struct {
 	Venues    []venueRef // customers: their venues
 	LastAt    *time.Time
 	Invited   *time.Time // invite sent and not used yet
+	Rules     int        // access rules of their own (allow or deny)
+	Activity  string     // p1Activity bucket, for the Activity filter
 	CanManage bool
 	Rank      int
 }
@@ -71,6 +73,8 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			row.Invited = &at
 		}
 		pol, _ := h.db.GetUserAccess(ctx, u.Username)
+		row.Rules = len(pol.Grants)
+		row.Activity = p1Activity(row, time.Now())
 		for _, g := range pol.Grants {
 			if g.Effect != "allow" {
 				continue
@@ -116,7 +120,16 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			teamRoles = append(teamRoles, d.Key)
 		}
 	}
+	days, _ := h.db.PeopleActivityDaily(ctx, 8)
+	activity := r.URL.Query().Get("activity")
+	switch activity {
+	case "week", "month", "quiet", "invited":
+	default:
+		activity = ""
+	}
 	h.render(w, r, "users.html", map[string]any{
+		"P1":            buildUsersP1(p1Inputs{Team: team, Customers: customers, Waiting: len(waiting), Orphans: orphans, Days: days, Now: time.Now()}),
+		"Activity":      activity,
 		"Waiting":       waiting,
 		"Team":          team,
 		"Customers":     customers,

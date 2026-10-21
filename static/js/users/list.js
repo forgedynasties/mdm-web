@@ -5,6 +5,9 @@
   if (card) {
     var q = document.getElementById('up-q');
     var role = { team: '', customers: '' };
+    // P1 (21 Oct 2026): Role and Activity are pills (oc-menus.js opens them); ?activity=
+    // (the banner's Review / See them links) sets the Activity one on arrival.
+    var act = card.dataset.activity || '';
     var tab = (card.querySelector('[role=tab].on') || {}).dataset ? card.querySelector('[role=tab].on').dataset.tab : 'team';
 
     function pane() { return card.querySelector('.up-pane[data-pane="' + tab + '"]'); }
@@ -12,7 +15,7 @@
       var p = pane(); if (!p) return;
       var t = q.value.trim().toLowerCase(), n = 0, rows = p.querySelectorAll('tr.ft-row');
       rows.forEach(function (r) {
-        var ok = (!t || r.dataset.q.toLowerCase().indexOf(t) !== -1) && (!role[tab] || r.dataset.role === role[tab]);
+        var ok = (!t || r.dataset.q.toLowerCase().indexOf(t) !== -1) && (!role[tab] || r.dataset.role === role[tab]) && (!act || r.dataset.act === act);
         r.hidden = !ok; if (ok) n++;
       });
       var none = p.querySelector('.up-none'); if (none) none.hidden = n > 0 || !rows.length;
@@ -22,19 +25,33 @@
         tab = b.dataset.tab;
         card.querySelectorAll('[role=tab]').forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
         card.querySelectorAll('.up-pane').forEach(function (p) { p.hidden = p.dataset.pane !== tab; });
-        card.querySelectorAll('.cc-seg[data-for]').forEach(function (s) { s.hidden = s.dataset.for !== tab; });
+        card.querySelectorAll('[data-for]').forEach(function (s) { s.hidden = s.dataset.for !== tab; });
         q.placeholder = tab === 'customers' ? 'Search name, email or venue…' : 'Search name or email…';
         try { history.replaceState(null, '', tab === 'customers' ? '/users?tab=customers' : '/users'); } catch (e) {}
         apply();
       });
     });
-    card.querySelectorAll('.cc-seg[data-for] button').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var seg = b.parentNode;
-        seg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
-        role[seg.dataset.for] = b.dataset.role; apply();
+    function pill(key, label) {
+      card.querySelectorAll('[data-up-pill="' + key + '"]').forEach(function (p) {
+        if (key === 'role' && p.closest('[data-for]') && p.closest('[data-for]').dataset.for !== tab) return;
+        p.querySelector('b').textContent = label; p.classList.toggle('set', label !== 'Any');
       });
+    }
+    card.addEventListener('click', function (e) {
+      var mi = e.target.closest('[data-up-role],[data-up-act]');
+      if (!mi) return;
+      var menu = mi.parentNode;
+      menu.querySelectorAll('.cc-mi').forEach(function (x) { x.classList.toggle('active', x === mi); });
+      if (mi.hasAttribute('data-up-role')) { role[tab] = mi.dataset.upRole; pill('role', mi.textContent); }
+      else { act = mi.dataset.upAct; pill('act', mi.textContent); }
+      if (window.ocCloseMenus) window.ocCloseMenus();
+      apply();
     });
+    if (act) {
+      var first = card.querySelector('[data-up-act="' + act + '"]');
+      if (first) { first.parentNode.querySelectorAll('.cc-mi').forEach(function (x) { x.classList.toggle('active', x === first); }); pill('act', first.textContent); }
+      apply();
+    }
     q.addEventListener('input', apply);
 
     // Sorting: Name A→Z, Role and Last active highest / newest first; a second click flips.

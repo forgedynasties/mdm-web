@@ -57,6 +57,21 @@
 .iv-ven label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:13px;cursor:pointer}
 .iv-ven label:hover{background:var(--hover)}
 .iv-foot{display:flex;justify-content:flex-end;gap:8px}
+/* P1 (21 Oct 2026) */
+.p1-line{margin:12px 0 0!important;font-size:13.5px!important}
+.ov2-ban.is-calm .p1-line{opacity:.8}
+#up-card .up-bar .oc-bar{margin:0;justify-content:flex-end}
+#up-card .up-q{width:200px}
+.p1-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--text-faint)}
+.p1-dot.a-week{background:var(--ok)}.p1-dot.a-month{background:var(--accent)}.p1-dot.a-invited{background:var(--warn)}.p1-dot.a-new{background:transparent;box-shadow:inset 0 0 0 1.5px var(--text-faint)}
+.p1-foot{margin:0;padding:10px 17px 12px}
+.p1-roles{list-style:none;margin:-4px 0 0;padding:0}
+.p1-roles li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.p1-roles li:first-child{border-top:0}
+.p1-roles .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p1-roles .b{flex:none;width:80px;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.p1-roles .b i{display:block;height:6px;background:var(--accent)}
+.p1-roles .n{width:24px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
 </style>
 
 {{/* Context island (H1): name, the one status line and the two actions; the header's
@@ -72,7 +87,7 @@
   <div class="cc-top">
     <div>
       <h1 class="cc-h1">Users</h1>
-      <div class="cc-status"><b>{{len .Team}}</b> on the AIO team · <b>{{len .Customers}}</b> customer{{if ne (len .Customers) 1}}s{{end}}{{if .Invites}} · <span class="hl warn">{{.Invites}} invite{{if ne .Invites 1}}s{{end}} not used yet</span>{{end}}</div>
+      <div class="cc-status"><b>{{len .Team}}</b> on the AIO team · <b>{{len .Customers}}</b> customer{{if ne (len .Customers) 1}}s{{end}} · <b>{{.P1.Rail.Active}}</b> active this week{{if .Invites}} · <span class="hl warn">{{.Invites}} invite{{if ne .Invites 1}}s{{end}} not used yet</span>{{end}}</div>
     </div>
     <div class="cc-actions isl-dup">
       <a class="cc-btn js-dest" href="/users/access"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Access control</a>
@@ -81,6 +96,37 @@
   </div>
 
   {{if .InviteFailed}}<div class="vf-strip"><div class="vf-strip-h"><span class="i"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></span><div><h2>The account was made, but the invite email to {{.InviteFailed}} didn't go out</h2><small>Use "Send invite again" in their row's ⋯ menu.</small></div></div></div>{{end}}
+
+  {{/* P1 (picked 21 Oct 2026): banner, cards, the people table and a rail. Builder:
+       internal/dashboard/users_p1.go. */}}
+  <div class="ov2">
+  <div class="ov2-main">
+  {{with .P1.Banner}}
+  <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}}">
+    <div class="ov2-ban-k">{{.Kicker}}</div>
+    <h2>{{.Headline}}</h2>
+    {{if .Todos}}
+    <ol class="oc-todo">
+      {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+    </ol>
+    {{if .More}}<a class="oc-more" href="#up-card">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
+    {{end}}
+    {{with .Line}}<p class="p1-line">{{.}}</p>{{end}}
+  </div>
+  {{end}}
+
+  <div class="oc-stats">
+    {{range .P1.Cards}}
+    <div class="oc-st">
+      <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+      <a class="oc-stm" href="{{.Href}}">
+        {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+        {{with .B}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+      </a>
+      {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/></svg>{{else}}<div style="height:16px"></div>{{end}}
+    </div>
+    {{end}}
+  </div>
 
   {{if .Waiting}}
   <div class="vf-strip" id="waiting-signups">
@@ -102,7 +148,7 @@
   {{end}}
 
   {{if .Orphans}}
-  <div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-card" id="unlinked" style="margin-bottom:16px;">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></span><h2>Unlinked activity</h2><span class="m">{{len .Orphans}} former username{{if ne (len .Orphans) 1}}s{{end}}</span></div>
     <div class="muted small" style="padding:10px 17px 4px;">Actions recorded under usernames that no longer have an account. Merge each into the person's current account so Activity and history show one name.</div>
     {{range .Orphans}}
@@ -125,21 +171,52 @@
   </div>
   {{end}}
 
-  <div class="cc-card" id="up-card">
+  <div class="cc-card" id="up-card" data-activity="{{.Activity}}">
     <div class="up-bar">
       <div class="cc-seg" role="tablist">
         <button type="button" role="tab" data-tab="team" class="{{if eq .Tab "team"}}on{{end}}" aria-selected="{{eq .Tab "team"}}">AIO team <span class="n">{{len .Team}}</span></button>
         <button type="button" role="tab" data-tab="customers" class="{{if eq .Tab "customers"}}on{{end}}" aria-selected="{{eq .Tab "customers"}}">Customers <span class="n">{{len .Customers}}</span></button>
       </div>
-      <div class="rt">
+      <div class="rt oc-bar">
         <input type="search" class="up-q" id="up-q" placeholder="Search name, email{{if eq .Tab "customers"}} or venue{{end}}…" aria-label="Search people">
-        <span class="cc-seg" data-for="team" {{if ne .Tab "team"}}hidden{{end}}><button type="button" class="on" data-role="">Any role</button>{{range .TeamRoles}}<button type="button" data-role="{{.}}">{{roleLabel .}}</button>{{end}}</span>
-        <span class="cc-seg" data-for="customers" {{if ne .Tab "customers"}}hidden{{end}}><button type="button" class="on" data-role="">Any role</button>{{range .CustomerRoles}}<button type="button" data-role="{{.}}">{{roleLabel .}}</button>{{end}}</span>
+        <div class="oc-f" data-for="team" {{if ne .Tab "team"}}hidden{{end}}><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-up-pill="role">Role: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden><button type="button" class="cc-mi active" data-up-role="">Any</button>{{range .TeamRoles}}<button type="button" class="cc-mi" data-up-role="{{.}}">{{roleLabel .}}</button>{{end}}</div></div>
+        <div class="oc-f" data-for="customers" {{if ne .Tab "customers"}}hidden{{end}}><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-up-pill="role">Role: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden><button type="button" class="cc-mi active" data-up-role="">Any</button>{{range .CustomerRoles}}<button type="button" class="cc-mi" data-up-role="{{.}}">{{roleLabel .}}</button>{{end}}</div></div>
+        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-up-pill="act">Activity: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden>
+            <button type="button" class="cc-mi active" data-up-act="">Any</button>
+            <button type="button" class="cc-mi" data-up-act="week">Active this week</button>
+            <button type="button" class="cc-mi" data-up-act="month">Active this month</button>
+            <button type="button" class="cc-mi" data-up-act="quiet">Quiet 30 days or more</button>
+            <button type="button" class="cc-mi" data-up-act="invited">Invite not used</button>
+          </div></div>
       </div>
     </div>
 
     {{template "users-pane" (dict "Tab" "team" "Rows" .Team "Cur" .Tab "Role" .Role)}}
     {{template "users-pane" (dict "Tab" "customers" "Rows" .Customers "Cur" .Tab "Role" .Role)}}
+    <div class="oc-foot p1-foot"><span><i style="background:var(--ok)"></i>active this week</span><span><i style="background:var(--accent)"></i>this month</span><span><i style="background:var(--warn)"></i>invite not used</span><span><i style="background:var(--text-faint)"></i>quiet 30 days or more</span><span class="tot">Total: <b>{{.P1.Rail.Total}} people</b></span></div>
+  </div>
+  </div>
+
+  {{with .P1.Rail}}
+  <aside class="ov2-rail" aria-label="How the accounts are used">
+    <a class="ov2-ring{{if .Tone}} s-{{.Tone}}{{end}}" href="/users?activity=week" title="{{.Active}} of {{.Total}} accounts did something in the last 7 days">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
+      <span><b>{{.Pct}}%</b><small>active</small></span>
+    </a>
+    <div class="ov2-hi"><b>{{.Active}} of {{.Total}} accounts</b><small>did something in the last 7 days</small></div>
+    <div class="ov2-bars" role="img" aria-label="Actions by people each day">
+      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+    </div>
+    <div class="ov2-hi"><small>actions by people each day, page views not counted</small></div>
+    <div class="ov2-rh"><h2>Roles</h2><a href="/users/access">Access control</a></div>
+    <ul class="p1-roles">
+      {{range .Roles}}<li><span class="t">{{.Label}}</span><span class="b" aria-hidden="true"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.N}}</span></li>{{end}}
+    </ul>
+  </aside>
+  {{end}}
   </div>
 
 </div>
@@ -176,6 +253,7 @@
   </div>
 </div>
 {{end}}
+<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
 <script src="/static/js/users/list.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}
@@ -194,7 +272,7 @@
         </tr></thead>
         <tbody>
         {{range .Rows}}
-        <tr class="ft-row" data-href="/users/{{.ID}}/profile" data-role="{{.Role}}" data-rank="{{.Rank}}" data-name="{{.DisplayName}}" data-seen="{{if .LastAt}}{{timeISO (deref .LastAt)}}{{end}}" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}{{range .Venues}} {{.Name}}{{end}}">
+        <tr class="ft-row" data-href="/users/{{.ID}}/profile" data-role="{{.Role}}" data-act="{{.Activity}}" data-rank="{{.Rank}}" data-name="{{.DisplayName}}" data-seen="{{if .LastAt}}{{timeISO (deref .LastAt)}}{{end}}" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}{{range .Venues}} {{.Name}}{{end}}">
           <td><a class="up-who js-dest" href="/users/{{.ID}}/profile" style="color:inherit;text-decoration:none">{{template "ubub" (userBubble .Username)}}<span class="t"><b>{{.DisplayName}}</b><small>{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}</small></span></a></td>
           <td><span class="cc-pill {{rolePill .Role}}">{{roleLabel .Role}}</span></td>
           {{if eq $.Tab "team"}}
@@ -202,7 +280,7 @@
           {{else}}
           <td>{{range .Venues}}<span class="up-ven">{{venueIcon .ID .Name "sm"}}{{.Name}}</span>{{else}}<span class="up-mute">No venue yet</span>{{end}}</td>
           {{end}}
-          <td class="ft-num">{{if .Invited}}<span class="cc-tag warn" title="Invite sent {{timeSince (deref .Invited)}}">invite sent</span>{{else if .LastAt}}{{timeSince (deref .LastAt)}}{{else}}<span class="up-mute">never</span>{{end}}</td>
+          <td class="ft-num"><i class="p1-dot a-{{.Activity}}" aria-hidden="true"></i>{{if .Invited}}<span class="cc-tag warn" title="Invite sent {{timeSince (deref .Invited)}}">invite sent</span>{{else if .LastAt}}{{timeSince (deref .LastAt)}}{{else}}<span class="up-mute">never</span>{{end}}</td>
           <td class="c-act">{{if .CanManage}}
             <details class="up-more"><summary aria-label="More for {{.DisplayName}}">⋯</summary>
               <div class="cc-menu" role="menu">
