@@ -52,7 +52,7 @@
       if (isCard) {
       if (pv) {
         if (d.battery_missing && !dongle) {
-          pv.innerHTML = '<span class="pw danger" role="img" aria-label="No battery detected" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span>';
+          pv.innerHTML = '<span class="pw pw-bat danger pw-fault" role="img" aria-label="Battery fault: no pack detected" title="Battery fault: the pack is not detected (unplugged, or its thermistor reads open). Charging is suspended and no percentage is real; needs a look on site."><span class="v"><span class="pc">Fault</span></span><span class="gb"><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg></span></span>';
         } else if (d.has_battery && !dongle) {
           var fill = Math.max(2, Math.min(18, Math.round(d.battery_pct * 18 / 100)));
           var mk = d.flapping ? '<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>'
@@ -69,7 +69,7 @@
       } else {
       if (pv) {
         if (d.battery_missing && !dongle) {
-          pv.innerHTML = '<span class="ft-pw danger" title="No battery detected — the charger reports the pack absent (NTC thermistor open/out of range, or unplugged). Charging is suspended; any percentage would be read off the rail.">No pack</span>';
+          pv.innerHTML = '<span class="ft-pw danger ft-fault" title="Battery fault: the pack is not detected (unplugged, or its thermistor reads open). Charging is suspended and no percentage is real; needs a look on site."><svg class="g-bat" viewBox="0 0 26 14" aria-hidden="true"><use href="#dk-batx"/></svg>Fault</span>';
         } else if (d.has_battery && !dongle) {
           var pct = Math.max(0, Math.min(100, d.battery_pct));
           var mk = d.flapping ? '<svg class="mk flap" viewBox="0 0 24 24" aria-hidden="true"><use href="#dk-flap"/></svg>'

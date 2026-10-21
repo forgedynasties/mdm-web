@@ -853,8 +853,67 @@ function mdmBootCharts() {
     document.querySelectorAll('#vt-legend .vt-lg').forEach(function (l) { l.hidden = l.getAttribute('data-lg') !== tab; });
   };
 
+  // Battery fault (G1, 21 Oct 2026): a device that reports its pack absent sends 0%. Those
+  // readings are not a level, so they come out of the line and are drawn as hatched
+  // "no pack" stretches instead (noPackPlugin), with the note in the panel saying why.
+  function splitNoPack(chart, pts, minX, lastX) {
+    if (chart !== batteryChart || !DV.batteryFault) return pts;
+    const thr = gapThresholdFor(pts) || 15 * 60e3;
+    const real = [], ranges = [];
+    let cur = null;
+    pts.forEach(function (p) {
+      if (p.y === 0) {
+        if (cur && p.x - cur.to <= thr) cur.to = p.x;
+        else { cur = { from: p.x, to: p.x }; ranges.push(cur); }
+      } else { cur = null; real.push(p); }
+    });
+    ranges.forEach(function (r) { r.from -= thr / 4; r.to += thr / 4; });
+    chart.$noPack = ranges;
+    let cover = 0;
+    ranges.forEach(function (r) { cover += Math.max(0, Math.min(r.to, lastX) - Math.max(r.from, minX)); });
+    const note = document.getElementById('vt-nopack');
+    if (note) {
+      note.hidden = !ranges.length;
+      note.classList.toggle('side', lastX > minX && cover / (lastX - minX) < 0.6);
+    }
+    return real;
+  }
+  function inNoPack(chart, a, b) {
+    return (chart.$noPack || []).some(function (r) { return a >= r.from && b <= r.to; });
+  }
+  let noPackHatch = null;
+  const noPackPlugin = {
+    id: 'noPack',
+    beforeDatasetsDraw(chart) {
+      const ca = chart.chartArea, xs = chart.scales.x, ranges = chart.$noPack;
+      if (!ca || !xs || !ranges || !ranges.length) return;
+      const ctx = chart.ctx;
+      if (!noPackHatch) {
+        const pc = document.createElement('canvas'); pc.width = 10; pc.height = 10;
+        const g = pc.getContext('2d');
+        g.strokeStyle = 'rgba(220,60,50,0.30)'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(0, 10); g.lineTo(10, 0); g.moveTo(-3, 3); g.lineTo(3, -3); g.moveTo(7, 13); g.lineTo(13, 7); g.stroke();
+        noPackHatch = ctx.createPattern(pc, 'repeat');
+      }
+      ctx.save();
+      ranges.forEach(function (r) {
+        const x0 = Math.max(ca.left, xs.getPixelForValue(r.from)), x1 = Math.min(ca.right, xs.getPixelForValue(r.to));
+        if (x1 - x0 < 1) return;
+        ctx.fillStyle = noPackHatch;
+        ctx.fillRect(x0, ca.top, x1 - x0, ca.bottom - ca.top);
+        ctx.strokeStyle = 'rgba(220,60,50,0.45)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + .5, ca.top + .5, x1 - x0 - 1, ca.bottom - ca.top - 1);
+        ctx.setLineDash([]);
+        ctx.font = '600 10.5px system-ui, sans-serif';
+        if (x1 - x0 > ctx.measureText('No pack').width + 12) { ctx.fillStyle = 'rgba(200,50,40,0.9)'; ctx.fillText('No pack', x0 + 6, ca.top + 13); }
+      });
+      ctx.restore();
+    },
+  };
+
   function applyData(chart, all) {
-    const { pts, minX, lastX } = filterWindow(all);
+    const w = filterWindow(all), minX = w.minX, lastX = w.lastX;
+    const pts = splitNoPack(chart, w.pts, minX, lastX);
     // Battery: resample the dense integer window to ~220 fractional bucket-averages
     // so the spline flows smoothly; other metrics vary enough to draw raw.
     if (chart === batteryChart) chart.$wlcPts = pts;  // raw per-sample wlc for the stroke gradient
@@ -926,7 +985,9 @@ function mdmBootCharts() {
       if (v == null || isNaN(v)) return;
       el.textContent = (Math.round(v * 10) / 10) + suffix;
     }
-    if (DV.showBattery) set('tabval-battery', allBattery, '%');
+    if (DV.showBattery && DV.batteryFault && allBattery.length && allBattery[allBattery.length - 1].y === 0) {
+      var tb = document.getElementById('tabval-battery'); if (tb) tb.textContent = 'no pack';
+    } else if (DV.showBattery) set('tabval-battery', allBattery, '%');
     set('tabval-temp', allTemp, '°C');
     set('tabval-ram', allRam, '%');
   }
@@ -1099,7 +1160,8 @@ function mdmBootCharts() {
       if (off >= 5) when += '  ±' + (off < 90 ? off + 's' : Math.round(off / 60) + 'm');
     }
     setReadout('cr-when', when + (markerText ? '  ·  ' + markerText : ''));
-    if (bPt && bPt.y != null) setReadout('cr-batt', String(bPt.y), '%'); else setReadout('cr-batt', '—');
+    if (bPt && bPt.y === 0 && DV.batteryFault) setReadout('cr-batt', 'no pack');
+    else if (bPt && bPt.y != null) setReadout('cr-batt', String(bPt.y), '%'); else setReadout('cr-batt', '—');
     if (tPt && tPt.y != null) setReadout('cr-temp', tPt.y.toFixed(1), '°C'); else setReadout('cr-temp', '—');
     if (rPt && rPt.y != null) setReadout('cr-ram', rPt.y.toFixed(1), '%'); else setReadout('cr-ram', '—');
     // Charging only. The pad state (placed / vacant / misplaced) is already the colour
@@ -1609,6 +1671,7 @@ function mdmBootCharts() {
         const a = prev && prev.y !== null ? prev.x : data[i].x;
         const b = next && next.y !== null ? next.x : (xs.max || data[i].x);
         if (inLate(a) && inLate(b)) continue;
+        if (inNoPack(chart, a, b)) continue; // drawn as "no pack" instead
         const p = clip(a, b);
         if (p[1] - p[0] < 1) continue;
         ctx.fillStyle = offlineHatch;
@@ -1680,7 +1743,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, afterFit: vtYFit, ticks: { color: TICK, callback: v => v + "%", stepSize: 50, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [offlinePlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin].concat(DV.hasCharging ? [chargeStripPlugin] : []),
+    plugins: [offlinePlugin, noPackPlugin, bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin].concat(DV.hasCharging ? [chargeStripPlugin] : []),
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';

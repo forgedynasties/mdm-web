@@ -564,6 +564,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// a legacy or unknown product key), and then every battery surface draws an
 		// empty chart and a 0%. So a claimed battery must also show up in telemetry.
 		"ShowBattery":       device.HasBattery() && deviceReportsBattery(device, chartCheckins),
+		// A battery product whose pack is not detected (G1, 21 Oct 2026): the graph stays,
+		// with its "no pack" stretches hatched, instead of vanishing with the 0%.
+		"BatteryFault":     device.HasBattery() && extractBatteryMissing(device.LatestExtra),
+		"ShowBatteryChart": device.HasBattery() && (deviceReportsBattery(device, chartCheckins) || extractBatteryMissing(device.LatestExtra)),
 		"ChartCharge":       chartCharge,
 		"ChartFocus":        focusParam,
 		"IsOwner":           roleIsCustomer(h.role(r)),

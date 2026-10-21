@@ -7606,6 +7606,11 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .ft-pw .mk.flap { color: var(--danger); }
 .ft-pw.mains { color: var(--text-faint); }
 .ft-pw.danger { color: var(--danger); font-weight: 600; }
+/* Battery fault (G1, 21 Oct 2026): the pack is not detected, a hardware fault, not mains. */
+.ft-pw.ft-fault { gap: 6px; padding: 2px 9px 2px 7px; border-radius: 99px; background: var(--danger-bg); font-size: 12px; font-weight: 700; }
+.ft-pw.ft-fault .g-bat { width: 17px; height: 9px; flex: none; }
+.dl-pw .pw-bat.pw-fault .v { color: var(--danger); font-weight: 700; }
+.pw-bat.pw-fault .pc { width: auto; }
 /* Temp, RAM: plain when fine, coloured only when they need a look */
 .ft .v { font-weight: 600; }
 .ft .v.ok { color: var(--text); }
