@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	prod "mdm/internal/product"
 )
 
 // ── Device Config / Kiosk ─────────────────────────────────────────────────────
@@ -39,17 +41,19 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	// Read first — this runs on every check-in and the row exists after the device's
 	// first one, so the INSERT below (a wasted write attempt at 900 dev × every 60s)
 	// only ever fires once per device.
-	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features,
+	sel := `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features,
 		offline_exit_enabled, offline_exit_relock, wlc_charging_enabled, updated_at,
 		kiosk_mode, kiosk_packages, kiosk_url, kiosk_url_allow,
-		screen_brightness, screen_brightness_locked
+		screen_brightness, screen_brightness_locked, screen_brightness_set_by, screen_brightness_set_at,
+		COALESCE((SELECT `+derivedClassSQL()+` FROM devices WHERE devices.id = device_config.device_id), '')
 		FROM device_config WHERE device_id = $1`
 	var cfg DeviceConfig
 	scan := func(row pgx.Row) error {
 		return row.Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures,
 			&cfg.OfflineExitEnabled, &cfg.OfflineExitRelock, &cfg.WlcChargingEnabled, &cfg.UpdatedAt,
 			&cfg.KioskMode, &cfg.KioskPackages, &cfg.KioskURL, &cfg.KioskURLAllow,
-			&cfg.ScreenBrightness, &cfg.ScreenBrightnessLocked)
+			&cfg.ScreenBrightness, &cfg.ScreenBrightnessLocked, &cfg.ScreenBrightnessSetBy, &cfg.ScreenBrightnessSetAt,
+			&cfg.DeviceClass)
 	}
 	err := scan(d.pool.QueryRow(ctx, sel, deviceID))
 	if err == nil {
@@ -147,21 +151,68 @@ func (d *DB) SetWlcCharging(ctx context.Context, deviceID uuid.UUID, enabled boo
 	return err
 }
 
-// SetScreenBrightness sets the brightness a device is held at. A nil level stops managing
-// it (and unlocks); locked without a level is stored as unlocked.
-func (d *DB) SetScreenBrightness(ctx context.Context, deviceID uuid.UUID, level *int, locked bool) error {
+// SetScreenBrightness sets a device's own brightness level. A nil level puts it back on
+// the default (122, locked, on Tableside AI; not managed on other devices); locked
+// without a level is stored as unlocked. by is who set it.
+func (d *DB) SetScreenBrightness(ctx context.Context, deviceID uuid.UUID, level *int, locked bool, by string) error {
 	if level == nil {
-		locked = false
+		locked, by = false, ""
 	}
 	_, err := d.pool.Exec(ctx, `
-		INSERT INTO device_config (device_id, screen_brightness, screen_brightness_locked, updated_at)
-		VALUES ($1, $2, $3, NOW())
+		INSERT INTO device_config (device_id, screen_brightness, screen_brightness_locked,
+		                           screen_brightness_set_by, screen_brightness_set_at, updated_at)
+		VALUES ($1, $2, $3, $4, CASE WHEN $2::smallint IS NULL THEN NULL ELSE NOW() END, NOW())
 		ON CONFLICT (device_id) DO UPDATE
 			SET screen_brightness        = EXCLUDED.screen_brightness,
 			    screen_brightness_locked = EXCLUDED.screen_brightness_locked,
+			    screen_brightness_set_by = EXCLUDED.screen_brightness_set_by,
+			    screen_brightness_set_at = EXCLUDED.screen_brightness_set_at,
 			    updated_at               = NOW()
-	`, deviceID, level, locked)
+	`, deviceID, level, locked, by)
 	return err
+}
+
+// DefaultScreenBrightness is the level a Tableside AI tablet is held at, locked, when
+// nobody set its own (21 Oct 2026, user: "122 to any device that comes up", Tableside AI
+// only). 122 is the T7's maximum; on other hardware it could be half brightness, so the
+// default does not apply there.
+const DefaultScreenBrightness = 122
+
+// BrightnessDefaultApplies reports whether a device class gets the default.
+func BrightnessDefaultApplies(class string) bool { return class == prod.ClassT7 }
+
+// Brightness is what the device should be held at.
+type Brightness struct {
+	Level          int  // 0 = not managed
+	Locked         bool
+	Default        bool // on the default (no level of its own)
+	DefaultApplies bool // the default exists for this device's class
+	Max            int  // the slider's top for this device
+}
+
+// Brightness resolves the device's own level, else the default for its class.
+func (c DeviceConfig) Brightness() Brightness {
+	b := Brightness{DefaultApplies: BrightnessDefaultApplies(c.DeviceClass), Max: 255}
+	if b.DefaultApplies {
+		b.Max = DefaultScreenBrightness
+	}
+	switch {
+	case c.ScreenBrightness != nil:
+		b.Level, b.Locked = *c.ScreenBrightness, c.ScreenBrightnessLocked
+	case b.DefaultApplies:
+		b.Level, b.Locked, b.Default = DefaultScreenBrightness, true, true
+	}
+	return b
+}
+
+// BrightnessConfig is the two config keys the firmware client reads (1.14.0+):
+// screen_brightness (1-255, null = not managed) and screen_brightness_locked.
+func (c DeviceConfig) BrightnessConfig() (level any, locked bool) {
+	b := c.Brightness()
+	if b.Level == 0 {
+		return nil, false
+	}
+	return b.Level, b.Locked
 }
 
 // CountUnlockedDevices returns the number of non-hidden devices with no kiosk lock
@@ -270,4 +321,62 @@ func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, tar
 func (d *DB) DeleteKioskPolicy(ctx context.Context, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM kiosk_policies WHERE id = $1`, id)
 	return err
+}
+
+// BrightnessState is one device the brightness job looks at: what it should be held at
+// (its config, with its class) and what it last reported.
+type BrightnessState struct {
+	ID             uuid.UUID
+	Serial         string
+	Config         DeviceConfig
+	Reported       *int
+	ReportedLocked bool
+}
+
+// BrightnessStates lists devices whose client reports brightness (firmware client
+// 1.14.0+) and that were seen in the last seenSecs seconds.
+func (d *DB) BrightnessStates(ctx context.Context, seenSecs int) ([]BrightnessState, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number, `+derivedClassSQL()+`,
+		       c.screen_brightness, COALESCE(c.screen_brightness_locked, false),
+		       CASE WHEN d.latest_extra->>'screen_brightness' ~ '^[0-9]+$'
+		            THEN (d.latest_extra->>'screen_brightness')::int END,
+		       COALESCE(d.latest_extra->>'screen_brightness_locked', '') = 'true'
+		FROM devices d
+		LEFT JOIN device_config c ON c.device_id = d.id
+		WHERE NOT d.hidden AND d.latest_extra ? 'screen_brightness'
+		  AND d.last_seen_at > NOW() - make_interval(secs => $1::int)`, seenSecs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BrightnessState
+	for rows.Next() {
+		var s BrightnessState
+		if err := rows.Scan(&s.ID, &s.Serial, &s.Config.DeviceClass, &s.Config.ScreenBrightness,
+			&s.Config.ScreenBrightnessLocked, &s.Reported, &s.ReportedLocked); err != nil {
+			return nil, err
+		}
+		s.Config.DeviceID = s.ID
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// Drifted reports whether a device is off the level it is locked at. A level that is
+// not locked ("Free") is applied once and may then be moved on the device, so it never
+// drifts; neither does a device whose brightness is not managed.
+func (s BrightnessState) Drifted() bool {
+	b := s.Config.Brightness()
+	if b.Level == 0 || !b.Locked {
+		return false
+	}
+	if s.Reported == nil || !s.ReportedLocked {
+		return true
+	}
+	target := b.Level
+	if target > b.Max {
+		target = b.Max // the client clamps to the platform's slider range
+	}
+	return *s.Reported != target
 }

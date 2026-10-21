@@ -840,6 +840,10 @@ func main() {
 				// Give every device at a venue the venue's Wi-Fi networks, and have them
 				// forget removed ones (venue_wifi.go).
 				runJob(bgCtx, "venue-wifi", time.Minute, dash.RunVenueWifi)
+				// Hold every device at its brightness: Tableside AI at 122, locked, unless
+				// one has its own level; re-sends the config to devices that drifted
+				// (dashboard/brightness_relock.go).
+				runJob(bgCtx, "brightness-relock", 10*time.Minute, dash.RunBrightnessRelock)
 				// Place the Wi-Fi scans lost or departed devices kept while out of reach
 				// (lost-device reporting, C) — see dashboard/lost_reporting.go.
 				runJob(bgCtx, "lost-trail", time.Minute, dash.RunLostTrail)

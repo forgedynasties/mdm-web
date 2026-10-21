@@ -149,6 +149,7 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 		if err != nil {
 			continue
 		}
+		briLevel, briLocked := cfg.BrightnessConfig()
 		frame := map[string]any{
 			"type":                     "config",
 			"kiosk_enabled":            cfg.KioskEnabled,
@@ -159,8 +160,8 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"kiosk_url":                cfg.KioskURL,
 			"kiosk_url_allow":          cfg.KioskURLAllow,
 			"wlc_charging_enabled":     cfg.WlcChargingEnabled,
-			"screen_brightness":        cfg.ScreenBrightness,
-			"screen_brightness_locked": cfg.ScreenBrightnessLocked,
+			"screen_brightness":        briLevel,
+			"screen_brightness_locked": briLocked,
 			"checkin_interval_seconds": interval,
 		}
 		// Every config frame carries the lost-reporting keys: the firmware client reads a

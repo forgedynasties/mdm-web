@@ -470,8 +470,8 @@ func (h *Handler) DeviceWlcUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 // DeviceBrightnessUpdate sets the screen brightness the client holds the device at
-// (form screen_brightness 1-255, empty = stop managing; screen_brightness_locked=1 to
-// lock). Pushed at once to a connected device.
+// (form screen_brightness 1-255 and screen_brightness_locked=1 to lock; reset=1 back to
+// the default). Pushed at once to a connected device.
 func (h *Handler) DeviceBrightnessUpdate(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	r.ParseForm()
@@ -483,13 +483,17 @@ func (h *Handler) DeviceBrightnessUpdate(w http.ResponseWriter, r *http.Request)
 	if !h.requireDeviceAction(w, r, "kiosk", device.ID) {
 		return
 	}
-	level, err := parseBrightness(r.FormValue("screen_brightness"))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	// reset=1 puts it back on the default ("Back to default (122)" on Tableside AI, "Stop
+	// managing" elsewhere); otherwise a level of its own.
+	var level *int
+	if r.FormValue("reset") != "1" {
+		if level, err = parseBrightness(r.FormValue("screen_brightness")); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	locked := level != nil && r.FormValue("screen_brightness_locked") == "1"
-	if err := h.db.SetScreenBrightness(r.Context(), device.ID, level, locked); err != nil {
+	if err := h.db.SetScreenBrightness(r.Context(), device.ID, level, locked, h.currentUsername(r)); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -520,7 +524,7 @@ func (h *Handler) APISetDeviceBrightness(w http.ResponseWriter, r *http.Request)
 		writeJSONError(w, http.StatusNotFound, "device not found")
 		return
 	}
-	if err := h.db.SetScreenBrightness(ctx, dev.ID, body.Level, locked); err != nil {
+	if err := h.db.SetScreenBrightness(ctx, dev.ID, body.Level, locked, "API key"); err != nil {
 		writeJSONError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
@@ -544,10 +548,10 @@ func parseBrightness(v string) (*int, error) {
 	return &n, nil
 }
 
-// brightnessDetail is the audit detail: "122, locked", "122", or "off" (not managed).
+// brightnessDetail is the audit detail: "122, locked", "122", or "default".
 func brightnessDetail(level *int, locked bool) string {
 	if level == nil {
-		return "off"
+		return "default"
 	}
 	if locked {
 		return strconv.Itoa(*level) + ", locked"

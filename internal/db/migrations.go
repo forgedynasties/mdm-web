@@ -180,6 +180,10 @@ ALTER TABLE device_config ADD COLUMN IF NOT EXISTS wlc_charging_enabled BOOLEAN 
 -- and whether it holds it there (QS slider greyed out, any change put back).
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS screen_brightness SMALLINT;
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS screen_brightness_locked BOOLEAN NOT NULL DEFAULT FALSE;
+-- Who set a device's own level, and when (21 Oct: the device page says "set for this
+-- device by …"). NULL level = the default (122, locked, on Tableside AI; unmanaged on others).
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS screen_brightness_set_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS screen_brightness_set_at TIMESTAMPTZ;
 
 -- A named, standing kiosk-lock policy assigned to a restaurant/group/device/the whole
 -- fleet — the Manage page's unit, not a one-shot command. Applying/editing/deleting a

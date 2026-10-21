@@ -591,6 +591,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Uninstalling":        pendingUninstallPkgs(commands),
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
+		"Bri":                 briViewFor(kioskCfg, device.LatestExtra),
 		"KioskExit":           h.kioskExitFor(r, device),
 		// Reporting but unreachable: fresh telemetry, no socket. The badge says Offline and
 		// cannot say why it matters, so the banner does. See command_channel.go.
@@ -697,6 +698,7 @@ func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
 		"Device":              device,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"KioskConfig":         kioskCfg,
+		"Bri":                 briViewFor(kioskCfg, device.LatestExtra),
 	})
 }
 

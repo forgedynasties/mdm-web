@@ -18,6 +18,7 @@ func TestHumanizeAuditReadsAsASentence(t *testing.T) {
 		{"device.screen_brightness", "AT070", "122, locked", "locked screen brightness at 122"},
 		{"device.screen_brightness", "AT070", "90", "set screen brightness to 90"},
 		{"device.screen_brightness", "AT070", "off", "stopped managing screen brightness"},
+		{"device.screen_brightness", "AT070", "default", "put screen brightness back on the default"},
 		{"device.kiosk", "AT070", "enabled (single_app)", "enabled locked mode (single_app)"},
 		{"device.kiosk", "AT070", "disabled", "disabled locked mode"},
 		{"device.nickname", "AT070", "Register 3", `named the device "Register 3"`},

@@ -36,10 +36,12 @@ func humanizeAudit(e db.AuditEntry) string {
 	case "device.wlc_charging":
 		return onOff(d, "wireless charging")
 	case "device.screen_brightness":
-		// detail is "122, locked", "122" or "off".
+		// detail is "122, locked", "122", "default" (since 21 Oct) or "off" (before).
 		switch {
 		case d == "":
 			return "changed screen brightness"
+		case d == "default":
+			return "put screen brightness back on the default"
 		case d == "off":
 			return "stopped managing screen brightness"
 		case strings.HasSuffix(d, ", locked"):

@@ -361,6 +361,12 @@ type DeviceConfig struct {
 	// not manage it; ScreenBrightnessLocked holds it there on the device.
 	ScreenBrightness       *int `json:"screen_brightness"`
 	ScreenBrightnessLocked bool `json:"screen_brightness_locked"`
+	// Who set this device's own level and when (empty / nil on the default).
+	ScreenBrightnessSetBy string     `json:"-"`
+	ScreenBrightnessSetAt *time.Time `json:"-"`
+	// DeviceClass is the device's derived class, read with the row (not stored here): it
+	// decides whether the brightness default applies.
+	DeviceClass string `json:"-"`
 	// Offline kiosk-exit (the on-device exit PIN). The per-device rotating code (TOTP seed)
 	// was removed on 17 Oct; the offline_exit_seed column is left in place, unused.
 	OfflineExitEnabled bool   `json:"offline_exit_enabled"`

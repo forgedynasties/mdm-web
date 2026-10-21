@@ -1270,6 +1270,8 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		out.SendApps = h.db.NeedsAppInventory(ctx, deviceID)
 	}
 
+	// Brightness: the device's own level, else 122 locked on Tableside AI (21 Oct).
+	briLevel, briLocked := deviceCfg.BrightnessConfig()
 	cfg := map[string]any{
 		"kiosk_enabled":            deviceCfg.KioskEnabled,
 		"kiosk_package":            deviceCfg.KioskPackage,
@@ -1279,8 +1281,8 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		"kiosk_url":                deviceCfg.KioskURL,
 		"kiosk_url_allow":          deviceCfg.KioskURLAllow,
 		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
-		"screen_brightness":        deviceCfg.ScreenBrightness,
-		"screen_brightness_locked": deviceCfg.ScreenBrightnessLocked,
+		"screen_brightness":        briLevel,
+		"screen_brightness_locked": briLocked,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
 	// Fleet-wide policy (update_policy, location_enabled, network, app_restrictions…)
