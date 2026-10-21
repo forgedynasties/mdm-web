@@ -469,41 +469,10 @@ func (h *Handler) DeviceWlcUpdate(w http.ResponseWriter, r *http.Request) {
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
-// DeviceBrightnessUpdate sets the screen brightness the client holds the device at
-// (form screen_brightness 1-255 and screen_brightness_locked=1 to lock; reset=1 back to
-// the default). Pushed at once to a connected device.
-func (h *Handler) DeviceBrightnessUpdate(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	r.ParseForm()
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if !h.requireDeviceAction(w, r, "kiosk", device.ID) {
-		return
-	}
-	// reset=1 puts it back on the default ("Back to default (122)" on Tableside AI, "Stop
-	// managing" elsewhere); otherwise a level of its own.
-	var level *int
-	if r.FormValue("reset") != "1" {
-		if level, err = parseBrightness(r.FormValue("screen_brightness")); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-	}
-	locked := level != nil && r.FormValue("screen_brightness_locked") == "1"
-	if err := h.db.SetScreenBrightness(r.Context(), device.ID, level, locked, h.currentUsername(r)); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.auditDev(r, "device.screen_brightness", device.ID, serial, brightnessDetail(level, locked))
-	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
-	h.hxDone(w, r, "/devices/"+serial, "device-updated")
-}
-
-// APISetDeviceBrightness is DeviceBrightnessUpdate for scripts (POST
-// /api/v1/devices/{serial}/brightness, admin key, {"level": 1-255|null, "locked": bool}).
+// APISetDeviceBrightness sets the screen brightness the client holds the device at (POST
+// /api/v1/devices/{serial}/brightness, admin key, {"level": 1-255|null, "locked": bool};
+// null = back to the default). The only way to change it: the dashboard has no control
+// (removed 21 Oct 2026, user). Pushed at once to a connected device.
 func (h *Handler) APISetDeviceBrightness(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Level  *int `json:"level"`
@@ -533,19 +502,6 @@ func (h *Handler) APISetDeviceBrightness(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"serial": dev.SerialNumber, "level": body.Level, "locked": locked,
 		"connected": h.hub.IsConnected(dev.ID)})
-}
-
-// parseBrightness reads the form value: empty means not managed.
-func parseBrightness(v string) (*int, error) {
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return nil, nil
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n < 1 || n > 255 {
-		return nil, fmt.Errorf("brightness must be 1-255, or empty to stop managing it")
-	}
-	return &n, nil
 }
 
 // brightnessDetail is the audit detail: "122, locked", "122", or "default".

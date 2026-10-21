@@ -1168,10 +1168,6 @@ window.DEVICE_VITALS = {
       .wlc-seg button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
       </style>
       {{end}}
-      {{/* Screen brightness (B1, picked 21 Oct 2026): a chip with the level and lock, default
-           or set for this device, what the device reports; the pencil edits in place.
-           Tableside AI defaults to 122, locked. */}}
-      <div class="ddc-kv bri-row" style="grid-column:1/-1"><span class="k">Screen brightness</span><span class="v">{{template "dev-brightness" (dict "B" .Bri "Serial" .Device.SerialNumber "Role" .Role)}}</span></div>
       <div class="dd-hwkv">
       {{$ram := ramUsage .Device.LatestExtra}}
       <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
@@ -1920,59 +1916,3 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
 {{end}}
 
 {{define "device-vitals-cols"}}<div class="vc-row">{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}} k-{{.Key}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}{{if eq .Key "wifi"}}<svg class="vc-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{{end}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}</div>{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
-
-{{/* ── Screen brightness row (B1, 21 Oct 2026), shared by the New and Classic views ── */}}
-{{define "dev-brightness"}}{{$b := .B}}{{$can := canAdminOrOperator .Role}}
-<div class="bri" data-serial="{{.Serial}}">
-  <div class="bri-line">
-    <span class="bri-chip {{if $b.Drift}}drift{{else if not $b.Level}}off{{else if $b.Default}}lock{{else}}custom{{end}}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>{{if $b.Level}}{{$b.Level}} · {{if $b.Locked}}Locked{{else}}Free{{end}}{{else}}Not managed{{end}}</span>
-    {{if $b.Level}}<span class="bri-meter" aria-hidden="true"><i style="width:{{$b.Pct}}%"></i></span>{{end}}
-    <span class="bri-sub">{{if $b.Default}}Default for every Tableside AI tablet{{else if $b.Level}}Set for this device{{with $b.SetBy}} by {{.}}{{end}}{{with $b.SetAgo}}, {{.}}{{end}}{{else}}The dashboard does not set it{{end}}{{if $b.Reports}} · device at {{$b.Reported}}{{if $b.Drift}}{{if not $b.ReportedLocked}}, unlocked{{end}} · putting it back{{with $b.SentAgo}} (last sent {{.}}){{end}}{{end}}{{else if $b.Level}} · applies from client 1.14.0{{end}}</span>
-    {{if $can}}<button type="button" class="bri-pen" aria-expanded="false" aria-label="Change screen brightness for this device" title="Change for this device" onclick="briEdit(this)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-    {{else}}<span class="bri-pen role-locked" data-role-need="operator" title="Requires the operator role"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>{{end}}
-  </div>
-  {{if $can}}{{$v := $b.Max}}{{if $b.Level}}{{$v = $b.Level}}{{end}}{{$lk := true}}{{if $b.Level}}{{$lk = $b.Locked}}{{end}}
-  <form class="bri-edit" hidden onsubmit="return briSave(this)">
-    <div class="bri-slider"><span class="lo">Dim</span><input type="range" name="screen_brightness" min="1" max="{{$b.Max}}" value="{{$v}}" aria-label="Brightness level" oninput="this.nextElementSibling.value=this.value"><output>{{$v}}</output><span class="hi">Max</span></div>
-    <span class="bri-seg" role="group" aria-label="Hold the level"><button type="button" data-lock="1" aria-pressed="{{if $lk}}true{{else}}false{{end}}" onclick="briLock(this)" title="The client holds this level and greys out the slider">Locked</button><button type="button" data-lock="0" aria-pressed="{{if $lk}}false{{else}}true{{end}}" onclick="briLock(this)" title="Set once; people on site can change it">Free</button></span>
-    <input type="hidden" name="screen_brightness_locked" value="{{if $lk}}1{{end}}">
-    <div class="bri-acts">
-      <button type="submit" class="cc-btn sm primary">Save for this device</button>
-      <button type="button" class="cc-btn sm" onclick="briEdit(this)">Cancel</button>
-      <span class="bri-st" aria-live="polite"></span>
-      {{if not $b.Default}}{{if $b.DefaultApplies}}<button type="button" class="bri-reset" onclick="briReset(this)">Back to default (122)</button>{{else if $b.Level}}<button type="button" class="bri-reset" onclick="briReset(this)">Stop managing</button>{{end}}{{end}}
-    </div>
-  </form>{{end}}
-</div>
-<style>
-.bri{flex:1;min-width:0}
-.bri-line{display:flex;align-items:center;gap:10px;min-width:0}
-.bri-chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;padding:3px 10px 3px 7px;border-radius:99px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
-.bri-chip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
-.bri-chip.lock{background:var(--ok-bg);color:var(--ok)}
-.bri-chip.custom{background:var(--accent-soft);color:var(--accent-text)}
-.bri-chip.drift{background:var(--warn-bg);color:var(--warn)}
-.bri-meter{width:90px;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden;flex:none}
-.bri-meter i{display:block;height:100%;background:linear-gradient(90deg,#f6c34a,#f39a2b)}
-.bri-sub{flex:1 1 auto;font-size:12px;font-weight:500;color:var(--muted);white-space:normal;min-width:0;line-height:1.4}
-.bri-chip,.bri-meter{flex:none}
-.bri-pen{margin-left:auto;width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;cursor:pointer;color:var(--text-2);flex:none;padding:0}
-.bri-pen:hover{color:var(--text);border-color:var(--rule-2)}
-.bri-pen[aria-expanded=true]{background:var(--surface2);color:var(--text)}
-.bri-pen svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.bri-edit{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;margin-top:10px;padding:12px 14px;border-radius:12px;background:var(--surface2)}
-.bri-edit[hidden]{display:none}
-.bri-slider{display:flex;align-items:center;gap:10px;min-width:0}
-.bri-slider input[type=range]{flex:1;min-width:80px;accent-color:#f39a2b}
-.bri-slider output{font-weight:700;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
-.bri-slider .lo,.bri-slider .hi{font-size:11px;font-weight:500;color:var(--muted)}
-.bri-seg{display:inline-flex;padding:2px;border-radius:9px;background:var(--surface);border:1px solid var(--border)}
-.bri-seg button{font:inherit;font-size:12px;font-weight:650;padding:3px 12px;border:0;border-radius:7px;background:none;color:var(--text-2);cursor:pointer}
-.bri-seg button[aria-pressed=true]{background:var(--surface2);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
-.bri-acts{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.bri-st{font-size:12px;font-weight:500;color:var(--muted)}
-.bri-reset{margin-left:auto;font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:4px}
-.bri-reset:hover{text-decoration:underline}
-</style>
-<script src="/static/js/device/brightness.js?v={{assetVer}}"></script>
-{{end}}

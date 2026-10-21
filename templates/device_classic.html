@@ -646,11 +646,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}><b>Charging pad misplaced</b> — connection issue between the pad and the device. Please place it again.</div>
   </div>
   {{end}}
-  {{/* Screen brightness (B1, 21 Oct 2026): the shared row from device.html. */}}
-  <div class="ddc-card" id="brightness-card">
-    <div class="ddc-card-t"><h2>Screen brightness</h2></div>
-    <div style="padding:2px 0 4px">{{template "dev-brightness" (dict "B" .Bri "Serial" .Device.SerialNumber "Role" .Role)}}</div>
-  </div>
   {{template "classic-device-notes" .}}
 </aside>
 <div class="ddc-main">
