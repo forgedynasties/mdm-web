@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"mdm/internal/db"
+	"mdm/internal/product"
 
 	"github.com/google/uuid"
 )
@@ -376,7 +377,54 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		_ = h.tmpl.ExecuteTemplate(w, "restaurant-power", h.withRole(r, data))
 		return
 	}
+	data["P1"] = h.venueP1(r, rest, devices, online, stale, win, data["StaffPIN"])
 	h.render(w, r, "restaurant_detail.html", data)
+}
+
+// venueP1 gathers what the P1 banner, cards and pill chart read (venue_p1.go).
+func (h *Handler) venueP1(r *http.Request, rest *db.Restaurant, devices []db.Device, online map[uuid.UUID]bool,
+	stale time.Duration, win db.ServiceWindow, pin any) venueP1 {
+	ctx := r.Context()
+	id := rest.ID
+	now := time.Now()
+	in := vpInputs{ID: id, Name: rest.Name, Window: vpWindow(r.URL.Query().Get("window")), Now: now}
+	in.StaffPIN, _ = pin.(string)
+	for _, d := range devices {
+		dv := vpDev{Serial: d.SerialNumber, Firmware: d.AgentKind == product.KindFirmware}
+		dv.ID, dv.Class, dv.Venue = d.ID, d.Class(), &id
+		dv.Online = online[d.ID] || now.Sub(d.LastSeenAt) < stale
+		dv.SeenAt, dv.Battery, dv.HasBatt = d.LastSeenAt, d.BatteryPct, d.HasBattery()
+		if t, _, ok := deviceTempC(d.LatestExtra); ok {
+			t := t
+			dv.TempC = &t
+		}
+		in.Devices = append(in.Devices, dv)
+	}
+	if win.OpenMin != win.CloseMin { // equal = never open
+		in.Open = win.InService(now, rest.Timezone)
+		in.OpenAt, in.CloseAt = hhmm(win.OpenMin), hhmm(win.CloseMin)
+	}
+	acc := h.access(r)
+	if alerts, err := h.db.ListActiveAlerts(ctx, 300); err == nil {
+		for _, a := range acc.keepVisibleAlerts(alerts) {
+			if a.RestaurantID == id.String() {
+				in.Alerts = append(in.Alerts, a)
+			}
+		}
+	}
+	if groups, err := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7); err == nil {
+		for i := range groups {
+			if groups[i].GroupID == id {
+				in.Health = &groups[i]
+			}
+		}
+	}
+	tr, err := h.db.OverviewTrend(ctx, db.OverviewScope{Venue: &id}, ovTrendDays(in.Window))
+	if err != nil {
+		log.Printf("[venue] trend %s: %v", id, err)
+	}
+	in.Trend = tr
+	return buildVenueP1(in)
 }
 
 // reportBar is one day in the weekly report's powered-hours strip, already reduced

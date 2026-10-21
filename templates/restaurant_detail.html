@@ -5,10 +5,20 @@
    venue's own facts on the right, each a one-line summary that opens its form in place.
    Below 1024px the right column drops under the devices. */
 .vn-page{max-width:1280px;margin:0 auto}
-.vn-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(300px,1fr);gap:14px;align-items:start}
-.vn-side{display:grid;gap:12px;min-width:0}
-.vn-main{min-width:0}
-.vn-main #restaurant-members{margin:0}
+/* P1 (21 Oct 2026): main column (banner, cards, pill chart, devices) and the settings rail. */
+.vp1{grid-template-columns:minmax(0,1fr) 380px}
+.vp1-rail{display:grid;gap:12px;min-width:0;align-self:start}
+.vp1 #restaurant-members{margin:0}
+.vp1-wh{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:14px 0 0;font-size:12px;color:var(--muted)}
+.vp1-win{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.vp1-win a{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;color:var(--text-2);text-decoration:none}
+.vp1-win a:hover{color:var(--text);background:var(--hover)}
+.vp1-win a.on{background:var(--surface2);color:var(--text);box-shadow:inset 0 0 0 1px var(--border)}
+.vp1-stats{margin:8px 0 14px}
+.vp1-pills{margin:0 0 14px;width:fit-content;min-width:300px;max-width:100%}
+.vp1-pills .oc-pc{grid-template-columns:repeat(var(--n),96px);justify-content:start;min-height:170px}
+.vp1-pills .oc-pill.zero{opacity:.4}
+@media(max-width:1024px){.vp1{grid-template-columns:minmax(0,1fr)}}
 .vn-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-width:0}
 .vn-card>summary,.vn-ch{display:flex;align-items:center;gap:8px;padding:12px 14px;list-style:none;font-size:13px}
 .vn-card>summary::-webkit-details-marker{display:none}
@@ -58,7 +68,6 @@
 .vn-menu form{margin:0}
 .vn-menu button{all:unset;box-sizing:border-box;width:100%;display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;font-size:12.5px;color:var(--danger);cursor:pointer}
 .vn-menu button:hover{background:var(--danger-bg)}
-@media(max-width:1024px){.vn-grid{grid-template-columns:minmax(0,1fr)}}
 .vn-page .cc-actions{flex-wrap:wrap}
 .vn-card h2{white-space:nowrap}
 @media(max-width:720px){.vn-form{grid-template-columns:1fr}.vn-pop{position:fixed;left:16px;right:16px;top:76px;width:auto;max-height:calc(100vh - 170px);overflow:auto}.vn-menu{right:auto;left:0}}
@@ -123,8 +132,58 @@
   </div>
 </div>
 
-<div class="vn-grid">
-  <div class="vn-main">
+{{/* P1 (21 Oct 2026): this venue's to-do banner, Online / Stability / Battery cards over a
+     window, devices by type over the device table; the Venue settings card is the rail. */}}
+<div class="ov2 vp1">
+  <div class="ov2-main">
+    {{with .P1}}
+    {{with .Banner}}
+    <div class="ov2-ban is-{{.Tone}}">
+      <div class="ov2-ban-k">{{.Kicker}}</div>
+      <h2>{{.Headline}}</h2>
+      {{if .Todos}}
+      <ol class="oc-todo">
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+      </ol>
+      {{if .More}}<a class="oc-more" href="/alerts">{{.More}} more in Alerts <i aria-hidden="true">→</i></a>{{end}}
+      {{else}}<p>{{.Calm}}</p>{{end}}
+    </div>
+    {{end}}
+
+    <div class="vp1-wh"><span>Window</span><span class="vp1-win" role="group" aria-label="Window for the cards">{{range .Windows}}<a href="{{.Href}}"{{if .Active}} class="on" aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+    <div class="oc-stats vp1-stats">
+      {{range .Stats}}
+      <div class="oc-st">
+        <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+        {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
+        <a class="oc-stm" href="{{.Href}}">
+          {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+          {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+        </a>
+        {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/>{{with .LineB}}<path class="b" d="{{.}}"/>{{end}}</svg>{{end}}
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+
+    {{with .Pills}}{{if .Cols}}
+    <div class="oc-card vp1-pills">
+      <div class="oc-ch"><h2>Devices <span>by type</span></h2></div>
+      <div class="oc-pc" style="--n:{{len .Cols}}">
+        {{range .Cols}}
+        <a class="oc-pcol" href="{{.Href}}" title="{{.Label}}: {{.Online}} online, {{.Offline}} offline{{if .Alerts}}, {{.Alerts}} with alerts{{end}}">
+          {{if .Alerts}}<span class="oc-pill al" style="height:{{.HAl}}px">{{.Alerts}}</span><span class="oc-pdot"></span>{{end}}
+          {{if .Offline}}<span class="oc-pill off" style="height:{{.HOff}}px">{{.Offline}}</span><span class="oc-pdot"></span>{{end}}
+          <span class="oc-pill on{{if not .Online}} zero{{end}}" style="height:{{.HOn}}px">{{.Online}}</span>
+          <span class="lb">{{.Short}}</span>
+        </a>
+        {{end}}
+      </div>
+      <div class="oc-foot"><span><i class="k-on"></i>Online</span><span><i class="k-off"></i>Offline</span><span><i class="k-al"></i>Alerts</span><span class="tot">Total: <b>{{.Total}}</b></span></div>
+    </div>
+    {{end}}{{end}}
+    {{end}}
+
     <!-- Members — refreshes in place on device add/remove via a "restaurant-updated" event -->
     <div class="card" id="restaurant-members" data-morph
          hx-get="/restaurants/{{.Restaurant.ID}}/members" hx-trigger="restaurant-updated from:body"
@@ -133,7 +192,7 @@
     </div>
   </div>
 
-  <div class="vn-side">
+  <aside class="vp1-rail" aria-label="Venue settings">
     {{template "venue-settings" .}}
 
     {{/* Power and usage — what the venue's hardware actually did over the chosen window.
@@ -141,7 +200,7 @@
          buttons never leave the bars showing the old window under a new number. Under the
          settings since S1 (19 Oct), so the venue's identity comes first. */}}
     <div id="power-live">{{template "restaurant-power" .}}</div>
-  </div>
+  </aside>
 </div>
 </div>
 

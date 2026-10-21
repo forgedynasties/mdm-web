@@ -96,6 +96,12 @@ func inActiveWindow(now time.Time, devTZ string, w ServiceWindow, aw string) boo
 	return true
 }
 
+// InService reports whether now falls inside the window's service hours, in the
+// window's own timezone (else fallbackTZ, e.g. the venue's).
+func (w ServiceWindow) InService(now time.Time, fallbackTZ string) bool {
+	return inActiveWindow(now, fallbackTZ, w, "service")
+}
+
 // GetFleetServiceWindow returns the fleet-default service window (the row with both
 // restaurant_id and group_id NULL, seeded by the migration).
 func (d *DB) GetFleetServiceWindow(ctx context.Context) (ServiceWindow, error) {

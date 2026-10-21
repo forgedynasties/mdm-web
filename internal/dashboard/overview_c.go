@@ -118,13 +118,7 @@ func parseOvScope(r *http.Request, base string, classes []string, venues []ovVen
 	case "30d":
 		sc.Window = "30d"
 	}
-	sc.Days, sc.WindowLabel, sc.VsLabel = 1, "24 h", "vs yesterday"
-	switch sc.Window {
-	case "7d":
-		sc.Days, sc.WindowLabel, sc.VsLabel = 7, "7 days", "vs the week before"
-	case "30d":
-		sc.Days, sc.WindowLabel, sc.VsLabel = 30, "30 days", "vs the 30 days before"
-	}
+	sc.Days, sc.WindowLabel, sc.VsLabel = ovWindowOf(sc.Window)
 	sc.On = sc.Class != "" || sc.Venue != nil
 	switch {
 	case sc.Class != "" && sc.Venue != nil:
@@ -168,6 +162,18 @@ func parseOvScope(r *http.Request, base string, classes []string, venues []ovVen
 	}
 	sc.ClearHref = href("", "", sc.Window)
 	return sc
+}
+
+// ovWindowOf is a window's length and labels: "24h" (the default), "7d" or "30d".
+// Shared with the venue page's cards (P1).
+func ovWindowOf(window string) (days int, label, vs string) {
+	switch window {
+	case "7d":
+		return 7, "7 days", "vs the week before"
+	case "30d":
+		return 30, "30 days", "vs the 30 days before"
+	}
+	return 1, "24 h", "vs yesterday"
 }
 
 // pluralClass: "Kitchen display" → "Kitchen displays", "Tableside AI" stays.
@@ -333,12 +339,15 @@ func ovSeries(ds []db.ScopedDay, f func(db.ScopedDay) float64) []float64 {
 
 // buildOvStats builds the Devices, Stability and Battery cards for the scope.
 func buildOvStats(tr db.ScopedTrend, devs []ovDev, sc ovScope, now time.Time) []ovStat {
-	total, online, hot, low, battN, battSum := 0, 0, 0, 0, 0, 0
+	total, online, hot, low, battN, battSum, battAny := 0, 0, 0, 0, 0, 0, 0
 	for _, d := range devs {
 		if !sc.keeps(d.Class, d.Venue) {
 			continue
 		}
 		total++
+		if d.HasBatt {
+			battAny++
+		}
 		if d.Online {
 			online++
 		}
@@ -422,7 +431,11 @@ func buildOvStats(tr db.ScopedTrend, devs []ovDev, sc ovScope, now time.Time) []
 	// Battery.
 	bat := ovStat{Title: "Battery", Href: fleet("battery", "low"),
 		Links: []ovOpt{{Label: "Low battery", Href: fleet("battery", "low")}, {Label: "Battery wear", Href: "/battery"}}}
-	if battN == 0 {
+	if battN == 0 && battAny > 0 {
+		// Battery devices, but none has reported for a day: "mains power" would be wrong
+		// (the venue page, 21 Oct: two dead tablets read as mains-powered).
+		bat.Empty = fmt.Sprintf("No battery reading in the last day: the %d battery device%s here %s offline.", battAny, sIfN(battAny), map[bool]string{true: "is", false: "are"}[battAny == 1])
+	} else if battN == 0 {
 		bat.Empty = "No battery devices here: these run on mains power."
 	} else {
 		bat.A = ovMetric{Value: fmt.Sprintf("%d", low), Label: "below 20%", Tone: "flat"}
