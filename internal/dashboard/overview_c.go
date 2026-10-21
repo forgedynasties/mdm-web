@@ -649,7 +649,9 @@ func buildOvRollouts(rs []db.Rollout, now time.Time) ovRollouts {
 	}
 	var cs []cand
 	for _, r := range rs {
-		if r.Kind == "ota" && r.Status == "cancelled" && r.Done == 0 {
+		// A deployment with no devices is an empty shell (three from 16 Sep still sat
+		// "pending" with none), and a cancelled one that installed nothing did nothing.
+		if r.Total == 0 || (r.Kind == "ota" && r.Status == "cancelled" && r.Done == 0) {
 			continue
 		}
 		b := ovBar{}
@@ -658,12 +660,9 @@ func buildOvRollouts(rs []db.Rollout, now time.Time) ovRollouts {
 		b.Initials, b.Hue = ini, hue
 		b.Sub = fmt.Sprintf("%s · %d device%s", who, r.Total, sIfN(r.Total))
 		b.Count = fmt.Sprintf("%d / %d", r.Done, r.Total)
-		b.Href = "/jobs"
-		if r.Kind == "ota" && r.ReleaseID > 0 {
-			b.Href = fmt.Sprintf("/releases/%d/deployments/%d", r.ReleaseID, r.DeploymentID)
-		}
+		b.Href = ovRolloutHref(r)
 		from, to := r.Start, r.End
-		live := r.InFlight > 0 || (r.Kind == "ota" && (r.Status == "active" || r.Status == "pending"))
+		live := r.InFlight > 0 // devices still on their way, not just a status never closed
 		switch {
 		case r.Kind == "ota" && r.Status == "pending" && r.Scheduled != nil && r.Scheduled.After(now):
 			b.Tone, from, to = "q", now, *r.Scheduled
@@ -710,6 +709,25 @@ func buildOvRollouts(rs []db.Rollout, now time.Time) ovRollouts {
 		out.Bars = append(out.Bars, c.bar)
 	}
 	return out
+}
+
+// ovRolloutHref opens the rollout itself: the deployment, or the job when it was one
+// command. A rollout of many commands (the client policy queues one per device) has no
+// page of its own, so it opens where it is run from: Clients, Lock, or the job history.
+func ovRolloutHref(r db.Rollout) string {
+	switch {
+	case r.Kind == "ota" && r.ReleaseID > 0:
+		return fmt.Sprintf("/releases/%d/deployments/%d", r.ReleaseID, r.DeploymentID)
+	case r.Kind == "ota":
+		return "/releases"
+	case r.Commands == 1 && r.CommandID != uuid.Nil:
+		return "/commands/" + r.CommandID.String()
+	case r.Kind == "app_update" && r.Who == "auto-update":
+		return "/clients"
+	case r.Kind == "set_kiosk" || r.Kind == "kiosk_set":
+		return "/lock"
+	}
+	return "/jobs/history"
 }
 
 func sIfN(n int) string {

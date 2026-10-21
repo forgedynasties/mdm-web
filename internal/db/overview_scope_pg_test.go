@@ -43,7 +43,10 @@ func TestOverviewScopeAgainstPostgres(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	defer d.pool.Exec(ctx, `DELETE FROM devices WHERE serial_number LIKE 'OVS-%'; DELETE FROM restaurants WHERE id = $1`, venue)
+	defer func() {
+		d.pool.Exec(ctx, `DELETE FROM devices WHERE serial_number LIKE 'OVS-%'`)
+		d.pool.Exec(ctx, `DELETE FROM restaurants WHERE id = $1`, venue)
+	}()
 	for _, id := range ids {
 		if _, err := d.pool.Exec(ctx, `
 			INSERT INTO device_daily_stats (device_id, day, checkin_count, battery_min, battery_avg, temp_max)
@@ -123,7 +126,7 @@ func TestOverviewScopeAgainstPostgres(t *testing.T) {
 	for _, r := range rs {
 		if r.Kind == "app_update" && r.Name == "9.9.9" {
 			found = true
-			if r.Package != "com.aioapp.mdm" || r.Total != 2 || r.Done != 1 || r.Failed != 1 || r.Who != "auto-update" {
+			if r.Package != "com.aioapp.mdm" || r.Total != 2 || r.Done != 1 || r.Failed != 1 || r.Who != "auto-update" || r.CommandID != cmd || r.Commands != 1 {
 				t.Errorf("rollout = %+v", r)
 			}
 		}
