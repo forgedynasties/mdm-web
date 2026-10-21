@@ -387,7 +387,36 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		roleClients = append(roleClients, v)
 	}
 
+	// L1 (21 Oct 2026): banner, cards, timeline and rail for the role.
+	app := h.lineupApp(ctx, sel, devices)
+	hasApp := map[uuid.UUID]bool{}
+	if app.Base != "" {
+		if fv, err := h.db.FamilyVersions(ctx, []string{app.Base}); err == nil {
+			for id, pkgs := range fv {
+				if len(pkgs) > 0 {
+					hasApp[id] = true
+				}
+			}
+		}
+	}
+	full, deployed := lineupFullOn(devices, sel, models, roleViews, app.Base, hasApp,
+		func(d *db.Device) bool { _, in := st.Labs[d.ID]; return in })
+	moves, err := h.db.RoleMovesDaily(ctx, sel, 7)
+	if err != nil {
+		log.Printf("[lineup] moves: %v", err)
+	}
+	fwHistory, err := h.db.FirmwareProdHistory(ctx)
+	if err != nil {
+		log.Printf("[lineup] firmware history: %v", err)
+	}
+	pane := buildLineupPane(luInputs{
+		RoleKey: sel, RoleLabel: selLabel, Models: models, HW: hw.ByRole[sel], App: app,
+		Clients: roleClients, Full: full, Deployed: deployed, Moves: moves, History: fwHistory,
+		Pic: rolePic(sel, hw.ByRole[sel]), CanEdit: canLab(h.role(r)), Now: time.Now(),
+	})
+
 	h.render(w, r, "pipeline.html", common(map[string]any{
+		"LU":          pane,
 		"HWModels":    hw.ByRole[sel],
 		"RolePic":     rolePic(sel, hw.ByRole[sel]),
 		"HWDevices":   hw.Devices[sel],
@@ -401,7 +430,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		"Inbox":       inbox,
 		"Models":      models,
 		"RoleClients": roleClients,
-		"App":         h.lineupApp(ctx, sel, devices),
+		"App":         app,
 		"AppRollout":  h.cfg.RoleRollout(config.RolloutApps),
 		"FwRollout":   h.cfg.RoleRollout(config.RolloutFirmware),
 	}))
