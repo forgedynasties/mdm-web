@@ -24,6 +24,12 @@ func TestLineupMovesAgainstPostgres(t *testing.T) {
 	if err := d.RunMigrations(ctx); err != nil {
 		t.Fatal(err)
 	}
+	// Other tests leave devices behind (one with no class reads as a tablet), so compare
+	// against what is there before this test adds its own.
+	before, err := d.RoleMovesDaily(ctx, "t7", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
 	var tab, kds uuid.UUID
 	if err := d.pool.QueryRow(ctx, `INSERT INTO devices (serial_number, device_class) VALUES ('LUM-T7', 't7') RETURNING id`).Scan(&tab); err != nil {
 		t.Fatal(err)
@@ -55,7 +61,7 @@ func TestLineupMovesAgainstPostgres(t *testing.T) {
 	if len(moves) != 7 {
 		t.Fatalf("days = %d, want 7", len(moves))
 	}
-	if last := moves[6]; last.Firmware != 1 || last.Client != 1 {
+	if last, was := moves[6], before[6]; last.Firmware-was.Firmware != 1 || last.Client-was.Client != 1 {
 		t.Errorf("today = %+v, want one firmware and one client move (the KDS is another role)", last)
 	}
 

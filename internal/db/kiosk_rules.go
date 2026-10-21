@@ -208,11 +208,18 @@ func (d *DB) GetDeviceKeyState(ctx context.Context, id uuid.UUID) (DeviceKeyStat
 	return s, err
 }
 
-// OverdueKeyResets lists devices reset longer ago than age that have not registered.
+// keyResetPendingSQL is a device whose key was reset, that has checked in since and still
+// has no key of its own: the client is running and not registering. A device that has
+// not checked in since the reset cannot have registered (AK270AABU09999, 21 Oct: offline
+// five days, reset that morning, warned an hour later with nothing anyone could do).
+const keyResetPendingSQL = `key_reset_at IS NOT NULL AND device_key_hash IS NULL AND last_seen_at > key_reset_at`
+
+// OverdueKeyResets lists devices reset longer ago than age that have checked in since
+// without registering.
 func (d *DB) OverdueKeyResets(ctx context.Context, age time.Duration) (map[uuid.UUID]string, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, serial_number FROM devices
-		WHERE key_reset_at IS NOT NULL AND device_key_hash IS NULL AND key_reset_at < NOW() - $1::interval`,
+		WHERE `+keyResetPendingSQL+` AND key_reset_at < NOW() - $1::interval`,
 		fmt.Sprintf("%d seconds", int(age.Seconds())))
 	if err != nil {
 		return nil, err
@@ -228,6 +235,20 @@ func (d *DB) OverdueKeyResets(ctx context.Context, age time.Duration) (map[uuid.
 		out[id] = s
 	}
 	return out, rows.Err()
+}
+
+// ResolveAnsweredKeyAlerts resolves "key not registered" warnings whose device no longer
+// qualifies: it registered, its reset was undone, or it has not checked in since the
+// reset (raised before 21 Oct, when offline devices were still warned about).
+func (d *DB) ResolveAnsweredKeyAlerts(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE type = 'key_not_registered' AND status <> 'resolved'
+		  AND device_id NOT IN (SELECT id FROM devices WHERE `+keyResetPendingSQL+`)`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 // KioskExit is a device that was taken out of kiosk on site and not yet answered.

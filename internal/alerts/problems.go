@@ -95,7 +95,7 @@ func CauseOf(types []string) Cause {
 	case has["key_recovered"]:
 		return Cause{"identity", "Key reset automatically", "It called with the shared key although it had its own, so its key was reset and it is back online — almost always a reflash or cleared data. Look into it only if nobody touched this device."}
 	case has["key_not_registered"]:
-		return Cause{"identity", "Key not registered", "Its key was reset over an hour ago and it has not registered a new one. Until it does, the shared key works for it."}
+		return Cause{"identity", "Key not registered", "Its key was reset over an hour ago and it has checked in since without registering a new one. Until it does, the shared key works for it."}
 	case has["new_device"]:
 		return Cause{"new", "New device", "A device checked in for the first time."}
 	}

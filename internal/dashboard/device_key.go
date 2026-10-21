@@ -82,16 +82,23 @@ func (h *Handler) DeviceKeyReset(w http.ResponseWriter, r *http.Request) {
 // keyResetGrace is how long a reset device has to register before it is flagged.
 const keyResetGrace = time.Hour
 
-// checkKeyResets warns about devices whose key was reset and that have not registered a
-// new one within the grace period; the shared key still works for them meanwhile.
+// checkKeyResets warns about devices whose key was reset, that have checked in since and
+// have not registered a new one within the grace period; the shared key still works for
+// them meanwhile. A device still offline since the reset is not warned about: it cannot
+// register until it checks in. Warnings no longer true are resolved.
 func (h *Handler) checkKeyResets(ctx context.Context) {
+	if n, err := h.db.ResolveAnsweredKeyAlerts(ctx); err != nil {
+		log.Printf("[device-key] resolve answered: %v", err)
+	} else if n > 0 {
+		h.hub.PublishAlertUpdate()
+	}
 	overdue, err := h.db.OverdueKeyResets(ctx, keyResetGrace)
 	if err != nil || len(overdue) == 0 {
 		return
 	}
 	var created []db.AlertNotification
 	for id, serial := range overdue {
-		summary := fmt.Sprintf("%s has not registered a new key an hour after its key was reset; the shared key still works for it", serial)
+		summary := fmt.Sprintf("%s has checked in since its key was reset but has not registered a new one; the shared key still works for it", serial)
 		ok, err := h.db.CreateAlertIfAbsent(ctx, nil, "key_not_registered", id, "warning", summary, map[string]any{"serial": serial})
 		if err != nil {
 			log.Printf("[device-key] overdue alert for %s: %v", serial, err)
