@@ -480,6 +480,11 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		WHERE ud.update_id = u.id
 		  AND u.status = 'active'
 		  AND ud.updated_at <= NOW() - make_interval(mins => $1)
+		  -- Only a device that is still online can fail as stalled: an offline one is
+		  -- put back in line by RequeueOfflineOTAs instead (user, 21 Oct 2026: "it
+		  -- does not get failed even if the devices are offline ... they get it later").
+		  AND EXISTS (SELECT 1 FROM devices dev WHERE dev.id = ud.device_id
+		              AND dev.last_seen_at > NOW() - make_interval(mins => $1))
 		  -- A pending row is only stalled once it was handed the OTA and that was
 		  -- stallMinutes ago. Without a command it is waiting its turn in a wave
 		  -- (OTAWaveAllows): on 21 Oct ten tablets at one venue were failed while
@@ -488,7 +493,9 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		       OR (ud.status = 'pending' AND EXISTS (
 		             SELECT 1 FROM commands c
 		             JOIN command_targets ct ON ct.command_id = c.id
+		             LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ud.device_id
 		             WHERE ct.target_id = ud.device_id AND c.type = 'ota'
+		               AND (cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled'))
 		               AND c.created_at >= u.created_at
 		               AND c.created_at <= NOW() - make_interval(mins => $1))))
 		  AND NOT EXISTS (
@@ -499,6 +506,67 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		        AND c.created_at >= u.created_at
 		        AND cs.updated_at > NOW() - make_interval(mins => $1))
 		RETURNING ud.update_id, ud.device_id
+	`, stallMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StalledInstall
+	for rows.Next() {
+		var updateID int
+		var s StalledInstall
+		if err := rows.Scan(&updateID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// RequeueOfflineOTAs puts back in line the rows of an active deployment whose device
+// went offline after it was handed the OTA (offered and never acked, or downloading
+// with no progress for stallMinutes) and has not been seen since. They go back to
+// 'pending' and their open OTA command is expired, so the next check-in offers the
+// update again from the start: an offline device is never failed, it gets the update
+// when it is back. Runs before ExpireStalledOTAs, which only fails online devices.
+func (d *DB) RequeueOfflineOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		WITH rq AS (
+		    UPDATE update_devices ud
+		    SET status = 'pending', error_code = '', updated_at = NOW()
+		    FROM updates u, devices dev
+		    WHERE ud.update_id = u.id AND dev.id = ud.device_id
+		      AND u.status = 'active'
+		      AND ud.status IN ('pending', 'downloading')
+		      AND ud.updated_at <= NOW() - make_interval(mins => $1)
+		      AND dev.last_seen_at <= NOW() - make_interval(mins => $1)
+		      AND (ud.status = 'downloading' OR EXISTS (
+		             SELECT 1 FROM commands c
+		             JOIN command_targets ct ON ct.command_id = c.id
+		             LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ud.device_id
+		             WHERE ct.target_id = ud.device_id AND c.type = 'ota'
+		               AND (cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled'))
+		               AND c.created_at >= u.created_at))
+		      AND NOT EXISTS (
+		          SELECT 1 FROM command_status cs
+		          JOIN commands c ON c.id = cs.command_id
+		          WHERE cs.device_id = ud.device_id AND c.type = 'ota'
+		            AND c.created_at >= u.created_at
+		            AND cs.updated_at > NOW() - make_interval(mins => $1))
+		    RETURNING ud.update_id, ud.device_id, u.created_at AS since
+		), ex AS (
+		    -- An undelivered command has no status row yet: write it as expired.
+		    INSERT INTO command_status (command_id, device_id, status, updated_at)
+		    SELECT c.id, rq.device_id, 'expired', NOW()
+		    FROM rq
+		    JOIN command_targets ct ON ct.target_id = rq.device_id
+		    JOIN commands c ON c.id = ct.command_id AND c.type = 'ota' AND c.created_at >= rq.since
+		    ON CONFLICT (command_id, device_id) DO UPDATE
+		      SET status = 'expired', progress = NULL, updated_at = NOW()
+		      WHERE command_status.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled')
+		    RETURNING command_id
+		)
+		SELECT update_id, device_id FROM rq
 	`, stallMinutes)
 	if err != nil {
 		return nil, err

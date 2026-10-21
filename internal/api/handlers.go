@@ -1920,6 +1920,17 @@ func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
 	if len(revived) > 0 || len(requeued) > 0 {
 		h.hub.PublishDeploymentUpdate()
 	}
+	offline, err := h.db.RequeueOfflineOTAs(ctx, stallMinutes)
+	if err != nil {
+		log.Printf("[ota-sweep] RequeueOfflineOTAs error: %v", err)
+	}
+	for _, s := range offline {
+		h.hub.PublishDeviceUpdate(s.DeviceID)
+		log.Printf("[ota-sweep] back in line device=%s (went offline mid-update; gets it when back)", s.DeviceID)
+	}
+	if len(offline) > 0 {
+		h.hub.PublishDeploymentUpdate()
+	}
 	stalled, err := h.db.ExpireStalledOTAs(ctx, stallMinutes)
 	if err != nil {
 		log.Printf("[ota-sweep] ExpireStalledOTAs error: %v", err)
