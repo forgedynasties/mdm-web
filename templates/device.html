@@ -900,6 +900,7 @@
       {{if .ShowBatteryChart}}<button type="button" role="tab" class="vt-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery{{if .BatteryFault}}<span class="vt-fault" title="Battery fault: no pack detected" aria-label="fault"></span>{{end}}</button>{{end}}
       <button type="button" role="tab" class="vt-tab{{if not .ShowBatteryChart}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">Temp</button>
       <button type="button" role="tab" class="vt-tab" data-chart-tab="ram" onclick="setChartTab('ram')">RAM</button>
+      <button type="button" role="tab" class="vt-tab" data-chart-tab="net" onclick="setChartTab('net')">Network</button>
     </div>
     <div class="gcontrols vt-tools">
       <span id="chart-info" class="muted small gc-info" hidden></span>
@@ -1013,6 +1014,12 @@
     <div class="chart-wrap chart-wrap--tall"><canvas id="ramChart"></canvas></div>
   </div>
 
+  <!-- Network (N1, 22 Oct 2026): Wi-Fi signal, online/offline strip, network changes -->
+  <div id="chart-panel-net" class="vt-panel" style="display:none;">
+    <div class="vt-lbl"><i style="background:#1f9fb4"></i>Wi-Fi signal (dBm)</div>
+    <div class="chart-wrap chart-wrap--tall"><canvas id="netChart"></canvas></div>
+  </div>
+
   <!-- All (unified) -->
   <div id="chart-panel-all" style="display:none;">
     <div style="padding:8px 16px 0;">
@@ -1041,6 +1048,10 @@
     <div class="cr-row">
       <svg class="cr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 17v3M12 17v3M17 17v3"/></svg>
       <span class="cr-txt"><span class="k">RAM</span><span class="v" id="cr-ram">—</span></span>
+    </div>
+    <div class="cr-row">
+      <svg class="cr-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg>
+      <span class="cr-txt"><span class="k">Wi-Fi</span><span class="v" id="cr-wifi">—</span><span class="cr-note" id="cr-wifi-note"></span></span>
     </div>
     {{if .ShowBatteryChart}}
     <div class="cr-row cr-cyc">
@@ -1099,6 +1110,12 @@
       <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(232,161,58,.35);height:8px"></span> 40–45 °C warm</span>
       <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.4);height:8px"></span> over 45 °C hot</span>
       <span class="chart-legend-item"><span class="chart-legend-line" style="background:repeating-linear-gradient(135deg,rgba(128,128,128,.5) 0 2px,transparent 2px 4px);height:8px"></span> no data</span>
+    </div>
+    <div class="vt-lg" data-lg="net" hidden>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:#2f9e5b;height:6px;border-radius:1px"></span> online</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.55);height:6px;border-radius:1px"></span> offline</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.4);height:8px"></span> under −80 dBm weak</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="border-top:1px dashed #1f9fb4;height:0;width:14px"></span> joined another network</span>
     </div>
     <div class="vt-lg" data-lg="ram" hidden>
       <span class="chart-legend-item"><span class="chart-legend-line" style="background:rgba(224,86,86,.4);height:8px"></span> over 85% used</span>

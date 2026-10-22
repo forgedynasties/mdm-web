@@ -228,6 +228,7 @@ type deviceEventPayload struct {
 	Wlc        *int     `json:"wlc"`      // nil = no data
 	TempC      *float64 `json:"temp_c"`   // nil = no data
 	RamPct     *float64 `json:"ram_pct"`  // nil = no data
+	WifiRSSI   *int     `json:"wifi_rssi"` // dBm, nil = no link / no data (network graph)
 	Charging   *bool    `json:"charging"` // nil = no data
 	// ChargerFlapping is the firmware client's own flap flag (1.4.5+), so the live strip
 	// turns yellow without waiting for a reload.
@@ -288,6 +289,12 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 						pct = 100
 					}
 					p.RamPct = &pct
+				}
+			}
+			if v, ok := extra["wifi_rssi"]; ok {
+				var rssi int
+				if json.Unmarshal(v, &rssi) == nil && rssi < 0 && rssi > -127 {
+					p.WifiRSSI = &rssi
 				}
 			}
 			if v, ok := extra["latitude"]; ok {

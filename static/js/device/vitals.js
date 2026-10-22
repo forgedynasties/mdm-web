@@ -93,6 +93,32 @@ function mdmBootCharts() {
   // script); otherwise mdmLoadMetric below fetches them when the tab is first opened.
   let allTemp = DV.temp;
   let allRam = DV.ram;
+  // Network tab (N1, 22 Oct 2026): Wi-Fi signal in dBm, loaded lazily like Temp/RAM, plus
+  // the online/offline runs and Wi-Fi network changes every chart-data answer carries.
+  let allNet = DV.net || [];
+  let allOnline = [], allSsid = [];
+  function mergeOnline(runs) {
+    if (!runs || !runs.length) return;
+    var all = allOnline.concat(runs).sort(function (a, b) { return a.from - b.from || a.to - b.to; });
+    var out = [];
+    all.forEach(function (r) {
+      var last = out[out.length - 1];
+      if (last && r.from <= last.to) {
+        if (last.on === r.on) { last.to = Math.max(last.to, r.to); return; }
+        last.to = r.from; // a later answer knows better where the state changed
+        if (last.to <= last.from) out.pop();
+      }
+      out.push({ from: r.from, to: r.to, on: r.on });
+    });
+    allOnline = out;
+  }
+  function mergeSsid(marks) {
+    (marks || []).forEach(function (m) {
+      if (!allSsid.some(function (t) { return t.x === m.x; })) allSsid.push(m);
+    });
+    allSsid.sort(function (a, b) { return a.x - b.x; });
+  }
+  function mergeNetMeta(d) { if (d) { mergeOnline(d.online); mergeSsid(d.ssid); } }
   // Earliest check-in currently loaded (arrays are oldest-first). Widening the range
   // before this triggers a fetch that prepends the older window.
   let loadedMinX = (function () {
@@ -141,14 +167,14 @@ function mdmBootCharts() {
   // the first time their tab is actually opened, covering the same [loadedMinX,
   // now] span the battery chart already has loaded — so it lines up with whatever
   // chartLoadOlder widens later instead of leaving an unfetched gap behind it.
-  let tempLoaded = allTemp.length > 0, ramLoaded = allRam.length > 0;
+  let tempLoaded = allTemp.length > 0, ramLoaded = allRam.length > 0, netLoaded = allNet.length > 0;
   // Published on window.mdmChart so the SSE pusher can tell a loaded series from an
   // empty one: appending a live point to a series that was never fetched leaves a
   // one-point array, and "nearest point" against one point is the same value
   // everywhere — the rail looked frozen while the cursor moved.
   function markLoaded(metric) {
-    if (metric === 'temp') tempLoaded = true; else ramLoaded = true;
-    if (window.mdmChart) window.mdmChart[metric === 'temp' ? 'tempLoaded' : 'ramLoaded'] = true;
+    if (metric === 'temp') tempLoaded = true; else if (metric === 'net') netLoaded = true; else ramLoaded = true;
+    if (window.mdmChart) window.mdmChart[metric + 'Loaded'] = true;
   }
   // The crosshair rail on the right reads Temp and RAM whatever tab is open, so
   // the warm-up below loads both silently (spinner suppressed, no redraw needed)
@@ -159,9 +185,10 @@ function mdmBootCharts() {
     function fin() { if (done) done(); }
     if (metric === 'temp' && tempLoaded) { fin(); return; }
     if (metric === 'ram' && ramLoaded) { fin(); return; }
+    if (metric === 'net' && netLoaded) { fin(); return; }
     var until = Math.floor(Date.now());
     var from = Math.floor(loadedMinX);
-    if (from >= until) { if (metric === 'temp') markLoaded('temp'); else markLoaded('ram'); fin(); return; }
+    if (from >= until) { markLoaded(metric); fin(); return; }
     if (!silent) showChartLoading();
     fetch('/devices/' + DV.serial + '/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -180,6 +207,11 @@ function mdmBootCharts() {
             allRam = d.ram; markLoaded('ram');
             if (window.mdmChart) window.mdmChart.allRam = allRam;
           }
+          if (d.wifi && (metric === 'net' || !netLoaded)) {
+            allNet = d.wifi; markLoaded('net');
+            if (window.mdmChart) window.mdmChart.allNet = allNet;
+          }
+          mergeNetMeta(d);
         }
       })
       .catch(function () {})
@@ -214,6 +246,9 @@ function mdmBootCharts() {
   function srcBattery() { return viewData && viewData.battery ? viewData.battery : allBattery; }
   function srcTemp() { return viewData && viewData.temp ? viewData.temp : allTemp; }
   function srcRam() { return viewData && viewData.ram ? viewData.ram : allRam; }
+  function srcNet() { return viewData && viewData.wifi ? viewData.wifi : allNet; }
+  function srcOnline() { return viewData && viewData.online ? viewData.online : allOnline; }
+  function srcSsid() { return viewData && viewData.ssid ? viewData.ssid : allSsid; }
   function srcCharge() { return viewData && viewData.charge ? viewData.charge : allCharge; }
   window.mdmClearViewData = function () { viewData = null; viewKey = ''; };
 
@@ -283,6 +318,11 @@ function mdmBootCharts() {
             allRam = d.ram.concat(allRam);
             if (window.mdmChart) window.mdmChart.allRam = allRam;
           }
+          if (netLoaded && d.wifi && d.wifi.length) {
+            allNet = d.wifi.concat(allNet);
+            if (window.mdmChart) window.mdmChart.allNet = allNet;
+          }
+          mergeNetMeta(d);
           loadedMinX = fromMs;
         }
       })
@@ -301,9 +341,9 @@ function mdmBootCharts() {
     // Temp and RAM first: the rail shows them on every tab, so they have to be real
     // before the window widens (chartLoadOlder skips a series that was never loaded).
     // One fetch for both — the endpoint returns every series anyway.
-    if (tempLoaded && ramLoaded) { widenWindow(); return; }
+    if (tempLoaded && ramLoaded && netLoaded) { widenWindow(); return; }
     var until = Math.floor(Date.now()), from = Math.floor(loadedMinX);
-    if (from >= until) { markLoaded('temp'); markLoaded('ram'); widenWindow(); return; }
+    if (from >= until) { markLoaded('temp'); markLoaded('ram'); markLoaded('net'); widenWindow(); return; }
     fetch('/devices/' + DV.serial + '/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) { if (d && d.late) mergeLate(d.late);
@@ -316,6 +356,11 @@ function mdmBootCharts() {
           allRam = d.ram; markLoaded('ram');
           if (window.mdmChart) window.mdmChart.allRam = allRam;
         }
+        if (!netLoaded && d.wifi) {
+          allNet = d.wifi; markLoaded('net');
+          if (window.mdmChart) window.mdmChart.allNet = allNet;
+        }
+        mergeNetMeta(d);
         updateCharts();
         if (activeTab === 'all' && unifiedChart) applyUnifiedData();
       })
@@ -382,6 +427,11 @@ function mdmBootCharts() {
           var m = fresher(d.ram);
           if (m.length) { allRam = allRam.concat(m); if (window.mdmChart) window.mdmChart.allRam = allRam; added += m.length; }
         }
+        if (netLoaded) {
+          var nw = fresher(d.wifi);
+          if (nw.length) { allNet = allNet.concat(nw); if (window.mdmChart) window.mdmChart.allNet = allNet; added += nw.length; }
+        }
+        mergeNetMeta(d);
         if (!added) return;
         if (window.mdmChart) window.mdmChart.lastPlottedMs = chartNewestX();
         updateCharts();
@@ -596,7 +646,7 @@ function mdmBootCharts() {
 
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
-  let batteryChart, tempChart, ramChart, unifiedChart;
+  let batteryChart, tempChart, ramChart, netChart, unifiedChart;
   let storedMarkerPref = localStorage.getItem(markerStorageKey);
   // Commands are not marked on the graph; build changes always are (14 Oct).
   let showMarkers = false;
@@ -610,7 +660,7 @@ function mdmBootCharts() {
   // viewed there once. Defaults to Battery when there's no focus.
   // Tab set + default depend on whether this device has a battery. Kiosks drop
   // the battery tab entirely and default to temp.
-  const CHART_TABS = HAS_BATTERY ? ['battery','temp','ram','all'] : ['temp','ram','all'];
+  const CHART_TABS = HAS_BATTERY ? ['battery','temp','ram','net','all'] : ['temp','ram','net','all'];
   let activeTab = HAS_BATTERY ? 'battery' : 'temp';
 
   function fmtTime(ms) {
@@ -847,8 +897,9 @@ function mdmBootCharts() {
     function nav() { if (window.vtNavSync) window.vtNavSync(); }
     if (tab === 'temp') loadMetricLazy('temp', false, nav);
     if (tab === 'ram') loadMetricLazy('ram', false, nav);
+    if (tab === 'net') loadMetricLazy('net', false, nav);
     nav();
-    var c = tab === 'temp' ? tempChart : tab === 'ram' ? ramChart : batteryChart;
+    var c = tab === 'temp' ? tempChart : tab === 'ram' ? ramChart : tab === 'net' ? netChart : batteryChart;
     if (c) setTimeout(function () { try { c.resize(); } catch (e) {} }, 0);
     document.querySelectorAll('#vt-legend .vt-lg').forEach(function (l) { l.hidden = l.getAttribute('data-lg') !== tab; });
   };
@@ -968,6 +1019,7 @@ function mdmBootCharts() {
     if (batteryChart) applyData(batteryChart, srcBattery());
     if (tempChart) applyData(tempChart, srcTemp());
     if (ramChart) applyData(ramChart, srcRam());
+    if (netChart) applyData(netChart, srcNet());
     applyUnifiedData();
     syncMarkerToggle();
     refreshTabVals();
@@ -990,6 +1042,7 @@ function mdmBootCharts() {
     } else if (DV.showBattery) set('tabval-battery', allBattery, '%');
     set('tabval-temp', allTemp, '°C');
     set('tabval-ram', allRam, '%');
+    set('tabval-net', allNet, ' dBm');
   }
 
   function nearestInArray(arr, ms) {
@@ -1164,6 +1217,12 @@ function mdmBootCharts() {
     else if (bPt && bPt.y != null) setReadout('cr-batt', String(bPt.y), '%'); else setReadout('cr-batt', '—');
     if (tPt && tPt.y != null) setReadout('cr-temp', tPt.y.toFixed(1), '°C'); else setReadout('cr-temp', '—');
     if (rPt && rPt.y != null) setReadout('cr-ram', rPt.y.toFixed(1), '%'); else setReadout('cr-ram', '—');
+    const nPt = nearestInArray(srcNet(), ms);
+    if (nPt && nPt.y != null && Math.abs(nPt.x - ms) < 15 * 60e3) setReadout('cr-wifi', String(Math.round(nPt.y)), ' dBm'); else setReadout('cr-wifi', '—');
+    const onAt = srcOnline().find(function (r) { return ms >= r.from && ms <= r.to; });
+    const ssidAt = (function () { let v = null; srcSsid().forEach(function (m) { if (m.x <= ms) v = m.ssid; }); return v; })();
+    const wn = document.getElementById('cr-wifi-note');
+    if (wn) wn.textContent = onAt ? (onAt.on ? (ssidAt ? ssidAt : 'Online') : 'Offline') : (ssidAt || '');
     // Charging only. The pad state (placed / vacant / misplaced) is already the colour
     // of the battery line and the strip underneath it; repeating it here spent the
     // panel's narrowest line on something the plot says better.
@@ -1403,8 +1462,8 @@ function mdmBootCharts() {
 
   // The stacked charts, top to bottom. They share one time axis, so a pointer on any
   // of them is one moment on all of them.
-  const VT_COLOR = { battery: '#f9674e', temp: '#e8a13a', ram: '#7a80f6' };
-  function vtStack() { return [batteryChart, tempChart, ramChart].filter(Boolean); }
+  const VT_COLOR = { battery: '#f9674e', temp: '#e8a13a', ram: '#7a80f6', net: '#1f9fb4' };
+  function vtStack() { return [batteryChart, tempChart, ramChart, netChart].filter(Boolean); }
   // Same y-axis width on every chart, so their plots (and the pointer line) line up.
   function vtYFit(scale) { scale.width = 46; }
   function vtCss(name, fb) { return (getComputedStyle(document.documentElement).getPropertyValue(name) || '').trim() || fb; }
@@ -1587,7 +1646,7 @@ function mdmBootCharts() {
 
   // Reference bands shade the "bad" zone of each metric so a crossing reads at a
   // glance (low battery, hot temp, high RAM). Drawn under the line.
-  const TH = { battLow: 20, tempWarn: 40, tempHot: 45, ramHigh: 85 };
+  const TH = { battLow: 20, tempWarn: 40, tempHot: 45, ramHigh: 85, wifiWeak: -80 };
   const BAND_LOW = 'rgba(224,86,86,0.06)', BAND_WARN = 'rgba(232,161,58,0.07)', BAND_HOT = 'rgba(224,86,86,0.09)';
   function bandsFor(chart) {
     if (chart._isUnified) return [
@@ -1600,6 +1659,8 @@ function mdmBootCharts() {
       { from: TH.tempHot, to: null, color: BAND_HOT, axis: 'y' },
     ];
     if (chart._accent === 'ram') return [{ from: TH.ramHigh, to: 100, color: BAND_HOT, axis: 'y' }];
+    // Under -80 dBm a link is weak enough to drop requests.
+    if (chart._accent === 'net') return [{ from: -100, to: TH.wifiWeak, color: BAND_LOW, axis: 'y' }];
     return [];
   }
   const bandsPlugin = {
@@ -1853,6 +1914,103 @@ function mdmBootCharts() {
   ramChart._commandMarkers = commandMarkers;
   ramChart._buildMarkers = buildMarkers;
   ramChart._accent = 'ram';
+
+  // Network chart (N1): Wi-Fi signal in dBm, the online/offline strip under the plot and a
+  // marker where the device joined another network.
+  const NET_ON = '#2f9e5b', NET_OFF = 'rgba(224,86,86,0.55)';
+  const onlineStripPlugin = {
+    id: 'onlineStrip',
+    beforeDatasetsDraw(chart) {
+      const ca = chart.chartArea, xs = chart.scales && chart.scales.x;
+      if (!ca || !xs) return;
+      const ctx = chart.ctx;
+      ctx.save();
+      srcOnline().forEach(function (r) {
+        if (r.on) return;
+        const x0 = Math.max(ca.left, xs.getPixelForValue(r.from)), x1 = Math.min(ca.right, xs.getPixelForValue(r.to));
+        if (x1 - x0 < 1) return;
+        ctx.fillStyle = 'rgba(224,86,86,0.08)';
+        ctx.fillRect(x0, ca.top, x1 - x0, ca.bottom - ca.top);
+        ctx.font = '600 10.5px system-ui, sans-serif';
+        const mins = Math.round((r.to - r.from) / 60000);
+        const txt = 'Offline ' + (mins >= 120 ? Math.round(mins / 60) + ' h' : mins + ' min');
+        if (x1 - x0 > ctx.measureText(txt).width + 12) { ctx.fillStyle = 'rgba(200,50,40,0.9)'; ctx.fillText(txt, x0 + 6, ca.top + 13); }
+      });
+      ctx.restore();
+    },
+    afterDraw(chart) {
+      const ca = chart.chartArea, xs = chart.scales && chart.scales.x;
+      if (!ca || !xs) return;
+      const ctx = chart.ctx, y = ca.bottom + CHARGE_STRIP_GAP;
+      ctx.save();
+      srcOnline().forEach(function (r) {
+        const x0 = Math.max(ca.left, xs.getPixelForValue(r.from)), x1 = Math.min(ca.right, xs.getPixelForValue(r.to));
+        if (x1 < ca.left || x0 > ca.right) return;
+        ctx.fillStyle = r.on ? NET_ON : NET_OFF;
+        ctx.fillRect(x0, y, Math.max(1, x1 - x0), CHARGE_STRIP_H);
+      });
+      // Network changes: a dashed line and the new network's name.
+      srcSsid().forEach(function (m) {
+        const x = xs.getPixelForValue(m.x);
+        if (x < ca.left || x > ca.right) return;
+        ctx.strokeStyle = 'rgba(31,159,180,0.8)'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x + .5, ca.top); ctx.lineTo(x + .5, ca.bottom); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '600 10.5px system-ui, sans-serif';
+        ctx.fillStyle = vtCss('--text-2', '#555');
+        const t = m.ssid ? '\u2192 ' + m.ssid : 'Wi-Fi lost';
+        const w = ctx.measureText(t).width;
+        ctx.fillText(t, Math.min(x + 4, ca.right - w - 2), ca.top + 26);
+      });
+      ctx.restore();
+    },
+  };
+  netChart = new Chart(document.getElementById("netChart").getContext("2d"), {
+    type: "line",
+    data: {
+      datasets: [{
+        label: "Wi-Fi",
+        data: [],
+        tension: 0.3,
+        fill: true,
+        borderColor: "#1f9fb4",
+        pointBackgroundColor: "#1f9fb4",
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        borderWidth: 2.5,
+        borderCapStyle: "round",
+        borderJoinStyle: "round",
+        spanGaps: false,
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const {ctx: c, chartArea} = chart;
+          if (!chartArea) return "transparent";
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, "rgba(31,159,180,0.26)");
+          gradient.addColorStop(1, "rgba(31,159,180,0)");
+          return gradient;
+        },
+      }],
+    },
+    options: {
+      animation: false, responsive: true, maintainAspectRatio: false, clip: false,
+      events: ['mousemove', 'mouseout'],
+      interaction: { mode: "nearest", intersect: false, axis: "x" },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+      },
+      scales: {
+        x: chargeStripXScale(),
+        y: { min: -100, max: -30, afterFit: vtYFit, ticks: { color: TICK, callback: v => v + "", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
+      },
+    },
+    plugins: [offlinePlugin, bandsPlugin, onlineStripPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
+  });
+  netChart._labelFn = pt => 'Wi-Fi: ' + Math.round(pt.y) + ' dBm';
+  netChart._commandMarkers = commandMarkers;
+  netChart._buildMarkers = buildMarkers;
+  netChart._accent = 'net';
 
   // ── Unified chart ────────────────────────────────────────────────────────
   // Reuse the same linear ms-timestamp x-axis the individual charts use
@@ -2217,6 +2375,7 @@ function mdmBootCharts() {
   function activeChartObj() {
     if (activeTab === 'temp') return tempChart;
     if (activeTab === 'ram') return ramChart;
+    if (activeTab === 'net') return netChart;
     if (activeTab === 'all') return unifiedChart;
     return batteryChart;
   }
@@ -2324,7 +2483,7 @@ function mdmBootCharts() {
       applyZoomWindow(pivot - (pivot - a) * f, pivot + (b - pivot) * f);
     }, { passive: false });
   }
-  [batteryChart, tempChart, ramChart, unifiedChart].forEach(installZoom);
+  [batteryChart, tempChart, ramChart, netChart, unifiedChart].forEach(installZoom);
 
   // Keep the canvases sharp when the browser page is zoomed. Chart.js sizes each
   // canvas's backing store to devicePixelRatio, but only re-samples on its
@@ -2337,7 +2496,7 @@ function mdmBootCharts() {
   (function watchDevicePixelRatio() {
     if (!window.matchMedia) return;
     function onChange() {
-      [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (c) { if (c) c.resize(); });
+      [batteryChart, tempChart, ramChart, netChart, unifiedChart].forEach(function (c) { if (c) c.resize(); });
       var mq = window.matchMedia('(resolution: ' + window.devicePixelRatio + 'dppx)');
       if (mq.addEventListener) mq.addEventListener('change', onChange, { once: true });
       else if (mq.addListener) mq.addListener(onChange); // Safari < 14 fallback
@@ -2371,7 +2530,7 @@ function mdmBootCharts() {
       // restores the correct size; .chart-wrap also clips so a transient oversize can't
       // widen the card in the meantime.
       var reflow = function () {
-        [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (c) { if (c) { try { c.resize(); } catch (e) {} } });
+        [batteryChart, tempChart, ramChart, netChart, unifiedChart].forEach(function (c) { if (c) { try { c.resize(); } catch (e) {} } });
         if (typeof updateCharts === 'function') updateCharts();
       };
       setTimeout(reflow, 80);
@@ -2545,9 +2704,9 @@ function mdmBootCharts() {
       return Infinity;
     }
     function seriesFor(tab) {
-      var live = tab === 'ram' ? allRam : tab === 'temp' ? allTemp : allBattery;
+      var live = tab === 'ram' ? allRam : tab === 'temp' ? allTemp : tab === 'net' ? allNet : allBattery;
       if (!navData) return live;
-      var base = (tab === 'ram' ? navData.ram : tab === 'temp' ? navData.temp : navData.battery) || [];
+      var base = (tab === 'ram' ? navData.ram : tab === 'temp' ? navData.temp : tab === 'net' ? navData.wifi : navData.battery) || [];
       var cut = liveStart(live);
       return base.filter(function (p) { return p.x < cut; }).concat(live);
     }
@@ -2784,7 +2943,7 @@ function mdmBootCharts() {
   // against it directly instead of inferring it from a single series (which fails
   // for battery-less kiosk devices). Seeded lazily on the first push from whatever
   // history rendered; reset here because hx-boost re-runs this boot on every visit.
-  window.mdmChart = { allBattery, allTemp, allRam, allCharge, pushCharge, updateCharts, setOnline, lastPlottedMs: null, tempLoaded, ramLoaded };
+  window.mdmChart = { allBattery, allTemp, allRam, allNet, allCharge, pushCharge, updateCharts, setOnline, lastPlottedMs: null, tempLoaded, ramLoaded, netLoaded };
 
   // The trailing break turns true purely by the passage of time — the device is gone,
   // so no check-in, SSE frame or presence event will arrive to trigger a redraw. The
@@ -2810,7 +2969,7 @@ function mdmBootCharts() {
     const cs = getComputedStyle(document.documentElement);
     const grid = (cs.getPropertyValue('--chart-grid') || '').trim() || GRID;
     const tick = (cs.getPropertyValue('--chart-tick') || '').trim() || TICK;
-    [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (ch) {
+    [batteryChart, tempChart, ramChart, netChart, unifiedChart].forEach(function (ch) {
       if (!ch || !ch.options || !ch.options.scales) return;
       Object.keys(ch.options.scales).forEach(function (k) {
         const sc = ch.options.scales[k];

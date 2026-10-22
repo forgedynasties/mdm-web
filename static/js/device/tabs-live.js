@@ -506,6 +506,8 @@
             window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
           if (window.mdmChart.ramLoaded && d.ram_pct !== null && d.ram_pct !== undefined)
             window.mdmChart.allRam.push({x: d.ts_ms, y: d.ram_pct});
+          if (window.mdmChart.netLoaded && d.wifi_rssi !== null && d.wifi_rssi !== undefined)
+            window.mdmChart.allNet.push({x: d.ts_ms, y: d.wifi_rssi});
           window.mdmChart.updateCharts();
         }
       }

@@ -3,6 +3,7 @@ package dashboard
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,8 @@ type shapedPoint struct {
 	HasCharge  bool
 	Flapping   bool // charging "2": a flapping charger (db/charger_flap.go)
 	Late       bool // kept on the device while offline and sent later
+	WifiRSSI   int  // dBm, the network graph (N1)
+	HasWifi    bool
 }
 
 // mergeShapedSeries walks the samples and the state timeline together, carrying each
@@ -63,6 +66,10 @@ func mergeShapedSeries(samples []db.DeviceSample, events []db.StateAt) []shapedP
 		// Percent computed here from used and total, exactly as the old path computed it
 		// from the same two numbers in extra — so the chart and the CSV, which prints
 		// those two columns, can never quote different figures.
+		// 0 is what a client sends with no Wi-Fi link; not a signal level.
+		if s.WifiRSSI != nil && *s.WifiRSSI < 0 && *s.WifiRSSI > -127 {
+			p.WifiRSSI, p.HasWifi = int(*s.WifiRSSI), true
+		}
 		if s.RAMUsedMB != nil && s.RAMTotalMB != nil && *s.RAMTotalMB > 0 {
 			p.RAMPct, p.HasRAM = float64(*s.RAMUsedMB)*100/float64(*s.RAMTotalMB), true
 		}
@@ -126,6 +133,15 @@ func (h *Handler) shapedChartSeries(ctx context.Context, deviceID uuid.UUID, fro
 	return mergeShapedSeries(samples, events), true
 }
 
+// chartNetFor reads the window's online and Wi-Fi network changes (N1).
+func (h *Handler) chartNetFor(ctx context.Context, deviceID uuid.UUID, from, until time.Time) chartNet {
+	events, err := h.db.GetStateTimeline(ctx, deviceID, []string{db.PresenceKey, "wifi"}, from, until)
+	if err != nil {
+		return chartNet{Online: []onlineRun{}, SSID: []netMark{}}
+	}
+	return buildChartNet(events, from, until, time.Now())
+}
+
 // shapedChargeRuns folds the per-point charging state into the runs the chart draws,
 // identical in shape to chargeRuns over check-ins: consecutive points in the same state
 // merge, and a gap longer than the device's expected reporting interval breaks the run
@@ -163,7 +179,74 @@ type batteryAnchor struct {
 	Y int   `json:"y"`
 }
 
-func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor) ([]byte, error) {
+// onlineRun is a stretch the device was online (On) or offline, for the strip under every
+// chart (N1). netMark is a change of Wi-Fi network, drawn as a marker on the Network tab.
+type onlineRun struct {
+	From int64 `json:"from"`
+	To   int64 `json:"to"`
+	On   bool  `json:"on"`
+}
+
+type netMark struct {
+	X    int64  `json:"x"`
+	SSID string `json:"ssid"`
+}
+
+// chartNet is the network graph's part of a chart window.
+type chartNet struct {
+	Online []onlineRun
+	SSID   []netMark
+}
+
+// buildChartNet folds the "online" and "wifi" state events of a window into runs and
+// markers. Runs are clipped to [from, until] (until no later than now); time before the
+// first recorded state is left out, since nothing is known about it.
+func buildChartNet(events []db.StateAt, from, until, now time.Time) chartNet {
+	if until.After(now) {
+		until = now
+	}
+	out := chartNet{Online: []onlineRun{}, SSID: []netMark{}}
+	var cur *onlineRun
+	for _, e := range events {
+		switch e.Key {
+		case db.PresenceKey:
+			at := e.At
+			if at.Before(from) {
+				at = from
+			}
+			if at.After(until) {
+				continue
+			}
+			on := e.Value == "true"
+			if cur != nil {
+				if cur.On == on {
+					continue
+				}
+				cur.To = at.UnixMilli()
+				out.Online = append(out.Online, *cur)
+			}
+			cur = &onlineRun{From: at.UnixMilli(), On: on}
+		case "wifi":
+			if e.At.Before(from) || e.At.After(until) {
+				continue
+			}
+			ssid := strings.Trim(e.Value, `"`)
+			if ssid == "null" {
+				ssid = ""
+			}
+			out.SSID = append(out.SSID, netMark{X: e.At.UnixMilli(), SSID: ssid})
+		}
+	}
+	if cur != nil {
+		cur.To = until.UnixMilli()
+		if cur.To > cur.From {
+			out.Online = append(out.Online, *cur)
+		}
+	}
+	return out
+}
+
+func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor, net chartNet) ([]byte, error) {
 	const maxPoints = 2500
 	type bpt struct {
 		X   int64 `json:"x"`
@@ -178,6 +261,7 @@ func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor)
 	battery := make([]bpt, 0, len(pts))
 	temp := make([]pt, 0, len(pts))
 	ram := make([]pt, 0, len(pts))
+	wifi := make([]pt, 0, len(pts))
 	for _, p := range pts {
 		x := p.At.UnixMilli()
 		if hasBattery {
@@ -194,6 +278,12 @@ func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor)
 		if p.HasRAM {
 			ram = append(ram, pt{X: x, Y: p.RAMPct})
 		}
+		if p.HasWifi {
+			wifi = append(wifi, pt{X: x, Y: float64(p.WifiRSSI)})
+		}
+	}
+	if len(wifi) > maxPoints {
+		wifi = decimateExtremes(wifi, maxPoints, func(p pt) float64 { return p.Y })
 	}
 	var charge []chargeRun
 	if hasBattery && device.HasCharging() {
@@ -219,7 +309,8 @@ func buildChartBody(device *db.Device, pts []shapedPoint, anchor *batteryAnchor)
 	if late == nil {
 		late = []db.TimeSpan{}
 	}
-	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge, "battery_before": anchor, "late": late})
+	return json.Marshal(map[string]any{"battery": battery, "temp": temp, "ram": ram, "charge": charge, "battery_before": anchor, "late": late,
+		"wifi": wifi, "online": net.Online, "ssid": net.SSID})
 }
 
 // shapedCheckins delegates to the db-level builder, keeping one implementation of the

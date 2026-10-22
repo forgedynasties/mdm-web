@@ -115,8 +115,9 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The shaped tables: a wide window is fixed-width rows on a clustered index.
+	net := h.chartNetFor(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs))
 	if pts, ok := h.shapedChartSeries(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs)); ok {
-		body, err := buildChartBody(device, pts, h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs)))
+		body, err := buildChartBody(device, pts, h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs)), net)
 		if err != nil {
 			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
@@ -131,7 +132,8 @@ func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
 	// Nothing in the window (the shaped tables cover every device's whole life, so this
 	// is a window with no samples in it): an empty chart, not a fallback.
 	body, err := json.Marshal(map[string]any{"battery": []any{}, "temp": []any{}, "ram": []any{}, "charge": []any{},
-		"battery_before": h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs))})
+		"battery_before": h.batteryAnchorShaped(r.Context(), device.ID, time.UnixMilli(fromMs)),
+		"wifi": []any{}, "online": net.Online, "ssid": net.SSID})
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
