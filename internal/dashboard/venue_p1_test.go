@@ -160,6 +160,13 @@ func TestVenueP1Renders(t *testing.T) {
 	funcs["serialTail"] = func(s string) string { return s[len(s)-serialTailLen(s):] }
 	funcs["venueIcon"] = func(id any, name, size string) template.HTML { return `<span class="vicon"></span>` }
 	funcs["venuePauseChoices"] = func() []struct{ Value, Label string } { return venuePauseChoices }
+	funcs["withNoHead"] = func(data map[string]any) map[string]any {
+		c := map[string]any{"NoHead": true}
+		for k, v := range data {
+			c[k] = v
+		}
+		return c
+	}
 	// Every template (the settings card pulls in rows defined elsewhere), then a bare
 	// header and footer over the layout's.
 	tmpl := template.Must(template.New("").Funcs(funcs).ParseGlob("../../templates/*.html"))
@@ -192,7 +199,7 @@ func TestVenueP1Renders(t *testing.T) {
 		`Both devices offline for over a day: AT070AABU00455 (4 d), AT070AABU00767 (3 d)`,
 		`href="?open=lock#vn-lock">Set PIN</a>`,
 		`href="?window=7d" class="on"`, `>Online</a>`, `>Stability</a>`, `>Battery</a>`,
-		`<span class="lb">TSAI</span>`, `Total: <b>2</b>`,
+		`class="card vp1-dev"`, `/members?head=0`, `data-class="t7"`,
 		`id="restaurant-members"`, `AT070AABU00455`,
 		`class="vp1-rail"`, `id="vn-settings"`, `id="vn-lock"`,
 		`id="vn-enrol"`, `action="/restaurants/` + in.ID.String() + `/auto-enroll"`, `name="on" value="1"`,
@@ -206,5 +213,27 @@ func TestVenueP1Renders(t *testing.T) {
 	}
 	if strings.Contains(out, `class="vn-grid"`) {
 		t.Error("the old two-column grid is back")
+	}
+}
+
+func TestVenueTabs(t *testing.T) {
+	now := time.Now()
+	in := vpSample(now)
+	if tabs := buildVenueP1(in).Tabs; len(tabs) != 2 || tabs[0].Label != "All" || tabs[1].Class != product.ClassT7 {
+		t.Fatalf("one type: tabs = %+v, want All + Tableside AI", tabs)
+	}
+	k := vpDev{Serial: "K1"}
+	k.ID, k.Class, k.Venue, k.Online, k.SeenAt = uuid.New(), product.ClassKiosk, &in.ID, true, now
+	in.Devices = append(in.Devices, k)
+	tabs := buildVenueP1(in).Tabs
+	if len(tabs) != 3 {
+		t.Fatalf("tabs = %+v", tabs)
+	}
+	all := tabs[0]
+	if all.Total != 3 || all.Online != 1 || all.Offline != 2 || all.Alerts != 2 || all.POn+all.POff+all.PAl != 100 {
+		t.Errorf("All = %+v", all)
+	}
+	if tabs[1].Class != product.ClassT7 || tabs[2].Class != product.ClassKiosk || tabs[2].POn != 100 {
+		t.Errorf("types = %+v, want TSAI (2) then kiosk (1, all online)", tabs[1:])
 	}
 }

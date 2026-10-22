@@ -805,8 +805,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"isCards":           func(v any) bool { s, _ := v.(string); return s == "cards" },
 		"venueIcon":         func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
 		"venuePauseChoices": func() []struct{ Value, Label string } { return venuePauseChoices },
-		"userURL":           userURL,
-		"userBubble":        userBubble,
+		// withNoHead is the page's data with NoHead set: the venue page's device card has
+		// its own header and type tabs over restaurant-members (D1).
+		"withNoHead": func(data map[string]any) map[string]any {
+			c := make(map[string]any, len(data)+1)
+			for k, v := range data {
+				c[k] = v
+			}
+			c["NoHead"] = true
+			return c
+		},
+		"userURL":    userURL,
+		"userBubble": userBubble,
 		// systemActorLabel names a sender the server writes itself ("Control probe",
 		// "Auto-update"), "" for a person.
 		"systemActorLabel": func(n string) string { l, _ := db.SystemActorLabel(n); return l },

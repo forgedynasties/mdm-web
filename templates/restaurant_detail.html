@@ -8,16 +8,29 @@
 /* P1 (21 Oct 2026): main column (banner, cards, pill chart, devices) and the settings rail. */
 .vp1{grid-template-columns:minmax(0,1fr) 380px}
 .vp1-rail{display:grid;gap:12px;min-width:0;align-self:start}
-.vp1 #restaurant-members{margin:0}
 .vp1-wh{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:14px 0 0;font-size:12px;color:var(--muted)}
 .vp1-win{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
 .vp1-win a{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;color:var(--text-2);text-decoration:none}
 .vp1-win a:hover{color:var(--text);background:var(--hover)}
 .vp1-win a.on{background:var(--surface2);color:var(--text);box-shadow:inset 0 0 0 1px var(--border)}
 .vp1-stats{margin:8px 0 14px}
-.vp1-pills{margin:0 0 14px;width:fit-content;min-width:300px;max-width:100%}
-.vp1-pills .oc-pc{grid-template-columns:repeat(var(--n),96px);justify-content:start;min-height:170px}
-.vp1-pills .oc-pill.zero{opacity:.4}
+/* D1 (22 Oct): the device card under the grid, full width, with type tabs. */
+.vp1-dev{margin:16px 0 0;overflow:hidden}
+.vp1-dh{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}
+.vp1-dh h2{font-size:15px;font-weight:650;margin:0}.vp1-dh h2 span{color:var(--muted);font-weight:500;font-size:13px;margin-left:2px}
+.vp1-tabs{display:flex;gap:8px;padding:0 16px 14px;overflow-x:auto}
+.vp1-tab{flex:1;min-width:150px;max-width:230px;text-align:left;font:inherit;color:var(--text);border:1px solid var(--border);border-radius:12px;padding:9px 11px;background:var(--surface);cursor:pointer}
+.vp1-tab:hover{background:var(--hover)}
+.vp1-tab.on{border-color:var(--accent);background:var(--accent-soft)}
+.vp1-tab:focus-visible{outline:none;box-shadow:var(--ring)}
+.vp1-tab b{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:650}
+.vp1-tab b span{color:var(--muted);font-weight:600}
+.vp1-bar{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--surface2);margin:8px 0 5px}
+.vp1-bar i{display:block}.vp1-bar .on{background:var(--ok)}.vp1-bar .of{background:var(--text-faint);opacity:.5}.vp1-bar .al{background:var(--danger)}
+.vp1-tab small{display:block;font-size:11px;color:var(--muted);white-space:nowrap}
+.vp1-tab small em{font-style:normal;color:var(--danger);font-weight:600}
+.vp1-dev #restaurant-members{margin:0}
+.vp1-dev .ft-row.vp1-hide,.vp1-dev .dl-card.vp1-hide{display:none}
 @media(max-width:1024px){.vp1{grid-template-columns:minmax(0,1fr)}}
 .vn-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-width:0}
 .vn-card>summary,.vn-ch{display:flex;align-items:center;gap:8px;padding:12px 14px;list-style:none;font-size:13px}
@@ -133,7 +146,7 @@
 </div>
 
 {{/* P1 (21 Oct 2026): this venue's to-do banner, Online / Stability / Battery cards over a
-     window, devices by type over the device table; the Venue settings card is the rail. */}}
+     window; the Venue settings card is the rail. The device table is under both (D1). */}}
 <div class="ov2 vp1">
   <div class="ov2-main">
     {{with .P1}}
@@ -166,30 +179,8 @@
       {{end}}
     </div>
 
-    {{with .Pills}}{{if .Cols}}
-    <div class="oc-card vp1-pills">
-      <div class="oc-ch"><h2>Devices <span>by type</span></h2></div>
-      <div class="oc-pc" style="--n:{{len .Cols}}">
-        {{range .Cols}}
-        <a class="oc-pcol" href="{{.Href}}" title="{{.Label}}: {{.Online}} online, {{.Offline}} offline{{if .Alerts}}, {{.Alerts}} with alerts{{end}}">
-          {{if .Alerts}}<span class="oc-pill al" style="height:{{.HAl}}px">{{.Alerts}}</span><span class="oc-pdot"></span>{{end}}
-          {{if .Offline}}<span class="oc-pill off" style="height:{{.HOff}}px">{{.Offline}}</span><span class="oc-pdot"></span>{{end}}
-          <span class="oc-pill on{{if not .Online}} zero{{end}}" style="height:{{.HOn}}px">{{.Online}}</span>
-          <span class="lb">{{.Short}}</span>
-        </a>
-        {{end}}
-      </div>
-      <div class="oc-foot"><span><i class="k-on"></i>Online</span><span><i class="k-off"></i>Offline</span><span><i class="k-al"></i>Alerts</span><span class="tot">Total: <b>{{.Total}}</b></span></div>
-    </div>
-    {{end}}{{end}}
     {{end}}
 
-    <!-- Members — refreshes in place on device add/remove via a "restaurant-updated" event -->
-    <div class="card" id="restaurant-members" data-morph
-         hx-get="/restaurants/{{.Restaurant.ID}}/members" hx-trigger="restaurant-updated from:body"
-         hx-target="this" hx-swap="innerHTML" hx-select="unset">
-      {{template "restaurant-members" .}}
-    </div>
   </div>
 
   <aside class="vp1-rail" aria-label="Venue settings">
@@ -202,6 +193,30 @@
     <div id="power-live">{{template "restaurant-power" .}}</div>
   </aside>
 </div>
+
+{{/* D1 (22 Oct 2026): one full-width Devices card, the type tabs (were the "Devices by
+     type" pill chart) filtering the table in place. The table refreshes on
+     restaurant-updated without its own header (?head=0). */}}
+<section class="card vp1-dev" aria-label="Devices">
+  <div class="vp1-dh"><h2>Devices{{if .Devices}} <span>{{len .Devices}}</span>{{end}}</h2></div>
+  {{with .P1}}{{if gt (len .Tabs) 2}}
+  <div class="vp1-tabs" role="tablist" aria-label="Device type">
+    {{range $i, $t := .Tabs}}
+    <button type="button" class="vp1-tab{{if eq $i 0}} on{{end}}" role="tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}" data-class="{{$t.Class}}">
+      <b>{{$t.Label}} <span>{{$t.Total}}</span></b>
+      <span class="vp1-bar" aria-hidden="true"><i class="on" style="width:{{$t.POn}}%"></i><i class="of" style="width:{{$t.POff}}%"></i><i class="al" style="width:{{$t.PAl}}%"></i></span>
+      <small>{{$t.Online}} online · {{$t.Offline}} offline{{if $t.Alerts}} · <em>{{$t.Alerts}} alert{{if ne $t.Alerts 1}}s{{end}}</em>{{end}}</small>
+    </button>
+    {{end}}
+  </div>
+  {{end}}{{end}}
+  <!-- Members — refreshes in place on device add/remove via a "restaurant-updated" event -->
+  <div id="restaurant-members" data-morph
+       hx-get="/restaurants/{{.Restaurant.ID}}/members?head=0" hx-trigger="restaurant-updated from:body"
+       hx-target="this" hx-swap="innerHTML" hx-select="unset">
+    {{template "restaurant-members" (withNoHead .)}}
+  </div>
+</section>
 </div>
 
 <script src="/static/js/restaurant_detail.js?v={{assetVer}}"></script>
@@ -284,7 +299,7 @@
 
 {{/* Devices list — refreshed in place (see #restaurant-members) after add/remove. */}}
 {{define "restaurant-members"}}
-  <div class="card-header"><h2>Devices{{if .Devices}} <span class="muted small">{{len .Devices}}</span>{{end}}</h2></div>
+  {{if not .NoHead}}<div class="card-header"><h2>Devices{{if .Devices}} <span class="muted small">{{len .Devices}}</span>{{end}}</h2></div>{{end}}
   {{if not .Devices}}
   <div class="empty-state">
     <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>

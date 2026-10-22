@@ -15,3 +15,29 @@ if (!window.__vnPops) {
     var q = d.querySelector('#pk-q'); if (q) setTimeout(function () { q.focus(); }, 30);
   }, true);
 }
+
+// D1 (22 Oct 2026): the type tabs over the device table filter its rows in place. The
+// table refreshes on restaurant-updated, so the chosen tab is applied again after a swap.
+if (!window.__vp1Tabs) {
+  window.__vp1Tabs = true;
+  var vp1Apply = function () {
+    var on = document.querySelector('.vp1-tab.on');
+    var cls = on ? on.dataset.class : '';
+    document.querySelectorAll('.vp1-dev .ft-row, .vp1-dev .dl-card').forEach(function (r) {
+      r.classList.toggle('vp1-hide', cls !== '' && r.dataset.class !== cls);
+    });
+  };
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('.vp1-tab');
+    if (!t) return;
+    document.querySelectorAll('.vp1-tab').forEach(function (b) {
+      var me = b === t;
+      b.classList.toggle('on', me);
+      b.setAttribute('aria-selected', me ? 'true' : 'false');
+    });
+    vp1Apply();
+  });
+  document.addEventListener('htmx:afterSwap', function (e) {
+    if (e.target && e.target.id === 'restaurant-members') vp1Apply();
+  });
+}

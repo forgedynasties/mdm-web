@@ -37,6 +37,7 @@ type venueP1 struct {
 	Banner  vpBanner
 	Stats   []ovStat
 	Pills   ovPillChart
+	Tabs    []vpTab // D1: All, then one per type, over the full-width device table
 	Window  string
 	Windows []ovOpt
 }
@@ -85,7 +86,61 @@ func buildVenueP1(in vpInputs) venueP1 {
 		out.Stats[0].Title = "Online"
 	}
 	out.Pills = buildOvPills(devs, in.Alerts, sc)
+	out.Tabs = buildVpTabs(out.Pills, devs, in.Alerts)
 	out.Banner = buildVpBanner(in)
+	return out
+}
+
+// vpTab is one type tab over the venue's device table (D1, picked 22 Oct 2026: "Devices by
+// type" merged into the device list, full width). Class "" is All. The bar's three parts
+// are shares of online + offline + alerts, so a type with alerts shows red; the line under
+// it carries the exact numbers.
+type vpTab struct {
+	Class, Label            string
+	Total                   int
+	Online, Offline, Alerts int
+	POn, POff, PAl          int // bar widths, %
+}
+
+func vpTabBar(t *vpTab) {
+	n := t.Online + t.Offline + t.Alerts
+	if n == 0 {
+		return
+	}
+	t.PAl = t.Alerts * 100 / n
+	t.POff = t.Offline * 100 / n
+	t.POn = 100 - t.PAl - t.POff
+}
+
+// buildVpTabs: All (every device, typed or not) and the pill chart's types, biggest first.
+func buildVpTabs(p ovPillChart, devs []ovDev, alerts []db.Alert) []vpTab {
+	if len(devs) == 0 {
+		return nil
+	}
+	alerted := map[uuid.UUID]bool{}
+	for _, a := range alerts {
+		if a.DeviceID != nil && (a.Severity == "critical" || a.Severity == "warning") {
+			alerted[*a.DeviceID] = true
+		}
+	}
+	all := vpTab{Label: "All", Total: len(devs)}
+	for _, d := range devs {
+		if d.Online {
+			all.Online++
+		} else {
+			all.Offline++
+		}
+		if alerted[d.ID] {
+			all.Alerts++
+		}
+	}
+	vpTabBar(&all)
+	out := []vpTab{all}
+	for _, c := range p.Cols {
+		t := vpTab{Class: c.Class, Label: c.Label, Total: c.Online + c.Offline, Online: c.Online, Offline: c.Offline, Alerts: c.Alerts}
+		vpTabBar(&t)
+		out = append(out, t)
+	}
 	return out
 }
 

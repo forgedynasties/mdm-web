@@ -966,6 +966,8 @@ func (h *Handler) RestaurantMembers(w http.ResponseWriter, r *http.Request) {
 		// Set by the fleet-page devices popup's own hx-get URL (?lean=1) — see the
 		// matching comment in GroupMembers.
 		"Lean": r.URL.Query().Get("lean") == "1",
+		// The venue page's card has its own header and type tabs (D1).
+		"NoHead": r.URL.Query().Get("head") == "0",
 	}))
 }
 
