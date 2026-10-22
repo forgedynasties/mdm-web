@@ -130,11 +130,10 @@ func CapsFor(key string) Caps {
 // a battery despite being mains units) — dongle was already covered. mpos (handheld),
 // payment and tablet keep the generic assumption since those commonly do have one.
 var mainsOnlyClasses = map[string]bool{
-	ClassDongle:    true,
-	ClassKiosk:     true,
-	ClassMegaKiosk: true,
-	ClassKDS:       true,
-	ClassPOS:       true,
+	ClassDongle: true,
+	ClassKiosk:  true,
+	ClassKDS:    true,
+	ClassPOS:    true,
 }
 
 // CapsForDevice is CapsFor with the device's class applied — see [mainsOnlyClasses].

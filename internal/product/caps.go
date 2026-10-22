@@ -38,16 +38,15 @@ func IsStockAgent(agentType string) bool {
 // class on the profile). Classes are display + filtering axes only: nothing is gated on
 // them, capabilities do that.
 const (
-	ClassT7        = "t7"        // our T7 — the model IS the category, not a generic tablet
-	ClassKiosk     = "kiosk"     // self-service kiosk, ours (Kiosk 22) or outsourced
-	ClassMegaKiosk = "megakiosk" // floor-standing Mega kiosk (the tall menu/ordering display), added 15 Oct
-	ClassTablet    = "tablet"    // stock Android tablet (DPC-managed)
-	ClassMPOS      = "mpos"      // mobile point of sale
-	ClassPOS       = "pos"       // counter point of sale
-	ClassDongle    = "dongle"    // Android TV stick / box on an HDMI screen (leanback, remote-driven)
-	ClassKDS       = "kds"       // kitchen display
-	ClassPayment   = "payment"   // payment terminal running our agent
-	ClassOther     = "other"
+	ClassT7      = "t7"      // our T7 — the model IS the category, not a generic tablet
+	ClassKiosk   = "kiosk"   // self-service kiosk, ours (Kiosk 22) or outsourced
+	ClassTablet  = "tablet"  // stock Android tablet (DPC-managed)
+	ClassMPOS    = "mpos"    // mobile point of sale
+	ClassPOS     = "pos"     // counter point of sale
+	ClassDongle  = "dongle"  // Android TV stick / box on an HDMI screen (leanback, remote-driven)
+	ClassKDS     = "kds"     // kitchen display
+	ClassPayment = "payment" // payment terminal running our agent
+	ClassOther   = "other"
 	// ClassPanel is retired: the wall kiosks are Kiosk now. The const and its label
 	// stay so a row written before the retag still renders; Classes() no longer
 	// offers it, so IsClass rejects it on new admin input. Handheld (mpos), payment
@@ -57,7 +56,7 @@ const (
 
 // Classes lists every device class in display order (dashboard filters and forms).
 func Classes() []string {
-	return []string{ClassDongle, ClassPOS, ClassKiosk, ClassMegaKiosk, ClassKDS, ClassT7, ClassOther}
+	return []string{ClassDongle, ClassPOS, ClassKiosk, ClassKDS, ClassT7, ClassOther}
 }
 
 // ClassLabel is the human label for a class key; unknown keys are shown as-is and an
@@ -70,8 +69,6 @@ func ClassLabel(class string) string {
 		return "Tablet"
 	case ClassPanel, ClassKiosk:
 		return "Self-order kiosk"
-	case ClassMegaKiosk:
-		return "Mega kiosk"
 	case ClassMPOS:
 		return "Handheld"
 	case ClassPOS:

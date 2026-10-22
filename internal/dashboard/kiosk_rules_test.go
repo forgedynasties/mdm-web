@@ -129,7 +129,7 @@ func TestKioskPagesRender(t *testing.T) {
 		"Policy": p, "Restaurants": []db.Restaurant{{ID: rest, Name: "Flights Vegas", DeviceCount: 20}},
 		"Groups": []db.Group{{ID: uuid.New(), Name: "SJ 3.0", DeviceCount: 20}}, "Serials": []string{"T7-1"},
 		"FleetTotal": 181, "AllowAll": true, "CanEdit": true,
-		"RoleApps": []roleAppLine{{Role: "t7", Label: "Tableside AI", App: "Nugget", Package: "aio.app.nugget"}, {Role: "megakiosk", Label: "Mega kiosk"}},
+		"RoleApps": []roleAppLine{{Role: "t7", Label: "Tableside AI", App: "Nugget", Package: "aio.app.nugget"}, {Role: "other", Label: "Other"}},
 	}); err != nil {
 		t.Fatalf("form: %v", err)
 	}

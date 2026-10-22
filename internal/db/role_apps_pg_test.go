@@ -29,8 +29,8 @@ func TestRoleAppSeedAgainstPostgres(t *testing.T) {
 	if got := d.RoleAppBase(ctx, "t7"); got != "aio.app.nugget" {
 		t.Fatalf("t7 seeded with %q", got)
 	}
-	if got := d.RoleAppBase(ctx, "megakiosk"); got != "" {
-		t.Fatalf("megakiosk seeded with %q", got)
+	if got := d.RoleAppBase(ctx, "other"); got != "" {
+		t.Fatalf("other seeded with %q", got)
 	}
 	if err := d.SetRoleApp(ctx, "t7", "", "test"); err != nil {
 		t.Fatal(err)

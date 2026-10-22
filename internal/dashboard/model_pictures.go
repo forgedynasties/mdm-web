@@ -34,8 +34,6 @@ func modelPic(key string) *modelPicture {
 // models are boards; the class is the stand people see). Under static/img/classes.
 var classPictures = map[string]modelPicture{
 	"kiosk": {Img: "/static/img/classes/kiosk.webp"},
-	// The Mega Kiosk shot from aioapp.com (the floor-standing display).
-	"megakiosk": {Img: "/static/img/classes/megakiosk.webp"},
 	// Composed (class-icons-demos.html, B1): a wall screen with our HDMI stick on it, until
 	// there is a photo of one of our boards in a store.
 	"dongle": {Img: "/static/img/classes/dongle.webp"},
