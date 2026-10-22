@@ -1,183 +1,172 @@
 {{template "header" .}}
-{{/* Resource use per model (R1, picked 23 Oct 2026): Lineup's models as chips; for the
-     chosen one every app ranked by what it costs per device, the worst device, and the
-     heaviest devices behind each row. model_usage.go */}}
+{{/* Resource use per model, P1 (picked 23 Oct 2026): the Overview's layout about apps.
+     Pills scope the page, the banner is a to-do, three cards against the window before,
+     top apps beside every model, the full table, and a rail. model_usage_p1.go */}}
 <style>
-.mu-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
-.mu-chip{font-size:12px;font-weight:650;padding:6px 12px;border-radius:99px;background:var(--surface);box-shadow:var(--shadow-sm);color:var(--text-2);text-decoration:none}
-.mu-chip small{color:var(--muted);font-weight:600;margin-left:4px}
-.mu-chip.on{background:var(--accent-soft);color:var(--accent-text)}
-.mu-chip:focus-visible{outline:none;box-shadow:var(--ring)}
-.mu-pills{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.mu-pill{font-size:11.5px;font-weight:650;padding:4px 10px;border-radius:99px;background:var(--surface2);color:var(--text-2);text-decoration:none}
-.mu-pill.on{background:var(--accent-soft);color:var(--accent-text)}
-.mu-sel{font:inherit;font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
-.mu-lay{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
-@media (max-width:1180px){.mu-lay{grid-template-columns:1fr}}
-.mu-card{background:var(--surface);border-radius:14px;box-shadow:var(--shadow-md);overflow:hidden}
-.mu-card h2{margin:0;padding:12px 16px;font-size:13.5px;font-weight:650;border-bottom:1px solid var(--border-soft)}
-.mu-t{width:100%;border-collapse:collapse;font-size:12.5px}
-.mu-t th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 9px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
-.mu-t th.on{color:var(--accent-text)}
-.mu-t td{padding:9px 9px;border-bottom:1px solid var(--border-soft);color:var(--text-2);white-space:nowrap;vertical-align:top}
-.mu-t td.n{white-space:normal;min-width:170px}
-.mu-t td.n b{display:block;color:var(--text);font-weight:600}
-.mu-t td.n small{color:var(--muted);font-family:var(--mono);font-size:11px}
-.mu-t td.on{color:var(--text);font-weight:600}
-.mu-t td .s{display:block;color:var(--muted);font-size:11px;font-weight:500}
-.mu-bar{height:6px;border-radius:9px;background:var(--surface2);overflow:hidden;width:90px;margin-top:4px}
-.mu-bar i{display:block;height:100%;background:var(--accent)}
-.mu-sys{font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;background:var(--surface2);color:var(--muted);margin-left:6px;vertical-align:1px}
-.mu-heavy>summary{list-style:none;cursor:pointer;font-size:11.5px;color:var(--accent-text);font-weight:600;margin-top:4px}
-.mu-heavy>summary::-webkit-details-marker{display:none}
-.mu-heavy div{display:flex;gap:10px;font-size:12px;padding:2px 0;color:var(--text-2)}
-.mu-heavy a{font-family:var(--mono);color:var(--text)}
-.mu-kv{display:flex;justify-content:space-between;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2)}
-.mu-kv b{color:var(--text);text-align:right}
-.mu-note{font-size:11.5px;color:var(--muted);padding:10px 16px 12px;margin:0;line-height:1.5}
-.mu-empty{padding:16px;font-size:12.5px;color:var(--muted);line-height:1.5}
-/* U1: hero, bars, tanks, rail (picked 23 Oct 2026 from the user's reference) */
-.mu-main{background:var(--surface);border-radius:18px;box-shadow:var(--shadow-md);padding:20px 22px}
-.mu-ram{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);text-align:right;line-height:1.35}
-.mu-ram b{color:var(--text);display:block}
-.mu-ram .ring{width:40px;height:40px;border-radius:11px;border:1.5px solid var(--border);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--text-2)}
-.mu-ram .ring.warn{border-color:var(--warn);color:var(--warn)}
-.mu-ram .ring.bad{border-color:var(--danger);color:var(--danger)}
-.mu-hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;align-items:end;margin:4px 0 18px}
-.mu-big .k{font-size:12px;color:var(--muted)}
-.mu-big .v{font-size:80px;line-height:.95;font-weight:700;letter-spacing:-.03em;color:var(--accent-fill)}
-.mu-big .v small{font-size:14px;font-weight:600;letter-spacing:0;margin-left:6px}
-.mu-bars .k{font-size:12px;color:var(--muted)}.mu-bars .k b{color:#e68a00;font-weight:650}
-.mu-bars .b{display:flex;align-items:flex-end;gap:4px;height:72px;margin-top:8px}
-.mu-bars .b i{flex:1;border-radius:3px;background:var(--border);min-width:2px}
-.mu-bars .b i.hi{background:#f59a1c}
-.mu-tanks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.mu-tank{height:210px;border-radius:16px;border:1.5px dashed var(--border);position:relative;overflow:hidden;display:flex;justify-content:center;padding-top:58px;color:var(--muted);font-size:12.5px}
-.mu-tank .fill{position:absolute;left:0;right:0;bottom:0;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:6px;color:#fff;font-size:12px;font-weight:600;padding:0 8px;text-align:center}
-.mu-tank .fill.a{background:linear-gradient(160deg,#ffae3d,#f59a1c)}
-.mu-tank .fill.b{background:linear-gradient(160deg,#3d8bff,#1f6ff0)}
-.mu-tank .fill.c{background:linear-gradient(160deg,#a78bfa,#7c5cf0)}
-.mu-tank .fill.d{background:linear-gradient(160deg,#34c38f,#1f9d6e)}
-.mu-tank .fill.r{background:linear-gradient(160deg,#ff5a5a,#ef3a3a)}
-.mu-tank .fill svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2;flex:none}
-.mu-legs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:12px}
-.mu-leg{display:flex;align-items:center;gap:10px;font-size:12px;min-width:0}
-.mu-leg .ic{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);display:grid;place-items:center;font-weight:700;color:var(--text-2);font-size:12px;flex:none}
-.mu-leg .t{flex:1;min-width:0}.mu-leg .t small{display:block;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mu-leg .t b{font-weight:650}
-.mu-pc{font-size:11px;font-weight:700;padding:5px 7px;border-radius:9px;border:1.5px solid var(--border);color:var(--text-2)}
-.mu-pc.a{color:#e68a00;border-color:#ffd18a}.mu-pc.b{color:#1f6ff0;border-color:#a9c8ff}.mu-pc.c{color:#7c5cf0;border-color:#cfc2ff}.mu-pc.d{color:#1f9d6e;border-color:#a7e3cc}.mu-pc.r{color:#ef3a3a;border-color:#ffb4b4}
-.mu-tablewrap{margin-top:18px;border-top:1px solid var(--border-soft)}
-.mu-hl{border-radius:18px;padding:20px;color:#fff;text-align:center;background:radial-gradient(120% 90% at 100% 100%,rgba(255,255,255,.18),transparent 60%),linear-gradient(160deg,#ff7a59,var(--accent-fill))}
-.mu-hl .t{font-size:17px;font-weight:650}.mu-hl .s{font-size:11.5px;opacity:.92;margin-top:4px;line-height:1.4}
-.mu-hl .n{font-size:40px;font-weight:700;margin:10px 0 2px}.mu-hl .n small{font-size:12px;font-weight:600;margin-left:4px}
-.mu-hl a{display:inline-grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#fff;color:var(--accent-fill);font-weight:700;text-decoration:none;margin-top:10px}
-.mu-hl a:focus-visible{outline:2px solid #fff;outline-offset:2px}
-.mu-rail h2{font-size:14px;font-weight:650;margin:20px 0 6px;text-align:center}
-.mu-look{display:flex;gap:10px;align-items:center;padding:10px 0 12px;border-bottom:2px solid var(--border-soft);position:relative}
-.mu-look .ic{width:34px;height:34px;border-radius:10px;border:1px solid var(--border);display:grid;place-items:center;flex:none;font-size:14px;color:var(--text-2)}
-.mu-look .t{flex:1;min-width:0;font-size:12.5px}.mu-look .t small{display:block;color:var(--muted);font-size:11px}.mu-look .t b{font-weight:650}
-.mu-look .pr{position:absolute;left:0;bottom:-2px;height:2px;border-radius:2px}
-.mu-look .pr.bad{background:var(--danger)}.mu-look .pr.warn{background:var(--warn)}.mu-look .pr.ok{background:var(--ok)}
-.mu-calm{margin-top:14px;border:1.5px dashed var(--border);border-radius:14px;padding:16px;text-align:center;font-size:12px;color:var(--muted)}
-.mu-sumcard{margin-top:16px}
+  .p1-wrap{padding-bottom:96px}
+  .p1-ban .oc-todo{max-width:none}
+  .p1-ban .oc-todo li{min-width:0}
+  .p1-top{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;flex:1}
+  .p1-top li{display:grid;grid-template-columns:minmax(0,150px) minmax(0,1fr) auto;align-items:center;gap:10px;font-size:12.5px}
+  .p1-top a{color:var(--text);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}
+  .p1-top a:hover{color:var(--accent-text)}
+  .p1-trk{height:10px;border-radius:99px;background:var(--border-soft);overflow:hidden}
+  .p1-trk i{display:block;height:100%;border-radius:99px;background:var(--text-faint)}
+  .p1-trk i.role{background:var(--accent)}.p1-trk i.bad{background:var(--danger)}
+  .p1-top .v{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+  .p1-top .v b{color:var(--text);font-weight:650;margin-right:6px}
+  .p1-mt tr.on td{background:var(--accent-soft)}
+  .p1-mt tr.on td:first-child{font-weight:650}
+  .p1-mt a{color:inherit;text-decoration:none}
+  .p1-mt a:hover{color:var(--accent-text)}
+  .p1-mt .mut,.p1-mt td.mut{color:var(--muted)}
+  .p1-app b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
+  .p1-app small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
+  .p1-chip{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:99px;font-size:10.5px;font-weight:600;vertical-align:1px;background:var(--border-soft);color:var(--muted)}
+  .p1-chip.role{background:var(--accent-soft);color:var(--accent-text)}
+  .p1-share{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .p1-share .p1-trk{width:64px;height:6px}
+  .p1-share span.num{min-width:34px;text-align:right;font-variant-numeric:tabular-nums;font-weight:650}
+  .p1-heavy .note{color:var(--muted)}
+  .p1-heavy .ovd-dot:not(.danger):not(.warn){background:var(--text-faint);opacity:.5}
+  .p1-cap{margin-top:-6px}
 </style>
 {{with .P}}
-<div class="cc-top">
-  <div>
-    <div class="cc-eyebrow">Apps</div>
-    <h1 class="cc-h1">Resource use</h1>
-    <div class="cc-status">{{.Devices}} {{.Label}} · {{.Reporting}} reporting · last {{.Window}}</div>
-  </div>
-  <div class="cc-actions mu-pills">
-    {{$p := .}}
-    {{range .Windows}}<a class="mu-pill{{if eq . $p.Window}} on{{end}}" href="?model={{$p.Model}}&window={{.}}&venue={{$p.Venue}}&sort={{$p.Sort}}">{{.}}</a>{{end}}
-    <form method="GET" style="display:contents">
-      <input type="hidden" name="model" value="{{.Model}}"><input type="hidden" name="window" value="{{.Window}}">
-      <select class="mu-sel" name="venue" aria-label="Venue" onchange="this.form.submit()">
-        <option value="">All venues</option>
-        {{range .Venues}}<option value="{{.ID}}"{{if .On}} selected{{end}}>{{.Name}}</option>{{end}}
-      </select>
-      <select class="mu-sel" name="sort" aria-label="Sort by" onchange="this.form.submit()">
-        <option value="screen"{{if eq .Sort "screen"}} selected{{end}}>Sort: screen time</option>
-        {{if .AnyFull}}<option value="mem"{{if eq .Sort "mem"}} selected{{end}}>Sort: memory</option>
-        <option value="cpu"{{if eq .Sort "cpu"}} selected{{end}}>Sort: CPU</option>{{end}}
-        <option value="net"{{if eq .Sort "net"}} selected{{end}}>Sort: network</option>
-        {{if .HasBattery}}<option value="battery"{{if eq .Sort "battery"}} selected{{end}}>Sort: battery</option>{{end}}
-      </select>
-    </form>
-  </div>
-</div>
-
-<nav class="mu-chips" aria-label="Models">
-  {{range .Chips}}<a class="mu-chip{{if .On}} on{{end}}" href="?model={{.Key}}&window={{$p.Window}}&sort={{$p.Sort}}"{{if .On}} aria-current="page"{{end}}>{{.Label}}<small>{{.Devices}}</small></a>{{end}}
-</nav>
-
-<div class="mu-lay">
-  <section class="mu-main" aria-label="Apps on {{.Label}}">
-    {{with $.U}}
-    <div style="display:flex;align-items:flex-start;gap:12px">
-      <div class="mu-big"><div class="k">{{.HeroLabel}}</div>{{if .HeroNum}}<div class="v">{{.HeroNum}}<small>{{.HeroUnit}}</small></div>{{else}}<div class="v" style="color:var(--muted)">—</div>{{end}}</div>
-      {{if .RAMText}}<div class="mu-ram" style="margin-left:auto"><span>RAM in use<b>{{.RAMText}}</b></span><span class="ring{{if ge .RAMPct 90}} bad{{else if ge .RAMPct 80}} warn{{end}}">{{.RAMPct}}%</span></div>{{end}}
+<template id="page-island">
+  <span class="isl-t">Resource use</span>
+  <span class="isl-s"><b>{{.ModelLabel}}</b> · {{.Reporting}} of {{.Devices}} reporting</span>
+</template>
+<div class="p1-wrap">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Apps</div>
+      <h1 class="cc-h1">Resource use</h1>
+      <div class="cc-status">{{.ModelLabel}} · {{.Reporting}} of {{.Devices}} reporting · last {{.WindowLabel}}</div>
     </div>
-    {{if .Bars}}<div class="mu-bars" style="margin:10px 0 18px"><div class="k">{{.BarsLabel}}{{if .Peak}} · <b>{{.Peak}}</b>{{end}}</div>
-      <div class="b" role="img" aria-label="{{.BarsLabel}}{{if .Peak}}, {{.Peak}}{{end}}">{{range .Bars}}<i class="{{if .Hi}}hi{{end}}" style="height:{{.Pct}}%" title="{{.Title}}"></i>{{end}}</div></div>{{end}}
-    {{if .Tanks}}
-    <div class="mu-tanks">{{range .Tanks}}<div class="mu-tank">{{.Value}}<div class="fill {{.Tone}}" style="height:{{.Fill}}%">{{if .Warn}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 2 20h20zM12 10v4M12 17h.01"/></svg>{{.Warn}}{{else}}{{.Name}}{{end}}</div></div>{{end}}</div>
-    <div class="mu-legs">{{range .Tanks}}<div class="mu-leg"><span class="ic" aria-hidden="true">{{.Initial}}</span><span class="t"><small>{{.Name}}{{if .Detail}} · {{.Detail}}{{end}}</small><b>{{.Value}}</b></span><span class="mu-pc {{.Tone}}">{{.Share}}%</span></div>{{end}}</div>
+  </div>
+
+  <div class="ov2">
+  <div class="ov2-main">
+    <div class="oc-bar" role="group" aria-label="Filter resource use">
+      <span class="lbl">{{.Lbl}}</span>
+      <div class="oc-f"><button class="oc-fb set" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Model: <b>{{.ModelLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu oc-scroll" hidden>{{range .Models}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+      <div class="oc-f"><button class="oc-fb{{if .VenueName}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Window: <b>{{.WindowLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>{{range .Windows}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Measure: <b>{{.MeasureLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>{{range .Measures}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+    </div>
+
+    {{with .Banner}}
+    <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}} p1-ban">
+      <div class="ov2-ban-k">{{.Kicker}}</div>
+      <h2>{{.Headline}}</h2>
+      {{if .Todos}}
+      <ol class="oc-todo">
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+      </ol>
+      {{if .More}}<a class="oc-more" href="#p1-apps">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
+      {{else}}<p>{{.Calm}}</p>{{end}}
+    </div>
     {{end}}
-    {{end}}
-    <div class="mu-tablewrap">
-    {{if not .Rows}}
-    <div class="mu-empty">No app usage reported by {{.Label}} devices in the last {{.Window}}. It comes from Firmware MDM 1.17.0 and Standard client 0.6.0 onwards, about every 15 minutes.</div>
-    {{else}}
-    <div style="overflow-x:auto">
-    <table class="mu-t">
-      <thead><tr>
-        <th>App</th><th>On</th>
-        <th{{if eq .Sort "screen"}} class="on"{{end}}>Screen / device</th>
-        {{if .AnyFull}}<th{{if eq .Sort "mem"}} class="on"{{end}}>Memory / device</th><th{{if eq .Sort "cpu"}} class="on"{{end}}>CPU</th>{{end}}
-        <th{{if eq .Sort "net"}} class="on"{{end}}>Network / device</th>
-        {{if .HasBattery}}<th{{if eq .Sort "battery"}} class="on"{{end}}>Battery / device</th>{{end}}
-      </tr></thead>
-      <tbody>
-      {{range .Rows}}
-      <tr>
-        <td class="n"><b>{{.Name}}{{if .System}}<span class="mu-sys">system</span>{{end}}</b>{{if ne .Name .Package}}<small>{{.Package}}</small>{{end}}<div class="mu-bar" aria-hidden="true"><i style="width:{{.BarPct}}%"></i></div>
-          {{if .Heaviest}}<details class="mu-heavy"><summary>Heaviest devices</summary>{{range .Heaviest}}<div><a href="/devices/{{.Serial}}">{{.Serial}}</a><span>{{.Value}}{{if .Venue}} · {{.Venue}}{{end}}</span></div>{{end}}</details>{{end}}</td>
-        <td>{{.On}} of {{$p.Reporting}}</td>
-        <td{{if eq $p.Sort "screen"}} class="on"{{end}}>{{.Screen}}</td>
-        {{if $p.AnyFull}}<td{{if eq $p.Sort "mem"}} class="on"{{end}}>{{.Mem}}{{if .Worst}}<span class="s">{{.Worst}}</span>{{end}}</td>
-        <td{{if eq $p.Sort "cpu"}} class="on"{{end}}>{{.CPU}}</td>{{end}}
-        <td{{if eq $p.Sort "net"}} class="on"{{end}}>{{.Net}}</td>
-        {{if $p.HasBattery}}<td{{if eq $p.Sort "battery"}} class="on"{{end}}>{{.Battery}}</td>{{end}}
-      </tr>
+
+    {{if not .Empty}}
+    <div class="oc-stats">
+      {{range .Cards}}
+      <div class="oc-st">
+        <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
+        {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
+        <a class="oc-stm" href="{{.Href}}">
+          {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
+          {{with .B}}{{if .Value}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}{{end}}
+        </a>
+        {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/>{{with .LineB}}<path class="b" d="{{.}}"/>{{end}}</svg>{{else}}<div style="height:16px"></div>{{end}}
+        {{end}}
+      </div>
       {{end}}
-      </tbody>
-    </table>
     </div>
-    {{if .More}}<p class="mu-note">{{.More}} more apps cost less.</p>{{end}}
     {{end}}
+
+    <div class="oc-two{{if not .Top}} solo{{end}}">
+      {{if .Top}}
+      <div class="oc-card">
+        <div class="oc-ch"><h2>Top apps <span>share of {{.TopTitle}}</span></h2></div>
+        <ul class="p1-top">
+          {{range .Top}}<li><a href="{{.Href}}" title="{{.Name}}">{{.Name}}</a><span class="p1-trk"><i class="{{.Tone}}" style="width:{{.Pct}}%"></i></span><span class="v"><b>{{.Share}} %</b>{{.Value}}</span></li>{{end}}
+        </ul>
+        <div class="oc-foot"><span><i style="background:var(--accent)"></i>Role app</span><span><i style="background:var(--danger)"></i>Over the limit</span><span><i style="background:var(--text-faint)"></i>Other</span><span class="tot">per device that runs it</span></div>
+      </div>
+      {{end}}
+      <div class="oc-card">
+        <div class="oc-ch"><h2>Models <span>{{.MeasureLabel}} per device</span></h2></div>
+        <table class="ov2-t p1-mt">
+          <thead><tr><th>Model</th><th class="num">Reporting</th><th class="num">{{.MeasureLabel}}</th><th>Biggest cost</th></tr></thead>
+          <tbody>
+          {{range .ModelRows}}
+          <tr{{if .On}} class="on"{{end}}><td><a href="{{.Href}}">{{.Label}}</a></td><td class="num">{{.Reporting}} <span class="mut">of {{.Devices}}</span></td><td class="num">{{.Value}}</td><td class="mut">{{if .Biggest}}{{.Biggest}}{{else}}—{{end}}</td></tr>
+          {{end}}
+          </tbody>
+        </table>
+      </div>
     </div>
-  </section>
-  <aside class="mu-rail" aria-label="{{.Label}} summary">
-    {{with $.U.Heavy}}
-    <div class="mu-hl"><div class="t">Heaviest device</div><div class="s">the most {{if eq $p.Sort "mem"}}memory{{else if eq $p.Sort "screen"}}screen time{{else if eq $p.Sort "cpu"}}CPU{{else if eq $p.Sort "net"}}network{{else}}battery{{end}} of the {{$p.Reporting}}</div>
-      <div class="n">{{.Num}}<small>{{.Unit}}</small></div><div class="s">{{.Serial}}{{if .Apps}} · {{.Apps}}{{end}}</div>
-      <a href="/devices/{{.Serial}}" aria-label="Open {{.Serial}}">↗</a></div>
+
+    {{if .Rows}}
+    <div class="ov2-sec" id="p1-apps"><h2>All apps <span>{{len .Rows}}{{if .More}} of {{add (len .Rows) .More}}{{end}} · by {{.MeasureLabel}}</span></h2></div>
+    <div class="cc-card">
+      <table class="ov2-t">
+        <thead><tr><th>App</th><th class="num">Devices</th><th class="num">Screen</th>{{if .Full}}<th class="num">Memory</th><th class="num">CPU</th>{{end}}<th class="num">Network</th>{{if .Battery}}<th class="num">Battery</th>{{end}}<th class="num">Share</th><th></th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+        <tr>
+          <td><div class="p1-app"><b title="{{.Name}}">{{.Name}}{{if .Role}}<span class="p1-chip role">role app</span>{{else if .System}}<span class="p1-chip">system</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></div></td>
+          <td class="num">{{.On}}</td>
+          <td class="num">{{.Screen}}</td>
+          {{if $.P.Full}}<td class="num" title="{{.Worst}}">{{.Mem}}</td><td class="num">{{.CPU}}</td>{{end}}
+          <td class="num">{{.Net}}</td>
+          {{if $.P.Battery}}<td class="num">{{.Battery}}</td>{{end}}
+          <td><div class="p1-share"><span class="p1-trk"><i class="{{if .Role}}role{{end}}" style="width:{{.BarPct}}%"></i></span><span class="num">{{.Share}} %</span></div></td>
+          <td class="act"><a class="cc-btn sm" href="/apps/{{.Package}}">App</a></td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
     {{end}}
-    <h2>Needs a look</h2>
-    {{range $.U.Looks}}<div class="mu-look"><span class="ic" aria-hidden="true">{{.Icon}}</span><span class="t"><small>{{.Title}}</small><b>{{.Value}}</b></span><span class="mu-pc">{{.Chip}}</span><span class="pr {{.Tone}}" style="width:{{.Pct}}%"></span></div>{{end}}
-    {{$warn := false}}{{range $.U.Looks}}{{if ne .Tone "ok"}}{{$warn = true}}{{end}}{{end}}
-    {{if not $warn}}<div class="mu-calm">Nothing else stands out on {{.Label}} devices in the last {{.Window}}.</div>{{end}}
-    <section class="mu-card mu-sumcard">
-      <div class="mu-kv"><span>Devices reporting</span><b>{{.Reporting}} of {{.Devices}}</b></div>
-      {{if .TopShare}}<div class="mu-kv"><span>Biggest cost</span><b>{{.TopShare}}</b></div>{{end}}
-      <div class="mu-kv"><span>Measured</span><b>{{if .AnyFull}}screen, memory, CPU, network{{if .HasBattery}}, battery{{end}}{{else}}screen time, network{{end}}</b></div>
-      {{if and .AnyLimited .AnyFull}}<p class="mu-note">Standard-client devices measure screen time and network only; memory and CPU come from the Firmware MDM devices.</p>
-      {{else if .AnyLimited}}<p class="mu-note">These devices run the Standard client, which can measure screen time and network only: Android keeps other apps' memory, CPU and battery from a normal app.</p>{{end}}
-      <p class="mu-note"><a href="/lineup">Models on Lineup</a></p>
-    </section>
+  </div>
+
+  <aside class="ov2-rail" aria-label="{{.ModelLabel}} resource use">
+    {{with .Ring}}
+    <div class="ov2-ring{{if .Tone}} s-{{.Tone}}{{end}}" title="{{.Title}}">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
+      <span><b>{{.Pct}}</b><small>{{.Label}}</small></span>
+    </div>
+    {{end}}
+    <div class="ov2-hi"><b>{{.HiTitle}}</b><small>{{.HiSub}}</small>{{with .HiDelta}}<small class="{{$.P.HiTone}}">{{.}}</small>{{end}}</div>
+    {{if .Bars}}
+    <div class="ov2-bars" role="img" aria-label="{{.BarsCap}}, last 7 days">
+      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+    </div>
+    <div class="ov2-hi p1-cap"><small>{{.BarsCap}}</small></div>
+    {{end}}
+    <div class="ov2-rh"><h2>Heaviest devices</h2><a href="/devices?product={{.Model}}">Fleet</a></div>
+    {{if .Heavy}}
+    <ul class="ov2-att p1-heavy">
+      {{range .Heavy}}
+      <li>
+        <span class="ovd-dot {{.Tone}}"></span>
+        <span class="t"><a href="{{.Href}}"><span class="ser">{{.Serial}}</span></a><small>{{.Value}}{{with .Note}} · <span class="note">{{.}}</span>{{end}}{{with .Venue}} · {{.}}{{end}}</small></span>
+        <a class="cc-btn sm" href="{{.Href}}">Open</a>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <div class="ovd-empty"><b>No devices reporting.</b></div>
+    {{end}}
   </aside>
+  </div>
 </div>
 {{end}}
+<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
 {{template "footer" .}}

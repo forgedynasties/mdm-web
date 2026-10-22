@@ -168,8 +168,9 @@ type DeviceAppUsage struct {
 	AppUsageRow
 }
 
-// AppUsageForDevices is AppUsage for many devices at once, one row per device and app.
-func (d *DB) AppUsageForDevices(ctx context.Context, ids []uuid.UUID, since time.Time) ([]DeviceAppUsage, error) {
+// AppUsageForDevices is AppUsage for many devices at once over [since, until), one row
+// per device and app.
+func (d *DB) AppUsageForDevices(ctx context.Context, ids []uuid.UUID, since, until time.Time) ([]DeviceAppUsage, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -181,10 +182,10 @@ func (d *DB) AppUsageForDevices(ctx context.Context, ids []uuid.UUID, since time
 		       CASE WHEN SUM(u.cpu_n) > 0 THEN SUM(u.cpu_sum_pct) / SUM(u.cpu_n) END,
 		       SUM(u.power_mah)
 		FROM app_usage u
-		WHERE u.device_id = ANY($1)
+		WHERE u.device_id = ANY($1) AND u.bucket < $3
 		  AND ((NOT u.daily AND u.bucket >= date_trunc('hour', $2::timestamptz))
 		    OR (u.daily AND u.bucket >= date_trunc('day', $2::timestamptz)))
-		GROUP BY u.device_id, u.package`, ids, since)
+		GROUP BY u.device_id, u.package`, ids, since, until)
 	if err != nil {
 		return nil, err
 	}
@@ -238,8 +239,8 @@ type UsagePoint struct {
 	HasCPU   bool
 }
 
-// AppUsageSeries returns per-device, per-bucket totals since `since`.
-func (d *DB) AppUsageSeries(ctx context.Context, ids []uuid.UUID, since time.Time) ([]UsagePoint, error) {
+// AppUsageSeries returns per-device, per-bucket totals over [since, until).
+func (d *DB) AppUsageSeries(ctx context.Context, ids []uuid.UUID, since, until time.Time) ([]UsagePoint, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -249,11 +250,11 @@ func (d *DB) AppUsageSeries(ctx context.Context, ids []uuid.UUID, since time.Tim
 		       COALESCE(SUM(CASE WHEN cpu_n > 0 THEN cpu_sum_pct / cpu_n END), 0), BOOL_OR(cpu_n > 0),
 		       SUM(power_mah)
 		FROM app_usage
-		WHERE device_id = ANY($1)
+		WHERE device_id = ANY($1) AND bucket < $3
 		  AND ((NOT daily AND bucket >= date_trunc('hour', $2::timestamptz))
 		    OR (daily AND bucket >= date_trunc('day', $2::timestamptz)))
 		GROUP BY bucket, daily, device_id
-		ORDER BY bucket`, ids, since)
+		ORDER BY bucket`, ids, since, until)
 	if err != nil {
 		return nil, err
 	}

@@ -13,17 +13,11 @@ import (
 	"mdm/internal/product"
 )
 
-// Resource use per model (R1, picked 23 Oct 2026; user: "need resource use page per model
-// too, like per android rbox"). /apps/usage: Lineup's models as chips; for the chosen one,
-// every app and system service ranked by what it costs per device across that model's
-// devices, how many of them run it, the worst device, and the heaviest devices behind
-// each row. Window, venue and sort as pills. Fleet-wide viewers only.
-
-type muChip struct {
-	Key, Label string
-	Devices    int
-	On         bool
-}
+// Resource use per model (/apps/usage). R1 (23 Oct 2026; user: "need resource use page
+// per model too, like per android rbox") gave every app ranked by what it costs per device
+// on one model; P1 (23 Oct, "take inspo from overview page instead") puts that in the
+// Overview's layout: filter pills, a to-do banner, delta cards, top apps beside every
+// model, the full table, and a rail. Fleet-wide viewers only. Builder in model_usage_p1.go.
 
 type muDevice struct {
 	Serial, Venue, Value, Extra string
@@ -31,7 +25,7 @@ type muDevice struct {
 
 type muRow struct {
 	Name, Package                string
-	System                       bool
+	System, Role                 bool // Role: the model's role app (set by P1)
 	On                           int
 	Screen, Mem, Worst, CPU, Net string
 	Battery                      string
@@ -44,27 +38,6 @@ type muRow struct {
 
 type muVenue struct {
 	ID, Name string
-	On       bool
-}
-
-type modelUsagePage struct {
-	Chips      []muChip
-	Model      string
-	Label      string
-	Window     string
-	Windows    []string
-	Sort       string
-	Venue      string
-	Venues     []muVenue
-	Devices    int
-	Reporting  int
-	Rows       []muRow
-	More       int
-	HasBattery bool
-	AnyFull    bool // some device here measures memory/CPU (firmware client)
-	AnyLimited bool // some device here is on the Standard client
-	TopShare   string
-	MemInUse   string
 }
 
 const muRowsShown = 30
@@ -77,94 +50,72 @@ func (h *Handler) ModelUsagePage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Models, biggest first.
-	count := map[string]int{}
-	for _, d := range devs {
-		if !d.Hidden {
-			count[d.ProductKey()]++
-		}
+	in := p1In{Now: time.Now(), Window: q.Get("window"), Venue: q.Get("venue"), Measure: q.Get("measure")}
+	if in.Measure == "" {
+		in.Measure = q.Get("sort") // R1/U1 links
 	}
-	var chips []muChip
-	for k, n := range count {
-		chips = append(chips, muChip{Key: k, Label: productLabel(k), Devices: n})
+	if _, ok := appUsageWindows[in.Window]; !ok {
+		in.Window = "24h"
 	}
-	sort.Slice(chips, func(i, j int) bool {
-		if chips[i].Devices != chips[j].Devices {
-			return chips[i].Devices > chips[j].Devices
-		}
-		return chips[i].Label < chips[j].Label
-	})
-	p := modelUsagePage{Window: q.Get("window"), Windows: []string{"24h", "7d", "30d"}, Sort: q.Get("sort"), Venue: q.Get("venue")}
-	if _, ok := appUsageWindows[p.Window]; !ok {
-		p.Window = "24h"
-	}
-	p.Model = product.Normalize(q.Get("model"))
-	if _, ok := count[p.Model]; !ok && len(chips) > 0 {
-		p.Model = chips[0].Key
-	}
-	for i := range chips {
-		chips[i].On = chips[i].Key == p.Model
-	}
-	p.Chips = chips
-	p.Label = productLabel(p.Model)
+	in.Win = appUsageWindows[in.Window]
+	in.Since = in.Now.Add(-in.Win)
 
-	// The model's devices (and its venues, for the pill).
-	byID := map[uuid.UUID]db.Device{}
+	// Every device in the venue scope, then their usage once: it picks the default model
+	// (the one with the most devices reporting) and fills the Models card.
 	venues := map[string]string{}
 	var ids []uuid.UUID
-	var ramUsed, ramN float64
+	byID := map[uuid.UUID]db.Device{}
 	for _, d := range devs {
-		if d.Hidden || d.ProductKey() != p.Model {
+		if d.Hidden {
 			continue
 		}
 		if d.RestaurantID != nil {
 			venues[d.RestaurantID.String()] = d.RestaurantName
 		}
-		if p.Venue != "" && (d.RestaurantID == nil || d.RestaurantID.String() != p.Venue) {
+		if in.Venue != "" && (d.RestaurantID == nil || d.RestaurantID.String() != in.Venue) {
 			continue
 		}
-		p.Devices++
 		byID[d.ID] = d
 		ids = append(ids, d.ID)
-		if d.AgentKind == product.KindDPC {
-			p.AnyLimited = true
-		} else {
-			p.AnyFull = true
-		}
-		if d.HasBattery() && d.AgentKind != product.KindDPC {
-			p.HasBattery = true
-		}
-		if used, total := ramOf(d.LatestExtra); total > 0 {
-			ramUsed += float64(used) / float64(total)
-			ramN++
-		}
 	}
+	if _, ok := venues[in.Venue]; !ok {
+		in.Venue = ""
+	}
+	in.VenueName = venues[in.Venue]
 	for id, name := range venues {
-		p.Venues = append(p.Venues, muVenue{ID: id, Name: name, On: id == p.Venue})
+		in.Venues = append(in.Venues, muVenue{ID: id, Name: name})
 	}
-	sort.Slice(p.Venues, func(i, j int) bool { return p.Venues[i].Name < p.Venues[j].Name })
-	if ramN > 0 {
-		p.MemInUse = fmt.Sprintf("%.0f %% of its RAM", ramUsed*100/ramN)
-	}
-	switch p.Sort {
-	case "screen", "mem", "cpu", "net", "battery":
-	default:
-		p.Sort = "mem"
-		if !p.AnyFull {
-			p.Sort = "screen"
+	sort.Slice(in.Venues, func(i, j int) bool { return in.Venues[i].Name < in.Venues[j].Name })
+
+	all, _ := h.db.AppUsageForDevices(ctx, ids, in.Since, in.Now)
+	in.Labels, _ = h.db.AppLabels(ctx, ids)
+	in.All = all
+	in.ByID = byID
+
+	in.Model = product.Normalize(q.Get("model"))
+	in.Model = p1DefaultModel(in.Model, byID, all)
+	in.ModelLabel = productLabel(in.Model)
+
+	var mids []uuid.UUID
+	for _, d := range byID {
+		if d.ProductKey() == in.Model {
+			mids = append(mids, d.ID)
 		}
 	}
-
-	since := time.Now().Add(-appUsageWindows[p.Window])
-	usage, _ := h.db.AppUsageForDevices(ctx, ids, since)
-	labels, _ := h.db.AppLabels(ctx, ids)
-	for i := range usage {
-		usage[i].Label = nameOf(usage[i].Package, labels)
+	prevSince := in.Since.Add(-in.Win)
+	in.Prev, _ = h.db.AppUsageForDevices(ctx, mids, prevSince, in.Since)
+	in.Series, _ = h.db.AppUsageSeries(ctx, mids, in.Since, in.Now)
+	in.PrevSeries, _ = h.db.AppUsageSeries(ctx, mids, prevSince, in.Since)
+	day := in.Now.Truncate(time.Hour)
+	in.WeekSince = time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location()).AddDate(0, 0, -6)
+	if !in.WeekSince.Before(in.Since) {
+		in.Week = in.Series // the window already covers the rail's seven days
+	} else {
+		in.Week, _ = h.db.AppUsageSeries(ctx, mids, in.WeekSince, in.Now)
 	}
-	p.Rows, p.More, p.Reporting, p.TopShare = buildModelUsageRows(usage, byID, labels, p.Sort)
-	series, _ := h.db.AppUsageSeries(ctx, ids, since)
-	u1 := buildModelUsageU1(&p, usage, series, byID, h.roleAppBase(ctx, p.Model), time.Now())
-	h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "P": p, "U": u1})
+	in.RoleBase = h.roleAppBase(ctx, in.Model)
+	p := buildModelUsageP1(in)
+	h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "P": p})
 }
 
 // buildModelUsageRows sums each app across the devices, averages per device that runs it,
@@ -181,23 +132,8 @@ func buildModelUsageRows(usage []db.DeviceAppUsage, byID map[uuid.UUID]db.Device
 		worstDev       uuid.UUID
 	}
 	val := func(u db.DeviceAppUsage) float64 {
-		switch sortBy {
-		case "screen":
-			return float64(u.FgMs)
-		case "cpu":
-			if u.CPUAvg != nil {
-				return *u.CPUAvg
-			}
-		case "net":
-			return float64(u.RxBytes + u.TxBytes)
-		case "battery":
-			return u.PowerMAh
-		case "mem":
-			if u.PssAvgMB != nil {
-				return *u.PssAvgMB
-			}
-		}
-		return 0
+		v, _ := muDeviceValue(sortBy, u)
+		return v
 	}
 	apps := map[string]*agg{}
 	seen := map[uuid.UUID]bool{}
@@ -305,20 +241,7 @@ func buildModelUsageRows(usage []db.DeviceAppUsage, byID map[uuid.UUID]db.Device
 				break
 			}
 			d := byID[u.DeviceID]
-			md := muDevice{Serial: d.SerialNumber, Venue: d.RestaurantName}
-			switch sortBy {
-			case "screen":
-				md.Value = fmtMinutes(u.FgMs)
-			case "cpu":
-				md.Value = fmt.Sprintf("%.1f %% CPU", *u.CPUAvg)
-			case "net":
-				md.Value = fmtBytes(u.RxBytes + u.TxBytes)
-			case "battery":
-				md.Value = fmt.Sprintf("%.0f mAh", u.PowerMAh)
-			default:
-				md.Value = fmt.Sprintf("%.0f MB", *u.PssAvgMB)
-			}
-			row.Heaviest = append(row.Heaviest, md)
+			row.Heaviest = append(row.Heaviest, muDevice{Serial: d.SerialNumber, Venue: d.RestaurantName, Value: muFmt(sortBy, val(u))})
 		}
 		rows = append(rows, row)
 	}
