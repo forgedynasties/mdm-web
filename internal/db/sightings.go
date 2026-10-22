@@ -227,14 +227,18 @@ type ScoutCandidate struct {
 	Serial string
 }
 
-// ScoutCandidates lists the firmware devices in a restaurant, most recently seen first.
-// The scout service picks the first one the hub reports connected.
+// ScoutCandidates lists the firmware devices in a restaurant, newest client first, then
+// most recently seen. The scout service picks the first one the hub reports connected, so
+// a venue sweeps with its newest scout: an old client may not scan at all (22 Oct: AIO
+// Lab's sweep went to a v2.0 T7 with no scout and never came back), and each release has
+// made the sweep find more. No reported version sorts last.
 func (d *DB) ScoutCandidates(ctx context.Context, restaurantID uuid.UUID) ([]ScoutCandidate, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, serial_number FROM devices
 		WHERE restaurant_id = $1 AND agent_kind = 'firmware'
 		  AND enrollment_status NOT IN ('retired','wiped','unenrolled')
-		ORDER BY last_seen_at DESC`, restaurantID)
+		ORDER BY string_to_array(substring(latest_extra->>'agent_version' from '^[0-9]+(?:\.[0-9]+)*'), '.')::int[] DESC NULLS LAST,
+		         last_seen_at DESC`, restaurantID)
 	if err != nil {
 		return nil, err
 	}
