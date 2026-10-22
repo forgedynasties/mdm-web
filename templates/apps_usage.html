@@ -20,8 +20,8 @@
   .p1-mt a{color:inherit;text-decoration:none}
   .p1-mt a:hover{color:var(--accent-text)}
   .p1-mt .mut,.p1-mt td.mut{color:var(--muted)}
-  .p1-app b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
-  .p1-app small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px}
+  .p1-app b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
+  .p1-app small{display:block;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px}
   .p1-chip{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:99px;font-size:10.5px;font-weight:600;vertical-align:1px;background:var(--border-soft);color:var(--muted)}
   .p1-chip.role{background:var(--accent-soft);color:var(--accent-text)}
   .p1-share{display:flex;align-items:center;gap:8px;justify-content:flex-end}
@@ -30,6 +30,11 @@
   .p1-heavy .note{color:var(--muted)}
   .p1-heavy .ovd-dot:not(.danger):not(.warn){background:var(--text-faint);opacity:.5}
   .p1-cap{margin-top:-6px}
+  .p1-gap{margin-top:14px}
+  .p1-at{overflow-x:auto}
+  .p1-at .ov2-t td,.p1-at .ov2-t th{padding-left:10px;padding-right:10px;white-space:nowrap}
+  .p1-at .ov2-t td:first-child,.p1-at .ov2-t th:first-child{padding-left:16px}
+  .p1-at .ov2-t td.act{padding-right:14px;text-align:right}
 </style>
 {{with .P}}
 <template id="page-island">
@@ -48,7 +53,7 @@
   <div class="ov2">
   <div class="ov2-main">
     <div class="oc-bar" role="group" aria-label="Filter resource use">
-      <span class="lbl">{{.Lbl}}</span>
+      {{with .Lbl}}<span class="lbl">{{.}}</span>{{end}}
       <div class="oc-f"><button class="oc-fb set" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Model: <b>{{.ModelLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
         <div class="cc-menu oc-scroll" hidden>{{range .Models}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
       <div class="oc-f"><button class="oc-fb{{if .VenueName}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
@@ -89,7 +94,7 @@
     </div>
     {{end}}
 
-    <div class="oc-two{{if not .Top}} solo{{end}}">
+    <div class="oc-two{{if not .Top}} solo{{end}}{{if .Empty}} p1-gap{{end}}">
       {{if .Top}}
       <div class="oc-card">
         <div class="oc-ch"><h2>Top apps <span>share of {{.TopTitle}}</span></h2></div>
@@ -114,7 +119,7 @@
 
     {{if .Rows}}
     <div class="ov2-sec" id="p1-apps"><h2>All apps <span>{{len .Rows}}{{if .More}} of {{add (len .Rows) .More}}{{end}} · by {{.MeasureLabel}}</span></h2></div>
-    <div class="cc-card">
+    <div class="cc-card p1-at">
       <table class="ov2-t">
         <thead><tr><th>App</th><th class="num">Devices</th><th class="num">Screen</th>{{if .Full}}<th class="num">Memory</th><th class="num">CPU</th>{{end}}<th class="num">Network</th>{{if .Battery}}<th class="num">Battery</th>{{end}}<th class="num">Share</th><th></th></tr></thead>
         <tbody>

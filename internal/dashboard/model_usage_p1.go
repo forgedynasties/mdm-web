@@ -358,7 +358,6 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 	for i := range p.Rows {
 		p.Rows[i].Role = isRoleApp(p.Rows[i].Package, in.RoleBase)
 	}
-	p.Lbl = "What each app costs a device in " + noun
 	if p.Reporting == 0 {
 		p.Empty = true
 	}
@@ -496,6 +495,9 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 			Title: fmt.Sprintf("%d of %d devices report app use", p.Reporting, p.Devices), Tone: p1RingTone(pct)}
 	}
 	p.HiTitle = heroTxt + " " + noun + " per device"
+	if p.Empty {
+		p.HiTitle = "No app use reported"
+	}
 	p.HiSub = fmt.Sprintf("%s · last %s", in.ModelLabel, p.WindowLabel)
 	if d, tone := p1Change(cur, prev, okPrev && okCur, m != "screen"); d != "" {
 		p.HiDelta = d + " on the " + p.WindowLabel + " before"
@@ -603,6 +605,7 @@ func p1OverLimit(measure string, r muRow) bool {
 func p1Banner(in p1In, p modelUsageP1, usage []db.DeviceAppUsage, byID map[uuid.UUID]db.Device, per map[uuid.UUID]float64, cur float64, m, noun, hero string) a1Banner {
 	b := a1Banner{Kicker: fmt.Sprintf("Resource use · %s · %s %s per device", in.ModelLabel, hero, noun)}
 	if p.Empty {
+		b.Kicker = "Resource use · " + in.ModelLabel
 		b.Tone = "calm"
 		b.Headline = "Nothing reported yet"
 		if p.Devices == 0 {
