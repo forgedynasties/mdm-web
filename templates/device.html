@@ -1583,7 +1583,11 @@ html.dd-fit .dd-split-l .chart-body .chart-wrap--tall{flex:1;height:auto;min-hei
 .dd-split-r{min-width:0}
 /* Seven tabs in one row of the right pane (Compliance joined 15 Oct). */
 .dd-split-r .dd-tabrow .dd-tabs{flex-wrap:nowrap}
-.dd-split-r .dd-tab{padding-left:6px;padding-right:6px;font-size:13px;white-space:nowrap}
+.dd-split-r .dd-tab{padding-left:9px;padding-right:9px;font-size:13px;white-space:nowrap}
+/* Seven tabs since Network got its own (23 Oct 2026): in the split's narrow pane the labels
+   carry the row and the icons go, so every tab stays on one line. */
+.dd-split-r .dd-tab-ic{display:none}
+.dd-split-r .dd-tab{gap:0}
 .dd-tab[hidden]{display:none!important}
 /* Tab icons (19 Oct). */
 .dd-tab{display:inline-flex;align-items:center;gap:6px}
