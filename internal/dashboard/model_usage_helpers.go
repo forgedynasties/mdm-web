@@ -118,10 +118,14 @@ func exitReason(k string) string {
 	switch strings.ToLower(k) {
 	case "low_memory", "lmk":
 		return " (low memory)"
-	case "crash", "crash_native":
+	case "crash", "crash_native", "native_crash":
 		return " (crashed)"
 	case "anr":
 		return " (not responding)"
+	case "excessive_resources":
+		return " (used too much)"
+	case "init_failure":
+		return " (failed to start)"
 	case "":
 		return ""
 	}

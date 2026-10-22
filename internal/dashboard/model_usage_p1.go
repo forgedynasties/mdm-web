@@ -156,6 +156,12 @@ func p1Mean(m map[uuid.UUID]float64) (float64, bool) {
 // Memory and CPU average the device-buckets in a slot (and carry the last value over an
 // empty one); the rest add up and divide by the devices reporting.
 func p1Slots(measure string, pts []db.UsagePoint, since time.Time, win time.Duration, n int) []float64 {
+	v, _ := p1SlotsHas(measure, pts, since, win, n)
+	return v
+}
+
+// p1SlotsHas is p1Slots plus which slots had any reading.
+func p1SlotsHas(measure string, pts []db.UsagePoint, since time.Time, win time.Duration, n int) ([]float64, []bool) {
 	sum := make([]float64, n)
 	cnt := make([]int, n)
 	devs := map[uuid.UUID]bool{}
@@ -209,7 +215,33 @@ func p1Slots(measure string, pts []db.UsagePoint, since time.Time, win time.Dura
 			}
 		}
 	}
-	return out
+	has := make([]bool, n)
+	for i := range has {
+		has[i] = cnt[i] > 0
+	}
+	return out, has
+}
+
+// p1Trim drops the slots before either window has its first reading, so a model that
+// started reporting this morning draws from this morning, not a flat zero before it. A
+// window before with no readings at all draws no line.
+func p1Trim(a, b []float64, ha, hb []bool) ([]float64, []float64) {
+	first, anyB := len(a), false
+	for i := range a {
+		if ha[i] || hb[i] {
+			if i < first {
+				first = i
+			}
+		}
+		anyB = anyB || hb[i]
+	}
+	if first >= len(a) {
+		return nil, nil
+	}
+	if !anyB {
+		return a[first:], nil
+	}
+	return a[first:], b[first:]
 }
 
 func p1Slotn(window string) int {
@@ -326,7 +358,7 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 	for i := range p.Rows {
 		p.Rows[i].Role = isRoleApp(p.Rows[i].Package, in.RoleBase)
 	}
-	p.Lbl = fmt.Sprintf("%d of %d reporting", p.Reporting, p.Devices)
+	p.Lbl = "What each app costs a device in " + noun
 	if p.Reporting == 0 {
 		p.Empty = true
 	}
@@ -346,7 +378,9 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 	// Cards.
 	n := p1Slotn(in.Window)
 	slots := func(measure string) ([]float64, []float64) {
-		return p1Slots(measure, in.Series, in.Since, in.Win, n), p1Slots(measure, in.PrevSeries, in.Since.Add(-in.Win), in.Win, n)
+		a, ha := p1SlotsHas(measure, in.Series, in.Since, in.Win, n)
+		b, hb := p1SlotsHas(measure, in.PrevSeries, in.Since.Add(-in.Win), in.Win, n)
+		return p1Trim(a, b, ha, hb)
 	}
 	card := func(title, measure string, badUp bool) ovStat {
 		c := ovStat{Title: title, Href: href(in.Model, in.Venue, in.Window, measure)}
@@ -401,7 +435,7 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 		switch {
 		case isRoleApp(r.Package, in.RoleBase):
 			t.Tone = "role"
-		case p1OverLimit(m, r):
+		case !r.System && p1OverLimit(m, r):
 			t.Tone = "bad"
 		}
 		p.Top = append(p.Top, t)
@@ -451,7 +485,7 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 		if known > 0 {
 			pct = within * 100 / known
 		}
-		p.Ring = p1Ring{Pct: fmt.Sprintf("%d", pct), Offset: fmt.Sprintf("%.1f", 326.7*float64(100-pct)/100), Label: "within RAM budget",
+		p.Ring = p1Ring{Pct: fmt.Sprintf("%d", pct), Offset: fmt.Sprintf("%.1f", 326.7*float64(100-pct)/100), Label: "under 85 % RAM",
 			Title: fmt.Sprintf("%d of %d devices under 85 %% of their RAM", within, known), Tone: p1RingTone(pct)}
 	} else {
 		pct := 0
@@ -525,6 +559,10 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 	return p
 }
 
+// p1ExitProblem are the exit reasons that mean the app failed; a user or the system
+// stopping it on purpose (user_requested, exit_self, package_updated…) is not counted.
+var p1ExitProblem = map[string]bool{"crash": true, "native_crash": true, "anr": true, "low_memory": true, "excessive_resources": true, "init_failure": true}
+
 func p1RingTone(pct int) string {
 	switch {
 	case pct >= 90:
@@ -582,13 +620,17 @@ func p1Banner(in p1In, p modelUsageP1, usage []db.DeviceAppUsage, byID map[uuid.
 		exits, devs := 0, 0
 		why := map[string]int{}
 		for _, d := range byID {
-			n, w := hostAppExits(d.LatestExtra)
+			_, w := hostAppExits(d.LatestExtra)
+			n := 0
+			for k, c := range w {
+				if p1ExitProblem[k] {
+					n += c
+					why[k] += c
+				}
+			}
 			if n > 0 {
 				exits += n
 				devs++
-				for k, c := range w {
-					why[k] += c
-				}
 			}
 		}
 		if exits >= 3 {

@@ -67,7 +67,7 @@ func TestBuildModelUsageP1(t *testing.T) {
 		t.Errorf("memory card B = %+v", p.Cards[0].B)
 	}
 	// Ring: 2 of 3 under 85 % RAM.
-	if p.Ring.Pct != "66" || p.Ring.Label != "within RAM budget" {
+	if p.Ring.Pct != "66" || p.Ring.Label != "under 85 % RAM" {
 		t.Errorf("ring = %+v", p.Ring)
 	}
 	if len(p.Heavy) == 0 || p.Heavy[0].Serial != "BOX-A" || p.Heavy[0].Tone != "danger" {
@@ -115,5 +115,31 @@ func TestP1DefaultModel(t *testing.T) {
 	}
 	if got := p1DefaultModel(byID[a].ProductKey(), byID, usage); got != byID[a].ProductKey() {
 		t.Errorf("asked-for model not kept: %q", got)
+	}
+}
+
+func TestP1RoleAppExits(t *testing.T) {
+	now := time.Now()
+	f := func(v float64) *float64 { return &v }
+	a, b := uuid.New(), uuid.New()
+	ex := func(reason string, n int) json.RawMessage {
+		return json.RawMessage(`{"host_app":{"variants":[{"exits_24h":{"` + reason + `":` + strings.Repeat("1", 1) + strings.Repeat("0", n-1) + `}}]}}`)
+	}
+	byID := map[uuid.UUID]db.Device{a: {ID: a, SerialNumber: "T-A", Product: "t7", LatestExtra: ex("user_requested", 2)}, b: {ID: b, SerialNumber: "T-B", Product: "t7"}}
+	all := []db.DeviceAppUsage{
+		{DeviceID: a, AppUsageRow: db.AppUsageRow{Package: "aio.app.nugget", PssAvgMB: f(200), FgMs: 1}},
+		{DeviceID: b, AppUsageRow: db.AppUsageRow{Package: "aio.app.nugget", PssAvgMB: f(200), FgMs: 1}},
+	}
+	in := p1In{Now: now, Win: 24 * time.Hour, Since: now.Add(-24 * time.Hour), WeekSince: now.AddDate(0, 0, -6),
+		Model: "t7", ModelLabel: "T7", Window: "24h", ByID: byID, All: all, RoleBase: "aio.app.nugget"}
+	if p := buildModelUsageP1(in); len(p.Banner.Todos) != 0 {
+		t.Errorf("user-requested exits listed: %+v", p.Banner.Todos)
+	}
+	d := byID[a]
+	d.LatestExtra = ex("low_memory", 2)
+	byID[a] = d
+	p := buildModelUsageP1(in)
+	if len(p.Banner.Todos) != 1 || !strings.Contains(p.Banner.Todos[0].Title, "stopped 10 times") || !strings.Contains(p.Banner.Todos[0].Sub, "low memory") {
+		t.Errorf("low-memory exits = %+v", p.Banner.Todos)
 	}
 }
