@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -42,7 +43,21 @@ import (
 
 // SetScout wires the scout-enrolment service (main.go). nil before that, which the
 // handlers below treat as "feature off".
-func (h *Handler) SetScout(s *scout.Service) { h.scout = s }
+func (h *Handler) SetScout(s *scout.Service) {
+	h.scout = s
+	s.SetAutoApprove(h.autoEnrollSighting)
+}
+
+// autoEnrollSighting is ScoutEnroll without a person (venue auto-enrol, venue_auto_enroll.go):
+// the same Approve, with the server's public URLs since there is no request to read them from.
+func (h *Handler) autoEnrollSighting(ctx context.Context, id uuid.UUID) error {
+	apkURL, apkSHA := h.cfg.AgentAPKURL(), ""
+	if h.cfg.AgentAPKHosted() {
+		apkURL = h.publicBase() + agentAPKRoute
+		_, _, _, apkSHA = h.cfg.AgentAPKHostedBuild()
+	}
+	return h.scout.Approve(ctx, id, "", autoEnrollBy, h.publicBase(), apkURL, apkSHA)
+}
 
 // sightingGroup is one venue's sightings, for the "Found on a venue's Wi-Fi" card.
 type sightingGroup struct {
@@ -207,31 +222,31 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
 	unenrollments, _ := h.db.RecentUnenrollments(r.Context(), time.Now().AddDate(0, 0, -90), 60)
 	h.render(w, r, "enrollment.html", map[string]any{
-		"Title":          "Enrollment",
-		"ActivePage":     "enrollment",
-		"ServerURL":      h.baseURL(r),
-		"DeviceKey":      deviceKey,
-		"DeviceKeyMask":  masked,
-		"AdminComponent": "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
-		"AgentPackage":   "aio.app.mdmclient.dpc",
-		"Profiles":       profiles,
+		"Title":           "Enrollment",
+		"ActivePage":      "enrollment",
+		"ServerURL":       h.baseURL(r),
+		"DeviceKey":       deviceKey,
+		"DeviceKeyMask":   masked,
+		"AdminComponent":  "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
+		"AgentPackage":    "aio.app.mdmclient.dpc",
+		"Profiles":        profiles,
 		"ExpiredProfiles": expiredN,
-		"Enrollments":    enrollments,
-		"Unenrollments":  unenrollments,
-		"Names":          h.actorDisplayNames(r.Context()),
-		"Groups":         groups,
-		"Restaurants":    restaurants,
-		"Classes":        product.Classes(),
-		"Inbox":          inbox,
-		"Stats":          stats,
-		"HasAgentAPK":    h.cfg.AgentAPKHosted() || (h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != ""),
-		"EnrollAndroid":  h.enrollAndroidView(r),
-		"AgentAPKURL":    h.agentAPKURL(r),
-		"Sightings":      sgroups,
-		"SightingsReady": readyN,
-		"Enrolling":      enrolling,
-		"ScoutOn":        h.scout != nil && h.cfg.FleetAdbKeySecret() != "",
-		"FleetKeySet":    h.cfg.FleetAdbKeySecret() != "",
+		"Enrollments":     enrollments,
+		"Unenrollments":   unenrollments,
+		"Names":           h.actorDisplayNames(r.Context()),
+		"Groups":          groups,
+		"Restaurants":     restaurants,
+		"Classes":         product.Classes(),
+		"Inbox":           inbox,
+		"Stats":           stats,
+		"HasAgentAPK":     h.cfg.AgentAPKHosted() || (h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != ""),
+		"EnrollAndroid":   h.enrollAndroidView(r),
+		"AgentAPKURL":     h.agentAPKURL(r),
+		"Sightings":       sgroups,
+		"SightingsReady":  readyN,
+		"Enrolling":       enrolling,
+		"ScoutOn":         h.scout != nil && h.cfg.FleetAdbKeySecret() != "",
+		"FleetKeySet":     h.cfg.FleetAdbKeySecret() != "",
 	})
 }
 
@@ -879,11 +894,11 @@ type ClientSlotView struct {
 	Versions []ClientVersionCount
 	// Filled for the selected client only: the page shows one client's devices and
 	// releases at a time, so there is no reason to build them for the other four.
-	Rows     []ClientDeviceRow
-	Groups   []ClientDeviceGroup
-	History  []ClientHistoryRow
+	Rows        []ClientDeviceRow
+	Groups      []ClientDeviceGroup
+	History     []ClientHistoryRow
 	VersionRows []ClientVersionRow // the open client's table: one row per version
-	Selected bool
+	Selected    bool
 	// Auto is this slot's standing instruction: keep devices on the hosted build.
 	Auto config.ClientAutoUpdate
 	// True while any row is mid-update, so the page can poll itself instead of

@@ -47,6 +47,10 @@ type Service struct {
 	hub *ws.Hub
 	cfg *config.Config
 
+	// autoApprove enrols a ready sighting at a venue with auto-enrol on (the dashboard's
+	// Approve with the server's own URLs). nil = never.
+	autoApprove func(ctx context.Context, sightingID uuid.UUID) error
+
 	// One scan per venue at a time. Several venues can share one physical network —
 	// two restaurants in a building, or the lab — and each picks its own scout, so
 	// without this the same /24 is swept twice over and every host is probed twice.
@@ -58,6 +62,32 @@ type Service struct {
 
 func New(database *db.DB, hub *ws.Hub, cfg *config.Config) *Service {
 	return &Service{db: database, hub: hub, cfg: cfg, scanning: map[uuid.UUID]time.Time{}}
+}
+
+// SetAutoApprove wires auto-enrol (dashboard.SetScout).
+func (s *Service) SetAutoApprove(f func(ctx context.Context, sightingID uuid.UUID) error) {
+	s.autoApprove = f
+}
+
+// maybeAutoEnroll starts the enrolment of a ready sighting when its venue has auto-enrol
+// on. Only "ready": a failed one waits for a person, so a device that keeps failing is
+// not retried every scan.
+func (s *Service) maybeAutoEnroll(ctx context.Context, restaurantID uuid.UUID, serial string) {
+	if s.autoApprove == nil {
+		return
+	}
+	if on, err := s.db.RestaurantAutoEnroll(ctx, restaurantID); err != nil || !on {
+		return
+	}
+	id, state, err := s.db.SightingAt(ctx, restaurantID, serial)
+	if err != nil || state != "ready" {
+		return
+	}
+	if err := s.autoApprove(ctx, id); err != nil {
+		log.Printf("[scout] auto-enrol %s: %v", serial, err)
+		return
+	}
+	log.Printf("[scout] auto-enrol %s started", serial)
 }
 
 // claimScan marks a venue as scanning, or reports how long the running scan has been
@@ -398,6 +428,9 @@ func (s *Service) IngestSighting(ctx context.Context, scoutID uuid.UUID, raw []b
 	}
 	log.Printf("[scout] sighting %s (%s %s) at %s via %s: %s %s",
 		f.Serial, f.Manufacturer, f.Model, f.Host, scoutSerial, up.State, up.Reason)
+	if up.State == "ready" {
+		s.maybeAutoEnroll(ctx, *restaurantID, f.Serial)
+	}
 }
 
 // classifySighting maps a probe to ready/blocked. Mirrors enroll-adb.sh's blockers.

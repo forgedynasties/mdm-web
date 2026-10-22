@@ -169,6 +169,20 @@
 </details>
 {{end}}
 
+{{/* Auto-enrol (22 Oct 2026): devices the venue's Tableside AI finds on its Wi-Fi enrol by
+     themselves. venue_auto_enroll.go */}}
+<details class="vs-row" name="vn-set" id="vn-enrol"{{if eq $.Open "enrol"}} open{{end}}>
+  <summary><span class="vs-k">Auto-enrol</span><span class="vs-v"><span>{{if $.AutoEnroll}}On <small>· devices found on its Wi-Fi enrol by themselves</small>{{else}}Off <small>· found devices wait for Enrol</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">The venue's Tableside AI looks for devices on its Wi-Fi every 15 minutes. With auto-enrol on, one that is ready (it trusts the AIO adb key, no other owner, no account) gets the Standard client and joins this venue without anyone pressing Enrol. Devices that need someone on site, and enrolments that failed, still wait on <a href="/enrollment">Enrollment</a>.</div>
+  {{if $can}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/auto-enroll" method="POST">
+    <div class="vn-acts">{{if $.AutoEnroll}}<button type="submit" name="on" value="0" class="cc-btn sm">Turn off</button>{{else}}<button type="submit" name="on" value="1" class="cc-btn sm primary">Turn on</button>{{end}}</div>
+  </form>
+  {{end}}
+  </div>
+</details>
+
 {{/* Device lock, where the business thinks about it: what the rule says and what the
      devices are actually doing, side by side. */}}
 {{with .Kiosk}}

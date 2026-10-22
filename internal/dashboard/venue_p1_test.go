@@ -195,6 +195,7 @@ func TestVenueP1Renders(t *testing.T) {
 		`<span class="lb">TSAI</span>`, `Total: <b>2</b>`,
 		`id="restaurant-members"`, `AT070AABU00455`,
 		`class="vp1-rail"`, `id="vn-settings"`, `id="vn-lock"`,
+		`id="vn-enrol"`, `action="/restaurants/` + in.ID.String() + `/auto-enroll"`, `name="on" value="1"`,
 		`id="vn-updates"`, `<b class="vu-paused">Paused</b>`, `Resume goes back to while closed`,
 		`name="action" value="resume"`, `value="closed"`, `Outside service hours: 23:30 – 12:00 now`,
 		`name="pause" value="3d" checked`, `value="paused" checked`, `action="/restaurants/` + in.ID.String() + `/updates"`,

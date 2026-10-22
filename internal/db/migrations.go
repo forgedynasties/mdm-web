@@ -2086,6 +2086,9 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_paused BOOLEAN NOT NULL 
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_paused_until TIMESTAMPTZ;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_set_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_set_at TIMESTAMPTZ;
+-- Auto-enrol per venue (22 Oct): a device the venue's scout finds ready (trusts the fleet
+-- adb key, no owner, no account) is enrolled without anyone pressing Enrol. Off by default.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS auto_enroll BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access

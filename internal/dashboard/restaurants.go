@@ -377,6 +377,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		_ = h.tmpl.ExecuteTemplate(w, "restaurant-power", h.withRole(r, data))
 		return
 	}
+	data["AutoEnroll"], _ = h.db.RestaurantAutoEnroll(r.Context(), id)
 	data["Updates"] = h.venueUpdatesView(r.Context(), id, win, rest.Timezone, time.Now())
 	data["P1"] = h.venueP1(r, rest, devices, online, stale, win, data["StaffPIN"], data["Updates"].(venueUpdatesView))
 	h.render(w, r, "restaurant_detail.html", data)
