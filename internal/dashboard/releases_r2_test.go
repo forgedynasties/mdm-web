@@ -133,3 +133,25 @@ func TestReleasesR2Renders(t *testing.T) {
 		t.Error("the old key/value Packages row is back")
 	}
 }
+
+// TestMergeRolloutsLegacyOnly: a fleet rollout whose only device went down the legacy
+// path stays 'pending' in the database; while that device is downloading it is running
+// (#424, 22 Oct 2026), and its counts carry the legacy half.
+func TestMergeRolloutsLegacyOnly(t *testing.T) {
+	now := time.Now()
+	upd := 424
+	deps := []db.Update{{ID: 424, ReleaseID: 10862, Status: "pending", CreatedAt: now}, {ID: 423, ReleaseID: 10862, Status: "active", CreatedAt: now.Add(-time.Hour)}}
+	legacy := []db.LegacyDeployment{{ID: 42, UpdateID: &upd, ReleaseID: 10862, Status: "active", Total: 1, Installing: 1}}
+	by, active := mergeRollouts(deps, legacy, func(string) bool { return true })
+	if len(active) != 2 || active[0].ID != 424 {
+		t.Fatalf("active = %+v, want #424 first and #423", active)
+	}
+	v := by[10862][0]
+	if v.ID != 424 || v.Status != "active" || v.Total != 1 || v.Installing != 1 || !v.Legacy {
+		t.Errorf("#424 = %+v", v)
+	}
+	legacy[0].Installing, legacy[0].Installed = 0, 1
+	if _, active := mergeRollouts(deps, legacy, func(string) bool { return true }); len(active) != 1 {
+		t.Errorf("a finished legacy half still reads as running: %+v", active)
+	}
+}

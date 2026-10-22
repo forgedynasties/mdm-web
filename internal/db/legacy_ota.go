@@ -327,6 +327,7 @@ type LegacyDeployment struct {
 	Devices        []LegacyDeploymentDevice
 	Total          int
 	Installed      int
+	Installing     int // offered, downloading, installing or waiting for its reboot
 	Failed         int
 }
 
@@ -581,6 +582,8 @@ func (d *DB) GetLegacyDeployment(ctx context.Context, id int) (*LegacyDeployment
 			p.Installed++
 		case "failed":
 			p.Failed++
+		case "offered", "downloading", "installing", "awaiting_reboot":
+			p.Installing++
 		}
 	}
 	return &p, rows.Err()
@@ -641,6 +644,8 @@ func (d *DB) ListLegacyDeployments(ctx context.Context) ([]LegacyDeployment, err
 			out[i].Installed++
 		case "failed":
 			out[i].Failed++
+		case "offered", "downloading", "installing", "awaiting_reboot":
+			out[i].Installing++
 		}
 	}
 	return out, drows.Err()

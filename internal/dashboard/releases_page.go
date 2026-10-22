@@ -62,7 +62,65 @@ func deploymentView(d db.Update) rolloutView {
 
 func legacyView(d db.LegacyDeployment) rolloutView {
 	return rolloutView{URL: fmt.Sprintf("/updates/legacy/deployments/%d", d.ID), ID: d.ID, Version: d.ReleaseVersion, Status: d.Status,
-		CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy, Legacy: true, Total: d.Total, Installed: d.Installed, Failed: d.Failed}
+		CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy, Legacy: true, Total: d.Total, Installed: d.Installed,
+		Installing: d.Installing, Failed: d.Failed}
+}
+
+// mergeRollouts groups every rollout by release and picks the running ones for the
+// pinned strip. A legacy half of a fleet rollout is folded into that rollout's row.
+func mergeRollouts(deployments []db.Update, legacy []db.LegacyDeployment, productMatches func(string) bool) (byRelease map[int][]rolloutView, active []rolloutView) {
+	byRelease = map[int][]rolloutView{}
+	for _, d := range deployments {
+		if !productMatches(d.Product) {
+			continue
+		}
+		byRelease[d.ReleaseID] = append(byRelease[d.ReleaseID], deploymentView(d))
+	}
+	// A legacy half of a fleet rollout is that rollout's own devices: fold it into its row.
+	where := map[int][2]int{} // update id → (release id, index in byRelease)
+	for rid, rs := range byRelease {
+		for i, v := range rs {
+			if !v.Legacy {
+				where[v.ID] = [2]int{rid, i}
+			}
+		}
+	}
+	for _, d := range legacy {
+		if d.UpdateID != nil {
+			if at, ok := where[*d.UpdateID]; ok {
+				v := &byRelease[at[0]][at[1]]
+				v.Total += d.Total
+				v.Installed += d.Installed
+				v.Installing += d.Installing
+				v.Failed += d.Failed
+				v.Legacy = true
+				// A rollout whose devices are all on the legacy path never leaves 'pending'
+				// (only an MDM send activates it), so it is running while its legacy half
+				// still has devices on the way (#424, 22 Oct 2026).
+				if d.Status == "active" && d.Total > d.Installed+d.Failed && (v.Status == "pending" || v.Status == "complete") {
+					v.Status = "active"
+				}
+			}
+			continue
+		}
+		if !productMatches(d.ReleaseProduct) {
+			continue
+		}
+		byRelease[d.ReleaseID] = append(byRelease[d.ReleaseID], legacyView(d))
+	}
+	// The pinned strip, after the fold so it carries both halves' counts.
+	for _, rs := range byRelease {
+		for _, v := range rs {
+			if v.Status == "active" {
+				active = append(active, v)
+			}
+		}
+	}
+	for id := range byRelease {
+		sort.SliceStable(byRelease[id], func(i, j int) bool { return byRelease[id][i].CreatedAt.After(byRelease[id][j].CreatedAt) })
+	}
+	sort.SliceStable(active, func(i, j int) bool { return active[i].CreatedAt.After(active[j].CreatedAt) })
+	return byRelease, active
 }
 
 func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
@@ -88,51 +146,7 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 	deployments, _ := h.db.ListDeployments(ctx)
 	deployments = visibleDeployments(h.role(r), deployments)
 	legacy, _ := h.db.ListLegacyDeployments(ctx)
-	byRelease := map[int][]rolloutView{}
-	var active []rolloutView
-	for _, d := range deployments {
-		if !productMatches(d.Product) {
-			continue
-		}
-		v := deploymentView(d)
-		byRelease[d.ReleaseID] = append(byRelease[d.ReleaseID], v)
-		if d.Status == "active" {
-			active = append(active, v)
-		}
-	}
-	// A legacy half of a fleet rollout is that rollout's own devices: fold it into its row.
-	where := map[int][2]int{} // update id → (release id, index in byRelease)
-	for rid, rs := range byRelease {
-		for i, v := range rs {
-			if !v.Legacy {
-				where[v.ID] = [2]int{rid, i}
-			}
-		}
-	}
-	for _, d := range legacy {
-		if d.UpdateID != nil {
-			if at, ok := where[*d.UpdateID]; ok {
-				v := &byRelease[at[0]][at[1]]
-				v.Total += d.Total
-				v.Installed += d.Installed
-				v.Failed += d.Failed
-				v.Legacy = true
-			}
-			continue
-		}
-		if !productMatches(d.ReleaseProduct) {
-			continue
-		}
-		v := legacyView(d)
-		byRelease[d.ReleaseID] = append(byRelease[d.ReleaseID], v)
-		if d.Status == "active" {
-			active = append(active, v)
-		}
-	}
-	for id := range byRelease {
-		sort.SliceStable(byRelease[id], func(i, j int) bool { return byRelease[id][i].CreatedAt.After(byRelease[id][j].CreatedAt) })
-	}
-	sort.SliceStable(active, func(i, j int) bool { return active[i].CreatedAt.After(active[j].CreatedAt) })
+	byRelease, active := mergeRollouts(deployments, legacy, productMatches)
 
 	// The selection: ?release=<id>, or ?build=<version> for a reported build, else the
 	// newest release that is not a dev build.
