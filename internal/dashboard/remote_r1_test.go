@@ -45,6 +45,17 @@ func TestRemoteR1Renders(t *testing.T) {
 	}
 	tmpl := template.Must(template.New("").Funcs(funcs).ParseGlob("../../templates/*.html"))
 	template.Must(tmpl.Parse(`{{define "header"}}<i hidden></i>{{end}}{{define "footer"}}<i hidden></i>{{end}}`))
+	render := func(data map[string]any) string {
+		var buf bytes.Buffer
+		if err := tmpl.ExecuteTemplate(&buf, "remote.html", data); err != nil {
+			t.Fatal(err)
+		}
+		return buf.String()
+	}
+	dev := &db.Device{SerialNumber: "HK1BOX", LatestExtra: json.RawMessage(`{}`)}
+	if out := render(map[string]any{"Serial": "HK1BOX", "Online": true, "Token": "t", "Kbd": "dpc", "DPad": true, "Device": dev}); !strings.Contains(out, `class="rc-remote"`) || !strings.Contains(out, `onclick="rcTap(23)"`) || strings.Contains(out, `class="rc-tools"`) {
+		t.Error("a menu board does not get the D-pad remote in place of the button column")
+	}
 	for kbd, wants := range map[string][]string{
 		"full": {`id="rc-log"`, `Copy from device`, `kbd: "full"`, `id="rc-text"`},
 		"keys": {`plain keys only`, `id="rc-text"`, `title="Needs firmware client 1.16.0"`},

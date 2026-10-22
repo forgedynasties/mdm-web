@@ -645,6 +645,10 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		// never reach the browser). The control WebSocket redeems it server-side.
 		"Token": h.remote.IssueToken(device.ID, 2*time.Minute),
 		"Kbd":   remoteKbdLevel(device),
+		// Menu boards (TV boxes) are driven by a remote: the button column beside the
+		// screen becomes a D-pad (P2, picked 22 Oct 2026; user: "for menu board, add a
+		// dpad remote for navigation in remote control").
+		"DPad": device.Class() == product.ClassDongle,
 	})
 }
 
