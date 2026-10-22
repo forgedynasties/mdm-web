@@ -159,6 +159,7 @@ func TestVenueP1Renders(t *testing.T) {
 	funcs["serialHead"] = func(s string) string { return s[:len(s)-serialTailLen(s)] }
 	funcs["serialTail"] = func(s string) string { return s[len(s)-serialTailLen(s):] }
 	funcs["venueIcon"] = func(id any, name, size string) template.HTML { return `<span class="vicon"></span>` }
+	funcs["venuePauseChoices"] = func() []struct{ Value, Label string } { return venuePauseChoices }
 	// Every template (the settings card pulls in rows defined elsewhere), then a bare
 	// header and footer over the layout's.
 	tmpl := template.Must(template.New("").Funcs(funcs).ParseGlob("../../templates/*.html"))
@@ -177,6 +178,8 @@ func TestVenueP1Renders(t *testing.T) {
 		"Role": "admin", "Restaurant": rest, "Devices": devices, "Online": map[uuid.UUID]bool{}, "OnlineCount": 0,
 		"ActiveThresholdSecs": 180, "ServiceWindow": serviceWindowView{GroupID: in.ID.String(), Open: "12:00", Close: "23:30"},
 		"Location": venueLocation{}, "Kiosk": &venueKioskView{Total: 2}, "P1": buildVenueP1(in),
+		"Updates": venueUpdatesView{Mode: "closed", Paused: true, PausedSub: "resumes Fri 24 Oct, 09:00", Summary: "Paused",
+			SummarySub: "resumes Fri 24 Oct, 09:00", FleetWindow: "02:00 – 05:00", ClosedWindow: "23:30 – 12:00"},
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "restaurant_detail.html", data); err != nil {
@@ -192,6 +195,9 @@ func TestVenueP1Renders(t *testing.T) {
 		`<span class="lb">TSAI</span>`, `Total: <b>2</b>`,
 		`id="restaurant-members"`, `AT070AABU00455`,
 		`class="vp1-rail"`, `id="vn-settings"`, `id="vn-lock"`,
+		`id="vn-updates"`, `<b class="vu-paused">Paused</b>`, `Resume goes back to while closed`,
+		`name="action" value="resume"`, `value="closed"`, `Outside service hours: 23:30 – 12:00 now`,
+		`name="pause" value="3d" checked`, `value="paused" checked`, `action="/restaurants/` + in.ID.String() + `/updates"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("venue page is missing %q", want)

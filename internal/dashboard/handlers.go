@@ -800,17 +800,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// fragments) can version the scripts they load too.
 	assetVer := assetVersion("static")
 	funcMap := template.FuncMap{
-		"assetVer":      func() string { return assetVer },
+		"assetVer": func() string { return assetVer },
 		// isCards: the user draws device lists as cards (fleet_view), safe on pages that never set it.
-		"isCards": func(v any) bool { s, _ := v.(string); return s == "cards" },
-		"venueIcon":     func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
-		"userURL":       userURL,
-		"userBubble":    userBubble,
+		"isCards":           func(v any) bool { s, _ := v.(string); return s == "cards" },
+		"venueIcon":         func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
+		"venuePauseChoices": func() []struct{ Value, Label string } { return venuePauseChoices },
+		"userURL":           userURL,
+		"userBubble":        userBubble,
 		// systemActorLabel names a sender the server writes itself ("Control probe",
 		// "Auto-update"), "" for a person.
 		"systemActorLabel": func(n string) string { l, _ := db.SystemActorLabel(n); return l },
-		"auditSentence": humanizeAudit,
-		"authorIsAdmin": authorIsAdmin,
+		"auditSentence":    humanizeAudit,
+		"authorIsAdmin":    authorIsAdmin,
 		// msLoginEnabled reports whether Microsoft sign-in is configured, so
 		// login.html only shows the button when it'll actually work.
 		"msLoginEnabled": func() bool { return msLoginEnabled },
@@ -902,7 +903,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		// classShort: the two-or-three-letter tile for a device class (Overview chips).
 		"classShort": classShort,
-		"rolePill":       rolePill,
+		"rolePill":   rolePill,
 		// isCustomer: an owner or staff account (venue-walled, owner home only).
 		"isCustomer": roleIsCustomer,
 		// canSupport: the safe device actions — screenshot, reboot, lock, lost mode,
@@ -1214,8 +1215,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return out
 		},
-		"cmdHint":  func(c any) string { _, h := cmdTitleOf(shapeOf(c)); return h },
-		"cmdVerb":  func(c any) string { return cmdVerbOf(shapeOf(c)) },
+		"cmdHint": func(c any) string { _, h := cmdTitleOf(shapeOf(c)); return h },
+		"cmdVerb": func(c any) string { return cmdVerbOf(shapeOf(c)) },
 		"logcatStatusClass": func(s string) string {
 			switch s {
 			case "fulfilled":
@@ -1823,33 +1824,33 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	}
 
 	return &Handler{
-		db:             d,
-		hub:            hub,
-		apk:            apkStore,
-		shell:          shellMgr,
-		remote:         remoteMgr,
-		logs:           logMgr,
-		store:          store,
-		tmpl:           tmpl,
-		cfg:            cfg,
-		adminAPIKey:    adminAPIKey,
-		reportSecret:   sessionSecret,
-		mapsEmbedKey:   mapsEmbedKey,
-		geo:            geo,
-		geocoder:       geocoder,
-		startedAt:      time.Now(),
-		alerts:         alerts.NewDispatcher(d, cfg),
-		otaGate:        otagate.New(d, cfg),
-		publicOrigins:  parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
-		loginFails:     ratelimit.New(15 * time.Minute),
+		db:              d,
+		hub:             hub,
+		apk:             apkStore,
+		shell:           shellMgr,
+		remote:          remoteMgr,
+		logs:            logMgr,
+		store:           store,
+		tmpl:            tmpl,
+		cfg:             cfg,
+		adminAPIKey:     adminAPIKey,
+		reportSecret:    sessionSecret,
+		mapsEmbedKey:    mapsEmbedKey,
+		geo:             geo,
+		geocoder:        geocoder,
+		startedAt:       time.Now(),
+		alerts:          alerts.NewDispatcher(d, cfg),
+		otaGate:         otagate.New(d, cfg),
+		publicOrigins:   parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
+		loginFails:      ratelimit.New(15 * time.Minute),
 		fleetKeyFetches: ratelimit.New(time.Hour),
-		signupAttempts: ratelimit.New(time.Hour),
-		resetAttempts:  ratelimit.New(time.Hour),
-		mail:           mustMailer(),
-		msClientID:     os.Getenv("MS_CLIENT_ID"),
-		msClientSecret: os.Getenv("MS_CLIENT_SECRET"),
-		msTenantID:     os.Getenv("MS_TENANT_ID"),
-		assetVer:       assetVer,
+		signupAttempts:  ratelimit.New(time.Hour),
+		resetAttempts:   ratelimit.New(time.Hour),
+		mail:            mustMailer(),
+		msClientID:      os.Getenv("MS_CLIENT_ID"),
+		msClientSecret:  os.Getenv("MS_CLIENT_SECRET"),
+		msTenantID:      os.Getenv("MS_TENANT_ID"),
+		assetVer:        assetVer,
 	}
 }
 

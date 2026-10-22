@@ -80,6 +80,8 @@ func (h *Handler) RunRoleFirmware(ctx context.Context) {
 		return
 	}
 	seenWithin := time.Duration(h.cfg.CheckinInterval()*roleAppSeenFactor) * time.Second
+	gate := h.loadVenueGate(ctx) // a venue's own window or pause (venue_updates.go)
+	now := time.Now()
 	for _, ch := range chans {
 		if ch.ReleaseID == nil || ch.Version == "" || db.FirmwareModeOf(modes, ch.Model) != db.FirmwareProd {
 			continue
@@ -105,7 +107,7 @@ func (h *Handler) RunRoleFirmware(ctx context.Context) {
 			if time.Since(d.LastSeenAt) > seenWithin || !firmwareBehind(d.BuildID, rel.Version) {
 				continue
 			}
-			if !pol.Allows(deviceNow(d)) {
+			if !gate.allows(d, pol, now) {
 				continue
 			}
 			cand = append(cand, d.ID)

@@ -30,6 +30,20 @@
 .vp-person .t{flex:1;min-width:0}.vp-person b{display:block;font-weight:600;font-size:13px}
 .vp-person small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vp-person form{margin:0}
+.vu-paused{color:var(--warn);font-weight:650}
+.vu-ch{grid-column:1/-1;display:flex;flex-direction:column;gap:6px}
+.vu-ch>label{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;cursor:pointer;line-height:1.4}
+.vu-ch>label:has(>input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.vu-ch>label>input{margin:2px 0 0;flex:none}
+.vu-ch b{display:block;font-weight:600;color:var(--text)}
+.vu-ch small{display:block;color:var(--muted);font-size:11.5px}
+.vu-sub{display:none;gap:6px;margin-top:6px;flex-wrap:wrap}
+.vu-ch>label:has(>input:checked) .vu-sub{display:flex}
+.vu-sub .form-input{width:104px}
+.vu-len label{cursor:pointer}.vu-len input{position:absolute;opacity:0;pointer-events:none}
+.vu-len span{display:inline-block;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:99px;border:1px solid var(--border);color:var(--text-2);background:var(--surface)}
+.vu-len input:checked+span{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+.vu-len input:focus-visible+span{box-shadow:var(--ring)}
 .vp-av{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-text);font-weight:700;font-size:11px}
 </style>
 {{$r := .Restaurant}}{{$can := canAdminOrOperator .Role}}
@@ -123,6 +137,37 @@
   {{end}}
   </div>
 </details>
+
+{{/* Updates (V2, picked 22 Oct 2026): when this venue's devices take new prod firmware and
+     MDM client updates by themselves. venue_updates.go */}}
+{{with .Updates}}
+<details class="vs-row" name="vn-set" id="vn-updates"{{if eq $.Open "updates"}} open{{end}}>
+  <summary><span class="vs-k">Updates</span><span class="vs-v"><span>{{if .Paused}}<b class="vu-paused">Paused</b>{{else}}{{.Summary}}{{end}} <small>· {{.SummarySub}}</small></span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">When this venue's devices take new prod firmware and MDM client updates by themselves. A deployment someone sends by hand still goes.{{if .FleetPaused}} <b>Paused fleet-wide on Lineup</b>: nothing moves anywhere until that is resumed.{{end}}{{with .By}} Set {{.}}.{{end}}</div>
+  {{if $can}}
+  {{if .Paused}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/updates" method="POST">
+    <p>Paused: {{.PausedSub}}. Resume goes back to {{if eq .Mode "closed"}}while closed{{else if eq .Mode "own"}}its own window ({{.Start}} – {{.End}}){{else}}the fleet window{{end}}.</p>
+    <div class="vn-acts"><button type="submit" name="action" value="resume" class="cc-btn sm primary">Resume</button></div>
+  </form>
+  {{end}}
+  <form class="vn-form vu-form" action="/restaurants/{{$r.ID}}/updates" method="POST">
+    <div class="vu-ch">
+      <label><input type="radio" name="mode" value="fleet"{{if and (not .Paused) (eq .Mode "")}} checked{{end}}><span><b>Fleet window</b><small>{{.FleetWindow}} in each device's timezone, set on Lineup</small></span></label>
+      {{if .ClosedWindow}}<label><input type="radio" name="mode" value="closed"{{if and (not .Paused) (eq .Mode "closed")}} checked{{end}}><span><b>While the venue is closed</b><small>Outside service hours: {{.ClosedWindow}} now, and it follows the hours if they change</small></span></label>{{end}}
+      <label><input type="radio" name="mode" value="own"{{if and (not .Paused) (eq .Mode "own")}} checked{{end}}><span><b>Own window</b><small>Pick the hours</small>
+        <span class="vu-sub"><input type="time" name="window_start" aria-label="From" class="form-input" value="{{or .Start "01:00"}}"><input type="time" name="window_end" aria-label="To" class="form-input" value="{{or .End "04:00"}}"></span></span></label>
+      <label><input type="radio" name="mode" value="paused"{{if .Paused}} checked{{end}}><span><b>Paused</b><small>Nothing moves here until it ends</small>
+        <span class="vu-sub vu-len">{{range $i, $o := venuePauseChoices}}<label><input type="radio" name="pause" value="{{$o.Value}}"{{if eq $i 1}} checked{{end}}><span>{{$o.Label}}</span></label>{{end}}</span></span></label>
+    </div>
+    <p>In each device's own timezone. Devices that are off then catch up the next time the window opens.</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{end}}
+  </div>
+</details>
+{{end}}
 
 {{/* Device lock, where the business thinks about it: what the rule says and what the
      devices are actually doing, side by side. */}}

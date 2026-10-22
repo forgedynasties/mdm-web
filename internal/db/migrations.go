@@ -2075,6 +2075,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS fleet_view TEXT NOT NULL DEFAULT '';
 -- Staff PIN per venue (20 Oct): what staff type on a locked tablet to unlock the host app
 -- (staff mode). '' = the client's built-in default. Sent as config offline_exit.pin.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS staff_pin TEXT NOT NULL DEFAULT '';
+-- When devices move, per venue (22 Oct): when this venue's devices take a new prod firmware
+-- and MDM client updates by themselves. update_mode '' = the fleet window (Lineup),
+-- 'closed' = outside the venue's service hours, 'own' = update_window_start/end. A pause
+-- sits over the mode (Resume brings the mode back); update_paused_until NULL = until resumed.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_mode TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_window_start TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_window_end TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_paused BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_paused_until TIMESTAMPTZ;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_set_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS update_set_at TIMESTAMPTZ;
 
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access

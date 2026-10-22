@@ -58,6 +58,8 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 		return
 	}
 	seenWithin := time.Duration(h.cfg.CheckinInterval()*autoUpdateSeenFactor) * time.Second
+	gate := h.loadVenueGate(ctx) // a venue's own window or pause (venue_updates.go)
+	now := time.Now()
 
 	for _, slot := range active {
 		pol := h.autoUpdatePolicy(slot)
@@ -87,7 +89,7 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			if code == 0 || !versionComparable(d, build.Package) || code >= build.VersionCode {
 				continue
 			}
-			if !pol.Allows(deviceNow(d)) {
+			if !gate.allows(d, pol, now) {
 				continue
 			}
 			cand = append(cand, d)

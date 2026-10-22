@@ -51,6 +51,7 @@ type vpInputs struct {
 	OpenAt   string // HH:MM the window opens
 	CloseAt  string // HH:MM it closes
 	StaffPIN string // "" = the built-in default
+	Updates  venueUpdatesView
 	Trend    db.ScopedTrend
 	Window   string // 24h | 7d | 30d
 	Now      time.Time
@@ -238,6 +239,10 @@ func buildVpBanner(in vpInputs) vpBanner {
 		mine = append(mine, ovTodo{Title: "Staff PIN is still the default " + db.DefaultStaffPIN,
 			Sub:    "anyone who knows it can take a tablet out of lock",
 			Action: "Set PIN", Href: "?open=lock#vn-lock"})
+	}
+
+	if t, ok := venuePauseTodo(in.Updates); ok {
+		mine = append(mine, t)
 	}
 
 	all := append(append(crit, mine...), warn...)
