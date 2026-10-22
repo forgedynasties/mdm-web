@@ -470,6 +470,7 @@
               {{else}}<span class="lu1-pt">Maker's firmware</span>{{end}}
               {{if .Firmware}}<span class="lu1-pt">Firmware MDM {{.Firmware}}</span>{{end}}{{if .DPC}}<span class="lu1-pt">Standard MDM {{.DPC}}</span>{{end}}{{if .Lite}}<span class="lu1-pt">MDM Lite {{.Lite}}</span>{{end}}
               <span class="lu1-pt{{if not .Devices}} zero{{end}}">{{.Devices}} device{{if ne .Devices 1}}s{{end}}</span>
+              {{if .Devices}}<a class="lu1-pt" href="/apps/usage?model={{.Key}}" title="What each app costs on {{.Display}}">Resource use →</a>{{end}}
             </span>
             {{if and (not .Known) (canAdmin $.Role)}}
             <div class="lu-acts">

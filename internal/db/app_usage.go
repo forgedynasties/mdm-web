@@ -160,3 +160,65 @@ func (d *DB) RollupAppUsage(ctx context.Context, keepHourly, keepDaily time.Dura
 	}
 	return a.RowsAffected() + b.RowsAffected(), tx.Commit(ctx)
 }
+
+// DeviceAppUsage is one device's totals for one app over a window (the model page sums
+// these across a model's devices).
+type DeviceAppUsage struct {
+	DeviceID uuid.UUID
+	AppUsageRow
+}
+
+// AppUsageForDevices is AppUsage for many devices at once, one row per device and app.
+func (d *DB) AppUsageForDevices(ctx context.Context, ids []uuid.UUID, since time.Time) ([]DeviceAppUsage, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT u.device_id, u.package, BOOL_OR(u.system),
+		       SUM(u.fg_ms)::bigint, SUM(u.launches)::int, SUM(u.rx_bytes)::bigint, SUM(u.tx_bytes)::bigint,
+		       CASE WHEN SUM(u.pss_n) > 0 THEN SUM(u.pss_sum_mb) / SUM(u.pss_n) END,
+		       MAX(u.pss_max_mb),
+		       CASE WHEN SUM(u.cpu_n) > 0 THEN SUM(u.cpu_sum_pct) / SUM(u.cpu_n) END,
+		       SUM(u.power_mah)
+		FROM app_usage u
+		WHERE u.device_id = ANY($1)
+		  AND ((NOT u.daily AND u.bucket >= date_trunc('hour', $2::timestamptz))
+		    OR (u.daily AND u.bucket >= date_trunc('day', $2::timestamptz)))
+		GROUP BY u.device_id, u.package`, ids, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DeviceAppUsage
+	for rows.Next() {
+		var r DeviceAppUsage
+		if err := rows.Scan(&r.DeviceID, &r.Package, &r.System, &r.FgMs, &r.Launches, &r.RxBytes, &r.TxBytes,
+			&r.PssAvgMB, &r.PssMaxMB, &r.CPUAvg, &r.PowerMAh); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// AppLabels maps package → app name from the installed-app lists of the given devices.
+func (d *DB) AppLabels(ctx context.Context, ids []uuid.UUID) (map[string]string, error) {
+	out := map[string]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT package_name, MAX(app_name) FROM device_packages
+		WHERE device_id = ANY($1) AND app_name <> '' GROUP BY package_name`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var p, n string
+		if err := rows.Scan(&p, &n); err != nil {
+			return nil, err
+		}
+		out[p] = n
+	}
+	return out, rows.Err()
+}

@@ -1,0 +1,116 @@
+{{template "header" .}}
+{{/* Resource use per model (R1, picked 23 Oct 2026): Lineup's models as chips; for the
+     chosen one every app ranked by what it costs per device, the worst device, and the
+     heaviest devices behind each row. model_usage.go */}}
+<style>
+.mu-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.mu-chip{font-size:12px;font-weight:650;padding:6px 12px;border-radius:99px;background:var(--surface);box-shadow:var(--shadow-sm);color:var(--text-2);text-decoration:none}
+.mu-chip small{color:var(--muted);font-weight:600;margin-left:4px}
+.mu-chip.on{background:var(--accent-soft);color:var(--accent-text)}
+.mu-chip:focus-visible{outline:none;box-shadow:var(--ring)}
+.mu-pills{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.mu-pill{font-size:11.5px;font-weight:650;padding:4px 10px;border-radius:99px;background:var(--surface2);color:var(--text-2);text-decoration:none}
+.mu-pill.on{background:var(--accent-soft);color:var(--accent-text)}
+.mu-sel{font:inherit;font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.mu-lay{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:1180px){.mu-lay{grid-template-columns:1fr}}
+.mu-card{background:var(--surface);border-radius:14px;box-shadow:var(--shadow-md);overflow:hidden}
+.mu-card h2{margin:0;padding:12px 16px;font-size:13.5px;font-weight:650;border-bottom:1px solid var(--border-soft)}
+.mu-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.mu-t th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 12px;border-bottom:1px solid var(--border-soft);white-space:nowrap}
+.mu-t th.on{color:var(--accent-text)}
+.mu-t td{padding:9px 12px;border-bottom:1px solid var(--border-soft);color:var(--text-2);white-space:nowrap;vertical-align:top}
+.mu-t td.n{white-space:normal;min-width:200px}
+.mu-t td.n b{display:block;color:var(--text);font-weight:600}
+.mu-t td.n small{color:var(--muted);font-family:var(--mono);font-size:11px}
+.mu-t td.on{color:var(--text);font-weight:600}
+.mu-t td .s{display:block;color:var(--muted);font-size:11px;font-weight:500}
+.mu-bar{height:6px;border-radius:9px;background:var(--surface2);overflow:hidden;width:90px;margin-top:4px}
+.mu-bar i{display:block;height:100%;background:var(--accent)}
+.mu-sys{font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;background:var(--surface2);color:var(--muted);margin-left:6px;vertical-align:1px}
+.mu-heavy>summary{list-style:none;cursor:pointer;font-size:11.5px;color:var(--accent-text);font-weight:600;margin-top:4px}
+.mu-heavy>summary::-webkit-details-marker{display:none}
+.mu-heavy div{display:flex;gap:10px;font-size:12px;padding:2px 0;color:var(--text-2)}
+.mu-heavy a{font-family:var(--mono);color:var(--text)}
+.mu-kv{display:flex;justify-content:space-between;gap:10px;padding:9px 16px;border-bottom:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2)}
+.mu-kv b{color:var(--text);text-align:right}
+.mu-note{font-size:11.5px;color:var(--muted);padding:10px 16px 12px;margin:0;line-height:1.5}
+.mu-empty{padding:16px;font-size:12.5px;color:var(--muted);line-height:1.5}
+</style>
+{{with .P}}
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Apps</div>
+    <h1 class="cc-h1">Resource use</h1>
+    <div class="cc-status">{{.Devices}} {{.Label}} · {{.Reporting}} reporting · last {{.Window}}</div>
+  </div>
+  <div class="cc-actions mu-pills">
+    {{$p := .}}
+    {{range .Windows}}<a class="mu-pill{{if eq . $p.Window}} on{{end}}" href="?model={{$p.Model}}&window={{.}}&venue={{$p.Venue}}&sort={{$p.Sort}}">{{.}}</a>{{end}}
+    <form method="GET" style="display:contents">
+      <input type="hidden" name="model" value="{{.Model}}"><input type="hidden" name="window" value="{{.Window}}">
+      <select class="mu-sel" name="venue" aria-label="Venue" onchange="this.form.submit()">
+        <option value="">All venues</option>
+        {{range .Venues}}<option value="{{.ID}}"{{if .On}} selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+      <select class="mu-sel" name="sort" aria-label="Sort by" onchange="this.form.submit()">
+        <option value="screen"{{if eq .Sort "screen"}} selected{{end}}>Sort: screen time</option>
+        {{if .AnyFull}}<option value="mem"{{if eq .Sort "mem"}} selected{{end}}>Sort: memory</option>
+        <option value="cpu"{{if eq .Sort "cpu"}} selected{{end}}>Sort: CPU</option>{{end}}
+        <option value="net"{{if eq .Sort "net"}} selected{{end}}>Sort: network</option>
+        {{if .HasBattery}}<option value="battery"{{if eq .Sort "battery"}} selected{{end}}>Sort: battery</option>{{end}}
+      </select>
+    </form>
+  </div>
+</div>
+
+<nav class="mu-chips" aria-label="Models">
+  {{range .Chips}}<a class="mu-chip{{if .On}} on{{end}}" href="?model={{.Key}}&window={{$p.Window}}&sort={{$p.Sort}}"{{if .On}} aria-current="page"{{end}}>{{.Label}}<small>{{.Devices}}</small></a>{{end}}
+</nav>
+
+<div class="mu-lay">
+  <section class="mu-card" aria-label="Apps on {{.Label}}">
+    {{if not .Rows}}
+    <div class="mu-empty">No app usage reported by {{.Label}} devices in the last {{.Window}}. It comes from Firmware MDM 1.17.0 and Standard client 0.6.0 onwards, about every 15 minutes.</div>
+    {{else}}
+    <div style="overflow-x:auto">
+    <table class="mu-t">
+      <thead><tr>
+        <th>App</th><th>On</th>
+        <th{{if eq .Sort "screen"}} class="on"{{end}}>Screen / device</th>
+        {{if .AnyFull}}<th{{if eq .Sort "mem"}} class="on"{{end}}>Memory / device</th><th{{if eq .Sort "cpu"}} class="on"{{end}}>CPU</th>{{end}}
+        <th{{if eq .Sort "net"}} class="on"{{end}}>Network / device</th>
+        {{if .HasBattery}}<th{{if eq .Sort "battery"}} class="on"{{end}}>Battery / device</th>{{end}}
+      </tr></thead>
+      <tbody>
+      {{range .Rows}}
+      <tr>
+        <td class="n"><b>{{.Name}}{{if .System}}<span class="mu-sys">system</span>{{end}}</b>{{if ne .Name .Package}}<small>{{.Package}}</small>{{end}}<div class="mu-bar" aria-hidden="true"><i style="width:{{.BarPct}}%"></i></div>
+          {{if .Heaviest}}<details class="mu-heavy"><summary>Heaviest devices</summary>{{range .Heaviest}}<div><a href="/devices/{{.Serial}}">{{.Serial}}</a><span>{{.Value}}{{if .Venue}} · {{.Venue}}{{end}}</span></div>{{end}}</details>{{end}}</td>
+        <td>{{.On}} of {{$p.Reporting}}</td>
+        <td{{if eq $p.Sort "screen"}} class="on"{{end}}>{{.Screen}}</td>
+        {{if $p.AnyFull}}<td{{if eq $p.Sort "mem"}} class="on"{{end}}>{{.Mem}}{{if .Worst}}<span class="s">{{.Worst}}</span>{{end}}</td>
+        <td{{if eq $p.Sort "cpu"}} class="on"{{end}}>{{.CPU}}</td>{{end}}
+        <td{{if eq $p.Sort "net"}} class="on"{{end}}>{{.Net}}</td>
+        {{if $p.HasBattery}}<td{{if eq $p.Sort "battery"}} class="on"{{end}}>{{.Battery}}</td>{{end}}
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+    {{if .More}}<p class="mu-note">{{.More}} more apps cost less.</p>{{end}}
+    {{end}}
+  </section>
+  <aside class="mu-card" aria-label="{{.Label}} summary">
+    <h2>{{.Label}}</h2>
+    <div class="mu-kv"><span>Devices reporting</span><b>{{.Reporting}} of {{.Devices}}</b></div>
+    {{if .MemInUse}}<div class="mu-kv"><span>Memory in use / device</span><b>{{.MemInUse}}</b></div>{{end}}
+    {{if .TopShare}}<div class="mu-kv"><span>Biggest cost</span><b>{{.TopShare}}</b></div>{{end}}
+    <div class="mu-kv"><span>Measured</span><b>{{if .AnyFull}}screen, memory, CPU, network{{if .HasBattery}}, battery{{end}}{{else}}screen time, network{{end}}</b></div>
+    {{if and .AnyLimited .AnyFull}}<p class="mu-note">Standard-client devices measure screen time and network only; memory and CPU come from the Firmware MDM devices.</p>
+    {{else if .AnyLimited}}<p class="mu-note">These devices run the Standard client, which can measure screen time and network only: Android keeps other apps' memory, CPU and battery from a normal app.</p>{{end}}
+    <p class="mu-note"><a href="/lineup">Models on Lineup</a></p>
+  </aside>
+</div>
+{{end}}
+{{template "footer" .}}
