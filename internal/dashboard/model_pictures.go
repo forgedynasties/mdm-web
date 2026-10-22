@@ -18,6 +18,8 @@ var modelPictures = map[string]modelPicture{
 		Specs: []string{"15.6″ FHD touchscreen", "4 GB RAM + 64 GB", "Qualcomm"}},
 	// Menu board stick: the HK1 RBOX D8 (Rockchip).
 	"rockchip029": {Img: "/static/img/models/rockchip029.webp"},
+	// POS: the Sunmi D3 Pro (shot from menulux.com, on the user's ask, 22 Oct).
+	"d3_pro": {Img: "/static/img/models/d3_pro.webp"},
 	// KDS: the Sunmi D2s on live.
 	"d2s_kds_stgl": {Img: "/static/img/models/d2s_kds_stgl.webp", Tagline: "Built to handle steam, splashes and a slammed Saturday night."},
 }
