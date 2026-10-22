@@ -218,7 +218,7 @@ func LostConfigKeys(c LostConfig, phone string) map[string]any {
 func (d *DB) LostConfigFor(ctx context.Context, deviceID uuid.UUID) (LostConfig, error) {
 	var c LostConfig
 	err := d.pool.QueryRow(ctx, `
-		SELECT d.restaurant_id, COALESCE(r.name, ''), COALESCE(r.self_lock_minutes, 0),
+		SELECT d.restaurant_id, COALESCE(r.name, ''), CASE WHEN `+LostPausedSQL+` THEN 0 ELSE COALESCE(r.self_lock_minutes, 0) END,
 		       COALESCE((SELECT array_agg(s.beacon ORDER BY s.started_at)
 		                 FROM lost_sessions s JOIN devices o ON o.id = s.device_id
 		                 WHERE s.ended_at IS NULL AND s.beacon IS NOT NULL

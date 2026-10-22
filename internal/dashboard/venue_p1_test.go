@@ -187,6 +187,8 @@ func TestVenueP1Renders(t *testing.T) {
 		"Location": venueLocation{}, "Kiosk": &venueKioskView{Total: 2}, "P1": buildVenueP1(in),
 		"Updates": venueUpdatesView{Mode: "closed", Paused: true, PausedSub: "resumes Fri 24 Oct, 09:00", Summary: "Paused",
 			SummarySub: "resumes Fri 24 Oct, 09:00", FleetWindow: "02:00 – 05:00", ClosedWindow: "23:30 – 12:00"},
+		"Lost": venueLostView{SelfLockMinutes: 15, Paused: true, PausedSub: "resumes Sat 25 Oct, 14:00", Summary: "Paused",
+			SummarySub: "resumes Sat 25 Oct, 14:00"},
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "restaurant_detail.html", data); err != nil {
@@ -206,10 +208,15 @@ func TestVenueP1Renders(t *testing.T) {
 		`id="vn-updates"`, `<b class="vu-paused">Paused</b>`, `Resume goes back to while closed`,
 		`name="action" value="resume"`, `value="closed"`, `Outside service hours: 23:30 – 12:00 now`,
 		`name="pause" value="3d" checked`, `value="paused" checked`, `action="/restaurants/` + in.ID.String() + `/updates"`,
+		`id="vn-lost"`, `action="/restaurants/` + in.ID.String() + `/lost"`, `Resume goes back to watching and locking after 15 minutes`,
+		`value="lock"`, `<option value="15" selected>`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("venue page is missing %q", want)
 		}
+	}
+	if strings.Contains(out, `/self-lock"`) {
+		t.Error("the self-lock form is still in the Device lock row")
 	}
 	if strings.Contains(out, `class="vn-grid"`) {
 		t.Error("the old two-column grid is back")

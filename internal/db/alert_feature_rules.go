@@ -184,6 +184,7 @@ func (d *DB) detectLeftVenue(ctx context.Context, p map[string]float64, connecte
 		JOIN restaurants r ON r.id = d.restaurant_id
 		LEFT JOIN device_nicknames n ON n.device_id = d.id
 		WHERE NOT d.hidden AND d.custody_server = '' AND d.id <> ALL(COALESCE($2::uuid[], '{}'))
+		  AND NOT `+LostPausedSQL+` -- the venue paused lost-device watching (venue_lost_pause.go)
 		  AND d.last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
 		  AND d.last_seen_at > NOW() - INTERVAL '6 hours'
 		  AND d.latest_extra->>'charging' = 'false'

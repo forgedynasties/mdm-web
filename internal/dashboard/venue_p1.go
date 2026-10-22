@@ -53,6 +53,7 @@ type vpInputs struct {
 	CloseAt  string // HH:MM it closes
 	StaffPIN string // "" = the built-in default
 	Updates  venueUpdatesView
+	Lost     venueLostView
 	Trend    db.ScopedTrend
 	Window   string // 24h | 7d | 30d
 	Now      time.Time
@@ -297,6 +298,9 @@ func buildVpBanner(in vpInputs) vpBanner {
 	}
 
 	if t, ok := venuePauseTodo(in.Updates); ok {
+		mine = append(mine, t)
+	}
+	if t, ok := venueLostPauseTodo(in.Lost); ok {
 		mine = append(mine, t)
 	}
 

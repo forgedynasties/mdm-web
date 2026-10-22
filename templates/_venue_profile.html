@@ -187,7 +187,7 @@
      devices are actually doing, side by side. */}}
 {{with .Kiosk}}
 <details class="vs-row" name="vn-set" id="vn-lock"{{if eq $.Open "lock"}} open{{end}}>
-  <summary><span class="vs-k">Device lock</span><span class="vs-v"><span>{{if .On}}On{{if .Package}} <small>({{.Package}})</small>{{end}}{{else}}Off{{end}} <small>· {{.Locked}} of {{.Total}} locked{{if $.SelfLockMinutes}} · locks itself if it leaves{{end}}</small></span>{{if .Exited}}<span class="cc-tag bad">{{.Exited}} taken out</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <summary><span class="vs-k">Device lock</span><span class="vs-v"><span>{{if .On}}On{{if .Package}} <small>({{.Package}})</small>{{end}}{{else}}Off{{end}} <small>· {{.Locked}} of {{.Total}} locked</small></span>{{if .Exited}}<span class="cc-tag bad">{{.Exited}} taken out</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
   <div class="vs-body">
   <div class="vs-note">{{if .Exited}}<span style="color:var(--danger)">{{.Exited}} taken out on site.</span> {{end}}{{if .Disagree}}{{sub .Total .Locked}} not locked: not checked in since the rule was set, unlocked on the device, or their app isn't installed.{{else if not .On}}{{.Locked}} of {{.Total}} locked by another rule or by hand.{{end}} <a href="/lock">All lock rules</a></div>
   {{if $can}}
@@ -197,25 +197,47 @@
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
   {{end}}
-  {{/* Self-lock (picked 18 Oct): a tablet that leaves the venue locks itself to the lost
-       screen even when the server can't reach it. Admin only; off by default. lost_reporting.go */}}
   {{if canAdmin $.Role}}
-  <form class="vn-form" action="/restaurants/{{$r.ID}}/self-lock" method="POST">
-    <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="self_lock" value="on"{{if $.SelfLockMinutes}} checked{{end}}> <b>Lock a tablet that leaves the venue</b></label>
-    <div class="form-row full"><label class="form-label" for="sl-min">when this venue's Wi-Fi has been gone for</label>
-      <select id="sl-min" name="self_lock_minutes" class="form-input">
-        {{$m := $.SelfLockMinutes}}{{if not $m}}{{$m = 10}}{{end}}
-        <option value="5"{{if eq $m 5}} selected{{end}}>5 minutes</option><option value="10"{{if eq $m 10}} selected{{end}}>10 minutes</option><option value="15"{{if eq $m 15}} selected{{end}}>15 minutes</option><option value="30"{{if eq $m 30}} selected{{end}}>30 minutes</option><option value="60"{{if eq $m 60}} selected{{end}}>60 minutes</option>
-      </select></div>
-    <p>…while it's off its charger and off its guest pad, and the networks around it have changed too, so a router outage never locks a tablet at its table. It shows the lost screen until it's back at the venue or someone lifts it from its page. Firmware client 1.13.0+.</p>
-    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
-  </form>
   {{/* Staff PIN (20 Oct): what staff type on a locked tablet to open its app for themselves
        (staff mode). Sent to this venue's tablets as offline_exit.pin. lost_reporting.go */}}
   <form class="vn-form" action="/restaurants/{{$r.ID}}/staff-pin" method="POST">
     <div class="form-row full"><label class="form-label" for="staff-pin">Staff PIN</label>
       <input id="staff-pin" name="staff_pin" class="form-input" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" autocomplete="off" value="{{$.StaffPIN}}" placeholder="Built-in default" style="max-width:180px"></div>
     <p>4 to 8 digits. Staff type it on a locked tablet to open its app for themselves; the tablet shows a staff pill until they tap Back to guest mode. Leave it empty for the built-in default.</p>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{end}}
+  </div>
+</details>
+{{end}}
+
+{{/* Lost devices (L1, picked 22 Oct 2026): what happens when a tablet leaves the venue,
+     the left_venue alert and self-lock (moved here from Device lock), and a pause that stops
+     both for a while. Self-lock on/off stays admin only. venue_lost_pause.go */}}
+{{with .Lost}}
+<details class="vs-row" name="vn-set" id="vn-lost"{{if eq $.Open "lost"}} open{{end}}>
+  <summary><span class="vs-k">Lost devices</span><span class="vs-v"><span>{{if .Paused}}<b class="vu-paused">Paused</b>{{else}}{{.Summary}}{{end}} <small>· {{.SummarySub}}</small></span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">What happens when a tablet leaves this venue.{{with .By}} Set {{.}}.{{end}}</div>
+  {{if $can}}
+  {{if .Paused}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/lost" method="POST">
+    <p>Paused: {{.PausedSub}}. No left-venue alerts{{if .SelfLockMinutes}} and no self-lock{{end}}; marking a device lost from its page still works. Resume goes back to {{if .SelfLockMinutes}}watching and locking after {{.SelfLockMinutes}} minutes{{else}}watching{{end}}.</p>
+    <div class="vn-acts"><button type="submit" name="action" value="resume" class="cc-btn sm primary">Resume</button></div>
+  </form>
+  {{end}}
+  {{$admin := canAdmin $.Role}}
+  <form class="vn-form vu-form" action="/restaurants/{{$r.ID}}/lost" method="POST">
+    <div class="vu-ch">
+      <label><input type="radio" name="mode" value="watch"{{if and (not .Paused) (not .SelfLockMinutes)}} checked{{end}}{{if and (not $admin) .SelfLockMinutes}} disabled{{end}}><span><b>Watching</b><small>Alert when a tablet drops off the Wi-Fi away from its charger</small></span></label>
+      <label><input type="radio" name="mode" value="lock"{{if and (not .Paused) .SelfLockMinutes}} checked{{end}}{{if and (not $admin) (not .SelfLockMinutes)}} disabled{{end}}><span><b>Watching, and lock it</b><small>Also puts up the lost screen once this venue's Wi-Fi has been gone for{{if not $admin}} (an admin turns this on or off){{end}}</small>
+        <span class="vu-sub">{{$m := .SelfLockMinutes}}{{if not $m}}{{$m = 10}}{{end}}<select name="self_lock_minutes" aria-label="Minutes" class="form-input" style="width:140px"{{if not $admin}} disabled{{end}}>
+          <option value="5"{{if eq $m 5}} selected{{end}}>5 minutes</option><option value="10"{{if eq $m 10}} selected{{end}}>10 minutes</option><option value="15"{{if eq $m 15}} selected{{end}}>15 minutes</option><option value="30"{{if eq $m 30}} selected{{end}}>30 minutes</option><option value="60"{{if eq $m 60}} selected{{end}}>60 minutes</option>
+        </select></span></span></label>
+      <label><input type="radio" name="mode" value="paused"{{if .Paused}} checked{{end}}><span><b>Paused</b><small>Nothing fires here until it ends</small>
+        <span class="vu-sub vu-len">{{range $i, $o := venuePauseChoices}}<label><input type="radio" name="pause" value="{{$o.Value}}"{{if eq $i 1}} checked{{end}}><span>{{$o.Label}}</span></label>{{end}}</span></span></label>
+    </div>
+    <p>Self-lock waits until the tablet is off its charger and guest pad and the networks around it have changed too, so a router outage never locks a tablet at its table; firmware client 1.13.0+. A tablet already off the Wi-Fi doesn't hear about a pause: set it before they leave.</p>
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
   {{end}}

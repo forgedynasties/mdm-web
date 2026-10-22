@@ -379,19 +379,20 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	data["AutoEnroll"], _ = h.db.RestaurantAutoEnroll(r.Context(), id)
 	data["Updates"] = h.venueUpdatesView(r.Context(), id, win, rest.Timezone, time.Now())
-	data["P1"] = h.venueP1(r, rest, devices, online, stale, win, data["StaffPIN"], data["Updates"].(venueUpdatesView))
+	data["Lost"] = h.venueLostView(r.Context(), id, rest.Timezone, time.Now())
+	data["P1"] = h.venueP1(r, rest, devices, online, stale, win, data["StaffPIN"], data["Updates"].(venueUpdatesView), data["Lost"].(venueLostView))
 	h.render(w, r, "restaurant_detail.html", data)
 }
 
 // venueP1 gathers what the P1 banner, cards and pill chart read (venue_p1.go).
 func (h *Handler) venueP1(r *http.Request, rest *db.Restaurant, devices []db.Device, online map[uuid.UUID]bool,
-	stale time.Duration, win db.ServiceWindow, pin any, upd venueUpdatesView) venueP1 {
+	stale time.Duration, win db.ServiceWindow, pin any, upd venueUpdatesView, lost venueLostView) venueP1 {
 	ctx := r.Context()
 	id := rest.ID
 	now := time.Now()
 	in := vpInputs{ID: id, Name: rest.Name, Window: vpWindow(r.URL.Query().Get("window")), Now: now}
 	in.StaffPIN, _ = pin.(string)
-	in.Updates = upd
+	in.Updates, in.Lost = upd, lost
 	for _, d := range devices {
 		dv := vpDev{Serial: d.SerialNumber, Firmware: d.AgentKind == product.KindFirmware}
 		dv.ID, dv.Class, dv.Venue = d.ID, d.Class(), &id
