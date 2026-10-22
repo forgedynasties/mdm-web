@@ -222,3 +222,49 @@ func (d *DB) AppLabels(ctx context.Context, ids []uuid.UUID) (map[string]string,
 	}
 	return out, rows.Err()
 }
+
+// UsagePoint is one device's totals over all apps for one bucket (an hour, or a day for
+// rows already rolled up): the model page's bars.
+type UsagePoint struct {
+	Bucket   time.Time
+	Daily    bool
+	DeviceID uuid.UUID
+	FgMs     int64
+	NetBytes int64
+	PssMB    float64 // sum over apps of each app's average, 0 = not measured
+	CPUPct   float64
+	PowerMAh float64
+	HasPss   bool
+	HasCPU   bool
+}
+
+// AppUsageSeries returns per-device, per-bucket totals since `since`.
+func (d *DB) AppUsageSeries(ctx context.Context, ids []uuid.UUID, since time.Time) ([]UsagePoint, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT bucket, daily, device_id, SUM(fg_ms)::bigint, SUM(rx_bytes + tx_bytes)::bigint,
+		       COALESCE(SUM(CASE WHEN pss_n > 0 THEN pss_sum_mb / pss_n END), 0), BOOL_OR(pss_n > 0),
+		       COALESCE(SUM(CASE WHEN cpu_n > 0 THEN cpu_sum_pct / cpu_n END), 0), BOOL_OR(cpu_n > 0),
+		       SUM(power_mah)
+		FROM app_usage
+		WHERE device_id = ANY($1)
+		  AND ((NOT daily AND bucket >= date_trunc('hour', $2::timestamptz))
+		    OR (daily AND bucket >= date_trunc('day', $2::timestamptz)))
+		GROUP BY bucket, daily, device_id
+		ORDER BY bucket`, ids, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []UsagePoint
+	for rows.Next() {
+		var p UsagePoint
+		if err := rows.Scan(&p.Bucket, &p.Daily, &p.DeviceID, &p.FgMs, &p.NetBytes, &p.PssMB, &p.HasPss, &p.CPUPct, &p.HasCPU, &p.PowerMAh); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}

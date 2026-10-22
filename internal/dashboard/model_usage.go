@@ -37,6 +37,9 @@ type muRow struct {
 	Battery                      string
 	BarPct                       int
 	Heaviest                     []muDevice
+	Value                        float64 // per device that runs it, by the sort
+	Share                        int     // % of everything this model spends on the sort
+	Background                   int     // devices where it holds memory but never came on screen
 }
 
 type muVenue struct {
@@ -152,10 +155,16 @@ func (h *Handler) ModelUsagePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	usage, _ := h.db.AppUsageForDevices(ctx, ids, time.Now().Add(-appUsageWindows[p.Window]))
+	since := time.Now().Add(-appUsageWindows[p.Window])
+	usage, _ := h.db.AppUsageForDevices(ctx, ids, since)
 	labels, _ := h.db.AppLabels(ctx, ids)
+	for i := range usage {
+		usage[i].Label = nameOf(usage[i].Package, labels)
+	}
 	p.Rows, p.More, p.Reporting, p.TopShare = buildModelUsageRows(usage, byID, labels, p.Sort)
-	h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "P": p})
+	series, _ := h.db.AppUsageSeries(ctx, ids, since)
+	u1 := buildModelUsageU1(&p, usage, series, byID, h.roleAppBase(ctx, p.Model), time.Now())
+	h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "P": p, "U": u1})
 }
 
 // buildModelUsageRows sums each app across the devices, averages per device that runs it,
@@ -278,6 +287,15 @@ func buildModelUsageRows(usage []db.DeviceAppUsage, byID map[uuid.UUID]db.Device
 		}
 		if top > 0 {
 			row.BarPct = int(key(a) * 100 / top)
+		}
+		row.Value = key(a)
+		if total > 0 {
+			row.Share = int(key(a)*float64(len(a.devs))*100/total + 0.5)
+		}
+		for _, u := range a.devs {
+			if u.PssAvgMB != nil && *u.PssAvgMB > 0 && u.FgMs == 0 {
+				row.Background++
+			}
 		}
 		// The heaviest devices for this app, by the sort metric.
 		ds := append([]db.DeviceAppUsage(nil), a.devs...)
