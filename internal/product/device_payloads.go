@@ -85,9 +85,14 @@ func NormalizeWifiConfig(payload json.RawMessage) (json.RawMessage, string) {
 	case "remove":
 		b, _ := json.Marshal(map[string]string{"action": "remove", "ssid": ssid})
 		return b, ""
+	case "connect":
+		// Switch to a saved network (W1, 22 Oct 2026). The client goes back to the network
+		// it was on if it cannot reach the server on the new one within 90 s.
+		b, _ := json.Marshal(map[string]string{"action": "connect", "ssid": ssid})
+		return b, ""
 	case "add":
 	default:
-		return nil, `action must be "add" or "remove"`
+		return nil, `action must be "add", "remove" or "connect"`
 	}
 	sec := strings.ToLower(strings.TrimSpace(p.Security))
 	switch sec {

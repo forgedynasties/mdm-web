@@ -1206,9 +1206,10 @@ window.DEVICE_VITALS = {
       {{if .ShowBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
       <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-      {{template "saved-networks-row" .}}
       </div>
     </div>
+    {{/* Wi-Fi (W1, 22 Oct 2026): replaced the Saved networks line above. */}}
+    {{template "dd-wifi-card" .Wifi}}
     {{/* Battery wear (B2, 17 Oct): charge-climb time per night against the fleet. */}}
     {{template "battery-wear-card" .}}
     {{/* What needs a look on this device (device-overview-demos.html, O5). */}}

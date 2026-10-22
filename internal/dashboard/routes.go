@@ -44,6 +44,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/history", h.requireAuth(h.deviceRoute("view", h.DeviceHistory)))
 	mux.HandleFunc("GET /devices/{serial}/chart-data", h.requireAuth(h.deviceRoute("view", h.DeviceChartData)))
 	mux.HandleFunc("GET /devices/{serial}/app-usage", h.requireAuth(h.deviceRoute("view", h.DeviceAppUsage)))
+	// Wi-Fi card (W1): the card, polled while a change runs; changes are admin only.
+	mux.HandleFunc("GET /devices/{serial}/wifi", h.requireAuth(h.deviceRoute("view", h.DeviceWifi)))
+	post("POST /devices/{serial}/wifi", h.requireAdmin(h.deviceRoute("view", h.DeviceWifiSave)))
 	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(drainable(h.deviceRoute("view", h.DeviceEvents))))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.deviceRoute("view", h.DeviceOnlineStatus)))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(drainable(h.deviceRoute("view", h.DevicePresenceStream))))

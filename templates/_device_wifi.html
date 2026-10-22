@@ -1,0 +1,143 @@
+{{/* Wi-Fi card (W1, picked 22 Oct 2026): every saved network with its signal, what the
+     device is on now, and per network Switch to / Edit password / Forget, plus Add network.
+     Each change is a wifi_config command; the strip under the card follows the latest one
+     and the card polls while it runs. A switch is reversible on the device. device_wifi.go */}}
+{{define "dd-wifi-card"}}
+<div class="card wf-card" id="dd-wifi"{{if and .Op .Op.Running}} hx-get="/devices/{{.Serial}}/wifi" hx-trigger="every 4s" hx-swap="outerHTML"{{end}}>
+<style>
+.wf-card{overflow:visible}
+.wf-card .card-header .m{color:var(--muted);font-size:12px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wf-net{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:13px}
+.wf-bars{display:inline-flex;align-items:flex-end;gap:2px;height:14px;width:18px;flex:none}
+.wf-bars i{width:4px;border-radius:1px;background:var(--border)}
+.wf-bars i.on{background:var(--ok)}
+.wf-bars.weak i.on{background:var(--warn)}
+.wf-n{flex:1;min-width:0}.wf-n b{font-weight:600;color:var(--text)}
+.wf-n small{display:block;color:var(--muted);font-size:11.5px}
+.wf-tag{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px;background:var(--surface2);color:var(--text-2);margin-left:6px;white-space:nowrap}
+.wf-tag.ok{background:var(--ok-bg,rgba(47,158,91,.14));color:var(--ok)}
+.wf-tag.warn{background:var(--warn-bg);color:var(--warn)}
+.wf-tag.info{background:var(--info-bg,rgba(122,128,246,.14));color:var(--accent-text)}
+.wf-more{position:relative}
+.wf-more>summary{list-style:none;cursor:pointer;width:30px;height:28px;display:grid;place-items:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-2)}
+.wf-more>summary::-webkit-details-marker{display:none}
+.wf-more>summary:focus-visible{outline:none;box-shadow:var(--ring)}
+.wf-pop{position:absolute;right:0;top:34px;z-index:20;width:300px;background:var(--surface);border-radius:12px;box-shadow:var(--shadow-lg);padding:6px}
+.wf-mi{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;cursor:pointer;padding:7px 10px;border-radius:7px;font-size:12.5px;color:var(--text)}
+.wf-mi:hover:not(:disabled){background:var(--hover)}
+.wf-mi:focus-visible{outline:none;box-shadow:var(--ring)}
+.wf-mi.dz{color:var(--danger)}
+.wf-mi:disabled{color:var(--muted);cursor:not-allowed}
+.wf-mi[aria-expanded="true"]{background:var(--accent-soft)}
+.wf-panel form,.wf-add form{display:grid;gap:8px;padding:8px 10px 10px;font-size:12px;color:var(--text-2);line-height:1.5}
+.wf-panel form p,.wf-add form p{margin:0}
+.wf-acts{display:flex;gap:8px;justify-content:flex-end}
+.wf-add{border-top:1px solid var(--border-soft)}
+.wf-add>summary{display:none}
+.wf-add form{grid-template-columns:1fr 1fr;padding:12px 16px}
+.wf-add form .full{grid-column:1/-1}
+.wf-add .form-input{width:100%}
+.wf-st{display:flex;gap:10px;align-items:flex-start;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2);line-height:1.5}
+.wf-st b{color:var(--text)}.wf-st.ok b{color:var(--ok)}.wf-st.bad b{color:var(--danger)}
+.wf-sp{width:12px;height:12px;margin-top:3px;flex:none;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:wf-spin .8s linear infinite}
+@keyframes wf-spin{to{transform:rotate(360deg)}}
+.wf-err{padding:9px 16px;font-size:12.5px;color:var(--danger);border-top:1px solid var(--border-soft)}
+.wf-empty{padding:12px 16px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border-soft)}
+</style>
+  <div class="card-header cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg></span>
+    <h2>Wi-Fi</h2>{{if .Current}}<span class="m">{{.Current}}</span>{{end}}
+    {{if and .CanManage .Supported}}<div class="right" style="margin-left:auto"><button type="button" class="cc-btn sm" onclick="var d=document.getElementById('wf-add');d.open=!d.open;if(d.open)d.querySelector('input').focus()">Add network</button></div>{{end}}
+  </div>
+  {{if .Error}}<div class="wf-err" role="alert">{{.Error}}</div>{{end}}
+  {{if and .CanManage .Supported}}
+  <details class="wf-add" id="wf-add"><summary>Add network</summary>
+    <form hx-post="/devices/{{.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML">
+      <input type="hidden" name="action" value="add">
+      <label class="form-row"><span class="form-label">Network name</span><input class="form-input" name="ssid" required maxlength="32" autocomplete="off"></label>
+      <label class="form-row"><span class="form-label">Security</span><select class="form-input" name="security"><option value="wpa2">WPA2</option><option value="wpa3">WPA3</option><option value="open">Open</option></select></label>
+      <label class="form-row full"><span class="form-label">Password</span><input class="form-input" name="password" type="password" minlength="8" maxlength="63" autocomplete="new-password"></label>
+      <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="hidden"> Hidden network</label>
+      <p class="full">The device saves it and keeps its current network; use Switch to move it.</p>
+      <div class="wf-acts full"><button type="submit" class="cc-btn sm primary">Save on the device</button></div>
+    </form>
+  </details>
+  {{end}}
+  {{$cur := ""}}{{range .Nets}}{{if .Connected}}{{$cur = .SSID}}{{end}}{{end}}
+  {{range .Nets}}
+  <div class="wf-net">
+    <span class="wf-bars{{if .Weak}} weak{{end}}" aria-label="{{if .InRange}}{{.Signal}} dBm{{else}}not seen{{end}}"><i class="{{if ge .Bars 1}}on{{end}}" style="height:5px"></i><i class="{{if ge .Bars 2}}on{{end}}" style="height:9px"></i><i class="{{if ge .Bars 3}}on{{end}}" style="height:14px"></i></span>
+    <div class="wf-n"><b>{{.SSID}}</b>{{if .Connected}}<span class="wf-tag ok">connected</span>{{else if .Weak}}<span class="wf-tag warn">weak · {{.Signal}} dBm</span>{{else if .InRange}}<span class="wf-tag">in range · {{.Signal}} dBm</span>{{else if $.ScanKnown}}<span class="wf-tag">not seen nearby</span>{{end}}{{if .Pending}}<span class="wf-tag info" title="A new password is held until this network goes away, then used">new password waiting</span>{{end}}
+      <small>{{if eq .Security "OPEN"}}Open{{else if .Security}}{{.Security}}{{end}}{{if .Venue}} · pushed by the venue{{end}}</small></div>
+    {{if and $.CanManage $.Supported}}
+    <details class="wf-more" name="wf-menu"><summary aria-label="Actions for {{.SSID}}">⋯</summary>
+      <div class="wf-pop">
+        {{if not .Connected}}
+        {{if $.CanSwitch}}
+        <button type="button" class="wf-mi" aria-expanded="false" onclick="wfPanel(this)">Switch to this network</button><div class="wf-panel" hidden>
+          <form hx-post="/devices/{{$.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML">
+            <input type="hidden" name="action" value="connect"><input type="hidden" name="ssid" value="{{.SSID}}">
+            <p>The device joins <b>{{.SSID}}</b>{{if .InRange}} (seen at {{.Signal}} dBm){{else if $.ScanKnown}}, which it has not seen nearby{{end}}. If it can't reach the MDM within 90 seconds it goes back to <b>{{if $cur}}{{$cur}}{{else}}its current network{{end}}</b> by itself and says why.</p>
+            <p style="color:var(--warn)">It is offline for up to a minute while it switches.</p>
+            <div class="wf-acts"><button type="submit" class="cc-btn sm primary">Switch</button></div>
+          </form>
+        </div>
+        {{else}}
+        <button type="button" class="wf-mi off" title="Needs Firmware MDM 1.18.0 or Standard client 0.7.0" disabled>Switch to this network</button>
+        {{end}}
+        {{end}}
+        {{if ne .Security "OPEN"}}
+        <button type="button" class="wf-mi" aria-expanded="false" onclick="wfPanel(this)">Edit password…</button><div class="wf-panel" hidden>
+          <form hx-post="/devices/{{$.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML">
+            <input type="hidden" name="action" value="add"><input type="hidden" name="ssid" value="{{.SSID}}"><input type="hidden" name="security" value="{{if eq .Security "WPA3"}}wpa3{{else}}wpa2{{end}}">
+            <input class="form-input" name="password" type="password" minlength="8" maxlength="63" required placeholder="New password" autocomplete="new-password" aria-label="New password for {{.SSID}}">
+            {{if .Connected}}<p>It is the network the device is on: the new password is used once the router changes over, and the device goes back if it can't join.</p>{{end}}
+            <div class="wf-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+          </form>
+        </div>
+        {{end}}
+        {{if .CanForget}}
+        <button type="button" class="wf-mi dz" aria-expanded="false" onclick="wfPanel(this)">Forget</button><div class="wf-panel" hidden>
+          <form hx-post="/devices/{{$.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML">
+            <input type="hidden" name="action" value="remove"><input type="hidden" name="ssid" value="{{.SSID}}">
+            <p>The device forgets <b>{{.SSID}}</b>.{{if .Venue}} The venue pushes it again while it is in the venue's Wi-Fi list.{{end}}</p>
+            <div class="wf-acts"><button type="submit" class="cc-btn sm" style="color:var(--danger)">Forget</button></div>
+          </form>
+        </div>
+        {{end}}
+      </div>
+    </details>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="wf-empty">{{if .Supported}}The device has not reported its saved networks yet.{{else}}This device's client does not report or change Wi-Fi.{{end}}</div>
+  {{end}}
+  <script>
+  // Menus close on a click outside them or on Escape, like the dashboard's other menus.
+  // A menu item opens its own panel (confirm / password form) and closes the others.
+  window.wfPanel = function (btn) {
+    var pop = btn.closest('.wf-pop'), panel = btn.nextElementSibling, open = panel.hidden;
+    pop.querySelectorAll('.wf-panel').forEach(function (p) { p.hidden = true; });
+    pop.querySelectorAll('.wf-mi').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+    panel.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { var f = panel.querySelector('input:not([type=hidden]), button[type=submit]'); if (f) f.focus(); }
+  };
+  if (!window.__wfMenuHook) {
+    window.__wfMenuHook = true;
+    document.addEventListener('click', function (e) {
+      document.querySelectorAll('.wf-more[open]').forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') document.querySelectorAll('.wf-more[open]').forEach(function (d) { d.open = false; });
+    });
+  }
+  </script>
+  {{with .Op}}
+  <div class="wf-st{{if .Ok}} ok{{else if not .Running}} bad{{end}}" role="status">
+    {{if .Running}}<span class="wf-sp" aria-hidden="true"></span>{{else if .Ok}}<span aria-hidden="true">✓</span>{{else}}<span aria-hidden="true">↩</span>{{end}}
+    <div><b>{{.Title}}</b>{{if .Detail}}<br>{{.Detail}}{{end}}</div>
+  </div>
+  {{end}}
+</div>
+{{end}}
