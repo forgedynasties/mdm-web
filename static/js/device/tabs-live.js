@@ -108,6 +108,7 @@
     // T1 (19 Oct): Host app is in Apps; Alerts and Compliance are Health.
     if (want === 'hostapp') want = 'apps';
     if (want === 'alerts' || want === 'compliance') want = 'health';
+    if (want === 'wifi') want = 'network';
     if (!want || want === 'summary') return;
     var btn = document.getElementById('dd-tab-' + want);
     if (btn && btn.hidden) return;   // About lives in Overview in the split view
