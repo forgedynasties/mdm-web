@@ -555,6 +555,8 @@ func main() {
 	// Device-authenticated endpoints (body-size limited)
 	mux.Handle("POST /api/v1/checkin", devicePost(apiHandler.Checkin))
 	mux.Handle("POST /api/v1/checkins/backfill", deviceAuth(middleware.MaxBytes(1<<20, http.HandlerFunc(apiHandler.Backfill))))
+	// Per-app usage, about every 15 minutes (api/app_usage.go).
+	mux.Handle("POST /api/v1/app-usage", deviceAuth(middleware.MaxBytes(256<<10, http.HandlerFunc(apiHandler.AppUsage))))
 	// Battery log (firmware client 1.10.1): up to 2000 CSV rows a request, ~150 KB inflated.
 	mux.Handle("POST /api/v1/battery-log", deviceAuth(middleware.MaxBytes(2<<20, http.HandlerFunc(apiHandler.BatteryLog))))
 	mux.Handle("POST /api/v1/device-key", devicePost(apiHandler.RegisterDeviceKey))

@@ -141,6 +141,12 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 			log.Printf("[retention] pruned %d sample/event row(s) older than %dd", n, d)
 		}
 	}
+	// Per-app usage: hourly for 14 days, then daily for 90 (A1).
+	if n, err := h.db.RollupAppUsage(ctx, 14*24*time.Hour, 90*24*time.Hour); err != nil {
+		log.Printf("[retention] app usage rollup: %v", err)
+	} else if n > 0 {
+		log.Printf("[retention] folded/pruned %d app usage row(s)", n)
+	}
 	// Fast temperature readings are a day's close-up, whatever the retention setting;
 	// device_samples keeps the minute-by-minute history.
 	if n, err := h.db.PruneTempFast(ctx); err != nil {

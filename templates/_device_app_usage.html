@@ -1,0 +1,72 @@
+{{/* Resource use (A1, picked 22 Oct 2026): every app and system service on the device
+     ranked by what it cost — screen time, memory, CPU, network, battery — over 24 h, 7 d or
+     30 d. The window chips and the sort swap the card in place. app_usage.go */}}
+{{define "dd-app-usage"}}
+<div class="card au-card" id="dd-app-usage">
+<style>
+.au-card .au-tools{display:flex;align-items:center;gap:6px;margin-left:auto}
+.au-chip{border:0;background:var(--surface2);color:var(--text-2);font:inherit;font-size:11.5px;font-weight:650;padding:4px 10px;border-radius:99px;cursor:pointer}
+.au-chip.on{background:var(--accent-soft);color:var(--accent-text)}
+.au-chip:focus-visible,.au-sort:focus-visible{outline:none;box-shadow:var(--ring)}
+.au-sort{font:inherit;font-size:12px;padding:4px 8px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.au-t{width:100%;border-collapse:collapse;font-size:12.5px}
+.au-t th{text-align:left;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;padding:8px 12px;border-bottom:1px solid var(--border-soft)}
+.au-t td{padding:9px 12px;border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:middle;white-space:nowrap}
+.au-t td.au-n{white-space:normal;min-width:180px}
+.au-t td.au-n b{display:block;color:var(--text);font-weight:600}
+.au-t td.au-n small{color:var(--muted);font-family:var(--mono);font-size:11px}
+.au-t th.on{color:var(--accent-text)}
+.au-t td.on{color:var(--text);font-weight:600}
+.au-bar{height:6px;border-radius:9px;background:var(--surface2);overflow:hidden;width:90px;margin-top:4px}
+.au-bar i{display:block;height:100%;background:var(--accent)}
+.au-sys{font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px;background:var(--surface2);color:var(--muted);margin-left:6px;vertical-align:1px}
+.au-peak{display:block;font-size:11px;color:var(--muted)}
+.au-empty,.au-note{padding:14px 16px;font-size:12.5px;color:var(--muted);line-height:1.5}
+.au-note{padding-top:8px}
+</style>
+  <div class="card-header cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+    <h2>Resource use</h2>
+    <div class="au-tools">
+      {{range $w := .Windows}}<button type="button" class="au-chip{{if eq $w $.Window}} on{{end}}" aria-pressed="{{if eq $w $.Window}}true{{else}}false{{end}}"
+        hx-get="/devices/{{$.Serial}}/app-usage?window={{$w}}&sort={{$.Sort}}" hx-target="#dd-app-usage" hx-swap="outerHTML">{{$w}}</button>{{end}}
+      <select class="au-sort" aria-label="Sort by" name="sort" hx-get="/devices/{{.Serial}}/app-usage?window={{.Window}}" hx-target="#dd-app-usage" hx-swap="outerHTML" hx-trigger="change">
+        <option value="screen"{{if eq .Sort "screen"}} selected{{end}}>Sort: screen time</option>
+        {{if not .Limited}}<option value="mem"{{if eq .Sort "mem"}} selected{{end}}>Sort: memory</option>
+        <option value="cpu"{{if eq .Sort "cpu"}} selected{{end}}>Sort: CPU</option>{{end}}
+        <option value="net"{{if eq .Sort "net"}} selected{{end}}>Sort: network</option>
+        {{if .HasBattery}}<option value="battery"{{if eq .Sort "battery"}} selected{{end}}>Sort: battery</option>{{end}}
+      </select>
+    </div>
+  </div>
+  {{if not .Reported}}
+  <div class="au-empty">No app usage reported for this window yet. It comes from Firmware MDM 1.17.0 and Standard client 0.6.0 onwards, about every 15 minutes.</div>
+  {{else}}
+  <div style="overflow-x:auto">
+  <table class="au-t">
+    <thead><tr>
+      <th>App</th>
+      <th{{if eq .Sort "screen"}} class="on"{{end}}>Screen</th>
+      {{if not .Limited}}<th{{if eq .Sort "mem"}} class="on"{{end}}>Memory</th><th{{if eq .Sort "cpu"}} class="on"{{end}}>CPU</th>{{end}}
+      <th{{if eq .Sort "net"}} class="on"{{end}}>Network</th>
+      {{if .HasBattery}}<th{{if eq .Sort "battery"}} class="on"{{end}}>Battery</th>{{end}}
+    </tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td class="au-n"><b>{{.Name}}{{if .System}}<span class="au-sys">system</span>{{end}}</b>{{if ne .Name .Package}}<small>{{.Package}}</small>{{end}}<div class="au-bar" aria-hidden="true"><i style="width:{{.BarPct}}%"></i></div></td>
+        <td{{if eq $.Sort "screen"}} class="on"{{end}}>{{.Screen}}{{if .Launches}}<span class="au-peak">{{.Launches}} launch{{if ne .Launches 1}}es{{end}}</span>{{end}}</td>
+        {{if not $.Limited}}<td{{if eq $.Sort "mem"}} class="on"{{end}}>{{.Mem}}{{if .MemPeak}}<span class="au-peak">{{.MemPeak}}</span>{{end}}</td>
+        <td{{if eq $.Sort "cpu"}} class="on"{{end}}>{{.CPU}}</td>{{end}}
+        <td{{if eq $.Sort "net"}} class="on"{{end}}>{{.Net}}</td>
+        {{if $.HasBattery}}<td{{if eq $.Sort "battery"}} class="on"{{end}}>{{.Battery}}</td>{{end}}
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+  {{if .More}}<div class="au-note">{{.More}} more apps used less.</div>{{end}}
+  {{if .Limited}}<div class="au-note">The Standard client can measure screen time and network only: Android keeps other apps' memory, CPU and battery from a normal app.</div>{{end}}
+  {{end}}
+</div>
+{{end}}

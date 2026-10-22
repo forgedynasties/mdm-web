@@ -523,6 +523,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"KeyCred":     h.keyCredentialFor(r.Context(), device),
 		// The app this device is there to run, reported from outside it (host_app.go).
 		"HostApp": hostAppView(device.LatestExtra),
+		// Resource use (A1): the Apps tab's ranking, 24 h by default.
+		"AppUsage": h.appUsageView(r.Context(), device, "24h", ""),
 		// Charge-climb wear against the fleet and its own first weeks (battery_wear.go);
 		// nil where there is nothing to read it from (no battery, the Standard client).
 		"BatteryWear": h.batteryWearFor(r.Context(), device),

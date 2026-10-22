@@ -2096,6 +2096,27 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_paused BOOLEAN NOT NULL DE
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_paused_until TIMESTAMPTZ;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_set_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_set_at TIMESTAMPTZ;
+-- Per-app usage (A1, 22 Oct): what each app (and system service) cost on a device, one row
+-- per device, package and hour (kept 14 days) and per day (kept 90 days). Memory and CPU
+-- are averages of the reports in the bucket (sum / samples); the rest add up.
+CREATE TABLE IF NOT EXISTS app_usage (
+    device_id   UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    bucket      TIMESTAMPTZ NOT NULL,
+    daily       BOOLEAN NOT NULL DEFAULT FALSE,
+    package     TEXT NOT NULL,
+    system      BOOLEAN NOT NULL DEFAULT FALSE,
+    fg_ms       BIGINT NOT NULL DEFAULT 0,
+    launches    INT NOT NULL DEFAULT 0,
+    rx_bytes    BIGINT NOT NULL DEFAULT 0,
+    tx_bytes    BIGINT NOT NULL DEFAULT 0,
+    pss_sum_mb  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pss_max_mb  INT NOT NULL DEFAULT 0,
+    pss_n       INT NOT NULL DEFAULT 0,
+    cpu_sum_pct DOUBLE PRECISION NOT NULL DEFAULT 0,
+    cpu_n       INT NOT NULL DEFAULT 0,
+    power_mah   DOUBLE PRECISION NOT NULL DEFAULT 0,
+    PRIMARY KEY (device_id, daily, bucket, package)
+);
 
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access

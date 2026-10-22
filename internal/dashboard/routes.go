@@ -43,6 +43,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.deviceRoute("view", h.DeviceDetail)))
 	mux.HandleFunc("GET /devices/{serial}/history", h.requireAuth(h.deviceRoute("view", h.DeviceHistory)))
 	mux.HandleFunc("GET /devices/{serial}/chart-data", h.requireAuth(h.deviceRoute("view", h.DeviceChartData)))
+	mux.HandleFunc("GET /devices/{serial}/app-usage", h.requireAuth(h.deviceRoute("view", h.DeviceAppUsage)))
 	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(drainable(h.deviceRoute("view", h.DeviceEvents))))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.deviceRoute("view", h.DeviceOnlineStatus)))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(drainable(h.deviceRoute("view", h.DevicePresenceStream))))

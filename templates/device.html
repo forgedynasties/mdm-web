@@ -1334,6 +1334,7 @@ window.DEVICE_VITALS = {
 <section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
   {{/* The host app leads the Apps tab (T1, 19 Oct; it was its own tab from 16 Oct). */}}
   {{if .HostApp}}<div class="dd-apps-host">{{template "dd-host-app" .HostApp}}</div>{{end}}
+  {{template "dd-app-usage" .AppUsage}}
   <div class="card">
     <div class="card-header cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
