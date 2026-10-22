@@ -109,10 +109,29 @@ func (h *Handler) deviceWifiView(ctx context.Context, d *db.Device, canManage bo
 			}
 		}
 	}
-	current := unquoteSSID(extraString(d.LatestExtra, "wifi"))
-	rssiNow := int(extraInt64(d.LatestExtra, "wifi_rssi"))
-	for _, n := range savedNetworksView(d.LatestExtra) {
-		nv := wifiNetView{SSID: n.SSID, Security: strings.ToUpper(n.Security), Connected: n.Connected || (current != "" && n.SSID == current),
+	// Which network the device is on: the saved-network list is read fresh for every report,
+	// while "wifi" (with its signal, band and speed) can be a minute old on the firmware
+	// client, so after a switch the two disagreed and both networks read "connected". The
+	// list wins; the details are shown only when they describe that same network.
+	saved := savedNetworksView(d.LatestExtra)
+	reported := unquoteSSID(extraString(d.LatestExtra, "wifi"))
+	current := ""
+	for _, n := range saved {
+		if n.Connected {
+			current = n.SSID
+			break
+		}
+	}
+	fresh := current == "" || current == reported
+	if current == "" {
+		current = reported
+	}
+	rssiNow := 0
+	if fresh {
+		rssiNow = int(extraInt64(d.LatestExtra, "wifi_rssi"))
+	}
+	for _, n := range saved {
+		nv := wifiNetView{SSID: n.SSID, Security: strings.ToUpper(n.Security), Connected: current != "" && n.SSID == current,
 			Pending: n.Pending, Venue: venue[n.SSID]}
 		if r, ok := best[n.SSID]; ok {
 			nv.Signal, nv.InRange = r, true
@@ -135,23 +154,32 @@ func (h *Handler) deviceWifiView(ctx context.Context, d *db.Device, canManage bo
 		}
 		return a.Signal > b.Signal
 	})
-	if current != "" {
-		parts := []string{"on " + current}
+	v.Current = wifiHeadline(d, current, fresh, rssiNow)
+	if op, err := h.db.LatestWifiOp(ctx, d.ID, 30*time.Minute, venueWifiActor); err == nil && op != nil {
+		v.Op = wifiOpOf(op, time.Now())
+	}
+	return v
+}
+
+// wifiHeadline is the card's "on AIO-Guest · 5 GHz · 433 Mb/s · −58 dBm". The details are
+// left out when they were read before the device last changed network.
+func wifiHeadline(d *db.Device, current string, fresh bool, rssi int) string {
+	if current == "" {
+		return ""
+	}
+	parts := []string{"on " + current}
+	if fresh {
 		if band := extraString(d.LatestExtra, "wifi_band"); band != "" && band != "—" {
 			parts = append(parts, band+" GHz")
 		}
 		if l := extraInt64(d.LatestExtra, "wifi_link_mbps"); l > 0 {
 			parts = append(parts, fmt.Sprintf("%d Mb/s", l))
 		}
-		if rssiNow < 0 {
-			parts = append(parts, fmt.Sprintf("%d dBm", rssiNow))
+		if rssi < 0 {
+			parts = append(parts, fmt.Sprintf("%d dBm", rssi))
 		}
-		v.Current = strings.Join(parts, " · ")
 	}
-	if op, err := h.db.LatestWifiOp(ctx, d.ID, 30*time.Minute, venueWifiActor); err == nil && op != nil {
-		v.Op = wifiOpOf(op, time.Now())
-	}
-	return v
+	return strings.Join(parts, " · ")
 }
 
 // wifiOpOf words the latest change for the strip under the card.

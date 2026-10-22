@@ -56,7 +56,7 @@ func TestWifiCardRenders(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := b.String()
-	for _, w := range []string{`id="dd-wifi"`, `hx-trigger="every 4s"`, `in range · -67 dBm`, `not seen nearby`, `name="action" value="connect"`,
+	for _, w := range []string{`id="dd-wifi"`, `hx-trigger="every 4s" hx-target="this"`, `in range · -67 dBm`, `not seen nearby`, `name="action" value="connect"`,
 		`goes back to <b>AIO-Guest</b>`, `Switching to AIO-Kitchen…`, `name="action" value="remove"`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("card missing %q", w)

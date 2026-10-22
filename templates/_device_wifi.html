@@ -3,7 +3,7 @@
      Each change is a wifi_config command; the strip under the card follows the latest one
      and the card polls while it runs. A switch is reversible on the device. device_wifi.go */}}
 {{define "dd-wifi-card"}}
-<div class="card wf-card" id="dd-wifi"{{if and .Op .Op.Running}} hx-get="/devices/{{.Serial}}/wifi" hx-trigger="every 4s" hx-swap="outerHTML"{{end}}>
+<div class="card wf-card" id="dd-wifi"{{if and .Op .Op.Running}} hx-get="/devices/{{.Serial}}/wifi" hx-trigger="every 4s" hx-target="this" hx-swap="outerHTML"{{end}}>
 <style>
 .wf-card{overflow:visible}
 .wf-card .card-header .m{color:var(--muted);font-size:12px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
