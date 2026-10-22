@@ -355,8 +355,13 @@ func buildModelUsageP1(in p1In) modelUsageP1 {
 	var topShare string
 	p.Rows, p.More, p.Reporting, topShare = buildModelUsageRows(mine, byID, in.Labels, m)
 	_ = topShare
+	anyPower := false
 	for i := range p.Rows {
 		p.Rows[i].Role = isRoleApp(p.Rows[i].Package, in.RoleBase)
+		anyPower = anyPower || p.Rows[i].Battery != "—"
+	}
+	if !anyPower {
+		p.Battery = false // no app has a battery figure: no column
 	}
 	if p.Reporting == 0 {
 		p.Empty = true
