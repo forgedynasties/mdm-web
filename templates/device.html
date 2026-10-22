@@ -548,7 +548,7 @@
   {{/* Activity: what is queued for the device and what was done to it, one tab. */}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-health" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-health" data-dd-tab="health" onclick="setDeviceTab('health', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-9.3-9A5.2 5.2 0 0 1 12 6.6 5.2 5.2 0 0 1 21.3 12C19 16.6 12 21 12 21z"/></svg>Health{{if .Health.Count}} <span class="dd-tab-n warn" title="Open alerts and failing required checks">{{.Health.Count}}</span>{{end}}</button>{{end}}
-  <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Location</button>
+  <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Network</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5h.01"/></svg>About</button>
 </div>
 <div class="dd-tabrow-r">
@@ -1160,6 +1160,18 @@ window.DEVICE_VITALS = {
          — which was previously recorded only in the global audit log and could not be
          traced back to a device at all. */}}
     {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
+    {{/* What needs a look on this device (O5), first on the Overview since V1 (23 Oct 2026). */}}
+    {{$sx := .Security}}{{$lowBat := and .ShowBattery (lt .Device.BatteryPct 20)}}
+    {{if or (eq $sx.USBDebugging "On") (eq $sx.DevOptions "On") (eq $sx.UnknownSources "On") $sx.AdbOn $lowBat .ChargerFlapping}}
+    <div class="dd-needs" id="dd-needs"><b>Needs a look</b>
+      {{if $lowBat}}<span class="cc-tag">Battery {{.Device.BatteryPct}}%</span>{{end}}
+      {{if .ChargerFlapping}}<span class="cc-tag">Charger flapping</span>{{end}}
+      {{if eq $sx.USBDebugging "On"}}<span class="cc-tag">USB debugging on</span>{{end}}
+      {{if $sx.AdbOn}}<span class="cc-tag">Wireless adb open</span>{{end}}
+      {{if eq $sx.DevOptions "On"}}<span class="cc-tag">Developer options on</span>{{end}}
+      {{if eq $sx.UnknownSources "On"}}<span class="cc-tag">Unknown sources on</span>{{end}}
+    </div>
+    {{end}}
     <div class="ddc-card dd-devpane" id="dd-hw">
       {{/* The model's photo (device-photo-demos.html, M3, picked 15 Oct); its class icon when
            there is none. */}}
@@ -1206,24 +1218,10 @@ window.DEVICE_VITALS = {
       {{if .ShowBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
       <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
+      {{/* Build (user, 23 Oct 2026: "on overview page show build id also"). */}}
+      <div class="ddc-kv"><span class="k">Build</span><span class="v mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       </div>
     </div>
-    {{/* Wi-Fi (W1, 22 Oct 2026): replaced the Saved networks line above. */}}
-    {{template "dd-wifi-card" .Wifi}}
-    {{/* Battery wear (B2, 17 Oct): charge-climb time per night against the fleet. */}}
-    {{template "battery-wear-card" .}}
-    {{/* What needs a look on this device (device-overview-demos.html, O5). */}}
-    {{$sx := .Security}}{{$lowBat := and .ShowBattery (lt .Device.BatteryPct 20)}}
-    {{if or (eq $sx.USBDebugging "On") (eq $sx.DevOptions "On") (eq $sx.UnknownSources "On") $sx.AdbOn $lowBat .ChargerFlapping}}
-    <div class="dd-needs" id="dd-needs"><b>Needs a look</b>
-      {{if $lowBat}}<span class="cc-tag">Battery {{.Device.BatteryPct}}%</span>{{end}}
-      {{if .ChargerFlapping}}<span class="cc-tag">Charger flapping</span>{{end}}
-      {{if eq $sx.USBDebugging "On"}}<span class="cc-tag">USB debugging on</span>{{end}}
-      {{if $sx.AdbOn}}<span class="cc-tag">Wireless adb open</span>{{end}}
-      {{if eq $sx.DevOptions "On"}}<span class="cc-tag">Developer options on</span>{{end}}
-      {{if eq $sx.UnknownSources "On"}}<span class="cc-tag">Unknown sources on</span>{{end}}
-    </div>
-    {{end}}
     {{/* Security posture as the client reports it (a dash = never reported), and the
          wireless adb switch on the row it changes. The switch is the adb_tcp command:
          admin-only, one device, off by itself after the chosen time. Port and time left
@@ -1239,6 +1237,11 @@ window.DEVICE_VITALS = {
     .sec-seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
     </style>
     {{end}}
+    {{/* "Who has access" was removed from the device page on 20 Oct (asked); access is on People › Access control. */}}
+  </div>
+  {{/* Enrollment stays on About in the wide layout too (V1, 23 Oct 2026): only the device
+       pane and what needs a look fold into the Overview (split.js aboutIntoOverview). */}}
+  <div class="about-more">
     {{if not .IsOwner}}
     {{/* Enrollment facts: how this device got here. Its actions (key, server, retire,
          unenroll, wipe, wireless adb) are in the ⋯ menu. */}}
@@ -1282,7 +1285,6 @@ window.DEVICE_VITALS = {
 
     </div>
     {{end}}
-    {{/* "Who has access" was removed from the device page on 20 Oct (asked); access is on People › Access control. */}}
   </div>
 </section><!-- /about -->
 
@@ -1495,6 +1497,8 @@ window.DEVICE_VITALS = {
   <div class="dh-lazy" hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
     <div class="muted small" style="padding:26px;text-align:center;">Loading alerts…</div>
   </div>
+{{/* Battery wear (B2), moved here from the Overview (V1, 23 Oct 2026). */}}
+{{template "battery-wear-card" .}}
 </section><!-- /health -->
 <style>
 .dd-apps-host{margin-bottom:14px}
@@ -1517,6 +1521,8 @@ window.DEVICE_VITALS = {
 {{/* Location (15 Oct): the map and the address, out of Overview and Hardware. */}}
 <section class="dd-panel" data-dd-panel="location" id="dd-panel-location" role="tabpanel" aria-labelledby="dd-tab-location" tabindex="0" hidden>
 {{template "lost-report-card" .}}
+{{/* Network tab (V1, 23 Oct 2026; the Location tab renamed): the Wi-Fi card, then the map. */}}
+{{template "dd-wifi-card" .Wifi}}
 {{/* Location map — the JS Maps API (not the Embed iframe, which can't be
      themed) so it can follow the dashboard's dark mode like the Overview
      fleet map does. Rendered only when the device has resolved WiFi-
@@ -1948,4 +1954,4 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
 </div>
 {{end}}
 
-{{define "device-vitals-cols"}}<div class="vc-row">{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}} k-{{.Key}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="window.wifiModalOpen && wifiModalOpen()" title="Wi-Fi details"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}{{if eq .Key "wifi"}}<svg class="vc-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{{end}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}</div>{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}
+{{define "device-vitals-cols"}}<div class="vc-row">{{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<div class="vc t-{{.Tone}} k-{{.Key}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="setDeviceTab('location', document.getElementById('dd-tab-location'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}" title="Wi-Fi networks"{{end}}><div class="vc-tube"><i style="height:{{.Pct}}%"></i></div><div class="vc-t"><div class="vc-v">{{.Value}}{{if eq .Key "wifi"}}<svg class="vc-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>{{end}}</div><small>{{.Label}} · {{.Sub}}</small></div></div>{{end}}</div>{{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="vc-up">Up <b>{{$up}}</b></div>{{end}}{{end}}

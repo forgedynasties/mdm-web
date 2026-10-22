@@ -46,7 +46,7 @@
     } else return;
     aboutIntoOverview(on);
     // In Overview the facts follow the device pane (and what needs a look).
-    if (on) { var anc = document.getElementById('dd-needs') || document.getElementById('dd-hw'); if (anc) anc.parentNode.insertBefore(facts, anc.nextSibling); }
+    if (on) { var anc = document.getElementById('dd-hw'); if (anc) anc.parentNode.insertBefore(facts, anc.nextSibling); }
     paneFacts(on);
     overviewTab(on);
     fit();
@@ -82,11 +82,15 @@
     var about = document.getElementById('dd-panel-about'), ov = document.getElementById('dd-panel-summary'),
         tab = document.getElementById('dd-tab-about'), grid = document.querySelector('#dd-panel-about > .about-grid, #dd-panel-summary > .about-grid');
     if (!about || !ov || !grid) return;
+    // Only the device pane and what needs a look fold into the Overview (V1, 23 Oct 2026);
+    // About keeps the rest (enrollment), so its tab stays unless nothing is left there.
+    var more = about.querySelector('.about-more');
+    var left = more && Array.prototype.some.call(more.children, function (c) { return !/^(SCRIPT|STYLE)$/.test(c.tagName); });
     if (on && grid.parentNode === about) {
       ov.appendChild(grid);
       if (tab) {
-        tab.hidden = true;
-        if (tab.classList.contains('active') && window.setDeviceTab) window.setDeviceTab('summary', document.getElementById('dd-tab-summary'));
+        tab.hidden = !left;
+        if (!left && tab.classList.contains('active') && window.setDeviceTab) window.setDeviceTab('summary', document.getElementById('dd-tab-summary'));
       }
     } else if (!on && grid.parentNode === ov) {
       about.appendChild(grid);
