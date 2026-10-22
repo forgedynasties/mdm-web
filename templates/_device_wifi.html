@@ -5,7 +5,7 @@
 {{define "dd-wifi-card"}}
 <div class="card wf-card" id="dd-wifi"{{if and .Op .Op.Running}} hx-get="/devices/{{.Serial}}/wifi" hx-trigger="every 4s" hx-target="this" hx-swap="outerHTML"{{end}}>
 <style>
-.wf-card{overflow:visible}
+.wf-card{overflow:visible;margin-bottom:14px}
 .wf-card .card-header .m{color:var(--muted);font-size:12px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wf-net{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:13px}
 .wf-bars{display:inline-flex;align-items:flex-end;gap:2px;height:14px;width:18px;flex:none}
