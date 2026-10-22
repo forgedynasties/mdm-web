@@ -123,15 +123,7 @@
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) { var f = panel.querySelector('input:not([type=hidden]), button[type=submit]'); if (f) f.focus(); }
   };
-  if (!window.__wfMenuHook) {
-    window.__wfMenuHook = true;
-    document.addEventListener('click', function (e) {
-      document.querySelectorAll('.wf-more[open]').forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
-    });
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') document.querySelectorAll('.wf-more[open]').forEach(function (d) { d.open = false; });
-    });
-  }
+  // Closing on an outside click and Escape is layout/menu-dismiss.js, for every menu.
   </script>
   {{with .Op}}
   <div class="wf-st{{if .Ok}} ok{{else if not .Running}} bad{{end}}" role="status">
