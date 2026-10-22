@@ -21,7 +21,7 @@ const frameChanSize = 8
 type Session struct {
 	DeviceID  uuid.UUID
 	frameCh   chan []byte
-	inputCh   chan []byte
+	textCh    chan []byte // device → browser JSON (the device's clipboard)
 	closeOnce sync.Once
 
 	// Instrumentation (atomic): lets us localize where remote-control latency
@@ -117,7 +117,7 @@ func (m *Manager) Start(deviceID uuid.UUID) (*Session, error) {
 	s := &Session{
 		DeviceID: deviceID,
 		frameCh:  make(chan []byte, frameChanSize),
-		inputCh:  make(chan []byte, 32),
+		textCh:   make(chan []byte, 4),
 	}
 	m.sessions[deviceID] = s
 	log.Printf("[remote] session started for device %s", deviceID)
@@ -135,7 +135,7 @@ func (m *Manager) Stop(deviceID uuid.UUID) {
 		delete(m.sessions, deviceID)
 		s.closeOnce.Do(func() {
 			close(s.frameCh)
-			close(s.inputCh)
+			close(s.textCh)
 		})
 	}
 	m.mu.Unlock()
@@ -188,9 +188,24 @@ func (m *Manager) Stats(deviceID uuid.UUID) (recv, drop int64, qlen, qcap int, o
 	return atomic.LoadInt64(&s.recvCount), atomic.LoadInt64(&s.dropCount), len(s.frameCh), cap(s.frameCh), true
 }
 
+// browserTypes are the messages a remote page may send its device. Anything else is
+// dropped: the page's socket must not become a way to push other frame types (config,
+// commands) to the device.
+var browserTypes = map[string]bool{"input_event": true, "wake_screen": true, "clipboard_get": true}
+
+func fromBrowserOK(data []byte) bool {
+	var peek struct {
+		Type string `json:"type"`
+	}
+	return json.Unmarshal(data, &peek) == nil && browserTypes[peek.Type]
+}
+
 // RelayInput is called by the dashboard WS handler when an input event arrives.
 // Forwards the raw JSON to the device via hub.Push.
 func (m *Manager) RelayInput(deviceID uuid.UUID, data []byte) {
+	if !fromBrowserOK(data) {
+		return
+	}
 	m.mu.Lock()
 	_, ok := m.sessions[deviceID]
 	m.mu.Unlock()
@@ -198,6 +213,32 @@ func (m *Manager) RelayInput(deviceID uuid.UUID, data []byte) {
 		return
 	}
 	m.hub.Push(deviceID, data)
+}
+
+// RelayText passes a JSON message from the device to its remote page (the device's
+// clipboard, client 1.16.0). Dropped when nobody is watching or the page is behind.
+func (m *Manager) RelayText(deviceID uuid.UUID, data []byte) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	s, ok := m.sessions[deviceID]
+	if !ok {
+		return
+	}
+	select {
+	case s.textCh <- data:
+	default:
+	}
+}
+
+// SubscribeText returns the channel RelayText feeds.
+func (m *Manager) SubscribeText(deviceID uuid.UUID) (<-chan []byte, error) {
+	m.mu.Lock()
+	s, ok := m.sessions[deviceID]
+	m.mu.Unlock()
+	if !ok {
+		return nil, ErrSessionNotActive
+	}
+	return s.textCh, nil
 }
 
 // SubscribeFrames returns a channel that receives binary frames from the device.

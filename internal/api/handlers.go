@@ -469,6 +469,7 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	defer h.remote.Stop(device.ID)
 
 	frameCh, _ := h.remote.SubscribeFrames(device.ID)
+	textCh, _ := h.remote.SubscribeText(device.ID)
 
 	// Keepalive: a silently-dead browser (sleep, network drop, killed tab) sends
 	// no WS close frame, so without this the read pump below blocks forever, the
@@ -509,6 +510,14 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				wrote++
+			case msg, ok := <-textCh:
+				if !ok {
+					return
+				}
+				dashConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if err := dashConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+					return
+				}
 			case <-ping.C:
 				dashConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				if err := dashConn.WriteMessage(websocket.PingMessage, nil); err != nil {

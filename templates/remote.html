@@ -1,260 +1,100 @@
 {{template "header" .}}
 
 <style>
-/* ── Remote control console ─────────────────────────────────────────────────
-   Full-viewport, non-scrolling cockpit: slim status bar on top, the device
-   screen scaled-to-fit on a dark stage, and a docked control rail on the
-   right. The page claims the whole content area (main padding/max-width are
-   neutralized via :has) and locks body scroll while mounted. The floating
-   bottom nav dock is hidden while the console is up — it would float over
-   the stage; the bar's back link (and Disconnect) leads out. */
+/* ── Remote control (R1, picked 22 Oct 2026) ─────────────────────────────────
+   Device first: the screen with a button column beside it (like scrcpy's side
+   buttons) on a stage, and a rail of cards: Keyboard (what was sent), Shortcuts,
+   Clipboard, Session. Clicking the screen hands the keyboard to the device, Tab,
+   Esc and arrows included; Shift+Esc or a click elsewhere gives it back. The page
+   fills the content area without scrolling (main padding/max-width neutralized via
+   :has) and hides the bottom dock, which would float over the stage. */
 main#main.container:has(#rc-console) { max-width: none; padding: 0; margin: 0; }
 body:has(#rc-console) { overflow: hidden; }
 body:has(#rc-console) .dock { display: none; }
 
 #rc-console {
-  --rc-ink: #d7dce3;
-  --rc-mut: #8b93a1;
-  --rc-line: rgba(255,255,255,.08);
-  --rc-fill: rgba(255,255,255,.045);
   height: calc(100dvh - var(--rc-top, 64px));
   display: flex;
   flex-direction: column;
-  background: #0f1116;
-  color: var(--rc-ink);
   overflow: hidden;
 }
 
 /* ── Top bar ── */
-.rc-bar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  height: 50px;
-  padding: 0 16px;
-  border-bottom: 1px solid var(--rc-line);
-  background: #12141a;
-}
-.rc-bar .rc-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--rc-ink);
-  text-decoration: none;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  min-width: 0;
-}
-.rc-bar .rc-back:hover { color: #fff; }
-.rc-bar .rc-back .rc-serial {
-  font-family: var(--mono);
-  font-weight: 500;
-  color: var(--rc-mut);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.rc-bar .rc-back:hover .rc-serial { color: var(--rc-ink); }
-.rc-bar .rc-back svg { width: 15px; height: 15px; flex: none; }
-.rc-meta {
-  font-size: 12px;
-  color: var(--rc-mut);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.rc-meta b { color: var(--rc-ink); font-weight: 600; }
-@media (max-width: 1100px) { .rc-meta { display: none; } }
+.rc-bar { flex: none; display: flex; align-items: center; gap: 12px; height: 54px; padding: 0 18px; }
+.rc-back { display: inline-flex; align-items: center; gap: 8px; color: var(--text); text-decoration: none; font-size: 15px; font-weight: 650; white-space: nowrap; min-width: 0; }
+.rc-back svg { width: 16px; height: 16px; flex: none; }
+.rc-back .rc-serial { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--muted); }
+.rc-meta { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.rc-meta b { color: var(--text-2); font-weight: 600; }
+@media (max-width: 1200px) { .rc-meta { display: none; } }
 .rc-bar-spacer { flex: 1; }
 
-.rc-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-  padding: 4px 11px 4px 9px;
-  border-radius: 999px;
-  white-space: nowrap;
-  color: var(--rc-mut);
-  background: var(--rc-fill);
-}
-.rc-status .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
-.rc-status.live       { color: #4ade80; background: rgba(74,222,128,.12); }
-.rc-status.connecting { color: #fbbf24; background: rgba(251,191,36,.12); }
-.rc-status.offline    { color: var(--rc-mut); }
-.rc-status.error      { color: #f87171; background: rgba(248,113,113,.12); }
-.rc-status.live .dot  { animation: rc-pulse 1.6s ease-in-out infinite; }
-@keyframes rc-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,.45); }
-  50%      { box-shadow: 0 0 0 5px rgba(74,222,128,0); }
-}
+.rc-chip { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; padding: 5px 11px; border-radius: 99px; white-space: nowrap; color: var(--text-2); background: var(--surface2); }
+.rc-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+.rc-status.live .dot { background: var(--ok); }
+.rc-status.connecting .dot { background: var(--warn); }
+.rc-status.error { color: var(--danger); } .rc-status.error .dot { background: var(--danger); }
+.rc-status.offline .dot { background: transparent; box-shadow: inset 0 0 0 1.5px var(--text-faint); }
+.rc-status b { font-weight: 650; color: var(--text); font-variant-numeric: tabular-nums; }
+.rc-kchip.on { background: var(--accent-soft); color: var(--accent-text); }
+.rc-kchip.on .dot { background: var(--accent); }
 
-/* Inline stats in the bar — quiet mono readouts, no chrome. */
-.rc-stats {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--rc-mut);
-  white-space: nowrap;
-}
-.rc-stats b { color: var(--rc-ink); font-weight: 600; }
-.rc-stats .err { color: #f87171; }
-.rc-stats .lag { color: #fcd34d; }
-.rc-smooth {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  user-select: none;
-  font-family: var(--mono);
-  font-size: 11.5px;
-  color: var(--rc-mut);
-}
+.rc-stats { display: flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.rc-stats b { color: var(--text-2); font-weight: 600; }
+.rc-stats .err { color: var(--danger); }
+.rc-stats .lag { color: var(--warn); }
+.rc-smooth { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
 .rc-smooth input { accent-color: var(--accent); margin: 0; }
+@media (max-width: 1400px) { .rc-stats .rc-opt { display: none; } }
 
-.rc-ib {
-  width: 32px; height: 32px;
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--rc-ink);
-  background: var(--rc-fill);
-  border: 1px solid var(--rc-line);
-  border-radius: 8px;
-  cursor: pointer;
-  flex: none;
-}
-.rc-ib:hover:not(:disabled) { border-color: var(--accent); color: #fff; }
-.rc-ib:disabled { opacity: .35; cursor: not-allowed; }
-.rc-ib svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-.rc-disconnect {
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--rc-ink);
-  background: var(--rc-fill);
-  border: 1px solid var(--rc-line);
-  border-radius: 8px;
-  padding: 6px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.rc-disconnect:hover { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.4); color: #f87171; }
+.rc-ib { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-2);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; flex: none; padding: 0; }
+.rc-ib:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text); }
+.rc-ib:focus-visible { outline: none; box-shadow: var(--ring); }
+.rc-ib:disabled { opacity: .4; cursor: not-allowed; }
+.rc-ib svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ── Body: stage + rail ── */
-.rc-body { flex: 1; min-height: 0; display: flex; }
+.rc-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; padding: 0 18px 18px; }
 
-.rc-stage {
-  position: relative; /* ripple + hint-bar anchor */
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background:
-    radial-gradient(80% 90% at 50% 0%, rgba(122,128,246,.07) 0%, transparent 60%),
-    #0f1116;
-}
-.rc-stage:fullscreen { padding: 0; background: #000; }
+.rc-stage { position: relative; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 14px;
+  padding: 16px; border-radius: 16px; background: var(--surface2); }
+.rc-stage:fullscreen { padding: 0; background: #000; border-radius: 0; }
+.rc-stage:fullscreen .rc-tools { display: none; }
 .rc-stage:fullscreen .rc-screen canvas { max-height: 100vh; max-width: 100vw; }
-.rc-bezel {
-  background: #000;
-  border-radius: 20px;
-  padding: 7px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.07);
-  line-height: 0;
-  max-width: 100%;
-  max-height: 100%;
-}
-.rc-screen {
-  position: relative;
-  background: #000;
-  border-radius: 14px;
-  overflow: hidden;
-  max-width: 100%;
-  max-height: 100%;
-}
+.rc-bezel { background: #000; border-radius: 22px; padding: 8px; box-shadow: 0 18px 50px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.07); line-height: 0; max-width: 100%; max-height: 100%; }
+.rc-bezel.cap { box-shadow: 0 0 0 3px var(--accent), 0 18px 50px rgba(0,0,0,.28); }
+.rc-screen { position: relative; background: #000; border-radius: 15px; overflow: hidden; max-width: 100%; max-height: 100%; }
 .rc-screen canvas {
   display: block;
-  /* bar 50px + stage padding 32px + bezel padding 14px */
-  max-height: calc(100dvh - var(--rc-top, 64px) - 96px);
-  max-width: calc(100vw - 240px - 78px); /* rail + paddings (no side nav on this shell) */
-  width: auto;
-  height: auto;
-  touch-action: none;
-  user-select: none;
-  cursor: crosshair;
+  /* bar 54 + body bottom pad 18 + stage pad 32 + bezel pad 16 */
+  max-height: calc(100dvh - var(--rc-top, 64px) - 122px);
+  /* rail 340 + gaps/paddings 18+16+18 + stage pad 32 + bezel 16 + tools 34+14 */
+  max-width: calc(100vw - 340px - 188px);
+  width: auto; height: auto; touch-action: none; user-select: none; cursor: crosshair; outline: none;
 }
-.rc-ripple {
-  position: absolute;
-  width: 26px; height: 26px;
-  margin: -13px 0 0 -13px;
-  border-radius: 50%;
-  border: 2px solid var(--accent);
-  background: rgba(249,103,78,.25);
-  pointer-events: none;
-  animation: rc-rip .45s ease-out forwards;
-  z-index: 3;
-}
+.rc-capnote { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 11.5px; color: #fff; background: rgba(0,0,0,.72);
+  padding: 6px 12px; border-radius: 99px; pointer-events: none; opacity: 0; transition: opacity .2s; white-space: nowrap; line-height: 1.3; }
+.rc-screen:hover .rc-capnote.idle, .rc-capnote.flash { opacity: 1; }
+.rc-ripple { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 2px solid var(--accent);
+  background: rgba(249,103,78,.25); pointer-events: none; animation: rc-rip .45s ease-out forwards; z-index: 3; }
 @keyframes rc-rip { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
-.rc-hint-bar {
-  position: absolute;
-  left: 14px; bottom: 10px;
-  font-size: 11.5px;
-  color: rgba(255,255,255,.45);
-  display: flex; gap: 14px; flex-wrap: wrap;
-  pointer-events: none;
-}
-.rc-hint-bar kbd { font: inherit; font-size: 10.5px; font-weight: 650; color: #fff; background: rgba(255,255,255,.12); border-radius: 5px; padding: 1px 6px; }
-@media (max-width: 640px) { .rc-hint-bar { display: none; } }
+
+.rc-tools { display: flex; flex-direction: column; gap: 6px; align-self: center; }
+.rc-tools hr { border: 0; height: 1px; background: var(--border); margin: 3px 4px; }
 
 /* Placeholder states (offline / connecting / ended) — swapped in by JS. */
-.rc-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  min-width: 250px;
-  min-height: 420px;
-  padding: 32px;
-  color: var(--rc-mut);
-  text-align: center;
-  font-size: 13px;
-  line-height: 1.5;
-}
+.rc-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; min-width: 260px; min-height: 440px;
+  padding: 32px; color: #a7adb8; text-align: center; font-size: 13px; line-height: 1.5; }
 .rc-placeholder .rc-ph-icon { width: 44px; height: 44px; opacity: .7; }
 .rc-placeholder .rc-ph-icon svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.rc-placeholder h3, .rc-placeholder h2 { color: #fff; margin: 0; font-size: 15px; }
+.rc-placeholder h2 { color: #fff; margin: 0; font-size: 15px; }
 .rc-placeholder p { margin: 0; }
-.rc-placeholder .rc-ph-btn {
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: var(--rc-ink);
-  background: var(--rc-fill);
-  border: 1px solid var(--rc-line);
-  border-radius: 8px;
-  padding: 7px 16px;
-  cursor: pointer;
-  text-decoration: none;
-}
+.rc-placeholder .rc-ph-btn { font: inherit; font-size: 12.5px; font-weight: 650; color: #e6e8ec; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+  border-radius: 99px; padding: 7px 16px; cursor: pointer; text-decoration: none; }
 .rc-placeholder .rc-ph-btn:hover { border-color: var(--accent); color: #fff; }
 .rc-placeholder .rc-ph-row { display: flex; gap: 8px; justify-content: center; }
-.rc-spinner {
-  width: 26px; height: 26px;
-  border: 3px solid rgba(255,255,255,.14);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: rc-spin .8s linear infinite;
-}
+.rc-spinner { width: 26px; height: 26px; border: 3px solid rgba(255,255,255,.14); border-top-color: var(--accent); border-radius: 50%; animation: rc-spin .8s linear infinite; }
 @keyframes rc-spin { to { transform: rotate(360deg); } }
 .rc-steps { display: flex; flex-direction: column; gap: 6px; font-size: 12px; text-align: left; margin-top: 4px; }
 .rc-steps span { display: flex; align-items: center; gap: 8px; opacity: .45; }
@@ -262,156 +102,31 @@ body:has(#rc-console) .dock { display: none; }
 .rc-steps span.done { opacity: .8; color: #86efac; }
 .rc-steps i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
 
-/* ── Control rail ── */
-.rc-rail {
-  flex: none;
-  width: 240px;
-  border-left: 1px solid var(--rc-line);
-  background: #12141a;
-  padding: 16px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-.rc-sec h4 {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--rc-mut);
-  margin: 0 0 9px;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-.rc-sec h4 .m { font-weight: 600; text-transform: none; letter-spacing: 0; font-family: var(--mono); font-size: 11px; }
-.rc-nav-row  { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
-.rc-key-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
-.rc-key {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 10px 4px;
-  border: 1px solid var(--rc-line);
-  border-radius: 9px;
-  background: var(--rc-fill);
-  color: var(--rc-ink);
-  font-family: var(--font);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: .02em;
-  cursor: pointer;
-  transition: background .12s, border-color .12s, transform .05s;
-  -webkit-user-select: none;
-  user-select: none;
-}
-.rc-key svg { width: 18px; height: 18px; stroke-width: 1.8; }
-.rc-key:hover:not(:disabled)  { border-color: var(--accent); color: #fff; background: rgba(249,103,78,.14); }
-.rc-key:active:not(:disabled) { transform: translateY(1px); }
-.rc-key:disabled { opacity: .35; cursor: not-allowed; }
-
-/* Keyboard capture */
-.rc-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-  font-size: 12.5px;
-  color: var(--rc-ink);
-}
-.rc-switch {
-  position: relative;
-  width: 38px; height: 21px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.12);
-  flex: none;
-  transition: background .15s;
-}
-.rc-switch::after {
-  content: '';
-  position: absolute;
-  top: 2px; left: 2px;
-  width: 17px; height: 17px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform .15s;
-}
-.rc-toggle input { position: absolute; opacity: 0; pointer-events: none; }
-.rc-toggle input:checked + .rc-switch { background: var(--accent); }
-.rc-toggle input:checked + .rc-switch::after { transform: translateX(17px); }
-.rc-hint { font-size: 11.5px; color: var(--rc-mut); margin: 7px 0 0; line-height: 1.45; }
-.rc-hint.on { color: #4ade80; }
-
-.rc-type { display: flex; gap: 7px; margin-top: 10px; }
-.rc-type input {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px;
-  border: 1px solid var(--rc-line);
-  border-radius: 8px;
-  background: rgba(0,0,0,.3);
-  color: var(--rc-ink);
-  font-family: var(--font);
-  font-size: 12.5px;
-}
-.rc-type input::placeholder { color: var(--rc-mut); }
-.rc-type input:focus { outline: none; border-color: var(--accent); }
-.rc-type button {
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 650;
-  color: #fff;
-  background: var(--accent-fill);
-  border: none;
-  border-radius: 8px;
-  padding: 0 14px;
-  cursor: pointer;
-}
-.rc-type button:hover:not(:disabled) { background: var(--accent-h, #e2492f); }
-.rc-type button:disabled { opacity: .4; cursor: not-allowed; }
-
-/* Session readouts */
+/* ── Rail ── */
+.rc-rail { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; padding-bottom: 2px; }
+.rc-card { background: var(--surface); border-radius: 14px; box-shadow: var(--shadow-md); padding: 14px 16px; }
+.rc-card h2 { margin: 0 0 9px; font-size: 13.5px; font-weight: 650; display: flex; align-items: center; gap: 8px; }
+.rc-card h2 .rc-chip { margin-left: auto; padding: 3px 9px; font-size: 11px; }
+.rc-card h2 .m { margin-left: auto; font-family: var(--mono); font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.rc-card p { margin: 0 0 9px; font-size: 12px; color: var(--text-2); line-height: 1.5; }
+.rc-card p:last-child { margin-bottom: 0; }
+.rc-card kbd, .rc-sc kbd { font: 600 10.5px var(--mono); color: var(--text); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: var(--surface); white-space: nowrap; }
+.rc-limit { font-size: 11.5px; color: var(--warn); background: var(--warn-bg); border-radius: 9px; padding: 7px 10px; margin: 0 0 9px; line-height: 1.45; }
+.rc-log { font: 11.5px/1.6 var(--mono); background: var(--surface2); border-radius: 10px; padding: 8px 10px; height: 132px; overflow-y: auto; color: var(--text-2); }
+.rc-log b { color: var(--accent-text); font-weight: 600; }
+.rc-log .x { color: var(--muted); }
+.rc-sc { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; color: var(--text-2); align-items: center; }
+.rc-sc .off { opacity: .45; }
+.rc-clip textarea { width: 100%; box-sizing: border-box; min-height: 58px; resize: vertical; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--text); font: inherit; font-size: 12.5px; }
+.rc-clip textarea:focus { outline: none; border-color: var(--accent); }
+.rc-acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 .rc-kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; }
-.rc-kv span { color: var(--rc-mut); }
-.rc-kv b {
-  font-family: var(--mono);
-  font-weight: 600;
-  color: var(--rc-ink);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Narrow: rail docks under the stage as a horizontal strip; stats hide. */
-@media (max-width: 860px) {
-  .rc-body { flex-direction: column; }
-  .rc-rail {
-    width: auto;
-    border-left: none;
-    border-top: 1px solid var(--rc-line);
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 16px;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-  .rc-sec { min-width: 170px; }
-  .rc-stats { display: none; }
-  .rc-screen canvas { max-width: calc(100vw - 34px); max-height: calc(100dvh - var(--rc-top, 64px) - 230px); }
-}
+.rc-kv span { color: var(--muted); }
+.rc-kv b { font-family: var(--mono); font-weight: 600; color: var(--text-2); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 
 <div id="rc-console">
-  {{/* The console's own name lives in the back link, which reads as navigation,
-       not as a heading — so the page had none. */}}
   <h1 class="sr-only">Remote control — {{.Serial}}</h1>
   <div class="rc-bar">
     <a href="/devices/{{.Serial}}" class="rc-back" title="Back to device">
@@ -419,26 +134,26 @@ body:has(#rc-console) .dock { display: none; }
       Remote control <span class="rc-serial">{{.Serial}}</span>
     </a>
     {{with .Device}}<span class="rc-meta"><b>{{$m := extraField .LatestExtra "model"}}{{if and (ne $m "") (ne $m "—")}}{{$m}}{{else}}{{.ProductLabel}}{{end}}</b>{{if .BuildID}} · {{.BuildID}}{{end}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}{{if gt .BatteryPct 0}} · {{.BatteryPct}}%{{end}}</span>{{end}}
-    <span id="rc-status" class="rc-status {{if .Online}}connecting{{else}}offline{{end}}"><span class="dot"></span><span id="rc-status-text">{{if .Online}}connecting{{else}}offline{{end}}</span></span>
     <div class="rc-bar-spacer"></div>
     <div class="rc-stats">
-      <span><b id="rc-fps">—</b> fps</span>
-      <span><b id="rc-kbps">—</b> KB/s</span>
-      <span id="rc-res">—</span>
+      <span class="rc-opt"><b id="rc-kbps">—</b> KB/s</span>
+      <span class="rc-opt" id="rc-res">—</span>
       <span class="lag" id="rc-lag" title="Decoder backlog (frames waiting)" style="display:none"><b id="rc-lag-n">0</b> queued</span>
       <span class="err" id="rc-err-chip" style="display:none"><b id="rc-err">0</b> errs</span>
-      <label class="rc-smooth" title="Smooth: paint every frame (higher fps). Off: paint only the freshest frame (snappier tap response).">
+      <label class="rc-smooth rc-opt" title="Smooth: paint every frame (higher fps). Off: paint only the freshest frame (snappier tap response).">
         <input type="checkbox" id="rc-smooth" onchange="rcSetPaintMode(this.checked)">Smooth
       </label>
     </div>
-    <button type="button" class="rc-ib" id="rc-shot" onclick="rcSnapshot()" disabled data-needs-conn title="Open the current frame in a new tab"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
-    <button type="button" class="rc-ib" id="rc-fs" onclick="rcFullscreen()" title="Fullscreen (F)"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
-    <button id="rc-disconnect" class="rc-disconnect" type="button" onclick="rcDisconnect()" style="display:none">Disconnect</button>
+    <span id="rc-status" class="rc-chip rc-status {{if .Online}}connecting{{else}}offline{{end}}"><span class="dot"></span><span id="rc-status-text">{{if .Online}}Connecting{{else}}Offline{{end}}</span><span id="rc-fps-wrap" style="display:none">· <b id="rc-fps">—</b> fps</span></span>
+    <span id="rc-kchip" class="rc-chip rc-kchip"><span class="dot"></span><span id="rc-kchip-t">Keyboard: page</span></span>
+    <button type="button" class="rc-ib" id="rc-shot" onclick="rcSnapshot()" disabled data-needs-conn title="Open the current frame in a new tab" aria-label="Screenshot"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 6l1.5-2.5h5L16 6"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+    <button type="button" class="rc-ib" id="rc-fs" onclick="rcFullscreen()" title="Fullscreen (F)" aria-label="Fullscreen"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+    <button id="rc-disconnect" class="cc-btn sm" type="button" onclick="rcDisconnect()" style="display:none">Disconnect</button>
   </div>
 
   <div class="rc-body">
     <div class="rc-stage" id="rc-stage">
-      <div class="rc-bezel">
+      <div class="rc-bezel" id="rc-bezel">
         <div class="rc-screen" id="rc-screen">
           <div id="rc-placeholder" class="rc-placeholder">
             {{if .Online}}
@@ -456,62 +171,60 @@ body:has(#rc-console) .dock { display: none; }
             <button class="rc-ph-btn" type="button" onclick="location.reload()">Try again</button>
             {{end}}
           </div>
+          <div class="rc-capnote idle" id="rc-capnote">Click to use your keyboard here</div>
         </div>
       </div>
-      <div class="rc-hint-bar"><span><kbd>Esc</kbd> stop keyboard capture</span><span><kbd>F</kbd> fullscreen</span><span><kbd>Right-click</kbd> wake</span></div>
+      <div class="rc-tools" role="group" aria-label="Device buttons">
+        <button class="rc-ib" type="button" onclick="rcTap(4)" title="Back · Alt+B or right-click" aria-label="Back" disabled data-needs-conn><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="rc-ib" type="button" onclick="rcTap(3)" title="Home · Alt+H or middle-click" aria-label="Home" disabled data-needs-conn><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg></button>
+        <button class="rc-ib" type="button" onclick="rcTap(187)" title="Recent apps · Alt+S" aria-label="Recent apps" disabled data-needs-conn><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+        <hr>
+        <button class="rc-ib" type="button" onclick="rcTap(24)" title="Volume up · Alt+↑" aria-label="Volume up" disabled data-needs-conn><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg></button>
+        <button class="rc-ib" type="button" onclick="rcTap(25)" title="Volume down · Alt+↓" aria-label="Volume down" disabled data-needs-conn><svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></button>
+        <hr>
+        <button class="rc-ib" type="button" onclick="rcWake()" title="Wake the screen" aria-label="Wake the screen" disabled data-needs-conn><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+        <button class="rc-ib" type="button" onclick="rcTap(26)" title="Power · Alt+P (screen on / off)" aria-label="Power" disabled data-needs-conn><svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/></svg></button>
+      </div>
     </div>
 
     <div class="rc-rail">
-      <div class="rc-sec">
-        <h4>Navigation</h4>
-        <div class="rc-nav-row">
-          <button class="rc-key" type="button" onclick="rcTap(4)" title="Back" disabled data-needs-conn>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>Back
-          </button>
-          <button class="rc-key" type="button" onclick="rcTap(3)" title="Home" disabled data-needs-conn>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>Home
-          </button>
-          <button class="rc-key" type="button" onclick="rcTap(187)" title="Recent apps" disabled data-needs-conn>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Recents
-          </button>
-        </div>
-      </div>
+      <section class="rc-card" aria-labelledby="rc-kbd-h">
+        <h2 id="rc-kbd-h">Keyboard <span class="rc-chip rc-kchip" id="rc-kchip2"><span class="dot"></span><span id="rc-kchip2-t">Page</span></span></h2>
+        {{if eq .Kbd "keys"}}<p class="rc-limit">This device's MDM client takes plain keys only: no Shift, Ctrl or Alt combinations, and typing covers a–z and 0–9. Firmware client 1.16.0 brings the full keyboard.</p>
+        {{else if eq .Kbd "dpc"}}<p class="rc-limit">The Standard client can only take arrows, Enter, Back, Home and Recents: Android lets only system apps type into other apps.</p>{{end}}
+        <p id="rc-kbd-hint">Click the screen and your keys go to the device, Tab and Esc included. <kbd>Shift</kbd>+<kbd>Esc</kbd> or a click outside gives them back.</p>
+        <div class="rc-log" id="rc-log" aria-live="off"><span class="x" id="rc-log-ph">Keys you press show here.</span></div>
+      </section>
 
-      <div class="rc-sec">
-        <h4>Hardware</h4>
-        <div class="rc-key-grid">
-          <button class="rc-key" type="button" onclick="rcTap(24)" title="Volume up" disabled data-needs-conn>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>Vol +
-          </button>
-          <button class="rc-key" type="button" onclick="rcTap(25)" title="Volume down" disabled data-needs-conn>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>Vol −
-          </button>
-          <button class="rc-key" type="button" onclick="rcWake()" title="Wake screen (also: right-click the screen)" disabled data-needs-conn>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Wake
-          </button>
-          <button class="rc-key" type="button" onclick="rcTap(26)" title="Power (toggle screen on / off)" disabled data-needs-conn>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>Power
-          </button>
+      <section class="rc-card" aria-labelledby="rc-sc-h">
+        <h2 id="rc-sc-h">Shortcuts</h2>
+        <div class="rc-sc">
+          <kbd>Alt+H</kbd><span>Home · or middle-click</span>
+          <kbd>Alt+B</kbd><span>Back · or right-click</span>
+          <kbd>Alt+S</kbd><span>Recent apps</span>
+          <kbd>Alt+P</kbd><span>Power</span>
+          <kbd>Alt+↑ ↓</kbd><span>Volume</span>
+          <kbd>Ctrl+V</kbd><span{{if eq .Kbd "dpc"}} class="off"{{end}}>Paste your clipboard</span>
+          <kbd>Wheel</kbd><span{{if ne .Kbd "full"}} class="off" title="Needs firmware client 1.16.0"{{end}}>Scroll</span>
+          <kbd>F</kbd><span>Fullscreen (keyboard on the page)</span>
         </div>
-      </div>
+      </section>
 
-      <div class="rc-sec">
-        <h4>Keyboard <span class="m" id="rc-kbd-state">off</span></h4>
-        <label class="rc-toggle">
-          <span>Capture keyboard</span>
-          <input type="checkbox" id="rc-kbd" onchange="rcSetCapture(this.checked)" disabled data-needs-conn>
-          <span class="rc-switch"></span>
-        </label>
-        <p class="rc-hint" id="rc-kbd-hint">When on, keys you press are sent to the device. Esc turns it off.</p>
-        <div class="rc-type">
-          <input type="text" id="rc-text" placeholder="Type text to send…" autocomplete="off" spellcheck="false"
-                 onkeydown="if(event.key==='Enter'){event.preventDefault();rcSendText();}" disabled data-needs-conn>
-          <button type="button" onclick="rcSendText()" disabled data-needs-conn>Send</button>
+      {{if ne .Kbd "dpc"}}
+      <section class="rc-card rc-clip" aria-labelledby="rc-clip-h">
+        <h2 id="rc-clip-h">Clipboard</h2>
+        <p>Ctrl+V on the screen pastes what you copied. Or type or paste text here and send it.</p>
+        <textarea id="rc-text" aria-label="Text to send to the device" placeholder="Text to send…" disabled data-needs-conn
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();rcSendText();}"></textarea>
+        <div class="rc-acts">
+          <button type="button" class="cc-btn sm primary" onclick="rcSendText()" disabled data-needs-conn>Send to device</button>
+          {{if eq .Kbd "full"}}<button type="button" class="cc-btn sm" onclick="rcCopyFromDevice()" disabled data-needs-conn>Copy from device</button>{{end}}
         </div>
-      </div>
+      </section>
+      {{end}}
 
-      <div class="rc-sec">
-        <h4>Session <span class="m" id="rc-timer">—</span></h4>
+      <section class="rc-card" aria-labelledby="rc-ses-h">
+        <h2 id="rc-ses-h">Session <span class="m" id="rc-timer">—</span></h2>
         <div class="rc-kv">
           <span>Codec</span><b id="rc-codec">—</b>
           <span>Painted</span><b id="rc-painted">—</b>
@@ -519,12 +232,12 @@ body:has(#rc-console) .dock { display: none; }
           <span>Data</span><b id="rc-data">0 KB</b>
           <span>Link</span><b id="rc-link">—</b>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 </div>
 
-<script>window.REMOTE_PAGE = {serial: {{.Serial}}, online: {{.Online}}, token: {{.Token}}};</script>
+<script>window.REMOTE_PAGE = {serial: {{.Serial}}, online: {{.Online}}, token: {{.Token}}, kbd: {{.Kbd}}};</script>
 <script src="/static/js/remote.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}

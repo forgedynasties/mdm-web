@@ -60,23 +60,59 @@
   }
 
   // ── Browser key → Android keycode ──
-  var AKEY = { 'Backspace': 67, 'Tab': 61, 'Enter': 66, 'Escape': 111, ' ': 62,
-    'ArrowUp': 19, 'ArrowDown': 20, 'ArrowLeft': 21, 'ArrowRight': 22,
-    'Home': 122, 'End': 123, 'Delete': 112, 'PageUp': 92, 'PageDown': 93,
-    '.': 56, ',': 55, '-': 69, '=': 70, '/': 76, ';': 74, "'": 75,
-    '[': 71, ']': 72, '\\': 73, '`': 68, '@': 77, '+': 81, '*': 17, '#': 18 };
-  function keycodeFor(key) {
-    if (key == null) return 0;
-    if (AKEY.hasOwnProperty(key)) return AKEY[key];
-    if (key.length === 1) {
-      var c = key.toLowerCase();
-      if (c >= 'a' && c <= 'z') return 29 + (c.charCodeAt(0) - 97);
-      if (c >= '0' && c <= '9') return 7 + (c.charCodeAt(0) - 48);
+  // By physical key (KeyboardEvent.code), so the device gets the key that was pressed
+  // whatever the browser's layout; the device's own layout turns it into a character.
+  var KBD = window.REMOTE_PAGE.kbd || 'keys'; // full | keys | dpc (remoteKbdLevel)
+  var CODE = {
+    Escape: 111, Tab: 61, Backspace: 67, Enter: 66, NumpadEnter: 160, Space: 62,
+    ArrowUp: 19, ArrowDown: 20, ArrowLeft: 21, ArrowRight: 22,
+    Home: 122, End: 123, PageUp: 92, PageDown: 93, Insert: 124, Delete: 112,
+    Minus: 69, Equal: 70, BracketLeft: 71, BracketRight: 72, Backslash: 73, IntlBackslash: 73,
+    Semicolon: 74, Quote: 75, Backquote: 68, Comma: 55, Period: 56, Slash: 76,
+    ShiftLeft: 59, ShiftRight: 60, ControlLeft: 113, ControlRight: 114, AltLeft: 57, AltRight: 58,
+    MetaLeft: 117, MetaRight: 118, CapsLock: 115, NumLock: 143, ScrollLock: 116,
+    PrintScreen: 120, Pause: 121, ContextMenu: 82,
+    NumpadDivide: 154, NumpadMultiply: 155, NumpadSubtract: 156, NumpadAdd: 157,
+    NumpadDecimal: 158, NumpadComma: 159, NumpadEqual: 161,
+    AudioVolumeUp: 24, AudioVolumeDown: 25, AudioVolumeMute: 164,
+    MediaPlayPause: 85, MediaStop: 86, MediaTrackNext: 87, MediaTrackPrevious: 88
+  };
+  var i;
+  for (i = 0; i < 26; i++) CODE['Key' + String.fromCharCode(65 + i)] = 29 + i;
+  for (i = 0; i < 10; i++) { CODE['Digit' + i] = 7 + i; CODE['Numpad' + i] = 144 + i; }
+  for (i = 1; i <= 12; i++) CODE['F' + i] = 130 + i;
+  // Older clients get no modifiers, so a shifted symbol can only be sent as the key
+  // that types it unshifted; these few have their own Android key.
+  var SYMKEY = { '@': 77, '+': 81, '*': 17, '#': 18 };
+  // Names for the log.
+  var NAME = { 3: 'HOME', 4: 'BACK', 24: 'VOLUME_UP', 25: 'VOLUME_DOWN', 26: 'POWER', 187: 'APP_SWITCH' };
+  Object.keys(CODE).forEach(function (k) {
+    if (!NAME[CODE[k]]) NAME[CODE[k]] = k.replace(/^Key|^Digit/, '').replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase();
+  });
+  NAME[19] = 'DPAD_UP'; NAME[20] = 'DPAD_DOWN'; NAME[21] = 'DPAD_LEFT'; NAME[22] = 'DPAD_RIGHT'; NAME[67] = 'DEL'; NAME[112] = 'FORWARD_DEL';
+  NAME[122] = 'MOVE_HOME'; NAME[123] = 'MOVE_END';
+  // Android KeyEvent meta state bits (the generic and the left flag together).
+  function metaOf(e) {
+    var m = 0;
+    if (e.shiftKey) m |= 0x41;
+    if (e.altKey) m |= 0x12;
+    if (e.ctrlKey) m |= 0x3000;
+    if (e.metaKey) m |= 0x30000;
+    if (e.getModifierState) {
+      if (e.getModifierState('CapsLock')) m |= 0x100000;
+      if (e.getModifierState('NumLock')) m |= 0x200000;
     }
-    return 0;
+    return m;
   }
+  // A key that types a character: one code point (or a grapheme) in e.key.
+  function printable(e) { return e.key && (e.key.length === 1 || /^\p{L}\p{M}*$|^\p{Extended_Pictographic}/u.test(e.key)) && e.key !== 'Dead'; }
 
-  function setStatus(cls, text) { $('rc-status').className = 'rc-status ' + cls; $('rc-status-text').textContent = text; $('rc-link').textContent = text; }
+  function setStatus(cls, text) {
+    $('rc-status').className = 'rc-chip rc-status ' + cls;
+    $('rc-status-text').textContent = text.charAt(0).toUpperCase() + text.slice(1);
+    $('rc-fps-wrap').style.display = cls === 'live' ? '' : 'none';
+    $('rc-link').textContent = text;
+  }
   function enableControls(on) {
     document.querySelectorAll('[data-needs-conn]').forEach(function (el) { el.disabled = !on; });
     $('rc-disconnect').style.display = on ? '' : 'none';
@@ -185,12 +221,12 @@
       setStatus('connecting', attempts ? 'reconnecting' : 'connecting');
       ws.onopen = function () {
         attempts = 0; step(2, false);
-        setStatus('live', 'live'); enableControls(true);
+        setStatus('live', 'connected'); enableControls(true);
         fpsStart = bwStart = performance.now();
         if (!sessionStart) { sessionStart = Date.now(); timerH = window.mdmTrackTimer ? window.mdmTrackTimer(setInterval(tickTimer, 1000)) : setInterval(tickTimer, 1000); }
       };
       ws.onmessage = function (e) {
-        if (typeof e.data === 'string') return;
+        if (typeof e.data === 'string') { deviceText(e.data); return; }
         ensureCanvas(); if (!ctx) return;
         if (e.data.byteLength < 1) return;
         var b0 = new Uint8Array(e.data, 0, 1)[0];
@@ -198,8 +234,7 @@
         noteFrameStats(e.data.byteLength);
       };
       ws.onclose = function () {
-        enableControls(false); captureKbd = false;
-        var kbd = $('rc-kbd'); if (kbd) kbd.checked = false;
+        enableControls(false); rcSetCapture(false);
         if (view) { view = null; ctx = null; }
         if (vdec) { try { vdec.close(); } catch (e2) {} vdec = null; vdecReady = false; sawKey = false; }
         if (pendingFrame) { try { pendingFrame.close(); } catch (e3) {} pendingFrame = null; }
@@ -240,62 +275,190 @@
     d.style.left = (e.clientX - r.left) + 'px'; d.style.top = (e.clientY - r.top) + 'px';
     st.appendChild(d); setTimeout(function () { d.remove(); }, 500);
   }
+  function live() { return ws && ws.readyState === WebSocket.OPEN; }
+  function send(o) { if (live()) ws.send(JSON.stringify(o)); }
+  function logLine(html) {
+    var l = $('rc-log'); if (!l) return;
+    var ph = $('rc-log-ph'); if (ph) ph.remove();
+    var d = document.createElement('div'); d.innerHTML = html; l.appendChild(d);
+    while (l.childNodes.length > 60) l.removeChild(l.firstChild);
+    l.scrollTop = l.scrollHeight;
+  }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function flashNote(t) {
+    var n = $('rc-capnote'); if (!n) return;
+    n.textContent = t; n.className = 'rc-capnote flash';
+    clearTimeout(n._h); n._h = setTimeout(function () { n.className = 'rc-capnote' + (captureKbd ? '' : ' idle'); n.textContent = 'Click to use your keyboard here'; }, 1400);
+  }
   function setupInput(el) {
     var pointerId = null;
-    el.addEventListener('pointerdown', function (e) { if (e.button > 0) return; pointerId = e.pointerId; el.setPointerCapture(pointerId); sendTouch(e, 'down'); ripple(e); e.preventDefault(); });
+    el.tabIndex = 0;
+    el.setAttribute('role', 'application');
+    el.setAttribute('aria-label', 'Device screen. Click or focus to send your keyboard to the device; Shift+Escape gives it back.');
+    el.addEventListener('focus', function () { rcSetCapture(true); });
+    el.addEventListener('blur', function () { rcSetCapture(false); });
+    el.addEventListener('pointerdown', function (e) {
+      el.focus({ preventScroll: true });
+      if (e.button === 1) { e.preventDefault(); rcTap(3); logLine('<b>middle-click</b> → HOME'); return; }
+      if (e.button === 2) { e.preventDefault(); rcWake(); rcTap(4); logLine('<b>right-click</b> → BACK'); return; }
+      if (e.button > 0) return;
+      pointerId = e.pointerId; el.setPointerCapture(pointerId); sendTouch(e, 'down'); ripple(e); e.preventDefault();
+    });
     el.addEventListener('pointermove', function (e) { if (e.pointerId !== pointerId) return; sendTouch(e, 'move'); e.preventDefault(); });
     el.addEventListener('pointerup', function (e) { if (e.pointerId !== pointerId) return; sendTouch(e, 'up'); pointerId = null; e.preventDefault(); });
     el.addEventListener('pointercancel', function (e) { if (e.pointerId !== pointerId) return; sendTouch(e, 'up'); pointerId = null; });
-    el.addEventListener('contextmenu', function (e) { e.preventDefault(); rcWake(); });
+    el.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    el.addEventListener('auxclick', function (e) { e.preventDefault(); });
+    var wheelAcc = 0, wheelH = null, wheelAt = null;
+    el.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      if (KBD !== 'full' || !live()) return;
+      // One scroll event per animation frame, in notches (100 px of wheel = 1).
+      wheelAcc += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+      wheelAt = e;
+      if (wheelH) return;
+      wheelH = requestAnimationFrame(function () {
+        wheelH = null;
+        var v = Math.max(-8, Math.min(8, -wheelAcc / 100)); wheelAcc = 0;
+        if (!v) return;
+        var p = pointFor(wheelAt); if (!p) return;
+        send({ type: 'input_event', action: 'scroll', x: p.x, y: p.y, v: +v.toFixed(2), h: 0 });
+      });
+    }, { passive: false });
   }
-  document.addEventListener('keydown', function (e) { forwardKey(e, 'down'); });
-  document.addEventListener('keyup', function (e) { forwardKey(e, 'up'); });
-  function forwardKey(e, event) {
-    var t = e.target, inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA');
-    if (!captureKbd && event === 'down' && !inField && (e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) { rcFullscreen(); return; }
-    if (!captureKbd || !ws || ws.readyState !== WebSocket.OPEN) return;
-    if (inField) return;
-    // Never trap the keys a keyboard-only user needs to leave capture (WCAG 2.1.2):
-    // Tab must move focus away, and Escape exits capture. Let both reach the browser.
-    if (e.key === 'Tab') return;
-    if (e.key === 'Escape') { if (event === 'down') rcSetCapture(false); return; }
-    var kc = keycodeFor(e.key); if (!kc) return;
-    e.preventDefault(); sendKey(kc, event);
+  // Keys whose down went out as text (or as a page shortcut): their up is swallowed.
+  var eaten = {}, repeats = {}, pressed = {}; // pressed: code → keycode sent down, not yet up
+  document.addEventListener('keydown', function (e) { forwardKey(e, 'down'); }, true);
+  document.addEventListener('keyup', function (e) { forwardKey(e, 'up'); }, true);
+  var SHORTCUT = { KeyH: 3, KeyB: 4, KeyS: 187, KeyP: 26, ArrowUp: 24, ArrowDown: 25 };
+  function forwardKey(e, phase) {
+    var t = e.target, inField = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+    if (!captureKbd) {
+      if (phase === 'down' && !inField && (e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) rcFullscreen();
+      return;
+    }
+    // Capturing: every key belongs to the device except Shift+Esc, the way out (said on
+    // screen and in the Keyboard card, so this is not a keyboard trap).
+    e.preventDefault(); e.stopPropagation();
+    if (phase === 'up' && eaten[e.code]) { delete eaten[e.code]; return; }
+    if (phase === 'down' && e.key === 'Escape' && e.shiftKey) { eaten[e.code] = true; view && view.blur(); return; }
+    if (!live()) return;
+    if (phase === 'down' && e.altKey && !e.ctrlKey && !e.metaKey && SHORTCUT[e.code]) {
+      eaten[e.code] = true; rcTap(SHORTCUT[e.code]); logLine('<b>Alt+' + esc(e.key.length === 1 ? e.key.toUpperCase() : e.key.replace('Arrow', '')) + '</b> → ' + NAME[SHORTCUT[e.code]]);
+      return;
+    }
+    if (phase === 'down' && (e.ctrlKey || e.metaKey) && !e.altKey && e.code === 'KeyV' && KBD !== 'dpc') {
+      eaten[e.code] = true; pasteClipboard(); return;
+    }
+    if (KBD === 'full') {
+      var altGr = e.getModifierState && e.getModifierState('AltGraph');
+      var plain = /^[a-zA-Z0-9 ]$/.test(e.key);
+      // Letters, digits and space go as keys (with Shift), so shortcuts and games see
+      // keys; other characters (symbols, accents, any layout) go as text, which the
+      // device types exactly whatever its own layout is.
+      if (phase === 'down' && printable(e) && !plain && (!(e.ctrlKey || e.metaKey || e.altKey) || altGr)) {
+        eaten[e.code] = true; sendText(e.key); return;
+      }
+    }
+    var kc = CODE[e.code];
+    if (KBD !== 'full' && phase === 'down' && SYMKEY[e.key]) { kc = SYMKEY[e.key]; }
+    if (!kc) return;
+    var meta = KBD === 'full' ? metaOf(e) : 0;
+    var rep = 0;
+    if (phase === 'down') { rep = e.repeat ? (repeats[e.code] = (repeats[e.code] || 0) + 1) : (repeats[e.code] = 0); }
+    send({ type: 'input_event', action: 'key', event: phase, keycode: kc, meta: meta, repeat: rep });
+    if (phase === 'down') pressed[e.code] = kc; else delete pressed[e.code];
+    if (phase === 'down' && !rep && (kc < 57 || kc > 60) && (kc < 113 || kc > 118)) {
+      var mods = (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + (e.metaKey ? 'Meta+' : '');
+      logLine('key <b>' + (KBD === 'full' ? mods : '') + (NAME[kc] || kc) + '</b>');
+    }
+  }
+  function sendText(text) {
+    if (!text || !live()) return;
+    if (KBD === 'full') {
+      send({ type: 'input_event', action: 'text', text: text });
+    } else {
+      // Older clients: one key per character they can type (a–z, 0–9, a few symbols).
+      for (var j = 0; j < text.length; j++) {
+        var c = text[j], kc = 0;
+        if (/[a-z]/i.test(c)) kc = 29 + c.toLowerCase().charCodeAt(0) - 97;
+        else if (/[0-9]/.test(c)) kc = 7 + c.charCodeAt(0) - 48;
+        else if (c === ' ') kc = 62; else if (c === '\n') kc = 66;
+        else kc = SYMKEY[c] || ({ '.': 56, ',': 55, '-': 69, '=': 70, '/': 76, ';': 74, "'": 75, '[': 71, ']': 72, '\\': 73, '`': 68 })[c] || 0;
+        if (kc) { send({ type: 'input_event', action: 'key', event: 'down', keycode: kc }); send({ type: 'input_event', action: 'key', event: 'up', keycode: kc }); }
+      }
+    }
+    logLine('text <b>"' + esc(text.length > 40 ? text.slice(0, 40) + '…' : text) + '"</b>');
+  }
+  function pasteClipboard() {
+    if (!navigator.clipboard || !navigator.clipboard.readText) { logLine('<span class="x">This browser does not let the page read the clipboard: use the Clipboard card.</span>'); return; }
+    navigator.clipboard.readText().then(function (t) {
+      if (!t) { logLine('<span class="x">Your clipboard is empty.</span>'); return; }
+      sendText(t);
+    }).catch(function () { logLine('<span class="x">Clipboard access was refused: use the Clipboard card.</span>'); });
+  }
+  function pointFor(e) {
+    if (!view) return null;
+    var rect = view.getBoundingClientRect(); if (!rect.width || !rect.height) return null;
+    return { x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)), y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)) };
   }
   function sendTouch(e, event) {
-    if (!ws || ws.readyState !== WebSocket.OPEN || !view) return;
-    var rect = view.getBoundingClientRect(); if (!rect.width || !rect.height) return;
-    var x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    var y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    ws.send(JSON.stringify({ type: 'input_event', action: 'touch', event: event, x: x, y: y }));
+    var p = pointFor(e); if (!p) return;
+    send({ type: 'input_event', action: 'touch', event: event, x: p.x, y: p.y });
   }
-  function sendKey(keycode, event) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: 'input_event', action: 'key', event: event, keycode: keycode }));
-  }
+  function sendKey(keycode, event) { send({ type: 'input_event', action: 'key', event: event, keycode: keycode }); }
 
   // ── Public handlers ──
   window.rcTap = function (keycode) { sendKey(keycode, 'down'); sendKey(keycode, 'up'); };
-  window.rcWake = function () { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wake_screen' })); };
+  window.rcWake = function () { send({ type: 'wake_screen' }); };
   window.rcSetCapture = function (on) {
+    if (captureKbd === on) return;
     captureKbd = on;
-    var kbd = $('rc-kbd'); if (kbd) kbd.checked = on;
-    $('rc-kbd-state').textContent = on ? 'capturing' : 'off';
-    var h = $('rc-kbd-hint'); h.className = 'rc-hint' + (on ? ' on' : '');
-    h.textContent = on ? 'Capturing: keys go to the device. Press Esc to stop.' : 'When on, keys you press are sent to the device. Esc turns it off.';
+    if (!on) {
+      // Let go of whatever is still held (the Shift of Shift+Esc), so the device is not
+      // left with a key down.
+      Object.keys(pressed).forEach(function (c) { sendKey(pressed[c], 'up'); });
+      eaten = {}; repeats = {}; pressed = {};
+    }
+    ['rc-kchip', 'rc-kchip2'].forEach(function (id) { var c = $(id); if (c) c.classList.toggle('on', on); });
+    $('rc-kchip-t').textContent = on ? 'Keyboard → device' : 'Keyboard: page';
+    $('rc-kchip2-t').textContent = on ? 'On the device' : 'Page';
+    var bz = $('rc-bezel'); if (bz) bz.classList.toggle('cap', on);
+    var n = $('rc-capnote'); if (n) n.className = 'rc-capnote' + (on ? '' : ' idle');
+    if (on) flashNote('Keyboard on the device · Shift+Esc to give it back');
+    logLine('<span class="x">— keyboard ' + (on ? 'to the device' : 'back to the page') + ' —</span>');
   };
   window.rcSendText = function () {
-    var input = $('rc-text'), text = input.value;
-    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
-    for (var i = 0; i < text.length; i++) { var kc = keycodeFor(text[i]); if (kc) { sendKey(kc, 'down'); sendKey(kc, 'up'); } }
+    var input = $('rc-text'); if (!input) return;
+    var text = input.value;
+    if (!text) return;
+    sendText(text);
     input.value = '';
   };
+  window.rcCopyFromDevice = function () { send({ type: 'clipboard_get' }); logLine('<span class="x">Asking the device for its clipboard…</span>'); };
+  function deviceText(msg) {
+    var m; try { m = JSON.parse(msg); } catch (e) { return; }
+    if (!m || m.type !== 'remote_clipboard') return;
+    var t = m.text || '';
+    var box = $('rc-text'); if (box) box.value = t;
+    if (!t) { logLine('<span class="x">The device clipboard is empty.</span>'); return; }
+    var done = function () { logLine('<span class="x">Device clipboard copied (' + t.length + ' characters).</span>'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { logLine('<span class="x">Device clipboard is in the box below: copy it from there.</span>'); });
+    else done();
+  }
   window.rcSetPaintMode = function (smooth) { paintMode = smooth ? 'perf' : 'feel'; };
   window.rcFullscreen = function () {
     var st = $('rc-stage');
     if (document.fullscreenElement) { document.exitFullscreen && document.exitFullscreen(); }
     else if (st.requestFullscreen) st.requestFullscreen();
   };
+  // In fullscreen, Chrome and Edge let a page take keys the browser would otherwise keep
+  // (Ctrl+W, Ctrl+T, Esc), so they reach the device too; holding Esc still leaves.
+  document.addEventListener('fullscreenchange', function () {
+    var kb = navigator.keyboard;
+    if (document.fullscreenElement) { if (kb && kb.lock) kb.lock().catch(function () {}); if (view) view.focus({ preventScroll: true }); }
+    else if (kb && kb.unlock) kb.unlock();
+  });
   window.rcSnapshot = function () {
     if (!view) return;
     try { var w = window.open(); if (w) { w.document.write('<title>' + serial + ' snapshot</title><img style="max-width:100%" src="' + view.toDataURL('image/png') + '">'); w.document.close(); } } catch (e) {}

@@ -644,7 +644,26 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		// Single-use, short-lived token instead of the admin API key (which must
 		// never reach the browser). The control WebSocket redeems it server-side.
 		"Token": h.remote.IssueToken(device.ID, 2*time.Minute),
+		"Kbd":   remoteKbdLevel(device),
 	})
+}
+
+// remoteKbdLevel says how much of a keyboard the remote page can give a device (R1,
+// 22 Oct 2026; user: "make remote control like scrcpy, so that keyboard nav and
+// keyboard keys work"):
+//
+//	full  firmware client 1.16.0+ (reports remote_input >= 2): keys with Shift/Ctrl/Alt,
+//	      repeat, a text event for any character, scroll, clipboard both ways
+//	keys  older firmware clients: plain keys only (no modifiers, a–z and 0–9 typing)
+//	dpc   the Standard client: Accessibility only, so arrows, Enter, Back, Home, Recents
+func remoteKbdLevel(d *db.Device) string {
+	if d.AgentKind == product.KindDPC {
+		return "dpc"
+	}
+	if extraInt64(d.LatestExtra, "remote_input") >= 2 {
+		return "full"
+	}
+	return "keys"
 }
 
 // DeviceRemoteToken mints a fresh single-use control-socket token for a remote page

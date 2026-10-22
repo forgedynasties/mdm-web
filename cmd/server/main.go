@@ -475,6 +475,8 @@ func main() {
 			}
 			// The venue is free for another scan now, rather than after scanTTL.
 			scoutSvc.ScanDone(context.Background(), deviceID)
+		case "remote_clipboard": // the device's clipboard, for its remote page (client 1.16.0)
+			remoteMgr.RelayText(deviceID, raw)
 		case "net_enroll_progress":
 			scoutSvc.IngestProgress(context.Background(), raw)
 		case "net_enroll_done":
