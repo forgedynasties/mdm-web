@@ -114,6 +114,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"OwnerVenues":    ownerVenues,
 		"UsersTab":       map[bool]string{true: "access", false: ""}[canManage],
 		"Assignable":     assignableRoles(h.role(r)),
+		"DisplayPrefs":   h.profileDisplay(r, viewingOther),
 	})
 }
 

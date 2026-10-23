@@ -39,7 +39,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["CurrentBubble"] = userBubbleFn(h.currentUsername(r))
 	}
 	data["Brand"] = h.cfg.CustomBrand()
-	data["Use24Hour"] = h.cfg.Use24Hour()
+	data["Use24Hour"] = h.effectiveDisplay(r).Use24
 	data["Version"] = version.Current()
 	// First-run walkthrough: only on full page loads (the tour lives in the
 	// non-boosted chrome), once per user.

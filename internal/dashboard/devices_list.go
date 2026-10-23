@@ -151,16 +151,16 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// 200, and 500 rows means thousands of DOM nodes (several inline SVGs per row)
 	// that measurably slow down the page's client-side render.
 	if v := r.URL.Query().Get("page_size"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 && n != h.cfg.PageSize() {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 && n != h.effectiveDisplay(r).PageSize {
 			h.cfg.SetPageSize(n)
 		}
 	}
-	pageSize := h.cfg.PageSize()
+	pageSize := h.effectiveDisplay(r).PageSize // the viewer's own, else the fleet default
 	q := r.URL.Query().Get("q")
 	sort := r.URL.Query().Get("sort")
 	dir := r.URL.Query().Get("dir")
 	if sort == "" {
-		sort = h.cfg.DefaultSort()
+		sort = h.effectiveDisplay(r).Sort
 		if dir == "" {
 			if sort == "last_seen" || sort == "created_at" {
 				dir = "desc"
@@ -537,8 +537,8 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Summary":              summary,
 		"Sort":                 sort,
 		"SortDir":              dir,
-		"DefaultSort":          h.cfg.DefaultSort(),
-		"DefaultSortDir":       defaultSortDir(h.cfg.DefaultSort()),
+		"DefaultSort":          h.effectiveDisplay(r).Sort,
+		"DefaultSortDir":       defaultSortDir(h.effectiveDisplay(r).Sort),
 		"Online":               online,
 		"Groups":               groups,
 		"Restaurants":          restaurants,
@@ -569,7 +569,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterHidden":         filter.Hidden,
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
-		"Density":              h.cfg.Density(),
+		"Density":              h.effectiveDisplay(r).Density,
 		"MapsEmbedKey":         h.mapsEmbedKey,
 	}
 

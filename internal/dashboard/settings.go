@@ -137,7 +137,7 @@ func (h *Handler) settingsData(r *http.Request) map[string]any {
 		"PageSize":                   h.cfg.PageSize(),
 		"DefaultSort":                h.cfg.DefaultSort(),
 		"Density":                    h.cfg.Density(),
-		"Use24Hour":                  h.cfg.Use24Hour(),
+		"FleetUse24":                 h.cfg.Use24Hour(), // render sets Use24Hour to the viewer's own
 		"AlertWebhookSet":            h.cfg.AlertWebhookURL() != "",
 		"AlertRules":                 h.buildAlertRuleViews(r.Context()),
 		"FleetWindow":                fleetWindow,

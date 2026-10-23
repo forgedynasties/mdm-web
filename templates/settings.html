@@ -30,7 +30,7 @@
   <!-- ── General — dashboard defaults, sessions ── -->
   <section class="settings-tab" data-tab="general">
 <div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h2>Dashboard</h2></div>
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h2>Fleet defaults</h2><span class="m">each person can change theirs in <a href="/profile#display">My profile</a></span></div>
   <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">
     <div class="form-group">
       <label for="set-page-size">Devices per page</label>
@@ -58,14 +58,13 @@
     <div class="form-group">
       <label for="set-time-format">Time format</label>
       <select name="time_format" id="set-time-format" class="form-input">
-        <option value="12" {{if not .Use24Hour}}selected{{end}}>12-hour (AM/PM)</option>
-        <option value="24" {{if .Use24Hour}}selected{{end}}>24-hour</option>
+        <option value="12" {{if not .FleetUse24}}selected{{end}}>12-hour (AM/PM)</option>
+        <option value="24" {{if .FleetUse24}}selected{{end}}>24-hour</option>
       </select>
     </div>
     <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>
 </div>
-<div class="s1-moved">Session length and “Log out all” moved to <a href="/settings#people">People &amp; sign-in</a>.</div>
 
   </section>
 

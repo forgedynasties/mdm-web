@@ -419,6 +419,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
 	mux.HandleFunc("GET /maintenance", h.MaintenancePage)
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
+	post("POST /profile/display", h.requireAuth(h.ProfileDisplaySave))
 	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
 	post("POST /settings/ota-support", h.requireStrictAdmin(h.SettingsSetOTASupport))
 	post("POST /settings/mdm-servers", h.requireStrictAdmin(h.SettingsSetMDMServers))

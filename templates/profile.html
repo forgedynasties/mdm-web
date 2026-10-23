@@ -98,6 +98,34 @@
   </div>
   {{end}}
 
+  {{with .DisplayPrefs}}
+  <div class="cc-card" id="display" style="max-width:560px;margin-bottom:16px;">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h2>Display</h2><span class="m">only for you</span></div>
+    <form action="/profile/display" method="POST" class="pf-list">
+      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Devices per page</span>
+        <input type="number" name="page_size" class="form-input" value="{{.PageSize}}" min="1" max="200" step="1" placeholder="Fleet default ({{.FleetPageSize}})" style="width:200px;"></label>
+      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Default sort</span>
+        <select name="default_sort" class="form-input" style="width:200px;">
+          <option value="">Fleet default ({{.FleetSort}})</option>
+          {{$cur := .Sort}}{{$l := .SortLabels}}{{range .Sorts}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{index $l .}}</option>{{end}}
+        </select></label>
+      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Table density</span>
+        <select name="density" class="form-input" style="width:200px;">
+          <option value="">Fleet default ({{.FleetDensity}})</option>
+          <option value="comfortable"{{if eq .Density "comfortable"}} selected{{end}}>Comfortable</option>
+          <option value="compact"{{if eq .Density "compact"}} selected{{end}}>Compact</option>
+        </select></label>
+      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Time format</span>
+        <select name="time_format" class="form-input" style="width:200px;">
+          <option value="">Fleet default ({{.FleetTime}})</option>
+          <option value="12"{{if eq .Time "12"}} selected{{end}}>12-hour (AM/PM)</option>
+          <option value="24"{{if eq .Time "24"}} selected{{end}}>24-hour</option>
+        </select></label>
+      <div class="pf-row"><button type="submit" class="cc-btn sm primary">Save</button></div>
+    </form>
+  </div>
+  {{end}}
+
   {{if .OwnerSelf}}
   <div class="cc-card" style="max-width:560px;">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span><h2>Your restaurant{{if gt (len .OwnerVenues) 1}}s{{end}}</h2></div>
