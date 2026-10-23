@@ -378,6 +378,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data["AutoEnroll"], _ = h.db.RestaurantAutoEnroll(r.Context(), id)
+	data["HostApp"] = h.venueHostAppView(r.Context(), id, devices)
 	data["Updates"] = h.venueUpdatesView(r.Context(), id, win, rest.Timezone, time.Now())
 	data["Lost"] = h.venueLostView(r.Context(), id, rest.Timezone, time.Now())
 	data["P1"] = h.venueP1(r, rest, devices, online, stale, win, data["StaffPIN"], data["Updates"].(venueUpdatesView), data["Lost"].(venueLostView))

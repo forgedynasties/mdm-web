@@ -61,6 +61,7 @@ type luAppsPane struct {
 	Newer      string // a prod version in the field newer than the library build
 	NewerN     int
 	Versions   []luAppVersion
+	Overrides  []luAppOverride
 	StateF     string
 	Venues     []string
 	VenueF     string
@@ -90,10 +91,18 @@ func luAppHref(role, state, venue string) string {
 
 type luAppOpt struct{ Key, Label string }
 
+// luAppOverride is a venue whose units get a variant instead of prod (Venue settings ›
+// Host app).
+type luAppOverride struct {
+	Venue, VenueID, Package, Build string
+	N                              int
+}
+
 type luAppsInputs struct {
 	Roles      []string // product classes, in order
 	RoleApps   []db.RoleApp
-	Lib        map[string]*db.App // base → newest library build
+	Lib        map[string]*db.App   // package → newest library build (prod and venue variants)
+	Target     map[uuid.UUID]string // device → its host app package (venue channel applied)
 	Devices    []db.Device
 	Installed  map[uuid.UUID]map[string]string // family packages per device
 	Missing    map[string]map[uuid.UUID]bool   // base → devices that reported apps and lack it
@@ -112,13 +121,17 @@ var luAppStateLabels = []luAppOpt{{"", "All"}, {"failed", "Failed"}, {"run", "In
 	{"off", "Offline"}, {"hold", "Not sent"}, {"unknown", "No app list"}, {"ok", "On prod"}}
 
 // luDeviceState is where one unit is with its prod app.
-func luDeviceState(d *db.Device, base string, has map[string]string, missing bool, ins *db.InstallState,
+func luDeviceState(d *db.Device, base, target string, has map[string]string, missing bool, ins *db.InstallState,
 	build *db.App, auto bool, seenWithin time.Duration, now time.Time) (key, word, detail string, pct int, bar bool) {
-	if v, ok := has[base]; ok {
+	name := "prod"
+	if target != base {
+		name = strings.TrimPrefix(target, base)
+	}
+	if v, ok := has[target]; ok {
 		if v == "" {
 			v = "version not reported"
 		}
-		return "ok", "On prod", v, 0, false
+		return "ok", "On " + name, v, 0, false
 	}
 	online := now.Sub(d.LastSeenAt) <= seenWithin
 	if ins != nil && build != nil {
@@ -147,7 +160,13 @@ func luDeviceState(d *db.Device, base string, has map[string]string, missing boo
 				why = "no reason reported"
 			}
 			retry := ins.SentAt.Add(roleAppInstallRetry)
+			if transientInstall(strings.TrimSpace(ins.Output)) {
+				retry = ins.UpdatedAt.Add(roleAppInstallRetrySoon)
+			}
 			when := "retries " + retry.Format("15:04")
+			if !retry.After(now) {
+				when = "retries within a minute"
+			}
 			if !auto {
 				when = "auto-install is off"
 			}
@@ -158,7 +177,7 @@ func luDeviceState(d *db.Device, base string, has map[string]string, missing boo
 	case !missing:
 		return "unknown", "No app list", "it hasn't reported its installed apps", 0, false
 	case build == nil:
-		return "hold", "No build to send", "no prod build in the library", 0, false
+		return "hold", "No build to send", "no " + name + " build in the library", 0, false
 	case !auto:
 		return "hold", "Not sent", "auto-install is off", 0, false
 	case !d.Supports("install_apk"):
@@ -183,7 +202,7 @@ func familyOf(base string, pkgs map[string]string) map[string]string {
 
 // luHasNow is what a unit runs of the family other than the prod package, shortest form.
 func luHasNow(base string, has map[string]string) string {
-	if v, ok := has[base]; ok {
+	if v, ok := has[base]; ok && len(has) == 1 {
 		return v
 	}
 	var out []string
@@ -240,6 +259,7 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 		if build != nil {
 			c.Build = build.VersionName
 		}
+		over := map[string]*luAppOverride{}
 		c.On = role == sel
 		var rows []luAppRow
 		counts := map[string]int{}
@@ -253,7 +273,23 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 			if s, ok := in.Installs[d.ID]; ok {
 				ins = &s
 			}
-			key, word, detail, pct, bar := luDeviceState(d, base, has, in.Missing[base][d.ID], ins, build, auto, in.SeenWithin, in.Now)
+			target := in.Target[d.ID]
+			if target == "" {
+				target = base
+			}
+			tb := in.Lib[target]
+			if target != base && d.RestaurantID != nil {
+				o := over[d.RestaurantID.String()]
+				if o == nil {
+					o = &luAppOverride{Venue: in.Venues[*d.RestaurantID], VenueID: d.RestaurantID.String(), Package: target}
+					if tb != nil {
+						o.Build = tb.VersionName
+					}
+					over[o.VenueID] = o
+				}
+				o.N++
+			}
+			key, word, detail, pct, bar := luDeviceState(d, base, target, has, in.Missing[target][d.ID], ins, tb, auto, in.SeenWithin, in.Now)
 			counts[key]++
 			if key != "ok" && key != "run" && len(has) > 0 {
 				variant++
@@ -268,7 +304,7 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 				if ins != nil {
 					r.CommandID = ins.CommandID.String()
 				}
-				r.Retry = key == "failed" && build != nil
+				r.Retry = key == "failed" && tb != nil
 				rows = append(rows, r)
 			}
 		}
@@ -300,6 +336,11 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 			continue
 		}
 		p := &luAppsPane{Card: c, Counts: counts, Build: build, StateF: in.StateF, VenueF: in.VenueF}
+		for _, o := range over {
+			o.Package = strings.TrimPrefix(o.Package, base)
+			p.Overrides = append(p.Overrides, *o)
+		}
+		sort.Slice(p.Overrides, func(i, j int) bool { return p.Overrides[i].Venue < p.Overrides[j].Venue })
 		if c.Total > 0 {
 			p.Pct = c.OnProd * 100 / c.Total
 			p.PctAfter = (c.OnProd + c.Running) * 100 / c.Total
@@ -412,20 +453,29 @@ func (h *Handler) lineupApps(r *http.Request, library []db.App, devices []db.Dev
 			baseList = append(baseList, a.BasePackage)
 		}
 	}
-	lib := newestProdBuilds(library, bases)
+	venueCh, _ := h.db.VenueHostChannels(ctx)
+	target := deviceTargets(devices, bases, venueCh)
+	want := map[string]bool{}
+	for _, b := range bases {
+		want[b] = true
+	}
+	for _, t := range target {
+		want[t] = true
+	}
+	lib := newestBuilds(library, want)
 	installed, _ := h.db.FamilyVersions(ctx, baseList)
-	byBase := map[string][]uuid.UUID{}
+	byPkg := map[string][]uuid.UUID{}
 	var ids []uuid.UUID
 	for i := range devices {
 		d := &devices[i]
-		if b := bases[d.Class()]; b != "" && !d.Hidden && !d.Retired() {
-			byBase[b] = append(byBase[b], d.ID)
+		if t := target[d.ID]; t != "" && !d.Hidden && !d.Retired() {
+			byPkg[t] = append(byPkg[t], d.ID)
 			ids = append(ids, d.ID)
 		}
 	}
 	missing := map[string]map[uuid.UUID]bool{}
-	for b, bids := range byBase {
-		missing[b], _ = h.db.DevicesWithoutPackage(ctx, bids, b)
+	for pkg, pids := range byPkg {
+		missing[pkg], _ = h.db.DevicesWithoutPackage(ctx, pids, pkg)
 	}
 	var urls []string
 	for _, a := range lib {
@@ -449,7 +499,7 @@ func (h *Handler) lineupApps(r *http.Request, library []db.App, devices []db.Dev
 	}
 	q := r.URL.Query()
 	return buildLineupApps(luAppsInputs{
-		Roles: roles, RoleApps: roleApps, Lib: lib, Devices: devices, Installed: installed, Missing: missing,
+		Roles: roles, RoleApps: roleApps, Lib: lib, Target: target, Devices: devices, Installed: installed, Missing: missing,
 		Installs: installs, Venues: venues, Selected: strings.TrimSpace(q.Get("app")),
 		StateF: strings.TrimSpace(q.Get("state")), VenueF: strings.TrimSpace(q.Get("venue")),
 		SeenWithin: time.Duration(h.cfg.CheckinInterval()*roleAppSeenFactor) * time.Second, Now: time.Now(),
@@ -509,11 +559,16 @@ func (h *Handler) LineupAppRetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role := d.Class()
-	bases := h.db.RoleAppBases(ctx)
+	ch := ""
+	if d.RestaurantID != nil {
+		vc, _ := h.db.VenueHostChannels(ctx)
+		ch = vc[*d.RestaurantID]
+	}
+	pkg := hostAppTarget(h.db.RoleAppBases(ctx)[role], ch)
 	library, _ := h.db.ListApps(ctx)
-	build := newestProdBuilds(library, bases)[bases[role]]
+	build := newestBuilds(library, map[string]bool{pkg: true})[pkg]
 	if build == nil {
-		http.Error(w, "No prod build in the library", http.StatusConflict)
+		http.Error(w, "No build of "+pkg+" in the library", http.StatusConflict)
 		return
 	}
 	if err := h.queueAppInstall(ctx, d, build, h.currentUsername(r)); err != nil {

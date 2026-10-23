@@ -160,6 +160,7 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 	if err != nil {
 		return nil, nil, err
 	}
+	venueCh, _ := h.db.VenueHostChannels(ctx)
 	// place fills in what a device locks to under its rule.
 	place := func(k *kioskDevice) {
 		if k.Rule.KioskPackage != "" {
@@ -167,7 +168,11 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 			k.HasApp = installed[k.Dev.ID][k.Package]
 			return
 		}
-		k.Package = lockPackageFor(k.Dev, bases[k.Dev.Class()], fam[k.Dev.ID], k.State)
+		want := ""
+		if k.Dev.RestaurantID != nil {
+			want = hostAppTarget(bases[k.Dev.Class()], venueCh[*k.Dev.RestaurantID])
+		}
+		k.Package = lockPackageFor(k.Dev, bases[k.Dev.Class()], want, fam[k.Dev.ID], k.State)
 		k.HasApp = k.Package != ""
 	}
 	online := h.hub.ConnectedIDsForDisplay()
@@ -274,9 +279,16 @@ func (h *Handler) reconcileKiosk(ctx context.Context) int {
 // it is already locked to, if that is still installed, so the choice never flips back
 // and forth; else the build on screen; else prod; else the first by name. "" when the
 // role has no app or none of it is installed.
-func lockPackageFor(d db.Device, base string, installed map[string]string, st db.KioskState) string {
+func lockPackageFor(d db.Device, base, want string, installed map[string]string, st db.KioskState) string {
 	if base == "" || len(installed) == 0 {
 		return ""
+	}
+	// The variant the device's venue chose (Venue settings › Host app, V1 23 Oct 2026)
+	// wins once it is installed: setting a venue to UAT means its devices run UAT.
+	if want != "" && want != base && inFamily(base, want) {
+		if _, ok := installed[want]; ok {
+			return want
+		}
 	}
 	if st.Enabled && inFamily(base, st.Package) {
 		if _, ok := installed[st.Package]; ok {

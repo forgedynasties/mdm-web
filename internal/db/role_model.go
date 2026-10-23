@@ -746,9 +746,15 @@ func (d *DB) DevicesWithoutPackage(ctx context.Context, ids []uuid.UUID, pkg str
 	return out, rows.Err()
 }
 
+// TransientInstallSQL matches a failed install's result that is worth trying again soon:
+// the download was cut (server restarted, Wi-Fi dropped), the server answered 5xx, or the
+// stall sweep failed it with no word from the device.
+const TransientInstallSQL = `(COALESCE(cr.output, '') = '' OR cr.output ~* '(unexpected end of stream|ProtocolException|SocketException|SocketTimeout|timeout|connection reset|HTTP 5[0-9][0-9])')`
+
 // RecentInstallsOf returns the devices sent an install of one of these APKs within the
-// window, whatever became of it.
-func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string, within time.Duration) (map[uuid.UUID]bool, error) {
+// window, whatever became of it, except a transient failure (TransientInstallSQL) older
+// than retrySoon: that one may be tried again.
+func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string, within, retrySoon time.Duration) (map[uuid.UUID]bool, error) {
 	out := map[uuid.UUID]bool{}
 	if len(ids) == 0 || len(urls) == 0 {
 		return out, nil
@@ -757,10 +763,14 @@ func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []strin
 		SELECT DISTINCT ct.target_id
 		FROM commands c
 		JOIN command_targets ct ON ct.command_id = c.id
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
+		LEFT JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = ct.target_id
 		WHERE c.type = 'install_apk'
 		  AND ct.target_id = ANY($1)
 		  AND c.apk_url = ANY($2)
-		  AND c.created_at > now() - make_interval(secs => $3)`, ids, urls, within.Seconds())
+		  AND c.created_at > now() - make_interval(secs => $3)
+		  AND NOT (cs.status = 'failed' AND `+TransientInstallSQL+`
+		           AND cs.updated_at <= now() - make_interval(secs => $4))`, ids, urls, within.Seconds(), retrySoon.Seconds())
 	if err != nil {
 		return nil, err
 	}

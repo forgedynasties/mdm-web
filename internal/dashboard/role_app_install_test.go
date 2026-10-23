@@ -34,8 +34,24 @@ func TestRoleAppInstallPick(t *testing.T) {
 	}
 	missing := map[string]map[uuid.UUID]bool{"aio.app.nugget": {devs[0].ID: true, devs[2].ID: true, devs[3].ID: true}}
 	skip := map[uuid.UUID]bool{devs[3].ID: true}
-	got := pickRoleAppInstalls(devs, bases, lib, missing, skip, 3*time.Minute, now)
+	got := pickRoleAppInstalls(devs, deviceTargets(devs, bases, nil), lib, missing, skip, 3*time.Minute, now)
 	if len(got) != 1 || got[0].Device.SerialNumber != "MISSING" || got[0].App.ApkURL != "u17" {
 		t.Fatalf("picked = %+v", got)
+	}
+	// A venue on the UAT channel: its unit needs .uatv2, from the library's .uatv2 build.
+	venue := uuid.New()
+	devs[0].RestaurantID = &venue
+	target := deviceTargets(devs, bases, map[uuid.UUID]string{venue: "uatv2"})
+	if target[devs[0].ID] != "aio.app.nugget.uatv2" || target[devs[1].ID] != "aio.app.nugget" {
+		t.Fatalf("targets = %v", target)
+	}
+	lib2 := newestBuilds([]db.App{{PackageName: "aio.app.nugget.uatv2", VersionName: "48.0.0-uatv2", ApkURL: "uat", CreatedAt: now}}, map[string]bool{"aio.app.nugget.uatv2": true})
+	got = pickRoleAppInstalls(devs, target, lib2, map[string]map[uuid.UUID]bool{"aio.app.nugget.uatv2": {devs[0].ID: true}}, nil, 3*time.Minute, now)
+	if len(got) != 1 || got[0].App.ApkURL != "uat" {
+		t.Fatalf("uat pick = %+v", got)
+	}
+	if !transientInstall("error: ProtocolException: unexpected end of stream") || !transientInstall("error: IOException: HTTP 503") ||
+		!transientInstall("") || transientInstall("error: INSTALL_FAILED_UPDATE_INCOMPATIBLE") {
+		t.Error("transientInstall")
 	}
 }

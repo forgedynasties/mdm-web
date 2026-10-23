@@ -183,6 +183,39 @@
   </div>
 </details>
 
+{{/* Host app (V1, 23 Oct 2026): which variant of each product's app lands here; prod
+     by default. venue_host_app.go */}}
+{{with .HostApp}}{{if .Total}}
+<details class="vs-row" name="vn-set" id="vn-hostapp"{{if eq $.Open "hostapp"}} open{{end}}>
+  <summary><span class="vs-k">Host app</span><span class="vs-v"><span>{{.Label}}{{if .Channel}} <small>(.{{.Channel}}) · overrides prod</small>{{else}} <small>· default</small>{{end}}</span>{{if and .Missing .NoBuild}}<span class="cc-tag warn">no build</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">Which build of each product's app lands on units here that don't have it, and what Lock locks them to once it is installed. Nothing is uninstalled.</div>
+  {{if $can}}
+  <form class="vn-form vn-hosta" action="/restaurants/{{$r.ID}}/host-app" method="POST">
+    {{$t := .Total}}{{range .Opts}}
+    <label class="vn-hopt{{if .On}} on{{end}}"><input type="radio" name="channel" value="{{.Key}}"{{if .On}} checked{{end}}>
+      <span><b>{{.Label}}</b>{{if .Key}} <code>.{{.Key}}</code>{{else}} <small>· default</small>{{end}}{{with .NoBuild}}<small class="warn">no build in the library for {{range $i, $p := .}}{{if $i}}, {{end}}{{$p}}{{end}}</small>{{end}}</span>
+      <span class="n">{{.Have}} of {{$t}} have it</span></label>
+    {{end}}
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{else}}<div class="vs-note">{{.Label}}{{if .Channel}} (.{{.Channel}}){{end}}.</div>{{end}}
+  {{if and .Missing .NoBuild}}<div class="vs-note" style="color:var(--warn)">{{.Missing}} unit{{if ne .Missing 1}}s{{end}} here get nothing until a build is uploaded: <a href="/lineup?view=apps">Lineup › Apps</a>.</div>{{end}}
+  </div>
+</details>
+<style>
+  .vn-hosta { display: grid; gap: 8px; }
+  .vn-hopt { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 13px; cursor: pointer; }
+  .vn-hopt.on, .vn-hopt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .vn-hopt input { margin-top: 2px; accent-color: var(--accent); }
+  .vn-hopt > span:nth-of-type(1) { flex: 1; min-width: 0; }
+  .vn-hopt small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .vn-hopt small.warn { color: var(--warn); }
+  .vn-hopt code { font-size: 12px; color: var(--text-2); }
+  .vn-hopt .n { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+</style>
+{{end}}{{end}}
+
 {{/* Device lock, where the business thinks about it: what the rule says and what the
      devices are actually doing, side by side. */}}
 {{with .Kiosk}}

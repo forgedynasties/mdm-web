@@ -588,7 +588,7 @@
 {{with .AppsPane}}{{$p := .}}
 <div class="lua-pane">
   <div class="oc-card lua-list">
-    <div class="lua-lh"><h2>{{.Card.Label}} · prod app installs</h2>
+    <div class="lua-lh"><h2>{{.Card.Label}} · host app installs</h2>
       <div class="oc-bar lua-f" role="group" aria-label="Filter the units">
         <div class="oc-f"><button class="oc-fb{{if .StateF}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">State: <b>{{.StateLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
           <div class="cc-menu" hidden>{{range .StateLinks}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}" hx-get="{{.Href}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true">{{.Label}}</a>{{end}}</div></div>
@@ -599,7 +599,7 @@
     <div class="lua-legend"><span class="p">On prod {{.Card.OnProd}}</span><span class="g">Installing {{.Card.Running}}</span>{{with index .Counts "failed"}}<span class="f">Failed {{.}}</span>{{end}}{{with index .Counts "off"}}<span class="o">Offline {{.}}</span>{{end}}{{with index .Counts "unknown"}}<span class="n">No app list {{.}}</span>{{end}}</div>
     {{if .Card.Base}}
     <table class="ft lua-t">
-      <thead><tr><th>Device</th><th>Venue</th><th>Has now</th><th>Prod app</th><th></th></tr></thead>
+      <thead><tr><th>Device</th><th>Venue</th><th>Has now</th><th>Host app</th><th></th></tr></thead>
       <tbody>
       {{range .Rows}}
       <tr><td><a href="/devices/{{.Serial}}">{{.Serial}}</a></td><td>{{.Venue}}</td><td><code>{{.Has}}</code></td>
@@ -634,7 +634,8 @@
       <div class="lua-kv"><span>Goes out</span>{{with .Build}}<span><b>{{.VersionName}}</b> <small class="pl-faint">uploaded {{.CreatedAt.Format "2 Jan"}}</small></span>{{else}}<span class="warn">no build in the library</span>{{end}}</div>
       {{if .Newer}}<div class="lua-kv warn"><span>{{.NewerN}} unit{{if ne .NewerN 1}}s{{end}} already run {{.Newer}}</span><a class="cc-btn" href="/apps/{{.Card.Base}}">Upload {{.Newer}}</a></div>
       {{else if not .Build}}<div class="lua-kv"><span></span><a class="cc-btn" href="/apps/{{.Card.Base}}">Upload a build</a></div>{{end}}
-      <p class="pl-faint">Units without <code>{{.Card.Base}}</code> get this build, at a venue or not. Nothing is upgraded or removed. Lock locks to this app.</p>
+      {{range .Overrides}}<div class="lua-kv"><span>{{if .Venue}}<a href="/restaurants/{{.VenueID}}?open=hostapp#vn-hostapp">{{.Venue}}</a>{{else}}A venue{{end}} lands <code>{{.Package}}</code></span>{{if .Build}}<span>{{.Build}} · {{.N}} unit{{if ne .N 1}}s{{end}}</span>{{else}}<span class="warn">no build · {{.N}} unit{{if ne .N 1}}s{{end}}</span>{{end}}</div>{{end}}
+      <p class="pl-faint">Units without their host app get it: <code>{{.Card.Base}}</code>, or the variant their venue chose (Venue settings › Host app). At a venue or not; nothing is upgraded or removed.</p>
       {{end}}
     </div>
     {{if .Versions}}

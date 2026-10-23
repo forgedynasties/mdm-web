@@ -208,6 +208,14 @@
   </div>
   <div class="cc-actions">
     {{if and (ne $dep.Status "canceled") (canOTA .Role)}}<button type="button" class="cc-btn primary" onclick="dplOpen('dpl-push-modal')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Push to more devices</button>{{end}}
+    {{/* User, 23 Oct 2026: "need reboot all button on update page". Reboots every device
+         that installed the update and waits for its reboot, whatever the reboot setting. */}}
+    {{if and .Rebootable (canOperate .Role)}}
+    <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/reboot-all" method="POST" hx-boost="true" style="display:inline;"
+          hx-confirm="Reboot all {{.Rebootable}} device(s) that installed the update now, to apply it?">
+      <button type="submit" class="cc-btn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>Reboot all ({{.Rebootable}})</button>
+    </form>
+    {{end}}
     {{if and (eq $dep.Status "active") (canOperate .Role)}}
     <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" hx-boost="true" style="display:inline;"
           hx-confirm="Cancel this deployment? Devices that have not started yet will be skipped; devices already updating will finish.">

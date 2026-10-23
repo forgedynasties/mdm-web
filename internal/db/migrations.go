@@ -2093,6 +2093,9 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS auto_enroll BOOLEAN NOT NULL DE
 -- self-lock here (self_lock_minutes is kept for when it ends). lost_paused_until NULL with
 -- lost_paused = until resumed.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_paused BOOLEAN NOT NULL DEFAULT FALSE;
+-- Host app channel per venue (V1, 23 Oct): '' = prod; else the variant suffix every
+-- product's app lands as here (uatv2 → aio.app.nugget.uatv2).
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS host_app_channel TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_paused_until TIMESTAMPTZ;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_set_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_set_at TIMESTAMPTZ;

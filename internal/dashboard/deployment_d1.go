@@ -419,8 +419,12 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	} else if n > 1 {
 		todos = append(todos, dp1Todo{Title: strconv.Itoa(n) + " devices failed", Sub: "Retry each from the table, or with the full image", Action: "See them", Href: "#dp1-devices"})
 	}
-	if n := v.Counts["reboot"]; n > 0 && in.Dep.RebootBehavior == "manual" && in.Rebootable > 0 {
-		t := dp1Todo{Title: dp1Plural(n, "device has", "devices have") + " the update, waiting for a reboot", Sub: "This rollout reboots by hand", Action: "See them", Href: "#dp1-devices"}
+	if n := v.Counts["reboot"]; n > 0 && in.Rebootable > 0 && in.Dep.RebootBehavior != "immediate" {
+		sub := "This rollout reboots by hand"
+		if in.Dep.RebootBehavior == "scheduled" {
+			sub = "They reboot at the scheduled time, or now"
+		}
+		t := dp1Todo{Title: dp1Plural(n, "device has", "devices have") + " the update, waiting for a reboot", Sub: sub, Action: "See them", Href: "#dp1-devices"}
 		if in.CanOperate {
 			t.Action, t.Href, t.Post = "Reboot all", "", in.Base+"/reboot-all"
 			t.Confirm = "Reboot all " + strconv.Itoa(in.Rebootable) + " installed device(s) now to apply the update?"

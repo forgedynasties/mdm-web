@@ -47,7 +47,7 @@ func luAppsSample(now time.Time) luAppsInputs {
 		Installs: map[uuid.UUID]db.InstallState{
 			devs[1].ID: {CommandID: uuid.New(), Status: "downloading", Progress: &pct, SentAt: now.Add(-8 * time.Minute)},
 			devs[2].ID: {CommandID: uuid.New(), Status: "failed", Output: "error: ProtocolException: unexpected end of stream",
-				SentAt: time.Date(2026, 10, 23, 7, 19, 0, 0, time.UTC)},
+				SentAt: time.Date(2026, 10, 23, 11, 20, 0, 0, time.UTC), UpdatedAt: time.Date(2026, 10, 23, 11, 50, 0, 0, time.UTC)},
 		},
 		Venues:     map[uuid.UUID]string{venue: "Flights Vegas"},
 		SeenWithin: 3 * time.Minute, Now: now,
@@ -78,7 +78,7 @@ func TestLineupAppsBuilder(t *testing.T) {
 			t.Errorf("row %d = %+v, want %v", i, r, w)
 		}
 	}
-	if r := p.Rows[0]; r.Detail != "ProtocolException: unexpected end of stream · retries 13:19" || !r.Retry {
+	if r := p.Rows[0]; r.Detail != "ProtocolException: unexpected end of stream · retries 12:05" || !r.Retry {
 		t.Errorf("failed row = %+v", r)
 	}
 	if r := p.Rows[3]; r.Has != ".stagev2 20.0.0-stagev2, .uatv2 48.0.0-uatv2" {
@@ -118,7 +118,7 @@ func TestLineupAppsRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, w := range []string{`aria-current="page">Apps <i>1 no build</i></a>`, `class="lua-c on"`, `aio.app.nugget · 17.0.0`,
-		`Upload a build to install on 1`, `Tableside AI · prod app installs`, `action="/products/role-app-retry"`,
+		`Upload a build to install on 1`, `Tableside AI · host app installs`, `action="/products/role-app-retry"`,
 		`Downloading 41%`, `Auto-install on`, `1 unit already run 18.0.0`, `href="/apps/aio.app.nugget">Upload 18.0.0</a>`,
 		`--a:16;--b:33`, `State: <b>All</b>`, `href="/lineup?app=t7&amp;state=failed&amp;view=apps"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
 		if !strings.Contains(out, w) {

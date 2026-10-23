@@ -425,7 +425,7 @@ func (h *Handler) ManagePolicyPreview(w http.ResponseWriter, r *http.Request) {
 			cant++
 		case pkg != "" && !installed[k.Dev.ID][pkg]:
 			missing++
-		case pkg == "" && lockPackageFor(k.Dev, bases[k.Dev.Class()], fam[k.Dev.ID], k.State) == "":
+		case pkg == "" && lockPackageFor(k.Dev, bases[k.Dev.Class()], "", fam[k.Dev.ID], k.State) == "":
 			missing++
 		default:
 			lock++
