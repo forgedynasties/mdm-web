@@ -130,9 +130,9 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
     <a class="ro-run-r{{if eq .State "done"}} done{{end}}" href="{{.URL}}">
       <span class="ro-st {{.State}}"><i></i>{{if eq .State "look"}}Needs a look{{else if eq .State "run"}}Installing{{else if eq .State "wait"}}Waiting{{else}}Finished{{end}}</span>
       <span class="mono">{{.Version}} · #{{.ID}}</span>
-      <span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.NotBack}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span>
+      <span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.Trouble}}"></i><i class="g" style="flex:{{.Moving}}"></i><i style="flex:{{.Pending}}"></i></span>
       <span class="ro-n"><b>{{.Installed}}</b> of {{.Total}}</span>
-      <span class="ro-note{{if or .Failed .NotBack}} bad{{end}}">{{.Note}}</span>
+      <span class="ro-note{{if or .Failed .Trouble}} bad{{end}}">{{.Note}}</span>
       <span class="cc-btn sm">Open</span>
     </a>
     {{end}}
@@ -262,8 +262,8 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
         {{range $.Rollouts}}
         <tr><td><a href="{{.URL}}">#{{.ID}}</a>{{if .Legacy}} <span class="cc-tag" title="Includes devices on the legacy (otautil) path">legacy</span>{{end}}</td>
           <td>{{shortDate .CreatedAt}}{{if .CreatedBy}} · {{.CreatedBy}}{{end}}</td>
-          <td><span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.NotBack}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span></td>
-          <td>{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .NotBack}} · <span class="ro-bad">{{.NotBack}} not back from reboot</span>{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</td>
+          <td><span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.Trouble}}"></i><i class="g" style="flex:{{.Moving}}"></i><i style="flex:{{.Pending}}"></i></span></td>
+          <td>{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Stuck}} · <span class="ro-bad">{{.Stuck}} stuck</span>{{end}}{{if .NotBack}} · <span class="ro-bad">{{.NotBack}} not back from reboot</span>{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</td>
           <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}updating{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
         {{end}}
       </table>

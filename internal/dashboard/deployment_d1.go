@@ -277,10 +277,12 @@ func buildDeployD1(in dp1Inputs) dp1View {
 				r.Detail = "went offline " + dp1Ago(now, t.LastSeenAt) + at + " · retries when it is back"
 				r.Remove = true
 			case now.Sub(last) > 30*time.Minute:
-				r.Key, r.Tone, r.RetryStalled, r.Open, r.LookOf = "look", "warn", true, true, "dl"
+				// Retry is the row's button (user, 23 Oct 2026: a stuck row "should have a
+				// retry option"); the serial still links to the device.
+				r.Key, r.Tone, r.RetryStalled, r.LookOf = "look", "warn", true, "dl"
 				r.Word, r.Detail = "Download stopped", "nothing for "+dp1Mins(now.Sub(last))+" while the device stayed online"
 			case hasP && !p.AdvancedAt.IsZero() && now.Sub(p.AdvancedAt) > 15*time.Minute:
-				r.Key, r.Tone, r.Open, r.LookOf = "look", "warn", true, "dl"
+				r.Key, r.Tone, r.RetryStalled, r.LookOf = "look", "warn", true, "dl"
 				r.Word = "Stuck at " + strconv.Itoa(p.Percent) + "%"
 				r.Detail = "still reporting, not moving for " + dp1Mins(now.Sub(p.AdvancedAt))
 			}

@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -36,7 +37,15 @@ type rolloutView struct {
 	// installed (user, 23 Oct 2026: #422 read "26 of 26 all installed" with one tablet that
 	// never came back from its reboot).
 	NotBack int
+	// Stuck: of Installing, downloads still reporting but not moving for 15 minutes, or
+	// silent for 30 while the device stays online (the deployment page's "Stuck at N%" /
+	// "Download stopped"; user, 23 Oct 2026: "stuck should also be relayed").
+	Stuck int
 }
+
+// Moving is what is installing and not stuck; Trouble is stuck plus not back.
+func (v rolloutView) Moving() int  { return v.Installing - v.Stuck }
+func (v rolloutView) Trouble() int { return v.NotBack + v.Stuck }
 
 // Pending is what has not started or finished either way.
 func (v rolloutView) Pending() int {
@@ -69,6 +78,9 @@ func buildRoStrip(active []rolloutView) roStrip {
 	for _, v := range active {
 		r := roRow{rolloutView: v}
 		failed := ""
+		if v.Stuck > 0 {
+			failed += fmt.Sprintf(" · %d stuck", v.Stuck)
+		}
 		if v.NotBack > 0 {
 			failed += fmt.Sprintf(" · %d not back from %s reboot", v.NotBack, dp1Their(v.NotBack))
 		}
@@ -84,7 +96,7 @@ func buildRoStrip(active []rolloutView) roStrip {
 			}
 			done = append(done, r)
 			continue
-		case v.NotBack > 0 && v.Installing == 0:
+		case v.Trouble() > 0 && v.Moving() == 0:
 			r.State = "look"
 			r.Note = strings.TrimPrefix(failed, " · ")
 			if p := v.Pending(); p > 0 {
@@ -92,7 +104,7 @@ func buildRoStrip(active []rolloutView) roStrip {
 			}
 		case v.Installing > 0:
 			r.State = "run"
-			r.Note = fmt.Sprintf("%d installing", v.Installing) + failed
+			r.Note = fmt.Sprintf("%d installing", v.Moving()) + failed
 		default:
 			r.State = "wait"
 			r.Note = fmt.Sprintf("%d haven't checked in", v.Pending()) + failed
@@ -214,6 +226,7 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 	deployments = visibleDeployments(h.role(r), deployments)
 	legacy, _ := h.db.ListLegacyDeployments(ctx)
 	byRelease, active := mergeRollouts(deployments, legacy, productMatches)
+	h.markStuck(ctx, active)
 
 	// The selection: ?release=<id>, or ?build=<version> for a reported build, else the
 	// newest release that is not a dev build.
@@ -326,4 +339,63 @@ func rolloutCounts(byRelease map[int][]rolloutView) map[string]rolloutCount {
 		}
 	}
 	return out
+}
+
+// markStuck fills Stuck on the running rollouts, by the deployment page's rule.
+func (h *Handler) markStuck(ctx context.Context, active []rolloutView) {
+	now := time.Now()
+	offline := time.Duration(h.cfg.CheckinInterval()*3) * time.Second
+	if offline < 5*time.Minute {
+		offline = 5 * time.Minute
+	}
+	for i := range active {
+		v := &active[i]
+		if v.Installing == 0 || !strings.HasPrefix(v.URL, "/releases/") {
+			continue
+		}
+		targets, err := h.db.GetUpdateTargets(ctx, v.ID)
+		if err != nil {
+			continue
+		}
+		prog, _ := h.db.OTAProgressForUpdate(ctx, v.ID)
+		for _, t := range targets {
+			switch t.Status {
+			case "downloading", "installing", "verifying", "finalizing":
+			default:
+				continue
+			}
+			if now.Sub(t.LastSeenAt) > offline {
+				continue // gone dark: waiting for it to come back, not stuck
+			}
+			started := t.StartedAt
+			p, hasP := prog[t.DeviceID]
+			if hasP && !p.CmdAt.IsZero() {
+				started = &p.CmdAt
+			}
+			last, advanced := t.UpdatedAt, time.Time{}
+			if m := h.shell.GetOTAProgress(t.DeviceID); m != nil && (started == nil || !m.UpdatedAt.Before(*started)) {
+				advanced = m.UpdatedAt // memory keeps the time the percent last moved
+				if m.UpdatedAt.After(last) {
+					last = m.UpdatedAt
+				}
+			}
+			if hasP {
+				if p.ReportAt.After(last) {
+					last = p.ReportAt
+				}
+				if advanced.IsZero() {
+					advanced = p.ReportAt
+				}
+			}
+			if started != nil && !advanced.IsZero() && advanced.Before(*started) {
+				advanced = *started
+			}
+			if now.Sub(last) > 30*time.Minute || (!advanced.IsZero() && now.Sub(advanced) > 15*time.Minute) {
+				v.Stuck++
+			}
+		}
+		if v.Stuck > v.Installing {
+			v.Stuck = v.Installing
+		}
+	}
 }

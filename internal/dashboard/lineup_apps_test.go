@@ -38,6 +38,7 @@ func luAppsSample(now time.Time) luAppsInputs {
 			devs[0].ID: {"aio.app.nugget": "18.0.0"},
 			devs[1].ID: {"aio.app.nugget.uatv2": "117-uatv2"},
 			devs[3].ID: {"aio.app.nugget.uatv2": "48.0.0-uatv2", "aio.app.nugget.stagev2": "20.0.0-stagev2"},
+			devs[6].ID: {"aio.app.nugget.uatv2": "1"}, // another product's app on a kiosk: not its
 		},
 		Missing: map[string]map[uuid.UUID]bool{
 			"aio.app.nugget": {devs[1].ID: true, devs[2].ID: true, devs[3].ID: true, devs[4].ID: true},
@@ -62,7 +63,7 @@ func TestLineupAppsBuilder(t *testing.T) {
 	if c := cards[0]; c.OnProd != 1 || c.Total != 6 || c.Running != 1 || c.Build != "17.0.0" || c.Note != "1 failed" {
 		t.Errorf("t7 card = %+v", c)
 	}
-	if c := cards[1]; c.Build != "" || c.Note != "Upload a build to install on 1" || c.NoteTone != "warn" {
+	if c := cards[1]; c.Bar[2].N != 0 || c.Build != "" || c.Note != "Upload a build to install on 1" || c.NoteTone != "warn" {
 		t.Errorf("kiosk card = %+v", c)
 	}
 	if p == nil || len(p.Rows) != 6 {

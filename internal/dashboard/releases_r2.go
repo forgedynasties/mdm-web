@@ -257,7 +257,7 @@ func buildR2Cards(in r2Inputs) []r2Card {
 		if latest.Failed > 0 {
 			up.B.Tone = "bad"
 		}
-		up.Bar = []r2Seg{{latest.Installed, "p"}, {latest.Failed, "f"}, {latest.NotBack, "w"}, {latest.Installing, "g"}, {latest.Pending(), ""}}
+		up.Bar = []r2Seg{{latest.Installed, "p"}, {latest.Failed, "f"}, {latest.Trouble(), "w"}, {latest.Moving(), "g"}, {latest.Pending(), ""}}
 	}
 
 	// Crashes on this build (the crash page is fleet-wide, and so are these numbers).

@@ -238,3 +238,21 @@ func TestDeployD1WentOffline(t *testing.T) {
 		t.Errorf("downloading row detail = %q", r.Detail)
 	}
 }
+
+// TestDeployD1StuckRetry: a download still reporting but not moving offers Retry as the
+// row's button (AT070AABU00231 at 32 %, 23 Oct 2026).
+func TestDeployD1StuckRetry(t *testing.T) {
+	now := time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)
+	started := now.Add(-40 * time.Minute)
+	dl := db.UpdateTarget{DeviceID: uuid.New(), SerialNumber: "AT070AABU00231", Status: "downloading",
+		StartedAt: &started, UpdatedAt: now.Add(-time.Minute), LastSeenAt: now}
+	v := buildDeployD1(dp1Inputs{
+		Dep: &db.Update{ID: 460, Status: "active", RebootBehavior: "immediate", CreatedAt: started}, Version: "v2.1.040",
+		Targets:  []db.UpdateTarget{dl},
+		Progress: map[uuid.UUID]otaRowView{dl.DeviceID: {Phase: "downloading", Percent: 32, SeenAt: now, AdvancedAt: now.Add(-17 * time.Minute)}},
+		SeenSecs: 180, Now: now,
+	})
+	if r := v.Rows[0]; r.Word != "Stuck at 32%" || !r.RetryStalled || r.Open || !r.Cancel {
+		t.Errorf("stuck row = %+v", r)
+	}
+}

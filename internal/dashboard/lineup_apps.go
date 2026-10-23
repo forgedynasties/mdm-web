@@ -149,6 +149,18 @@ func luDeviceState(d *db.Device, base string, has map[string]string, missing boo
 	return "wait", "Next in line", "gets it within a minute", 0, false
 }
 
+// familyOf keeps the packages of base's family: the inventory query returns every
+// product's packages for a device.
+func familyOf(base string, pkgs map[string]string) map[string]string {
+	out := map[string]string{}
+	for p, v := range pkgs {
+		if inFamily(base, p) {
+			out[p] = v
+		}
+	}
+	return out
+}
+
 // luHasNow is what a unit runs of the family other than the prod package, shortest form.
 func luHasNow(base string, has map[string]string) string {
 	if v, ok := has[base]; ok {
@@ -213,10 +225,10 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 		counts := map[string]int{}
 		variant := 0
 		for _, d := range byRole[role] {
-			has := in.Installed[d.ID]
 			if base == "" {
 				continue
 			}
+			has := familyOf(base, in.Installed[d.ID])
 			var ins *db.InstallState
 			if s, ok := in.Installs[d.ID]; ok {
 				ins = &s
@@ -302,7 +314,7 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 		varPkgs := map[string]map[string]bool{}
 		varN := map[string]int{}
 		for _, d := range byRole[role] {
-			for pkg, v := range in.Installed[d.ID] {
+			for pkg, v := range familyOf(base, in.Installed[d.ID]) {
 				if pkg == base {
 					prodVers[v]++
 					continue

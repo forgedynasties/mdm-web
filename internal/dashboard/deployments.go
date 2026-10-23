@@ -1031,6 +1031,13 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	if !h.requireDeviceAction(w, r, "ota", device.ID) {
 		return
 	}
+	// A stuck download is still running on the device: stop it first, so the re-offer
+	// starts a fresh one instead of piling on top of it.
+	if cmdID, ok, err := h.db.GetActiveOTACommandID(r.Context(), device.ID); err == nil && ok {
+		if msg, e := json.Marshal(map[string]any{"type": "cancel_command", "id": cmdID.String()}); e == nil {
+			h.hub.Push(device.ID, msg)
+		}
+	}
 	if err := h.db.ClearPendingOTACommands(r.Context(), device.ID); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
