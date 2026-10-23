@@ -136,6 +136,7 @@ type prodCoverageView struct {
 	Weeks    []covWeek
 	Offset   float64 // ring
 	Pills    covPills
+	AllRows  string // the table's "Show all" link
 }
 
 type covPills struct {
@@ -144,6 +145,7 @@ type covPills struct {
 }
 
 type covInputs struct {
+	Base    string // where the filter links point ("" = /coverage)
 	Env     string
 	Type    string
 	All     bool
@@ -157,7 +159,9 @@ type covInputs struct {
 	Now     time.Time
 }
 
-func covHref(env, typ string, all bool) string {
+// covHref is a filter link on base ("/coverage", or "/enrollment?tab=backend" inside
+// the Enrollment hub).
+func covHref(base, env, typ string, all bool) string {
 	q := url.Values{}
 	if env != string(aiobackend.Prod) {
 		q.Set("env", env)
@@ -168,13 +172,20 @@ func covHref(env, typ string, all bool) string {
 	if all {
 		q.Set("rest", "all")
 	}
-	if e := q.Encode(); e != "" {
-		return "/coverage?" + e
+	e := q.Encode()
+	switch {
+	case e == "":
+		return base
+	case strings.Contains(base, "?"):
+		return base + "&" + e
 	}
-	return "/coverage"
+	return base + "?" + e
 }
 
 func buildProdCoverage(in covInputs) prodCoverageView {
+	if in.Base == "" {
+		in.Base = "/coverage"
+	}
 	v := prodCoverageView{Env: in.Env, EnvLabel: aiobackend.Env(in.Env).Label(), Type: in.Type, All: in.All, Synced: in.Synced}
 	// The MDM's devices by every id the backend may list them under.
 	idx := map[string]*db.Device{}
@@ -287,16 +298,22 @@ func buildProdCoverage(in covInputs) prodCoverageView {
 	v.Weeks = prodCoverageWeeks(matched, in.Now)
 	// Pills.
 	for _, e := range aiobackend.Envs {
-		v.Pills.Envs = append(v.Pills.Envs, ovOpt{e.Label(), covHref(string(e), in.Type, in.All), string(e) == in.Env})
+		v.Pills.Envs = append(v.Pills.Envs, ovOpt{e.Label(), covHref(in.Base, string(e), in.Type, in.All), string(e) == in.Env})
 	}
-	v.Pills.Types = append(v.Pills.Types, ovOpt{"All types", covHref(in.Env, "", in.All), in.Type == ""})
+	v.Pills.Types = append(v.Pills.Types, ovOpt{"All types", covHref(in.Base, in.Env, "", in.All), in.Type == ""})
 	for _, c := range covClasses {
-		v.Pills.Types = append(v.Pills.Types, ovOpt{prod.ClassLabel(c), covHref(in.Env, c, in.All), in.Type == c})
+		v.Pills.Types = append(v.Pills.Types, ovOpt{prod.ClassLabel(c), covHref(in.Base, in.Env, c, in.All), in.Type == c})
 		if in.Type == c {
 			v.Pills.TypeLabel = prod.ClassLabel(c)
 		}
 	}
-	v.Pills.Rests = []ovOpt{{"Active", covHref(in.Env, in.Type, false), !in.All}, {"All, inactive too", covHref(in.Env, in.Type, true), in.All}}
+	v.AllRows = covHref(in.Base, in.Env, in.Type, in.All)
+	if strings.Contains(v.AllRows, "?") {
+		v.AllRows += "&rows=all#pc-rest"
+	} else {
+		v.AllRows += "?rows=all#pc-rest"
+	}
+	v.Pills.Rests = []ovOpt{{"Active", covHref(in.Base, in.Env, in.Type, false), !in.All}, {"All, inactive too", covHref(in.Base, in.Env, in.Type, true), in.All}}
 	return v
 }
 
@@ -371,8 +388,10 @@ func prodCoverageWeeks(matched map[uuid.UUID]time.Time, now time.Time) []covWeek
 	return out
 }
 
-// ProdCoveragePage is GET /coverage.
-func (h *Handler) ProdCoveragePage(w http.ResponseWriter, r *http.Request) {
+// prodCoverageFor builds the coverage view from the request's pills (env, type, rest,
+// rows), its filter links pointing at base. ok is false when the backend copy can't be
+// read.
+func (h *Handler) prodCoverageFor(r *http.Request, base string) (prodCoverageView, bool) {
 	ctx := r.Context()
 	q := r.URL.Query()
 	env := q.Get("env")
@@ -383,7 +402,7 @@ func (h *Handler) ProdCoveragePage(w http.ResponseWriter, r *http.Request) {
 	if !prod.IsClass(typ) {
 		typ = ""
 	}
-	in := covInputs{Env: env, Type: typ, All: q.Get("rest") == "all", RowsAll: q.Get("rows") == "all", Now: time.Now()}
+	in := covInputs{Base: base, Env: env, Type: typ, All: q.Get("rest") == "all", RowsAll: q.Get("rows") == "all", Now: time.Now()}
 	var err error
 	if in.Rs, err = h.db.ListBackendRestaurants(ctx); err == nil {
 		if in.Bds, err = h.db.ListBackendDevices(ctx); err == nil {
@@ -393,8 +412,7 @@ func (h *Handler) ProdCoveragePage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+		return prodCoverageView{}, false
 	}
 	in.Names = map[uuid.UUID]string{}
 	if venues, err := h.db.ListRestaurants(ctx); err == nil {
@@ -405,6 +423,26 @@ func (h *Handler) ProdCoveragePage(w http.ResponseWriter, r *http.Request) {
 	if st, err := h.db.BackendSyncStates(ctx); err == nil {
 		in.Synced = st[env].SyncedAt
 	}
-	v := buildProdCoverage(in)
-	h.render(w, r, "coverage.html", map[string]any{"Title": "Prod coverage", "Cov": v, "Configured": h.backend != nil || in.Synced != nil})
+	return buildProdCoverage(in), true
+}
+
+// ProdCoveragePage is GET /coverage. Since E1 (23 Oct 2026) coverage is a tab of the
+// Enrollment hub, so admins land there; fleet-wide team members who can't open
+// Enrollment (it holds profile tokens and adb keys) keep this page, the same content.
+func (h *Handler) ProdCoveragePage(w http.ResponseWriter, r *http.Request) {
+	if h.role(r) == "admin" {
+		to := "/enrollment?tab=backend"
+		if e := r.URL.RawQuery; e != "" {
+			to += "&" + e
+		}
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return
+	}
+	v, ok := h.prodCoverageFor(r, "/coverage")
+	if !ok {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "coverage.html", map[string]any{"Title": "Prod coverage", "Cov": v, "Configured": h.backend != nil || v.Synced != nil,
+		"Placements": h.venuesPlacementView(r.Context())})
 }

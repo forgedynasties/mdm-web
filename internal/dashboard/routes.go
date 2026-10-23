@@ -122,7 +122,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.deviceRoute("view", h.DevicePackages)))
 	mux.HandleFunc("GET /devices/{serial}/apps-list", h.requireAuth(h.deviceRoute("view", h.DeviceAppsList)))
 	mux.HandleFunc("GET /devices/{serial}/ota-progress", h.requireAuth(h.deviceRoute("view", h.DeviceOtaProgress)))
-	mux.HandleFunc("GET /packages", h.requireStrictAdmin(h.FleetPackages))
+	// App classification is a tab of the Apps hub (P1, 23 Oct 2026).
+	mux.HandleFunc("GET /apps/classification", h.requireStrictAdmin(h.FleetPackages))
+	mux.Handle("GET /packages", http.RedirectHandler("/apps/classification", http.StatusMovedPermanently))
 	post("POST /packages/flag", h.requireStrictAdmin(h.PackageFlag))
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.deviceRoute("logcat", h.LogcatLivePage)))
 	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(drainable(h.deviceRoute("logcat", h.LogcatStream))))
@@ -384,7 +386,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Clients: what each device's MDM client is, and the builds hosted for it.
 	// MDM clients and Host apps: pages of their own since 23 Oct 2026 (were Lineup tabs).
 	mux.HandleFunc("GET /clients", h.requireAuth(h.clientsEntry))
-	mux.HandleFunc("GET /host-apps", h.requireAuth(h.Pipeline))
+	// Host apps is the Apps hub's "By product" tab (P1, 23 Oct 2026).
+	mux.HandleFunc("GET /apps/products", h.requireAuth(h.Pipeline))
+	mux.HandleFunc("GET /host-apps", func(w http.ResponseWriter, r *http.Request) {
+		to := "/apps/products"
+		if r.URL.RawQuery != "" {
+			to += "?" + r.URL.RawQuery
+		}
+		http.Redirect(w, r, to, http.StatusMovedPermanently)
+	})
 	// Prod coverage (C1, 23 Oct 2026): how much of the AIO backend is in the MDM.
 	mux.HandleFunc("GET /coverage", h.requireAuth(h.fleetWide(h.ProdCoveragePage)))
 	// The server's own vitals. Operator-and-up: it exposes no device data, but it does

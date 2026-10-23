@@ -221,6 +221,13 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	stats, _ := h.db.EnrollmentStats(r.Context())
 	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
 	unenrollments, _ := h.db.RecentUnenrollments(r.Context(), time.Now().AddDate(0, 0, -90), 60)
+	// From the AIO backend (E1): the coverage view, when the backend has been copied.
+	var cov *prodCoverageView
+	covWork := 0
+	if v, ok := h.prodCoverageFor(r, "/enrollment?tab=backend"); ok && v.C.Total() > 0 {
+		cov = &v
+		covWork = v.C.Missing + v.C.Elsewhere
+	}
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":           "Enrollment",
 		"ActivePage":      "enrollment",
@@ -247,6 +254,21 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Enrolling":       enrolling,
 		"ScoutOn":         h.scout != nil && h.cfg.FleetAdbKeySecret() != "",
 		"FleetKeySet":     h.cfg.FleetAdbKeySecret() != "",
+		// How devices get here: the provisioning cards that were Settings › Enrollment.
+		"Prov": map[string]any{
+			"AgentAPKURL":      h.cfg.AgentAPKURL(),
+			"AgentAPKChecksum": h.cfg.AgentAPKChecksum(),
+			"AgentAPKHosted":   h.cfg.AgentAPKHosted(),
+			"AgentAPKHostedInfo": func() map[string]any {
+				sha, name, size, at := h.cfg.AgentAPKHostedInfo()
+				return map[string]any{"SHA": sha, "Name": name, "Size": size, "At": at, "URL": h.agentAPKURL(r)}
+			}(),
+			"AgentAPKFromEnv": h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
+			"FleetAdbKey":     h.fleetAdbKeyView(r),
+		},
+		"Cov":        cov,
+		"CovWork":    covWork,
+		"Placements": h.venuesPlacementView(r.Context()),
 	})
 }
 
@@ -1626,12 +1648,12 @@ func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) SettingsAgentAPKUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 128<<20)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		h.hxDoneToast(w, r, "/settings", "Upload failed: file too large or malformed", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "Upload failed: file too large or malformed", "error")
 		return
 	}
 	file, hdr, err := r.FormFile("apk")
 	if err != nil {
-		h.hxDoneToast(w, r, "/settings", "Choose an APK file first", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "Choose an APK file first", "error")
 		return
 	}
 	defer file.Close()
@@ -1642,12 +1664,12 @@ func (h *Handler) SettingsAgentAPKUpload(w http.ResponseWriter, r *http.Request)
 	}
 	sha, meta, err := h.storeAgentAPK(data, filepath.Base(hdr.Filename), "dpc", r.FormValue("changelog"))
 	if err != nil {
-		h.hxDoneToast(w, r, "/settings", "Upload failed: "+err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "Upload failed: "+err.Error(), "error")
 		return
 	}
 	built := describeAgentBuild(meta)
 	h.audit(r, "settings.agent_apk_upload", hdr.Filename, fmt.Sprintf("%d bytes sha256 %s%s", len(data), sha, built))
-	h.hxDoneToast(w, r, "/settings", "Agent APK hosted"+built, "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=how", "Agent APK hosted"+built, "success")
 }
 
 // AgentAPKPublish is the admin-API door onto the same room as the Settings upload:
@@ -1781,7 +1803,7 @@ func (h *Handler) SettingsAgentAPKRemove(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.audit(r, "settings.agent_apk_remove", "", "")
-	h.hxDoneToast(w, r, "/settings", "Hosted agent APK removed", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=how", "Hosted agent APK removed", "success")
 }
 
 // SettingsAgentAPK stores where QR provisioning downloads the DPC agent from and
@@ -1790,7 +1812,7 @@ func (h *Handler) SettingsAgentAPK(w http.ResponseWriter, r *http.Request) {
 	u := strings.TrimSpace(r.FormValue("agent_apk_url"))
 	sum := strings.TrimSpace(r.FormValue("agent_apk_checksum"))
 	if u != "" && !strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://") {
-		h.hxDoneToast(w, r, "/settings", "Agent APK URL must start with http:// or https://", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "Agent APK URL must start with http:// or https://", "error")
 		return
 	}
 	if err := h.cfg.SetAgentAPK(u, sum); err != nil {
@@ -1802,7 +1824,7 @@ func (h *Handler) SettingsAgentAPK(w http.ResponseWriter, r *http.Request) {
 	if u == "" || sum == "" {
 		msg = "Standard MDM APK cleared — QR cold-provisioning is off"
 	}
-	h.hxDoneToast(w, r, "/settings", msg, "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=how", msg, "success")
 }
 
 // ── Device lifecycle (onboarding inbox, class, retire) ────────────────────────

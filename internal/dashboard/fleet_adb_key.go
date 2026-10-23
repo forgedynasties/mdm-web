@@ -147,7 +147,7 @@ func (h *Handler) fleetAdbKeyView(r *http.Request) map[string]any {
 // SettingsFleetAdbKeyUpload: POST /settings/fleet-adb-key (multipart: adbkey, adbkey_pub).
 func (h *Handler) SettingsFleetAdbKeyUpload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(1 << 20); err != nil {
-		h.hxDoneToast(w, r, "/settings", "Could not read the upload", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "Could not read the upload", "error")
 		return
 	}
 	read := func(field string) string {
@@ -161,50 +161,50 @@ func (h *Handler) SettingsFleetAdbKeyUpload(w http.ResponseWriter, r *http.Reque
 	priv, pub := read("adbkey"), read("adbkey_pub")
 	label, err := db.CleanFleetAdbKeyLabel(r.FormValue("label"))
 	if err != nil {
-		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", err.Error(), "error")
 		return
 	}
 	if _, err := fleetkey.ValidatePrivate(priv); err != nil {
-		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", err.Error(), "error")
 		return
 	}
 	fp, err2 := fleetkey.Fingerprint(pub)
 	if err2 != nil {
-		h.hxDoneToast(w, r, "/settings", err2.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", err2.Error(), "error")
 		return
 	}
 	sealed, err := fleetkey.Seal(h.cfg.FleetAdbKeySecret(), strings.TrimSpace(priv)+"\n")
 	if err != nil {
-		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", err.Error(), "error")
 		return
 	}
 	v, err := h.db.PutFleetAdbKeyByLabel(r.Context(), label, strings.TrimSpace(pub), sealed, fp, h.currentUsername(r))
 	if err != nil {
-		h.hxDoneToast(w, r, "/settings", "Could not store the key", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "Could not store the key", "error")
 		return
 	}
 	h.audit(r, "fleet_adb_key.upload", fp, fmt.Sprintf("%s · version %d", label, v))
-	h.hxDoneToast(w, r, "/settings", fmt.Sprintf("adb key %s stored · %s · version %d", label, fp, v), "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=how", fmt.Sprintf("adb key %s stored · %s · version %d", label, fp, v), "success")
 }
 
 // SettingsFleetAdbKeyRemove: POST /settings/fleet-adb-key/remove.
 func (h *Handler) SettingsFleetAdbKeyRemove(w http.ResponseWriter, r *http.Request) {
 	label, err := db.CleanFleetAdbKeyLabel(r.FormValue("label"))
 	if err != nil {
-		h.hxDoneToast(w, r, "/settings", err.Error(), "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", err.Error(), "error")
 		return
 	}
 	k, _ := h.db.GetFleetAdbKeyByLabel(r.Context(), label)
 	if k == nil {
-		h.hxDoneToast(w, r, "/settings", "No "+label+" adb key to remove", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "No "+label+" adb key to remove", "error")
 		return
 	}
 	if err := h.db.DeleteFleetAdbKeyByLabel(r.Context(), label); err != nil {
-		h.hxDoneToast(w, r, "/settings", "Could not remove the key", "error")
+		h.hxDoneToast(w, r, "/enrollment?tab=how", "Could not remove the key", "error")
 		return
 	}
 	h.audit(r, "fleet_adb_key.remove", k.Fingerprint, fmt.Sprintf("%s · version %d", label, k.Version))
-	h.hxDoneToast(w, r, "/settings", "adb key "+label+" removed · the apps drop their copy on next sign-in", "success")
+	h.hxDoneToast(w, r, "/enrollment?tab=how", "adb key "+label+" removed · the apps drop their copy on next sign-in", "success")
 }
 
 var _ = time.Now

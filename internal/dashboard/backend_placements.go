@@ -384,7 +384,7 @@ func (h *Handler) BackendPlaceSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.audit(r, "backend.ignore", bkKey(env, rid), br.Name)
-		http.Redirect(w, r, flashURL("/restaurants", br.Name+" ignored", "success"), http.StatusSeeOther)
+		http.Redirect(w, r, flashURL("/coverage", br.Name+" ignored", "success"), http.StatusSeeOther)
 		return
 	}
 	p, _, err := h.loadPlacements(ctx)

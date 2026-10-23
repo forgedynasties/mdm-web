@@ -311,11 +311,11 @@
         <div class="t">Firmware</div>
         <a class="js-dest{{if eq .ActivePath "/lineup"}} on{{end}}" href="/lineup" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Lineup">Lineup</a>
         <a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="MDM clients">MDM clients</a>
-        <a class="js-dest{{if eq .ActivePath "/host-apps"}} on{{end}}" href="/host-apps" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Host apps">Host apps</a>
-        <a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="App library">App library</a>
-        <a class="js-dest{{if eq .ActivePath "/apps/usage"}} on{{end}}" href="/apps/usage" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Resource use">Resource use</a>
+        <a class="js-dest{{if eq .ActivePath "/apps/products"}} on{{end}}" href="/apps/products" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Apps · By product">Apps · By product</a>
+        <a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Apps · Library">Apps · Library</a>
+        <a class="js-dest{{if eq .ActivePath "/apps/usage"}} on{{end}}" href="/apps/usage" data-ic="layers" data-cmdk-sec="Firmware" data-cmdk-label="Apps · Resource use">Apps · Resource use</a>
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Firmware" data-cmdk-label="Releases">Releases</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/packages"}} on{{end}}" href="/packages" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Packages">Packages</a>{{end}}
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/apps/classification"}} on{{end}}" href="/apps/classification" data-ic="download" data-cmdk-sec="Firmware" data-cmdk-label="Apps · Classification">Apps · Classification</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">

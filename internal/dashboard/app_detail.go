@@ -2,7 +2,10 @@ package dashboard
 
 import (
 	"net/http"
+	"sort"
 	"strings"
+
+	prod "mdm/internal/product"
 )
 
 // The app page: one package, every device that has it, every version in service, and
@@ -74,7 +77,22 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 	}
 	v := buildAppD1(in)
 
+	// The products that run this app (P1, 23 Oct 2026): the page says so and links to the
+	// product on Apps › By product, where its build and units are.
+	type appProduct struct{ Role, Label, Variant string }
+	var productOf []appProduct
+	for role, base := range h.db.RoleAppBases(ctx) {
+		switch {
+		case base == "":
+		case pkg == base:
+			productOf = append(productOf, appProduct{role, prod.ClassLabel(role), ""})
+		case strings.HasPrefix(pkg, base+"."):
+			productOf = append(productOf, appProduct{role, prod.ClassLabel(role), strings.TrimPrefix(pkg, base+".")})
+		}
+	}
+	sort.Slice(productOf, func(i, j int) bool { return productOf[i].Label < productOf[j].Label })
 	h.render(w, r, "app_detail.html", map[string]any{
+		"ProductOf":     productOf,
 		"Title":         v.Name,
 		"ActivePage":    "apps",
 		"App":           v,

@@ -108,19 +108,19 @@ func TestLineupAppsRenders(t *testing.T) {
 	funcs["classShort"] = classShort
 	funcs["classLabel"] = product.ClassLabel
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/pipeline.html", "../../templates/clients.html"))
+	tmpl = template.Must(tmpl.ParseFiles("../../templates/pipeline.html", "../../templates/clients.html", "../../templates/_apps_hub.html"))
 	cards, pane := buildLineupApps(luAppsSample(time.Date(2026, 10, 23, 12, 0, 0, 0, time.UTC)))
-	data := map[string]any{"Role": "admin", "Tab": "apps", "View": "apps", "AppsNoBuild": 1, "AppCards": cards, "AppsPane": pane, "AppsBento": hostAppsBentoOf(cards, pane),
+	data := map[string]any{"Role": "admin", "Tab": "apps", "View": "apps", "AppsTab": "products", "AppsNoBuild": 1, "AppCards": cards, "AppsPane": pane, "AppsBento": hostAppsBentoOf(cards, pane),
 		"AppChoicesLU": []lineupAppChoice{{Package: "aio.app.nugget", Label: "Nugget"}}}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "pipeline.html", data); err != nil {
 		t.Fatalf("render: %v", err)
 	}
 	out := buf.String()
-	for _, w := range []string{`<h1 class="cc-h1">Host apps</h1>`, `1 with no build in the library`, `class="bt-card bt-hero"`, `aria-current="true">Tableside AI</a>`, `<h3>Tableside AI · 17.0.0</h3>`,
+	for _, w := range []string{`<h1 class="cc-h1">Apps</h1>`, `href="/apps/products" class="on" aria-current="page">By product</a>`, `1 with no build in the library`, `class="bt-card bt-hero"`, `aria-current="true">Tableside AI</a>`, `<h3>Tableside AI · 17.0.0</h3>`,
 		`<h3>On prod, by product</h3>`, `<h3>Units</h3>`, `<b>16%</b>`, `action="/products/role-app-retry"`,
 		`Downloading 41%`, `Auto-install on`, `1 unit already run 18.0.0`, `href="/apps/aio.app.nugget">Upload 18.0.0</a>`,
-		`once 1 finish`, `State: <b>All</b>`, `href="/host-apps?app=t7&amp;state=failed"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
+		`once 1 finish`, `State: <b>All</b>`, `href="/apps/products?app=t7&amp;state=failed"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("missing %q", w)
 		}

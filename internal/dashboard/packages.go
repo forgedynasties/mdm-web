@@ -20,6 +20,7 @@ func (h *Handler) FleetPackages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "packages.html", map[string]any{
+		"AppsTab":  "classification",
 		"Title":    "App classification",
 		"Packages": pkgs,
 		"Query":    q,
@@ -43,7 +44,7 @@ func (h *Handler) PackageFlag(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	http.Redirect(w, r, "/packages", http.StatusSeeOther)
+	http.Redirect(w, r, "/apps/classification", http.StatusSeeOther)
 }
 
 func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {

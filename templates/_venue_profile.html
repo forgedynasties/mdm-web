@@ -294,7 +294,7 @@
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
   {{else}}<div class="vs-note">{{.Label}}{{if .Channel}} (.{{.Channel}}){{end}}.</div>{{end}}
-  {{if and .Missing .NoBuild}}<div class="vs-note" style="color:var(--warn)">{{.Missing}} unit{{if ne .Missing 1}}s{{end}} here get nothing until a build is uploaded: <a href="/host-apps">Host apps</a>.</div>{{end}}
+  {{if and .Missing .NoBuild}}<div class="vs-note" style="color:var(--warn)">{{.Missing}} unit{{if ne .Missing 1}}s{{end}} here get nothing until a build is uploaded: <a href="/apps/products">Host apps</a>.</div>{{end}}
   </div>
 </details>
 <style>

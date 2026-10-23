@@ -124,7 +124,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			q.Del("view")
 			to := "/clients"
 			if v == "apps" {
-				to = "/host-apps"
+				to = "/apps/products"
 			}
 			if enc := q.Encode(); enc != "" {
 				to += "?" + enc
@@ -220,7 +220,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	// ?client= opens the MDM clients tab, ?role=none and ?view=runs open Setup.
 	tab := "products"
 	switch {
-	case r.URL.Path == "/host-apps":
+	case r.URL.Path == "/apps/products":
 		tab = "apps"
 	case r.URL.Path == "/clients":
 		tab = "clients"
@@ -240,6 +240,9 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			m["Title"] = "Lineup"
 		}
 		m["Tab"] = tab
+		if tab == "apps" {
+			m["AppsTab"] = "products" // the Apps hub's By product tab (P1)
+		}
 		m["BehindTotal"] = behindTotal
 		m["Roles"] = roles
 		m["Clients"] = clients
@@ -628,7 +631,7 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 	// One message, as a toast: the page's own banner only knows its short codes.
 	// The App picker lives on the Host apps page (A1).
 	q := url.Values{"app": {role}, "flash": {msg}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/host-apps?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, "/apps/products?"+q.Encode(), http.StatusSeeOther)
 }
 
 // PipelineChannel puts a build on its package's column. On the base package this is

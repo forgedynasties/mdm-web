@@ -12,9 +12,9 @@
       <div class="cc-status">{{len .Clients}} client{{if ne (len .Clients) 1}}s{{end}}{{if .BehindTotal}} · <span class="warn">{{.BehindTotal}} device{{if ne .BehindTotal 1}}s{{end}} behind</span>{{end}}</div>
       <div class="cc-sub">Our agents on every device, and the build each is kept on. Auto-update moves present devices to the hosted build inside their window.</div>
     {{else if eq .Tab "apps"}}
-      <div class="cc-eyebrow">Firmware</div>
-      <h1 class="cc-h1">Host apps</h1>
-      <div class="cc-status">The app each product runs{{if .AppsNoBuild}} · <span class="warn">{{.AppsNoBuild}} with no build in the library</span>{{end}}</div>
+      <div class="cc-eyebrow">Software</div>
+      <h1 class="cc-h1">Apps</h1>
+      <div class="cc-status">By product · the app each product runs{{if .AppsNoBuild}} · <span class="warn">{{.AppsNoBuild}} with no build in the library</span>{{end}}</div>
       <div class="cc-sub">Which build of each product's app goes out, which units have it, and where it is still being installed.</div>
     {{else}}
       <div class="cc-eyebrow">Fleet</div>
@@ -24,13 +24,14 @@
     </div>
   </div>
 
+  {{if eq .Tab "apps"}}{{template "apps-hub-tabs" .}}{{end}}
   {{if or (eq .Flash "channel") (eq .Flash "app") (eq .Flash "firmware") (eq .Flash "mode") (eq .Flash "rollout")}}<div class="pl-flash">{{if eq .Flash "channel"}}Saved. Devices move to it in their window.{{else if eq .Flash "app"}}App saved for this role.{{else if eq .Flash "firmware"}}Prod firmware saved.{{else if eq .Flash "mode"}}Firmware mode saved.{{else if eq .Flash "rollout"}}Rollout saved.{{end}}</div>{{end}}
 
   {{/* Lineup (static/lineup-merge-demos.html, M1, picked 14 Oct): Releases and Hardware in
        one page. The side list swaps the pane in place. */}}
   <div class="pl-split" id="pl-split">
 <template id="page-island">
-  {{if eq .View "apps"}}<span class="isl-t">Host apps</span><span class="isl-s">{{with .AppsPane}}{{.Card.Label}} · {{.Card.OnProd}} of {{.Card.Total}} on prod{{if .Card.Running}} · {{.Card.Running}} installing{{end}}{{else}}the app each product runs{{end}}</span>
+  {{if eq .View "apps"}}<span class="isl-t">Apps · By product</span><span class="isl-s">{{with .AppsPane}}{{.Card.Label}} · {{.Card.OnProd}} of {{.Card.Total}} on prod{{if .Card.Running}} · {{.Card.Running}} installing{{end}}{{else}}the app each product runs{{end}}</span>
   {{else if eq .View "setup"}}<span class="isl-t">Lineup · Setup</span><span class="isl-s">{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} without a role · {{.RunCount}} production run{{if ne .RunCount 1}}s{{end}}</span>
   {{else if .Client}}{{with .Client}}<span class="isl-t">MDM clients · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
   {{else}}<span class="isl-t">Lineup · {{.RoleLabel}}</span><span class="isl-s">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}} · {{len .HWModels}} model{{if ne (len .HWModels) 1}}s{{end}}</span>{{end}}
@@ -101,7 +102,7 @@
           {{/* The role's app: chosen here (admin), read out on the App card. */}}
           {{/* The App picker lives on the Host apps page (A1; a page since S1, 23 Oct 2026). */}}
           {{with $.App}}<div class="lu1-appset"><span>App: <b>{{if .Base}}{{.Name}}{{else}}none{{end}}</b>{{if .Base}} <code>{{.Base}}</code>{{end}}</span>
-            <a href="/host-apps?app={{$.RoleKey}}">Set on Host apps →</a></div>{{end}}
+            <a href="/apps/products?app={{$.RoleKey}}">Set on Host apps →</a></div>{{end}}
 
           {{template "lu1-models" $}}
 
@@ -587,7 +588,7 @@
      versions in service. clients_bento.go, lineup_apps.go */}}
 <div class="bt-stage">
 {{with .AppsPane}}{{$p := .}}
-  <div class="bt-switch"><span class="bt-sw" role="tablist" aria-label="Product">{{range $.AppCards}}<a href="/host-apps?app={{.Role}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+  <div class="bt-switch"><span class="bt-sw" role="tablist" aria-label="Product">{{range $.AppCards}}<a href="/apps/products?app={{.Role}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
   <div class="bt-row1">
     <div class="bt-card bt-hero"><span class="bt-chip">Host apps</span><p>{{$hb.Hero}}</p></div>
     <div class="bt-card">

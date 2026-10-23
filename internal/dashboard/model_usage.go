@@ -115,7 +115,7 @@ func (h *Handler) ModelUsagePage(w http.ResponseWriter, r *http.Request) {
 	}
 	in.RoleBase = h.roleAppBase(ctx, in.Model)
 	p := buildModelUsageP1(in)
-	h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "P": p})
+	h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "AppsTab": "usage", "P": p})
 }
 
 // buildModelUsageRows sums each app across the devices, averages per device that runs it,

@@ -44,11 +44,12 @@
 <div class="p1-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Apps</div>
-      <h1 class="cc-h1">Resource use</h1>
-      <div class="cc-status">{{.ModelLabel}} · {{.Reporting}} of {{.Devices}} reporting · last {{.WindowLabel}}</div>
+      <div class="cc-eyebrow">Software</div>
+      <h1 class="cc-h1">Apps</h1>
+      <div class="cc-status">Resource use · {{.ModelLabel}} · {{.Reporting}} of {{.Devices}} reporting · last {{.WindowLabel}}</div>
     </div>
   </div>
+  {{template "apps-hub-tabs" $}}
 
   <div class="ov2">
   <div class="ov2-main">

@@ -1,6 +1,5 @@
 {{define "packages.html"}}
 {{template "header" .}}
-{{template "rollout-tabs" .}}
 
 <style>
 .pkg-note{font-size:12.5px;color:var(--muted);line-height:1.55;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:16px;}
@@ -26,22 +25,23 @@
 <div class="cc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow">Apps</div>
-    <h1 class="cc-h1">Packages</h1>
-    <div class="cc-status">{{len .Packages}} packages classified</div>
+    <div class="cc-eyebrow">Software</div>
+    <h1 class="cc-h1">Apps</h1>
+    <div class="cc-status">Classification · {{len .Packages}} packages classified</div>
     <div class="cc-sub">Flag system apps so uninstall is only offered for user apps.</div>
   </div>
 </div>
+{{template "apps-hub-tabs" .}}
 
 <div class="pkg-note">
   Uninstall is only offered for <b>user apps</b>. Classification uses the client's <code>is_system</code> flag when the device reports it (newer client) — that always wins. When <b>no</b> client has reported a flag for a package, the admin switch below decides. Toggle it on to mark a package as a system app.
 </div>
 
 <div class="cc-card" style="margin-bottom:16px;">
-  <form method="GET" action="/packages" class="cc-cb" style="display:flex;gap:8px;">
+  <form method="GET" action="/apps/classification" class="cc-cb" style="display:flex;gap:8px;">
     <input type="text" name="q" value="{{.Query}}" class="form-input" aria-label="Search packages" placeholder="Search app or package name…" style="flex:1;" autofocus>
     <button type="submit" class="cc-btn primary">Search</button>
-    {{if .Query}}<a href="/packages" class="cc-btn">Clear</a>{{end}}
+    {{if .Query}}<a href="/apps/classification" class="cc-btn">Clear</a>{{end}}
   </form>
 </div>
 

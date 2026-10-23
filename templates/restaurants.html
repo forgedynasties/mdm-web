@@ -105,7 +105,10 @@
       {{end}}
     </div>
     <div class="vc1-none" id="vc1-none" hidden>No venue matches these filters.</div>
-    {{template "venues-backend-place" $}}
+    {{/* The AIO backend's restaurants with our devices and no venue live in Enrollment ›
+         From the AIO backend since E1 (23 Oct 2026); one line here when there is work. */}}
+    {{with $.Placements}}<a class="vbp-line" href="/coverage"><b>{{len .Rows}} restaurant{{if ne (len .Rows) 1}}s{{end}} in the AIO backend</b> list {{.Devices}} of your devices and have no venue here <span>Open →</span></a>
+    <style>.vbp-line{display:flex;gap:6px;align-items:baseline;margin-top:14px;padding:12px 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);font-size:13px;color:var(--text-2);text-decoration:none}.vbp-line b{color:var(--text)}.vbp-line span{margin-left:auto;color:var(--accent-text);font-weight:600}</style>{{end}}
   </div>
 
   {{with .Rail}}

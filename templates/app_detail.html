@@ -79,6 +79,7 @@
       <div class="cc-eyebrow"><a href="/apps" class="d1-up">Apps</a>{{if $a.FamilyName}} · {{$a.FamilyName}}{{if gt (len $a.Channels) 1}} · {{$a.Variant}}{{end}}{{end}}</div>
       <h1 class="cc-h1">{{$a.Name}}</h1>
       <div class="cc-status"><span class="mono">{{$a.Package}}</span> · {{if $a.InLibrary}}library holds <b>{{if $a.LibVersion}}{{$a.LibVersion}}{{else}}an unversioned build{{end}}</b>{{else}}<b style="color:var(--danger)">not in the library</b>{{end}} · on {{$a.Devices}} of {{$a.Fleet}} devices</div>
+      {{range .ProductOf}}<div class="cc-sub">The {{.Label}} app{{if .Variant}} (its .{{.Variant}} build){{end}} · <a href="/apps/products?app={{.Role}}">See it by product →</a></div>{{end}}
     </div>
   </div>
   {{if $a.CanSend}}

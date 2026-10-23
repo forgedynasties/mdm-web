@@ -167,7 +167,7 @@ func TestLineupRolePaneRenders(t *testing.T) {
 	funcs["add"] = func(a, b int) int { return a + b }
 	funcs["sub"] = func(a, b int) int { return a - b }
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/pipeline.html", "../../templates/clients.html"))
+	tmpl = template.Must(tmpl.ParseFiles("../../templates/pipeline.html", "../../templates/clients.html", "../../templates/_apps_hub.html"))
 
 	now := time.Now()
 	in := luSample(now)
@@ -199,7 +199,7 @@ func TestLineupRolePaneRenders(t *testing.T) {
 		`id="fw-t7"`, `class="oc-tb run"`, `131 / 160`, `class="oc-tb warn"`, `href="/releases/35"`,
 		`78%</b><small>fully on lineup</small>`, `125 of 160 deployed devices`, `Needs a look <span>3</span>`,
 		`16 without Nugget`, `When devices move`, `02:00–05:00 in each device's timezone`,
-		`href="/host-apps?app=t7">Set on Host apps →</a>`,
+		`href="/apps/products?app=t7">Set on Host apps →</a>`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Lineup role pane is missing %q", want)

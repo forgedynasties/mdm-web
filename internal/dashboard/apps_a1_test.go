@@ -166,7 +166,7 @@ func TestAppsA1Renders(t *testing.T) {
 		return a * 100 / b
 	}
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/apps.html", "../../templates/settings.html"))
+	tmpl = template.Must(tmpl.ParseFiles("../../templates/apps.html", "../../templates/settings.html", "../../templates/_apps_hub.html"))
 
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
 	in := a1Sample(now)
@@ -182,7 +182,7 @@ func TestAppsA1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h1 class="cc-h1">App library</h1>`, `<h2>4 things to look at</h2>`, `onclick="libAddOpen()">Add apps</button>`,
+		`<h1 class="cc-h1">Apps</h1>`, `<h2>4 things to look at</h2>`, `onclick="libAddOpen()">Add apps</button>`,
 		`>Key Attestation: 46 devices on another version`, `class="a1-r"`, `data-href="/apps/aio.app.nugget"`, `href="/apps/aio.app.nugget">Install on…</a>`, `hx-get="/apps/install-targets?pkg=io.github.vvb2060.keyattestation"`,
 		`<span class="a1-ver none">not in library</span>`, `>Add APK</button>`, `class="a1-role"`, `stagev2 26`,
 		`data-a1-set="show" data-val="look"`, `id="lib-card"`, `id="lib-add-modal"`, `id="lib-apk-file"`,

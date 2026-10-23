@@ -17,6 +17,8 @@
   var initial = (location.hash || '').replace('#', '');
   // The App library tab moved out (23 Oct 2026): /apps is the one library.
   if (initial === 'applibrary') { location.replace('/apps'); return; }
+  // Enrollment's cards (QR provisioning APK, adb keys) moved to Enrollment (23 Oct 2026).
+  if (initial === 'enrollment' || initial === 'fleet-adb-key') { location.replace('/enrollment?tab=how' + (initial === 'fleet-adb-key' ? '#fleet-adb-key' : '')); return; }
   // legacy deep-links from older tabs
   var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'people', sessions: 'people', tools: 'devices', testing: 'general' };
   if (alias[initial]) initial = alias[initial];

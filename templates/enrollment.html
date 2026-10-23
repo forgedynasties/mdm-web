@@ -155,13 +155,29 @@
     </div>
   </div>
 
-  {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
-       any are ready, else profiles — whatever has work, or setup when nothing does. */}}
+  {{/* The funnel (E1, 23 Oct 2026): listed in the AIO backend → found on Wi-Fi → in the
+       MDM → placed at a venue, each linking to its tab. */}}
+  <div class="en-fun">
+    {{with .Cov}}<a class="en-fc" href="?tab=backend"><span class="k">In the AIO backend</span><b>{{.C.Total}}</b><small>{{.EnvLabel}} devices · {{.C.InMDM}} in the MDM ({{.C.Pct}}%)</small></a>{{end}}
+    <a class="en-fc" href="?tab=found"><span class="k">Found on Wi-Fi</span><b>{{.SightingsReady}}</b><small>ready to enrol</small></a>
+    <a class="en-fc" href="?tab=recent"><span class="k">In the MDM</span><b>{{add .Stats.Firmware .Stats.DPC}}</b><small>{{if gt .Stats.Enrolled7d 0}}▲ {{.Stats.Enrolled7d}} this week{{else}}none new this week{{end}}</small></a>
+    <a class="en-fc{{if gt .Stats.Inbox 0}} warn{{end}}" href="?tab=inbox"><span class="k">Needs a venue</span><b>{{.Stats.Inbox}}</b><small>{{if gt .Stats.Inbox 0}}assign them below{{else}}every device is placed{{end}}</small></a>
+  </div>
+  <style>
+  .en-fun{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:4px 0 14px}
+  .en-fc{display:block;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 14px;text-decoration:none;color:var(--text)}
+  .en-fc:hover{border-color:var(--rule-2,var(--border))}
+  .en-fc .k{display:block;font-size:10.5px;letter-spacing:.12em;font-weight:700;color:var(--muted);text-transform:uppercase}
+  .en-fc b{display:block;font-family:var(--font-display);font-size:26px;font-weight:600;margin:3px 0 1px}
+  .en-fc small{font-size:12px;color:var(--text-2)}
+  .en-fc.warn b{color:var(--warn)}
+  </style>
   {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
        any are ready, else profiles — whatever has work, or setup when nothing does. */}}
   <div class="en-tabs" role="tablist" aria-label="Enrollment" data-default="{{if gt $inboxN 0}}inbox{{else if gt .SightingsReady 0}}found{{else}}profiles{{end}}">
     <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
+    {{if .Cov}}<button type="button" role="tab" data-tab="backend">From the AIO backend<span class="n{{if .CovWork}} w{{end}}" title="AIO {{.Cov.EnvLabel}} devices not in the MDM yet">{{.CovWork}}</span></button>{{end}}
     <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>
     <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span>{{if .Unenrollments}}<span class="n" title="handed back">−{{len .Unenrollments}}</span>{{end}}</button>
     <button type="button" role="tab" data-tab="how">How devices get here</button>
@@ -198,6 +214,13 @@
 
   </section>
 
+  {{/* From the AIO backend (E1, 23 Oct 2026): Prod coverage as a tab, the same view
+       /coverage shows. prod_coverage.go */}}
+  {{if .Cov}}<section class="en-tabpane" data-tab="backend" role="tabpanel">
+  {{template "cov-style"}}
+  {{template "venues-backend-place" (dict "Placements" .Placements "Role" .Role)}}
+  {{template "cov-body" (dict "Cov" .Cov "Role" .Role)}}
+  </section>{{end}}
   <section class="en-tabpane" data-tab="profiles" role="tabpanel">
   {{/* ── Profiles ── a list, not cards (demo P3) ─────────────────────────── */}}
   <div class="cc-card lt" id="en-profiles" data-lt-n="10">
@@ -357,6 +380,8 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       </div>
     </div>
   </div>
+    <div style="height:16px"></div>
+  {{template "enroll-provisioning" .Prov}}
   </section>
 </div>
 
@@ -400,7 +425,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     {{if not .FleetKeySet}}
     <div class="en-empty" style="padding:22px 16px;text-align:center;line-height:1.6">
       <b>No fleet adb key on this server.</b><br>Scouts need the key to open devices on a venue's Wi-Fi.<br>
-      <a class="cc-btn sm" href="/settings#fleet-adb-key" style="margin-top:8px">Settings → Fleet adb key</a>
+      <a class="cc-btn sm" href="#fleet-adb-key" style="margin-top:8px">Fleet adb key ↓</a>
     </div>
     {{else if not .Sightings}}
     <div class="en-quiet">Nothing new on any venue's Wi-Fi. A device that trusts the AIO adb key shows up here within 15 minutes — each venue's Tableside AI does the looking.</div>
@@ -491,3 +516,92 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 {{end}}
 </div>
 {{end}}
+
+
+{{/* Provisioning setup, moved in from Settings › Enrollment (E1, 23 Oct 2026): the
+     Standard MDM APK that QR cold-provisioning installs, and the adb keys our images
+     trust. Context: .Prov (settings-style keys). */}}
+{{define "enroll-provisioning"}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span>
+    <h2>Standard MDM for QR provisioning</h2>
+    {{if or .AgentAPKHosted (and .AgentAPKURL .AgentAPKChecksum)}}<span class="cc-tag ok">QR cold-provisioning on</span>{{else}}<span class="cc-tag warn">QR cold-provisioning off</span>{{end}}
+    {{if .AgentAPKFromEnv}}<span class="cc-tag" title="Values come from AGENT_APK_URL / AGENT_APK_CHECKSUM in the server env; saving here overrides them">from env</span>{{end}}
+  </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:10px;"><b>Host it here.</b> Upload the signed agent APK and this server serves it at <span class="mono">{{.AgentAPKHostedInfo.URL}}</span>, with the file checksum the provisioning QR needs. Simplest path.</div>
+    {{if .AgentAPKHosted}}
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="cc-tag ok">hosted</span>
+      <span class="mono small">{{.AgentAPKHostedInfo.Name}}</span>
+      <span class="muted small">{{.AgentAPKHostedInfo.Size}} bytes · uploaded {{timeSince .AgentAPKHostedInfo.At}}</span>
+      <span class="muted small mono" title="SHA-256, URL-safe base64">{{.AgentAPKHostedInfo.SHA}}</span>
+      <form action="/settings/agent-apk/remove" method="POST" hx-boost="false" style="display:inline;margin-left:auto;" onsubmit="return confirm('Stop hosting the agent APK? Enrollment QRs stop cold-provisioning until a new one is uploaded.')"><button type="submit" class="cc-btn sm">Remove</button></form>
+    </div>
+    {{end}}
+    <form action="/settings/agent-apk/upload" method="POST" enctype="multipart/form-data" hx-boost="false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M4 21h16"/></svg>Choose APK<input type="file" name="apk" accept=".apk,application/vnd.android.package-archive" required hidden onchange="this.closest('form').querySelector('.agent-apk-name').textContent = this.files[0] ? this.files[0].name : ''"></label>
+      <span class="agent-apk-name muted small mono"></span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;">{{if .AgentAPKHosted}}Replace APK{{else}}Upload APK{{end}}</button>
+    </form>
+  </div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;"><b>Or point elsewhere.</b> A factory-reset device that scans an enrollment QR downloads the agent from this URL and verifies it against the signing-certificate checksum (URL-safe base64 SHA-256, as Android's provisioning expects). Leave both blank to provision by adb only.</div>
+    <form action="/settings/agent-apk" method="POST" hx-boost="false" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto;gap:8px;align-items:end;">
+      <label class="muted small" style="display:block;">Agent APK URL<input type="url" name="agent_apk_url" value="{{.AgentAPKURL}}" placeholder="https://…/aio-mdm-dpc.apk" class="form-input" style="width:100%;margin-top:4px;"></label>
+      <label class="muted small" style="display:block;">Signature checksum<input type="text" name="agent_apk_checksum" value="{{.AgentAPKChecksum}}" placeholder="base64url SHA-256 of the signing cert" class="form-input mono" style="width:100%;margin-top:4px;"></label>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;">Save</button>
+    </form>
+    <div class="muted small" style="margin-top:8px;">Get the checksum from the signed APK: <code>keytool -printcert -jarfile aio-mdm-dpc.apk</code>, then base64url-encode the SHA-256 without padding.</div>
+  </div>
+</div>
+
+{{$fk := .FleetAdbKey}}
+<div class="cc-card" style="margin-bottom:16px;" id="fleet-adb-key">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L19 3.4M15.5 7.5l3 3"/></svg></span>
+    <h2>adb keys</h2>
+    {{if $fk.Keys}}<span class="cc-tag ok">{{len $fk.Keys}} key{{if ne (len $fk.Keys) 1}}s{{end}}</span>{{else}}<span class="cc-tag warn">none uploaded</span>{{end}}
+    {{if not $fk.SecretSet}}<span class="cc-tag danger" title="Set FLEET_ADB_KEY_SECRET in the server env; without it a key can neither be stored nor served">FLEET_ADB_KEY_SECRET unset</span>{{end}}
+  </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:10px;"><b>What they are.</b> The adb keys built into device images (<span class="mono">/adb_keys</span>). The Enroll apps fetch them after sign-in and try each one, so a device connects with no pairing code. One key per vendor: a key in a read-only image can only be replaced by a firmware release, so a single shared key would mean one leak reopens every device. Every fetch is logged below; private keys are encrypted at rest and never displayed.</div>
+    {{if $fk.Keys}}
+    <table class="cc-table" style="font-size:12.5px;">
+      <tr><th>Label</th><th>Fingerprint</th><th>Devices</th><th>Uploaded</th><th></th></tr>
+      {{range $fk.Keys}}
+      <tr>
+        <td><b>{{.Label}}</b>{{if eq .Label "default"}} <span class="cc-tag ok" style="font-size:10px;">firmware</span>{{end}}</td>
+        <td class="mono">{{.Fingerprint}}</td>
+        <td class="muted">{{with index $fk.Devices .Label}}{{.}} device{{if ne . 1}}s{{end}}{{else}}—{{end}}</td>
+        <td class="muted" title="{{formatTime .UploadedAt}}">v{{.Version}} · {{timeSince .UploadedAt}}{{if .UploadedBy}} by {{.UploadedBy}}{{end}}</td>
+        <td style="text-align:right;">
+          <form action="/settings/fleet-adb-key/remove" method="POST" hx-boost="false" style="display:inline;" onsubmit="return confirm('Remove the {{.Label}} adb key? The apps lose it on their next sign-in and cannot connect to devices that trust only it until a key is uploaded again.')">
+            <input type="hidden" name="label" value="{{.Label}}">
+            <button type="submit" class="cc-btn" style="font-size:11px;padding:4px 10px;">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </table>
+    {{end}}
+    <form action="/settings/fleet-adb-key" method="POST" enctype="multipart/form-data" hx-boost="false" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:14px;">
+      <input class="cc-input" type="text" name="label" placeholder="label, e.g. sunmi" pattern="[a-z0-9][a-z0-9-]{0,30}[a-z0-9]" title="lowercase letters, digits and dashes" style="font-size:12px;padding:6px 10px;width:170px;">
+      <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey (private, PEM)<input type="file" name="adbkey" required style="display:none" onchange="this.parentNode.nextElementSibling.textContent=this.files[0]?this.files[0].name:''"></label><span class="muted small mono"></span>
+      <label class="cc-btn" style="font-size:12px;padding:6px 14px;cursor:pointer;">adbkey.pub<input type="file" name="adbkey_pub" required style="display:none" onchange="this.parentNode.nextElementSibling.textContent=this.files[0]?this.files[0].name:''"></label><span class="muted small mono"></span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 14px;"{{if not $fk.SecretSet}} disabled{{end}}>Add key</button>
+    </form>
+    <div class="muted small" style="margin-top:8px;">A label names the lot of devices the key is for — <code>default</code> is the AIO firmware's, the rest are one per vendor. Uploading an existing label replaces that key. Both files are an adb key pair, RSA 2048-bit or larger.</div>
+  </div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:8px;"><b>Last fetches</b> · who pulled the keys through an app, from where, on which machine.</div>
+    {{if $fk.Fetches}}
+    <table class="cc-table" style="font-size:12.5px;">
+      <tr><th>When</th><th>Who</th><th>Key</th><th>From · device</th></tr>
+      {{range $fk.Fetches}}<tr><td class="muted" title="{{formatTime .CreatedAt}}">{{timeSince .CreatedAt}}</td><td>{{.Actor}}</td><td class="mono">{{.Target}}</td><td class="muted">{{.Detail}}</td></tr>{{end}}
+    </table>
+    {{else}}<div class="muted small">No fetches yet.</div>{{end}}
+  </div>
+</div>
+  {{end}}

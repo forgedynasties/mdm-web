@@ -72,12 +72,13 @@
 <div class="a1-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Apps</div>
-      <h1 class="cc-h1">App library</h1>
+      <div class="cc-eyebrow">Software</div>
+      <h1 class="cc-h1">Apps</h1>
       <div class="cc-status">{{len .Families}} app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} APK{{if ne (len .Apps) 1}}s{{end}}{{if .Coverage}} · on {{.Coverage.Totals.Devices}} devices{{end}}</div>
     </div>
     {{if canAppLibrary .Role}}<div class="cc-actions isl-dup"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></div>{{end}}
   </div>
+  {{template "apps-hub-tabs" .}}
 
   <div class="ov2">
   <div class="ov2-main">
@@ -87,7 +88,7 @@
       <h2>{{.Headline}}</h2>
       {{if .Todos}}
       <ol class="oc-todo">
-        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .AddApps}}{{if canAppLibrary $.Role}}<button type="button" onclick="libAddOpen()">{{.Action}}</button>{{else}}<a href="/host-apps">Host apps</a>{{end}}{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .AddApps}}{{if canAppLibrary $.Role}}<button type="button" onclick="libAddOpen()">{{.Action}}</button>{{else}}<a href="/apps/products">Host apps</a>{{end}}{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
       </ol>
       {{if .More}}<a class="oc-more" href="#a1-apps">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
       {{else}}<p>{{.Calm}}</p>{{end}}
@@ -180,7 +181,7 @@
     <div class="ov2-hi a1-cap"><small>installs sent per day</small></div>
     {{end}}
     {{if .Roles}}
-    <div class="ov2-rh"><h2>Role apps{{if .RolesMissing}} <span>{{.RolesMissing}} missing</span>{{end}}</h2><a href="/host-apps">Host apps</a></div>
+    <div class="ov2-rh"><h2>Role apps{{if .RolesMissing}} <span>{{.RolesMissing}} missing</span>{{end}}</h2><a href="/apps/products">Host apps</a></div>
     <ul class="a1-roles">
       {{range .Roles}}<li><span class="ovd-dot {{if .Missing}}danger{{else}}ok{{end}}"></span><span class="t"><b>{{.Label}}</b><small title="{{.Package}}">{{.Package}}</small></span>{{if .Missing}}<span class="v no">no APK</span>{{else}}<span class="v">{{if .Version}}{{.Version}}{{else}}in library{{end}}</span>{{end}}</li>{{end}}
     </ul>

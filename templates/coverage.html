@@ -2,6 +2,107 @@
      in the MDM, in the Overview's language. prod_coverage.go */}}
 {{define "coverage.html"}}
 {{template "header" .}}
+{{template "cov-style"}}
+<template id="page-island"><span class="isl-t">Prod coverage</span><span class="isl-s">{{with .Cov}}{{.C.InMDM}} of {{.C.Total}} {{.EnvLabel}} devices in the MDM · {{.Linked}} restaurant{{if ne .Linked 1}}s{{end}} linked{{end}}</span></template>
+{{with .Cov}}
+<div class="cc-wrap">
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Fleet</div>
+      <h1 class="cc-h1">Prod coverage</h1>
+      <div class="cc-status"><b>{{.C.InMDM}} of {{.C.Total}}</b> devices in the MDM ({{.C.Pct}}%) · <b>{{.Linked}} of {{len .Rows}}</b> restaurants linked{{if .C.Unmatched}} · {{.C.Unmatched}} can't be matched yet{{end}}</div>
+      <div class="cc-sub">Every device the AIO backend lists at a restaurant that the MDM could manage (POS, kitchen displays, kiosks, menu boards, tablets), against what the MDM has. {{if .Synced}}Backend copy synced {{timeSince .Synced}}.{{else}}The backend hasn't been copied yet.{{end}}</div>
+    </div>
+  </div>
+
+  {{template "venues-backend-place" (dict "Placements" $.Placements "Role" $.Role)}}
+  {{template "cov-body" (dict "Cov" . "Role" $.Role)}}
+</div>
+{{end}}
+<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
+{{template "footer" .}}
+{{end}}
+
+
+{{/* The coverage body (pills, banner, cards, restaurants, rail), shared by /coverage and
+     Enrollment › From the AIO backend (E1, 23 Oct 2026). Context: dict Cov, Role. */}}
+{{define "cov-body"}}{{$role := .Role}}{{with .Cov}}
+  <div class="oc-bar pc-bar">
+    <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Backend: <b>{{.EnvLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+      <div class="cc-menu" hidden>{{range .Pills.Envs}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+    <div class="oc-f"><button class="oc-fb{{if .Type}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .Pills.TypeLabel}}{{.Pills.TypeLabel}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+      <div class="cc-menu" hidden>{{range .Pills.Types}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+    <div class="oc-f"><button class="oc-fb{{if .All}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Restaurants: <b>{{if .All}}All{{else}}Active{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+      <div class="cc-menu" hidden>{{range .Pills.Rests}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+  </div>
+
+  <div class="ov2">
+  <div class="ov2-main">
+    {{with .Banner}}
+    <div class="ov2-ban is-{{.Tone}} pc-ban">
+      <div class="ov2-ban-k">{{.Kicker}}</div>
+      <h2>{{.Headline}}</h2>
+      {{if .Todos}}
+      <ol class="oc-todo">
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}{{if canAdminOrOperator $role}}<form method="POST" action="{{.Post}}">{{range .Fields}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}<button type="submit">{{.Action}}</button></form>{{end}}{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
+      </ol>
+      {{if .More}}<a class="oc-more" href="#pc-rest">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
+      {{else}}<p>{{.Calm}}</p>{{end}}
+    </div>
+    {{end}}
+
+    <div class="pc-cards">
+      <div class="pc-card"><div class="k">Devices</div><div class="v">{{.C.InMDM}}<small>of {{.C.Total}} in the MDM</small></div>
+        <div class="pc-seg" role="img" aria-label="{{.C.Placed}} placed, {{.C.Elsewhere}} elsewhere, {{.C.Missing}} not in the MDM, {{.C.Unmatched}} by Android ID">{{range .C.Bar}}<i class="{{.Class}}" style="width:{{printf "%.2f" .Pct}}%"></i>{{end}}</div>
+        <div class="pc-leg"><span class="g">{{.C.Placed}} placed</span><span class="a">{{.C.Elsewhere}} elsewhere</span><span class="n">{{.C.Missing}} not in the MDM</span><span class="h">{{.C.Unmatched}} by Android ID</span></div></div>
+      <div class="pc-card"><div class="k">Restaurants</div><div class="v">{{.Linked}}<small>of {{len .Rows}} linked</small></div>
+        <div class="s">{{.WithAny}} have a device in the MDM · {{sub (len .Rows) .WithAny}} have none</div></div>
+      <div class="pc-card"><div class="k">Matchable</div><div class="v">{{sub .C.Total .C.Unmatched}}<small>by serial</small></div>
+        <div class="s">{{.C.Unmatched}} listed by an Android ID wait for the apps to send serials</div></div>
+    </div>
+
+    <section class="oc-card" id="pc-rest">
+      <div class="oc-ch"><h2>Restaurants <span>biggest first{{if not .All}} · active only{{end}}</span></h2></div>
+      {{if .Rows}}
+      <table class="pc-tbl">
+        <thead><tr><th>Restaurant</th><th>Venue</th><th class="n">Devices</th><th>In the MDM</th><th></th></tr></thead>
+        <tbody>
+        {{range .Shown}}
+        <tr>
+          <td><b>{{.R.Name}}</b>{{if .Test}}<span class="pc-test">test</span>{{end}}<small>{{with .R.City}}{{.}} · {{end}}#{{.R.ID}} · {{.TypesLabel}}</small></td>
+          <td>{{if .Venue}}<a href="/restaurants/{{.Venue}}">{{.VName}}</a>{{else}}<span class="pc-none">none</span>{{end}}</td>
+          <td class="n">{{.C.Total}}</td>
+          <td><span class="pc-cell"><span class="pc-mini" role="img" aria-label="{{.C.InMDM}} of {{.C.Total}} in the MDM">{{range .C.Bar}}<i class="{{.Class}}" style="width:{{printf "%.2f" .Pct}}%"></i>{{end}}</span><span class="t">{{if .C.Placed}}{{.C.Placed}} placed{{end}}{{if and .C.Placed .C.Elsewhere}} · {{end}}{{if .C.Elsewhere}}{{.C.Elsewhere}} elsewhere{{end}}{{if not .C.InMDM}}none{{end}}</span></span></td>
+          <td style="text-align:right">{{if .Venue}}<a class="cc-btn xs" href="/restaurants/{{.Venue}}">Open</a>{{else if canAdminOrOperator $role}}<form method="POST" action="/restaurants/backend-place"><input type="hidden" name="action" value="create"><input type="hidden" name="env" value="{{.R.Env}}"><input type="hidden" name="rid" value="{{.R.ID}}"><button type="submit" class="cc-btn xs">Create venue</button></form>{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{if .MoreRows}}<a class="pc-more" href="{{.AllRows}}">Show all {{len .Rows}} restaurants</a>{{end}}
+      {{else}}<div class="ovd-empty"><b>Nothing to count.</b> The backend copy has no devices here yet.</div>{{end}}
+    </section>
+  </div>
+
+  <aside class="ov2-rail" aria-label="Coverage at a glance">
+    <div class="ov2-ring s-{{if eq .C.InMDM 0}}danger{{else}}warn{{end}}" title="{{.C.InMDM}} of {{.C.Total}} in the MDM">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{printf "%.1f" .Offset}}" transform="rotate(-90 60 60)"/></svg>
+      <span><b>{{.C.Pct}}%</b><small>in the MDM</small></span>
+    </div>
+    <div class="ov2-hi"><b>{{.C.InMDM}} of {{.C.Total}} devices</b><small>{{.C.Placed}} at their venue · {{.C.Elsewhere}} still to place</small></div>
+    <div class="ov2-rh"><h2>By type</h2></div>
+    <div class="pc-types">
+      {{range .Types}}<div class="r"><span>{{.Label}}</span><span class="pc-mini">{{range .C.Bar}}<i class="{{.Class}}" style="width:{{printf "%.2f" .Pct}}%"></i>{{end}}</span><span>{{.C.InMDM}} / {{.C.Total}}</span></div>{{end}}
+    </div>
+    <div class="ov2-rh"><h2>In the MDM, by week</h2></div>
+    <div class="ov2-bars" role="img" aria-label="Devices in the MDM at the end of each of the last eight weeks">
+      {{range .Weeks}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+    </div>
+    <div class="ov2-hi"><small>today's matches, by when each enrolled in the MDM</small></div>
+  </aside>
+  </div>
+{{end}}{{end}}
+
+{{define "cov-style"}}
 <style>
 .pc-bar{justify-content:flex-start}
 .pc-seg{display:flex;height:10px;border-radius:99px;overflow:hidden;background:var(--surface2);margin:10px 0 7px}
@@ -40,93 +141,4 @@
 .pc-more{display:block;padding:10px 12px;font-size:12.5px;font-weight:600;color:var(--accent-text)}
 @media(max-width:1180px){.pc-cards{grid-template-columns:1fr 1fr}}
 </style>
-<template id="page-island"><span class="isl-t">Prod coverage</span><span class="isl-s">{{with .Cov}}{{.C.InMDM}} of {{.C.Total}} {{.EnvLabel}} devices in the MDM · {{.Linked}} restaurant{{if ne .Linked 1}}s{{end}} linked{{end}}</span></template>
-{{with .Cov}}
-<div class="cc-wrap">
-  <div class="cc-top">
-    <div>
-      <div class="cc-eyebrow">Fleet</div>
-      <h1 class="cc-h1">Prod coverage</h1>
-      <div class="cc-status"><b>{{.C.InMDM}} of {{.C.Total}}</b> devices in the MDM ({{.C.Pct}}%) · <b>{{.Linked}} of {{len .Rows}}</b> restaurants linked{{if .C.Unmatched}} · {{.C.Unmatched}} can't be matched yet{{end}}</div>
-      <div class="cc-sub">Every device the AIO backend lists at a restaurant that the MDM could manage (POS, kitchen displays, kiosks, menu boards, tablets), against what the MDM has. {{if .Synced}}Backend copy synced {{timeSince .Synced}}.{{else}}The backend hasn't been copied yet.{{end}}</div>
-    </div>
-  </div>
-
-  <div class="oc-bar pc-bar">
-    <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Backend: <b>{{.EnvLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-      <div class="cc-menu" hidden>{{range .Pills.Envs}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-    <div class="oc-f"><button class="oc-fb{{if .Type}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .Pills.TypeLabel}}{{.Pills.TypeLabel}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-      <div class="cc-menu" hidden>{{range .Pills.Types}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-    <div class="oc-f"><button class="oc-fb{{if .All}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Restaurants: <b>{{if .All}}All{{else}}Active{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-      <div class="cc-menu" hidden>{{range .Pills.Rests}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-  </div>
-
-  <div class="ov2">
-  <div class="ov2-main">
-    {{with .Banner}}
-    <div class="ov2-ban is-{{.Tone}} pc-ban">
-      <div class="ov2-ban-k">{{.Kicker}}</div>
-      <h2>{{.Headline}}</h2>
-      {{if .Todos}}
-      <ol class="oc-todo">
-        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}{{if canAdminOrOperator $.Role}}<form method="POST" action="{{.Post}}">{{range .Fields}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}<button type="submit">{{.Action}}</button></form>{{end}}{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
-      </ol>
-      {{if .More}}<a class="oc-more" href="#pc-rest">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
-      {{else}}<p>{{.Calm}}</p>{{end}}
-    </div>
-    {{end}}
-
-    <div class="pc-cards">
-      <div class="pc-card"><div class="k">Devices</div><div class="v">{{.C.InMDM}}<small>of {{.C.Total}} in the MDM</small></div>
-        <div class="pc-seg" role="img" aria-label="{{.C.Placed}} placed, {{.C.Elsewhere}} elsewhere, {{.C.Missing}} not in the MDM, {{.C.Unmatched}} by Android ID">{{range .C.Bar}}<i class="{{.Class}}" style="width:{{printf "%.2f" .Pct}}%"></i>{{end}}</div>
-        <div class="pc-leg"><span class="g">{{.C.Placed}} placed</span><span class="a">{{.C.Elsewhere}} elsewhere</span><span class="n">{{.C.Missing}} not in the MDM</span><span class="h">{{.C.Unmatched}} by Android ID</span></div></div>
-      <div class="pc-card"><div class="k">Restaurants</div><div class="v">{{.Linked}}<small>of {{len .Rows}} linked</small></div>
-        <div class="s">{{.WithAny}} have a device in the MDM · {{sub (len .Rows) .WithAny}} have none</div></div>
-      <div class="pc-card"><div class="k">Matchable</div><div class="v">{{sub .C.Total .C.Unmatched}}<small>by serial</small></div>
-        <div class="s">{{.C.Unmatched}} listed by an Android ID wait for the apps to send serials</div></div>
-    </div>
-
-    <section class="oc-card" id="pc-rest">
-      <div class="oc-ch"><h2>Restaurants <span>biggest first{{if not .All}} · active only{{end}}</span></h2></div>
-      {{if .Rows}}
-      <table class="pc-tbl">
-        <thead><tr><th>Restaurant</th><th>Venue</th><th class="n">Devices</th><th>In the MDM</th><th></th></tr></thead>
-        <tbody>
-        {{range .Shown}}
-        <tr>
-          <td><b>{{.R.Name}}</b>{{if .Test}}<span class="pc-test">test</span>{{end}}<small>{{with .R.City}}{{.}} · {{end}}#{{.R.ID}} · {{.TypesLabel}}</small></td>
-          <td>{{if .Venue}}<a href="/restaurants/{{.Venue}}">{{.VName}}</a>{{else}}<span class="pc-none">none</span>{{end}}</td>
-          <td class="n">{{.C.Total}}</td>
-          <td><span class="pc-cell"><span class="pc-mini" role="img" aria-label="{{.C.InMDM}} of {{.C.Total}} in the MDM">{{range .C.Bar}}<i class="{{.Class}}" style="width:{{printf "%.2f" .Pct}}%"></i>{{end}}</span><span class="t">{{if .C.Placed}}{{.C.Placed}} placed{{end}}{{if and .C.Placed .C.Elsewhere}} · {{end}}{{if .C.Elsewhere}}{{.C.Elsewhere}} elsewhere{{end}}{{if not .C.InMDM}}none{{end}}</span></span></td>
-          <td style="text-align:right">{{if .Venue}}<a class="cc-btn xs" href="/restaurants/{{.Venue}}">Open</a>{{else if canAdminOrOperator $.Role}}<form method="POST" action="/restaurants/backend-place"><input type="hidden" name="action" value="create"><input type="hidden" name="env" value="{{.R.Env}}"><input type="hidden" name="rid" value="{{.R.ID}}"><button type="submit" class="cc-btn xs">Create venue</button></form>{{end}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
-      {{if .MoreRows}}<a class="pc-more" href="{{if eq .Env "prod"}}/coverage?{{else}}/coverage?env={{.Env}}&amp;{{end}}{{if .Type}}type={{.Type}}&amp;{{end}}{{if .All}}rest=all&amp;{{end}}rows=all#pc-rest">Show all {{len .Rows}} restaurants</a>{{end}}
-      {{else}}<div class="ovd-empty"><b>Nothing to count.</b> The backend copy has no devices here yet.</div>{{end}}
-    </section>
-  </div>
-
-  <aside class="ov2-rail" aria-label="Coverage at a glance">
-    <div class="ov2-ring s-{{if eq .C.InMDM 0}}danger{{else}}warn{{end}}" title="{{.C.InMDM}} of {{.C.Total}} in the MDM">
-      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{printf "%.1f" .Offset}}" transform="rotate(-90 60 60)"/></svg>
-      <span><b>{{.C.Pct}}%</b><small>in the MDM</small></span>
-    </div>
-    <div class="ov2-hi"><b>{{.C.InMDM}} of {{.C.Total}} devices</b><small>{{.C.Placed}} at their venue · {{.C.Elsewhere}} still to place</small></div>
-    <div class="ov2-rh"><h2>By type</h2></div>
-    <div class="pc-types">
-      {{range .Types}}<div class="r"><span>{{.Label}}</span><span class="pc-mini">{{range .C.Bar}}<i class="{{.Class}}" style="width:{{printf "%.2f" .Pct}}%"></i>{{end}}</span><span>{{.C.InMDM}} / {{.C.Total}}</span></div>{{end}}
-    </div>
-    <div class="ov2-rh"><h2>In the MDM, by week</h2></div>
-    <div class="ov2-bars" role="img" aria-label="Devices in the MDM at the end of each of the last eight weeks">
-      {{range .Weeks}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
-    </div>
-    <div class="ov2-hi"><small>today's matches, by when each enrolled in the MDM</small></div>
-  </aside>
-  </div>
-</div>
-{{end}}
-<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
-{{template "footer" .}}
 {{end}}
