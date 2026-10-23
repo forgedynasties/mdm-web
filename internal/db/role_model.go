@@ -715,3 +715,59 @@ func (d *DB) FleetAppFamilies(ctx context.Context) ([]FleetFamily, error) {
 	}
 	return out, rows.Err()
 }
+
+// DevicesWithoutPackage returns, of the given devices, those that have reported their
+// installed apps and do not have pkg. A device that never reported a list is left out:
+// its missing package is unknown, not missing.
+func (d *DB) DevicesWithoutPackage(ctx context.Context, ids []uuid.UUID, pkg string) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT device_id FROM device_packages
+		WHERE device_id = ANY($1)
+		GROUP BY device_id
+		HAVING bool_and(package_name <> $2)`, ids, pkg)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
+// RecentInstallsOf returns the devices sent an install of one of these APKs within the
+// window, whatever became of it.
+func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string, within time.Duration) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	if len(ids) == 0 || len(urls) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ct.target_id
+		FROM commands c
+		JOIN command_targets ct ON ct.command_id = c.id
+		WHERE c.type = 'install_apk'
+		  AND ct.target_id = ANY($1)
+		  AND c.apk_url = ANY($2)
+		  AND c.created_at > now() - make_interval(secs => $3)`, ids, urls, within.Seconds())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}

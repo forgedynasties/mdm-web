@@ -846,6 +846,9 @@ func main() {
 				// where that was switched on. A device that was away collects it the
 				// first minute it is seen again — see client_autoupdate.go.
 				runJob(bgCtx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
+				// Install the product's prod app (Lineup → role → App) on online devices
+				// that lack it, at a venue or not — see dashboard/role_app_install.go.
+				runJob(bgCtx, "role-app-install", time.Minute, dash.RunRoleAppInstalls)
 				// Record when each device goes online and offline, for the network graph's
 				// online strip (dashboard/presence_record.go).
 				runJob(bgCtx, "presence", time.Minute, dash.RunPresenceRecord)
