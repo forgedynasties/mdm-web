@@ -1,0 +1,586 @@
+{{define "swrow"}}
+    <form action="/settings/service-window" method="POST" style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-soft);">
+      <input type="hidden" name="group_id" value="{{.GroupID}}">
+      <div style="min-width:150px;">
+        <strong class="small">{{if .GroupName}}{{.GroupName}}{{else}}Fleet default{{end}}</strong>
+        {{if and .GroupID (not .HasOwn)}}<div class="muted small">inherits fleet default</div>{{end}}
+      </div>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Open
+        <input type="time" name="open" value="{{.Open}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Close
+        <input type="time" name="close" value="{{.Close}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Night start
+        <input type="time" name="night_open" value="{{.NightOpen}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Night end
+        <input type="time" name="night_close" value="{{.NightClose}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Timezone
+        <input type="text" name="timezone" value="{{.TZ}}" placeholder="GMT±h" class="form-input" style="width:90px;"></label>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      {{if and .GroupID .HasOwn}}
+      <button type="submit" name="action" value="reset" class="btn-outline" style="font-size:12px;padding:4px 14px;">Reset</button>
+      {{end}}
+    </form>
+{{end}}
+
+{{/* Reusable on/off switch that flips in place: htmx posts the toggle and swaps
+     just this form back with the new state — no full-page reload. Params:
+     Action (POST url), On (current bool). */}}
+{{define "settings-toggle"}}
+<form action="{{.Action}}" method="POST" hx-post="{{.Action}}" hx-target="this" hx-swap="outerHTML" style="display:inline">
+  <button type="submit" class="sw-toggle{{if .On}} on{{end}}" title="{{if .On}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
+</form>
+{{end}}
+
+{{define "chan-fields"}}
+      <input type="text" name="name" value="{{.Name}}" placeholder="Name (e.g. On-call)" aria-label="Channel name" class="form-input" style="width:140px;">
+      <select name="kind" class="form-input" style="width:120px;" title="Destination type" aria-label="Destination type">
+        <option value="webhook"{{if ne .Kind "teams"}} selected{{end}}>Slack/Discord</option>
+        <option value="teams"{{if eq .Kind "teams"}} selected{{end}}>MS Teams</option>
+      </select>
+      <input type="url" name="url" value="" placeholder="{{if .URL}}•••• configured — leave blank to keep{{else}}webhook URL{{end}}" aria-label="Webhook URL" class="form-input" style="flex:1;min-width:200px;" autocomplete="off">
+      <select name="min_severity" class="form-input" style="width:120px;" title="Minimum severity" aria-label="Minimum severity">
+        <option value="info"{{if eq .MinSeverity "info"}} selected{{end}}>Info+</option>
+        <option value="warning"{{if eq .MinSeverity "warning"}} selected{{end}}>Warning+</option>
+        <option value="critical"{{if eq .MinSeverity "critical"}} selected{{end}}>Critical</option>
+      </select>
+      <select name="mode" class="form-input" style="width:110px;" title="Delivery" aria-label="Delivery mode">
+        <option value="realtime"{{if eq .Mode "realtime"}} selected{{end}}>Realtime</option>
+        <option value="digest"{{if eq .Mode "digest"}} selected{{end}}>Digest</option>
+      </select>
+      <select name="active_window" class="form-input" style="width:130px;" title="Active window" aria-label="Active window">
+        <option value=""{{if eq .ActiveWindow ""}} selected{{end}}>Always</option>
+        <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service</option>
+        <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
+      </select>
+      <label class="muted small" style="display:flex;align-items:center;gap:4px;white-space:nowrap;"><input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}}> On</label>
+      <label class="muted small" style="display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Post a line when an alert auto-resolves"><input type="checkbox" name="notify_resolve"{{if .NotifyResolve}} checked{{end}}> Resolve msgs</label>
+      {{$sel := .AlertTypes}}
+      <details class="chan-types" style="flex-basis:100%;margin-top:2px;">
+        <summary class="muted small" style="cursor:pointer;">Alert types{{if $sel}} — {{len $sel}} selected{{else}} — all{{end}}</summary>
+        <div class="chan-types-grid" style="display:flex;flex-wrap:wrap;gap:16px;padding:8px 2px 2px;">
+          {{range $g := alertTypeGroups}}
+          <div class="chan-type-group" style="min-width:190px;">
+            <label class="small" style="display:flex;align-items:center;gap:5px;font-weight:600;"><input type="checkbox" class="chan-type-cat" onchange="chanToggleCat(this)"> {{$g.Category}}</label>
+            {{range $t := $g.Types}}
+            {{$checked := true}}{{if $sel}}{{$checked = hasStr $sel $t.Type}}{{end}}
+            <label class="muted small" style="display:flex;align-items:center;gap:5px;padding-left:12px;"><input type="checkbox" name="alert_types" value="{{$t.Type}}" onchange="chanSyncCat(this)"{{if $checked}} checked{{end}}> {{$t.Label}}</label>
+            {{end}}
+          </div>
+          {{end}}
+        </div>
+      </details>
+{{end}}
+
+{{/* Cards that moved to the page they are about (Settings S1, 24 Oct 2026). Each
+     renders with the Settings data (h.settingsData) inside a .settings-panels.st-moved
+     wrapper, so its forms save and come back to that page. */}}
+{{define "st-getting-started"}}
+{{/* Getting started — the Enroll app's checklist (.cs/.cs.on/.cs.ok), for the three
+     things a new server needs before scout enrolment does anything. Shown until all
+     three are done; the current step is accent, done ones green, each a link. */}}
+{{$keyOK := and .FleetAdbKey.SecretSet .FleetAdbKey.Keys}}{{$apkOK := .AgentAPKHosted}}{{$scanOK := .AnyVenueScanning}}
+{{if not (and $keyOK $apkOK $scanOK)}}
+<div class="cc-card st-start" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><h2>Getting started</h2><span class="m">{{$done := 0}}{{if $keyOK}}{{$done = add $done 1}}{{end}}{{if $apkOK}}{{$done = add $done 1}}{{end}}{{if $scanOK}}{{$done = add $done 1}}{{end}}{{$done}} of 3 done</span></div>
+  <div class="st-steps">
+    <a class="cs {{if $keyOK}}ok{{else}}on{{end}}" href="/enrollment?tab=how#fleet-adb-key"><span class="n">{{if $keyOK}}✓{{else}}1{{end}}</span><div><b>Upload the fleet adb key</b><span>{{if $keyOK}}Uploaded — scouts can open devices that trust it.{{else}}The key our images trust. Scouts cannot open a device without it.{{end}}</span></div></a>
+    <a class="cs {{if $apkOK}}ok{{else if $keyOK}}on{{end}}" href="/clients?client=dpc"><span class="n">{{if $apkOK}}✓{{else}}2{{end}}</span><div><b>Host the standard client</b><span>{{if $apkOK}}Hosted — QR and scout enrolment have something to install.{{else}}Publish an APK to the dpc slot so QR and scout enrolment have something to install.{{end}}</span></div></a>
+    <a class="cs {{if $scanOK}}ok{{else if and $keyOK $apkOK}}on{{end}}" href="/restaurants"><span class="n">{{if $scanOK}}✓{{else}}3{{end}}</span><div><b>Turn scanning on for a venue</b><span>{{if $scanOK}}At least one venue is swept every 15 minutes.{{else}}Restaurant → Scout. Until then the scheduler sweeps nothing.{{end}}</span></div></a>
+  </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "st-ota"}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v6H4z"/><path d="M4 14h16v6H4z"/><path d="M8 7h.01M8 17h.01"/></svg></span><h2>Legacy OTA server</h2><span class="muted small m">{{if .LegacyOTAPort}}port {{.LegacyOTAPort}}{{else}}listener off{{end}}</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      Builds without the MDM agent run <code>com.aioapp.otautil</code>, which polls this host on port 8000 for a system update (this listener is on port {{.LegacyOTAPort}}). Choose who answers. Switching takes effect on the device's next poll (every 15 minutes at least). The old ota-server keeps running on port 8001 either way.
+    </div>
+    {{if .LegacyOTAPort}}
+    <form action="/settings/legacy-ota" method="POST" style="display:flex;flex-direction:column;gap:8px;max-width:560px;">
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;"><input type="radio" name="legacy_ota_mode" value="mdm"{{if eq .LegacyOTAMode "mdm"}} checked{{end}} style="margin-top:4px;"><span><b>AIO MDM answers</b><br><span class="muted small">These devices stay out of the fleet. Manage them, their groups and target releases under <a href="/updates/legacy">Updates › Legacy OTA</a>.</span></span></label>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;"><input type="radio" name="legacy_ota_mode" value="passthrough"{{if eq .LegacyOTAMode "passthrough"}} checked{{end}} style="margin-top:4px;"><span><b>Pass through to the old ota-server</b><br><span class="muted small">Every request is forwarded untouched to {{if .LegacyOTAUpstream}}{{.LegacyOTAUpstream}}{{else}}the ota-server container{{end}}. Use its dashboard on port 8001 as before. The MDM stays out of it.</span></span></label>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button></div>
+    </form>
+    {{else}}<div class="muted small">Set <code>LEGACY_OTA_PORT</code> in the server environment to turn the listener on.</div>{{end}}
+  </div>
+</div>
+
+<div class="cc-card" style="margin-top:14px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M8 7l4-4 4 4"/><path d="M4 15v4h16v-4"/></svg></span><h2>OTA discovery config</h2><span class="muted small m">{{if .OTAConfigManaged}}managed by this server{{else}}not managed{{end}}</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      <code>otautil</code> reads <code>ota_config.json</code> from S3 on every poll and decides its own reboots from it: when an update finishes installing it reboots at once if the device's local hour is inside the window, otherwise it sets an alarm for the window's start hour. It has no "never reboot" setting. So the MDM publishes the file with the window always a few hours ahead of the reference clock and inside the small hours — a device that finishes an install defers, the MDM reboots it first, and the pending alarm dies with that reboot.
+      <b>Only one MDM should publish this file</b>; every legacy device in the field reads it.
+    </div>
+    {{if .OTAConfigS3}}
+    <form action="/settings/ota-config" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:620px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;"><input type="checkbox" name="managed"{{if .OTAConfigManaged}} checked{{end}}><b>This server publishes ota_config.json</b></label>
+      <label class="form-row"><span class="form-label">Device server URL</span><input class="form-input" type="text" name="api_base_url" value="{{.OTAConfigOpts.BaseURL}}" placeholder="http://18.237.229.116:8000"></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <label class="form-row"><span class="form-label">Poll interval (ms)</span><input class="form-input" type="number" name="poll_interval_ms" value="{{.OTAConfigOpts.PollMS}}" min="5000" step="1000"></label>
+        <label class="form-row"><span class="form-label">Fallback timezone</span><input class="form-input" type="text" name="timezone" value="{{.OTAConfigOpts.Timezone}}" placeholder="America/Los_Angeles"></label>
+        <label class="form-row"><span class="form-label">Lead (hours)</span><input class="form-input" type="number" name="lead_hours" value="{{.OTAConfigOpts.LeadHours}}" min="1" max="12"></label>
+      </div>
+      <div class="muted small">The window is computed for the devices currently taking an update, in their own timezone; when they span several zones, or nothing is updating, the fallback above is used. Next publish carries <b>{{printf "%02d:00" .OTAConfigNext.Start}}–{{printf "%02d:00" .OTAConfigNext.End}}</b> ({{.OTAConfigNext.TZ}}).{{if .OTAConfigLast.At}} Last published {{.OTAConfigLast.At}}.{{end}}</div>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save and publish now</button></div>
+    </form>
+    {{if .OTAConfigLast.Body}}<details style="margin-top:10px;"><summary class="muted small" style="cursor:pointer;">What the fleet is reading</summary><pre class="muted small" style="overflow-x:auto;">{{.OTAConfigLast.Body}}</pre></details>{{end}}
+    {{else}}<div class="muted small">Set <code>S3_BUCKET</code> (and AWS credentials) in the server environment to publish the discovery config.</div>{{end}}
+  </div>
+</div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h2>MDM OTA support cutoff</h2><span class="muted small m">per product</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      Firmware older than the chosen release cannot apply an MDM OTA — those devices update over <a href="/updates/legacy">legacy OTA</a> instead. They are hidden from every push picker, dropped from a push that reaches the server anyway, and never handed the OTA command at check-in. A build with no release row counts as unsupported once a cutoff is set. Leave on "No cutoff" to offer MDM OTA to every build.
+    </div>
+    {{if .OTACutoffRows}}
+    <form action="/settings/ota-min-release" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
+      {{range .OTACutoffRows}}
+      <label class="muted small" style="display:flex;align-items:center;gap:10px;">
+        <span style="min-width:90px;font-weight:600;color:var(--text);">{{.ProductLabel}}</span>
+        <select name="ota_min_{{.ProductKey}}" class="form-input" style="flex:1;">
+          <option value="0">No cutoff — every build</option>
+          {{$cur := .Current}}{{range .Releases}}<option value="{{.ID}}"{{if eq .ID $cur}} selected{{end}}>{{.Version}} · {{formatTime .CreatedAt}}</option>{{end}}
+        </select>
+      </label>
+      {{end}}
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save cutoff</button></div>
+    </form>
+    {{else}}<div class="muted small">No published releases yet.</div>{{end}}
+
+    {{/* The cutoff is a rule; this is what it actually decides. Every build the fleet
+         runs, its verdict, and where that verdict came from — with a per-build
+         override for the one-offs a date cutoff can never classify. */}}
+    {{if .OTABuildRows}}
+    <div style="margin-top:18px;border-top:1px solid var(--border-soft);padding-top:14px;">
+      <strong class="small">Builds in the fleet</strong>
+      <span class="muted small"> · what the rule decides for each one</span>
+      <div style="overflow-x:auto;margin-top:10px;">
+      <table class="ota-builds" style="width:100%;border-collapse:collapse;font-size:12.5px;">
+        <tr>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">Build</th>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">Devices</th>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">MDM OTA</th>
+          <th style="text-align:left;padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border-soft);">Decided by</th>
+          <th style="border-bottom:1px solid var(--border-soft);"></th>
+        </tr>
+        {{range .OTABuildRows}}
+        <tr>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);"><span class="mono">{{.BuildID}}</span> <span class="cc-tag">{{.ProductLabel}}</span>{{if not .Tracked}} <span class="cc-tag warn" title="No release row — the date cutoff cannot classify this build">untracked</span>{{end}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);">{{.Devices}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);">{{if .OK}}<span class="cc-tag ok">yes</span>{{else}}<span class="cc-tag bad">legacy only</span> <span class="muted">{{.Reason}}</span>{{end}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);" class="muted">{{if eq .Source "device"}}the device itself{{else if eq .Source "observed"}}an update that worked{{else if eq .Source "manual"}}set here{{else if eq .Source "cutoff"}}the cutoff{{else if eq .Source "untracked"}}no release row{{else}}no cutoff set{{end}}</td>
+          <td style="padding:8px 10px;border-top:1px solid var(--border-soft);text-align:right;white-space:nowrap;">
+            <form action="/settings/ota-support" method="POST" style="display:inline;">
+              <input type="hidden" name="build_id" value="{{.BuildID}}"><input type="hidden" name="product" value="{{.ProductKey}}">
+              <button type="submit" name="value" value="yes" class="cc-btn sm" title="Always allow MDM OTA on this build">MDM</button>
+              <button type="submit" name="value" value="no" class="cc-btn sm" title="Never push an MDM OTA to this build">Legacy</button>
+              {{if eq .Source "manual"}}<button type="submit" name="value" value="clear" class="cc-btn sm" title="Fall back to the cutoff">Clear</button>{{end}}
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      </table>
+      </div>
+      <div class="muted small" style="margin-top:8px;">A device that advertises its own capabilities always wins over anything set here. A build a device successfully updated from is recorded automatically.</div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{define "st-allowlist"}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h2>App locked-app allowlist</h2><span class="muted small m">limits the locked app picker</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      Only apps matching these patterns appear in the app locked-app picker on device pages. One pattern per line; <code>*</code> is a wildcard — e.g. <code>com.aioapp.*</code> allows every AIO app. Leave empty to allow any installed app.
+    </div>
+    <form action="/settings/kiosk-allowlist" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
+      <textarea name="allowlist" id="kiosk-allowlist-ta" rows="5" class="form-input" spellcheck="false" placeholder="com.aioapp.*&#10;com.android.chrome" style="font-family:var(--mono);font-size:12px;line-height:1.5;">{{.KioskAllowlist}}</textarea>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save allowlist</button></div>
+    </form>
+    <div style="margin-top:16px;border-top:1px solid var(--border-soft);padding-top:14px;">
+      <strong class="small">Available apps across devices</strong>
+      <span class="muted small m"> · click to add to the allowlist</span>
+      {{if .KioskFleetApps}}<input type="search" class="form-input" placeholder="Filter by app or package…" aria-label="Filter apps" oninput="kioskFilter(this.value)" style="margin-top:8px;max-width:360px;font-size:12.5px;padding:6px 10px;">{{end}}
+      {{if .KioskFleetApps}}
+      <div class="kdraw" id="kioskfleet">
+        {{range .KioskFleetApps}}
+        <button type="button" class="kd-app" data-pkg="{{.PackageName}}" onclick="kioskAddPkg('{{.PackageName}}', this)" title="{{.PackageName}} · on {{.DeviceCount}} device(s) · click to add to the allowlist">
+          <span class="kd-ic">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="" loading="lazy">{{else}}<span class="kd-ph">{{if .AppName}}{{slice .AppName 0 1}}{{else}}{{slice .PackageName 0 1}}{{end}}</span>{{end}}<span class="kd-ct">{{.DeviceCount}}</span><span class="kd-ok"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span></span>
+          <span class="kd-nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}</span>{{end}}
+          <span class="kd-pk">{{.PackageName}}</span>
+        </button>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="muted small" style="margin-top:8px;">No apps have been reported by devices yet.</div>
+      {{end}}
+    </div>
+  </div>
+</div>
+<style>
+.kdraw{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-top:12px;padding-bottom:8px}
+.kd-app{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px 10px;border:1px solid transparent;border-radius:14px;background:transparent;color:inherit;font:inherit;cursor:pointer;text-align:center;min-width:0;transition:background var(--dur),border-color var(--dur),transform var(--dur-fast)}
+.kd-app:hover{background:var(--surface2);border-color:var(--border);transform:translateY(-1px)}
+.kd-app:active{transform:scale(.97)}
+.kd-ic{position:relative;width:52px;height:52px;border-radius:14px;background:var(--surface-3);border:1px solid var(--border-soft);display:flex;align-items:center;justify-content:center;overflow:visible;box-shadow:var(--shadow-sm)}
+.kd-ic img{width:100%;height:100%;border-radius:13px;object-fit:cover;display:block}
+.kd-ph{font-size:20px;font-weight:750;color:var(--accent-text);text-transform:uppercase}
+.kd-ct{position:absolute;top:-6px;right:-8px;min-width:20px;height:20px;padding:0 6px;border-radius:99px;background:var(--surface);border:1px solid var(--border);color:var(--text-2);font-size:10.5px;font-weight:750;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;box-shadow:var(--shadow-sm)}
+.kd-ok{position:absolute;inset:0;border-radius:14px;background:var(--ok);color:#fff;display:none;align-items:center;justify-content:center}
+.kd-ok svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.kd-app.added .kd-ok{display:flex;animation:kd-pop var(--dur) var(--ease)}
+.kd-app.added{border-color:var(--ok-edge,var(--ok));background:var(--ok-bg)}
+.kd-app.added .kd-ct{display:none}
+@keyframes kd-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.kd-nm{font-size:12px;font-weight:650;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
+.kd-pk{font-family:var(--mono);font-size:10px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kd-app[hidden]{display:none!important}
+.kd-none{grid-column:1/-1;padding:18px;text-align:center;color:var(--muted);font-size:12.5px}
+</style>
+<script src="/static/js/settings/lock-allowlist.js?v={{assetVer}}"></script>
+{{end}}
+
+{{define "st-governance"}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h2>Action Governance</h2></div>
+  <div class="s1-moved" style="margin:0;padding:12px 16px;border-bottom:1px solid var(--border-soft)">“Require a reason” moved to <a href="/settings#people">People &amp; sign-in</a>.</div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">A pending shell/screenshot/reboot action is shown as <em>expired</em> after this long.</div>
+    <form action="/settings/command-expiry" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="expiry" value="{{.CommandExpiry}}" min="30" step="1" class="form-input" aria-label="Pending action expiry (seconds)" style="width:120px;">
+      <span class="muted small m">seconds</span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">Maximum number of devices a single action may target by explicit serial list (0 = unlimited). Does not affect "all devices".</div>
+    <form action="/settings/max-targets" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="max_targets" value="{{.MaxTargets}}" min="0" step="1" class="form-input" aria-label="Maximum devices per action (0 = unlimited)" style="width:120px;">
+      <span class="muted small m">devices</span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+</div>
+
+<style>
+.dq-item{border:1px solid var(--border-soft);border-radius:9px;margin-bottom:8px;background:var(--surface);}
+.dq-item>summary{display:flex;align-items:center;gap:10px;padding:10px 13px;cursor:pointer;list-style:none;flex-wrap:wrap;}
+.dq-item>summary::-webkit-details-marker{display:none;}
+.dq-cat{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text-faint);background:var(--surface2);border-radius:99px;padding:2px 8px;}
+.dq-label{font-weight:650;font-size:13.5px;}
+.dq-cmd{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--surface2);border-radius:5px;padding:1px 6px;overflow:hidden;text-overflow:ellipsis;}
+.dq-off{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--warn);text-transform:uppercase;}
+.dq-form{padding:0 13px 12px;}
+.dq-grid{display:grid;grid-template-columns:1fr 1fr 90px;gap:9px;}
+.dq-grid label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted);}
+.dq-grid .dq-wide{grid-column:1 / -1;}
+.dq-grid .dq-chk{flex-direction:row;align-items:center;gap:6px;}
+.dq-actions{margin-top:10px;display:flex;gap:8px;}
+.dq-add{border-top:1px solid var(--border-soft);padding-top:14px;margin-top:6px;}
+.form-input.mono{font-family:var(--mono);}
+</style>
+<div class="s1-moved">Interactive shell and remote control moved to <a href="/settings#people">People &amp; sign-in</a>.</div>
+{{end}}
+
+{{define "st-alerts"}}
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h2>Alert rules</h2><span class="muted small m">toggle what fires · Edit to tune thresholds</span></div>
+  <div class="alert-cat-tabs" id="alert-cat-tabs">
+    {{range $i, $g := .AlertRules}}
+    <button type="button" class="alert-cat-tab{{if eq $i 0}} active{{end}}" data-cat="{{$i}}">{{$g.Category}} <span class="pill">{{$g.EnabledCount}}/{{len $g.Rules}}</span></button>
+    {{end}}
+  </div>
+  <div style="padding:6px 16px 14px;">
+    {{range $i, $g := .AlertRules}}
+    <div class="alert-cat-panel{{if eq $i 0}} active{{end}}" data-cat="{{$i}}">
+    {{range $g.Rules}}
+    <form action="/settings/alert-rules/{{.ID}}" method="POST" hx-boost="false" class="rule-item{{if not .Enabled}} off{{end}}" data-name="{{.Name}}" onsubmit="return ruleSave(this, event)">
+      <input type="hidden" name="type" value="{{.Type}}">
+      <div class="rule-row">
+        <button type="button" class="sw-toggle{{if .Enabled}} on{{end}}" aria-pressed="{{if .Enabled}}true{{else}}false{{end}}" title="{{if .Enabled}}Disable{{else}}Enable{{end}}" onclick="ruleToggle(this)"><span class="sw-knob"></span></button>
+        <div class="rule-text">
+          <strong class="rule-title">{{.Name}}</strong>
+          <div class="muted small rule-desc">{{.Desc}}</div>
+        </div>
+        <div class="rule-fields">
+          {{range .Fields}}
+          <label class="rule-f"><span>{{.Label}}</span><span class="rule-in"><input type="number" name="{{.Key}}" value="{{.Value}}" step="{{.Step}}" class="form-input" oninput="ruleDirty(this)">{{if .Unit}}<i>{{.Unit}}</i>{{end}}</span></label>
+          {{end}}
+          {{if .Windowed}}
+          <label class="rule-f"><span>Active</span>
+            <select name="active_window" class="form-input" onchange="ruleDirty(this)">
+              <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service hours</option>
+              <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
+              <option value="peak"{{if eq .ActiveWindow "peak"}} selected{{end}}>Peak hours</option>
+              <option value="always"{{if eq .ActiveWindow "always"}} selected{{end}}>Always</option>
+            </select>
+          </label>
+          {{end}}
+          {{/* A windowed rule is deployed-only by nature (it assumes a service or charge
+               schedule), so it has no toggle and the handler keeps the flag set. */}}
+          {{if not .Windowed}}
+          <label class="rule-f rule-scope" title="Only alert for devices assigned to a restaurant. Off = the whole fleet, bench and lab units included."><span>Scope</span>
+            <span class="rule-in"><input type="checkbox" name="deployed_only"{{if .DeployedOnly}} checked{{end}} onchange="ruleDirty(this)"><i>restaurant only</i></span>
+          </label>
+          {{end}}
+          <button type="submit" class="cc-btn primary sm rule-save" hidden>Save</button>
+          <span class="rule-status small" aria-live="polite"></span>
+        </div>
+      </div>
+    </form>
+    {{end}}
+    </div>
+    {{end}}
+    <div class="muted small" style="margin-top:12px;">Every rule is <b>restaurant only</b> by default: a bench or lab unit is expected to be switched off, parked on a pad or filling its disk, and nobody is on call for it. Clear the box to let a rule cover the whole fleet. Operational (windowed) rules are always restaurant only. Alerts are evaluated hourly during housekeeping.</div>
+  </div>
+</div>
+
+<div class="cc-card" style="margin-bottom:16px;" id="channels">
+  <div class="cc-ch collapsible-header{{if .ChannelTest}} open{{end}}" role="button" tabindex="0" aria-expanded="{{if .ChannelTest}}true{{else}}false{{end}}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+    <span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+    <h2><span class="collapse-caret">▸</span> Notifications</h2><span class="muted small m">where alerts are sent · {{len .AlertChannels}} channel(s)</span>
+  </div>
+  <div style="padding:16px;{{if not .ChannelTest}}display:none;{{end}}">
+    <div class="muted small" style="margin-bottom:8px;">Default webhook (Slack / Discord / Mattermost). Used when no channel matches; leave blank to disable.</div>
+    <form action="/settings/alert-webhook" method="POST" style="display:flex;align-items:center;gap:8px;max-width:560px;margin-bottom:18px;">
+      <input type="url" name="alert_webhook_url" value="" placeholder="{{if .AlertWebhookSet}}•••• configured — leave blank to keep{{else}}https://hooks.slack.com/services/…{{end}}" aria-label="Default alert webhook URL" class="form-input" style="flex:1;" autocomplete="off">
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:560px;margin:-6px 0 18px;">
+      <div><strong class="small">Daily fleet digest</strong><div class="muted small">Once a day after 08:00, posts the fleet health score and what is dragging it down to the default webhook.</div></div>
+      {{template "settings-toggle" (dict "Action" "/settings/daily-digest/toggle" "On" .DailyDigest)}}
+    </div>
+    {{if eq .ChannelTest "ok"}}<div class="status-badge ok" style="margin-bottom:10px;">Test alert sent — check the channel.</div>{{end}}
+    {{if eq .ChannelTest "fail"}}<div class="status-badge danger" style="margin-bottom:10px;">Test failed — the webhook URL was rejected (see server logs).</div>{{end}}
+    <div class="muted small" style="margin-bottom:12px;">Route alerts to multiple destinations by minimum severity. Teams gets an Adaptive Card (use a channel's <em>Workflows</em> webhook); the others get a text webhook. Realtime posts immediately; digest batches into the daily digest.</div>
+    {{range .AlertChannels}}
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border-soft);">
+      <form action="/settings/alert-channels" method="POST" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1;">
+        <input type="hidden" name="id" value="{{.ID}}">
+        {{template "chan-fields" .}}
+        <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      </form>
+      <form action="/settings/alert-channels/{{.ID}}/test" method="POST" style="display:inline;">
+        <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Test</button>
+      </form>
+      <form action="/settings/alert-channels/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete this channel?">
+        <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Delete</button>
+      </form>
+    </div>
+    {{end}}
+    <form action="/settings/alert-channels" method="POST" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0 0;">
+      {{template "chan-fields" (dict "MinSeverity" "warning" "Mode" "realtime" "Enabled" true "NotifyResolve" true)}}
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Add channel</button>
+    </form>
+  </div>
+</div>
+<script src="/static/js/settings/alert-channels.js?v={{assetVer}}"></script>
+
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch collapsible-header" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+    <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+    <h2><span class="collapse-caret">▸</span> Service hours</h2><span class="muted small m">when operational alerts fire</span>
+  </div>
+  <div style="padding:16px;display:none;">
+    <div class="muted small" style="margin-bottom:12px;">
+      Operational alerts (offline, low battery, charging, pad) only fire while a venue is open, and overnight-charging alerts only fire overnight. Set the default below; override per restaurant as needed. Timezone is <span class="mono">GMT±h</span> (e.g. <span class="mono">GMT-5</span>); leave blank to use each device's reported timezone.
+    </div>
+    {{template "swrow" .FleetWindow}}
+    {{range .GroupWindows}}{{template "swrow" .}}{{end}}
+  </div>
+</div>
+{{end}}
+
+{{define "st-integrations"}}
+<style>
+.gu-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:4px 0 2px;}
+.gu-card{border:1px solid var(--border);border-radius:12px;padding:14px 16px;background:var(--surface-1,transparent);display:flex;flex-direction:column;gap:10px;}
+.gu-card.off{opacity:.62;}
+.gu-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.gu-name{font-weight:700;font-size:14px;}
+.gu-big{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.5px;}
+.gu-big .muted{font-size:12px;font-weight:500;letter-spacing:0;}
+.gu-spark{display:flex;align-items:flex-end;gap:2px;height:40px;padding:2px 0;}
+.gu-bar{flex:1 1 0;min-width:2px;min-height:3px;background:var(--accent,#5b8def);border-radius:2px 2px 0 0;opacity:.85;transition:height .3s ease;}
+.gu-bar.zero{background:var(--border);opacity:.5;}
+.gu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px;border-top:1px solid var(--border-soft);padding-top:10px;}
+.gu-grid .gu-n{font-size:18px;font-weight:600;}
+.gu-grid .gu-n.err{color:var(--danger,#e5484d);}
+.gu-cost{display:flex;flex-wrap:wrap;gap:6px 18px;border-top:1px solid var(--border-soft);padding-top:10px;font-size:13px;}
+.gu-foot{border-top:1px solid var(--border-soft);padding-top:8px;}
+.gu-err{color:var(--danger,#e5484d);}
+.gu-tot{display:flex;flex-wrap:wrap;gap:18px 30px;align-items:baseline;}
+.gu-tot .gu-tot-n{font-size:24px;font-weight:700;}
+</style>
+<div class="cc-card" style="margin-bottom:16px;" id="google-usage" data-poll="/settings/google-usage">
+  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h2>Google APIs — usage &amp; cost</h2><span class="muted small m">counts since <span id="gu-since">{{.GoogleUsage.SinceAgo}}</span> · <span id="gu-updated">live</span></span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:12px;">
+      Live request metering for the three Google Maps Platform APIs the device fleet uses for location. Server-side caches and a global cooldown keep billable calls low; <strong>cache hits</strong> and <strong>cooldown skips</strong> are requests <em>avoided</em>. Costs are list-price estimates — Google Cloud billing is authoritative.
+      {{if not .GoogleUsage.AnyEnabled}}<span class="status-badge warn">no keys configured</span>{{end}}
+    </div>
+
+    <div class="gu-tot" style="margin-bottom:14px;">
+      <div><div class="gu-tot-n" id="gu-total-cost">${{printf "%.2f" .GoogleUsage.TotalCostToDay}}</div><div class="muted small">est. cost since start</div></div>
+      <div><div class="gu-tot-n" id="gu-total-proj">${{printf "%.2f" .GoogleUsage.TotalProjMonth}}</div><div class="muted small">projected / month (from last 24h)</div></div>
+    </div>
+
+    <div class="gu-cards" id="gu-cards">
+      {{range .GoogleUsage.Stats}}
+      <div class="gu-card{{if not .Enabled}} off{{end}}" id="gu-card-{{.Key}}" data-key="{{.Key}}">
+        <div class="gu-card-head">
+          <div><div class="gu-name">{{.Name}}</div><div class="muted small">{{.Purpose}}</div></div>
+          {{if .Enabled}}<span class="status-badge ok">enabled</span>{{else}}<span class="status-badge warn">off</span>{{end}}
+        </div>
+        <div class="gu-big"><span class="gu-requests">{{.Requests}}</span> <span class="muted small m">{{if .Billable}}requests{{else}}map loads{{end}}</span></div>
+        <div class="gu-spark" aria-hidden="true">{{range .BarPct}}<span class="gu-bar{{if eq . 0}} zero{{end}}" style="height:{{.}}%"></span>{{end}}</div>
+        <div class="muted small">last 24h: <span class="gu-24">{{.Last24h}}</span> requests · peak/hr <span class="gu-peak">{{.PeakHour}}</span></div>
+        <div class="gu-grid">
+          <div><div class="gu-n gu-hits">{{.Hits}}</div><div class="muted small">cache hits</div></div>
+          {{if eq .Key "geolocation"}}<div><div class="gu-n gu-localhits">{{.LocalHits}}</div><div class="muted small">index hits</div></div>{{end}}
+          <div><div class="gu-n gu-cooldowns">{{.Cooldowns}}</div><div class="muted small">cooldown skips</div></div>
+          <div><div class="gu-n err gu-errors">{{.Errors}}</div><div class="muted small">errors</div></div>
+          <div><div class="gu-n gu-hitratio">{{.HitRatio}}%</div><div class="muted small">avoided</div></div>
+        </div>
+        {{if .Billable}}
+        <div class="gu-cost">
+          <div><span class="muted small m">cost to date</span> <strong class="gu-cost-val">${{printf "%.2f" .CostToDate}}</strong></div>
+          <div><span class="muted small m">proj / month</span> <strong class="gu-proj-val">${{printf "%.2f" .ProjMonth}}</strong> <span class="muted small m">(${{printf "%.0f" .UnitCostK}}/1k)</span></div>
+        </div>
+        {{else}}
+        <div class="gu-cost"><span class="status-badge ok">free · unlimited</span></div>
+        {{end}}
+        <div class="muted small gu-foot">last request: <span class="gu-lastreq">{{.LastReqAgo}}</span><span class="gu-errline">{{if .LastErr}} · <span class="gu-err" title="{{.LastErr}}">error {{.LastErrAgo}}</span>{{end}}</span></div>
+      </div>
+      {{end}}
+    </div>
+
+    <div class="muted small" style="margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px;">
+      <strong>How metering works.</strong> <em>Geolocation</em> resolves a WiFi scan to coordinates (1-hour exact-scan cache + the learned index below + one call / 10 s server-wide cooldown). <em>Geocoding</em> turns coordinates into a street address (6-hour cache, ~11 m precision). <em>Maps Embed</em> is the browser map — free and unlimited; the count is device-page renders that showed the map. Request counters are in-memory and reset on restart; the learned index is persisted in the database.
+    </div>
+  </div>
+</div>
+
+<!-- Learned WiFi-AP index -->
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M5 12.5a11 11 0 0 1 14 0M8 16a6.5 6.5 0 0 1 8 0M12 19.5h.01"/></svg></span><h2>Learned WiFi location index</h2><span class="muted small m">persisted · avoids Google for known areas</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:12px;">
+      Every successful Geolocation lookup teaches the server which access points (BSSIDs) live at which point. A later scan that overlaps ≥3 known APs (and ≥50% of the scan) is located <strong>locally</strong> — no Google call. Entries expire after 14 days. This is what drives the <strong>index hits</strong> above.
+    </div>
+    <div class="gu-tot" style="margin-bottom:14px;">
+      <div><div class="gu-tot-n" id="gu-l-total">{{.GoogleUsage.Learned.Total}}</div><div class="muted small">access points learned</div></div>
+      <div><div class="gu-tot-n" id="gu-l-fresh">{{.GoogleUsage.Learned.Fresh}}</div><div class="muted small">fresh (&lt;14d)</div></div>
+      <div><div class="gu-tot-n" id="gu-l-places">{{.GoogleUsage.Learned.DistinctPlaces}}</div><div class="muted small">distinct places</div></div>
+      <div><div class="gu-tot-n" id="gu-l-served">{{.GoogleUsage.Learned.ServedLookups}}</div><div class="muted small">lookups served (all-time)</div></div>
+      <div><div class="gu-tot-n" id="gu-l-saved">${{printf "%.2f" .GoogleUsage.Learned.CostSaved}}</div><div class="muted small">saved this session</div></div>
+    </div>
+    <div class="muted small" style="margin-bottom:8px;">Most recently learned access points{{if .GoogleUsage.Learned.LastLearnedAgo}} · last learned {{.GoogleUsage.Learned.LastLearnedAgo}}{{end}}:</div>
+    {{if .LearnedAPs}}
+    <div style="overflow-x:auto;">
+      <table class="tbl" style="width:100%;font-size:12px;">
+        <thead><tr><th style="text-align:left;">BSSID</th><th style="text-align:left;">Location</th><th style="text-align:right;">Hits</th><th style="text-align:right;">Accuracy</th><th style="text-align:right;">Learned</th></tr></thead>
+        <tbody>
+          {{range .LearnedAPs}}
+          <tr>
+            <td class="mono">{{.BSSID}}</td>
+            <td><a class="link" href="https://maps.google.com/?q={{printf "%.6f" .Lat}},{{printf "%.6f" .Lon}}" target="_blank" rel="noopener">{{printf "%.5f" .Lat}}, {{printf "%.5f" .Lon}}</a></td>
+            <td style="text-align:right;">{{.Hits}}</td>
+            <td style="text-align:right;">±{{printf "%.0f" .Accuracy}}m</td>
+            <td style="text-align:right;" class="muted">{{timeSince .SeenAt}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="muted small">No access points learned yet — they appear here after the first successful Geolocation lookup.</div>
+    {{end}}
+  </div>
+</div>
+<script>window.SETTINGS_GOOGLE_USAGE = {{.GoogleUsageJSON}};</script>
+<script src="/static/js/settings/google-usage.js?v={{assetVer}}"></script>
+{{end}}
+
+{{define "st-reports"}}
+<div class="vs-card s1-card" style="margin-bottom:16px">
+  <div class="vs-h"><h2>Customer reports</h2></div>
+    <div class="s1-sw"><span class="vs-k">Customer reports</span><span class="vs-v"><span class="s1-st">{{if .ComplianceReportsCustomers}}On{{else}}Off{{end}}</span><small>device security page in venue reports, monthly report to owners</small></span>{{template "settings-toggle" (dict "Action" "/settings/compliance-reports/toggle" "On" .ComplianceReportsCustomers)}}</div>
+</div>
+{{end}}
+
+{{/* The Settings page styles, also used where moved cards render (S1). */}}
+{{define "settings-style"}}
+<style>
+.settings-wrap{display:flex;gap:22px;align-items:flex-start;}
+.settings-nav{display:flex;flex-direction:column;gap:2px;min-width:200px;flex-shrink:0;position:sticky;top:74px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;}
+.settings-nav button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;border-radius:9px;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;min-height:40px;white-space:nowrap;}
+.settings-nav button svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--text-faint)}
+.settings-nav button:hover{background:var(--surface2);color:var(--text);}
+.settings-nav button.active{background:var(--accent-soft);color:var(--accent-text);font-weight:650;}
+.settings-nav button.active svg{color:var(--accent-text)}
+.settings-panels{flex:1;min-width:0;}
+[hidden]{display:none !important;}
+.settings-tab{display:none;}
+.settings-tab.active{display:block;padding-bottom:110px;}
+.sw-toggle{width:42px;height:24px;border-radius:99px;border:0;background:var(--surface2);position:relative;cursor:pointer;padding:0;flex:none;transition:background .15s;}
+.sw-toggle.on{background:var(--ok);}
+.sw-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+.sw-toggle.on .sw-knob{left:21px;}
+@media (max-width:1024px){
+  .settings-wrap{flex-direction:column;}
+  .settings-nav{position:static;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;min-width:0;width:100%;gap:6px;-webkit-overflow-scrolling:touch;}
+  .settings-nav button{width:auto;flex:none;border:1px solid var(--border);padding:8px 12px;}
+  .settings-nav button.active{border-color:var(--accent-edge);}
+}
+/* Compact alert-rule rows: one line each, expand to edit thresholds. */
+.rule-item{padding:10px 0;border-bottom:1px solid var(--border-soft);}
+.rule-item:last-child{border-bottom:none;}
+.rule-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.rule-text{flex:1 1 260px;min-width:0;}
+.rule-desc{margin-top:2px;line-height:1.35;}
+.rule-fields{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.rule-f{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--muted);}
+.rule-in{display:inline-flex;align-items:center;gap:5px;}
+.rule-in input{width:78px;padding:4px 8px;font-size:12.5px;text-align:right;font-variant-numeric:tabular-nums;}
+.rule-in i{font-style:normal;font-size:11.5px;color:var(--text-faint);}
+.rule-scope .rule-in input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent);}
+.rule-scope .rule-in{height:26px;}
+.rule-f select{padding:4px 8px;font-size:12.5px;width:132px;}
+.rule-save{align-self:flex-end;}
+.rule-status{color:var(--ok,#22a06b);min-width:0;transition:opacity .4s;}
+.rule-status.err{color:var(--danger);}
+.rule-item.off .rule-fields{opacity:.55;}
+.rule-head{display:flex;align-items:center;gap:12px;}
+.rule-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rule-summary{white-space:nowrap;}
+.rule-item.off .rule-title{color:var(--muted);}
+.rule-group-head{margin:16px 0 2px;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);}
+.rule-group-head:first-child{margin-top:4px;}
+/* Alert-rule category sub-tabs (inside the Alert rules card). */
+.alert-cat-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:10px 16px 0;border-bottom:1px solid var(--border-soft);}
+.alert-cat-tab{appearance:none;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--muted);padding:8px 12px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;}
+.alert-cat-tab:hover{color:var(--text);}
+.alert-cat-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.alert-cat-tab .pill{font-size:11px;font-weight:600;color:var(--muted);}
+.alert-cat-panel{display:none;}
+.alert-cat-panel.active{display:block;}
+.collapsible-header .collapse-caret{transition:transform .15s;display:inline-block;}
+.collapsible-header.open .collapse-caret{transform:rotate(90deg);}
+.st-steps{display:grid;gap:8px;padding:14px 16px}
+.cs{display:flex;gap:11px;padding:11px 12px;border:1px solid var(--border);border-radius:13px;background:var(--surface);transition:all .3s;opacity:.7;text-decoration:none;color:inherit}
+.cs:hover{opacity:1}
+.cs.on{opacity:1;border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.cs.ok{opacity:1;border-color:var(--ok)}
+.cs .n{width:24px;height:24px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none}
+.cs.on .n{background:var(--accent-fill);color:#fff}.cs.ok .n{background:var(--ok-bg);color:var(--ok)}
+.cs b{display:block;font-size:12.5px}.cs span{font-size:11.5px;color:var(--muted);line-height:1.45}
+</style>
+{{end}}

@@ -137,5 +137,9 @@
   </section>
   {{end}}
 </div>
+{{/* Customer compliance reports (S1, 24 Oct 2026), from Settings › People & sign-in. */}}
+{{if .St}}<section class="cc-wrap" id="compliance-reports" style="margin-top:22px">
+  <div class="settings-panels st-moved">{{template "settings-style"}}{{template "st-reports" .St}}</div>
+</section>{{end}}
 {{template "footer" .}}
 {{end}}

@@ -45,10 +45,16 @@
   <div class="cc-top">
     <div>
       <h1 class="cc-h1">Alert rules</h1>
-      <div class="cc-sub">The thresholds that trigger each alert, currently in effect. <b>View only</b> — rules are tuned by an admin in Settings.</div>
+      <div class="cc-sub">{{if .St}}What fires, where alerts are sent and the hours they count in.{{else}}The thresholds that trigger each alert, currently in effect.{{end}}</div>
     </div>
   </div>
 
+  {{/* Alerts › Rules (Settings S1, 24 Oct 2026): the rules, notifications and fleet
+       service hours, editable, from Settings; the read-only list stays for anyone else. */}}
+  {{if .St}}
+  <div class="settings-panels st-moved">{{template "settings-style"}}{{template "st-alerts" .St}}</div>
+  <script src="/static/js/settings/panels.js?v={{assetVer}}"></script>
+  {{else}}
   {{range .AlertRules}}
   <div class="cc-card">
     <div class="cc-ch"><span class="ic{{if not .EnabledCount}} mut{{end}}"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h2>{{.Category}}</h2><span class="m">{{.EnabledCount}} of {{len .Rules}} enabled</span></div>
@@ -68,6 +74,7 @@
         </div>
       </div>
       {{end}}
+  {{end}}
     </div>
   </div>
   {{end}}

@@ -20,7 +20,10 @@
   // Enrollment's cards (QR provisioning APK, adb keys) moved to Enrollment (23 Oct 2026).
   if (initial === 'enrollment' || initial === 'fleet-adb-key') { location.replace('/enrollment?tab=how' + (initial === 'fleet-adb-key' ? '#fleet-adb-key' : '')); return; }
   // legacy deep-links from older tabs
-  var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'people', sessions: 'people', tools: 'devices', testing: 'general' };
+  var alias = { security: 'people', sessions: 'people', tools: 'devices', testing: 'general', display: 'general', signin: 'people' };
+  // Cards that moved to their own pages (S1, 24 Oct 2026).
+  var moved = { ota: '/releases/settings', alerts: '/alert-config', channels: '/alert-config#channels', commands: '/jobs#job-settings', integrations: '/server#integrations', ai: '/server#integrations', google: '/server#integrations' };
+  if (moved[initial]) { location.replace(moved[initial]); return; }
   if (alias[initial]) initial = alias[initial];
   // A hash may name a card inside a tab (#fleet-adb-key): open its tab, then scroll to it.
   function showFor(k) {
@@ -33,7 +36,7 @@
     setTimeout(function () { el.scrollIntoView({ block: 'start' }); }, 0);
     return true;
   }
-  if (!showFor(initial)) show('general');
+  if (!showFor(initial)) show('people');
   // in-page links to /settings#tab (and back/forward) switch tabs too
   window.addEventListener('hashchange', function () { var k = (location.hash || '').replace('#', ''); if (alias[k]) k = alias[k]; showFor(k); });
 })();
@@ -78,8 +81,10 @@ function ruleDirty(el) { var b = el.closest('form').querySelector('.rule-save');
 document.querySelectorAll('.settings-panels form:not([hx-post]):not([hx-boost])').forEach(function (f) { f.setAttribute('hx-boost', 'false'); });
 document.addEventListener('submit', function (e) {
   var form = e.target; if (!form.closest || !form.closest('.settings-panels') || form.hasAttribute('hx-post') || form.classList.contains('rule-item')) return;
-  var active = document.querySelector('.settings-nav button.active'); var tab = active ? active.getAttribute('data-tab') : 'general';
   var inp = form.querySelector('input[name=redirect]'); if (!inp) { inp = document.createElement('input'); inp.type = 'hidden'; inp.name = 'redirect'; form.appendChild(inp); }
+  // A card shown on another page (S1) comes back to that page, at the card.
+  if (form.closest('.st-moved')) { var card = form.closest('[id]'); inp.value = location.pathname + location.search + (card ? '#' + card.id : ''); return; }
+  var active = document.querySelector('.settings-nav button.active'); var tab = active ? active.getAttribute('data-tab') : 'general';
   if (!inp.value || inp.value.indexOf('/settings') === 0) inp.value = '/settings#' + tab;
 }, true);
 

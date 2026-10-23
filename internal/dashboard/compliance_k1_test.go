@@ -227,7 +227,7 @@ func TestCompliancePageRendersK1(t *testing.T) {
 		`<div class="k1-grp">Setup</div>`, `<div class="k1-grp">Debugging</div>`, `<div class="k1-grp">Intact</div>`,
 		`auto-fix on · 4 this week`, `AT070AABU00455`, `href="/compliance?check=firmware_approved&amp;show=all&amp;tab=devices"`,
 		`78%</b><small>compliant</small>`, `% compliant each day, last 14 days`, `Venues behind`, `Mom&#39;s Biryani`,
-		`Settings › customer compliance reports is off`, `/compliance.pdf`, `/static/js/oc-menus.js`,
+		`customer reports are off (Compliance rules)`, `/compliance.pdf`, `/static/js/oc-menus.js`,
 		`Unknown (not reported by its client`,
 	} {
 		if !strings.Contains(out, want) {

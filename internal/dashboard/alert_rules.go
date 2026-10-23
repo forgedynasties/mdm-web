@@ -329,6 +329,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 // fleet watches for and the thresholds that trigger each alert.
 func (h *Handler) AlertConfigView(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "alert_config.html", map[string]any{
+		"St":         h.movedSettings(r), // Settings cards that live here since S1 (24 Oct 2026)
 		"Title":      "Alert config",
 		"AlertRules": h.buildAlertRuleViews(r.Context()),
 		"Peak":       h.peakView(r.Context(), nil),

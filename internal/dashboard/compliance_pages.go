@@ -240,6 +240,7 @@ func (h *Handler) ComplianceRulesPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, r, "compliance_rules.html", map[string]any{
+		"St":        h.movedSettings(r), // Settings cards that live here since S1 (24 Oct 2026)
 		"Title":     "Compliance rules",
 		"Groups":    groupsView,
 		"Checks":    complianceChecks,

@@ -107,7 +107,7 @@ func TestJobsPageRenders(t *testing.T) {
 	funcs["canAdmin"] = func(string) bool { return true }
 	funcs["cmdTitle"] = func(c any) string { return "Job title" }
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}{{define "ubub"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/jobs.html", "../../templates/commands.html"))
+	tmpl = template.Must(tmpl.ParseFiles("../../templates/jobs.html", "../../templates/commands.html", "../../templates/_settings_cards.html"))
 
 	now := time.Now()
 	attn, prog, done, sum := jobsSample(now)

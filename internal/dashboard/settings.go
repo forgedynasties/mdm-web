@@ -48,7 +48,12 @@ func (h *Handler) settingsRedirect(w http.ResponseWriter, r *http.Request) {
 // settingsDest is the settings URL (with #tab) a form asked to return to.
 func (h *Handler) settingsDest(r *http.Request) string {
 	dest := strings.TrimSpace(r.FormValue("redirect"))
-	if !strings.HasPrefix(dest, "/settings") || strings.HasPrefix(dest, "//") {
+	ok := strings.HasPrefix(dest, "/settings")
+	// Cards moved to their pages (S1, 24 Oct 2026) come back to that page.
+	for _, p := range []string{"/releases/settings", "/lock", "/jobs", "/alert-config", "/compliance/rules", "/server", "/enrollment"} {
+		ok = ok || dest == p || strings.HasPrefix(dest, p+"?") || strings.HasPrefix(dest, p+"#")
+	}
+	if !ok || strings.HasPrefix(dest, "//") {
 		dest = "/settings"
 	}
 	return dest
@@ -57,6 +62,13 @@ func (h *Handler) settingsDest(r *http.Request) string {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, "settings.html", h.settingsData(r))
+}
+
+// settingsData is everything the Settings cards read. Since S1 (24 Oct 2026) several of
+// those cards render on the page they are about (Releases › Update settings, Lock, Jobs,
+// Alerts › Rules, Compliance rules, Server, Enrollment), which pass this as .St.
+func (h *Handler) settingsData(r *http.Request) map[string]any {
 	setFams, setSugg, setMode := h.libraryData(r.Context())
 	dbStats, _ := h.db.TableStats(r.Context())
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
@@ -85,9 +97,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	accessProfiles, _ := h.db.ListAccessProfiles(r.Context())
-	h.render(w, r, "settings.html", map[string]any{
-		"S1": buildSettingsS1(s1Inputs{TimeoutSecs: h.cfg.SessionTimeout(), SignedIn: signedIn, Names: names, Profiles: accessProfiles, Now: time.Now()}),
-		"SignedInN": len(signedIn),
+	return map[string]any{
+		"S1":               buildSettingsS1(s1Inputs{TimeoutSecs: h.cfg.SessionTimeout(), SignedIn: signedIn, Names: names, Profiles: accessProfiles, Now: time.Now()}),
+		"SignedInN":        len(signedIn),
 		"Title":            "Settings",
 		"AgentAPKURL":      h.cfg.AgentAPKURL(),
 		"AgentAPKChecksum": h.cfg.AgentAPKChecksum(),
@@ -96,71 +108,71 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 			sha, name, size, at := h.cfg.AgentAPKHostedInfo()
 			return map[string]any{"SHA": sha, "Name": name, "Size": size, "At": at, "URL": h.agentAPKURL(r)}
 		}(),
-		"AgentAPKFromEnv":       h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
-		"FleetAdbKey":           h.fleetAdbKeyView(r),
+		"AgentAPKFromEnv": h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
+		"FleetAdbKey":     h.fleetAdbKeyView(r),
 		// Getting-started checklist (General tab): is at least one venue being scanned?
 		"AnyVenueScanning": func() bool { ids, _ := h.db.RestaurantsToScan(r.Context()); return len(ids) > 0 }(),
-		"Apps":                  repoApps,
-		"Families":              setFams,
-		"Suggestions":           setSugg,
-		"AppFamilyMode":         setMode,
-		"Productions":           productions,
-		"DeviceQueries":         deviceQueries,
-		"ExtraColumns":          h.cfg.Columns(),
-		"LegacyCheckin":         h.cfg.LegacyCheckin(),
-		"CommandCanary":         h.cfg.CommandCanary(),
-		"LegacyBuilds":          h.cfg.LegacyBuilds(),
-		"WlcProducts":           h.cfg.WlcProducts(),
-		"CheckinInterval":       h.cfg.CheckinInterval(),
-		"ShellEnabled":          h.cfg.ShellEnabled(),
-		"RemoteEnabled":         h.cfg.RemoteEnabled(),
-		"CommandExpiry":         h.cfg.CommandExpiry(),
-		"MaxTargets":            h.cfg.MaxTargets(),
-		"RequireReason":         h.cfg.RequireReason(),
+		"Apps":             repoApps,
+		"Families":         setFams,
+		"Suggestions":      setSugg,
+		"AppFamilyMode":    setMode,
+		"Productions":      productions,
+		"DeviceQueries":    deviceQueries,
+		"ExtraColumns":     h.cfg.Columns(),
+		"LegacyCheckin":    h.cfg.LegacyCheckin(),
+		"CommandCanary":    h.cfg.CommandCanary(),
+		"LegacyBuilds":     h.cfg.LegacyBuilds(),
+		"WlcProducts":      h.cfg.WlcProducts(),
+		"CheckinInterval":  h.cfg.CheckinInterval(),
+		"ShellEnabled":     h.cfg.ShellEnabled(),
+		"RemoteEnabled":    h.cfg.RemoteEnabled(),
+		"CommandExpiry":    h.cfg.CommandExpiry(),
+		"MaxTargets":       h.cfg.MaxTargets(),
+		"RequireReason":    h.cfg.RequireReason(),
 		// Lost mode's support number and the switch for customer compliance reports (17 Oct).
 		"LostModeSupportPhone":       h.cfg.LostModeSupportPhone(),
 		"ComplianceReportsCustomers": h.cfg.ComplianceReportsCustomers(),
-		"SessionTimeout":        h.cfg.SessionTimeout(),
-		"BrandName":             h.cfg.BrandName(),
-		"PageSize":              h.cfg.PageSize(),
-		"DefaultSort":           h.cfg.DefaultSort(),
-		"Density":               h.cfg.Density(),
-		"Use24Hour":             h.cfg.Use24Hour(),
-		"AlertWebhookSet":       h.cfg.AlertWebhookURL() != "",
-		"AlertRules":            h.buildAlertRuleViews(r.Context()),
-		"FleetWindow":           fleetWindow,
-		"GroupWindows":          groupWindows,
-		"AlertChannels":         channels,
-		"ChannelTest":           r.URL.Query().Get("channel_test"),
-		"DailyDigest":           h.cfg.DailyDigestEnabled(),
-		"AutoHideDays":          h.cfg.AutoHideDays(),
-		"CheckinRetentionDays":  h.cfg.CheckinRetentionDays(),
-		"LogcatRetentionDays":   h.cfg.LogcatRetentionDays(),
-		"CheckinSampleSec":      h.cfg.CheckinSampleSec(),
-		"CheckinDownsampleDays": h.cfg.CheckinDownsampleDays(),
-		"CheckinDownsampleSec":  h.cfg.CheckinDownsampleSec(),
-		"LegacyStripCursor":     h.cfg.LegacyStripCursor(),
-		"LegacyStripPct":        h.legacyStripPct(r.Context()),
-		"MaintenanceMode":       h.cfg.MaintenanceMode(),
-		"IgnoreDPCCheckins":     h.cfg.IgnoreDPCCheckins(),
-		"DBStats":               dbStats,
-		"KioskAllowlist":        strings.Join(h.cfg.KioskAllowlist(), "\n"),
-		"OTACutoffRows":         h.otaCutoffRows(r.Context()),
-		"OTABuildRows":          h.otaBuildRows(r.Context()),
-		"MDMServers":            h.cfg.MDMServers(),
-		"LegacyOTAMode":         h.cfg.LegacyOTAMode(),
-		"LegacyOTAPort":         os.Getenv("LEGACY_OTA_PORT"),
-		"LegacyOTAUpstream":     os.Getenv("LEGACY_OTA_UPSTREAM"),
-		"OTAConfigManaged":      h.cfg.OTAConfigManaged(),
-		"OTAConfigOpts":         h.cfg.OTAConfigOptions(),
-		"OTAConfigLast":         otaConfigLastView(h.cfg),
-		"OTAConfigNext":         otaConfigNextView(h.cfg),
-		"OTAConfigS3":           h.apk != nil,
-		"KioskFleetApps":        kioskFleetApps,
-		"GoogleUsage":           googleUsage,
-		"GoogleUsageJSON":       template.JS(googleUsageJSON),
-		"LearnedAPs":            learnedAPs,
-	})
+		"SessionTimeout":             h.cfg.SessionTimeout(),
+		"BrandName":                  h.cfg.BrandName(),
+		"PageSize":                   h.cfg.PageSize(),
+		"DefaultSort":                h.cfg.DefaultSort(),
+		"Density":                    h.cfg.Density(),
+		"Use24Hour":                  h.cfg.Use24Hour(),
+		"AlertWebhookSet":            h.cfg.AlertWebhookURL() != "",
+		"AlertRules":                 h.buildAlertRuleViews(r.Context()),
+		"FleetWindow":                fleetWindow,
+		"GroupWindows":               groupWindows,
+		"AlertChannels":              channels,
+		"ChannelTest":                r.URL.Query().Get("channel_test"),
+		"DailyDigest":                h.cfg.DailyDigestEnabled(),
+		"AutoHideDays":               h.cfg.AutoHideDays(),
+		"CheckinRetentionDays":       h.cfg.CheckinRetentionDays(),
+		"LogcatRetentionDays":        h.cfg.LogcatRetentionDays(),
+		"CheckinSampleSec":           h.cfg.CheckinSampleSec(),
+		"CheckinDownsampleDays":      h.cfg.CheckinDownsampleDays(),
+		"CheckinDownsampleSec":       h.cfg.CheckinDownsampleSec(),
+		"LegacyStripCursor":          h.cfg.LegacyStripCursor(),
+		"LegacyStripPct":             h.legacyStripPct(r.Context()),
+		"MaintenanceMode":            h.cfg.MaintenanceMode(),
+		"IgnoreDPCCheckins":          h.cfg.IgnoreDPCCheckins(),
+		"DBStats":                    dbStats,
+		"KioskAllowlist":             strings.Join(h.cfg.KioskAllowlist(), "\n"),
+		"OTACutoffRows":              h.otaCutoffRows(r.Context()),
+		"OTABuildRows":               h.otaBuildRows(r.Context()),
+		"MDMServers":                 h.cfg.MDMServers(),
+		"LegacyOTAMode":              h.cfg.LegacyOTAMode(),
+		"LegacyOTAPort":              os.Getenv("LEGACY_OTA_PORT"),
+		"LegacyOTAUpstream":          os.Getenv("LEGACY_OTA_UPSTREAM"),
+		"OTAConfigManaged":           h.cfg.OTAConfigManaged(),
+		"OTAConfigOpts":              h.cfg.OTAConfigOptions(),
+		"OTAConfigLast":              otaConfigLastView(h.cfg),
+		"OTAConfigNext":              otaConfigNextView(h.cfg),
+		"OTAConfigS3":                h.apk != nil,
+		"KioskFleetApps":             kioskFleetApps,
+		"GoogleUsage":                googleUsage,
+		"GoogleUsageJSON":            template.JS(googleUsageJSON),
+		"LearnedAPs":                 learnedAPs,
+	}
 }
 
 // ── Google API usage panel ──────────────────────────────────────────────────
@@ -685,4 +697,20 @@ func (h *Handler) SettingsRemoveLegacyBuild(w http.ResponseWriter, r *http.Reque
 	r.ParseForm()
 	h.cfg.RemoveLegacyBuild(strings.TrimSpace(r.FormValue("build_id")))
 	h.settingsRedirect(w, r)
+}
+
+// movedSettings is the Settings data for a page that shows one of the moved cards, or nil
+// for anyone but a super admin (Settings is strict-admin; the cards stay that way).
+func (h *Handler) movedSettings(r *http.Request) map[string]any {
+	if h.role(r) != "admin" {
+		return nil
+	}
+	return h.settingsData(r)
+}
+
+// ReleasesSettingsPage is GET /releases/settings: the OTA cards that were Settings ›
+// Devices (S1, 24 Oct 2026).
+func (h *Handler) ReleasesSettingsPage(w http.ResponseWriter, r *http.Request) {
+	st := h.settingsData(r)
+	h.render(w, r, "releases_settings.html", map[string]any{"Title": "Update settings", "ActivePage": "updates", "St": st})
 }

@@ -341,6 +341,7 @@
   </section>
 
   <section class="en-tabpane" data-tab="how" role="tabpanel">
+  {{with .St}}{{template "st-getting-started" .}}{{end}}
   {{/* ── How devices get here ───────────────────────────────────────────── */}}
   <div class="cc-card">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h2>How devices get here</h2><span class="m">four paths, one fleet</span></div>
@@ -366,7 +367,7 @@
         <div class="en-step"><div class="en-num">2</div><div><div class="b">One command per batch (kiosks without a camera, volume)</div><div class="t">Plug the devices into a hub with USB debugging on. The script installs the agent, makes it Device Owner and hands it the server and a profile token. Nothing to type on the device. Use a profile with a device limit and revoke it after the batch.</div><code class="en-code">tools/enroll-adb.sh -s {{.ServerURL}} -t enr_… {{/* token from a profile above */}}</code></div></div>
         <div class="en-step"><div class="en-num">3</div><div><div class="b">By hand, if you prefer</div><code class="en-code">adb install -r aio-mdm-dpc.apk
 adb shell dpm set-device-owner {{.AdminComponent}}
-adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.ServerURL}} --es enroll_token enr_…</code><div class="t">{{if .HasAgentAPK}}The agent APK is at <span class="cc-mono">{{.AgentAPKURL}}</span>.{{else}}Host an agent APK in Settings › App library first, or side-load your own build.{{end}}</div></div></div>
+adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.ServerURL}} --es enroll_token enr_…</code><div class="t">{{if .HasAgentAPK}}The agent APK is at <span class="cc-mono">{{.AgentAPKURL}}</span>.{{else}}Host the agent APK below (Standard MDM for QR provisioning) first, or side-load your own build.{{end}}</div></div></div>
       </div>
       <div class="en-pane" data-pane="fw">
         <div class="en-step"><div class="en-num">1</div><div><div class="b">Nothing to scan</div><div class="t">Our own hardware ships with the system-app client. It authenticates with the fleet device key and registers itself on first check-in.</div></div></div>

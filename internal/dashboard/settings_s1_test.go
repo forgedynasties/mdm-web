@@ -52,7 +52,7 @@ func TestSettingsS1Renders(t *testing.T) {
 		}
 		return m
 	}
-	tmpl := template.Must(template.New("").Funcs(funcs).ParseFiles("../../templates/settings.html"))
+	tmpl := template.Must(template.New("").Funcs(funcs).ParseFiles("../../templates/settings.html", "../../templates/_settings_cards.html"))
 	now := time.Now()
 	data := map[string]any{
 		"S1": buildSettingsS1(s1Inputs{TimeoutSecs: 86400, Now: now, SignedIn: []db.SignedIn{{Username: "ali", LastSeen: now}},
@@ -67,16 +67,20 @@ func TestSettingsS1Renders(t *testing.T) {
 	for _, want := range []string{
 		`data-tab="people"`, `<span>24 hours</span>`, `action="/settings/session-timeout"`, `action="/settings/logout-all"`,
 		`1 person signed in now`, `action="/settings/remote/toggle"`, `action="/settings/shell/toggle"`,
-		`action="/settings/require-reason"`, `action="/settings/compliance-reports/toggle"`, `href="/users/access/profiles"`,
+		`action="/settings/require-reason"`,
 		`<span class="s1-st">On</span><small>live screen`, `<span class="s1-st">Off</span><small>one-off shell`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("People & sign-in is missing %q", want)
 		}
 	}
+	// Customer reports moved to Compliance rules and the profiles link went (S1, 24 Oct).
+	if strings.Contains(buf.String(), "/settings/compliance-reports/toggle") || strings.Contains(buf.String(), `href="/users/access/profiles"`) {
+		t.Error("customer reports / profiles link still in Sign-in")
+	}
 	// Each setting lives in one place now.
 	all, _ := os.ReadFile("../../templates/settings.html")
-	for _, action := range []string{`"/settings/session-timeout"`, `"/settings/logout-all"`, `"/settings/remote/toggle"`, `"/settings/shell/toggle"`, `"/settings/require-reason"`, `"/settings/compliance-reports/toggle"`} {
+	for _, action := range []string{`"/settings/session-timeout"`, `"/settings/logout-all"`, `"/settings/remote/toggle"`, `"/settings/shell/toggle"`, `"/settings/require-reason"`} {
 		if n := strings.Count(string(all), action); n != 1 {
 			t.Errorf("%s appears %d times in settings.html, want 1", action, n)
 		}

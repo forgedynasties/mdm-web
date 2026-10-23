@@ -553,7 +553,7 @@
       {{else}}
       <div class="ov3-card">
         <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h2>Fleet map</h2><a class="r" href="/map" style="margin-left:auto">Full map →</a></div>
-        <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/></svg></span><div><b>{{if .MapsEmbedKey}}No located devices yet{{else}}Maps key not configured{{end}}</b>{{if .MapsEmbedKey}}Devices appear here once the geolocation pipeline resolves their position.{{else}}Add a Google Maps key in Settings → Google APIs to enable the map.{{end}}</div></div>
+        <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/></svg></span><div><b>{{if .MapsEmbedKey}}No located devices yet{{else}}Maps key not configured{{end}}</b>{{if .MapsEmbedKey}}Devices appear here once the geolocation pipeline resolves their position.{{else}}Add a Google Maps key in the server env (GOOGLE_MAPS_EMBED_API_KEY) to enable the map.{{end}}</div></div>
       </div>
       {{end}}
 

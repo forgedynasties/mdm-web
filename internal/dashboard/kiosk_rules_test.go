@@ -85,7 +85,7 @@ func kioskTmpl(t *testing.T, file string) *template.Template {
 		funcs[m[1]] = func(...any) any { return "" }
 	}
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
-	return template.Must(tmpl.ParseFiles("../../templates/" + file))
+	return template.Must(tmpl.ParseFiles("../../templates/"+file, "../../templates/_settings_cards.html"))
 }
 
 func TestKioskPagesRender(t *testing.T) {

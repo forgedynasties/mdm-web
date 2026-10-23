@@ -232,6 +232,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, r, "manage.html", map[string]any{
+		"St":         h.movedSettings(r), // Settings cards that live here since S1 (24 Oct 2026)
 		"Title":      "Device lock",
 		"Venues":     order,
 		"Exits":      exits,

@@ -108,6 +108,7 @@ func (h *Handler) ServerPage(w http.ResponseWriter, r *http.Request) {
 	payload := h.serverFrame(r)
 	b, _ := json.Marshal(payload)
 	h.render(w, r, "server_metrics.html", map[string]any{
+		"St":         h.movedSettings(r), // Settings cards that live here since S1 (24 Oct 2026)
 		"Title":      "Server",
 		"ActivePage": "server",
 		// template.JS so the payload lands as raw JSON inside the script tag rather

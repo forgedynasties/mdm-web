@@ -469,6 +469,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Releases, rollouts and the summary of both are one page since 16 Oct (O2), at
 	// /releases; the old list addresses land there, keeping their query.
 	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleasesPage))
+	mux.HandleFunc("GET /releases/settings", h.requireStrictAdmin(h.ReleasesSettingsPage))
 	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(drainable(h.ReleaseProblemEvents)))
 	post("POST /releases", h.requireReleaseAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))

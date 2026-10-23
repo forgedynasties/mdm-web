@@ -72,7 +72,7 @@ func TestEnrollmentHubRenders(t *testing.T) {
 		"SightingsReady": 2, "ExpiredProfiles": 0, "Enrolling": false, "ScoutOn": true, "FleetKeySet": true,
 	}
 	var buf bytes.Buffer
-	if err := hubTmpl(t, "enrollment.html", "coverage.html", "restaurants.html", "layout.html").ExecuteTemplate(&buf, "enrollment.html", data); err != nil {
+	if err := hubTmpl(t, "enrollment.html", "coverage.html", "restaurants.html", "layout.html", "_settings_cards.html").ExecuteTemplate(&buf, "enrollment.html", data); err != nil {
 		t.Fatalf("enrollment.html: %v", err)
 	}
 	out := buf.String()

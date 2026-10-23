@@ -261,7 +261,7 @@ func (h *Handler) SettingsTestChannel(w http.ResponseWriter, r *http.Request) {
 		result = "fail"
 	}
 	h.audit(r, "alerts.channel.test", c.Name, result)
-	http.Redirect(w, r, "/settings?channel_test="+result+"#channels", http.StatusFound)
+	http.Redirect(w, r, "/alert-config?channel_test="+result+"#channels", http.StatusFound) // Alerts › Rules since S1
 }
 
 // SettingsDeleteChannel removes an alert channel.

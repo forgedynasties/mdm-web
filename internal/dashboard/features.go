@@ -269,6 +269,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		"Cov":        cov,
 		"CovWork":    covWork,
 		"Placements": h.venuesPlacementView(r.Context()),
+		"St":         h.movedSettings(r), // Getting started (S1, 24 Oct 2026)
 	})
 }
 

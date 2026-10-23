@@ -48,6 +48,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			h.tmpl.ExecuteTemplate(w, "jobs-cards", h.withRole(r, data))
 			return
 		}
+		data["St"] = h.movedSettings(r) // Action governance lives here since S1 (24 Oct 2026)
 		h.render(w, r, "jobs.html", data)
 		return
 	}

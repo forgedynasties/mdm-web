@@ -256,7 +256,7 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
     </ul>
     {{else}}<div class="ovd-empty"><b>None.</b> Every scored venue meets its required checks.</div>{{end}}
     {{with .Report}}
-    <div class="k1-rep"><span class="ic">PDF</span><span><b>Venue report</b><small>{{if .On}}monthly to owners · next {{.Next}} · {{.Venues}} venue{{if ne .Venues 1}}s{{end}}{{else}}not sent to owners: Settings › customer compliance reports is off{{end}}</small></span>{{if .VenueID}}<a class="cc-btn xs" href="/restaurants/{{.VenueID}}/compliance.pdf" hx-boost="false" title="This month's report for {{.VenueName}}">Preview</a>{{end}}</div>
+    <div class="k1-rep"><span class="ic">PDF</span><span><b>Venue report</b><small>{{if .On}}monthly to owners · next {{.Next}} · {{.Venues}} venue{{if ne .Venues 1}}s{{end}}{{else}}not sent to owners: customer reports are off (Compliance rules){{end}}</small></span>{{if .VenueID}}<a class="cc-btn xs" href="/restaurants/{{.VenueID}}/compliance.pdf" hx-boost="false" title="This month's report for {{.VenueName}}">Preview</a>{{end}}</div>
     {{end}}
   </aside>
   {{end}}

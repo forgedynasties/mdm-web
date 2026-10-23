@@ -120,7 +120,7 @@
         <div class="fm-count" id="fm-count"></div>
         <div class="fm-legend"><span><i class="ok"></i>Online</span><span><i></i>Offline</span><span><i class="cl"></i>Cluster</span></div>
         {{else}}
-        <div class="fm-nomap"><b>{{if .MapsEmbedKey}}No located devices yet{{else}}Google Maps key not configured{{end}}</b>{{if .MapsEmbedKey}}Devices appear once the geolocation pipeline resolves a position from their Wi-Fi scan.{{else}}Add a Maps key in Settings → Google APIs to enable the map.{{end}}</div>
+        <div class="fm-nomap"><b>{{if .MapsEmbedKey}}No located devices yet{{else}}Google Maps key not configured{{end}}</b>{{if .MapsEmbedKey}}Devices appear once the geolocation pipeline resolves a position from their Wi-Fi scan.{{else}}Add a Maps key in the server env (GOOGLE_MAPS_EMBED_API_KEY) to enable the map.{{end}}</div>
         {{end}}
       </div>
     </div>
