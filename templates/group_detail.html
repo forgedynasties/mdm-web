@@ -50,7 +50,7 @@
 <div class="cc-top gp-hdr" style="margin-top:10px">
   {{/* Folded under the island like the venue page's header; its text leaves too. */}}
   <div class="isl-dup-sr">
-    <div class="cc-eyebrow">Group</div>
+    <div class="cc-eyebrow">Fleet · Groups</div>
     <h1 class="cc-h1">{{.Group.Name}}</h1>
     <div class="cc-status" id="kpi-live" hx-get="/groups/{{.Group.ID}}?partial=kpis" hx-select="unset" hx-trigger="group-updated from:body" hx-target="this" hx-swap="innerHTML">{{template "group-kpis" .}}</div>
   </div>

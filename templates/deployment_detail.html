@@ -202,7 +202,7 @@
 
 <div class="cc-top dp1-top">
   <div>
-    <div class="cc-eyebrow">Releases · deployment #{{$dep.ID}}</div>
+    <div class="cc-eyebrow">Software · Releases · update #{{$dep.ID}}</div>
     <h1 class="cc-h1"><a href="/releases/{{$rel.ID}}" style="color:inherit;text-decoration:none;">{{$rel.Version}}</a> rollout</h1>
     <div class="cc-status"><b style="text-transform:capitalize;">{{$dep.Status}}</b> · started {{timeSince $dep.CreatedAt}}{{if $dep.CreatedBy}} by {{$dep.CreatedBy}}{{end}} · {{.SummaryTotal}} {{productLabel $rel.Product}}{{if $rel.Name}} · {{$rel.Name}}{{end}}</div>
   </div>

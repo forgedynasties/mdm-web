@@ -8,7 +8,7 @@
 <div class="cc-wrap">
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Fleet</div>
+      <div class="cc-eyebrow">Fleet · Enrollment</div>
       <h1 class="cc-h1">Prod coverage</h1>
       <div class="cc-status"><b>{{.C.InMDM}} of {{.C.Total}}</b> devices in the MDM ({{.C.Pct}}%) · <b>{{.Linked}} of {{len .Rows}}</b> restaurants linked{{if .C.Unmatched}} · {{.C.Unmatched}} can't be matched yet{{end}}</div>
       <div class="cc-sub">Every device the AIO backend lists at a restaurant that the MDM could manage (POS, kitchen displays, kiosks, menu boards, tablets), against what the MDM has. {{if .Synced}}Backend copy synced {{timeSince .Synced}}.{{else}}The backend hasn't been copied yet.{{end}}</div>

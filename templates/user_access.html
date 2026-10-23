@@ -222,7 +222,7 @@
   {{$u := .User}}{{$base := printf "/users/%s/profile" .User.ID}}
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow"><a href="/users" class="js-dest" style="color:inherit">Users</a> · person</div>
+      <div class="cc-eyebrow">People · <a href="/users" class="js-dest" style="color:inherit">Users</a></div>
       <h1 class="cc-h1 ua-h1">{{template "ubub" .Bubble}}<span>{{$u.DisplayName}} <span class="cc-pill {{rolePill $u.Role}}" style="vertical-align:middle;margin-left:6px">{{roleLabel $u.Role}}</span></span></h1>
       <div class="cc-status">{{.I1.Status}}</div>
     </div>

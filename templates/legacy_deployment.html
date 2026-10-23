@@ -23,7 +23,7 @@
 <div class="cc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow"><a href="/updates/legacy" style="color:inherit;text-decoration:none;">Updates · Legacy OTA</a> · rollout #{{.Dep.ID}}</div>
+    <div class="cc-eyebrow"><a href="/updates/legacy" style="color:inherit;text-decoration:none;">Software · Legacy OTA</a> · rollout #{{.Dep.ID}}</div>
     <h1 class="cc-h1"><span class="mono">{{.Dep.ReleaseVersion}}</span> <span class="hl {{if .Dep.Failed}}danger{{else}}ok{{end}}">· {{.Dep.Installed}}/{{.Dep.Total}} installed</span></h1>
     <div class="cc-sub">Pushed {{timeSince .Dep.CreatedAt}}{{if .Dep.CreatedBy}} by {{.Dep.CreatedBy}}{{end}} · each device picks it up on its next poll, every 15 minutes at least.{{if .Awaiting}} <b>{{.Awaiting}}</b> device{{if ne .Awaiting 1}}s have{{else}} has{{end}} the update applied and {{if ne .Awaiting 1}}are{{else}}is{{end}} waiting to reboot.{{end}}</div>
   </div>

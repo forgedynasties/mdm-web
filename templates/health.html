@@ -34,7 +34,7 @@
   {{/* ── Top bar ── */}}
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Fleet</div>
+      <div class="cc-eyebrow">Today</div>
       <h1 class="cc-h1">Fleet health</h1>
     <div class="cc-status">{{.Verdict}}</div>
       <div class="cc-sub">{{if .Crashes24h}}<b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} in the last 24h across <b>{{.CrashDevices24h}}</b> device{{if ne .CrashDevices24h 1}}s{{end}}{{if .CrashWorstBuild}}, most on build <b>{{.CrashWorstBuild}}</b>{{end}}.{{else}}No crashes in the last 24h.{{end}}{{if gt .OfflineDevices 0}} <b>{{.OfflineDevices}}</b> device{{if ne .OfflineDevices 1}}s{{end}} offline.{{end}}</div>
