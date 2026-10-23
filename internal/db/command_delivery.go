@@ -266,7 +266,35 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 			log.Printf("[command-lease] round-trip stamp %s: %v", deviceID, rerr)
 		}
 	}
+	if status == "installed" {
+		d.noteInstalledApp(ctx, commandID, deviceID)
+	}
 	return err
+}
+
+// noteInstalledApp puts a library app the device says it installed into its app list at
+// once. The list is otherwise only as fresh as the device's last inventory, and Lock, the
+// Apps tab and the install job all read it: on 23 Oct 2026 AT070AA2600031 acked prod
+// Nugget installed at 12:11, its last inventory was from 11:56, and Lock still said
+// "Nugget isn't on this device". The inventory hash is cleared too, so the device is asked
+// for a fresh list and its next one is written whatever it holds.
+func (d *DB) noteInstalledApp(ctx context.Context, commandID, deviceID uuid.UUID) {
+	tag, err := d.pool.Exec(ctx, `
+		INSERT INTO device_packages (device_id, package_name, app_name, version_name, is_system, launchable)
+		SELECT $2, a.package_name, a.name, a.version_name, false, true
+		FROM commands c
+		JOIN apps a ON a.apk_url = c.apk_url OR c.apk_url LIKE '%/apps/' || a.id::text || '/apk'
+		WHERE c.id = $1 AND c.type = 'install_apk' AND a.package_name <> ''
+		LIMIT 1
+		ON CONFLICT (device_id, package_name) DO UPDATE
+			SET version_name = EXCLUDED.version_name, updated_at = NOW()`, commandID, deviceID)
+	if err != nil {
+		log.Printf("[install-ack] note installed app %s on %s: %v", commandID, deviceID, err)
+		return
+	}
+	if tag.RowsAffected() > 0 {
+		_, _ = d.pool.Exec(ctx, `UPDATE devices SET packages_hash = '' WHERE id = $1`, deviceID)
+	}
 }
 
 // MarkCommandReceived stamps received_at when a device confirms — via a 'received' ack —
