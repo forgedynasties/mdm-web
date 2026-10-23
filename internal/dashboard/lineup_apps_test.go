@@ -117,12 +117,15 @@ func TestLineupAppsRenders(t *testing.T) {
 		t.Fatalf("render: %v", err)
 	}
 	out := buf.String()
-	for _, w := range []string{`aria-current="page">Apps <i>1 no build</i></a>`, `class="lua-c on"`, `aio.app.nugget · 17.0.0`,
+	for _, w := range []string{`<h1 class="cc-h1">Host apps</h1>`, `1 with no build in the library`, `class="lua-c on"`, `aio.app.nugget · 17.0.0`,
 		`Upload a build to install on 1`, `Tableside AI · host app installs`, `action="/products/role-app-retry"`,
 		`Downloading 41%`, `Auto-install on`, `1 unit already run 18.0.0`, `href="/apps/aio.app.nugget">Upload 18.0.0</a>`,
-		`--a:16;--b:33`, `State: <b>All</b>`, `href="/lineup?app=t7&amp;state=failed&amp;view=apps"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
+		`--a:16;--b:33`, `State: <b>All</b>`, `href="/host-apps?app=t7&amp;state=failed"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("missing %q", w)
 		}
+	}
+	if strings.Contains(out, `class="lu1-tabs"`) {
+		t.Error("Host apps is a page of its own: no Lineup tabs on it")
 	}
 }

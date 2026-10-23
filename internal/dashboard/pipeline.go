@@ -111,9 +111,28 @@ func recentFetches() [][2]string {
 	return out
 }
 
-// Pipeline renders the Releases page.
+// Pipeline renders Lineup (Products, Setup) and, since 23 Oct 2026 (user: "instead of
+// putting clients and apps tabs on lineup, i want separate pages"; S1), the MDM clients
+// page (/clients) and the Host apps page (/host-apps), which were its tabs. The old tab
+// links redirect.
 func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	if r.URL.Path == "/lineup" {
+		q := r.URL.Query()
+		v := q.Get("view")
+		if v == "apps" || v == "clients" || q.Get("client") != "" {
+			q.Del("view")
+			to := "/clients"
+			if v == "apps" {
+				to = "/host-apps"
+			}
+			if enc := q.Encode(); enc != "" {
+				to += "?" + enc
+			}
+			http.Redirect(w, r, to, http.StatusMovedPermanently)
+			return
+		}
+	}
 	st, err := h.loadRoleAppState(ctx)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -201,9 +220,9 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	// ?client= opens the MDM clients tab, ?role=none and ?view=runs open Setup.
 	tab := "products"
 	switch {
-	case view == "apps":
+	case r.URL.Path == "/host-apps":
 		tab = "apps"
-	case view == "clients" || clientSel != "":
+	case r.URL.Path == "/clients":
 		tab = "clients"
 	case view == "setup" || view == "runs" || sel == "none":
 		tab = "setup"
@@ -216,7 +235,10 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	}
 	// Everything the tabs and every pane share.
 	common := func(m map[string]any) map[string]any {
-		m["Title"] = "Lineup"
+		m["Title"] = map[string]string{"apps": "Host apps", "clients": "MDM clients"}[tab]
+		if m["Title"] == "" {
+			m["Title"] = "Lineup"
+		}
 		m["Tab"] = tab
 		m["BehindTotal"] = behindTotal
 		m["Roles"] = roles
@@ -259,7 +281,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		cards := lineupClientCards(views, devices, clientSel)
 		v, ok := h.clientDetail(r, devices, clientSel)
 		if !ok {
-			http.Redirect(w, r, "/lineup?view=clients", http.StatusSeeOther)
+			http.Redirect(w, r, "/clients", http.StatusSeeOther)
 			return
 		}
 		data := common(map[string]any{"View": "clients", "ClientCards": cards, "Client": v, "Selected": v, "ServerURL": h.baseURL(r)})
@@ -603,8 +625,9 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.role_app", role, base)
 	// One message, as a toast: the page's own banner only knows its short codes.
-	q := url.Values{"role": {role}, "flash": {msg}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/lineup?"+q.Encode(), http.StatusSeeOther)
+	// The App picker lives on the Host apps page (A1).
+	q := url.Values{"app": {role}, "flash": {msg}, "flash_type": {"success"}}
+	http.Redirect(w, r, "/host-apps?"+q.Encode(), http.StatusSeeOther)
 }
 
 // PipelineChannel puts a build on its package's column. On the base package this is

@@ -77,16 +77,16 @@ type luAppLink struct {
 	Active      bool
 }
 
-// luAppHref is the Apps tab for role with these filters.
+// luAppHref is the Host apps page for role with these filters.
 func luAppHref(role, state, venue string) string {
-	q := url.Values{"view": {"apps"}, "app": {role}}
+	q := url.Values{"app": {role}}
 	if state != "" {
 		q.Set("state", state)
 	}
 	if venue != "" {
 		q.Set("venue", venue)
 	}
-	return "/lineup?" + q.Encode()
+	return "/host-apps?" + q.Encode()
 }
 
 type luAppOpt struct{ Key, Label string }
@@ -544,8 +544,8 @@ func (h *Handler) LineupAppAuto(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.role_app_auto_install", role, state)
 	msg := "Auto-install " + state + " for " + prod.ClassLabel(role) + "."
-	q := url.Values{"view": {"apps"}, "app": {role}, "flash": {msg}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/lineup?"+q.Encode(), http.StatusSeeOther)
+	q := url.Values{"app": {role}, "flash": {msg}, "flash_type": {"success"}}
+	http.Redirect(w, r, "/host-apps?"+q.Encode(), http.StatusSeeOther)
 }
 
 // LineupAppRetry sends a unit its product's prod app now, without waiting for the retry
@@ -576,6 +576,6 @@ func (h *Handler) LineupAppRetry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.role_app_retry", serial, build.PackageName+" "+build.VersionName)
-	q := url.Values{"view": {"apps"}, "app": {role}, "flash": {"Sent " + hostAppName(build.PackageName) + " " + build.VersionName + " to " + serial + "."}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/lineup?"+q.Encode(), http.StatusSeeOther)
+	q := url.Values{"app": {role}, "flash": {"Sent " + hostAppName(build.PackageName) + " " + build.VersionName + " to " + serial + "."}, "flash_type": {"success"}}
+	http.Redirect(w, r, "/host-apps?"+q.Encode(), http.StatusSeeOther)
 }

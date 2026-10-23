@@ -1178,14 +1178,17 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 	return v
 }
 
-// ClientsPage is where the Clients page used to be: it moved into Lineup (14 Oct), so old
-// links and bookmarks land on the same client there.
-func (h *Handler) ClientsPage(w http.ResponseWriter, r *http.Request) {
-	slot := r.URL.Query().Get("slot")
-	if _, ok := AgentAPKSlots[slot]; !ok {
-		slot = clientSlotOrder[0]
+// clientsEntry is GET /clients, the MDM clients page (a Lineup tab from 14 Oct, a page
+// again since 23 Oct 2026). The old page's ?slot= links land on the same client.
+func (h *Handler) clientsEntry(w http.ResponseWriter, r *http.Request) {
+	if slot := r.URL.Query().Get("slot"); slot != "" {
+		if _, ok := AgentAPKSlots[slot]; !ok {
+			slot = clientSlotOrder[0]
+		}
+		http.Redirect(w, r, "/clients?client="+url.QueryEscape(clientDisplaySlot(slot)), http.StatusFound)
+		return
 	}
-	http.Redirect(w, r, "/lineup?client="+url.QueryEscape(clientDisplaySlot(slot)), http.StatusFound)
+	h.Pipeline(w, r)
 }
 
 // clientDetail builds the Lineup pane for one MDM client: its summary, release history
@@ -1589,17 +1592,17 @@ func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
 	sha := strings.TrimSpace(r.FormValue("sha256"))
 	p := agentAPKArchivePath(slot, sha)
 	if p == "" {
-		h.hxDoneToast(w, r, "/lineup?client=firmware-qcom", "Unknown client or digest", "error")
+		h.hxDoneToast(w, r, "/clients?client=firmware-qcom", "Unknown client or digest", "error")
 		return
 	}
 	data, err := os.ReadFile(p)
 	if err != nil {
-		h.hxDoneToast(w, r, "/lineup?client="+slot, "That build is not in the archive any more", "error")
+		h.hxDoneToast(w, r, "/clients?client="+slot, "That build is not in the archive any more", "error")
 		return
 	}
 	sum := sha256.Sum256(data)
 	if hex.EncodeToString(sum[:]) != sha {
-		h.hxDoneToast(w, r, "/lineup?client="+slot, "Archived build does not match its digest — not published", "error")
+		h.hxDoneToast(w, r, "/clients?client="+slot, "Archived build does not match its digest — not published", "error")
 		return
 	}
 	var name string
@@ -1610,11 +1613,11 @@ func (h *Handler) AgentAPKRollback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if _, _, err := h.storeAgentAPK(data, name, slot, "rolled back to this build"); err != nil {
-		h.hxDoneToast(w, r, "/lineup?client="+slot, "Rollback failed: "+err.Error(), "error")
+		h.hxDoneToast(w, r, "/clients?client="+slot, "Rollback failed: "+err.Error(), "error")
 		return
 	}
 	h.audit(r, "clients.agent_apk_rollback", slot, "sha256 "+sha)
-	h.hxDoneToast(w, r, "/lineup?client="+slot, "Rolled back — this build is what devices install now", "success")
+	h.hxDoneToast(w, r, "/clients?client="+slot, "Rolled back — this build is what devices install now", "success")
 }
 
 // SettingsAgentAPKUpload stores an uploaded agent APK and records its SHA-256 (URL-safe

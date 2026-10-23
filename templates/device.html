@@ -626,7 +626,7 @@
         <div class="cc-msec">What changed</div>
         <ul class="cc-mlog">{{range .Log}}<li><span class="v">{{.Version}}</span><span>{{.Text}}</span></li>{{end}}</ul>
         {{end}}
-        <div class="cc-mfoot">{{if .Hosted}}{{.AutoUpdate}}{{end}}<a href="/lineup?client={{if .Slot}}{{.Slot}}{{else}}firmware-qcom{{end}}">Lineup →</a></div>
+        <div class="cc-mfoot">{{if .Hosted}}{{.AutoUpdate}}{{end}}<a href="/clients?client={{if .Slot}}{{.Slot}}{{else}}firmware-qcom{{end}}">Lineup →</a></div>
       </div>
     </span>
     {{end}}

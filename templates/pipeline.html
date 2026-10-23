@@ -4,9 +4,23 @@
 <div class="cc-wrap pl-wrap">
   <div class="cc-top">
     <div>
+    {{/* S1 (23 Oct 2026): MDM clients and Host apps are pages of their own, no longer
+         Lineup tabs; one template, the page picked by path (pipeline.go). */}}
+    {{if eq .Tab "clients"}}
+      <div class="cc-eyebrow">Firmware</div>
+      <h1 class="cc-h1">MDM clients</h1>
+      <div class="cc-status">{{len .Clients}} client{{if ne (len .Clients) 1}}s{{end}}{{if .BehindTotal}} · <span class="warn">{{.BehindTotal}} device{{if ne .BehindTotal 1}}s{{end}} behind</span>{{end}}</div>
+      <div class="cc-sub">Our agents on every device, and the build each is kept on. Auto-update moves present devices to the hosted build inside their window.</div>
+    {{else if eq .Tab "apps"}}
+      <div class="cc-eyebrow">Firmware</div>
+      <h1 class="cc-h1">Host apps</h1>
+      <div class="cc-status">The app each product runs{{if .AppsNoBuild}} · <span class="warn">{{.AppsNoBuild}} with no build in the library</span>{{end}}</div>
+      <div class="cc-sub">Which build of each product's app goes out, which units have it, and where it is still being installed.</div>
+    {{else}}
       <div class="cc-eyebrow">Fleet</div>
     <h1 class="cc-h1">Lineup</h1>
       <div class="cc-sub">Each kind of device: the models that are it, the firmware they run and the MDM client on them. A device at a venue follows its model's prod firmware by itself, inside its quiet window.</div>
+    {{end}}
     </div>
   </div>
 
@@ -16,20 +30,19 @@
        one page. The side list swaps the pane in place. */}}
   <div class="pl-split" id="pl-split">
 <template id="page-island">
-  {{if eq .View "apps"}}<span class="isl-t">Lineup · Apps</span><span class="isl-s">{{with .AppsPane}}{{.Card.Label}} · {{.Card.OnProd}} of {{.Card.Total}} on prod{{if .Card.Running}} · {{.Card.Running}} installing{{end}}{{else}}the app each product runs{{end}}</span>
+  {{if eq .View "apps"}}<span class="isl-t">Host apps</span><span class="isl-s">{{with .AppsPane}}{{.Card.Label}} · {{.Card.OnProd}} of {{.Card.Total}} on prod{{if .Card.Running}} · {{.Card.Running}} installing{{end}}{{else}}the app each product runs{{end}}</span>
   {{else if eq .View "setup"}}<span class="isl-t">Lineup · Setup</span><span class="isl-s">{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} without a role · {{.RunCount}} production run{{if ne .RunCount 1}}s{{end}}</span>
-  {{else if .Client}}{{with .Client}}<span class="isl-t">Lineup · MDM clients · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
+  {{else if .Client}}{{with .Client}}<span class="isl-t">MDM clients · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
   {{else}}<span class="isl-t">Lineup · {{.RoleLabel}}</span><span class="isl-s">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}} · {{len .HWModels}} model{{if ne (len .HWModels) 1}}s{{end}}</span>{{end}}
 </template>
 
-    {{/* N1 (21 Oct 2026): three tabs, each with one job. The chip row under Products is
-         products only; MDM clients and Setup have tabs of their own. */}}
+    {{/* Lineup's tabs: Products and Setup (MDM clients and Host apps became pages, S1). */}}
+    {{if or (eq .Tab "products") (eq .Tab "setup")}}
     <nav class="lu1-tabs" aria-label="Lineup">
       <a href="/lineup" hx-get="/lineup" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="{{if eq .Tab "products"}}on{{end}}"{{if eq .Tab "products"}} aria-current="page"{{end}}>Products</a>
-      <a href="/lineup?view=clients" hx-get="/lineup?view=clients" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="{{if eq .Tab "clients"}}on{{end}}"{{if eq .Tab "clients"}} aria-current="page"{{end}}>MDM clients{{if .BehindTotal}} <i>{{.BehindTotal}} behind</i>{{end}}</a>
-      <a href="/lineup?view=apps" hx-get="/lineup?view=apps" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="{{if eq .Tab "apps"}}on{{end}}"{{if eq .Tab "apps"}} aria-current="page"{{end}}>Apps{{if .AppsNoBuild}} <i>{{.AppsNoBuild}} no build</i>{{end}}</a>
       <a href="/lineup?view=setup" hx-get="/lineup?view=setup" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="{{if eq .Tab "setup"}}on{{end}}"{{if eq .Tab "setup"}} aria-current="page"{{end}}>Setup{{if .NoneCount}} <i>{{.NoneCount}}</i>{{end}}</a>
     </nav>
+    {{end}}
     {{if eq .Tab "products"}}
     <nav class="lu1-chips" aria-label="Products">
       {{range .Roles}}
@@ -50,7 +63,7 @@
     {{else if .Client}}
       <div class="lu1-clients">
         {{range .ClientCards}}
-        <a href="/lineup?client={{.Slot}}" hx-get="/lineup?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-cl{{if .On}} on{{end}}"{{if .On}} aria-current="true"{{end}}>
+        <a href="/clients?client={{.Slot}}" hx-get="/clients?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-cl{{if .On}} on{{end}}"{{if .On}} aria-current="true"{{end}}>
           <span class="hd"><span class="ic"><svg aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg></span><span><b>{{.Label}}</b><small>{{.Note}}</small></span></span>
           {{if .Hosted}}<span class="big">{{.Version}}<span>hosted · code {{.Code}}</span></span>{{else}}<span class="big none">Nothing hosted</span>{{end}}
           {{if .Devices}}<span class="lu1-bar">{{range .Bar}}<i class="lu1-s-{{.Tone}}" style="width:{{.Pct}}%" title="{{.Title}}"></i>{{end}}</span>{{end}}
@@ -95,9 +108,9 @@
           </div>
 
           {{/* The role's app: chosen here (admin), read out on the App card. */}}
-          {{/* The App picker moved to the Apps tab (A1, 23 Oct 2026); one line here. */}}
+          {{/* The App picker lives on the Host apps page (A1; a page since S1, 23 Oct 2026). */}}
           {{with $.App}}<div class="lu1-appset"><span>App: <b>{{if .Base}}{{.Name}}{{else}}none{{end}}</b>{{if .Base}} <code>{{.Base}}</code>{{end}}</span>
-            <a href="/lineup?view=apps&amp;app={{$.RoleKey}}">Set on the Apps tab →</a></div>{{end}}
+            <a href="/host-apps?app={{$.RoleKey}}">Set on Host apps →</a></div>{{end}}
 
           {{template "lu1-models" $}}
 
@@ -148,7 +161,7 @@
             <span class="ic"><svg aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg></span>
             <span class="t"><b>{{.Label}}{{with .Version}} {{.}}{{end}}</b><small>{{.Line}} · {{.Auto}} for every product</small></span>
             {{if .Hosted}}<span class="lu1-bar">{{range .Bar}}<i class="lu1-s-{{.Tone}}" style="width:{{.Pct}}%" title="{{.Title}}"></i>{{end}}</span>{{end}}
-            <a href="/lineup?client={{.Slot}}" hx-get="/lineup?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true">Manage in MDM clients →</a>
+            <a href="/clients?client={{.Slot}}">Manage in MDM clients →</a>
           </div>
           {{end}}
           {{end}}
@@ -576,7 +589,7 @@
 {{define "lu-apps"}}
 <div class="lua-cards">
   {{range .AppCards}}
-  <a href="/lineup?view=apps&amp;app={{.Role}}" hx-get="/lineup?view=apps&amp;app={{.Role}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lua-c{{if .On}} on{{end}}"{{if .On}} aria-current="true"{{end}}>
+  <a href="/host-apps?app={{.Role}}" hx-get="/host-apps?app={{.Role}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lua-c{{if .On}} on{{end}}"{{if .On}} aria-current="true"{{end}}>
     <span class="hd"><b>{{.Label}}</b>{{if .Base}}<span class="lua-auto{{if .AutoInstall}} on{{end}}">{{if .AutoInstall}}Auto{{else}}Off{{end}}</span>{{end}}</span>
     <code>{{if .Base}}{{.Base}} · {{if .Build}}{{.Build}}{{else}}no build{{end}}{{else}}no app set{{end}}</code>
     <span class="big">{{.OnProd}}<small> of {{.Total}} on prod</small></span>

@@ -480,7 +480,7 @@ func buildK1Groups(checks []compCheckView, rules compRules, fixesWeek map[string
 			case "locked":
 				r.Action, r.Href = "Lock", "/lock"
 			case "client_current":
-				r.Action, r.Href = "Clients", "/lineup?view=clients"
+				r.Action, r.Href = "Clients", "/clients"
 			default:
 				r.Action, r.Href = "Devices", r.MoreHref
 			}

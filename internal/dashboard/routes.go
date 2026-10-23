@@ -383,7 +383,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /products/role-app-retry", h.requireStrictAdmin(h.LineupAppRetry))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.
-	mux.HandleFunc("GET /clients", h.requireAuth(h.fleetWide(h.ClientsPage)))
+	// MDM clients and Host apps: pages of their own since 23 Oct 2026 (were Lineup tabs).
+	mux.HandleFunc("GET /clients", h.requireAuth(h.clientsEntry))
+	mux.HandleFunc("GET /host-apps", h.requireAuth(h.Pipeline))
 	// The server's own vitals. Operator-and-up: it exposes no device data, but it does
 	// say how hard the box is working, which is not a customer-facing fact.
 	mux.HandleFunc("GET /server", h.requireAdminOrOperator(h.ServerPage))

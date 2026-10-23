@@ -57,7 +57,7 @@ func TestLineupPaneBuilders(t *testing.T) {
 	if !strings.HasPrefix(b.Todos[1].Title, "22 deployed devices on another firmware line") {
 		t.Errorf("second row = %q", b.Todos[1].Title)
 	}
-	if b.Todos[2].Title != "23 behind Firmware MDM 1.13.10" || b.Todos[2].Href != "/lineup?client=firmware-qcom" {
+	if b.Todos[2].Title != "23 behind Firmware MDM 1.13.10" || b.Todos[2].Href != "/clients?client=firmware-qcom" {
 		t.Errorf("auto-update off and devices behind is a decision: %+v", b.Todos[2])
 	}
 	if b.Kicker != "Tableside AI · AIO T7 · 160 devices" {
@@ -187,19 +187,19 @@ func TestLineupRolePaneRenders(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		`class="lu1-chip on"`, `<span class="ic tone-ok">T7</span>`,
-		// N1: three tabs; the chip row is products only; the client is one line here.
-		`aria-current="page">Products</a>`, `MDM clients <i>23 behind</i>`, `Setup <i>2</i>`,
+		// Lineup has Products and Setup; MDM clients and Host apps are pages (S1, 23 Oct).
+		`aria-current="page">Products</a>`, `Setup <i>2</i>`,
 		`<b>Firmware MDM 1.13.10</b><small>131 of 160 on it · 23 behind · Auto-update off for every product</small>`,
-		`href="/lineup?client=firmware-qcom" hx-get="/lineup?client=firmware-qcom"`, `Manage in MDM clients →`,
+		`href="/clients?client=firmware-qcom">Manage in MDM clients →</a>`,
 		`3 things to decide`, `Tableside AI · AIO T7 · 160 devices`,
 		`action="/pipeline/firmware"`, `name="release_id" value="35"`, `>Promote to prod</button>`,
-		`href="/lineup?client=firmware-qcom">Open client</a>`,
+		`href="/clients?client=firmware-qcom">Open client</a>`,
 		`82%</b><small>on prod v2.1.034</small>`, `▲ 13 this week`, `App · Nugget`,
 		`class="lu1-m" id="model-t7"`, `Firmware: Prod`, `Firmware MDM 154`, `160 devices`,
 		`id="fw-t7"`, `class="oc-tb run"`, `131 / 160`, `class="oc-tb warn"`, `href="/releases/35"`,
 		`78%</b><small>fully on lineup</small>`, `125 of 160 deployed devices`, `Needs a look <span>3</span>`,
 		`16 without Nugget`, `When devices move`, `02:00–05:00 in each device's timezone`,
-		`href="/lineup?view=apps&amp;app=t7">Set on the Apps tab →</a>`,
+		`href="/host-apps?app=t7">Set on Host apps →</a>`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Lineup role pane is missing %q", want)
@@ -231,7 +231,7 @@ func TestLineupRolePaneRenders(t *testing.T) {
 		t.Fatalf("clients tab failed to render: %v", err)
 	}
 	out = buf.String()
-	for _, want := range []string{`aria-current="page">MDM clients`, `class="lu1-cl on"`, `0.4.0<span>hosted · code 24</span>`, `Auto-update on · any time`, `Kitchen display 1`, `Lineup · MDM clients · Standard MDM`} {
+	for _, want := range []string{`<h1 class="cc-h1">MDM clients</h1>`, `class="lu1-cl on"`, `0.4.0<span>hosted · code 24</span>`, `Auto-update on · any time`, `Kitchen display 1`, `MDM clients · Standard MDM`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("clients tab is missing %q", want)
 		}

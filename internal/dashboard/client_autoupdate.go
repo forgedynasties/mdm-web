@@ -201,5 +201,5 @@ func (h *Handler) ClientAutoUpdateSet(w http.ResponseWriter, r *http.Request) {
 		what = "paused"
 	}
 	h.audit(r, "settings.client_auto_update", slot, what)
-	http.Redirect(w, r, "/lineup?client="+slot+"&flash=rollout", http.StatusFound)
+	http.Redirect(w, r, "/clients?client="+slot+"&flash=rollout", http.StatusFound)
 }

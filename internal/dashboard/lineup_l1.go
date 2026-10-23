@@ -189,7 +189,7 @@ func buildLuBanner(in luInputs) luBanner {
 			todos = append(todos, luTodo{
 				Title:  fmt.Sprintf("%d behind %s %s", c.Behind, c.Label, c.Build.Version),
 				Sub:    "auto-update is " + state + " for this client, so they stay where they are",
-				Action: "Open client", Href: "/lineup?client=" + c.Slot})
+				Action: "Open client", Href: "/clients?client=" + c.Slot})
 		}
 	}
 	b.Todos = todos
@@ -285,7 +285,7 @@ func buildLuCards(in luInputs) []luCard {
 	if first == nil {
 		cl.Empty = "No hosted client build for these devices."
 	} else {
-		cl.Href = "/lineup?client=" + first.Slot
+		cl.Href = "/clients?client=" + first.Slot
 		lbl := "on the hosted client"
 		if len(in.Clients) == 1 {
 			lbl = "on hosted " + first.Build.Version
@@ -385,11 +385,11 @@ func buildLuRail(in luInputs) luRail {
 	for _, c := range in.Clients {
 		if c.Unknown > 0 {
 			r.Looks = append(r.Looks, luLook{"", fmt.Sprintf("%d not reporting a %s version", c.Unknown, c.Label),
-				"an older image, or a client from before version reporting", "/lineup?client=" + c.Slot})
+				"an older image, or a client from before version reporting", "/clients?client=" + c.Slot})
 		}
 		if c.NoBuild > 0 {
 			r.Looks = append(r.Looks, luLook{"", fmt.Sprintf("%d can't take %s %s", c.NoBuild, c.Label, c.Build.Version),
-				"their image is signed with another key; they get no client update", "/lineup?client=" + c.Slot})
+				"their image is signed with another key; they get no client update", "/clients?client=" + c.Slot})
 		}
 	}
 	return r

@@ -148,7 +148,7 @@
 
 {{define "clients-detail"}}
   {{with .Selected}}
-  <div id="cl-detail"{{if .Updating}} hx-get="/lineup?client={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-detail" hx-swap="outerHTML"{{end}}>
+  <div id="cl-detail"{{if .Updating}} hx-get="/clients?client={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-detail" hx-swap="outerHTML"{{end}}>
     <div class="cl-hd cv-top">
       <div class="cv-id">
         <h2>{{if .GroupLabel}}{{.GroupLabel}}{{else}}{{.Label}}{{end}}</h2>
@@ -203,9 +203,9 @@
     <div class="vseg" role="tablist" aria-label="Firmware variant">
       {{range .Variants}}
       <a class="{{if .Selected}}on{{end}}" role="tab" aria-selected="{{if .Selected}}true{{else}}false{{end}}"
-         href="/lineup?client={{.Slot}}" onclick="clVar(this)"
-         hx-get="/lineup?client={{.Slot}}&partial=1" hx-target="#cl-detail" hx-swap="outerHTML"
-         hx-push-url="/lineup?client={{.Slot}}">{{.Variant}}<span class="n">{{.Devices}}</span></a>
+         href="/clients?client={{.Slot}}" onclick="clVar(this)"
+         hx-get="/clients?client={{.Slot}}&partial=1" hx-target="#cl-detail" hx-swap="outerHTML"
+         hx-push-url="/clients?client={{.Slot}}">{{.Variant}}<span class="n">{{.Devices}}</span></a>
       {{end}}
     </div>
     <div class="cl-vnote">{{.Note}}</div>

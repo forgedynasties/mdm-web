@@ -82,7 +82,7 @@ function clSent(form) {
   var d = document.getElementById('cl-detail');
   var slot = (new URLSearchParams(location.search)).get('client') || '';
   setTimeout(function () {
-    if (window.htmx && document.getElementById('cl-detail')) htmx.ajax('GET', '/lineup?client=' + encodeURIComponent(slot) + '&partial=1',
+    if (window.htmx && document.getElementById('cl-detail')) htmx.ajax('GET', '/clients?client=' + encodeURIComponent(slot) + '&partial=1',
       { target: '#cl-detail', swap: 'outerHTML' });
   }, 1500);
   void d;
