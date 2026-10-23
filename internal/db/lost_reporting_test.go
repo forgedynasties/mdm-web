@@ -11,13 +11,17 @@ func TestLostConfigKeys(t *testing.T) {
 	if k["self_lock"].(map[string]any)["enabled"] != false {
 		t.Fatalf("self_lock off: %v", k)
 	}
-	// The Standard client gets lost_listen only.
+	// The Standard client gets lost_listen, no self_lock...
 	k = LostConfigKeys(LostConfig{DPC: true, SelfLockMinutes: 10, Beacons: []string{"0011223344556677"}}, "+1 555")
 	if _, ok := k["self_lock"]; ok {
 		t.Fatalf("no self_lock for the Standard client: %v", k)
 	}
 	if k["lost_listen"].(map[string]any)["every_s"] != LostListenEveryS {
 		t.Fatalf("lost_listen: %v", k)
+	}
+	// ...and the staff PIN, for its staff mode (0.10.0).
+	if k["offline_exit"].(map[string]any)["pin"] != DefaultStaffPIN {
+		t.Fatalf("staff PIN for the Standard client: %v", k)
 	}
 	// Firmware at a self-lock venue: the lost screen's defaults ride along.
 	k = LostConfigKeys(LostConfig{Venue: "Nugget Downtown", SelfLockMinutes: 15}, "+1 555")

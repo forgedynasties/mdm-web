@@ -184,16 +184,17 @@ func LostConfigKeys(c LostConfig, phone string) map[string]any {
 	if len(c.Beacons) > 0 {
 		out["lost_listen"] = map[string]any{"beacons": c.Beacons, "scan_s": LostListenScanS, "every_s": LostListenEveryS}
 	}
-	if c.DPC {
-		return out
-	}
-	// The staff PIN (client 1.13.7: corner + Power, then the PIN pad, opens staff mode).
-	// Every client version reads offline_exit.pin; older ones keep their own settings beside it.
+	// The staff PIN (client 1.13.7: corner + Power, then the PIN pad, opens staff mode;
+	// Standard client 0.10.0: the corner held 5 s or the D-pad code). Every client version
+	// reads offline_exit.pin; older ones keep their own settings beside it.
 	pin := c.StaffPIN
 	if pin == "" {
 		pin = DefaultStaffPIN
 	}
 	out["offline_exit"] = map[string]any{"pin": pin}
+	if c.DPC {
+		return out
+	}
 	// venue and venue_icon_v ride along whether self-lock is on or not: the lost screen
 	// (client 1.13.4, L1) names the venue and shows its icon, fetched once per version
 	// from /api/v1/venue-icon, for a lost_mode command that carries none too.
