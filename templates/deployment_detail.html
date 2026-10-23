@@ -100,7 +100,7 @@
     {{else}}
     <div class="oc-empty">No devices targeted yet.</div>
     {{end}}
-    <div class="oc-foot"><span><i style="background:var(--warn)"></i>Needs a look</span><span><i style="background:var(--danger)"></i>Failed</span><span><i style="background:var(--accent)"></i>Downloading or rebooting</span><span><i style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)"></i>Waiting their turn</span><span><i style="background:var(--ok)"></i>Installed</span></div>
+    <div class="oc-foot"><span><i style="background:var(--warn)"></i>Needs a look</span><span><i style="background:var(--danger)"></i>Failed</span><span><i style="background:var(--accent)"></i>Downloading or rebooting</span><span><i style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)"></i>Waiting</span><span><i style="background:var(--ok)"></i>Installed</span></div>
   </section>
 </div>
 
@@ -125,7 +125,6 @@
   <div class="ov2-rh"><h2>How it goes out</h2></div>
   <div class="dp1-how">
     <div><span class="k">Reboot</span><span class="v">{{.Reboot}}<small>{{.RebootSub}}</small></span>{{if and (canOTA $.Role) (ne $dep.Status "canceled")}}<button type="button" onclick="dplOpen('dpl-reboot-modal')">Change</button>{{end}}</div>
-    <div><span class="k">Waves</span><span class="v">{{.Waves}}<small>so one venue's Wi-Fi isn't swamped</small></span></div>
     {{if .Package}}<div><span class="k">Package</span><span class="v">{{.Package}}{{with .PackageSub}}<small>{{.}}</small>{{end}}</span></div>{{end}}
   </div>
 </aside>

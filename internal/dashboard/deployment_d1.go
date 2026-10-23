@@ -18,11 +18,11 @@ import (
 // reboot, stopped downloads, failures, installs waiting for a manual reboot), Installed /
 // In progress / Left cards, one device table with problems first and the state as a dot
 // and a word with its progress under it, and a rail: installed ring, installs over time,
-// venues, and how the rollout goes out (reboot, waves, packages).
+// venues, and how the rollout goes out (reboot, packages).
 //
-// The waves are the thing the page has to explain: OTAWaveAllows lets 3 devices per venue
-// (8 across the fleet) download at once, so most of a big rollout sits "waiting" by
-// design. Before this page that state read as pending and, after 30 minutes, as failed.
+// There is no download cap since 23 Oct 2026 (the 3-per-venue / 8-in-all waves were
+// removed on the user's ask): a waiting device simply has not checked in since the
+// deployment started, and gets it when it does.
 
 type dp1Row struct {
 	Serial, Venue, VenueKey string
@@ -82,7 +82,6 @@ type dp1Rail struct {
 	Venues         []dp1Venue
 	MoreVenues     int
 	Reboot, RebootSub string
-	Waves          string
 	Package, PackageSub string
 }
 
@@ -233,10 +232,8 @@ func buildDeployD1(in dp1Inputs) dp1View {
 				r.Detail = "not offered: the rollout is " + in.Dep.Status
 			case offline(t.LastSeenAt):
 				r.Detail = "offline · gets it when it is back"
-			case key == "":
-				r.Detail = "waiting for a free download slot"
 			default:
-				r.Detail = "waiting for a free slot at " + name
+				r.Detail = "gets it at its next check-in"
 			}
 		default: // downloading, installing and the client's live phases
 			r.Key, r.Word, r.Tone = "dl", "Downloading", "run"
@@ -354,7 +351,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 		}
 	}
 
-	// When it should be done: each venue drains 3 at a time, the fleet 8 at a time.
+	// When it should be done: everything downloads at once, so about one download.
 	var eta time.Duration
 	busiest, busiestN, waitVenues := "", 0, 0
 	totalLeft := 0
@@ -368,19 +365,10 @@ func buildDeployD1(in dp1Inputs) dp1View {
 		if left == 0 {
 			continue
 		}
-		per := db.OTAWavePerSite
-		if k == "-" {
-			per = db.OTAWavePerFleet
-		}
-		if d := time.Duration((left+per-1)/per) * avg; d > eta {
-			eta = d
-		}
+		eta = avg
 		if n := vv.Wait - vv.offline; n > busiestN {
 			busiest, busiestN = vv.Name, n
 		}
-	}
-	if d := time.Duration((totalLeft+db.OTAWavePerFleet-1)/db.OTAWavePerFleet) * avg; d > eta {
-		eta = d
 	}
 	toGo := ""
 	if active && totalLeft > 0 {
@@ -450,11 +438,11 @@ func buildDeployD1(in dp1Inputs) dp1View {
 			lead = "The other "
 		}
 		if waitVenues == 1 && busiest != "No venue" {
-			b.Line = fmt.Sprintf("%s%s at %s %s waiting %s turn: %d download at a time per venue, so %s should be done in about %s.",
-				lead, dp1Plural(inLine, "device", "devices"), busiest, dp1IsAre(inLine), dp1Their(inLine), db.OTAWavePerSite, dp1They(inLine), dp1Mins(eta))
+			b.Line = fmt.Sprintf("%s%s at %s %s online and get%s it at %s next check-in.",
+				lead, dp1Plural(inLine, "device", "devices"), busiest, dp1IsAre(inLine), dp1S(inLine), dp1Their(inLine))
 		} else {
-			b.Line = fmt.Sprintf("%s%s %s waiting %s turn: %d download at a time per venue and %d across the fleet, so this should finish in about %s.",
-				lead, dp1Plural(inLine, "device", "devices"), dp1IsAre(inLine), dp1Their(inLine), db.OTAWavePerSite, db.OTAWavePerFleet, dp1Mins(eta))
+			b.Line = fmt.Sprintf("%s%s %s online and get%s it at %s next check-in.",
+				lead, dp1Plural(inLine, "device", "devices"), dp1IsAre(inLine), dp1S(inLine), dp1Their(inLine))
 		}
 		if lead == "" {
 			b.Line = strings.ToUpper(b.Line[:1]) + b.Line[1:]
@@ -523,7 +511,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 		prog.B.Delta, prog.B.Tone = strconv.Itoa(stuckReb)+" not back", "bad"
 	}
 	left := ovStat{Title: "Left", Href: "#dp1-devices",
-		A: ovMetric{Value: strconv.Itoa(v.Counts["wait"]), Label: "waiting their turn", Tone: "flat"},
+		A: ovMetric{Value: strconv.Itoa(v.Counts["wait"]), Label: "waiting", Tone: "flat"},
 		B: ovMetric{Value: strconv.Itoa(v.Counts["failed"]), Label: "failed", Tone: "good"}}
 	if toGo != "" {
 		left.A.Delta = toGo
@@ -578,7 +566,6 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	default:
 		rl.Reboot, rl.RebootSub = "Manual", "installs, then waits for someone to reboot it"
 	}
-	rl.Waves = fmt.Sprintf("%d per venue, %d in all", db.OTAWavePerSite, db.OTAWavePerFleet)
 	incN, fullN := 0, 0
 	fromInc, fromFull := map[string]int{}, map[string]int{}
 	for _, r := range v.Rows {
@@ -792,4 +779,12 @@ func dp1Ago(now, t time.Time) string {
 		return strconv.Itoa(int(d/time.Hour)) + "h ago"
 	}
 	return strconv.Itoa(int(d/(24*time.Hour))) + "d ago"
+}
+
+// dp1S is the verb's s: "1 device gets", "3 devices get".
+func dp1S(n int) string {
+	if n == 1 {
+		return "s"
+	}
+	return ""
 }

@@ -833,17 +833,9 @@ func (d *DB) TryCreateOTACommand(ctx context.Context, upd *Update, deviceID uuid
 	if err != nil {
 		return nil, err
 	}
-	// Admission control. Sixteen devices pulling a multi-hundred-megabyte package
-	// through one restaurant's access point is how a rollout fails: on 12 Oct three
-	// devices stopped reporting within two minutes of each other, and the weakest-signal
-	// units failed the same download four times in a row. A device that is refused here
-	// is not failed — it stays pending and is handed the update on a later check-in, so
-	// the deployment drains in waves without anyone scheduling them.
-	if ok, err := d.OTAWaveAllows(ctx, upd.ID, deviceID); err != nil {
-		return nil, err
-	} else if !ok {
-		return nil, nil
-	}
+	// No admission control (user, 23 Oct 2026: "remove both of these caps"): every device
+	// that checks in is handed the update at once. The waves (3 per venue, 8 in all) came
+	// from 12 Oct, when sixteen devices pulling through one access point stalled.
 	cmd, err := d.CreateOTACommandIfNone(ctx, deviceID, payload)
 	if err != nil || cmd == nil {
 		return cmd, err
@@ -947,45 +939,3 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 }
 
 
-// How many devices a deployment may have downloading at once. Per venue, because the
-// access point is the thing that saturates; and across the fleet, because the package
-// host and the uplink are shared too. Both are deliberately small: an OTA that takes
-// twice as long but lands is better than four that race and all fail.
-const (
-	OTAWavePerSite  = 8
-	OTAWavePerFleet = 8
-	// A command sent but never acknowledged holds its slot for this long, after which
-	// the slot is reused — otherwise one device that went dark freezes a wave.
-	otaWaveSlotHold = 30 * time.Minute
-)
-
-// OTAWaveAllows reports whether this device may start downloading now. In flight means
-// a row that is downloading, or one that has been handed the command recently and has
-// not reported back yet.
-func (d *DB) OTAWaveAllows(ctx context.Context, updateID int, deviceID uuid.UUID) (bool, error) {
-	var site, fleet int
-	err := d.pool.QueryRow(ctx, `
-		WITH mine AS (SELECT restaurant_id FROM devices WHERE id = $2),
-		inflight AS (
-		    SELECT ud.device_id, dev.restaurant_id
-		    FROM update_devices ud
-		    JOIN devices dev ON dev.id = ud.device_id
-		    WHERE ud.update_id = $1
-		      AND ud.device_id <> $2
-		      AND (ud.status = 'downloading'
-		           OR (ud.status = 'pending' AND EXISTS (
-		                 SELECT 1 FROM commands c
-		                 JOIN command_targets ct ON ct.command_id = c.id
-		                 WHERE ct.target_id = ud.device_id AND c.type = 'ota'
-		                   AND c.created_at > NOW() - $3::interval)))
-		)
-		SELECT
-		  count(*) FILTER (WHERE restaurant_id IS NOT DISTINCT FROM (SELECT restaurant_id FROM mine)),
-		  count(*)
-		FROM inflight
-	`, updateID, deviceID, otaWaveSlotHold).Scan(&site, &fleet)
-	if err != nil {
-		return false, err
-	}
-	return site < OTAWavePerSite && fleet < OTAWavePerFleet, nil
-}

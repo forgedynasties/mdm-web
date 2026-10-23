@@ -83,7 +83,7 @@ func TestDeployD1Builder(t *testing.T) {
 		t.Errorf("todo = %+v", td)
 	}
 	// Six online in line at one venue, one offline.
-	if l := v.Banner.Line; !strings.HasPrefix(l, "The other 6 devices at Flights Vegas are waiting their turn: 8 download at a time per venue") ||
+	if l := v.Banner.Line; !strings.HasPrefix(l, "The other 6 devices at Flights Vegas are online and get it at their next check-in.") ||
 		!strings.Contains(l, "1 device is offline and will get it when back.") {
 		t.Errorf("line = %q", l)
 	}
@@ -97,7 +97,7 @@ func TestDeployD1Builder(t *testing.T) {
 	for _, r := range v.Rows {
 		switch r.Serial {
 		case "AT070AABU00034":
-			if !r.Full || r.Detail != "waiting for a free slot at Flights Vegas" {
+			if !r.Full || r.Detail != "gets it at its next check-in" {
 				t.Errorf("v2.0.6l row = %+v", r)
 			}
 		case "AT070AABU00802":
@@ -120,8 +120,8 @@ func TestDeployD1Builder(t *testing.T) {
 	if c := v.Cards[1]; c.A.Value != "3" || c.B.Value != "1" || c.B.Delta != "1 not back" || c.B.Tone != "bad" {
 		t.Errorf("in progress card = %+v", c)
 	}
-	// 9 left at Flights Vegas through 8 slots at 14 min a wave = 28 min.
-	if c := v.Cards[2]; c.A.Value != "7" || c.A.Delta != "about 28 min to go" || c.B.Value != "0" {
+	// No caps: everything left downloads at once, about one 14 min download.
+	if c := v.Cards[2]; c.A.Value != "7" || c.A.Delta != "about 14 min to go" || c.B.Value != "0" {
 		t.Errorf("left card = %+v", c)
 	}
 	if v.Rail.Pct != 52 || v.Rail.Tone != "warn" || len(v.Rail.Venues) != 2 || v.Rail.Venues[0].Name != "Flights Vegas" || v.Rail.Venues[0].Done != 8 {
@@ -195,7 +195,7 @@ func TestDeployD1Renders(t *testing.T) {
 		`aria-label="More for AT070AABU00450"`, `>Retry with the full image</button>`, `>Remove from this rollout</button>`,
 		`data-dp1-set="state" data-val="wait">Waiting · 6</button>`, `data-dp1-set="venue" data-val="Huanchaco Peruvian"`,
 		`<span><b>52%</b><small>installed</small></span>`, `onclick="dplOpen('dpl-reboot-modal')">Change</button>`,
-		`8 per venue, 8 in all`, `data-copy-serials="#deployment-targets"`, `id="dpl-reboot-modal"`,
+		`data-copy-serials="#deployment-targets"`, `id="dpl-reboot-modal"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("deployment page is missing %q", want)

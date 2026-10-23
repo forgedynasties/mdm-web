@@ -486,9 +486,9 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		  AND EXISTS (SELECT 1 FROM devices dev WHERE dev.id = ud.device_id
 		              AND dev.last_seen_at > NOW() - make_interval(mins => $1))
 		  -- A pending row is only stalled once it was handed the OTA and that was
-		  -- stallMinutes ago. Without a command it is waiting its turn in a wave
-		  -- (OTAWaveAllows): on 21 Oct ten tablets at one venue were failed while
-		  -- still in line, 30 minutes after the deployment was created.
+		  -- stallMinutes ago. Without a command it has not checked in since the
+		  -- deployment started: on 21 Oct ten tablets at one venue were failed while
+		  -- still waiting, 30 minutes after the deployment was created.
 		  AND (ud.status = 'downloading'
 		       OR (ud.status = 'pending' AND EXISTS (
 		             SELECT 1 FROM commands c
