@@ -185,7 +185,18 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 	var cards []luAppCard
 	var pane *luAppsPane
 	sel := in.Selected
-	for _, role := range in.Roles {
+	// Biggest product first; with none chosen, the biggest one with an app opens.
+	roles := append([]string(nil), in.Roles...)
+	sort.SliceStable(roles, func(i, j int) bool { return len(byRole[roles[i]]) > len(byRole[roles[j]]) })
+	if sel == "" {
+		for _, role := range roles {
+			if ra[role].BasePackage != "" {
+				sel = role
+				break
+			}
+		}
+	}
+	for _, role := range roles {
 		a, ok := ra[role]
 		auto := !ok || a.AutoInstall
 		base := a.BasePackage
@@ -196,9 +207,6 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 		build := in.Lib[base]
 		if build != nil {
 			c.Build = build.VersionName
-		}
-		if sel == "" && base != "" {
-			sel = role
 		}
 		c.On = role == sel
 		var rows []luAppRow
