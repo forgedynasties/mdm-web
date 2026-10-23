@@ -155,3 +155,31 @@ func TestMergeRolloutsLegacyOnly(t *testing.T) {
 		t.Errorf("a finished legacy half still reads as running: %+v", active)
 	}
 }
+
+// U1: running and waiting rows first with the summary over them; a rollout with every
+// device done reads Finished at the bottom and is left out of the summary.
+func TestBuildRoStrip(t *testing.T) {
+	st := buildRoStrip([]rolloutView{
+		{ID: 458, Version: "v2.1.040", Total: 15, Installing: 15},
+		{ID: 457, Version: "v2.1.040", Total: 5, Installed: 3, Installing: 2},
+		{ID: 422, Version: "v2.0.997", Total: 26, Installed: 26},
+		{ID: 423, Version: "v2.0.997", Total: 20, Installed: 3},
+		{ID: 430, Version: "v2.0.997", Total: 4, Installed: 2, Installing: 1, Failed: 1},
+	})
+	if st.Running != 4 || st.Installed != 8 || st.Total != 44 || st.Installing != 18 {
+		t.Fatalf("summary = %+v", st)
+	}
+	got := map[int]roRow{}
+	for _, r := range st.Rows {
+		got[r.ID] = r
+	}
+	if st.Rows[len(st.Rows)-1].ID != 422 || got[422].State != "done" || got[422].Note != "all installed" {
+		t.Errorf("finished row = %+v", got[422])
+	}
+	if got[423].State != "wait" || got[423].Note != "17 haven't checked in" {
+		t.Errorf("waiting row = %+v", got[423])
+	}
+	if got[457].State != "run" || got[457].Note != "2 installing" || got[430].Note != "1 installing · 1 failed" {
+		t.Errorf("running rows = %+v / %+v", got[457], got[430])
+	}
+}

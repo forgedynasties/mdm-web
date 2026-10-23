@@ -41,6 +41,57 @@ func (v rolloutView) Pending() int {
 	return n
 }
 
+// The running-updates card at the top of /releases (U1, picked 23 Oct 2026; user: "doesn't
+// look good" about five identical "Updating" boxes): one card, aligned rows, and a state word
+// that says which one needs a look. A rollout whose devices are all done reads "Finished" at
+// the bottom instead of "Updating"; one with nothing moving reads "Waiting" (its devices have
+// not checked in since it was sent).
+type roRow struct {
+	rolloutView
+	State string // run | wait | done
+	Note  string
+}
+
+type roStrip struct {
+	Rows                                  []roRow
+	Running, Installed, Total, Installing int // across the rows not yet done
+}
+
+func buildRoStrip(active []rolloutView) roStrip {
+	var st roStrip
+	var done []roRow
+	for _, v := range active {
+		r := roRow{rolloutView: v}
+		failed := ""
+		if v.Failed > 0 {
+			failed = fmt.Sprintf(" · %d failed", v.Failed)
+		}
+		switch {
+		case v.Total > 0 && v.Installed+v.Failed >= v.Total:
+			r.State = "done"
+			r.Note = "all installed"
+			if v.Failed > 0 {
+				r.Note = fmt.Sprintf("%d failed", v.Failed)
+			}
+			done = append(done, r)
+			continue
+		case v.Installing > 0:
+			r.State = "run"
+			r.Note = fmt.Sprintf("%d installing", v.Installing) + failed
+		default:
+			r.State = "wait"
+			r.Note = fmt.Sprintf("%d haven't checked in", v.Pending()) + failed
+		}
+		st.Running++
+		st.Installed += v.Installed
+		st.Total += v.Total
+		st.Installing += v.Installing
+		st.Rows = append(st.Rows, r)
+	}
+	st.Rows = append(st.Rows, done...)
+	return st
+}
+
 // releasesRedirect sends the old list addresses to the one page, query and all.
 func releasesRedirect(w http.ResponseWriter, r *http.Request) {
 	u := "/releases"
@@ -182,17 +233,18 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := map[string]any{
-		"Title":         "Releases",
-		"Versions":      rv.Active,
+		"Title":          "Releases",
+		"Versions":       rv.Active,
 		"HiddenReleases": rv.Hidden,
-		"FleetTotal":    rv.FleetTotal,
-		"NotTracked":    rv.NotTracked,
-		"DevCount":      devCount,
-		"Active":        active,
-		"RolloutCounts": rolloutCounts(byRelease),
-		"Products":      h.releaseProductFilters(ctx),
-		"FilterProduct": filterProduct,
-		"Sel":           sel,
+		"FleetTotal":     rv.FleetTotal,
+		"NotTracked":     rv.NotTracked,
+		"DevCount":       devCount,
+		"Active":         active,
+		"Strip":          buildRoStrip(active),
+		"RolloutCounts":  rolloutCounts(byRelease),
+		"Products":       h.releaseProductFilters(ctx),
+		"FilterProduct":  filterProduct,
+		"Sel":            sel,
 	}
 	if sel != nil && sel.ReleaseID != nil {
 		rel, err := h.db.GetRelease(ctx, *sel.ReleaseID)
