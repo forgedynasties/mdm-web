@@ -202,9 +202,9 @@
                one. The link is shown to fleet managers and admins, who own the build runs; an
                operator still reaches it by URL. */}}
           {{if eq .Role "fleet_manager" "fleet_admin" "admin"}}
-          <a class="nbar-mi js-dest" data-cmdk-label="Productions" href="/productions">
+          <a class="nbar-mi js-dest" data-cmdk-label="Factory runs" href="/lineup?view=setup#runs">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
-            <span class="nbar-mi-label">Productions</span>
+            <span class="nbar-mi-label">Factory runs</span>
           </a>
           {{end}}
           {{if eq .Role "fleet_manager" "fleet_admin"}}<div class="nbar-sep"></div>{{end}}
@@ -323,7 +323,6 @@
         <a class="js-dest{{if eq .ActivePath "/lock"}} on{{end}}" href="/lock" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Device lock">Device lock</a>
         <a class="js-dest{{if eq .ActivePath "/jobs"}} on{{end}}" href="/jobs" data-ic="send" data-cmdk-sec="Control" data-cmdk-label="Jobs">Jobs</a>
         <a class="js-dest{{if eq .ActivePath "/compliance/rules"}} on{{end}}" href="/compliance/rules" data-ic="shield" data-cmdk-sec="Control" data-cmdk-label="Compliance rules">Compliance rules</a>
-        <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/adb"}} on{{end}}" href="/adb" data-ic="monitor" data-cmdk-sec="Control" data-cmdk-label="Wireless adb">Wireless adb</a>{{end}}
       </div>
 
@@ -343,7 +342,6 @@
       <div class="nav-dir-sec">
         <div class="t">Configuration</div>
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-ic="gear" data-cmdk-sec="Configuration" data-cmdk-label="Settings">Settings</a>{{end}}
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/setup"}} on{{end}}" href="/setup" data-ic="sliders" data-cmdk-sec="Configuration" data-cmdk-label="Setup">Setup</a>{{end}}
         {{if canAdminOrOperator .Role}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-ic="server" data-cmdk-sec="Configuration" data-cmdk-label="Server">Server</a>{{end}}
       </div>
 
@@ -593,17 +591,6 @@
 </div>
 {{end}}
 
-{{/* Kept for the pages that still call it, minus its own <h1>: each page titles itself,
-     and the four destinations below are in the rails now. */}}
-{{define "fleet-tabs"}}
-<div class="fleet-tabs">
-  <a href="/devices" class="fleet-tab{{if eq .ActivePage "devices"}} cur{{end}}">Devices{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Devices}}</span>{{end}}</a>
-  <a href="/restaurants" class="fleet-tab{{if eq .ActivePage "restaurants"}} cur{{end}}">Restaurants{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Restaurants}}</span>{{end}}</a>
-  <a href="/groups" class="fleet-tab{{if eq .ActivePage "groups"}} cur{{end}}">Groups{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Groups}}</span>{{end}}</a>
-  {{if canAdmin .Role}}<a href="/enrollment" class="fleet-tab{{if eq .ActivePage "enrollment"}} cur{{end}}">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} <span class="pill warn" title="Devices waiting for assignment">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
-</div>
-{{end}}
-
 {{/* Users hub tabs: People (roster + per-user stats) and Activity (the audit log).
      Shown on /users, /activity and admin views of a user's profile. */}}
 {{define "users-tabs"}}
@@ -614,10 +601,7 @@
 </div>
 {{end}}
 
-{{define "nav-updates"}}<a href="/updates" class="{{.cls}}{{if eq .active "updates"}} active{{end}}" data-cmdk-label="Updates"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Updates</span></a>{{end}}
-{{define "nav-server"}}<a href="/server" class="{{.cls}}{{if eq .active "server"}} active{{end}}" data-cmdk-label="Server"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 8h.01M7 17h.01"/></svg></span><span class="nav-t">Server</span></a>{{end}}
 
-{{define "nav-manage"}}<a href="/kiosk" class="{{.cls}}{{if eq .active "manage"}} active{{end}}" data-cmdk-label="Lock"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Lock</span></a>{{end}}
 {{define "nav-users"}}<a href="/users" class="{{.cls}}{{if eq .active "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}
 
 {{/* The three firmware views as this page's own rail: they were separate nav entries

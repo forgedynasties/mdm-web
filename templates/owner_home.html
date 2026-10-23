@@ -254,7 +254,7 @@
   </div>
   {{end}}
 
-  <h2>Help <span>the MDM team answers within the day</span></h2>
+  <h2>Help <span>preview · not connected yet</span></h2>
   <div class="help">
     <button type="button" class="hb" onclick="ohHelp('support')"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2.5 2-2.5 3.5M12 17h.01"/></svg></span><b>Request support</b><span>Something is not working and you need a hand.</span></button>
     <button type="button" class="hb" onclick="ohHelp('problem')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span><b>Report a problem</b><span>A station misbehaves, a screen is cracked, a pad is dead.</span></button>
@@ -276,8 +276,8 @@
           <select id="oh-help-st" class="form-input"><option value="">Not about one station</option>{{range .Venues}}{{range .Stations}}<option value="{{.Serial}}">{{.Name}}{{if ne .Name .Serial}} · {{.Serial}}{{end}}</option>{{end}}{{end}}</select></label>
         <label class="muted small" style="display:flex;flex-direction:column;gap:6px;">What is going on?
           <textarea id="oh-help-msg" class="form-input" rows="4" placeholder="Tell us what you see, when it started, and how urgent it is." required></textarea></label>
-        <button type="submit" class="cc-btn primary" style="align-self:flex-start;">Send to the MDM team</button>
-        <div class="muted small">This goes to the AIO MDM team. You will hear back on your usual channel.</div>
+        <button type="submit" class="cc-btn primary" style="align-self:flex-start;" disabled aria-disabled="true" title="Not connected yet">Send to the MDM team</button>
+        <div class="muted small">A preview: messages from here are not connected to the AIO team yet, so nothing is sent. For now, contact your AIO representative.</div>
       </form>
     </div>
   </div>

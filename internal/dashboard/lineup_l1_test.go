@@ -253,7 +253,7 @@ func TestLineupRolePaneRenders(t *testing.T) {
 		t.Fatalf("setup tab failed to render: %v", err)
 	}
 	out = buf.String()
-	for _, want := range []string{`aria-current="page">Setup`, `Not attached</h2>`, `rk3566_box`, `Production runs</h2>`, `Lineup · Setup`} {
+	for _, want := range []string{`aria-current="page">Setup`, `Not attached</h2>`, `rk3566_box`, `Factory runs</h2>`, `Lineup · Setup`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("setup tab is missing %q", want)
 		}

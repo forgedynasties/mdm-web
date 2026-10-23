@@ -547,12 +547,14 @@
 
 {{/* ── Lineup: production runs ── */}}
 {{define "lu-runs"}}
-      <div class="lu-head"><h2>Production runs</h2>{{if canOperate .Role}}<a href="/productions/new" class="cc-btn xs primary pl-right">New production</a>{{end}}</div>
+      {{/* Factory runs (one home since 23 Oct 2026; /productions redirects here). Named so
+           they are not confused with "Prod" (the AIO backend's production environment). */}}
+      <div class="lu-head" id="runs"><h2>Factory runs</h2>{{if canOperate .Role}}<a href="/productions/new" class="cc-btn xs primary pl-right">New factory run</a>{{end}}</div>
       {{if not .Productions}}
-      <div class="pl-empty">No production runs yet. A run tracks a serial number range of our own hardware and which units have connected.</div>
+      <div class="pl-empty">No factory runs yet. A run tracks a serial number range of our own hardware and which units have connected.</div>
       {{else}}
       <div class="scroll-x"><table class="table lu-runs-t">
-        <thead><tr><th>Name</th><th>Model</th><th>Serial range</th><th class="text-right">Total</th><th class="text-right">Connected</th><th class="text-right">Online</th><th class="text-right">Never</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Model</th><th>Serial range</th><th>Batch</th><th class="text-right">Total</th><th class="text-right">Connected</th><th class="text-right">Online</th><th class="text-right">Never</th><th>Created</th><th></th></tr></thead>
         <tbody>
         {{range .Productions}}
         <tr>
@@ -565,11 +567,13 @@
             </select>
           </form>{{else}}{{if .Model}}{{productLabel .Model}}{{else}}<span class="pl-faint">—</span>{{end}}{{end}}</td>
           <td class="mono small">{{.FirstSerial}} → {{.LastSerial}}</td>
+          <td class="mono small">{{.Batch}}</td>
           <td class="text-right">{{.Total}}</td>
           <td class="text-right">{{.EverConnected}}</td>
           <td class="text-right">{{.Online}}</td>
           <td class="text-right">{{sub .Total .EverConnected}}</td>
-          <td style="text-align:right"><a href="/productions/{{.ID}}/export.csv" hx-boost="false" class="cc-btn xs">CSV</a></td>
+          <td class="muted small">{{localTime .CreatedAt}}</td>
+          <td style="text-align:right;white-space:nowrap"><a href="/productions/{{.ID}}/export.csv" hx-boost="false" class="cc-btn xs">CSV</a>{{if canAdmin $.Role}} <form action="/productions/{{.ID}}/delete" method="POST" style="display:inline;margin:0" hx-confirm="Delete this factory run? This cannot be undone."><button type="submit" class="cc-btn xs danger">Delete</button></form>{{end}}</td>
         </tr>
         {{end}}
         </tbody>

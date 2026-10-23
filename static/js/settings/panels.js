@@ -15,6 +15,8 @@
     b.addEventListener('click', function () { var k = b.getAttribute('data-tab'); if (show(k)) history.replaceState(null, '', '#' + k); });
   });
   var initial = (location.hash || '').replace('#', '');
+  // The App library tab moved out (23 Oct 2026): /apps is the one library.
+  if (initial === 'applibrary') { location.replace('/apps'); return; }
   // legacy deep-links from older tabs
   var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'people', sessions: 'people', tools: 'devices', testing: 'general' };
   if (alias[initial]) initial = alias[initial];

@@ -3596,7 +3596,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
           </div>
         </form>
         {{else}}
-        <div class="device-action-note" style="padding:18px;">No apps in the library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one in Settings → App library</a>.{{else}} Ask an admin to add one.{{end}}</div>
+        <div class="device-action-note" style="padding:18px;">No apps in the library yet.{{if canAdmin .Role}} <a href="/apps" class="btn-link">Add one in the App library</a>.{{else}} Ask an admin to add one.{{end}}</div>
         {{end}}
       </div>
     </div>

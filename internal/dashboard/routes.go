@@ -221,7 +221,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// Productions is owned by the test team: admin/dev/operator can list, view,
 	// create and export (requireAdminOrOperator). Deletion stays admin/dev-only.
-	mux.HandleFunc("GET /productions", h.requireAdminOrOperator(h.ProductionList))
+	// Factory runs live on Lineup › Setup (23 Oct 2026); the list page redirects there.
+	mux.Handle("GET /productions", http.RedirectHandler("/lineup?view=setup#runs", http.StatusMovedPermanently))
 	mux.HandleFunc("GET /productions/new", h.requireAdminOrOperator(h.ProductionNew))
 	post("POST /productions", h.requireAdminOrOperator(h.ProductionCreate))
 	mux.HandleFunc("GET /productions/preview-serial", h.requireAdminOrOperator(h.ProductionPreviewSerial))
@@ -326,11 +327,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// doesn't collide with /commands/{id}/resend/{serial} in the wildcard mux.
 	post("POST /recipes", h.requireAuth(h.RecipeCreate))
 	post("POST /recipes/{id}/delete", h.requireAdmin(h.RecipeDelete))
-	mux.HandleFunc("GET /schedules", h.requireAuth(h.ScheduleList))
-	post("POST /schedules", h.requireOperatorOrAdmin(h.ScheduleCreate))
-	post("POST /schedules/{id}/delete", h.requireOperatorOrAdmin(h.ScheduleDelete))
-	post("POST /schedules/{id}/toggle", h.requireOperatorOrAdmin(h.ScheduleToggle))
-	post("POST /schedules/{id}/run-now", h.requireOperatorOrAdmin(h.ScheduleRunNow))
+	// Schedules were removed on 23 Oct 2026 (user: "remove it"): nothing in the UI could
+	// create a recipe to schedule, and live had none. Old links land on Jobs.
+	mux.Handle("GET /schedules", http.RedirectHandler("/jobs", http.StatusMovedPermanently))
 	post("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/screenshot/{serial}", h.requireAuth(h.CommandScreenshot))
@@ -429,7 +428,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/checkin-interval", h.requireStrictAdmin(h.SettingsSetCheckinInterval))
 	post("POST /settings/wlc-products", h.requireStrictAdmin(h.SettingsSetWlcProducts))
 
-	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
+	// The old app repository page; the App library (/apps) is the one library since
+	// 23 Oct 2026 (it also lived in Settings and here).
+	mux.Handle("GET /setup", http.RedirectHandler("/apps", http.StatusMovedPermanently))
 	// Managed app configurations edit the fleet device_policy, so mutations are
 	// strict-admin like the other policy pages; the page itself is admin/dev.
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))

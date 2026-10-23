@@ -63,14 +63,14 @@ func (h *Handler) SetupCreateApp(w http.ResponseWriter, r *http.Request) {
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	pkg := strings.TrimSpace(r.FormValue("package_name"))
 	if name == "" || apkURL == "" {
-		http.Redirect(w, r, "/setup", http.StatusFound)
+		http.Redirect(w, r, "/apps", http.StatusFound)
 		return
 	}
 	if _, err := h.db.CreateApp(r.Context(), name, apkURL, pkg); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/setup", http.StatusFound)
+	http.Redirect(w, r, "/apps", http.StatusFound)
 }
 
 func (h *Handler) SetupCreateAppJSON(w http.ResponseWriter, r *http.Request) {
@@ -246,14 +246,14 @@ func (h *Handler) SetupUpdateApp(w http.ResponseWriter, r *http.Request) {
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	pkg := strings.TrimSpace(r.FormValue("package_name"))
 	if name == "" || apkURL == "" {
-		http.Redirect(w, r, "/setup", http.StatusFound)
+		http.Redirect(w, r, "/apps", http.StatusFound)
 		return
 	}
 	if _, err := h.db.UpdateApp(r.Context(), id, name, apkURL, pkg); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/setup", http.StatusFound)
+	http.Redirect(w, r, "/apps", http.StatusFound)
 }
 
 func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
@@ -274,7 +274,7 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 	}
 	// Back to the library the user was on (/apps or Settings), never the old /setup.
 	if ref := r.Header.Get("Referer"); strings.Contains(ref, "/settings") {
-		http.Redirect(w, r, "/settings#applibrary", http.StatusSeeOther)
+		http.Redirect(w, r, "/apps", http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/apps", http.StatusSeeOther)

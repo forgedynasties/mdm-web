@@ -9,7 +9,7 @@
   <span class="isl-dot {{if gt .AttnCount 0}}warn{{else if gt .ProgCount 0}}on{{end}}"></span>
   <span class="isl-t">Jobs</span>
   <span class="isl-s">{{if gt .ProgCount 0}}<b>{{.ProgCount}}</b> in flight{{else}}Nothing in flight{{end}}{{if gt .AttnCount 0}} · <span class="w">{{.AttnCount}} need{{if eq .AttnCount 1}}s{{end}} a look</span>{{end}}</span>
-  <span class="isl-acts"><a class="cc-btn" href="/schedules">Schedules</a><a class="cc-btn" href="/apps">Apps</a><a class="cc-btn primary" href="/devices">Devices</a></span>
+  <span class="isl-acts"><a class="cc-btn" href="/apps">Apps</a><a class="cc-btn primary" href="/devices">Devices</a></span>
 </template>
 <style>
 /* ── Jobs J1 (21 Oct 2026): count cards, rollouts, filter pills, the job table ── */
@@ -53,7 +53,6 @@
     <div class="cc-actions isl-dup">
       <a class="cc-btn" href="/devices" title="Filter the fleet, select devices, and act on the selection">Devices</a>
       <a class="cc-btn" href="/apps" title="Install and update apps, targeted by fleet coverage">Apps</a>
-      <a class="cc-btn" href="/schedules" title="Saved and scheduled sends"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Schedules</a>
     </div>
   </div>
 

@@ -18,17 +18,6 @@ import (
 
 // ── Productions ───────────────────────────────────────────────────────────────
 
-func (h *Handler) ProductionList(w http.ResponseWriter, r *http.Request) {
-	productions, err := h.db.ListProductions(r.Context(), h.connectedSlice())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.render(w, r, "productions.html", map[string]any{
-		"Productions": productions,
-	})
-}
-
 func (h *Handler) ProductionNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "production_form.html", map[string]any{"Models": h.modelOptions(r.Context())})
 }
@@ -198,7 +187,7 @@ func (h *Handler) ProductionDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/productions", http.StatusFound)
+	http.Redirect(w, r, "/lineup?view=setup#runs", http.StatusFound)
 }
 
 // ProductionPreviewSerial returns the first/last serial for the given form values (HTMX partial).

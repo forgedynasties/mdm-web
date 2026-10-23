@@ -53,7 +53,7 @@
   <span class="isl-dot {{if gt .AttnCount 0}}warn{{else if gt .ProgCount 0}}on{{end}}"></span>
   <span class="isl-t">Jobs · History</span>
   <span class="isl-s">{{if gt .ProgCount 0}}<b>{{.ProgCount}}</b> in flight{{else}}Nothing in flight{{end}}{{if gt .AttnCount 0}} · <span class="w">{{.AttnCount}} need{{if eq .AttnCount 1}}s{{end}} attention</span>{{end}} · {{.Total}} in this view</span>
-  <span class="isl-acts"><a class="cc-btn" href="/schedules">Schedules</a><a class="cc-btn" href="/apps">Apps</a><a class="cc-btn primary" href="/devices">Devices</a></span>
+  <span class="isl-acts"><a class="cc-btn" href="/apps">Apps</a><a class="cc-btn primary" href="/devices">Devices</a></span>
 </template>
 <div class="ch-wrap">
 <div class="cc-top">
