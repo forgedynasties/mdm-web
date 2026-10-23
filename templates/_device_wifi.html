@@ -43,6 +43,20 @@
 @keyframes wf-spin{to{transform:rotate(360deg)}}
 .wf-err{padding:9px 16px;font-size:12.5px;color:var(--danger);border-top:1px solid var(--border-soft)}
 .wf-empty{padding:12px 16px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border-soft)}
+/* Add network W1 (23 Oct 2026): the venue's saved networks as a list to pick from. */
+.wf-pick{grid-column:1/-1;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:0;padding:0;min-width:0}
+.wf-pick legend{padding:9px 12px 3px;font-size:10.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);float:left;width:100%;box-sizing:border-box}
+.wf-opt{display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12.5px;cursor:pointer;clear:both}
+.wf-opt input{margin:0;accent-color:var(--accent-fill)}
+.wf-opt b{font-weight:600;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wf-opt small{margin-left:auto;color:var(--muted);white-space:nowrap}
+.wf-opt small.warn{color:var(--warn)}
+.wf-opt:has(input:checked){background:var(--accent-soft)}
+.wf-opt.other{border-top:1px solid var(--border-soft);color:var(--text-2)}
+.wf-note{grid-column:1/-1;font-size:12px;color:var(--muted);line-height:1.5;margin:0}
+.wf-note a{color:var(--accent-text)}
+.wf-st form{margin:6px 0 0}
+.wf-add [hidden]{display:none!important}
 </style>
   <div class="card-header cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg></span>
@@ -52,14 +66,29 @@
   {{if .Error}}<div class="wf-err" role="alert">{{.Error}}</div>{{end}}
   {{if and .CanManage .Supported}}
   <details class="wf-add" id="wf-add"><summary>Add network</summary>
-    <form hx-post="/devices/{{.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML">
+    {{if .VenueNets}}
+    <form id="wf-venue" hx-post="/devices/{{.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML">
+      <input type="hidden" name="action" value="venue_add">
+      <fieldset class="wf-pick"><legend>Saved for {{.VenueName}}</legend>
+        {{range $i, $n := .VenueNets}}
+        <label class="wf-opt"><input type="radio" name="network" value="{{.ID}}"{{if eq $i 0}} checked{{end}} onchange="wfPick(false)"><b>{{.SSID}}</b>
+          <small class="{{if .Weak}}warn{{end}}">{{if .Weak}}weak · {{.Signal}} dBm{{else if .InRange}}in range · {{.Signal}} dBm{{else if $.ScanKnown}}not seen nearby{{else}}{{if eq .Security "OPEN"}}Open{{else}}{{.Security}}{{end}}{{end}}</small></label>
+        {{end}}
+        <label class="wf-opt other"><input type="radio" name="network" value="" onchange="wfPick(true)">Another network…<small>type its name</small></label>
+      </fieldset>
+      <p class="wf-note">The password comes from the MDM. The device saves the network and keeps its current one; once it has it, you can switch.</p>
+      <div class="wf-acts full"><button type="submit" class="cc-btn sm primary">Save on the device</button></div>
+    </form>
+    {{end}}
+    <form id="wf-manual" hx-post="/devices/{{.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML"{{if .VenueNets}} hidden{{end}}>
       <input type="hidden" name="action" value="add">
+      {{if not .VenueNets}}{{if .VenueAllOn}}<p class="wf-note">The device has every network saved for {{.VenueName}}.</p>{{else if .VenueID}}<p class="wf-note">No networks are saved for {{.VenueName}} yet. Save them once in <a href="/restaurants/{{.VenueID}}?open=wifi#wifi">Venue settings › Device Wi-Fi</a> and every device there gets them.</p>{{end}}{{end}}
       <label class="form-row"><span class="form-label">Network name</span><input class="form-input" name="ssid" required maxlength="32" autocomplete="off"></label>
       <label class="form-row"><span class="form-label">Security</span><select class="form-input" name="security"><option value="wpa2">WPA2</option><option value="wpa3">WPA3</option><option value="open">Open</option></select></label>
       <label class="form-row full"><span class="form-label">Password</span><input class="form-input" name="password" type="password" minlength="8" maxlength="63" autocomplete="new-password"></label>
       <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="hidden"> Hidden network</label>
       <p class="full">The device saves it and keeps its current network; use Switch to move it.</p>
-      <div class="wf-acts full"><button type="submit" class="cc-btn sm primary">Save on the device</button></div>
+      <div class="wf-acts full">{{if .VenueNets}}<button type="button" class="cc-btn sm" onclick="wfPick(false,true)">Back to the list</button>{{end}}<button type="submit" class="cc-btn sm primary">Save on the device</button></div>
     </form>
   </details>
   {{end}}
@@ -115,6 +144,15 @@
   <script>
   // Menus close on a click outside them or on Escape, like the dashboard's other menus.
   // A menu item opens its own panel (confirm / password form) and closes the others.
+  // Add network: a venue network, or "Another network…" which swaps in the typed form.
+  window.wfPick = function (other, back) {
+    var v = document.getElementById('wf-venue'), m = document.getElementById('wf-manual');
+    if (!v || !m) return;
+    var sub = v.querySelector('.wf-acts'), note = v.querySelector('.wf-note');
+    if (back) { var r = v.querySelector('input[name=network]'); if (r) { r.checked = true; r.focus(); } other = false; }
+    m.hidden = !other; sub.hidden = other; note.hidden = other;
+    if (other) { var i = m.querySelector('input[name=ssid]'); if (i) i.focus(); }
+  };
   window.wfPanel = function (btn) {
     var pop = btn.closest('.wf-pop'), panel = btn.nextElementSibling, open = panel.hidden;
     pop.querySelectorAll('.wf-panel').forEach(function (p) { p.hidden = true; });
@@ -128,7 +166,8 @@
   {{with .Op}}
   <div class="wf-st{{if .Ok}} ok{{else if not .Running}} bad{{end}}" role="status">
     {{if .Running}}<span class="wf-sp" aria-hidden="true"></span>{{else if .Ok}}<span aria-hidden="true">✓</span>{{else}}<span aria-hidden="true">↩</span>{{end}}
-    <div><b>{{.Title}}</b>{{if .Detail}}<br>{{.Detail}}{{end}}</div>
+    <div><b>{{.Title}}</b>{{if .Detail}}<br>{{.Detail}}{{end}}
+      {{if and .SwitchTo $.CanManage}}<form hx-post="/devices/{{$.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML"><input type="hidden" name="action" value="connect"><input type="hidden" name="ssid" value="{{.SwitchTo}}"><button type="submit" class="cc-btn sm" title="It goes back by itself if it can't reach the MDM there within 90 seconds">Switch to {{.SwitchTo}} now</button></form>{{end}}</div>
   </div>
   {{end}}
 </div>

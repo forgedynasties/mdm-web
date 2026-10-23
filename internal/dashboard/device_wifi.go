@@ -41,6 +41,20 @@ type wifiOpView struct {
 	Title   string
 	Detail  string
 	Elapsed string
+	// SwitchTo: a network just saved that the device is not on; the strip offers "Switch
+	// now" (the save and the switch are two commands, and the clients may run commands in
+	// parallel, so the switch waits until the save is confirmed).
+	SwitchTo string
+}
+
+// wifiVenueOpt is one of the venue's saved networks in Add network's list (W1, picked
+// 23 Oct 2026: "Add Network … should show a dropdown of saved networks in vicinity", saved
+// in the MDM = the venue's Device Wi-Fi).
+type wifiVenueOpt struct {
+	ID             string
+	SSID, Security string
+	Signal         int
+	InRange, Weak  bool
 }
 
 type deviceWifiView struct {
@@ -53,6 +67,12 @@ type deviceWifiView struct {
 	ScanKnown bool // the device sends its scan, so "in range" means something
 	Op        *wifiOpView
 	Error     string
+
+	// Add network: the networks saved for the device's venue that it does not have yet.
+	VenueID    string
+	VenueName  string
+	VenueNets  []wifiVenueOpt
+	VenueAllOn bool // the venue has networks, and the device has every one of them
 }
 
 func wifiBars(rssi int) int {
@@ -102,8 +122,11 @@ func (h *Handler) deviceWifiView(ctx context.Context, d *db.Device, canManage bo
 		}
 	}
 	venue := map[string]bool{}
+	var venueNets []db.VenueWifiNetwork
 	if d.RestaurantID != nil {
+		v.VenueID, v.VenueName = d.RestaurantID.String(), d.RestaurantName
 		if nets, err := h.db.ListVenueWifi(ctx, *d.RestaurantID); err == nil {
+			venueNets = nets
 			for _, n := range nets {
 				venue[n.SSID] = true
 			}
@@ -155,10 +178,46 @@ func (h *Handler) deviceWifiView(ctx context.Context, d *db.Device, canManage bo
 		return a.Signal > b.Signal
 	})
 	v.Current = wifiHeadline(d, current, fresh, rssiNow)
+	v.VenueNets, v.VenueAllOn = venueWifiOptions(venueNets, saved, best)
 	if op, err := h.db.LatestWifiOp(ctx, d.ID, 30*time.Minute, venueWifiActor); err == nil && op != nil {
 		v.Op = wifiOpOf(op, time.Now())
+		// Just saved and not the network it is on: offer the switch.
+		if v.Op.Ok && op.Action == "add" && v.CanSwitch && op.SSID != current && deviceHasNetwork(d.LatestExtra, op.SSID) {
+			v.Op.SwitchTo = op.SSID
+		}
 	}
 	return v
+}
+
+// venueWifiOptions is the venue's networks the device has not saved, in range first
+// (strongest first), then the rest by name. allOn: the venue has some and the device has all.
+func venueWifiOptions(nets []db.VenueWifiNetwork, saved []savedNetwork, best map[string]int) (opts []wifiVenueOpt, allOn bool) {
+	have := map[string]bool{}
+	for _, n := range saved {
+		have[strings.ToLower(n.SSID)] = true
+	}
+	for _, n := range nets {
+		if have[strings.ToLower(n.SSID)] {
+			continue
+		}
+		o := wifiVenueOpt{ID: n.ID.String(), SSID: n.SSID, Security: strings.ToUpper(n.Security)}
+		if r, ok := best[n.SSID]; ok {
+			o.Signal, o.InRange = r, true
+			o.Weak = r < -80
+		}
+		opts = append(opts, o)
+	}
+	sort.SliceStable(opts, func(i, j int) bool {
+		a, b := opts[i], opts[j]
+		if a.InRange != b.InRange {
+			return a.InRange
+		}
+		if a.InRange && a.Signal != b.Signal {
+			return a.Signal > b.Signal
+		}
+		return strings.ToLower(a.SSID) < strings.ToLower(b.SSID)
+	})
+	return opts, len(nets) > 0 && len(opts) == 0
 }
 
 // wifiHeadline is the card's "on AIO-Guest · 5 GHz · 433 Mb/s · −58 dBm". The details are
@@ -295,6 +354,30 @@ func (h *Handler) DeviceWifiSave(w http.ResponseWriter, r *http.Request) {
 	if action == "add" {
 		payload["security"], payload["password"], payload["hidden"] = r.FormValue("security"), r.FormValue("password"), r.FormValue("hidden") == "on"
 	}
+	if action == "venue_add" {
+		// One of the venue's saved networks: its name, security and password come from the
+		// MDM, never from the form, and only from the device's own venue.
+		n, msg := h.venueNetworkFor(ctx, d, r.FormValue("network"))
+		if msg != "" {
+			v := h.deviceWifiView(ctx, d, true)
+			v.Error = msg
+			h.renderWifiCard(w, r, v)
+			return
+		}
+		action = "add"
+		payload = map[string]any{"action": "add", "ssid": n.SSID, "security": n.Security, "hidden": n.Hidden}
+		if n.Security != "open" {
+			pw, err := h.openWifiPassword(n.Secret)
+			if err != nil {
+				v := h.deviceWifiView(ctx, d, true)
+				v.Error = "The MDM can't read this network's password. Enter it again in Venue settings › Device Wi-Fi."
+				h.renderWifiCard(w, r, v)
+				return
+			}
+			payload["password"] = pw
+		}
+		r.Form.Set("ssid", n.SSID) // for the audit line below
+	}
 	raw, _ := json.Marshal(payload)
 	v := h.deviceWifiView(ctx, d, true)
 	if !d.Supports("wifi_config") {
@@ -321,4 +404,26 @@ func (h *Handler) DeviceWifiSave(w http.ResponseWriter, r *http.Request) {
 	h.pushCommand(ctx, cmd, "devices", []uuid.UUID{d.ID})
 	h.audit(r, "device.wifi", d.SerialNumber, action+" "+r.FormValue("ssid"))
 	h.renderWifiCard(w, r, h.deviceWifiView(ctx, d, true))
+}
+
+// venueNetworkFor is the venue network [id] when it belongs to the device's own venue.
+func (h *Handler) venueNetworkFor(ctx context.Context, d *db.Device, id string) (db.VenueWifiNetwork, string) {
+	var none db.VenueWifiNetwork
+	if d.RestaurantID == nil {
+		return none, "This device is not at a venue."
+	}
+	nid, err := uuid.Parse(id)
+	if err != nil {
+		return none, "Pick a network."
+	}
+	nets, err := h.db.ListVenueWifi(ctx, *d.RestaurantID)
+	if err != nil {
+		return none, "Could not read the venue's networks."
+	}
+	for _, n := range nets {
+		if n.ID == nid {
+			return n, ""
+		}
+	}
+	return none, "That network is no longer saved for this venue."
 }
