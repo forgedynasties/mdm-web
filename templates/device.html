@@ -1173,6 +1173,13 @@ window.DEVICE_VITALS = {
       {{if eq $sx.UnknownSources "On"}}<span class="cc-tag">Unknown sources on</span>{{end}}
     </div>
     {{end}}
+    {{/* M2 (23 Oct 2026): the AIO backend lists this device at another place. */}}
+    {{if not (isCustomer .Role)}}{{with .BackendLine}}
+    <div class="dd-bkline"><span class="t"><b>{{.Text}}</b><small>{{.Sub}}</small></span>
+      {{if and .VenueID (canAdminOrOperator $.Role)}}<form method="POST" action="/restaurants/{{.VenueID}}/backend-move"><input type="hidden" name="serial" value="{{$.Device.SerialNumber}}"><input type="hidden" name="from" value="device"><button type="submit" class="cc-btn sm primary">{{.Action}}</button></form>{{else if not .VenueID}}<a class="cc-btn sm" href="/restaurants#vb-place">Venues</a>{{end}}
+    </div>
+    <style>.dd-bkline{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0 0 10px;border-radius:12px;background:var(--warn-bg,var(--surface2));font-size:12.5px}.dd-bkline .t{flex:1;min-width:0}.dd-bkline small{display:block;color:var(--muted)}.dd-bkline form{margin:0}</style>
+    {{end}}{{end}}
     <div class="ddc-card dd-devpane" id="dd-hw">
       {{/* The model's photo (device-photo-demos.html, M3, picked 15 Oct); its class icon when
            there is none. */}}

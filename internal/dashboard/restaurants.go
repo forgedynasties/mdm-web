@@ -138,6 +138,12 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data["V1"] = buildVenuesV1(rows, h.venueExtras(r.Context(), devices), time.Now())
 	}
+	// M2: backend restaurants that list the MDM's devices but have no venue (team only).
+	if !roleIsCustomer(h.role(r)) {
+		if p := h.venuesPlacementView(r.Context()); p != nil {
+			data["Placements"] = p
+		}
+	}
 	h.render(w, r, "restaurants.html", data)
 }
 
@@ -414,6 +420,13 @@ func (h *Handler) venueP1(r *http.Request, rest *db.Restaurant, devices []db.Dev
 	in.Updates, in.Lost = upd, lost
 	if t, ok := venueBackendTodo(backend); ok {
 		in.Backend = &t
+	}
+	if backend.Linked {
+		if p, _, err := h.loadPlacements(ctx); err == nil {
+			if t, ok := venueMovesTodo(p.Moves[id]); ok {
+				in.Moves = &t
+			}
+		}
 	}
 	for _, d := range devices {
 		dv := vpDev{Serial: d.SerialNumber, Firmware: d.AgentKind == product.KindFirmware}

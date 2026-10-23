@@ -2177,6 +2177,14 @@ CREATE TABLE IF NOT EXISTS backend_hours (
 -- Venue fields that follow the AIO backend (B1): address, pin, timezone, hours. A field
 -- leaves the list when someone edits it in the MDM ("Set here").
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_follow TEXT[] NOT NULL DEFAULT '{}';
+-- Backend restaurants someone chose to ignore on the Venues page (test restaurants) (M2).
+CREATE TABLE IF NOT EXISTS backend_ignores (
+    env           TEXT NOT NULL,
+    restaurant_id BIGINT NOT NULL,
+    ignored_by    TEXT NOT NULL DEFAULT '',
+    ignored_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (env, restaurant_id)
+);
 -- A venue's backend restaurant (P1): '' / NULL = not linked. A person confirms a link.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_env TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_restaurant_id BIGINT;

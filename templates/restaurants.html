@@ -105,6 +105,7 @@
       {{end}}
     </div>
     <div class="vc1-none" id="vc1-none" hidden>No venue matches these filters.</div>
+    {{template "venues-backend-place" $}}
   </div>
 
   {{with .Rail}}
@@ -219,3 +220,46 @@
 </div>
 <script src="/static/js/restaurants.js?v={{assetVer}}"></script>
 {{end}}
+
+{{/* M2 (picked 23 Oct 2026): AIO backend restaurants that list the MDM's devices but have
+     no venue: Create venue / Link to… / Ignore. backend_placements.go */}}
+{{define "venues-backend-place"}}{{with .Placements}}{{$can := canAdminOrOperator $.Role}}
+<style>
+.vbp{margin-top:16px;padding:0;overflow:hidden}
+.vbp-h{display:flex;align-items:baseline;gap:8px;padding:14px 16px 10px}
+.vbp-h h2{margin:0;font-size:15px;font-weight:650}.vbp-h span{color:var(--muted);font-size:12.5px}
+.vbp-r{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:13px}
+.vbp-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none;background:var(--accent-soft);color:var(--accent-text)}
+.vbp-r.test .vbp-ic{background:var(--surface2);color:var(--muted)}
+.vbp-r .t{flex:1;min-width:0}.vbp-r .t .m{color:var(--muted)}
+.vbp-r small{display:block;color:var(--muted);font-size:12px;margin-top:1px;overflow-wrap:anywhere}
+.vbp-test{font-size:10.5px;font-weight:650;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--muted);margin-left:5px}
+.vbp-r form{margin:0}
+.vbp-acts{display:flex;gap:6px;align-items:center;flex:none}
+.vbp-link{position:relative}.vbp-link>summary{list-style:none}.vbp-link>summary::-webkit-details-marker{display:none}
+.vbp-link[open] .cc-menu{display:block}
+.vbp-link .cc-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;min-width:240px;padding:10px}
+.vbp-link .cc-menu form{display:flex;gap:6px}
+.vbp-q{color:var(--muted)}
+</style>
+<section class="cc-card vbp" aria-label="In the AIO backend, not here yet" id="vb-place">
+  <div class="vbp-h"><h2>In the AIO backend, not here yet</h2><span>{{len .Rows}} restaurant{{if ne (len .Rows) 1}}s{{end}} list {{.Devices}} of your devices</span></div>
+  {{$un := .Unlinked}}
+  {{range .Rows}}
+  <div class="vbp-r{{if .Test}} test{{end}}">
+    <span class="vbp-ic" aria-hidden="true">{{.Initial}}</span>
+    <span class="t"><b>{{.R.Name}}</b>{{if .Test}}<span class="vbp-test">test</span>{{end}} <span class="m">·{{with .R.City}} {{.}} ·{{end}} {{.EnvLabel}} #{{.R.ID}}</span>
+      <small>{{.Summary}} ({{.Serials}}) · it lists {{.Total}} device{{if ne .Total 1}}s{{end}}</small></span>
+    {{if $can}}
+    <span class="vbp-acts">
+      <form method="POST" action="/restaurants/backend-place"><input type="hidden" name="action" value="create"><input type="hidden" name="env" value="{{.R.Env}}"><input type="hidden" name="rid" value="{{.R.ID}}"><button type="submit" class="cc-btn sm{{if not .Test}} primary{{end}}">Create venue</button></form>
+      {{if $un}}<details class="vbp-link"><summary class="cc-btn sm">Link to…</summary>
+        <div class="cc-menu"><form method="POST" action="/restaurants/backend-place"><input type="hidden" name="action" value="link"><input type="hidden" name="env" value="{{.R.Env}}"><input type="hidden" name="rid" value="{{.R.ID}}">
+          <select name="venue" class="form-input" aria-label="Venue" required>{{range $un}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select><button type="submit" class="cc-btn sm primary">Link</button></form></div></details>{{end}}
+      <form method="POST" action="/restaurants/backend-place" hx-confirm="Ignore {{.R.Name}}? It won't be listed here again."><input type="hidden" name="action" value="ignore"><input type="hidden" name="env" value="{{.R.Env}}"><input type="hidden" name="rid" value="{{.R.ID}}"><button type="submit" class="cc-btn sm vbp-q">Ignore</button></form>
+    </span>
+    {{end}}
+  </div>
+  {{end}}
+</section>
+{{end}}{{end}}

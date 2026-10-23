@@ -318,3 +318,48 @@ func (d *DB) StopFollowingBackend(ctx context.Context, venue uuid.UUID, fields .
 	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET backend_follow = ARRAY(SELECT unnest(backend_follow) EXCEPT SELECT unnest($2::text[]) ORDER BY 1) WHERE id = $1`, venue, fields)
 	return err
 }
+
+// BackendIgnores is the set of ignored backend restaurants, keyed "env/id".
+func (d *DB) BackendIgnores(ctx context.Context) (map[string]bool, error) {
+	rows, err := d.pool.Query(ctx, `SELECT env || '/' || restaurant_id FROM backend_ignores`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		out[k] = true
+	}
+	return out, rows.Err()
+}
+
+// IgnoreBackendRestaurant hides a restaurant from the Venues page's list.
+func (d *DB) IgnoreBackendRestaurant(ctx context.Context, env string, id int64, by string) error {
+	_, err := d.pool.Exec(ctx, `INSERT INTO backend_ignores (env, restaurant_id, ignored_by) VALUES ($1, $2, $3)
+		ON CONFLICT (env, restaurant_id) DO NOTHING`, env, id, by)
+	return err
+}
+
+// BackendDevicesFor returns the copied devices listed under any of these ids
+// (upper-cased serials or Android IDs).
+func (d *DB) BackendDevicesFor(ctx context.Context, ids []string) ([]BackendDevice, error) {
+	rows, err := d.pool.Query(ctx, `SELECT env, id, restaurant_id, device_type, serial, ip, onboarded, revoked, updated
+		FROM backend_devices WHERE upper(serial) = ANY($1) AND NOT revoked ORDER BY env, restaurant_id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BackendDevice
+	for rows.Next() {
+		var v BackendDevice
+		if err := rows.Scan(&v.Env, &v.ID, &v.RestaurantID, &v.Type, &v.Serial, &v.IP, &v.Onboarded, &v.Revoked, &v.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}

@@ -610,6 +610,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"PadState":            padState(device, h.cfg.WlcApplies(device.ProductKey()), kioskCfg.WlcChargingEnabled),
 		"MicGain":             micGainPtr(device.LatestExtra),
 		"Security":            h.securityFor(r.Context(), device),
+		"BackendLine":         h.deviceBackendLine(r.Context(), device), // M2: where the AIO backend places it
 		"EnrolledByName":      h.displayName(r, device.EnrolledBy),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),

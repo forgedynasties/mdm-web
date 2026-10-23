@@ -59,6 +59,7 @@ type vpInputs struct {
 	Lost     venueLostView
 	Trend    db.ScopedTrend
 	Backend  *ovTodo // "Link to X in the AIO backend?" (L2), nil when not offered
+	Moves    *ovTodo // "N devices the AIO backend lists here are elsewhere" (M2)
 	Window   string  // 24h | 7d | 30d
 	Now      time.Time
 }
@@ -305,6 +306,9 @@ func buildVpBanner(in vpInputs) vpBanner {
 	}
 	if in.Backend != nil {
 		mine = append(mine, *in.Backend)
+	}
+	if in.Moves != nil {
+		mine = append(mine, *in.Moves)
 	}
 	if firmware && (in.StaffPIN == "" || in.StaffPIN == db.DefaultStaffPIN) {
 		mine = append(mine, ovTodo{Title: "Staff PIN is still the default " + db.DefaultStaffPIN,
