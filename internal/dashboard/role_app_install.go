@@ -28,6 +28,23 @@ const (
 	roleAppInstallRetry = 6 * time.Hour
 )
 
+// roleAppInstallBases is role → base package for the roles with auto-install on (Lineup ›
+// Apps switch, on by default).
+func (h *Handler) roleAppInstallBases(ctx context.Context) map[string]string {
+	apps, err := h.db.ListRoleApps(ctx)
+	if err != nil {
+		log.Printf("[role-app-install] role apps: %v", err)
+		return nil
+	}
+	out := map[string]string{}
+	for _, a := range apps {
+		if a.AutoInstall && a.BasePackage != "" {
+			out[a.Role] = a.BasePackage
+		}
+	}
+	return out
+}
+
 type roleAppInstall struct {
 	Device *db.Device
 	App    *db.App
@@ -81,7 +98,7 @@ func pickRoleAppInstalls(devices []db.Device, bases map[string]string, lib map[s
 // RunRoleAppInstalls sends the role's prod app to online devices that lack it. Safe to
 // call every minute.
 func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
-	bases := h.db.RoleAppBases(ctx)
+	bases := h.roleAppInstallBases(ctx)
 	if len(bases) == 0 {
 		return
 	}

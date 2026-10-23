@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS role_apps (
 	updated_by   TEXT NOT NULL DEFAULT '',
 	updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Lineup › Apps (A1, 23 Oct 2026): off stops RunRoleAppInstalls for the role.
+ALTER TABLE role_apps ADD COLUMN IF NOT EXISTS auto_install BOOLEAN NOT NULL DEFAULT true;
 CREATE TABLE IF NOT EXISTS app_channels (
 	role       TEXT NOT NULL,
 	package    TEXT NOT NULL,
@@ -155,10 +157,11 @@ type RoleApp struct {
 	BasePackage string
 	UpdatedBy   string
 	UpdatedAt   time.Time
+	AutoInstall bool // units missing the prod package get it (RunRoleAppInstalls)
 }
 
 func (d *DB) ListRoleApps(ctx context.Context) ([]RoleApp, error) {
-	rows, err := d.pool.Query(ctx, `SELECT role, base_package, updated_by, updated_at FROM role_apps ORDER BY role`)
+	rows, err := d.pool.Query(ctx, `SELECT role, base_package, updated_by, updated_at, auto_install FROM role_apps ORDER BY role`)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +169,7 @@ func (d *DB) ListRoleApps(ctx context.Context) ([]RoleApp, error) {
 	var out []RoleApp
 	for rows.Next() {
 		var a RoleApp
-		if err := rows.Scan(&a.Role, &a.BasePackage, &a.UpdatedBy, &a.UpdatedAt); err != nil {
+		if err := rows.Scan(&a.Role, &a.BasePackage, &a.UpdatedBy, &a.UpdatedAt, &a.AutoInstall); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -768,6 +771,65 @@ func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []strin
 			return nil, err
 		}
 		out[id] = true
+	}
+	return out, rows.Err()
+}
+
+// SetRoleAppAutoInstall switches the prod app auto-install on or off for a role.
+func (d *DB) SetRoleAppAutoInstall(ctx context.Context, role string, on bool, by string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO role_apps (role, base_package, updated_by, updated_at, auto_install) VALUES ($1, '', $2, now(), $3)
+		ON CONFLICT (role) DO UPDATE SET auto_install = EXCLUDED.auto_install, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+		role, by, on)
+	return err
+}
+
+// InstallState is a device's latest install of an APK: where it got to and what the
+// device said if it failed.
+type InstallState struct {
+	CommandID uuid.UUID
+	Status    string // "" = not picked up yet, else the command_status status
+	Progress  *int
+	SentAt    time.Time
+	UpdatedAt time.Time
+	Output    string // the device's result text ("error: …" on a failure)
+}
+
+// LatestInstallsOf returns, per device, its latest install of one of these APKs sent
+// within the window.
+func (d *DB) LatestInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string, within time.Duration) (map[uuid.UUID]InstallState, error) {
+	out := map[uuid.UUID]InstallState{}
+	if len(ids) == 0 || len(urls) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ON (ct.target_id) ct.target_id, c.id, COALESCE(cs.status, ''), cs.progress,
+		       c.created_at, COALESCE(cs.updated_at, c.created_at), COALESCE(cr.output, '')
+		FROM commands c
+		JOIN command_targets ct ON ct.command_id = c.id
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
+		LEFT JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = ct.target_id
+		WHERE c.type = 'install_apk'
+		  AND ct.target_id = ANY($1)
+		  AND c.apk_url = ANY($2)
+		  AND c.created_at > now() - make_interval(secs => $3)
+		ORDER BY ct.target_id, c.created_at DESC`, ids, urls, within.Seconds())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var st InstallState
+		var pct *int16
+		if err := rows.Scan(&id, &st.CommandID, &st.Status, &pct, &st.SentAt, &st.UpdatedAt, &st.Output); err != nil {
+			return nil, err
+		}
+		if pct != nil {
+			p := int(*pct)
+			st.Progress = &p
+		}
+		out[id] = st
 	}
 	return out, rows.Err()
 }

@@ -201,6 +201,8 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	// ?client= opens the MDM clients tab, ?role=none and ?view=runs open Setup.
 	tab := "products"
 	switch {
+	case view == "apps":
+		tab = "apps"
 	case view == "clients" || clientSel != "":
 		tab = "clients"
 	case view == "setup" || view == "runs" || sel == "none":
@@ -220,6 +222,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		m["Roles"] = roles
 		m["Clients"] = clients
 		m["NoneCount"] = len(hw.None)
+		m["AppsNoBuild"] = h.lineupAppsNoBuild(ctx, library, devices)
 		m["NoneDevices"] = hw.NoneDevices
 		m["RunCount"] = len(productions)
 		if _, ok := m["View"]; !ok {
@@ -234,6 +237,13 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	if tab == "setup" {
 		h.render(w, r, "pipeline.html", common(map[string]any{"View": "setup", "None": hw.None, "ClassKeys": prod.Classes(),
 			"Productions": productions, "Models": h.modelOptions(ctx)}))
+		return
+	}
+	// Apps (A1, 23 Oct 2026): a card per product's app, then the chosen one's units.
+	if tab == "apps" {
+		cards, pane := h.lineupApps(r, library, devices)
+		h.render(w, r, "pipeline.html", common(map[string]any{"View": "apps", "AppCards": cards, "AppsPane": pane,
+			"AppChoicesLU": h.lineupApp(ctx, r.URL.Query().Get("app"), devices).Choices}))
 		return
 	}
 	// MDM clients: a card per client, then the chosen one (the first by default) whole.
