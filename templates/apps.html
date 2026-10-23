@@ -87,7 +87,7 @@
       <h2>{{.Headline}}</h2>
       {{if .Todos}}
       <ol class="oc-todo">
-        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .AddApps}}{{if canAppLibrary $.Role}}<button type="button" onclick="libAddOpen()">{{.Action}}</button>{{else}}<a href="/lineup">Lineup</a>{{end}}{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .AddApps}}{{if canAppLibrary $.Role}}<button type="button" onclick="libAddOpen()">{{.Action}}</button>{{else}}<a href="/host-apps">Host apps</a>{{end}}{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
       </ol>
       {{if .More}}<a class="oc-more" href="#a1-apps">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
       {{else}}<p>{{.Calm}}</p>{{end}}
@@ -144,7 +144,7 @@
         <tbody>
         {{range $i, $r := $a.Rows}}
         <tr class="a1-r" data-search="{{.Search}}" data-look="{{if .Look}}1{{end}}" data-role="{{if .Role}}1{{end}}" data-none="{{if eq .Devices 0}}1{{end}}" data-chan="{{if .Single}}one{{else if .InLibrary}}many{{end}}" data-href="{{.Href}}">
-          <td><div class="a1-id">{{if .Icon}}<img class="a1-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="a1-ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="a1-nm"><b title="{{.Name}}"><a href="{{.Href}}">{{.Name}}</a>{{if .Role}}<span class="a1-role" title="The {{.RoleLabel}} app on Lineup">role app</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></span></div></td>
+          <td><div class="a1-id">{{if .Icon}}<img class="a1-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="a1-ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="a1-nm"><b title="{{.Name}}"><a href="{{.Href}}">{{.Name}}</a>{{if .Role}}<span class="a1-role" title="The {{.RoleLabel}} app (Host apps)">role app</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></span></div></td>
           <td>{{if .InLibrary}}<span class="a1-ver" title="The library's newest">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{else}}<span class="a1-ver none">not in library</span>{{end}}</td>
           <td><div class="a1-cov" title="{{.Devices}} device{{if ne .Devices 1}}s{{end}} · {{.OnLib}} on the library version · {{.Other}} on another · {{.Unknown}} report no version">{{if gt .Devices 0}}<div class="a1-bar" aria-hidden="true">{{if .OnLib}}<i class="ok" style="width:{{.OnLibPct}}%"></i>{{end}}{{if .Other}}<i class="ot" style="width:{{.OtherPct}}%"></i>{{end}}{{if .Unknown}}<i class="un" style="width:{{.UnknownPct}}%"></i>{{end}}</div><small><b>{{.Devices}}</b> · {{.Note}}</small>{{else}}<small>{{.Note}}</small>{{end}}</div></td>
           <td>{{if .Channels}}<div class="a1-chs">{{range .Channels}}<span title="{{.Devices}} device{{if ne .Devices 1}}s{{end}}">{{.Label}} {{.Devices}}</span>{{end}}{{if .MoreChans}}<span class="m">+{{.MoreChans}}</span>{{end}}</div>{{else}}<span class="muted">—</span>{{end}}</td>
@@ -180,7 +180,7 @@
     <div class="ov2-hi a1-cap"><small>installs sent per day</small></div>
     {{end}}
     {{if .Roles}}
-    <div class="ov2-rh"><h2>Role apps{{if .RolesMissing}} <span>{{.RolesMissing}} missing</span>{{end}}</h2><a href="/lineup">Lineup</a></div>
+    <div class="ov2-rh"><h2>Role apps{{if .RolesMissing}} <span>{{.RolesMissing}} missing</span>{{end}}</h2><a href="/host-apps">Host apps</a></div>
     <ul class="a1-roles">
       {{range .Roles}}<li><span class="ovd-dot {{if .Missing}}danger{{else}}ok{{end}}"></span><span class="t"><b>{{.Label}}</b><small title="{{.Package}}">{{.Package}}</small></span>{{if .Missing}}<span class="v no">no APK</span>{{else}}<span class="v">{{if .Version}}{{.Version}}{{else}}in library{{end}}</span>{{end}}</li>{{end}}
     </ul>

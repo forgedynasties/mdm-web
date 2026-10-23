@@ -201,7 +201,7 @@
           {{/* Productions: every role requireAdminOrOperator lets through may create
                one. The link is shown to fleet managers and admins, who own the build runs; an
                operator still reaches it by URL. */}}
-          {{if eq .Role "fleet_manager" "fleet_admin"}}
+          {{if eq .Role "fleet_manager" "fleet_admin" "admin"}}
           <a class="nbar-mi js-dest" data-cmdk-label="Productions" href="/productions">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
             <span class="nbar-mi-label">Productions</span>
@@ -249,6 +249,9 @@
     {{/* The admin page you are on is promoted into the dock, so the dock always shows
          where you are; it disappears again the moment a core page is selected. */}}
     {{if eq .ActivePage "users"}}{{template "nav-users" (dict "cls" "nav-link js-dest" "active" .ActivePage)}}{{end}}
+    {{/* More: every other page, by section (the palette in pages mode). Until 23 Oct 2026
+         nothing opened it, so 30 pages were reachable only by typing in ⌘K. */}}
+    {{if not (isCustomer .Role)}}<button type="button" class="nav-link dock-more" onclick="window.mdmOpenPalette && window.mdmOpenPalette('pages')" aria-label="More pages" title="More pages, by section"><span class="ui-icon"><svg class="ic-o" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><svg class="ic-f" viewBox="0 0 24 24" aria-hidden="true"><rect class="fill" x="4" y="4" width="6" height="6" rx="1.5"/><rect class="fill" x="14" y="4" width="6" height="6" rx="1.5"/><rect class="fill" x="4" y="14" width="6" height="6" rx="1.5"/><rect class="fill" x="14" y="14" width="6" height="6" rx="1.5"/></svg></span><span class="dock-lbl">More</span></button>{{end}}
     {{/* The search field: devices, restaurants, pages and actions, the same ⌘K palette. */}}
     {{if not (isCustomer .Role)}}<button type="button" class="dock-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices, restaurants and pages" aria-keyshortcuts="Meta+K Control+K"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><span class="ph">Search…</span><kbd>⌘K</kbd></button>{{end}}
   </nav>
@@ -298,7 +301,7 @@
         <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Fleet health">Fleet health</a>
         {{if not (isCustomer .Role)}}<a class="js-dest{{if eq .ActivePath "/coverage"}} on{{end}}" href="/coverage" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Prod coverage">Prod coverage</a>{{end}}
         <a class="js-dest{{if eq .ActivePage "alerts"}} on{{end}}" href="/alerts" data-ic="bell" data-cmdk-sec="Fleet" data-cmdk-label="Alerts">Alerts</a>
-        <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>
+        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
@@ -317,7 +320,7 @@
 
       <div class="nav-dir-sec">
         <div class="t">Control</div>
-        <a class="js-dest{{if eq .ActivePath "/kiosk"}} on{{end}}" href="/kiosk" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Device lock">Device lock</a>
+        <a class="js-dest{{if eq .ActivePath "/lock"}} on{{end}}" href="/lock" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Device lock">Device lock</a>
         <a class="js-dest{{if eq .ActivePath "/jobs"}} on{{end}}" href="/jobs" data-ic="send" data-cmdk-sec="Control" data-cmdk-label="Jobs">Jobs</a>
         <a class="js-dest{{if eq .ActivePath "/compliance/rules"}} on{{end}}" href="/compliance/rules" data-ic="shield" data-cmdk-sec="Control" data-cmdk-label="Compliance rules">Compliance rules</a>
         <a class="js-dest{{if eq .ActivePath "/schedules"}} on{{end}}" href="/schedules" data-ic="clock" data-cmdk-sec="Control" data-cmdk-label="Schedules">Schedules</a>

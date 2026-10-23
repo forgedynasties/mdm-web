@@ -133,7 +133,7 @@
 
 <!-- update packages (admin-only — operators only see the changelog) -->
 {{if canRelease $role}}
-<div class="cc-card" style="margin-bottom:18px;">
+<div class="cc-card" style="margin-bottom:18px;" id="packages">
   <div class="cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg></span>
     <h2>Update packages</h2>
@@ -213,6 +213,29 @@
   </div>
 </div>
 {{end}}
+
+{{/* Problems on this build (the list existed only as htmx fragments until 23 Oct
+     2026, so Releases' "See problems" landed on a page without them). */}}
+<div class="cc-card" style="margin-bottom:18px;" id="problems">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+    <h2>Problems <span id="rd-prob-badge">{{template "rd-prob-badge" .}}</span></h2>
+    <span class="m" id="rd-prob-count">{{template "rd-prob-count" .}}</span>
+  </div>
+  <div class="cc-cb">
+    {{if .CanReport}}
+    <form action="/releases/{{$rel.ID}}/problems" method="POST" class="rp-new" style="display:grid;grid-template-columns:minmax(0,1fr) 140px 170px auto;gap:8px;margin-bottom:12px;">
+      <input type="text" name="title" class="form-input" placeholder="What's wrong on this build" required aria-label="Problem">
+      <select name="severity" class="form-input" aria-label="Severity"><option value="minor">Minor</option><option value="major" selected>Major</option><option value="blocker">Blocker</option></select>
+      <input type="text" name="device_serial" class="form-input" placeholder="Device serial (optional)" aria-label="Device serial">
+      <button type="submit" class="cc-btn sm primary">Report</button>
+      <textarea name="description" class="form-input" rows="2" placeholder="Details (optional)" style="grid-column:1/-1" aria-label="Details"></textarea>
+    </form>
+    {{end}}
+    <div id="rd-prob-list">{{template "rd-prob-list" .}}</div>
+    <div id="rd-carried-list">{{template "rd-carried-list" .}}</div>
+  </div>
+</div>
 
 {{/* Push-to-devices panel removed from the release page — pushing happens from
      the dedicated /updates flow instead. */}}

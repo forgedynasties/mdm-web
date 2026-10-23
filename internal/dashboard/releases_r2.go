@@ -140,7 +140,7 @@ func buildR2Banner(in r2Inputs) r2Banner {
 		todos = append(todos, r2Todo{
 			Title:  fmt.Sprintf("%d blocking problem%s", row.Problems.Blockers, sIfN(row.Problems.Blockers)),
 			Sub:    fmt.Sprintf("%d open in all", row.Problems.Open),
-			Action: "See problems", Href: fmt.Sprintf("/releases/%d?tab=problems", id)})
+			Action: "See problems", Href: fmt.Sprintf("/releases/%d#problems", id)})
 	}
 	if in.ShowCrashes && in.Crashes.Day >= 5 && in.Crashes.Day > in.Crashes.PrevDay {
 		todos = append(todos, r2Todo{
@@ -162,7 +162,7 @@ func buildR2Banner(in r2Inputs) r2Banner {
 		} else {
 			todos = append(todos, r2Todo{Title: "A draft without a full package",
 				Sub: "devices can only be sent it once a full package is attached", Action: "Add package",
-				Href: fmt.Sprintf("/releases/%d?tab=packages", id)})
+				Href: fmt.Sprintf("/releases/%d#packages", id)})
 		}
 	}
 	if in.CanRelease && row.IsDev && row.Status == "published" {

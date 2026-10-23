@@ -5688,6 +5688,7 @@ html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color:
   border-radius: 11px; font-size: 13.5px; font-weight: var(--fw-semibold); color: var(--muted);
 }
 .dock .nav-link:hover { background: var(--surface2); color: var(--text); }
+.dock button.nav-link { font: inherit; border: 0; background: none; cursor: pointer; }
 .dock .nav-link.active { background: var(--accent-soft); color: var(--accent-text); }
 /* Sized to its content. Anchored at left:50%, the dock is otherwise only allowed half
    the viewport, and once the live figures made it wider than that the links shrank

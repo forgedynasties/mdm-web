@@ -235,7 +235,7 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
 
       <div class="r2-two">
         <div class="oc-card">
-          <div class="oc-ch"><h2>Packages <span>{{len .Packages}}</span></h2>{{if canRelease $.Role}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}?tab=packages">Add package</a>{{end}}</div>
+          <div class="oc-ch"><h2>Packages <span>{{len .Packages}}</span></h2>{{if canRelease $.Role}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}#packages">Add package</a>{{end}}</div>
           {{if .Packages}}
           <ul class="r2-pk">
             {{range .Packages}}<li><span class="cc-tag{{if .Full}} ok{{end}}">{{if .Full}}full{{else}}incremental{{end}}</span>
@@ -252,7 +252,7 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
 
       {{if or .Crash .Problems.Open .Problems.Blockers}}<p class="r2-line">
         {{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}
-        {{if or .Problems.Open .Problems.Blockers}}<span>Problems: <a href="/releases/{{.ReleaseID}}?tab=problems">{{.Problems.Open}} open{{if .Problems.Blockers}} · <span class="ro-bad">{{.Problems.Blockers}} blocking</span>{{end}}</a></span>{{end}}
+        {{if or .Problems.Open .Problems.Blockers}}<span>Problems: <a href="/releases/{{.ReleaseID}}#problems">{{.Problems.Open}} open{{if .Problems.Blockers}} · <span class="ro-bad">{{.Problems.Blockers}} blocking</span>{{end}}</a></span>{{end}}
       </p>{{end}}
       <div class="oc-card r2-up">
         <div class="oc-ch"><h2>Updates <span>{{with $.Rollouts}}{{len .}}{{else}}0{{end}}</span></h2>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn sm primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}</div>

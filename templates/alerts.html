@@ -6,8 +6,8 @@
   <a href="/alerts?view=needs" class="{{if eq .View "needs"}}on{{end}}">Needs action{{if .NeedsCount}}<span class="n">{{.NeedsCount}}</span>{{end}}</a>
   <a href="/alerts?view=watching" class="{{if eq .View "watching"}}on{{end}}">Watching{{if .WatchCount}}<span class="n">{{.WatchCount}}</span>{{end}}</a>
   <a href="/alerts?view=crashes" class="{{if eq .View "crashes"}}on{{end}}">Crashes{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
-  <span class="cap">Set up</span>
-  <a href="/alert-config">Alert rules</a>
+  {{if canAdmin .Role}}<span class="cap">Set up</span>
+  <a href="/alert-config">Alert rules</a>{{end}}
 </nav>
 
 <style>

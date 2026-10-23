@@ -57,7 +57,9 @@ func buildAttention(alerts []db.Alert, inboxN int) (rows []attentionRow, total, 
 	if inboxN > 0 {
 		all = append(all, attentionRow{
 			Severity: "info", Issue: "Waiting for a restaurant", Devices: inboxN,
-			Href: "/enrollment",
+			// Fleet's filter, not Enrollment: everyone who sees the Overview can open it
+			// and assign a venue there (Enrollment is admin only).
+			Href: "/devices?onboarding=pending",
 		})
 	}
 	total = len(all)

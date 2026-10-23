@@ -1259,7 +1259,7 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
+		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 		return
 	}
 	p := db.ReleaseProblem{
@@ -1289,7 +1289,7 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 }
 
 // ReleaseProblemUpdate changes a problem's status (and optionally severity).
@@ -1330,7 +1330,7 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 }
 
 // ReleaseProblemDelete removes a problem (admin only).
@@ -1354,7 +1354,7 @@ func (h *Handler) ReleaseProblemDelete(w http.ResponseWriter, r *http.Request) {
 		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"?tab=problems", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 }
 
 // ReleasePublish moves a release to published (deployable).

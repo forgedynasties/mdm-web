@@ -18,9 +18,20 @@
   // legacy deep-links from older tabs
   var alias = { channels: 'alerts', ai: 'integrations', google: 'integrations', security: 'people', sessions: 'people', tools: 'devices', testing: 'general' };
   if (alias[initial]) initial = alias[initial];
-  if (!initial || !show(initial)) show('general');
+  // A hash may name a card inside a tab (#fleet-adb-key): open its tab, then scroll to it.
+  function showFor(k) {
+    if (!k) return false;
+    if (show(k)) return true;
+    var el = document.getElementById(k);
+    var tab = el && el.closest('.settings-tab');
+    if (!tab) return false;
+    show(tab.getAttribute('data-tab'));
+    setTimeout(function () { el.scrollIntoView({ block: 'start' }); }, 0);
+    return true;
+  }
+  if (!showFor(initial)) show('general');
   // in-page links to /settings#tab (and back/forward) switch tabs too
-  window.addEventListener('hashchange', function () { var k = (location.hash || '').replace('#', ''); if (alias[k]) k = alias[k]; if (k) show(k); });
+  window.addEventListener('hashchange', function () { var k = (location.hash || '').replace('#', ''); if (alias[k]) k = alias[k]; showFor(k); });
 })();
 
 // Alert rules: switch = save immediately; thresholds show a Save button when edited.

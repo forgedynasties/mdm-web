@@ -336,7 +336,7 @@ func buildAppsA1(in a1Inputs) appsA1 {
 	if n := len(missing); n > 0 {
 		todos = append(todos, a1Todo{
 			Title:  dp1Plural(n, "role app has", "role apps have") + " no APK here",
-			Sub:    joinAnd(missing) + ": on Lineup, not installable from here",
+			Sub:    joinAnd(missing) + ": set on Host apps, no APK in the library",
 			Action: "Add apps", AddApps: true})
 	}
 	sort.SliceStable(otherIssues, func(a, b int) bool { return otherIssues[a].devices > otherIssues[b].devices })

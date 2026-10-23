@@ -171,7 +171,7 @@ func TestOvBannerOrder(t *testing.T) {
 	att := []attentionRow{
 		{Severity: "critical", Issue: "Device offline", Serial: "T7-1", Restaurant: "Pho 88", Since: now.Add(-time.Hour), Href: "/alerts?device=T7-1"},
 		{Severity: "warning", Issue: "Battery low", Devices: 4, Href: "/alerts"},
-		{Severity: "info", Issue: "Waiting for a restaurant", Devices: 3, Href: "/enrollment"},
+		{Severity: "info", Issue: "Waiting for a restaurant", Devices: 3, Href: "/devices?onboarding=pending"},
 	}
 	gid := uuid.New()
 	stale := 57.8
