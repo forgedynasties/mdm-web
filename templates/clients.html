@@ -298,8 +298,12 @@
 .bt-segs,.bt-seglbl{display:grid;gap:6px;grid-auto-flow:column}
 .bt-segs i{display:block;height:7px;border-radius:99px;background:var(--surface2)}
 .bt-segs i.on{background:var(--accent-fill)}.bt-segs i.behind{background:var(--warn)}.bt-segs i.bad{background:var(--danger)}.bt-segs i.run{background:#4f7cff}
-.bt-seglbl{font-size:11.5px;color:var(--text-2);margin-top:8px}
-.bt-seglbl span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-seglbl{display:flex!important;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--text-2);margin-top:10px}
+.bt-seglbl span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.bt-seglbl span::before{content:"";width:8px;height:8px;border-radius:3px;background:var(--surface2);box-shadow:inset 0 0 0 1px var(--border)}
+.bt-seglbl span.on::before{background:var(--accent-fill);box-shadow:none}.bt-seglbl span.behind::before{background:var(--warn);box-shadow:none}.bt-seglbl span.run::before{background:#4f7cff;box-shadow:none}.bt-seglbl span.bad::before{background:var(--danger);box-shadow:none}
+.bt-switch{display:flex;margin:0 0 -2px}
+.bt-switch .bt-sw{flex-wrap:wrap;background:var(--surface)}
 .bt-acts{display:flex;align-items:center;gap:8px;margin-top:18px;flex-wrap:wrap}
 .bt-acts form{margin:0}
 .bt-acts .cv-pol{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -338,15 +342,15 @@
 {{define "cl-bento"}}{{template "bt-style"}}{{$b := .ClientBento}}
 {{with .Client}}
 <div class="bt-stage">
+  <div class="bt-switch"><span class="bt-sw" role="tablist" aria-label="Client">{{range $.ClientCards}}<a href="/clients?client={{.Slot}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
   <div class="bt-row1">
     <div class="bt-card bt-hero"><a class="bt-chip" href="#cv-hist">{{.Label}}</a><p>{{$b.Hero}}</p></div>
     <div class="bt-card">
-      <div class="bt-h"><div><h3>{{if .Hosted}}On {{.Build.Version}}{{else}}Nothing hosted{{end}}</h3><small>{{.Note}}</small></div>
-        <span class="bt-sw" role="tablist" aria-label="Client">{{range $.ClientCards}}<a href="/clients?client={{.Slot}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+      <div class="bt-h"><div><h3>{{if .Hosted}}On {{.Build.Version}}{{else}}Nothing hosted{{end}}</h3><small>{{.Note}}</small></div></div>
       <div class="bt-pct"><b>{{$b.Pct}}%</b><span class="bt-soft">{{.UpToDate}} of {{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Hosted}} · hosted code {{.Build.VersionCode}}{{end}}</span></div>
       {{if $b.Segs}}
       <div class="bt-segs" style="grid-template-columns:{{range $b.Segs}}{{.Frac}}fr {{end}}">{{range $b.Segs}}<i class="{{.Class}}" title="{{.N}} {{.Label}}"></i>{{end}}</div>
-      <div class="bt-seglbl" style="grid-template-columns:{{range $b.Segs}}{{.Frac}}fr {{end}}">{{range $b.Segs}}<span title="{{.N}} {{.Label}}">{{.Label}} · {{.N}}</span>{{end}}</div>
+      <div class="bt-seglbl">{{range $b.Segs}}<span class="{{.Class}}">{{.Label}} · {{.N}}</span>{{end}}</div>
       {{end}}
       <div class="bt-acts">
         {{template "cl-policy" $}}

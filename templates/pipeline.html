@@ -583,15 +583,15 @@
      versions in service. clients_bento.go, lineup_apps.go */}}
 <div class="bt-stage">
 {{with .AppsPane}}{{$p := .}}
+  <div class="bt-switch"><span class="bt-sw" role="tablist" aria-label="Product">{{range $.AppCards}}<a href="/host-apps?app={{.Role}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
   <div class="bt-row1">
     <div class="bt-card bt-hero"><span class="bt-chip">Host apps</span><p>{{$hb.Hero}}</p></div>
     <div class="bt-card">
-      <div class="bt-h"><div><h3>{{.Card.Label}}{{if .Card.Base}} · {{if .Build}}{{.Build.VersionName}}{{else}}no build{{end}}{{end}}</h3><small>{{if .Card.Base}}{{.Card.Base}}{{else}}no app set{{end}}</small></div>
-        <span class="bt-sw" role="tablist" aria-label="Product">{{range $.AppCards}}<a href="/host-apps?app={{.Role}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+      <div class="bt-h"><div><h3>{{.Card.Label}}{{if .Card.Base}} · {{if .Build}}{{.Build.VersionName}}{{else}}no build{{end}}{{end}}</h3><small>{{if .Card.Base}}{{.Card.Base}}{{else}}no app set{{end}}</small></div></div>
       <div class="bt-pct"><b>{{.Pct}}%</b><span class="bt-soft">{{.Card.OnProd}} of {{.Card.Total}} unit{{if ne .Card.Total 1}}s{{end}} on prod{{if gt .PctAfter .Pct}} · {{.PctAfter}}% once {{.Card.Running}} finish{{end}}</span></div>
       {{if $hb.Segs}}
       <div class="bt-segs" style="grid-template-columns:{{range $hb.Segs}}{{.Frac}}fr {{end}}">{{range $hb.Segs}}<i class="{{.Class}}" title="{{.N}} {{.Label}}"></i>{{end}}</div>
-      <div class="bt-seglbl" style="grid-template-columns:{{range $hb.Segs}}{{.Frac}}fr {{end}}">{{range $hb.Segs}}<span title="{{.N}} {{.Label}}">{{.Label}} · {{.N}}</span>{{end}}</div>
+      <div class="bt-seglbl">{{range $hb.Segs}}<span class="{{.Class}}">{{.Label}} · {{.N}}</span>{{end}}</div>
       {{end}}
       <div class="bt-acts">
         {{if .Card.Base}}{{if canAdmin $.Role}}<form method="post" action="/products/role-app-auto"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoInstall}}0{{else}}1{{end}}"><button type="submit" class="bt-pill" title="Units without the prod package get the build that goes out">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</button></form>{{else}}<span class="bt-pill">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</span>{{end}}
