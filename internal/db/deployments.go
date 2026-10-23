@@ -952,7 +952,7 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 // host and the uplink are shared too. Both are deliberately small: an OTA that takes
 // twice as long but lands is better than four that race and all fail.
 const (
-	OTAWavePerSite  = 3
+	OTAWavePerSite  = 8
 	OTAWavePerFleet = 8
 	// A command sent but never acknowledged holds its slot for this long, after which
 	// the slot is reused — otherwise one device that went dark freezes a wave.
