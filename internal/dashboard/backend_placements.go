@@ -91,7 +91,7 @@ func countNoun(n int, noun string) string {
 	return fmt.Sprintf("%d %ss", n, noun)
 }
 
-var testRestaurantRe = regexp.MustCompile(`(?i)(^qa\b|\btest\b|\bdemo\b)`)
+var testRestaurantRe = regexp.MustCompile(`(?i)\b(qa|test|testing|demo)\b`)
 
 func bkKey(env string, id int64) string { return env + "/" + strconv.FormatInt(id, 10) }
 
