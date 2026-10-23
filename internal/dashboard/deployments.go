@@ -530,9 +530,12 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// relying on it alone is what made a whole deployment read "stalled" while every
 	// device in it was downloading.
 	dbProgress, _ := h.db.OTAProgressForUpdate(r.Context(), did)
-	// Older clients send only a percent. The package's size turns that into something
-	// legible; it is an estimate and the page says so.
-	var pkgSize int64
+	// Older clients send only a percent. The size of the package the device was offered
+	// turns that into something legible; it is an estimate and the page says so. That is
+	// the incremental from the build it was on when one exists, else the full image: the
+	// largest package (always the full one) made an 18 MB incremental read "of 1.8 GB".
+	var fullSize, anySize int64
+	incSize := map[string]int64{}
 	incremental, hasFullPkg := map[string]bool{}, false
 	if pkgs, err := h.db.ListPackagesByRelease(r.Context(), relID); err == nil {
 		for _, p := range pkgs {
@@ -543,11 +546,18 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 					incremental[p.SourceBuildID] = true
 				}
 			}
-			if p.PayloadSize > pkgSize {
-				pkgSize = p.PayloadSize
+			if p.Status == "active" {
+				if p.Type == "full" && p.PayloadSize > fullSize {
+					fullSize = p.PayloadSize
+				} else if p.Type != "full" && p.SourceBuildID != "" && p.PayloadSize > incSize[p.SourceBuildID] {
+					incSize[p.SourceBuildID] = p.PayloadSize
+				}
+			}
+			if p.PayloadSize > anySize {
+				anySize = p.PayloadSize
 			}
 		}
-		if pkgSize == 0 {
+		if anySize == 0 {
 			// Nothing recorded the size when these packages were made. Ask the host
 			// once, in the background, so the next render has a denominator.
 			go h.learnPackageSizes(pkgs)
@@ -595,7 +605,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if v.BytesTotal == 0 {
-				v.BytesTotal = pkgSize
+				v.BytesTotal = offeredPackageSize(t, incSize, fullSize)
 			}
 			if !v.SeenAt.IsZero() || v.Percent > 0 {
 				if v.AdvancedAt.IsZero() {
@@ -1462,3 +1472,17 @@ func (h *Handler) resolveEligibleDevicesUnscoped(r *http.Request, product string
 // expiry-bounded, completed is a capped preview). Full history lives at
 // /commands/history, which is unbounded + paginated.
 const actionsWindowDays = 30
+
+// offeredPackageSize is the size of the package a deployment hands this device: the
+// incremental from the build it was on when offered (else its current build), unless it is
+// pinned to the full image or no incremental starts there.
+func offeredPackageSize(t db.UpdateTarget, incSize map[string]int64, fullSize int64) int64 {
+	from := t.SourceBuildID
+	if from == "" {
+		from = t.BuildID
+	}
+	if n := incSize[from]; n > 0 && !t.ForceFull {
+		return n
+	}
+	return fullSize
+}
