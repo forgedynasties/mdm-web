@@ -200,8 +200,14 @@ type Restaurant struct {
 	Status       string
 }
 
-// FullAddress is the address on one line ("609 1st St, Brentwood, CA 94513").
+// FullAddress is the address on one line ("609 1st St, Brentwood, CA 94513"). Many rows
+// already hold the whole address in address; city, state and zip are added only when it
+// doesn't name them.
 func (r Restaurant) FullAddress() string {
+	a := strings.ToLower(r.Address)
+	if r.Address != "" && ((r.Zip != "" && strings.Contains(a, strings.ToLower(r.Zip))) || (r.City != "" && strings.Contains(a, strings.ToLower(r.City)))) {
+		return strings.TrimSpace(r.Address)
+	}
 	var parts []string
 	for _, p := range []string{r.Address, r.City, strings.TrimSpace(r.State + " " + r.Zip)} {
 		if p = strings.TrimSpace(p); p != "" {

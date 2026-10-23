@@ -87,4 +87,8 @@ func TestFullAddress(t *testing.T) {
 	if got := r.FullAddress(); got != "609 1st St, Brentwood, CA 94513" {
 		t.Fatal(got)
 	}
+	r = Restaurant{Address: "609 1st St Brentwood, CA 94513", City: "Brentwood", State: "California", Zip: "94513"}
+	if got := r.FullAddress(); got != "609 1st St Brentwood, CA 94513" {
+		t.Fatal(got)
+	}
 }

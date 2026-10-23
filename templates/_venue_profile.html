@@ -131,8 +131,8 @@
   <div class="vb-acts">
     <form method="POST" action="/restaurants/{{$r.ID}}/backend"><input type="hidden" name="action" value="sync"><button type="submit" class="cc-btn sm">Sync now</button></form>
     <form method="POST" action="/restaurants/{{$r.ID}}/backend" hx-confirm="Unlink {{$r.Name}} from the AIO backend?"><input type="hidden" name="action" value="unlink"><button type="submit" class="cc-btn sm">Unlink</button></form>
+    <details class="vb-change"><summary class="cc-btn sm">Change…</summary>{{template "venue-backend-pick" (dict "B" . "R" $r)}}</details>
   </div>
-  <details class="vb-change"><summary class="cc-btn sm">Change…</summary>{{template "venue-backend-pick" (dict "B" . "R" $r)}}</details>
   {{end}}
   {{else}}
   <div class="vs-note">Which restaurant in the AIO backend this venue is. Its address, timezone, hours and device list come from there; devices it lists that the MDM doesn't manage show in the device table as Unenrolled.</div>
@@ -150,8 +150,8 @@
   </div>
 </details>
 <style>
-.vb-acts{display:flex;gap:8px;margin:10px 14px 0}.vb-acts form{margin:0}
-.vb-change{margin:8px 14px 12px}.vb-change>summary{list-style:none;display:inline-flex}.vb-change>summary::-webkit-details-marker{display:none}
+.vb-acts{display:flex;flex-wrap:wrap;gap:8px;margin:10px 14px 12px}.vb-acts form{margin:0}.vb-change[open]{flex-basis:100%}
+.vb-change{margin:0}.vb-change>summary{list-style:none;display:inline-flex}.vb-change>summary::-webkit-details-marker{display:none}
 .vb-sug{display:flex;gap:10px;align-items:center;margin:8px 14px 0;padding:9px 11px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
 .vb-sug.best{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
 .vb-sug .t{flex:1;min-width:0;font-size:13px}.vb-sug small{display:block;color:var(--muted);font-size:12px}
