@@ -381,19 +381,28 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	data["HostApp"] = h.venueHostAppView(r.Context(), id, devices)
 	data["Updates"] = h.venueUpdatesView(r.Context(), id, win, rest.Timezone, time.Now())
 	data["Lost"] = h.venueLostView(r.Context(), id, rest.Timezone, time.Now())
-	data["P1"] = h.venueP1(r, rest, devices, online, stale, win, data["StaffPIN"], data["Updates"].(venueUpdatesView), data["Lost"].(venueLostView))
+	backend := h.venueBackendView(r.Context(), rest, devices)
+	data["Backend"] = backend
+	unenrolled := h.venueUnenrolledView(r.Context(), id)
+	data["Unenrolled"] = unenrolled
+	p1 := h.venueP1(r, rest, devices, online, stale, win, data["StaffPIN"], data["Updates"].(venueUpdatesView), data["Lost"].(venueLostView), backend)
+	p1.Tabs = addUnenrolledTabs(p1.Tabs, unenrolled)
+	data["P1"] = p1
 	h.render(w, r, "restaurant_detail.html", data)
 }
 
 // venueP1 gathers what the P1 banner, cards and pill chart read (venue_p1.go).
 func (h *Handler) venueP1(r *http.Request, rest *db.Restaurant, devices []db.Device, online map[uuid.UUID]bool,
-	stale time.Duration, win db.ServiceWindow, pin any, upd venueUpdatesView, lost venueLostView) venueP1 {
+	stale time.Duration, win db.ServiceWindow, pin any, upd venueUpdatesView, lost venueLostView, backend venueBackendView) venueP1 {
 	ctx := r.Context()
 	id := rest.ID
 	now := time.Now()
 	in := vpInputs{ID: id, Name: rest.Name, Window: vpWindow(r.URL.Query().Get("window")), Now: now}
 	in.StaffPIN, _ = pin.(string)
 	in.Updates, in.Lost = upd, lost
+	if t, ok := venueBackendTodo(backend); ok {
+		in.Backend = &t
+	}
 	for _, d := range devices {
 		dv := vpDev{Serial: d.SerialNumber, Firmware: d.AgentKind == product.KindFirmware}
 		dv.ID, dv.Class, dv.Venue = d.ID, d.Class(), &id
@@ -970,6 +979,8 @@ func (h *Handler) RestaurantMembers(w http.ResponseWriter, r *http.Request) {
 		"Lean": r.URL.Query().Get("lean") == "1",
 		// The venue page's card has its own header and type tabs (D1).
 		"NoHead": r.URL.Query().Get("head") == "0",
+		// U1: the AIO backend's devices here that the MDM doesn't manage.
+		"Unenrolled": h.venueUnenrolledView(r.Context(), id),
 	}))
 }
 

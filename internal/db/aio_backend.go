@@ -190,3 +190,63 @@ func (d *DB) SetVenueBackendLink(ctx context.Context, venue uuid.UUID, env strin
 		backend_linked_by = $4, backend_linked_at = NOW() WHERE id = $1`, venue, env, restaurantID, by)
 	return err
 }
+
+// BackendDevicesAt returns one restaurant's copied devices (revoked ones left out).
+func (d *DB) BackendDevicesAt(ctx context.Context, env string, restaurantID int64) ([]BackendDevice, error) {
+	rows, err := d.pool.Query(ctx, `SELECT env, id, restaurant_id, device_type, serial, ip, onboarded, revoked, updated
+		FROM backend_devices WHERE env = $1 AND restaurant_id = $2 AND NOT revoked ORDER BY device_type, serial`, env, restaurantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BackendDevice
+	for rows.Next() {
+		var v BackendDevice
+		if err := rows.Scan(&v.Env, &v.ID, &v.RestaurantID, &v.Type, &v.Serial, &v.IP, &v.Onboarded, &v.Revoked, &v.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// KnownBackendIDs is every id the backend could list an MDM device under, upper-cased:
+// each device's serial and the Android IDs its Nugget builds report
+// (extra.app_android_ids). A backend device with one of these is enrolled somewhere.
+func (d *DB) KnownBackendIDs(ctx context.Context) (map[string]bool, error) {
+	rows, err := d.pool.Query(ctx, `SELECT upper(serial_number) FROM devices
+		UNION
+		SELECT upper(x->>'android_id') FROM devices,
+		       jsonb_array_elements(CASE WHEN jsonb_typeof(latest_extra->'app_android_ids') = 'array'
+		                                 THEN latest_extra->'app_android_ids' ELSE '[]'::jsonb END) x
+		WHERE x->>'package' LIKE 'aio.app.nugget%' AND COALESCE(x->>'android_id', '') <> ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, err
+		}
+		out[s] = true
+	}
+	return out, rows.Err()
+}
+
+// VenueBackendLinkOf returns one venue's link (ok false when unlinked).
+func (d *DB) VenueBackendLinkOf(ctx context.Context, venue uuid.UUID) (VenueBackendLink, bool, error) {
+	var l VenueBackendLink
+	var rid *int64
+	err := d.pool.QueryRow(ctx, `SELECT backend_env, backend_restaurant_id, backend_linked_by, backend_linked_at
+		FROM restaurants WHERE id = $1`, venue).Scan(&l.Env, &rid, &l.LinkedBy, &l.LinkedAt)
+	if err != nil {
+		return l, false, err
+	}
+	if l.Env == "" || rid == nil {
+		return l, false, nil
+	}
+	l.RestaurantID = *rid
+	return l, true, nil
+}

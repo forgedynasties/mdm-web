@@ -197,14 +197,14 @@ type ovMetric struct {
 }
 
 type ovStat struct {
-	Title  string
-	Href   string
-	A, B   ovMetric
-	LineA  string // SVG path, viewBox 0 0 300 58
-	LineB  string
-	Fill   string
-	Empty  string // shown instead of the numbers (e.g. no battery devices in scope)
-	Links  []ovOpt
+	Title string
+	Href  string
+	A, B  ovMetric
+	LineA string // SVG path, viewBox 0 0 300 58
+	LineB string
+	Fill  string
+	Empty string // shown instead of the numbers (e.g. no battery devices in scope)
+	Links []ovOpt
 }
 
 // delta formats a change. badWhenUp flips the colours (crashes up is bad).
@@ -760,6 +760,11 @@ func sIfN(n int) string {
 type ovTodo struct {
 	Title, Sub   string
 	Action, Href string
+	// Post, when set, makes Action a button posting Fields to Post (relative to the
+	// page) instead of a link; Alt / AltHref is an optional second, quieter link.
+	Post         string
+	Fields       [][2]string
+	Alt, AltHref string
 }
 
 type ovBanner struct {

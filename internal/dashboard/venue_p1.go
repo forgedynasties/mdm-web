@@ -55,7 +55,8 @@ type vpInputs struct {
 	Updates  venueUpdatesView
 	Lost     venueLostView
 	Trend    db.ScopedTrend
-	Window   string // 24h | 7d | 30d
+	Backend  *ovTodo // "Link to X in the AIO backend?" (L2), nil when not offered
+	Window   string  // 24h | 7d | 30d
 	Now      time.Time
 }
 
@@ -100,17 +101,19 @@ type vpTab struct {
 	Class, Label            string
 	Total                   int
 	Online, Offline, Alerts int
-	POn, POff, PAl          int // bar widths, %
+	Unenrolled              int // AIO backend devices of this type the MDM doesn't manage (U1)
+	POn, POff, PAl, PUn     int // bar widths, %
 }
 
 func vpTabBar(t *vpTab) {
-	n := t.Online + t.Offline + t.Alerts
+	n := t.Online + t.Offline + t.Alerts + t.Unenrolled
 	if n == 0 {
 		return
 	}
 	t.PAl = t.Alerts * 100 / n
 	t.POff = t.Offline * 100 / n
-	t.POn = 100 - t.PAl - t.POff
+	t.PUn = t.Unenrolled * 100 / n
+	t.POn = 100 - t.PAl - t.POff - t.PUn
 }
 
 // buildVpTabs: All (every device, typed or not) and the pill chart's types, biggest first.
@@ -290,6 +293,9 @@ func buildVpBanner(in vpInputs) vpBanner {
 			t.Sub = vpSerials(hot, in.Now, false)
 		}
 		mine = append(mine, t)
+	}
+	if in.Backend != nil {
+		mine = append(mine, *in.Backend)
 	}
 	if firmware && (in.StaffPIN == "" || in.StaffPIN == db.DefaultStaffPIN) {
 		mine = append(mine, ovTodo{Title: "Staff PIN is still the default " + db.DefaultStaffPIN,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"mdm/internal/aiobackend"
 	"mdm/internal/db"
 	"mdm/internal/product"
 )
@@ -220,6 +221,40 @@ func TestVenueP1Renders(t *testing.T) {
 	}
 	if strings.Contains(out, `class="vn-grid"`) {
 		t.Error("the old two-column grid is back")
+	}
+
+	// AIO backend (L2 + U1): the banner's Link line, the settings row and Unenrolled rows.
+	sug := venueSuggestion{Restaurant: db.BackendRestaurant{Env: "prod", Restaurant: aiobackend.Restaurant{ID: 2007, Name: "Huanchaco Peruvian Food", City: "Brentwood"}}, Serials: 1, Meters: -1, NameMatch: 1}
+	bv := venueBackendView{On: true, Suggestions: []venueSuggestion{sug}, Strong: true,
+		Lists: []venueBackendList{{Env: "prod", Label: "Prod", Opts: []backendOpt{{Value: "Huanchaco Peruvian Food · #2007", Label: "Brentwood"}}}, {Env: "stage", Label: "Stage"}}}
+	todo, ok := venueBackendTodo(bv)
+	if !ok {
+		t.Fatal("a strong suggestion gives a banner line")
+	}
+	in.Backend = &todo
+	p1 := buildVenueP1(in)
+	un := buildVenueUnenrolled([]db.BackendDevice{
+		{Env: "prod", Device: aiobackend.Device{ID: 1, Type: "tv", Serial: "ADRB0AAK600049"}},
+		{Env: "prod", Device: aiobackend.Device{ID: 2, Type: "nugget", Serial: "ca6ba20578e28ae6"}},
+	}, map[string]bool{})
+	p1.Tabs = addUnenrolledTabs(p1.Tabs, un)
+	data["P1"], data["Backend"], data["Unenrolled"] = p1, bv, un
+	buf.Reset()
+	if err := tmpl.ExecuteTemplate(&buf, "restaurant_detail.html", data); err != nil {
+		t.Fatalf("with the backend: %v", err)
+	}
+	out = buf.String()
+	for _, want := range []string{
+		`Link to Huanchaco Peruvian Food in the AIO backend?`, `Prod #2007 · 1 device listed there · same name`,
+		`<input type="hidden" name="rid" value="2007"><button type="submit">Link</button></form><a class="alt" href="?open=backend#vn-backend">Other…</a>`,
+		`id="vn-backend"`, `<b>Not linked</b> <small>· suggests Huanchaco Peruvian Food</small>`, `<span class="vb-ev">same name</span>`,
+		`list="vb-list-prod"`, `<option value="Huanchaco Peruvian Food · #2007">Brentwood</option>`,
+		`+ 1 unenrolled`, `class="ft-row ft-un" data-class="dongle"`, `<span class="ft-unchip">Unenrolled</span> in the AIO backend · not onboarded`,
+		`also lists <b>1 tablet</b> here by Android ID`, `<b>Menu board <span>0 + 1</span></b>`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("venue page with the backend is missing %q", want)
+		}
 	}
 }
 

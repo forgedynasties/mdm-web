@@ -31,6 +31,17 @@
 .vp1-tab small em{font-style:normal;color:var(--danger);font-weight:600}
 .vp1-dev #restaurant-members{margin:0}
 .vp1-dev .ft-row.vp1-hide,.vp1-dev .dl-card.vp1-hide{display:none}
+/* U1 (23 Oct): AIO backend devices the MDM doesn't manage. */
+.vp1-bar .un{background:repeating-linear-gradient(45deg,var(--text-faint) 0 2px,transparent 2px 5px);opacity:.7}
+.ft-un td,.dl-card.ft-un{color:var(--muted)}
+.ft-un .ft-sn{color:var(--text-2)}
+.dl-status.un i{background:transparent!important;border:1.5px dashed var(--text-faint);box-sizing:border-box}
+.ft-unchip{display:inline-block;font-size:11px;font-weight:650;padding:1px 8px;border-radius:99px;border:1px dashed var(--text-faint);color:var(--text-2);margin-right:6px}
+.ft-unnote{font-size:12.5px}
+.ft-un .ft-act .cc-btn{white-space:nowrap}
+.ft-unsum td,.dl-card.ft-unsum{font-size:12.5px;color:var(--text-2);background:var(--surface2);white-space:normal}
+.dl-card.ft-unsum{padding:10px 14px;display:block}
+.oc-todo .alt{background:transparent;border:1px solid rgba(255,255,255,.6)}
 @media(max-width:1024px){.vp1{grid-template-columns:minmax(0,1fr)}}
 .vn-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;min-width:0}
 .vn-card>summary,.vn-ch{display:flex;align-items:center;gap:8px;padding:12px 14px;list-style:none;font-size:13px}
@@ -156,7 +167,7 @@
       <h2>{{.Headline}}</h2>
       {{if .Todos}}
       <ol class="oc-todo">
-        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
+        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}<form method="POST" action="/restaurants/{{$.Restaurant.ID}}/{{.Post}}">{{range .Fields}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}<button type="submit">{{.Action}}</button></form>{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}{{if .AltHref}}<a class="alt" href="{{.AltHref}}">{{.Alt}}</a>{{end}}</li>{{end}}
       </ol>
       {{if .More}}<a class="oc-more" href="/alerts">{{.More}} more in Alerts <i aria-hidden="true">→</i></a>{{end}}
       {{else}}<p>{{.Calm}}</p>{{end}}
@@ -198,14 +209,14 @@
      type" pill chart) filtering the table in place. The table refreshes on
      restaurant-updated without its own header (?head=0). */}}
 <section class="card vp1-dev" aria-label="Devices">
-  <div class="vp1-dh"><h2>Devices{{if .Devices}} <span>{{len .Devices}}</span>{{end}}</h2></div>
+  <div class="vp1-dh"><h2>Devices{{$un := 0}}{{with .Unenrolled}}{{$un = len .Rows}}{{end}}{{if or .Devices $un}} <span>{{len .Devices}}{{if $un}} + {{$un}} unenrolled{{end}}</span>{{end}}</h2></div>
   {{with .P1}}{{if gt (len .Tabs) 2}}
   <div class="vp1-tabs" role="tablist" aria-label="Device type">
     {{range $i, $t := .Tabs}}
     <button type="button" class="vp1-tab{{if eq $i 0}} on{{end}}" role="tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}" data-class="{{$t.Class}}">
-      <b>{{$t.Label}} <span>{{$t.Total}}</span></b>
-      <span class="vp1-bar" aria-hidden="true"><i class="on" style="width:{{$t.POn}}%"></i><i class="of" style="width:{{$t.POff}}%"></i><i class="al" style="width:{{$t.PAl}}%"></i></span>
-      <small>{{$t.Online}} online · {{$t.Offline}} offline{{if $t.Alerts}} · <em>{{$t.Alerts}} alert{{if ne $t.Alerts 1}}s{{end}}</em>{{end}}</small>
+      <b>{{$t.Label}} <span>{{$t.Total}}{{if $t.Unenrolled}} + {{$t.Unenrolled}}{{end}}</span></b>
+      <span class="vp1-bar" aria-hidden="true"><i class="on" style="width:{{$t.POn}}%"></i><i class="of" style="width:{{$t.POff}}%"></i><i class="al" style="width:{{$t.PAl}}%"></i><i class="un" style="width:{{$t.PUn}}%"></i></span>
+      <small>{{if $t.Total}}{{$t.Online}} online · {{$t.Offline}} offline{{if $t.Alerts}} · <em>{{$t.Alerts}} alert{{if ne $t.Alerts 1}}s{{end}}</em>{{end}}{{if $t.Unenrolled}} · {{end}}{{end}}{{if $t.Unenrolled}}{{$t.Unenrolled}} unenrolled{{end}}</small>
     </button>
     {{end}}
   </div>
@@ -300,7 +311,7 @@
 {{/* Devices list — refreshed in place (see #restaurant-members) after add/remove. */}}
 {{define "restaurant-members"}}
   {{if not .NoHead}}<div class="card-header"><h2>Devices{{if .Devices}} <span class="muted small">{{len .Devices}}</span>{{end}}</h2></div>{{end}}
-  {{if not .Devices}}
+  {{if and (not .Devices) (not .Unenrolled)}}
   <div class="empty-state">
     <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
     <div class="empty-state-copy">
@@ -313,7 +324,7 @@
   {{if $.Lean}}
   {{template "device-cards-lean" (dict "Devices" .Devices "RemovePath" $rm)}}
   {{else}}
-  {{template "device-cards" (dict "Cards" (isCards .FleetView) "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "HideVenue" true)}}
+  {{template "device-cards" (dict "Cards" (isCards .FleetView) "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "HideVenue" true "Unenrolled" .Unenrolled "Admin" (canAdmin .Role))}}
   {{end}}
   {{end}}
 {{end}}

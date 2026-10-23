@@ -119,6 +119,53 @@
 </details>
 {{end}}
 
+{{/* AIO backend (L2, picked 23 Oct 2026): which restaurant in the AIO backend this venue
+     is, Prod or Stage. The MDM suggests, a person links. venue_backend.go */}}
+{{with .Backend}}{{if .On}}
+<details class="vs-row" name="vn-set" id="vn-backend"{{if eq $.Open "backend"}} open{{end}}>
+  <summary><span class="vs-k">AIO backend</span><span class="vs-v"><span>{{if .Linked}}{{if .R}}{{.R.Name}}{{else}}Restaurant #{{.Link.RestaurantID}}{{end}} <small>· {{.EnvLabel}} #{{.Link.RestaurantID}}</small>{{else}}<b>Not linked</b>{{with .Suggestions}} <small>· suggests {{(index . 0).Restaurant.Name}}</small>{{end}}{{end}}</span>{{if and .Linked .SyncErr}}<span class="cc-tag warn">sync failed</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  {{if .Linked}}
+  <div class="vs-note">{{if .R}}{{with .R.FullAddress}}{{.}} · {{end}}{{with .R.Timezone}}{{.}} · {{end}}{{with .R.Phone}}{{.}} · {{end}}{{end}}{{if .SyncedAt}}synced {{timeSince .SyncedAt}}{{else}}not synced yet{{end}}{{with .SyncErr}} · <span style="color:var(--warn)">last sync failed: {{.}}</span>{{end}}.{{with .Link.LinkedBy}} Linked by {{.}}{{end}}{{with .Link.LinkedAt}}, {{.Format "2 Jan"}}{{end}}.{{if not .R}} <span style="color:var(--warn)">The backend copy no longer has this restaurant.</span>{{end}}</div>
+  {{if $can}}
+  <div class="vb-acts">
+    <form method="POST" action="/restaurants/{{$r.ID}}/backend"><input type="hidden" name="action" value="sync"><button type="submit" class="cc-btn sm">Sync now</button></form>
+    <form method="POST" action="/restaurants/{{$r.ID}}/backend" hx-confirm="Unlink {{$r.Name}} from the AIO backend?"><input type="hidden" name="action" value="unlink"><button type="submit" class="cc-btn sm">Unlink</button></form>
+  </div>
+  <details class="vb-change"><summary class="cc-btn sm">Change…</summary>{{template "venue-backend-pick" (dict "B" . "R" $r)}}</details>
+  {{end}}
+  {{else}}
+  <div class="vs-note">Which restaurant in the AIO backend this venue is. Its address, timezone, hours and device list come from there; devices it lists that the MDM doesn't manage show in the device table as Unenrolled.</div>
+  {{if $can}}
+  {{range $i, $s := .Suggestions}}
+  <form class="vb-sug{{if eq $i 0}} best{{end}}" method="POST" action="/restaurants/{{$r.ID}}/backend">
+    <input type="hidden" name="action" value="link"><input type="hidden" name="env" value="{{$s.Restaurant.Env}}"><input type="hidden" name="rid" value="{{$s.Restaurant.ID}}">
+    <span class="t"><b>{{$s.Restaurant.Name}}</b><small>{{if eq $s.Restaurant.Env "prod"}}Prod{{else}}Stage{{end}} · #{{$s.Restaurant.ID}}{{with $s.Restaurant.FullAddress}} · {{.}}{{end}}</small>{{range $s.Reasons}}<span class="vb-ev">{{.}}</span>{{end}}</span>
+    <button type="submit" class="cc-btn sm{{if eq $i 0}} primary{{end}}">Link</button>
+  </form>
+  {{end}}
+  {{template "venue-backend-pick" (dict "B" . "R" $r)}}
+  {{else}}<div class="vs-note">Not linked yet.</div>{{end}}
+  {{end}}
+  </div>
+</details>
+<style>
+.vb-acts{display:flex;gap:8px;margin-top:10px}.vb-acts form{margin:0}
+.vb-change{margin-top:8px}.vb-change>summary{list-style:none;display:inline-flex}.vb-change>summary::-webkit-details-marker{display:none}
+.vb-sug{display:flex;gap:10px;align-items:center;margin:8px 0 0;padding:9px 11px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.vb-sug.best{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.vb-sug .t{flex:1;min-width:0;font-size:13px}.vb-sug small{display:block;color:var(--muted);font-size:12px}
+.vb-ev{display:inline-block;font-size:11px;font-weight:650;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--text-2);margin:4px 4px 0 0}
+.vb-pick{display:grid;gap:8px;margin-top:10px}
+.vb-env{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;width:max-content}
+.vb-env label{cursor:pointer}.vb-env input{position:absolute;opacity:0;pointer-events:none}
+.vb-env span{display:block;padding:4px 12px;font-size:12px;font-weight:600;color:var(--text-2)}
+.vb-env input:checked+span{background:var(--accent-soft);color:var(--accent-text)}
+.vb-env input:focus-visible+span{box-shadow:var(--ring)}
+.vb-row{display:flex;gap:8px}.vb-row .form-input{flex:1;min-width:0}
+</style>
+{{end}}{{end}}
+
 {{$sw := .ServiceWindow}}
 <details class="vs-row" name="vn-set" id="vn-hours"{{if eq .Open "hours"}} open{{end}}>
   <summary><span class="vs-k">Service hours</span><span class="vs-v"><span>{{$sw.Open}} – {{$sw.Close}}{{if ne $sw.NightOpen $sw.NightClose}} <small>· overnight {{$sw.NightOpen}} – {{$sw.NightClose}}</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
@@ -311,4 +358,14 @@
 {{template "venue-wifi-row" .}}
 </div>
 <script src="/static/js/venue_location.js?v={{assetVer}}"></script>
+{{end}}
+
+{{/* The AIO backend search: Prod / Stage, then a restaurant from that copy. */}}
+{{define "venue-backend-pick"}}
+<form class="vb-pick" method="POST" action="/restaurants/{{.R.ID}}/backend">
+  <input type="hidden" name="action" value="link">
+  <span class="vb-env" role="radiogroup" aria-label="Backend">{{range $i, $l := .B.Lists}}<label><input type="radio" name="env" value="{{$l.Env}}"{{if eq $i 0}} checked{{end}} onchange="this.form.pick.setAttribute('list','vb-list-{{$l.Env}}');this.form.pick.value=''"><span>{{$l.Label}} <small>{{len $l.Opts}}</small></span></label>{{end}}</span>
+  <div class="vb-row"><input class="form-input" name="pick" list="vb-list-prod" placeholder="Search restaurants by name…" autocomplete="off" required aria-label="Restaurant"><button type="submit" class="cc-btn sm">Link</button></div>
+  {{range .B.Lists}}<datalist id="vb-list-{{.Env}}">{{range .Opts}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</datalist>{{end}}
+</form>
 {{end}}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -36,9 +37,10 @@ func (h *Handler) SetBackend(c *aiobackend.Client) { h.backend = c }
 // RunBackendSync copies each environment's restaurants and devices when the copy is a
 // day old or someone asked for a sync. Safe to call every few minutes.
 func (h *Handler) RunBackendSync(ctx context.Context) {
-	if h.backend == nil {
+	if h.backend == nil || !backendSyncBusy.CompareAndSwap(false, true) {
 		return
 	}
+	defer backendSyncBusy.Store(false)
 	states, err := h.db.BackendSyncStates(ctx)
 	if err != nil {
 		log.Printf("[backend-sync] state: %v", err)
@@ -240,28 +242,34 @@ func haversineMeters(lat1, lon1, lat2, lon2 float64) float64 {
 	return 2 * r * math.Asin(math.Sqrt(a))
 }
 
-// unenrolledAt lists the backend devices of a restaurant that the MDM does not manage
-// (no device with that serial or Nugget Android ID), for the venue's device list (user,
-// 23 Oct: "can still show up in the venue but should show up as unenrolled on mdm").
-func unenrolledAt(k backendKey, bds []db.BackendDevice, devices []db.Device) []db.BackendDevice {
-	known := map[string]bool{}
-	for i := range devices {
-		for _, id := range deviceBackendIDs(&devices[i]) {
-			known[id] = true
-		}
-	}
-	var out []db.BackendDevice
+// unenrolledAt splits a restaurant's backend devices that the MDM does not manage (no
+// device anywhere with that serial or Nugget Android ID; known from db.KnownBackendIDs)
+// into rows with a hardware serial and a count per type of rows keyed by an Android ID,
+// which can't be told apart from the MDM's own tablets until the Nugget app sends
+// serials (user, 23 Oct: "can still show up in the venue but should show up as
+// unenrolled on mdm"). Printers, drawers and payment terminals are left out.
+func unenrolledAt(bds []db.BackendDevice, known map[string]bool) (rows []db.BackendDevice, byAndroidID map[string]int) {
+	byAndroidID = map[string]int{}
 	for _, d := range bds {
-		if d.Env != k.Env || d.RestaurantID != k.ID || d.Revoked || !backendManageable(d.Type) {
+		if d.Revoked || !backendManageable(d.Type) {
 			continue
 		}
-		if known[strings.ToUpper(strings.TrimSpace(d.Serial))] {
+		id := strings.ToUpper(strings.TrimSpace(d.Serial))
+		if id == "" || known[id] {
 			continue
 		}
-		out = append(out, d)
+		if androidIDRe.MatchString(d.Serial) {
+			byAndroidID[d.Type]++
+			continue
+		}
+		rows = append(rows, d)
 	}
-	return out
+	return rows, byAndroidID
 }
+
+// androidIDRe is an Android ID as the backend stores it (16 hex digits) — what a tablet or
+// POS app row carries instead of a hardware serial.
+var androidIDRe = regexp.MustCompile(`^[0-9a-fA-F]{16}$`)
 
 // backendManageable: device types that run Android and could be enrolled (printers, cash
 // drawers and payment terminals can't).

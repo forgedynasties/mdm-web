@@ -87,9 +87,31 @@
     </td>
   </tr>
   {{end}}
+  {{with .Unenrolled}}{{template "ft-unenrolled" (dict "U" . "HideVenue" $.HideVenue "Selectable" $.Selectable "Admin" $.Admin)}}{{end}}
   </tbody>
 </table>
 </div>
+{{end}}
+
+{{/* U1 (picked 23 Oct 2026): devices the venue's AIO backend restaurant lists that the
+     MDM doesn't manage, after the venue's own rows, marked Unenrolled. Rows keyed by an
+     Android ID (tablets, POS apps) can't be told apart from enrolled tablets until the
+     Nugget app sends serials, so they are one line. venue_backend.go */}}
+{{define "ft-unenrolled"}}
+{{range .U.Rows}}
+  <tr class="ft-row ft-un" data-class="{{.Class}}" data-serial="{{.Serial}}">
+    {{if $.Selectable}}<td class="ft-cb"></td>{{end}}
+    <td class="ft-dev"><div class="ft-l1"><span class="dl-status un" role="img" aria-label="Unenrolled" title="Unenrolled"><i></i></span><span class="ft-sn"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></span></div></td>
+    <td class="ft-type"><span class="ft-ell">{{.Label}}</span></td>
+    <td colspan="{{if $.HideVenue}}6{{else}}7{{end}}" class="ft-unnote"><span class="ft-unchip">Unenrolled</span> in the AIO backend · {{if .Onboarded}}onboarded{{else}}not onboarded{{end}}</td>
+    <td class="ft-act">{{if $.Admin}}<a class="cc-btn sm" href="/enrollment" title="{{.Help}}">How to enrol</a>{{else}}<span class="cc-btn sm" title="{{.Help}}" tabindex="0">How to enrol</span>{{end}}</td>
+  </tr>
+{{end}}
+{{with .U.AIDNote}}
+  <tr class="ft-row ft-unsum" data-class="">
+    <td colspan="{{if $.HideVenue}}9{{else}}10{{end}}">The AIO backend also lists <b>{{.}}</b> here by Android ID. They can't be matched to devices in the MDM until the Nugget app sends hardware serials, so they may already be among the devices above.</td>
+  </tr>
+{{end}}
 {{end}}
 
 {{/* Two-line cards (the device list before the 20 Oct table), kept as a per-user view.
@@ -141,6 +163,14 @@
     </div>
   </div>
   {{end}}
+  {{with .Unenrolled}}{{range .Rows}}
+  <div class="dl-card dl-sc ft-un" data-class="{{.Class}}" data-serial="{{.Serial}}">
+    <span class="dl-cb-spacer" aria-hidden="true"></span>
+    <div class="dl-sc-id"><div class="dl-sc-l1"><span class="dl-status un" role="img" aria-label="Unenrolled"><i></i></span><span class="dl-sc-sn"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></span><span class="ft-unchip">Unenrolled</span></div>
+      <div class="dl-sc-l2"><span>{{.Label}}</span><span class="sep">·</span><span>in the AIO backend · {{if .Onboarded}}onboarded{{else}}not onboarded{{end}}</span></div></div>
+    <div class="dl-act">{{if $.Admin}}<a class="cc-btn sm" href="/enrollment" title="{{.Help}}">How to enrol</a>{{end}}</div>
+  </div>
+  {{end}}{{with .AIDNote}}<div class="dl-card ft-unsum" data-class="">The AIO backend also lists <b>{{.}}</b> here by Android ID; they can't be matched until the Nugget app sends hardware serials.</div>{{end}}{{end}}
 </div>
 {{end}}
 

@@ -53,16 +53,21 @@ func TestSuggestVenueLinks(t *testing.T) {
 
 func TestUnenrolledAt(t *testing.T) {
 	bds := []db.BackendDevice{
-		{Env: "prod", Device: aiobackend.Device{ID: 1, RestaurantID: 2007, Type: "tv", Serial: "AK650AA9200051"}},
-		{Env: "prod", Device: aiobackend.Device{ID: 2, RestaurantID: 2007, Type: "tv", Serial: "ADRB0AAK600049"}},
-		{Env: "prod", Device: aiobackend.Device{ID: 3, RestaurantID: 2007, Type: "printer", Serial: "P1"}},
-		{Env: "prod", Device: aiobackend.Device{ID: 4, RestaurantID: 2007, Type: "kds", Serial: "DK1", Revoked: true}},
-		{Env: "stage", Device: aiobackend.Device{ID: 5, RestaurantID: 2007, Type: "pos", Serial: "X"}},
+		{Env: "prod", Device: aiobackend.Device{ID: 1, Type: "kiosk", Serial: "AK650AA9200051"}},
+		{Env: "prod", Device: aiobackend.Device{ID: 2, Type: "tv", Serial: "ADRB0AAK600049"}},
+		{Env: "prod", Device: aiobackend.Device{ID: 3, Type: "printer", Serial: "printer_cpY827"}},
+		{Env: "prod", Device: aiobackend.Device{ID: 4, Type: "kds", Serial: "DK1", Revoked: true}},
+		{Env: "prod", Device: aiobackend.Device{ID: 5, Type: "nugget", Serial: "ca6ba20578e28ae6"}},
+		{Env: "prod", Device: aiobackend.Device{ID: 6, Type: "nugget", Serial: "79af309121cf4d78"}},
+		{Env: "prod", Device: aiobackend.Device{ID: 7, Type: "pos", Serial: "db18c299c84d43e1"}},
 	}
-	devs := []db.Device{{SerialNumber: "ak650aa9200051"}}
-	got := unenrolledAt(backendKey{"prod", 2007}, bds, devs)
-	if len(got) != 1 || got[0].ID != 2 {
-		t.Fatalf("got %+v", got)
+	known := map[string]bool{"AK650AA9200051": true, "79AF309121CF4D78": true}
+	rows, byID := unenrolledAt(bds, known)
+	if len(rows) != 1 || rows[0].ID != 2 {
+		t.Fatalf("rows %+v", rows)
+	}
+	if byID["nugget"] != 1 || byID["pos"] != 1 || len(byID) != 2 {
+		t.Fatalf("by android id %v", byID)
 	}
 }
 
