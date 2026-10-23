@@ -32,6 +32,24 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.60.0",
+		Date:    "2026-10-23",
+		Changes: []string{
+			"The dashboard speaks one language. The Overview, Venues, each venue's page, Apps and each app's page, Alerts, Compliance, Releases, rollouts, Jobs, Lineup and the people pages now share one layout: filter pills at the top, a short to-do list of what needs a look with a button on each line, cards that compare with the period before, and a side column with the headline number. Menus everywhere close when you click outside them or press Esc.",
+			"Rollouts are calmer and quicker. Devices that are offline are never failed: they get the update when they come back. The limit of a few downloads per venue at a time is gone, so every device that checks in starts straight away. A rollout's page shows each device's download size from the package it was actually sent, and older devices updating the legacy way show up on the Releases page as updating.",
+			"Resource use: every app on a device, and on every device of a model, ranked by memory, CPU, screen time, network and battery. The device page's Apps tab opens on the top five apps for memory and CPU side by side, and a Resource use page compares whole models and venues, with what to look at first (an app stopping, an app over its limit, a device far above the rest).",
+			"Network: the device graph has a Network tab with Wi-Fi signal, when the device was online and offline, and when it changed network. A Wi-Fi card lists the device's saved networks with their signal, and can add, change the password of, forget and switch networks. A switch is safe: the device goes back to its old network by itself if it can't reach the MDM from the new one within 90 seconds, and says why. Add network offers the networks saved for the device's venue, nearest first, with their passwords filled in.",
+			"The device page is tidier: the Overview tab shows only what needs a look and the device card (now with its build), and Network and Location are tabs of their own.",
+			"Remote control works like a real keyboard: click the screen and every key goes to the device, Tab and Esc included, with shortcuts for Home, Back and Recents, typing, scrolling and pasting from your clipboard. Menu boards get a TV remote with a D-pad beside the screen.",
+			"Venues: pause updates for a venue or keep them to when it is closed, turn auto-enrol on per venue, pause the lost-device watch, and see the venue's devices by type in one card.",
+			"Notifications on the devices are in plain words with the AIO icon: \"Connected to AIO\" or \"Offline · trying again\", which app is being installed and how far along, and \"AIO MDM updated\" from one version to the next. Android's own \"Updated by your admin\" with its robot picture is gone from tablets (Firmware MDM 1.19.0).",
+			"The Standard client (0.5.0 to 0.9.1) keeps its readings while offline and sends them later, reports app usage, switches Wi-Fi safely, shows the same notifications and AIO icon, and now reports where it is from the Wi-Fi networks around it, so its devices appear on the map like the tablets do. Its versions now come with a changelog.",
+			"Tableside AI tablets hold their screen brightness at a fixed level, and staff can unlock a locked tablet with the venue's staff PIN for staff mode. A tablet with its battery unplugged shows a battery fault instead of reading 0%.",
+			"People: the team and customers each have their own roles (Viewer, Support, Operator, Fleet manager, Admin, Super admin; Owner and Staff for customers), invitations go by email, and venue owners manage their own staff.",
+			"Retired: QA checklists and sign-off on releases, the Mega kiosk device class, and the screen brightness control on the device page (brightness is still managed from the server).",
+		},
+	},
+	{
 		Version: "1.56.0",
 		Date:    "2026-10-20",
 		Changes: []string{
