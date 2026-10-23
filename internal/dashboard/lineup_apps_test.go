@@ -129,3 +129,20 @@ func TestLineupAppsRenders(t *testing.T) {
 		t.Error("Host apps is a page of its own: no Lineup tabs on it")
 	}
 }
+
+func TestLuAppRowHasParts(t *testing.T) {
+	r := luAppRow{Has: ".qa 1003-qa, .stagev2 101-stagev2, .uatv2 927.0.0-uatv2"}
+	got := strings.Join(r.HasParts(), "|")
+	if got != ".qa 1003|.stagev2 101|.uatv2 927.0.0" {
+		t.Fatalf("got %q", got)
+	}
+	if got := (luAppRow{Has: "71.0.0"}).HasParts(); len(got) != 1 || got[0] != "prod 71.0.0" {
+		t.Fatalf("prod only: %q", got)
+	}
+	if got := (luAppRow{Has: " 71.0.0, .uatv2 9-uatv2"}).HasParts(); strings.Join(got, "|") != "prod 71.0.0|.uatv2 9" {
+		t.Fatalf("mixed: %q", got)
+	}
+	if (luAppRow{Has: "—"}).HasParts() != nil {
+		t.Fatal("none")
+	}
+}

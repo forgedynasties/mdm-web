@@ -619,9 +619,9 @@
         {{range .Rows}}
         <tr>
           <td><a class="bt-nm" href="/devices/{{.Serial}}"><span class="bt-ic"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M11 18h2"/></svg></span><span class="mono">{{.Serial}}</span></a></td>
-          <td class="bt-mut">{{.Venue}}</td>
-          <td><span class="bt-st{{if eq .Key "ok"}} ok{{else if eq .Key "run"}} run{{else if eq .Key "failed"}} bad{{end}}" title="{{.Detail}}">{{.Word}}{{if .Bar}} · {{.Pct}}%{{end}}</span>{{with .Detail}}<small class="bt-mut lua-dt">{{.}}</small>{{end}}</td>
-          <td>{{if and .Has (ne .Has "–")}}<span class="bt-tg">{{.Has}}</span>{{else}}<span class="bt-mut">—</span>{{end}}</td>
+          <td class="bt-mut bt-vn">{{.Venue}}</td>
+          <td class="bt-stc"><span class="bt-st{{if eq .Key "ok"}} ok{{else if eq .Key "run"}} run{{else if eq .Key "failed"}} bad{{end}}" title="{{.Detail}}">{{.Word}}{{if .Bar}} · {{.Pct}}%{{end}}</span>{{with .Detail}}<small class="bt-dt">{{.}}</small>{{end}}</td>
+          <td class="bt-has">{{range .HasParts}}<span class="bt-tg">{{.}}</span>{{else}}<span class="bt-mut">—</span>{{end}}</td>
           <td style="text-align:right">{{if and .Retry (canAdmin $.Role)}}<form method="post" action="/products/role-app-retry" style="margin:0"><input type="hidden" name="serial" value="{{.Serial}}"><button class="bt-pill" type="submit">Retry now</button></form>{{else if .CommandID}}<a class="bt-pill" href="/commands/{{.CommandID}}">Open</a>{{end}}</td>
         </tr>
         {{else}}<tr><td colspan="5" class="bt-mut">No units match.</td></tr>{{end}}

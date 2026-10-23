@@ -579,3 +579,28 @@ func (h *Handler) LineupAppRetry(w http.ResponseWriter, r *http.Request) {
 	q := url.Values{"app": {role}, "flash": {"Sent " + hostAppName(build.PackageName) + " " + build.VersionName + " to " + serial + "."}, "flash_type": {"success"}}
 	http.Redirect(w, r, "/host-apps?"+q.Encode(), http.StatusSeeOther)
 }
+
+// HasParts is Has as one chip per installed build (".uatv2 927.0.0"), for the bento
+// table: a variant's version drops the "-uatv2" it repeats, and the prod build reads
+// "prod 71.0.0".
+func (r luAppRow) HasParts() []string {
+	if r.Has == "" || r.Has == "—" || r.Has == "–" {
+		return nil
+	}
+	var out []string
+	for _, p := range strings.Split(r.Has, ", ") {
+		p = strings.TrimSpace(p)
+		name, ver, ok := strings.Cut(p, " ")
+		switch {
+		case !ok && strings.HasPrefix(p, "."):
+			out = append(out, p)
+		case !ok:
+			out = append(out, "prod "+p)
+		case name == "":
+			out = append(out, "prod "+ver)
+		default:
+			out = append(out, name+" "+strings.TrimSuffix(ver, "-"+strings.TrimPrefix(name, ".")))
+		}
+	}
+	return out
+}

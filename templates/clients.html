@@ -319,7 +319,13 @@
 .bt-bar.on::after{content:"";position:absolute;left:8px;right:8px;top:42px;bottom:8px;border-radius:9px;background:repeating-linear-gradient(135deg,rgba(255,255,255,.45) 0 2px,transparent 2px 9px)}
 .bt-bar small{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bt-tbl{width:100%;border-collapse:separate;border-spacing:0 3px;font-size:13px;margin-top:10px}
-.bt-tbl td{padding:8px 10px;white-space:nowrap}
+.bt-tbl{table-layout:auto}
+.bt-tbl td{padding:8px 10px;white-space:nowrap;vertical-align:middle}
+.bt-tbl td.bt-stc{white-space:normal;min-width:150px}
+.bt-tbl .bt-dt{display:block;font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.35}
+.bt-tbl td.bt-has{white-space:normal}
+.bt-tbl td.bt-has .bt-tg{display:inline-block;margin:2px 4px 2px 0;font-size:11.5px;padding:3px 9px}
+.bt-tbl td.bt-vn{max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .bt-tbl tr:hover td{background:var(--surface2)}
 .bt-tbl tr td:first-child{border-radius:12px 0 0 12px}.bt-tbl tr td:last-child{border-radius:0 12px 12px 0}
 .bt-nm{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none}
