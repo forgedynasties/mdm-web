@@ -46,6 +46,7 @@
       {{template "lu-runs" .}}
     {{else if eq .View "apps"}}
       {{template "lu-apps" .}}
+      <script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
     {{else if .Client}}
       <div class="lu1-clients">
         {{range .ClientCards}}
@@ -588,11 +589,12 @@
 <div class="lua-pane">
   <div class="oc-card lua-list">
     <div class="lua-lh"><h2>{{.Card.Label}} · prod app installs</h2>
-      <form method="get" action="/lineup" class="lua-f">
-        <input type="hidden" name="view" value="apps"><input type="hidden" name="app" value="{{.Card.Role}}">
-        <label>State <select name="state" onchange="this.form.requestSubmit()">{{range .StateOpts}}<option value="{{.Key}}"{{if eq .Key $p.StateF}} selected{{end}}>{{.Label}}{{with index $p.Counts .Key}} · {{.}}{{end}}</option>{{end}}</select></label>
-        <label>Venue <select name="venue" onchange="this.form.requestSubmit()"><option value="">All</option>{{range .Venues}}<option{{if eq . $p.VenueF}} selected{{end}}>{{.}}</option>{{end}}</select></label>
-      </form>
+      <div class="oc-bar lua-f" role="group" aria-label="Filter the units">
+        <div class="oc-f"><button class="oc-fb{{if .StateF}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">State: <b>{{.StateLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden>{{range .StateLinks}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}" hx-get="{{.Href}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true">{{.Label}}</a>{{end}}</div></div>
+        {{if gt (len .Venues) 1}}<div class="oc-f"><button class="oc-fb{{if .VenueF}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{.VenueLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu oc-scroll" hidden>{{range .VenueLinks}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}" hx-get="{{.Href}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true">{{.Label}}</a>{{end}}</div></div>{{end}}
+      </div>
     </div>
     <div class="lua-legend"><span class="p">On prod {{.Card.OnProd}}</span><span class="g">Installing {{.Card.Running}}</span>{{with index .Counts "failed"}}<span class="f">Failed {{.}}</span>{{end}}{{with index .Counts "off"}}<span class="o">Offline {{.}}</span>{{end}}{{with index .Counts "unknown"}}<span class="n">No app list {{.}}</span>{{end}}</div>
     {{if .Card.Base}}
@@ -671,8 +673,7 @@
   .lua-rail { display: grid; gap: 14px; }
   .lua-lh { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .lua-lh h2 { margin: 0; flex: 1; }
-  .lua-f { display: flex; gap: 10px; font-size: 12.5px; color: var(--text-2); }
-  .lua-f select { margin-left: 4px; }
+  .lua-f { margin: 0; }
   .lua-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin: 10px 0 6px; }
   .lua-legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
   .lua-t td { vertical-align: middle; }

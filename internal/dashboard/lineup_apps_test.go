@@ -120,7 +120,7 @@ func TestLineupAppsRenders(t *testing.T) {
 	for _, w := range []string{`aria-current="page">Apps <i>1 no build</i></a>`, `class="lua-c on"`, `aio.app.nugget · 17.0.0`,
 		`Upload a build to install on 1`, `Tableside AI · prod app installs`, `action="/products/role-app-retry"`,
 		`Downloading 41%`, `Auto-install on`, `1 unit already run 18.0.0`, `href="/apps/aio.app.nugget">Upload 18.0.0</a>`,
-		`--a:16;--b:33`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
+		`--a:16;--b:33`, `State: <b>All</b>`, `href="/lineup?app=t7&amp;state=failed&amp;view=apps"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("missing %q", w)
 		}

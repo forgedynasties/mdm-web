@@ -66,6 +66,26 @@ type luAppsPane struct {
 	VenueF     string
 	StateOpts  []luAppOpt
 	TotalShown int
+	// The State and Venue pills (the Overview's filter pills), as links.
+	StateLinks, VenueLinks []luAppLink
+	StateLabel, VenueLabel string
+}
+
+type luAppLink struct {
+	Label, Href string
+	Active      bool
+}
+
+// luAppHref is the Apps tab for role with these filters.
+func luAppHref(role, state, venue string) string {
+	q := url.Values{"view": {"apps"}, "app": {role}}
+	if state != "" {
+		q.Set("state", state)
+	}
+	if venue != "" {
+		q.Set("venue", venue)
+	}
+	return "/lineup?" + q.Encode()
 }
 
 type luAppOpt struct{ Key, Label string }
@@ -295,6 +315,25 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 		for _, o := range luAppStateLabels {
 			if o.Key == "" || counts[o.Key] > 0 {
 				p.StateOpts = append(p.StateOpts, o)
+				lbl := o.Label
+				if o.Key != "" {
+					lbl += " · " + strconv.Itoa(counts[o.Key])
+				}
+				p.StateLinks = append(p.StateLinks, luAppLink{lbl, luAppHref(role, o.Key, in.VenueF), o.Key == in.StateF})
+				if o.Key == in.StateF {
+					p.StateLabel = o.Label
+				}
+			}
+		}
+		if p.StateLabel == "" {
+			p.StateLabel = "All"
+		}
+		p.VenueLabel = "All"
+		p.VenueLinks = append(p.VenueLinks, luAppLink{"All", luAppHref(role, in.StateF, ""), in.VenueF == ""})
+		for _, v := range p.Venues {
+			p.VenueLinks = append(p.VenueLinks, luAppLink{v, luAppHref(role, in.StateF, v), v == in.VenueF})
+			if v == in.VenueF {
+				p.VenueLabel = v
 			}
 		}
 		sort.SliceStable(rows, func(i, j int) bool {
