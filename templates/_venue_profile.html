@@ -204,7 +204,8 @@
   </div>
 </details>
 <style>
-  .vn-hosta { display: grid; gap: 8px; }
+  .vn-form.vn-hosta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .vn-form.vn-hosta .vn-acts { grid-column: 1 / -1; }
   .vn-hopt { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 13px; cursor: pointer; }
   .vn-hopt.on, .vn-hopt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
   .vn-hopt input { margin-top: 2px; accent-color: var(--accent); }
