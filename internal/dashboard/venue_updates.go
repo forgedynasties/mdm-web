@@ -68,7 +68,7 @@ func (g venueGate) allows(d *db.Device, fleet config.ClientAutoUpdate, now time.
 		if !own {
 			w = g.fleetSW
 		}
-		if w.OpenMin == w.CloseMin { // no service hours to be closed outside of
+		if w.Week == nil && w.OpenMin == w.CloseMin { // no service hours to be closed outside of
 			return fleet.Allows(local)
 		}
 		return !db.ServiceOpenAt(w, extraString(d.LatestExtra, "timezone"), now)
@@ -78,6 +78,7 @@ func (g venueGate) allows(d *db.Device, fleet config.ClientAutoUpdate, now time.
 
 // venueUpdatesView is the Updates row on the Venue settings card.
 type venueUpdatesView struct {
+	ClosedWeekly bool   // hours per weekday: closed = outside each day's hours, all day on closed days
 	Mode         string // "" | closed | own
 	Start, End   string
 	Paused       bool   // the pause holds now
@@ -106,7 +107,9 @@ func (h *Handler) venueUpdatesView(ctx context.Context, id uuid.UUID, win db.Ser
 	fleet := h.cfg.RoleRollout(config.RolloutFirmware)
 	v := venueUpdatesView{Mode: p.Mode, Start: p.Start, End: p.End, Paused: p.PausedAt(now),
 		FleetWindow: hhmmRange(fleet.WindowStart, fleet.WindowEnd), FleetPaused: fleet.Paused, TZ: tz}
-	if win.OpenMin != win.CloseMin {
+	if win.Week != nil {
+		v.ClosedWindow, v.ClosedWeekly = "by day", true
+	} else if win.OpenMin != win.CloseMin {
 		v.ClosedWindow = hhmm(win.CloseMin) + " – " + hhmm(win.OpenMin)
 	}
 	if p.By != "" && p.At != nil {

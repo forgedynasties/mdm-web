@@ -37,6 +37,10 @@ type venueLocation struct {
 	DeviceTZ  string       // the timezone most of its devices report
 	MapsKey   string
 	CanSearch bool // the server has a geocoding key
+	// AIO backend (B1): which fields follow it, and its values for the ones set here.
+	Linked              bool
+	Follow              map[string]bool
+	BAddress, BPin, BTZ string
 }
 
 type venuePoint struct {
@@ -251,7 +255,24 @@ func (h *Handler) RestaurantLocationSave(w http.ResponseWriter, r *http.Request)
 			return
 		}
 	}
-	if err := h.db.UpdateRestaurantLocation(r.Context(), id, strings.TrimSpace(r.FormValue("address")), lat, lon, tz); err != nil {
+	addr := strings.TrimSpace(r.FormValue("address"))
+	// A field someone changes here stops following the AIO backend (B1, "Set here").
+	if cur, err := h.db.GetRestaurant(r.Context(), id); err == nil {
+		var edited []string
+		if addr != strings.TrimSpace(cur.Address) {
+			edited = append(edited, followAddress)
+		}
+		if !samePin(venueValues{Lat: lat, Lon: lon}, venueValues{Lat: cur.Latitude, Lon: cur.Longitude}) && (lat != nil || cur.Latitude != nil) {
+			edited = append(edited, followPin)
+		}
+		if tz != cur.Timezone {
+			edited = append(edited, followTimezone)
+		}
+		if len(edited) > 0 {
+			_ = h.db.StopFollowingBackend(r.Context(), id, edited...)
+		}
+	}
+	if err := h.db.UpdateRestaurantLocation(r.Context(), id, addr, lat, lon, tz); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

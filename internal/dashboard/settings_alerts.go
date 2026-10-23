@@ -7,6 +7,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -52,6 +53,54 @@ type serviceWindowView struct {
 	Open, Close, NightOpen, NightClose string // HH:MM
 	TZ                                 string
 	HasOwn                             bool // restaurant has its own row (vs inheriting fleet)
+	// Hours per weekday (H1, 23 Oct 2026). Days is always seven rows for the form (from
+	// the week, else the one window every day); PerDay says the venue keeps a week.
+	PerDay bool
+	Days   []swDay
+	Today  string // "11:00 – 21:00", "Closed today"; set for the venue page
+	// AIO backend (B1): the hours follow it, or were set here while it has its own.
+	Follows     bool
+	BackendDays []swDay // the backend's week when the venue's hours are set here
+}
+
+// swDay is one weekday row: the form's values and the bar's position (% of the day).
+type swDay struct {
+	Name, Open, Close string
+	Closed, Today     bool
+	Left, Width       float64
+}
+
+func weekDays(wk *db.Week, open, close int) []swDay {
+	names := []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
+	out := make([]swDay, 7)
+	for i := range out {
+		d := db.DayHours{Open: open, Close: close}
+		if wk != nil {
+			d = wk[i]
+		}
+		sd := swDay{Name: names[i], Open: hhmm(d.Open), Close: hhmm(d.Close), Closed: d.Closed || d.Open == d.Close}
+		if !sd.Closed {
+			span := d.Close - d.Open
+			if span <= 0 {
+				span += 1440
+			}
+			sd.Left = float64(d.Open) * 100 / 1440
+			sd.Width = math.Min(float64(span)*100/1440, 100-sd.Left)
+		}
+		out[i] = sd
+	}
+	return out
+}
+
+// dayLabel is a day's hours for people: "11:00 – 21:00", "All day", "Closed".
+func (d swDay) Label() string {
+	switch {
+	case d.Closed:
+		return "Closed"
+	case d.Open == "00:00" && d.Close == "00:00":
+		return "All day"
+	}
+	return d.Open + " – " + d.Close
 }
 
 func windowView(restaurantID, name string, w db.ServiceWindow, hasOwn bool) serviceWindowView {
@@ -60,6 +109,7 @@ func windowView(restaurantID, name string, w db.ServiceWindow, hasOwn bool) serv
 		Open: hhmm(w.OpenMin), Close: hhmm(w.CloseMin),
 		NightOpen: hhmm(w.NightOpenMin), NightClose: hhmm(w.NightCloseMin),
 		TZ: w.TZ, HasOwn: hasOwn,
+		PerDay: w.Week != nil, Days: weekDays(w.Week, w.OpenMin, w.CloseMin),
 	}
 }
 

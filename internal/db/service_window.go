@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -60,6 +61,113 @@ type ServiceWindow struct {
 	NightOpenMin  int        `json:"night_open_min"`
 	NightCloseMin int        `json:"night_close_min"`
 	TZ            string     `json:"timezone"`
+	// Week, when set, is the venue's hours per weekday (H1, 23 Oct 2026: the AIO backend
+	// keeps hours per day; a venue may set its own per day too). OpenMin/CloseMin then
+	// hold the widest window of the week, for anything that reads one window. Overnight
+	// stays one window. On resolves a day.
+	Week *Week `json:"week,omitempty"`
+}
+
+// Week is Monday … Sunday.
+type Week [7]DayHours
+
+// DayHours is one weekday's service hours in local minutes past midnight.
+type DayHours struct {
+	Closed bool `json:"closed,omitempty"`
+	Open   int  `json:"open"`
+	Close  int  `json:"close"`
+}
+
+// WeekIndex is t's weekday as a Week index (Monday = 0).
+func WeekIndex(t time.Time) int { return (int(t.Weekday()) + 6) % 7 }
+
+// Span is the widest window across the open days (earliest open, latest close), and
+// whether any day is open.
+func (wk Week) Span() (open, close int, any bool) {
+	for _, d := range wk {
+		if d.Closed || d.Open == d.Close {
+			continue
+		}
+		if !any || d.Open < open {
+			open = d.Open
+		}
+		c := d.Close
+		if c < d.Open {
+			c += 1440 // past midnight
+		}
+		if !any || c > close {
+			close = c
+		}
+		any = true
+	}
+	return open, close % 1440, any
+}
+
+// AvgOpenMinutes is the week's open minutes per day, on average.
+func (wk Week) AvgOpenMinutes() float64 {
+	total := 0
+	for _, d := range wk {
+		if d.Closed || d.Open == d.Close {
+			continue
+		}
+		n := d.Close - d.Open
+		if n < 0 {
+			n += 1440
+		}
+		total += n
+	}
+	return float64(total) / 7
+}
+
+// LocalNow is now in the window's timezone, else fallbackTZ.
+func (w ServiceWindow) LocalNow(now time.Time, fallbackTZ string) time.Time {
+	tz := w.TZ
+	if tz == "" {
+		tz = fallbackTZ
+	}
+	return localTime(now, tz)
+}
+
+// On returns the window for the local day of lt: with a Week, that day's hours (a closed
+// day comes back with OpenMin == CloseMin, which every reader treats as never open) and
+// Week cleared; without one, w unchanged.
+func (w ServiceWindow) On(lt time.Time) ServiceWindow {
+	if w.Week == nil {
+		return w
+	}
+	d := w.Week[WeekIndex(lt)]
+	w.Week = nil
+	if d.Closed {
+		w.OpenMin, w.CloseMin = 0, 0
+	} else {
+		w.OpenMin, w.CloseMin = d.Open, d.Close
+	}
+	return w
+}
+
+// ClosedOn reports whether lt's day is a closed day of the week.
+func (w ServiceWindow) ClosedOn(lt time.Time) bool {
+	return w.Week != nil && (w.Week[WeekIndex(lt)].Closed || w.Week[WeekIndex(lt)].Open == w.Week[WeekIndex(lt)].Close)
+}
+
+// decodeWeek reads a service_windows.week value (NULL = none).
+func decodeWeek(b []byte) *Week {
+	if len(b) == 0 || string(b) == "null" {
+		return nil
+	}
+	var wk Week
+	if json.Unmarshal(b, &wk) != nil {
+		return nil
+	}
+	return &wk
+}
+
+func encodeWeek(wk *Week) any {
+	if wk == nil {
+		return nil
+	}
+	b, _ := json.Marshal(wk)
+	return string(b)
 }
 
 // inMinWindow reports whether local minute m falls in [start,end), supporting windows
@@ -87,6 +195,7 @@ func inActiveWindow(now time.Time, devTZ string, w ServiceWindow, aw string) boo
 	}
 	lt := localTime(now, tz)
 	localMin := lt.Hour()*60 + lt.Minute()
+	w = w.On(lt)
 	switch aw {
 	case "service":
 		return inMinWindow(localMin, w.OpenMin, w.CloseMin)
@@ -136,7 +245,7 @@ func (d *DB) FleetWindowActive(ctx context.Context, aw string) bool {
 // default). Replaces the per-restaurant N+1 on the Settings page.
 func (d *DB) ListRestaurantServiceWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT restaurant_id, open_min, close_min, night_open_min, night_close_min, timezone
+		SELECT restaurant_id, open_min, close_min, night_open_min, night_close_min, timezone, week
 		FROM service_windows WHERE restaurant_id IS NOT NULL`)
 	if err != nil {
 		return nil, err
@@ -146,9 +255,11 @@ func (d *DB) ListRestaurantServiceWindows(ctx context.Context) (map[uuid.UUID]Se
 	for rows.Next() {
 		var id uuid.UUID
 		var w ServiceWindow
-		if err := rows.Scan(&id, &w.OpenMin, &w.CloseMin, &w.NightOpenMin, &w.NightCloseMin, &w.TZ); err != nil {
+		var wk []byte
+		if err := rows.Scan(&id, &w.OpenMin, &w.CloseMin, &w.NightOpenMin, &w.NightCloseMin, &w.TZ, &wk); err != nil {
 			return nil, err
 		}
+		w.Week = decodeWeek(wk)
 		rid := id
 		w.RestaurantID = &rid
 		out[id] = w
@@ -159,10 +270,12 @@ func (d *DB) ListRestaurantServiceWindows(ctx context.Context) (map[uuid.UUID]Se
 // GetRestaurantServiceWindow returns a restaurant's own service window and whether it has
 // one. When the restaurant has no row, ok is false and the fleet default is returned.
 func (d *DB) GetRestaurantServiceWindow(ctx context.Context, restaurantID uuid.UUID) (w ServiceWindow, ok bool, err error) {
+	var wk []byte
 	err = d.pool.QueryRow(ctx, `
-		SELECT open_min, close_min, night_open_min, night_close_min, timezone
+		SELECT open_min, close_min, night_open_min, night_close_min, timezone, week
 		FROM service_windows WHERE restaurant_id = $1`, restaurantID).
-		Scan(&w.OpenMin, &w.CloseMin, &w.NightOpenMin, &w.NightCloseMin, &w.TZ)
+		Scan(&w.OpenMin, &w.CloseMin, &w.NightOpenMin, &w.NightCloseMin, &w.TZ, &wk)
+	w.Week = decodeWeek(wk)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fleet, ferr := d.GetFleetServiceWindow(ctx)
 		return fleet, false, ferr
@@ -195,14 +308,21 @@ func (d *DB) SetServiceWindow(ctx context.Context, w ServiceWindow) error {
 			w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin, w.TZ)
 		return err
 	}
+	if w.Week != nil {
+		if o, c, ok := w.Week.Span(); ok {
+			w.OpenMin, w.CloseMin = o, c
+		} else {
+			w.OpenMin, w.CloseMin = 0, 0
+		}
+	}
 	_, err := d.pool.Exec(ctx, `
-		INSERT INTO service_windows (restaurant_id, open_min, close_min, night_open_min, night_close_min, timezone, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		INSERT INTO service_windows (restaurant_id, open_min, close_min, night_open_min, night_close_min, timezone, week, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW())
 		ON CONFLICT (restaurant_id) WHERE restaurant_id IS NOT NULL DO UPDATE SET
 			open_min = EXCLUDED.open_min, close_min = EXCLUDED.close_min,
 			night_open_min = EXCLUDED.night_open_min, night_close_min = EXCLUDED.night_close_min,
-			timezone = EXCLUDED.timezone, updated_at = NOW()
-	`, w.RestaurantID, w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin, w.TZ)
+			timezone = EXCLUDED.timezone, week = EXCLUDED.week, updated_at = NOW()
+	`, w.RestaurantID, w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin, w.TZ, encodeWeek(w.Week))
 	return err
 }
 
@@ -216,7 +336,7 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.id, d.restaurant_id, COALESCE(d.latest_extra->>'timezone', ''),
-		       sw.open_min, sw.close_min, sw.night_open_min, sw.night_close_min, sw.timezone
+		       sw.open_min, sw.close_min, sw.night_open_min, sw.night_close_min, sw.timezone, sw.week
 		FROM devices d
 		LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
 		WHERE NOT d.hidden`)
@@ -231,13 +351,15 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 		var devTZ string
 		var open, closeM, nOpen, nClose *int
 		var winTZ *string
-		if err := rows.Scan(&id, &rid, &devTZ, &open, &closeM, &nOpen, &nClose, &winTZ); err != nil {
+		var wk []byte
+		if err := rows.Scan(&id, &rid, &devTZ, &open, &closeM, &nOpen, &nClose, &winTZ, &wk); err != nil {
 			return nil, err
 		}
 		w := fleet // copy fleet defaults, override with the group's window when present
 		w.RestaurantID = rid
 		if open != nil {
 			w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin = *open, *closeM, *nOpen, *nClose
+			w.Week = decodeWeek(wk)
 			if winTZ != nil {
 				w.TZ = *winTZ
 			}

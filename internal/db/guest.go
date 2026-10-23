@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -38,6 +39,9 @@ type GuestHours struct {
 	NightOpen  string `json:"night_open"`
 	NightClose string `json:"night_close"`
 	Timezone   string `json:"timezone"`
+	// ClosedToday: the venue keeps hours per weekday and today is a closed day (open and
+	// close are then equal). Open/close are always today's (H1, 23 Oct 2026).
+	ClosedToday bool `json:"closed_today,omitempty"`
 }
 
 func hhmm(min int) string {
@@ -67,7 +71,8 @@ const guestSelect = `
 	SELECT d.id, d.agent_kind, COALESCE(r.name, ''), d.restaurant_id IS NOT NULL,
 	       COALESCE(sw.open_min, fw.open_min, 420), COALESCE(sw.close_min, fw.close_min, 1380),
 	       COALESCE(sw.night_open_min, fw.night_open_min, 1410), COALESCE(sw.night_close_min, fw.night_close_min, 360),
-	       COALESCE(NULLIF(sw.timezone, ''), NULLIF(r.timezone, ''), NULLIF(fw.timezone, ''), '')
+	       COALESCE(NULLIF(sw.timezone, ''), NULLIF(r.timezone, ''), NULLIF(fw.timezone, ''), ''),
+	       COALESCE(d.latest_extra->>'timezone', ''), sw.week
 	FROM devices d
 	LEFT JOIN restaurants r ON r.id = d.restaurant_id
 	LEFT JOIN service_windows sw ON sw.restaurant_id = d.restaurant_id
@@ -84,12 +89,20 @@ func (d *DB) queryGuests(ctx context.Context, where string, arg any) ([]DeviceGu
 		var g DeviceGuest
 		var placed bool
 		var open, close, nOpen, nClose int
-		var tz string
-		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName, &placed, &open, &close, &nOpen, &nClose, &tz); err != nil {
+		var tz, devTZ string
+		var wk []byte
+		if err := rows.Scan(&g.DeviceID, &g.AgentKind, &g.Guest.RestaurantName, &placed, &open, &close, &nOpen, &nClose, &tz, &devTZ, &wk); err != nil {
 			return nil, err
 		}
 		if placed {
-			g.Guest.ServiceHours = &GuestHours{Open: hhmm(open), Close: hhmm(close), NightOpen: hhmm(nOpen), NightClose: hhmm(nClose), Timezone: tz}
+			gh := &GuestHours{Open: hhmm(open), Close: hhmm(close), NightOpen: hhmm(nOpen), NightClose: hhmm(nClose), Timezone: tz}
+			if week := decodeWeek(wk); week != nil {
+				w := ServiceWindow{OpenMin: open, CloseMin: close, TZ: tz, Week: week}
+				lt := w.LocalNow(time.Now(), devTZ)
+				day := w.On(lt)
+				gh.Open, gh.Close, gh.ClosedToday = hhmm(day.OpenMin), hhmm(day.CloseMin), w.ClosedOn(lt)
+			}
+			g.Guest.ServiceHours = gh
 		}
 		out = append(out, g)
 	}

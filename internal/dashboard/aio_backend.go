@@ -87,6 +87,7 @@ func (h *Handler) syncBackendEnv(ctx context.Context, env aiobackend.Env) error 
 		return err
 	}
 	log.Printf("[backend-sync] %s: %d restaurants, %d devices", env, len(rs), len(ds))
+	h.syncLinkedVenues(ctx, env)
 	return nil
 }
 

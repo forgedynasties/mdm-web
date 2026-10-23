@@ -378,6 +378,7 @@ func (h *Handler) ownerServiceStrip(ctx context.Context, ids []uuid.UUID, ro own
 		}
 		inSvc := false
 		if win != nil {
+			win := win.On(t) // that hour's day, for hours per weekday
 			m := t.Hour()*60 + t.Minute()
 			inSvc = (win.OpenMin != win.CloseMin && ((win.OpenMin < win.CloseMin && m >= win.OpenMin && m < win.CloseMin) || (win.OpenMin > win.CloseMin && (m >= win.OpenMin || m < win.CloseMin)))) ||
 				(win.NightOpenMin != win.NightCloseMin && ((win.NightOpenMin < win.NightCloseMin && m >= win.NightOpenMin && m < win.NightCloseMin) || (win.NightOpenMin > win.NightCloseMin && (m >= win.NightOpenMin || m < win.NightCloseMin))))
@@ -392,8 +393,12 @@ func (h *Handler) ownerServiceStrip(ctx context.Context, ids []uuid.UUID, ro own
 	if svcHours > 0 {
 		serviceUptime = svcOnline / svcHours
 	}
-	if win != nil && win.OpenMin != win.CloseMin {
-		serviceLabel = fmtMin(win.OpenMin) + " – " + fmtMin(win.CloseMin)
+	if win != nil {
+		if today := win.On(time.Now().In(loc)); today.OpenMin != today.CloseMin {
+			serviceLabel = fmtMin(today.OpenMin) + " – " + fmtMin(today.CloseMin)
+		} else if win.Week != nil {
+			serviceLabel = "closed today"
+		}
 	}
 	return cells, serviceUptime, serviceLabel, loc
 }

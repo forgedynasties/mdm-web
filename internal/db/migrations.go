@@ -2163,6 +2163,20 @@ CREATE TABLE IF NOT EXISTS backend_sync (
     devices      INT NOT NULL DEFAULT 0,
     requested    BOOLEAN NOT NULL DEFAULT FALSE
 );
+-- Hours per weekday (H1, 23 Oct): [{closed, open, close} × Mon…Sun]; NULL = the same
+-- window every day. open_min/close_min then hold the week's widest window.
+ALTER TABLE service_windows ADD COLUMN IF NOT EXISTS week JSONB;
+-- The backend's hours for linked restaurants, copied by the sync (P2).
+CREATE TABLE IF NOT EXISTS backend_hours (
+    env           TEXT NOT NULL,
+    restaurant_id BIGINT NOT NULL,
+    week          JSONB,
+    synced_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (env, restaurant_id)
+);
+-- Venue fields that follow the AIO backend (B1): address, pin, timezone, hours. A field
+-- leaves the list when someone edits it in the MDM ("Set here").
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_follow TEXT[] NOT NULL DEFAULT '{}';
 -- A venue's backend restaurant (P1): '' / NULL = not linked. A person confirms a link.
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_env TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_restaurant_id BIGINT;

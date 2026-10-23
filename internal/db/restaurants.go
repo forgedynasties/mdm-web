@@ -588,6 +588,7 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 	}
 	args := []any{days, endDayArg(endDay), venue}
 	var openMin, closeMin *int
+	var week *Week
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			COUNT(DISTINCT s.device_id),
@@ -634,6 +635,7 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 	if restaurantID != uuid.Nil {
 		if w, ok, e := d.GetRestaurantServiceWindow(ctx, restaurantID); e == nil && ok {
 			openMin, closeMin = &w.OpenMin, &w.CloseMin
+			week = w.Week
 		}
 	}
 	if openMin == nil {
@@ -641,7 +643,10 @@ func (d *DB) SiteMetricsFor(ctx context.Context, restaurantID uuid.UUID, days in
 			openMin, closeMin = &w.OpenMin, &w.CloseMin
 		}
 	}
-	if openMin != nil {
+	if week != nil {
+		// Hours per weekday: a day's average, closed days counting zero.
+		m.OpenWindowMinutes = week.AvgOpenMinutes() * float64(m.OpenDeviceDays)
+	} else if openMin != nil {
 		per := float64(*closeMin - *openMin)
 		if per < 0 {
 			per += 24 * 60 // a window that wraps past midnight

@@ -517,17 +517,27 @@ const rollupSamplesFromShaped = `
 					- s.created_at)), 0), 600) AS w,
 				LAG(s.battery_pct) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_batt,
 				LAG((s.extra->>'charging')::boolean) OVER (PARTITION BY s.device_id ORDER BY s.created_at) AS prev_charging,
+				-- In the venue's hours at that moment: its window, else the fleet's; with
+				-- hours per weekday (sw.week, Mon = 0) that day's hours, a closed day never.
 				CASE
 					WHEN COALESCE(sw.open_min, fsw.open_min) IS NULL THEN NULL
 					ELSE (
 						WITH lt AS (
-							SELECT (EXTRACT(HOUR FROM s.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(fsw.timezone, ''), NULLIF(s.extra->>'timezone', ''), 'UTC')) * 60
-							      + EXTRACT(MINUTE FROM s.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(s.extra->>'timezone', ''), 'UTC')))::int AS m
+							SELECT s.created_at AT TIME ZONE COALESCE(NULLIF(sw.timezone, ''), NULLIF(fsw.timezone, ''), NULLIF(s.extra->>'timezone', ''), 'UTC') AS t
+						), x AS (
+							SELECT (EXTRACT(HOUR FROM lt.t) * 60 + EXTRACT(MINUTE FROM lt.t))::int AS m,
+							       sw.week -> (EXTRACT(ISODOW FROM lt.t)::int - 1) AS dw
+							FROM lt
+						), y AS (
+							SELECT x.m, COALESCE((x.dw->>'closed')::boolean, false) AS closed,
+							       COALESCE((x.dw->>'open')::int, sw.open_min, fsw.open_min) AS o,
+							       COALESCE((x.dw->>'close')::int, sw.close_min, fsw.close_min) AS c
+							FROM x
 						)
-						SELECT CASE WHEN COALESCE(sw.open_min, fsw.open_min) <= COALESCE(sw.close_min, fsw.close_min)
-							THEN lt.m >= COALESCE(sw.open_min, fsw.open_min) AND lt.m < COALESCE(sw.close_min, fsw.close_min)
-							ELSE lt.m >= COALESCE(sw.open_min, fsw.open_min) OR lt.m < COALESCE(sw.close_min, fsw.close_min) END
-						FROM lt
+						SELECT CASE WHEN y.closed OR y.o = y.c THEN false
+							WHEN y.o < y.c THEN y.m >= y.o AND y.m < y.c
+							ELSE y.m >= y.o OR y.m < y.c END
+						FROM y
 					)
 				END AS in_open_hours
 			FROM shaped s

@@ -313,7 +313,43 @@ func (h *Handler) RestaurantBackendSave(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		h.audit(r, "restaurant.backend_link", id.String(), fmt.Sprintf("%s · %s #%d", name, env.Label(), rid))
-		back = fmt.Sprintf("/restaurants/%s?open=backend#vn-backend", id)
+		// Fill what the MDM lacks right away (B1), not at the nightly sync.
+		ctx := r.Context()
+		if err := h.refreshBackendHours(ctx, db.VenueBackendLink{Env: string(env), RestaurantID: rid}); err != nil {
+			log.Printf("[venue-backend] hours for %s: %v", id, err)
+		}
+		if _, err := h.applyBackendToVenue(ctx, id); err != nil {
+			log.Printf("[venue-backend] apply to %s: %v", id, err)
+		}
+	case "follow":
+		// "Use the backend's" on a field that was set here (B1).
+		f := r.FormValue("field")
+		known := false
+		for _, x := range followFields {
+			known = known || x == f
+		}
+		if !known {
+			http.Error(w, "Unknown field", http.StatusBadRequest)
+			return
+		}
+		follow, err := h.db.VenueBackendFollow(r.Context(), id)
+		if err != nil {
+			http.Error(w, "Could not save", http.StatusInternalServerError)
+			return
+		}
+		follow[f] = true
+		if err := h.db.SetVenueBackendFollow(r.Context(), id, follow); err != nil {
+			http.Error(w, "Could not save", http.StatusInternalServerError)
+			return
+		}
+		if _, err := h.applyBackendToVenue(r.Context(), id); err != nil {
+			log.Printf("[venue-backend] apply to %s: %v", id, err)
+		}
+		h.audit(r, "restaurant.backend_follow", id.String(), followLabel(f))
+		back = fmt.Sprintf("/restaurants/%s?open=location#vn-location", id)
+		if f == followHours {
+			back = fmt.Sprintf("/restaurants/%s?open=hours#vn-hours", id)
+		}
 	default:
 		http.Error(w, "Unknown action", http.StatusBadRequest)
 		return

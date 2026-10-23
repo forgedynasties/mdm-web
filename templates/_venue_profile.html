@@ -44,6 +44,32 @@
 .vu-len span{display:inline-block;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:99px;border:1px solid var(--border);color:var(--text-2);background:var(--surface)}
 .vu-len input:checked+span{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
 .vu-len input:focus-visible+span{box-shadow:var(--ring)}
+/* AIO backend B1 tags and H1 hours per weekday (23 Oct 2026). */
+.vb-from,.vb-own{flex:none;font-size:10.5px;font-weight:650;padding:1px 7px;border-radius:99px;white-space:nowrap}
+.vb-from{color:var(--accent-text);background:var(--accent-soft)}
+.vb-own{color:var(--text-2);background:var(--surface2)}
+.vb-fields{padding:10px 14px 4px;display:grid;gap:8px}
+.vb-f{display:grid;grid-template-columns:66px minmax(0,1fr);gap:10px;font-size:12.5px;line-height:1.45}
+.vb-f .k{color:var(--muted)}.vb-f .v{min-width:0;overflow-wrap:anywhere}
+.vb-f small{display:block;color:var(--muted);font-size:11.5px}.vb-f form{display:inline;margin:0}
+.vb-none{color:var(--muted)}
+.vb-wk{display:grid;grid-template-columns:32px minmax(0,1fr) 88px;gap:5px 8px;align-items:center;padding:10px 14px 0;font-size:12px}
+.vb-wk .d{color:var(--text-2);font-weight:600}.vb-wk .on{color:var(--accent-text)}
+.vb-wk .bar{position:relative;height:8px;border-radius:99px;background:var(--surface2)}
+.vb-wk .bar i{position:absolute;top:0;bottom:0;border-radius:99px;background:var(--accent)}
+.vb-wk .bar.x{background:repeating-linear-gradient(45deg,var(--surface2) 0 3px,transparent 3px 6px)}
+.vb-wk .t{text-align:right;color:var(--text-2);white-space:nowrap}.vb-wk .t.c{color:var(--muted)}
+.vb-bk{padding:8px 14px 6px;border-top:1px solid var(--border-soft);margin-top:8px}.vb-bk .vb-wk{padding:6px 0 8px}.vb-bk form{margin:0}
+.vb-mode{display:flex;gap:6px}.vb-mode label{cursor:pointer}.vb-mode input{position:absolute;opacity:0;pointer-events:none}
+.vb-mode span{display:inline-block;font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;border:1px solid var(--border);color:var(--text-2)}
+.vb-mode input:checked+span{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+.vb-mode input:focus-visible+span{box-shadow:var(--ring)}
+.vb-days{display:none;gap:6px}
+.vb-hform:has(input[name=per_day][value="1"]:checked) .vb-days{display:grid}
+.vb-hform:has(input[name=per_day][value="1"]:checked) .vb-one{display:none}
+.vb-day{display:grid;grid-template-columns:32px minmax(0,1fr) minmax(0,1fr) auto;gap:6px;align-items:center;font-size:12px}
+.vb-day label{display:flex;gap:4px;align-items:center;color:var(--text-2);white-space:nowrap}
+.vb-day:has(input[type=checkbox]:checked) input[type=time]{opacity:.4}
 .vp-av{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-text);font-weight:700;font-size:11px}
 </style>
 {{$r := .Restaurant}}{{$can := canAdminOrOperator .Role}}
@@ -53,6 +79,7 @@
 <details class="vs-row" name="vn-set" id="vn-profile"{{if eq .Open "profile"}} open{{end}}>
   <summary><span class="vs-k">Profile</span><span class="vs-v">{{venueIcon $r.ID $r.Name "sm"}}<span>{{$r.Name}} <small>· {{if $r.ContactEmail}}{{$r.ContactEmail}}{{else}}no contact email{{end}}</small></span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
   <div class="vs-body">
+  {{with .Backend}}{{if and .Linked .R}}{{with .R.Phone}}<div class="vs-note">Phone {{.}} <span class="vb-from">AIO backend</span></div>{{end}}{{end}}{{end}}
   {{if $can}}
   <form class="vn-form vp-icon" action="/restaurants/{{$r.ID}}/icon" method="POST" enctype="multipart/form-data" hx-boost="false">
     <div class="form-row full"><label class="form-label" for="vp-site">Icon</label>
@@ -78,8 +105,15 @@
 
 {{with .Location}}
 <details class="vs-row" name="vn-set" id="vn-location"{{if eq $.Open "location"}} open{{end}}>
-  <summary><span class="vs-k">Location</span><span class="vs-v"><span>{{if .Address}}{{.Address}}{{else if .Lat}}Pinned on the map{{else}}Not set{{end}}{{if .Timezone}} <small>· {{.Timezone}}</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <summary><span class="vs-k">Location</span><span class="vs-v"><span>{{if .Address}}{{.Address}}{{else if .Lat}}Pinned on the map{{else}}Not set{{end}}{{if .Timezone}} <small>· {{.Timezone}}</small>{{end}}</span>{{if and .Linked (or .Follow.address .Follow.pin .Follow.timezone)}}<span class="vb-from">AIO backend</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
   <div class="vs-body">
+  {{if .Linked}}{{/* B1 (23 Oct 2026): where each value comes from; editing one below sets it here. */}}
+  <div class="vb-fields">
+    {{template "vb-field" (dict "K" "Address" "F" "address" "V" .Address "B" .BAddress "On" .Follow.address "R" $r "Can" $can)}}
+    {{template "vb-field" (dict "K" "Pin" "F" "pin" "V" .Pin "B" .BPin "On" .Follow.pin "R" $r "Can" $can)}}
+    {{template "vb-field" (dict "K" "Timezone" "F" "timezone" "V" .Timezone "B" .BTZ "On" .Follow.timezone "R" $r "Can" $can)}}
+  </div>
+  {{end}}
   {{if and (not .Lat) .Centre}}<div class="vs-note">Its devices are reporting where they are: use that below.</div>{{end}}
   {{if $can}}
   <form class="vn-form vl-form" action="/restaurants/{{$r.ID}}/location" method="POST"
@@ -169,13 +203,25 @@
 
 {{$sw := .ServiceWindow}}
 <details class="vs-row" name="vn-set" id="vn-hours"{{if eq .Open "hours"}} open{{end}}>
-  <summary><span class="vs-k">Service hours</span><span class="vs-v"><span>{{$sw.Open}} – {{$sw.Close}}{{if ne $sw.NightOpen $sw.NightClose}} <small>· overnight {{$sw.NightOpen}} – {{$sw.NightClose}}</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <summary><span class="vs-k">Service hours</span><span class="vs-v"><span>{{if $sw.PerDay}}{{$sw.Today}}{{else}}{{$sw.Open}} – {{$sw.Close}}{{end}}{{if and (not $sw.PerDay) (ne $sw.NightOpen $sw.NightClose)}} <small>· overnight {{$sw.NightOpen}} – {{$sw.NightClose}}</small>{{end}}</span>{{if $sw.Follows}}<span class="vb-from">AIO backend</span>{{else if $sw.BackendDays}}<span class="vb-own">Set here</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
   <div class="vs-body">
-  <div class="vs-note">{{if $sw.HasOwn}}Set for this venue{{else}}Fleet default{{end}}{{if $sw.TZ}} · {{$sw.TZ}}{{else if $r.Timezone}} · {{$r.Timezone}}{{end}}. Offline and battery alerts count only inside these hours.</div>
+  {{if $sw.PerDay}}{{template "vb-week" $sw.Days}}{{end}}
+  <div class="vs-note">{{if $sw.Follows}}From the AIO backend, updated on every sync{{else if $sw.HasOwn}}Set for this venue{{else}}Fleet default{{end}}{{if $sw.TZ}} · {{$sw.TZ}}{{else if $r.Timezone}} · {{$r.Timezone}}{{end}}{{if $sw.PerDay}} · overnight {{$sw.NightOpen}} – {{$sw.NightClose}}{{end}}. Offline and battery alerts count only inside these hours{{if $sw.PerDay}}, and not at all on closed days{{end}}.</div>
+  {{with $sw.BackendDays}}
+  <div class="vb-bk"><span class="vs-note" style="padding:0">The AIO backend has:</span>{{template "vb-week" .}}
+    {{if $can}}<form method="POST" action="/restaurants/{{$r.ID}}/backend"><input type="hidden" name="action" value="follow"><input type="hidden" name="field" value="hours"><button type="submit" class="cc-btn sm">Use the backend's</button></form>{{end}}</div>
+  {{end}}
   {{if $can}}
-  <form class="vn-form" action="/restaurants/{{$r.ID}}/service-window" method="POST">
-    <div class="form-row"><label class="form-label">Open</label><input type="time" name="open" aria-label="Open" class="form-input" value="{{$sw.Open}}"></div>
-    <div class="form-row"><label class="form-label">Close</label><input type="time" name="close" aria-label="Close" class="form-input" value="{{$sw.Close}}"></div>
+  <form class="vn-form vb-hform" action="/restaurants/{{$r.ID}}/service-window" method="POST">
+    <div class="full vb-mode" role="radiogroup" aria-label="Hours">
+      <label><input type="radio" name="per_day" value="0"{{if not $sw.PerDay}} checked{{end}}><span>Same every day</span></label>
+      <label><input type="radio" name="per_day" value="1"{{if $sw.PerDay}} checked{{end}}><span>Different each day</span></label>
+    </div>
+    <div class="full vb-days">
+      {{range $i, $d := $sw.Days}}<div class="vb-day"><b>{{$d.Name}}</b><input type="time" name="open_{{$i}}" class="form-input" value="{{$d.Open}}" aria-label="{{$d.Name}} open"><input type="time" name="close_{{$i}}" class="form-input" value="{{$d.Close}}" aria-label="{{$d.Name}} close"><label><input type="checkbox" name="closed_{{$i}}" value="1"{{if $d.Closed}} checked{{end}}> Closed</label></div>{{end}}
+    </div>
+    <div class="form-row vb-one"><label class="form-label">Open</label><input type="time" name="open" aria-label="Open" class="form-input" value="{{$sw.Open}}"></div>
+    <div class="form-row vb-one"><label class="form-label">Close</label><input type="time" name="close" aria-label="Close" class="form-input" value="{{$sw.Close}}"></div>
     <div class="form-row"><label class="form-label">Overnight open</label><input type="time" name="night_open" aria-label="Overnight open" class="form-input" value="{{$sw.NightOpen}}"></div>
     <div class="form-row"><label class="form-label">Overnight close</label><input type="time" name="night_close" aria-label="Overnight close" class="form-input" value="{{$sw.NightClose}}"></div>
     <div class="form-row full"><label class="form-label">Time zone <span class="muted small">(blank = each device's own)</span></label><input type="text" name="timezone" class="form-input" value="{{$sw.TZ}}" placeholder="GMT-8"></div>
@@ -203,7 +249,7 @@
   <form class="vn-form vu-form" action="/restaurants/{{$r.ID}}/updates" method="POST">
     <div class="vu-ch">
       <label><input type="radio" name="mode" value="fleet"{{if and (not .Paused) (eq .Mode "")}} checked{{end}}><span><b>Fleet window</b><small>{{.FleetWindow}} in each device's timezone, set on Lineup</small></span></label>
-      {{if .ClosedWindow}}<label><input type="radio" name="mode" value="closed"{{if and (not .Paused) (eq .Mode "closed")}} checked{{end}}><span><b>While the venue is closed</b><small>Outside service hours: {{.ClosedWindow}} now, and it follows the hours if they change</small></span></label>{{end}}
+      {{if .ClosedWindow}}<label><input type="radio" name="mode" value="closed"{{if and (not .Paused) (eq .Mode "closed")}} checked{{end}}><span><b>While the venue is closed</b><small>Outside service hours{{if .ClosedWeekly}}, by each day's hours and all day on closed days{{else}}: {{.ClosedWindow}} now{{end}}, and it follows the hours if they change</small></span></label>{{end}}
       <label><input type="radio" name="mode" value="own"{{if and (not .Paused) (eq .Mode "own")}} checked{{end}}><span><b>Own window</b><small>Pick the hours</small>
         <span class="vu-sub"><input type="time" name="window_start" aria-label="From" class="form-input" value="{{or .Start "01:00"}}"><input type="time" name="window_end" aria-label="To" class="form-input" value="{{or .End "04:00"}}"></span></span></label>
       <label><input type="radio" name="mode" value="paused"{{if .Paused}} checked{{end}}><span><b>Paused</b><small>Nothing moves here until it ends</small>
@@ -369,4 +415,17 @@
   <div class="vb-row"><input class="form-input" name="pick" list="vb-list-prod" placeholder="Search restaurants by name…" autocomplete="off" required aria-label="Restaurant"><button type="submit" class="cc-btn sm">Link</button></div>
   {{range .B.Lists}}<datalist id="vb-list-{{.Env}}">{{range .Opts}}<option value="{{.Value}}">{{.Label}}</option>{{end}}</datalist>{{end}}
 </form>
+{{end}}
+
+{{/* B1: one Location value with where it comes from (AIO backend / Set here + the
+     backend's value and "Use the backend's"). */}}
+{{define "vb-field"}}
+<div class="vb-f"><span class="k">{{.K}}</span><span class="v">{{if .V}}{{.V}}{{else}}<span class="vb-none">not set</span>{{end}}
+  {{if .On}}<span class="vb-from">AIO backend</span>{{else if .B}}<span class="vb-own">Set here</span>
+  <small>Backend: {{.B}}{{if .Can}} · <form method="POST" action="/restaurants/{{.R.ID}}/backend"><input type="hidden" name="action" value="follow"><input type="hidden" name="field" value="{{.F}}"><button type="submit" class="vp-link">Use the backend's</button></form>{{end}}</small>{{end}}</span></div>
+{{end}}
+
+{{/* H1: a week of service hours as bars over the day, today marked. */}}
+{{define "vb-week"}}
+<div class="vb-wk">{{range .}}<span class="d{{if .Today}} on{{end}}">{{.Name}}</span><span class="bar{{if .Closed}} x{{end}}">{{if not .Closed}}<i style="left:{{printf "%.1f" .Left}}%;width:{{printf "%.1f" .Width}}%"></i>{{end}}</span><span class="t{{if .Today}} on{{end}}{{if .Closed}} c{{end}}">{{.Label}}</span>{{end}}</div>
 {{end}}

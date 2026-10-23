@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -183,11 +184,13 @@ func (d *DB) VenueBackendLinks(ctx context.Context) (map[uuid.UUID]VenueBackendL
 func (d *DB) SetVenueBackendLink(ctx context.Context, venue uuid.UUID, env string, restaurantID int64, by string) error {
 	if env == "" {
 		_, err := d.pool.Exec(ctx, `UPDATE restaurants SET backend_env = '', backend_restaurant_id = NULL,
-			backend_linked_by = $2, backend_linked_at = NOW() WHERE id = $1`, venue, by)
+			backend_follow = '{}', backend_linked_by = $2, backend_linked_at = NOW() WHERE id = $1`, venue, by)
 		return err
 	}
-	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET backend_env = $2, backend_restaurant_id = $3,
-		backend_linked_by = $4, backend_linked_at = NOW() WHERE id = $1`, venue, env, restaurantID, by)
+	// A different restaurant starts over: nothing follows it until the first apply.
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET
+		backend_follow = CASE WHEN backend_env = $2 AND backend_restaurant_id = $3 THEN backend_follow ELSE '{}' END,
+		backend_env = $2, backend_restaurant_id = $3, backend_linked_by = $4, backend_linked_at = NOW() WHERE id = $1`, venue, env, restaurantID, by)
 	return err
 }
 
@@ -249,4 +252,69 @@ func (d *DB) VenueBackendLinkOf(ctx context.Context, venue uuid.UUID) (VenueBack
 	}
 	l.RestaurantID = *rid
 	return l, true, nil
+}
+
+// SetBackendHours stores a linked restaurant's hours (nil = it has none).
+func (d *DB) SetBackendHours(ctx context.Context, env string, restaurantID int64, wk *Week) error {
+	_, err := d.pool.Exec(ctx, `INSERT INTO backend_hours (env, restaurant_id, week, synced_at) VALUES ($1, $2, $3::jsonb, NOW())
+		ON CONFLICT (env, restaurant_id) DO UPDATE SET week = EXCLUDED.week, synced_at = NOW()`, env, restaurantID, encodeWeek(wk))
+	return err
+}
+
+// BackendHoursOf returns a restaurant's copied hours (nil when none were copied).
+func (d *DB) BackendHoursOf(ctx context.Context, env string, restaurantID int64) (*Week, error) {
+	var b []byte
+	err := d.pool.QueryRow(ctx, `SELECT week FROM backend_hours WHERE env = $1 AND restaurant_id = $2`, env, restaurantID).Scan(&b)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return decodeWeek(b), nil
+}
+
+// BackendRestaurantOf returns one copied restaurant (ok false when the copy lacks it).
+func (d *DB) BackendRestaurantOf(ctx context.Context, env string, id int64) (BackendRestaurant, bool, error) {
+	var r BackendRestaurant
+	err := d.pool.QueryRow(ctx, `SELECT env, id, name, business_id, business_name, address, city, state, zip,
+		latitude, longitude, timezone, phone, status FROM backend_restaurants WHERE env = $1 AND id = $2`, env, id).
+		Scan(&r.Env, &r.ID, &r.Name, &r.BusinessID, &r.BusinessName, &r.Address, &r.City, &r.State, &r.Zip,
+			&r.Latitude, &r.Longitude, &r.Timezone, &r.Phone, &r.Status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return r, false, nil
+	}
+	return r, err == nil, err
+}
+
+// VenueBackendFollow is the venue fields that follow the AIO backend (B1).
+func (d *DB) VenueBackendFollow(ctx context.Context, venue uuid.UUID) (map[string]bool, error) {
+	var fs []string
+	if err := d.pool.QueryRow(ctx, `SELECT backend_follow FROM restaurants WHERE id = $1`, venue).Scan(&fs); err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, f := range fs {
+		out[f] = true
+	}
+	return out, nil
+}
+
+// SetVenueBackendFollow replaces the venue's followed fields.
+func (d *DB) SetVenueBackendFollow(ctx context.Context, venue uuid.UUID, follow map[string]bool) error {
+	fs := []string{}
+	for f, on := range follow {
+		if on {
+			fs = append(fs, f)
+		}
+	}
+	sort.Strings(fs)
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET backend_follow = $2 WHERE id = $1`, venue, fs)
+	return err
+}
+
+// StopFollowingBackend takes fields off the venue's followed list (someone set them here).
+func (d *DB) StopFollowingBackend(ctx context.Context, venue uuid.UUID, fields ...string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET backend_follow = ARRAY(SELECT unnest(backend_follow) EXCEPT SELECT unnest($2::text[]) ORDER BY 1) WHERE id = $1`, venue, fields)
+	return err
 }

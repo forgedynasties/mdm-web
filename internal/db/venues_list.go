@@ -16,6 +16,7 @@ func ServiceOpenAt(w ServiceWindow, venueTZ string, t time.Time) bool {
 		tz = venueTZ
 	}
 	lt := localTime(t, tz)
+	w = w.On(lt)
 	return inMinWindow(lt.Hour()*60+lt.Minute(), w.OpenMin, w.CloseMin)
 }
 

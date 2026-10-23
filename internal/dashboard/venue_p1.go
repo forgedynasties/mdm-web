@@ -52,6 +52,9 @@ type vpInputs struct {
 	OpenAt   string // HH:MM the window opens
 	CloseAt  string // HH:MM it closes
 	StaffPIN string // "" = the built-in default
+	// ClosedToday: hours per weekday and today is a closed day (OpenAt = the next opening,
+	// "Tue 11:00").
+	ClosedToday bool
 	Updates  venueUpdatesView
 	Lost     venueLostView
 	Trend    db.ScopedTrend
@@ -181,7 +184,13 @@ func buildVpBanner(in vpInputs) vpBanner {
 	} else {
 		kick = append(kick, "Venue")
 	}
-	if in.CloseAt != "" {
+	if in.ClosedToday {
+		k := "closed today"
+		if in.OpenAt != "" {
+			k += ", opens " + in.OpenAt
+		}
+		kick = append(kick, k)
+	} else if in.CloseAt != "" {
 		if in.Open {
 			kick = append(kick, "open now, closes "+in.CloseAt)
 		} else {
@@ -341,4 +350,20 @@ func buildVpBanner(in vpInputs) vpBanner {
 	}
 	b.Todos = all
 	return b
+}
+
+// nextOpenLabel is when a venue with hours per weekday opens next after lt's day:
+// "Tue 11:00" ("" when no day is open).
+func nextOpenLabel(w db.ServiceWindow, lt time.Time) string {
+	if w.Week == nil {
+		return ""
+	}
+	for i := 1; i <= 7; i++ {
+		d := lt.AddDate(0, 0, i)
+		h := w.Week[db.WeekIndex(d)]
+		if !h.Closed && h.Open != h.Close {
+			return d.Format("Mon") + " " + hhmm(h.Open)
+		}
+	}
+	return ""
 }

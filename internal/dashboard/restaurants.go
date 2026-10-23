@@ -330,8 +330,18 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              online,
 		"OnlineCount":         onCount,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
-		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	}
+	// Hours per weekday (H1) and the AIO backend's say over Location and hours (B1).
+	sv := windowView(id.String(), rest.Name, win, hasOwn)
+	if sv.PerDay {
+		i := db.WeekIndex(win.LocalNow(time.Now(), rest.Timezone))
+		sv.Days[i].Today = true
+		sv.Today = "Today " + sv.Days[i].Label()
+		if sv.Days[i].Closed {
+			sv.Today = "Closed today"
+		}
+	}
+	bf := h.venueBackendFieldsOf(r.Context(), id)
 	// The networks the venue's devices join (venue_wifi.go).
 	data["VenueWifi"] = h.venueWifiRows(r.Context(), id, devices)
 	// Self-lock (S1): minutes, 0 = off.
@@ -342,7 +352,9 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	data["Kiosk"] = h.venueKiosk(r, id)
 	// Profile and Location cards (E1, 19 Oct): edited in place; ?open= names the card a
 	// save sent you back to.
-	data["Location"] = h.venueLocationView(rest, devices)
+	locView := h.venueLocationView(rest, devices)
+	bf.decorate(&locView, &sv)
+	data["Location"], data["ServiceWindow"] = locView, sv
 	data["Timezones"] = restaurantTimezones
 	data["Open"] = r.URL.Query().Get("open")
 	// People (U3, 20 Oct): the venue's owner and staff accounts, invited from here.
@@ -414,9 +426,15 @@ func (h *Handler) venueP1(r *http.Request, rest *db.Restaurant, devices []db.Dev
 		}
 		in.Devices = append(in.Devices, dv)
 	}
-	if win.OpenMin != win.CloseMin { // equal = never open
+	lt := win.LocalNow(now, rest.Timezone)
+	if today := win.On(lt); today.OpenMin != today.CloseMin { // equal = never open
 		in.Open = win.InService(now, rest.Timezone)
-		in.OpenAt, in.CloseAt = hhmm(win.OpenMin), hhmm(win.CloseMin)
+		in.OpenAt, in.CloseAt = hhmm(today.OpenMin), hhmm(today.CloseMin)
+		if !in.Open && win.Week != nil && lt.Hour()*60+lt.Minute() >= today.CloseMin && today.CloseMin > today.OpenMin {
+			in.OpenAt = nextOpenLabel(win, lt) // closed for the day: the next day it opens
+		}
+	} else if win.Week != nil {
+		in.ClosedToday, in.OpenAt = true, nextOpenLabel(win, lt)
 	}
 	acc := h.access(r)
 	if alerts, err := h.db.ListActiveAlerts(ctx, 300); err == nil {
@@ -995,6 +1013,8 @@ func (h *Handler) RestaurantSetServiceWindow(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	r.ParseForm()
+	// Hours someone sets here stop following the AIO backend (B1).
+	_ = h.db.StopFollowingBackend(r.Context(), id, followHours)
 	if r.FormValue("action") == "reset" {
 		_ = h.db.DeleteServiceWindow(r.Context(), id)
 		h.audit(r, "restaurant.service_window", id.String(), "reset")
@@ -1009,6 +1029,15 @@ func (h *Handler) RestaurantSetServiceWindow(w http.ResponseWriter, r *http.Requ
 		NightOpenMin:  parseHHMM(r.FormValue("night_open"), 1410),
 		NightCloseMin: parseHHMM(r.FormValue("night_close"), 360),
 		TZ:            strings.TrimSpace(r.FormValue("timezone")),
+	}
+	if r.FormValue("per_day") == "1" { // H1: hours per weekday
+		var wk db.Week
+		for i := range wk {
+			n := strconv.Itoa(i)
+			wk[i] = db.DayHours{Closed: r.FormValue("closed_"+n) == "1",
+				Open: parseHHMM(r.FormValue("open_"+n), 420), Close: parseHHMM(r.FormValue("close_"+n), 1380)}
+		}
+		sw.Week = &wk
 	}
 	if err := h.db.SetServiceWindow(r.Context(), sw); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
