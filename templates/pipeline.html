@@ -676,7 +676,8 @@
   .lua-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin: 10px 0 6px; }
   .lua-legend span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
   .lua-t td { vertical-align: middle; }
-  .lua-t td small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .lua-t td small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; white-space: normal; overflow: visible; }
+  .lua-t td { white-space: normal; overflow: visible; text-overflow: clip; }
   .lua-t td.act { text-align: right; white-space: nowrap; }
   .lua-t td.act form { display: inline; }
   .lua-t code { font-size: 12px; color: var(--text-2); }
@@ -696,8 +697,8 @@
   .lua-rh { display: flex; align-items: center; gap: 8px; } .lua-rh h2 { flex: 1; margin: 0; }
   .lua-kv { display: flex; align-items: center; gap: 10px; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border-soft); font-size: 13px; }
   .lua-kv:first-of-type { border-top: 0; }
-  .lua-kv > span:first-child { color: var(--text-2); white-space: nowrap; }
-  .lua-kv.warn > span:first-child, .lua-kv .warn { color: var(--warn); }
+  .lua-kv > span:first-of-type { color: var(--text-2); white-space: nowrap; }
+  .lua-kv.warn > span:first-of-type, .lua-kv .warn { color: var(--warn); }
   .lua-kv code { font-size: 12px; }
   .lua-rail p { font-size: 12.5px; margin: 8px 0 0; }
   @media (max-width: 1024px) { .lua-pane { grid-template-columns: 1fr; } }
