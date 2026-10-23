@@ -6,8 +6,13 @@
   if (window.lockHostClick) return;
 
   // The island clips what overflows it, so an open menu is moved to <body> and placed
-  // under the button; a page swap drops it.
-  function menu() { return document.querySelector('.lk-menu[data-portal]') || document.getElementById('lk-menu'); }
+  // under the button. It belongs to that button: once the button is gone (another page),
+  // the moved menu is dropped and the new page's own menu is used.
+  function menu() {
+    var p = document.querySelector('.lk-menu[data-portal]');
+    if (p && p.__lkBtn && p.__lkBtn !== document.getElementById('lk-btn')) { p.remove(); p = null; }
+    return p || document.getElementById('lk-menu');
+  }
   function closeMenu() {
     var m = menu(), b = document.getElementById('lk-btn');
     if (m) m.hidden = true;
@@ -15,13 +20,14 @@
   }
   function place(m, btn) {
     if (m.parentElement !== document.body) { m.setAttribute('data-portal', ''); document.body.appendChild(m); }
+    m.__lkBtn = btn;
     var r = btn.getBoundingClientRect();
     m.style.top = (r.bottom + 8) + 'px';
     m.style.right = Math.max(8, document.documentElement.clientWidth - r.right) + 'px';
   }
-  document.addEventListener('htmx:beforeSwap', function () {
-    document.querySelectorAll('.lk-menu[data-portal]').forEach(function (m) { m.remove(); });
-  });
+  // A swap elsewhere on the page must not take the menu: the device page polls every two
+  // seconds (OTA progress), and removing the menu on every swap made it vanish right after
+  // it opened, so the next click locked with no app chosen (stage, 23 Oct 2026).
   window.addEventListener('resize', closeMenu);
   window.addEventListener('scroll', closeMenu, true);
 
@@ -101,6 +107,8 @@
       if (open) { var first = m.querySelector('.cc-mi:not([hidden])'); if (first) first.focus(); }
       return;
     }
+    // A button that asks which build must never lock without an answer.
+    if (btn.hasAttribute('aria-haspopup')) { location.reload(); return; }
     var on = btn.getAttribute('data-on') === '1';
     send(btn, !on, on ? '' : btn.getAttribute('data-pkg'));
   };
