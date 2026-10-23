@@ -361,7 +361,11 @@ func prodCoverageWeeks(matched map[uuid.UUID]time.Time, now time.Time) []covWeek
 		}
 	}
 	for i, e := range ends {
-		out = append(out, covWeek{Label: e.Format("2 Jan"), Pct: counts[i] * 100 / max, Cur: i == 7,
+		lbl := "" // every other week labelled, so the labels fit under the bars
+		if i%2 == 1 {
+			lbl = e.Format("2/1")
+		}
+		out = append(out, covWeek{Label: lbl, Pct: counts[i] * 100 / max, Cur: i == 7,
 			Title: fmt.Sprintf("%d in the MDM by %s", counts[i], e.Format("2 Jan"))})
 	}
 	return out
