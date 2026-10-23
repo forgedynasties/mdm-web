@@ -198,6 +198,7 @@ type Restaurant struct {
 	Timezone     string
 	Phone        string
 	Status       string
+	RecordStatus string // Active / Inactive (the backend's own on/off for a restaurant)
 }
 
 // FullAddress is the address on one line ("609 1st St, Brentwood, CA 94513"). Many rows
@@ -220,7 +221,8 @@ func (r Restaurant) FullAddress() string {
 // Restaurants returns every restaurant in env.
 func (c *Client) Restaurants(ctx context.Context, env Env) ([]Restaurant, error) {
 	rows, err := c.queryAll(ctx, env, `SELECT r.id, r.name, r."businessId", b."businessName", r.address, r.city, r.state,
-	       r."zipCode", r.latitude, r.longitude, r.timezone, r."phoneNo", r.status::text AS status
+	       r."zipCode", r.latitude, r.longitude, r.timezone, r."phoneNo", r.status::text AS status,
+	       r."recordStatus"::text AS record_status
 	FROM public.restaurant r LEFT JOIN public.business b ON b.id = r."businessId"
 	WHERE r.id > {{after}} ORDER BY r.id`)
 	if err != nil {
@@ -233,7 +235,7 @@ func (c *Client) Restaurants(ctx context.Context, env Env) ([]Restaurant, error)
 			BusinessName: str(m["businessName"]), Address: str(m["address"]), City: str(m["city"]),
 			State: str(m["state"]), Zip: str(m["zipCode"]), Latitude: flt(m["latitude"]),
 			Longitude: flt(m["longitude"]), Timezone: str(m["timezone"]), Phone: str(m["phoneNo"]),
-			Status: str(m["status"]),
+			Status: str(m["status"]), RecordStatus: str(m["record_status"]),
 		})
 	}
 	return out, nil

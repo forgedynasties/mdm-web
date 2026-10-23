@@ -386,6 +386,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// MDM clients and Host apps: pages of their own since 23 Oct 2026 (were Lineup tabs).
 	mux.HandleFunc("GET /clients", h.requireAuth(h.clientsEntry))
 	mux.HandleFunc("GET /host-apps", h.requireAuth(h.Pipeline))
+	// Prod coverage (C1, 23 Oct 2026): how much of the AIO backend is in the MDM.
+	mux.HandleFunc("GET /coverage", h.requireAuth(h.fleetWide(h.ProdCoveragePage)))
 	// The server's own vitals. Operator-and-up: it exposes no device data, but it does
 	// say how hard the box is working, which is not a customer-facing fact.
 	mux.HandleFunc("GET /server", h.requireAdminOrOperator(h.ServerPage))

@@ -296,6 +296,7 @@
         <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>
         {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/battery"}} on{{end}}" href="/battery" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Battery data">Battery data</a>{{end}}
         <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Fleet health">Fleet health</a>
+        {{if not (isCustomer .Role)}}<a class="js-dest{{if eq .ActivePath "/coverage"}} on{{end}}" href="/coverage" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Prod coverage">Prod coverage</a>{{end}}
         <a class="js-dest{{if eq .ActivePage "alerts"}} on{{end}}" href="/alerts" data-ic="bell" data-cmdk-sec="Fleet" data-cmdk-label="Alerts">Alerts</a>
         <a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>
       </div>

@@ -76,10 +76,10 @@ func (d *DB) ReplaceBackendCopy(ctx context.Context, env string, rs []aiobackend
 		return err
 	}
 	if _, err := tx.CopyFrom(ctx, pgx.Identifier{"backend_restaurants"},
-		[]string{"env", "id", "name", "business_id", "business_name", "address", "city", "state", "zip", "latitude", "longitude", "timezone", "phone", "status"},
+		[]string{"env", "id", "name", "business_id", "business_name", "address", "city", "state", "zip", "latitude", "longitude", "timezone", "phone", "status", "record_status"},
 		pgx.CopyFromSlice(len(rs), func(i int) ([]any, error) {
 			r := rs[i]
-			return []any{env, r.ID, r.Name, r.BusinessID, r.BusinessName, r.Address, r.City, r.State, r.Zip, r.Latitude, r.Longitude, r.Timezone, r.Phone, r.Status}, nil
+			return []any{env, r.ID, r.Name, r.BusinessID, r.BusinessName, r.Address, r.City, r.State, r.Zip, r.Latitude, r.Longitude, r.Timezone, r.Phone, r.Status, r.RecordStatus}, nil
 		})); err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ type BackendRestaurant struct {
 // ListBackendRestaurants returns the copied restaurants of every environment.
 func (d *DB) ListBackendRestaurants(ctx context.Context) ([]BackendRestaurant, error) {
 	rows, err := d.pool.Query(ctx, `SELECT env, id, name, business_id, business_name, address, city, state, zip,
-		latitude, longitude, timezone, phone, status FROM backend_restaurants ORDER BY env, id`)
+		latitude, longitude, timezone, phone, status, record_status FROM backend_restaurants ORDER BY env, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (d *DB) ListBackendRestaurants(ctx context.Context) ([]BackendRestaurant, e
 	for rows.Next() {
 		var r BackendRestaurant
 		if err := rows.Scan(&r.Env, &r.ID, &r.Name, &r.BusinessID, &r.BusinessName, &r.Address, &r.City, &r.State, &r.Zip,
-			&r.Latitude, &r.Longitude, &r.Timezone, &r.Phone, &r.Status); err != nil {
+			&r.Latitude, &r.Longitude, &r.Timezone, &r.Phone, &r.Status, &r.RecordStatus); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -278,9 +278,9 @@ func (d *DB) BackendHoursOf(ctx context.Context, env string, restaurantID int64)
 func (d *DB) BackendRestaurantOf(ctx context.Context, env string, id int64) (BackendRestaurant, bool, error) {
 	var r BackendRestaurant
 	err := d.pool.QueryRow(ctx, `SELECT env, id, name, business_id, business_name, address, city, state, zip,
-		latitude, longitude, timezone, phone, status FROM backend_restaurants WHERE env = $1 AND id = $2`, env, id).
+		latitude, longitude, timezone, phone, status, record_status FROM backend_restaurants WHERE env = $1 AND id = $2`, env, id).
 		Scan(&r.Env, &r.ID, &r.Name, &r.BusinessID, &r.BusinessName, &r.Address, &r.City, &r.State, &r.Zip,
-			&r.Latitude, &r.Longitude, &r.Timezone, &r.Phone, &r.Status)
+			&r.Latitude, &r.Longitude, &r.Timezone, &r.Phone, &r.Status, &r.RecordStatus)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return r, false, nil
 	}

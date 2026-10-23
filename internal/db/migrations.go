@@ -2177,6 +2177,8 @@ CREATE TABLE IF NOT EXISTS backend_hours (
 -- Venue fields that follow the AIO backend (B1): address, pin, timezone, hours. A field
 -- leaves the list when someone edits it in the MDM ("Set here").
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_follow TEXT[] NOT NULL DEFAULT '{}';
+-- The backend's Active / Inactive flag per restaurant (Prod coverage counts active ones).
+ALTER TABLE backend_restaurants ADD COLUMN IF NOT EXISTS record_status TEXT NOT NULL DEFAULT '';
 -- Backend restaurants someone chose to ignore on the Venues page (test restaurants) (M2).
 CREATE TABLE IF NOT EXISTS backend_ignores (
     env           TEXT NOT NULL,
