@@ -2121,6 +2121,54 @@ CREATE TABLE IF NOT EXISTS app_usage (
     PRIMARY KEY (device_id, daily, bucket, package)
 );
 
+-- AIO backend (23 Oct): a copy of the restaurant backend's restaurants and devices, per
+-- environment (prod / stage), refreshed by the sync job; pages read this, never Metabase.
+CREATE TABLE IF NOT EXISTS backend_restaurants (
+    env           TEXT NOT NULL,
+    id            BIGINT NOT NULL,
+    name          TEXT NOT NULL DEFAULT '',
+    business_id   BIGINT NOT NULL DEFAULT 0,
+    business_name TEXT NOT NULL DEFAULT '',
+    address       TEXT NOT NULL DEFAULT '',
+    city          TEXT NOT NULL DEFAULT '',
+    state         TEXT NOT NULL DEFAULT '',
+    zip           TEXT NOT NULL DEFAULT '',
+    latitude      DOUBLE PRECISION,
+    longitude     DOUBLE PRECISION,
+    timezone      TEXT NOT NULL DEFAULT '',
+    phone         TEXT NOT NULL DEFAULT '',
+    status        TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (env, id)
+);
+CREATE TABLE IF NOT EXISTS backend_devices (
+    env           TEXT NOT NULL,
+    id            BIGINT NOT NULL,
+    restaurant_id BIGINT NOT NULL DEFAULT 0,
+    device_type   TEXT NOT NULL DEFAULT '',
+    serial        TEXT NOT NULL DEFAULT '',
+    ip            TEXT NOT NULL DEFAULT '',
+    onboarded     BOOLEAN NOT NULL DEFAULT FALSE,
+    revoked       BOOLEAN NOT NULL DEFAULT FALSE,
+    updated       TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (env, id)
+);
+CREATE INDEX IF NOT EXISTS backend_devices_serial ON backend_devices (upper(serial));
+CREATE INDEX IF NOT EXISTS backend_devices_restaurant ON backend_devices (env, restaurant_id);
+CREATE TABLE IF NOT EXISTS backend_sync (
+    env          TEXT PRIMARY KEY,
+    synced_at    TIMESTAMPTZ,
+    attempted_at TIMESTAMPTZ,
+    error        TEXT NOT NULL DEFAULT '',
+    restaurants  INT NOT NULL DEFAULT 0,
+    devices      INT NOT NULL DEFAULT 0,
+    requested    BOOLEAN NOT NULL DEFAULT FALSE
+);
+-- A venue's backend restaurant (P1): '' / NULL = not linked. A person confirms a link.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_env TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_restaurant_id BIGINT;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_linked_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_linked_at TIMESTAMPTZ;
+
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access
 -- admins become fleet managers (super ops push firmware only where a rule says so now).

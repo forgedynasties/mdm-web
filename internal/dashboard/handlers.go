@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"mdm/internal/aiobackend"
 	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
 	"mdm/internal/apkstore"
@@ -251,6 +252,8 @@ type Handler struct {
 	shell       *shell.Manager
 	remote      *remote.Manager
 	tunnels     *adbtunnel.Manager
+	// backend reads the AIO restaurant backend through Metabase; nil when unconfigured.
+	backend *aiobackend.Client
 	logs        *logstream.Manager
 	store       *sessions.CookieStore
 	tmpl        *template.Template

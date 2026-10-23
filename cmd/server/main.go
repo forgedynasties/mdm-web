@@ -18,6 +18,7 @@ import (
 	_ "time/tzdata" // embed the IANA tz database so LoadLocation works without OS tzdata
 
 	"github.com/google/uuid"
+	"mdm/internal/aiobackend"
 	"mdm/internal/api"
 	"mdm/internal/config"
 	"mdm/internal/dashboard"
@@ -640,6 +641,13 @@ func main() {
 	dash.SetIngestStats(apiHandler.IngestStats)
 	dash.SetKeyResetHook(apiHandler.ForgetOwnKey)
 	dash.SetScout(scoutSvc)
+	// AIO backend (23 Oct 2026): restaurants and devices from the restaurant backend's
+	// Metabase, copied by the backend-sync job. Metabase db 3 = AIO Prod, 4 = AIO Stage.
+	if mb := aiobackend.New(os.Getenv("AIO_BACKEND_METABASE_URL"), os.Getenv("AIO_BACKEND_METABASE_KEY"),
+		map[aiobackend.Env]int{aiobackend.Prod: 3, aiobackend.Stage: 4}); mb != nil {
+		dash.SetBackend(mb)
+		log.Println("AIO backend enabled (Metabase)")
+	}
 
 	// The DPC agent APK this server hosts: what a factory-reset device downloads
 	// during QR provisioning, and what an "Update agent" command installs. Posting
@@ -849,6 +857,7 @@ func main() {
 				// Install the product's prod app (Lineup → role → App) on online devices
 				// that lack it, at a venue or not — see dashboard/role_app_install.go.
 				runJob(bgCtx, "role-app-install", time.Minute, dash.RunRoleAppInstalls)
+				runJob(bgCtx, "backend-sync", 5*time.Minute, dash.RunBackendSync)
 				// Record when each device goes online and offline, for the network graph's
 				// online strip (dashboard/presence_record.go).
 				runJob(bgCtx, "presence", time.Minute, dash.RunPresenceRecord)
