@@ -1,9 +1,26 @@
-{{/* Resource use (A1, picked 22 Oct 2026): every app and system service on the device
-     ranked by what it cost — screen time, memory, CPU, network, battery — over 24 h, 7 d or
-     30 d. The window chips and the sort swap the card in place. app_usage.go */}}
+{{/* Resource use (A1, picked 22 Oct 2026; T1 23 Oct): the top five apps for memory and
+     for CPU side by side as bars (screen time and network on the Standard client), the
+     role app always listed; "All N apps" opens the full ranked table in place. The window
+     chips swap the card. app_usage.go */}}
 {{define "dd-app-usage"}}
 <div class="card au-card" id="dd-app-usage">
 <style>
+.au-card{margin-bottom:14px}
+.au-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:12px 16px 4px}
+.au-sub{display:flex;justify-content:space-between;gap:8px;font-size:10.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.au-sub em{font-style:normal;text-transform:none;letter-spacing:0;font-weight:500}
+.au-bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.au-bars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;font-size:12.5px}
+.au-bars .n{font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.au-bars .v{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2);white-space:nowrap}
+.au-bars .t{grid-column:1/-1;height:7px;border-radius:99px;background:var(--surface2);overflow:hidden}
+.au-bars .t i{display:block;height:100%;border-radius:99px;background:#7c8798}
+.au-bars .t i.role{background:var(--accent)}.au-bars .t i.bad{background:var(--danger)}.au-bars .t i.sys{background:#9aa3b2}
+.au-none{font-size:12px;color:var(--muted)}
+.au-foot{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted);border-top:1px solid var(--border-soft);margin:12px 0 0;padding:10px 16px}
+.au-foot i{display:inline-block;width:8px;height:8px;border-radius:99px;margin-right:5px}
+.au-foot button{margin-left:auto;border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--accent-text);cursor:pointer}
+.au-foot button:focus-visible{outline:none;box-shadow:var(--ring);border-radius:4px}
 .au-card .au-tools{display:flex;align-items:center;gap:6px;margin-left:auto}
 .au-chip{border:0;background:var(--surface2);color:var(--text-2);font:inherit;font-size:11.5px;font-weight:650;padding:4px 10px;border-radius:99px;cursor:pointer}
 .au-chip.on{background:var(--accent-soft);color:var(--accent-text)}
@@ -26,21 +43,36 @@
 </style>
   <div class="card-header cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
-    <h2>Resource use</h2>
+    <h2>{{if .All}}Resource use{{else}}Top apps{{end}}</h2>
     <div class="au-tools">
       {{range $w := .Windows}}<button type="button" class="au-chip{{if eq $w $.Window}} on{{end}}" aria-pressed="{{if eq $w $.Window}}true{{else}}false{{end}}"
-        hx-get="/devices/{{$.Serial}}/app-usage?window={{$w}}&sort={{$.Sort}}" hx-target="#dd-app-usage" hx-swap="outerHTML">{{$w}}</button>{{end}}
-      <select class="au-sort" aria-label="Sort by" name="sort" hx-get="/devices/{{.Serial}}/app-usage?window={{.Window}}" hx-target="#dd-app-usage" hx-swap="outerHTML" hx-trigger="change">
+        hx-get="/devices/{{$.Serial}}/app-usage?window={{$w}}&sort={{$.Sort}}{{if $.All}}&all=1{{end}}" hx-target="#dd-app-usage" hx-swap="outerHTML">{{$w}}</button>{{end}}
+      {{if .All}}<select class="au-sort" aria-label="Sort by" name="sort" hx-get="/devices/{{.Serial}}/app-usage?window={{.Window}}&all=1" hx-target="#dd-app-usage" hx-swap="outerHTML" hx-trigger="change">
         <option value="screen"{{if eq .Sort "screen"}} selected{{end}}>Sort: screen time</option>
         {{if not .Limited}}<option value="mem"{{if eq .Sort "mem"}} selected{{end}}>Sort: memory</option>
         <option value="cpu"{{if eq .Sort "cpu"}} selected{{end}}>Sort: CPU</option>{{end}}
         <option value="net"{{if eq .Sort "net"}} selected{{end}}>Sort: network</option>
         {{if .HasBattery}}<option value="battery"{{if eq .Sort "battery"}} selected{{end}}>Sort: battery</option>{{end}}
-      </select>
+      </select>{{end}}
     </div>
   </div>
   {{if not .Reported}}
-  <div class="au-empty">No app usage reported for this window yet. It comes from Firmware MDM 1.17.0 and Standard client 0.6.0 onwards, about every 15 minutes.</div>
+  <div class="au-empty">No app usage reported for this window yet. It comes from Firmware MDM 1.17.1 and Standard client 0.6.0 onwards, about every 15 minutes.</div>
+  {{else}}
+  {{if not .All}}
+  <div class="au-cols">
+    {{range .Cols}}
+    <div>
+      <div class="au-sub">{{.Title}}{{with .Total}} <em>{{.}}</em>{{end}}</div>
+      {{if .Bars}}<ul class="au-bars">
+        {{range .Bars}}<li><span class="n" title="{{.Name}}">{{.Name}}</span><span class="v">{{.Value}}</span><span class="t" aria-hidden="true"><i class="{{.Tone}}" style="width:{{.Pct}}%"></i></span></li>{{end}}
+      </ul>{{else}}<p class="au-none">Nothing measured in this window.</p>{{end}}
+    </div>
+    {{end}}
+  </div>
+  <div class="au-foot"><span><i style="background:var(--accent)"></i>Role app</span><span><i style="background:var(--danger)"></i>Over its limit</span>
+    <button type="button" hx-get="/devices/{{.Serial}}/app-usage?window={{.Window}}&all=1" hx-target="#dd-app-usage" hx-swap="outerHTML">All {{.Count}} apps →</button></div>
+  {{if .Limited}}<div class="au-note">The Standard client can measure screen time and network only: Android keeps other apps' memory, CPU and battery from a normal app.</div>{{end}}
   {{else}}
   <div style="overflow-x:auto">
   <table class="au-t">
@@ -67,6 +99,8 @@
   </div>
   {{if .More}}<div class="au-note">{{.More}} more apps used less.</div>{{end}}
   {{if .Limited}}<div class="au-note">The Standard client can measure screen time and network only: Android keeps other apps' memory, CPU and battery from a normal app.</div>{{end}}
+  <div class="au-foot"><button type="button" hx-get="/devices/{{.Serial}}/app-usage?window={{.Window}}" hx-target="#dd-app-usage" hx-swap="outerHTML">← Top apps</button></div>
+  {{end}}
   {{end}}
 </div>
 {{end}}

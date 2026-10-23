@@ -524,7 +524,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// The app this device is there to run, reported from outside it (host_app.go).
 		"HostApp": hostAppView(device.LatestExtra),
 		// Resource use (A1): the Apps tab's ranking, 24 h by default.
-		"AppUsage": h.appUsageView(r.Context(), device, "24h", ""),
+		"AppUsage": h.appUsageView(r.Context(), device, "24h", "", false),
 		// Wi-Fi card (W1) on the Overview.
 		"Wifi": h.deviceWifiView(r.Context(), device, h.role(r) == "admin"),
 		// Charge-climb wear against the fleet and its own first weeks (battery_wear.go);

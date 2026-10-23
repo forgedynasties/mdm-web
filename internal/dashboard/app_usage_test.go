@@ -25,14 +25,26 @@ func TestAppUsageCardRenders(t *testing.T) {
 		}
 		return b.String()
 	}
-	full := render(appUsageView{Serial: "S1", Window: "24h", Windows: []string{"24h", "7d", "30d"}, Sort: "mem", HasBattery: true, Reported: true,
+	full := render(appUsageView{Serial: "S1", Window: "24h", Windows: []string{"24h", "7d", "30d"}, Sort: "mem", HasBattery: true, Reported: true, All: true,
 		Rows: []appUsageRowView{{Name: "Nugget", Package: "aio.app.nugget", Screen: "11 h 40", Mem: "412 MB", MemPeak: "450 MB peak", CPU: "18.0 %", Net: "1.9 GB", Battery: "120 mAh", BarPct: 100}}, More: 3})
-	for _, w := range []string{`id="dd-app-usage"`, `>Memory</th>`, `>Battery</th>`, `450 MB peak`, `3 more apps`, `hx-get="/devices/S1/app-usage?window=7d&sort=mem"`} {
+	for _, w := range []string{`id="dd-app-usage"`, `>Memory</th>`, `>Battery</th>`, `450 MB peak`, `3 more apps`, `hx-get="/devices/S1/app-usage?window=7d&sort=mem&all=1"`, `← Top apps`} {
 		if !strings.Contains(full, w) {
 			t.Errorf("full card missing %q", w)
 		}
 	}
-	dpc := render(appUsageView{Serial: "S2", Window: "24h", Windows: []string{"24h"}, Sort: "screen", Limited: true, Reported: true,
+	// T1, the card as it opens: two columns of bars, then "All N apps".
+	top := render(appUsageView{Serial: "S1", Window: "24h", Windows: []string{"24h", "7d", "30d"}, Sort: "mem", Reported: true, Count: 41,
+		Cols: []auCol{{Title: "Memory", Total: "2.2 GB in apps", Bars: []auBar{{Name: "Chrome", Value: "343 MB", Pct: 100, Tone: "bad"}, {Name: "Nugget", Value: "15 MB", Pct: 4, Tone: "role"}}},
+			{Title: "CPU", Total: "87 % summed", Bars: []auBar{{Name: "AIO MDM", Value: "9.4 %", Pct: 100}}}}})
+	for _, w := range []string{`>Top apps</h2>`, `2.2 GB in apps`, `class="bad" style="width:100%"`, `class="role"`, `All 41 apps →`, `app-usage?window=24h&all=1`} {
+		if !strings.Contains(top, w) {
+			t.Errorf("top card missing %q", w)
+		}
+	}
+	if strings.Contains(top, `<th`) || strings.Contains(top, `class="au-sort"`) {
+		t.Error("the top view shows the table or its sort")
+	}
+	dpc := render(appUsageView{Serial: "S2", Window: "24h", Windows: []string{"24h"}, Sort: "screen", Limited: true, Reported: true, All: true,
 		Rows: []appUsageRowView{{Name: "Menu boards", Package: "aio.app.menuboards", Screen: "9 h"}}})
 	if strings.Contains(dpc, ">Memory</th>") || !strings.Contains(dpc, "screen time and network only") {
 		t.Error("Standard client card shows columns it cannot measure, or no note")

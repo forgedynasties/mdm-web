@@ -14,6 +14,13 @@ import (
 // Resource use on the device page's Apps tab (A1, picked 22 Oct 2026): every app and
 // system service ranked by what it cost over 24 h / 7 d / 30 d, sortable by screen time,
 // memory, CPU, network or battery. Data from db.AppUsage (POST /api/v1/app-usage).
+//
+// T1 (picked 23 Oct 2026; user: "it displays all the apps, and we need to manually switch
+// between memory and cpu and there is no visualization"): the card opens on the top five
+// apps for memory and for CPU side by side, as bars (screen time and network on the Standard
+// client, which can't measure the other two). The role app is always listed, in coral; an
+// app other than the role's own over 300 MB or 20 % CPU is red. "All N apps" opens the
+// full table in place.
 
 type appUsageRowView struct {
 	Name, Package        string
@@ -24,7 +31,22 @@ type appUsageRowView struct {
 	BarPct               int // the sorted column's share of the top row, for the bar
 }
 
+// auBar is one app in a T1 column.
+type auBar struct {
+	Name, Value string
+	Pct         int    // of the column's top value
+	Tone        string // role | bad | sys | ""
+}
+
+type auCol struct {
+	Title, Total string
+	Bars         []auBar
+}
+
 type appUsageView struct {
+	Cols       []auCol // T1: memory | CPU (screen | network on the Standard client)
+	All        bool    // the full table is open
+	Count      int     // apps that reported in the window
 	Serial     string
 	Window     string // 24h | 7d | 30d
 	Windows    []string
@@ -40,7 +62,7 @@ var appUsageWindows = map[string]time.Duration{"24h": 24 * time.Hour, "7d": 7 * 
 
 const appUsageShown = 25
 
-func (h *Handler) appUsageView(ctx context.Context, d *db.Device, window, sortBy string) appUsageView {
+func (h *Handler) appUsageView(ctx context.Context, d *db.Device, window, sortBy string, all bool) appUsageView {
 	if _, ok := appUsageWindows[window]; !ok {
 		window = "24h"
 	}
@@ -59,6 +81,13 @@ func (h *Handler) appUsageView(ctx context.Context, d *db.Device, window, sortBy
 		return v
 	}
 	v.Reported = true
+	v.All, v.Count = all, len(rows)
+	role := h.roleAppBase(ctx, d.ProductKey())
+	if limited {
+		v.Cols = []auCol{appUsageTop(rows, "screen", role), appUsageTop(rows, "net", role)}
+	} else {
+		v.Cols = []auCol{appUsageTop(rows, "mem", role), appUsageTop(rows, "cpu", role)}
+	}
 	key := func(r db.AppUsageRow) float64 {
 		switch sortBy {
 		case "screen":
@@ -151,7 +180,87 @@ func (h *Handler) DeviceAppUsage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "device not found", http.StatusNotFound)
 		return
 	}
-	v := h.appUsageView(r.Context(), d, r.URL.Query().Get("window"), r.URL.Query().Get("sort"))
+	q := r.URL.Query()
+	v := h.appUsageView(r.Context(), d, q.Get("window"), q.Get("sort"), q.Get("all") == "1")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = h.tmpl.ExecuteTemplate(w, "dd-app-usage", v)
+}
+
+const auTopN = 5
+
+// appUsageTop is one T1 column: the top five apps on [measure], with the role app put in
+// the last place when it is not among them, so its cost is always visible.
+func appUsageTop(rows []db.AppUsageRow, measure, roleBase string) auCol {
+	val := func(r db.AppUsageRow) (float64, bool) {
+		return muDeviceValue(measure, db.DeviceAppUsage{AppUsageRow: r})
+	}
+	title, _ := p1MeasureLabel(measure)
+	col := auCol{Title: title}
+	type kv struct {
+		r db.AppUsageRow
+		v float64
+	}
+	var list []kv
+	total := 0.0
+	for _, r := range rows {
+		if v, ok := val(r); ok && v > 0 {
+			list = append(list, kv{r, v})
+			total += v
+		}
+	}
+	sort.SliceStable(list, func(i, j int) bool {
+		if list[i].v != list[j].v {
+			return list[i].v > list[j].v
+		}
+		return list[i].r.Package < list[j].r.Package
+	})
+	if total > 0 {
+		switch measure {
+		case "mem":
+			col.Total = muFmt("mem", total) + " in apps"
+		case "cpu":
+			col.Total = fmt.Sprintf("%.0f %% summed", total)
+		default:
+			col.Total = muFmt(measure, total) + " in all"
+		}
+	}
+	top := list
+	if len(top) > auTopN {
+		top = append([]kv(nil), list[:auTopN]...)
+		in := false
+		for _, x := range top {
+			in = in || isRoleApp(x.r.Package, roleBase)
+		}
+		if !in {
+			for _, x := range list[auTopN:] {
+				if isRoleApp(x.r.Package, roleBase) {
+					top[auTopN-1] = x
+					break
+				}
+			}
+		}
+	}
+	for _, x := range top {
+		name := x.r.Label
+		if name == "" {
+			name = x.r.Package
+		}
+		b := auBar{Name: name, Value: muFmt(measure, x.v)}
+		if list[0].v > 0 {
+			b.Pct = int(x.v*100/list[0].v + 0.5)
+		}
+		if b.Pct < 2 {
+			b.Pct = 2
+		}
+		switch {
+		case isRoleApp(x.r.Package, roleBase):
+			b.Tone = "role"
+		case !x.r.System && ((measure == "mem" && x.v >= muMemWarnMB) || (measure == "cpu" && x.v >= muCPUWarnPct)):
+			b.Tone = "bad"
+		case x.r.System:
+			b.Tone = "sys"
+		}
+		col.Bars = append(col.Bars, b)
+	}
+	return col
 }
