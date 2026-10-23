@@ -1910,6 +1910,11 @@ func (h *Handler) FailOverdueShellCommands(ctx context.Context) {
 // link can legitimately go minutes between percent acks.
 func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
 	const stallMinutes = 30
+	// Unheard for three check-ins (at least 5 minutes) = offline: back in line, not failed.
+	offlineMinutes := (h.cfg.CheckinInterval()*3 + 59) / 60
+	if offlineMinutes < 5 {
+		offlineMinutes = 5
+	}
 	revived, err := h.db.ReviveStalledOTAs(ctx, stallMinutes)
 	if err != nil {
 		log.Printf("[ota-sweep] ReviveStalledOTAs error: %v", err)
@@ -1929,7 +1934,7 @@ func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
 	if len(revived) > 0 || len(requeued) > 0 {
 		h.hub.PublishDeploymentUpdate()
 	}
-	offline, err := h.db.RequeueOfflineOTAs(ctx, stallMinutes)
+	offline, err := h.db.RequeueOfflineOTAs(ctx, stallMinutes, offlineMinutes)
 	if err != nil {
 		log.Printf("[ota-sweep] RequeueOfflineOTAs error: %v", err)
 	}
@@ -1940,7 +1945,7 @@ func (h *Handler) ExpireStalledOTAs(ctx context.Context) {
 	if len(offline) > 0 {
 		h.hub.PublishDeploymentUpdate()
 	}
-	stalled, err := h.db.ExpireStalledOTAs(ctx, stallMinutes)
+	stalled, err := h.db.ExpireStalledOTAs(ctx, stallMinutes, offlineMinutes)
 	if err != nil {
 		log.Printf("[ota-sweep] ExpireStalledOTAs error: %v", err)
 		return

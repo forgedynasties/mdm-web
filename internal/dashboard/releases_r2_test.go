@@ -165,8 +165,9 @@ func TestBuildRoStrip(t *testing.T) {
 		{ID: 422, Version: "v2.0.997", Total: 26, Installed: 26},
 		{ID: 423, Version: "v2.0.997", Total: 20, Installed: 3},
 		{ID: 430, Version: "v2.0.997", Total: 4, Installed: 2, Installing: 1, Failed: 1},
+		{ID: 421, Version: "v2.0.997", Total: 26, Installed: 25, NotBack: 1},
 	})
-	if st.Running != 4 || st.Installed != 8 || st.Total != 44 || st.Installing != 18 {
+	if st.Running != 5 || st.Installed != 33 || st.Total != 70 || st.Installing != 18 {
 		t.Fatalf("summary = %+v", st)
 	}
 	got := map[int]roRow{}
@@ -181,5 +182,8 @@ func TestBuildRoStrip(t *testing.T) {
 	}
 	if got[457].State != "run" || got[457].Note != "2 installing" || got[430].Note != "1 installing · 1 failed" {
 		t.Errorf("running rows = %+v / %+v", got[457], got[430])
+	}
+	if got[421].State != "look" || got[421].Note != "1 not back from its reboot" {
+		t.Errorf("not-back row = %+v", got[421])
 	}
 }

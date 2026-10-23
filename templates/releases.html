@@ -26,6 +26,7 @@
 .ro-st{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text)}
 .ro-st i{width:8px;height:8px;border-radius:99px;flex:none}
 .ro-st.run i{background:#3b82f6;box-shadow:0 0 0 3px color-mix(in srgb,#3b82f6 22%,transparent)}
+.ro-st.look{color:var(--danger)}.ro-st.look i{background:var(--danger)}
 .ro-st.wait{color:var(--warn)}.ro-st.wait i{border:2px solid var(--warn);box-sizing:border-box}
 .ro-st.done{color:var(--muted);font-weight:500}.ro-st.done i{background:var(--ok)}
 .ro-n{font-variant-numeric:tabular-nums;color:var(--text)}.ro-n b{font-weight:650}
@@ -76,7 +77,7 @@ table.ro-t{width:100%;border-collapse:collapse;font-size:12.5px}
 .ro-t td a{color:var(--text);text-decoration:none;font-family:var(--mono);font-size:12px}
 .ro-t td a:hover{color:var(--accent-text)}
 .ro-bar{display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--surface2);min-width:140px}
-.ro-bar i{display:block;height:100%}.ro-bar .p{background:var(--ok)}.ro-bar .f{background:var(--danger)}.ro-bar .g{background:#60a5fa}
+.ro-bar i{display:block;height:100%}.ro-bar .p{background:var(--ok)}.ro-bar .f{background:var(--danger)}.ro-bar .g{background:#60a5fa}.ro-bar .w{background:var(--warn)}
 .ro-bad{color:var(--danger)}
 .ro-empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px}
 a.rl-crash{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;text-decoration:none;background:var(--danger-bg);color:var(--danger);white-space:nowrap}
@@ -127,11 +128,11 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
     <div class="ro-run-h"><h2>Updates running</h2><span>{{if .Running}}{{.Running}} · {{.Installed}} of {{.Total}} devices installed{{if .Installing}}, {{.Installing}} installing{{end}}{{else}}none{{end}}</span></div>
     {{range .Rows}}
     <a class="ro-run-r{{if eq .State "done"}} done{{end}}" href="{{.URL}}">
-      <span class="ro-st {{.State}}"><i></i>{{if eq .State "run"}}Installing{{else if eq .State "wait"}}Waiting{{else}}Finished{{end}}</span>
+      <span class="ro-st {{.State}}"><i></i>{{if eq .State "look"}}Needs a look{{else if eq .State "run"}}Installing{{else if eq .State "wait"}}Waiting{{else}}Finished{{end}}</span>
       <span class="mono">{{.Version}} · #{{.ID}}</span>
-      <span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span>
+      <span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.NotBack}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span>
       <span class="ro-n"><b>{{.Installed}}</b> of {{.Total}}</span>
-      <span class="ro-note{{if .Failed}} bad{{end}}">{{.Note}}</span>
+      <span class="ro-note{{if or .Failed .NotBack}} bad{{end}}">{{.Note}}</span>
       <span class="cc-btn sm">Open</span>
     </a>
     {{end}}
@@ -261,8 +262,8 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
         {{range $.Rollouts}}
         <tr><td><a href="{{.URL}}">#{{.ID}}</a>{{if .Legacy}} <span class="cc-tag" title="Includes devices on the legacy (otautil) path">legacy</span>{{end}}</td>
           <td>{{shortDate .CreatedAt}}{{if .CreatedBy}} · {{.CreatedBy}}{{end}}</td>
-          <td><span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span></td>
-          <td>{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</td>
+          <td><span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.NotBack}}"></i><i class="g" style="flex:{{.Installing}}"></i><i style="flex:{{.Pending}}"></i></span></td>
+          <td>{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .NotBack}} · <span class="ro-bad">{{.NotBack}} not back from reboot</span>{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</td>
           <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}updating{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
         {{end}}
       </table>

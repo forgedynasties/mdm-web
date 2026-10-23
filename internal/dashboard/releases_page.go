@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"mdm/internal/db"
@@ -30,11 +31,16 @@ type rolloutView struct {
 	CreatedBy                            string
 	Legacy                               bool
 	Total, Installed, Installing, Failed int
+	// NotBack: rebooted to apply it 15+ minutes ago and not confirmed on the new build. A
+	// device waiting for or in its applying reboot otherwise counts as installing, not
+	// installed (user, 23 Oct 2026: #422 read "26 of 26 all installed" with one tablet that
+	// never came back from its reboot).
+	NotBack int
 }
 
 // Pending is what has not started or finished either way.
 func (v rolloutView) Pending() int {
-	n := v.Total - v.Installed - v.Installing - v.Failed
+	n := v.Total - v.Installed - v.Installing - v.Failed - v.NotBack
 	if n < 0 {
 		return 0
 	}
@@ -48,7 +54,7 @@ func (v rolloutView) Pending() int {
 // not checked in since it was sent).
 type roRow struct {
 	rolloutView
-	State string // run | wait | done
+	State string // look | run | wait | done
 	Note  string
 }
 
@@ -63,8 +69,11 @@ func buildRoStrip(active []rolloutView) roStrip {
 	for _, v := range active {
 		r := roRow{rolloutView: v}
 		failed := ""
+		if v.NotBack > 0 {
+			failed += fmt.Sprintf(" · %d not back from %s reboot", v.NotBack, dp1Their(v.NotBack))
+		}
 		if v.Failed > 0 {
-			failed = fmt.Sprintf(" · %d failed", v.Failed)
+			failed += fmt.Sprintf(" · %d failed", v.Failed)
 		}
 		switch {
 		case v.Total > 0 && v.Installed+v.Failed >= v.Total:
@@ -75,6 +84,12 @@ func buildRoStrip(active []rolloutView) roStrip {
 			}
 			done = append(done, r)
 			continue
+		case v.NotBack > 0 && v.Installing == 0:
+			r.State = "look"
+			r.Note = strings.TrimPrefix(failed, " · ")
+			if p := v.Pending(); p > 0 {
+				r.Note += fmt.Sprintf(" · %d haven't checked in", p)
+			}
 		case v.Installing > 0:
 			r.State = "run"
 			r.Note = fmt.Sprintf("%d installing", v.Installing) + failed
@@ -103,8 +118,9 @@ func releasesRedirect(w http.ResponseWriter, r *http.Request) {
 
 func deploymentView(d db.Update) rolloutView {
 	v := rolloutView{URL: fmt.Sprintf("/releases/%d/deployments/%d", d.ReleaseID, d.ID), ID: d.ID, Status: d.Status,
-		CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy, Total: d.DeviceTotal, Installed: d.DeviceInstalled + d.DeviceAwaiting,
-		Installing: d.DeviceDownloading + d.DeviceInstalling, Failed: d.DeviceFailed}
+		CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy, Total: d.DeviceTotal, Installed: d.DeviceInstalled,
+		Installing: d.DeviceDownloading + d.DeviceInstalling + d.DeviceAwaiting - d.DeviceNotBack, Failed: d.DeviceFailed,
+		NotBack: d.DeviceNotBack}
 	if d.Release != nil {
 		v.Version = d.Release.Version
 	}

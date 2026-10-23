@@ -230,6 +230,11 @@ func buildDeployD1(in dp1Inputs) dp1View {
 			switch {
 			case !active:
 				r.Detail = "not offered: the rollout is " + in.Dep.Status
+			case offline(t.LastSeenAt) && t.StartedAt != nil:
+				// It was offered and went dark mid-update (a dead battery, usually): the sweep
+				// put it back in line, and its next check-in starts the update again.
+				r.Word = "Waiting for the device to come back"
+				r.Detail = "went offline " + dp1Ago(now, t.LastSeenAt) + " mid-update · retries when it is back"
 			case offline(t.LastSeenAt):
 				r.Detail = "offline · gets it when it is back"
 			default:
@@ -261,13 +266,19 @@ func buildDeployD1(in dp1Inputs) dp1View {
 				r.Detail = "offered, not started yet"
 			}
 			switch {
+			case offline(t.LastSeenAt) && now.Sub(t.LastSeenAt) > 5*time.Minute:
+				// Gone dark mid-download: not a stall. The sweep puts it back in line and
+				// it retries at its next check-in (user, 23 Oct 2026).
+				r.Key, r.Word, r.Tone, r.Bar, r.Cancel = "wait", "Waiting for the device to come back", "q", false, false
+				at := ""
+				if hasP {
+					at = " at " + strconv.Itoa(p.Percent) + "%"
+				}
+				r.Detail = "went offline " + dp1Ago(now, t.LastSeenAt) + at + " · retries when it is back"
+				r.Remove = true
 			case now.Sub(last) > 30*time.Minute:
 				r.Key, r.Tone, r.RetryStalled, r.Open, r.LookOf = "look", "warn", true, true, "dl"
-				if offline(t.LastSeenAt) {
-					r.Word, r.Detail = "Download stopped", "the device went offline "+dp1Ago(now, t.LastSeenAt)
-				} else {
-					r.Word, r.Detail = "Download stopped", "nothing for "+dp1Mins(now.Sub(last))+" while the device stayed online"
-				}
+				r.Word, r.Detail = "Download stopped", "nothing for "+dp1Mins(now.Sub(last))+" while the device stayed online"
 			case hasP && !p.AdvancedAt.IsZero() && now.Sub(p.AdvancedAt) > 15*time.Minute:
 				r.Key, r.Tone, r.Open, r.LookOf = "look", "warn", true, "dl"
 				r.Word = "Stuck at " + strconv.Itoa(p.Percent) + "%"

@@ -490,6 +490,7 @@ type Update struct {
 	DeviceInstalling  int          `json:"device_installing,omitempty"`  // installing/verifying/finalizing
 	DeviceAwaiting    int          `json:"device_awaiting,omitempty"`    // applied, waiting on its reboot
 	DeviceFailed      int          `json:"device_failed,omitempty"`      // populated by ListDeployments
+	DeviceNotBack     int          `json:"device_not_back,omitempty"`    // of DeviceAwaiting: rebooted 15+ min ago, not back (ListDeployments)
 	Product           string       `json:"product,omitempty"`            // release product (populated by ListDeployments)
 	ReleaseIsDev      bool         `json:"release_is_dev,omitempty"`     // release is dev-only (populated by ListDeployments)
 	DeviceStatus      string       `json:"device_status,omitempty"`      // populated by ResolveUpdateForDevice

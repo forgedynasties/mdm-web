@@ -27,7 +27,7 @@ func TestOTAWaveStallAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	dev := map[string]uuid.UUID{}
-	for _, sn := range []string{"OWS-WAIT", "OWS-SENT", "OWS-DL", "OWS-OLDFAIL", "OWS-REALFAIL", "OWS-OFFSENT", "OWS-OFFDL"} {
+	for _, sn := range []string{"OWS-WAIT", "OWS-SENT", "OWS-DL", "OWS-OLDFAIL", "OWS-REALFAIL", "OWS-OFFSENT", "OWS-OFFDL", "OWS-DIED", "OWS-DEADFAIL"} {
 		var id uuid.UUID
 		if err := d.pool.QueryRow(ctx, `INSERT INTO devices (serial_number, device_class) VALUES ($1, 't7') RETURNING id`, sn).Scan(&id); err != nil {
 			t.Fatal(err)
@@ -58,7 +58,12 @@ func TestOTAWaveStallAgainstPostgres(t *testing.T) {
 	add("OWS-REALFAIL", "failed", "stalled", true) // a real stall: was offered
 	add("OWS-OFFSENT", "pending", "", false)       // offered, then went offline
 	add("OWS-OFFDL", "downloading", "", true)      // went offline mid-download
-	if _, err := d.pool.Exec(ctx, `UPDATE devices SET last_seen_at = NOW() - interval '2 hours' WHERE serial_number IN ('OWS-OFFSENT', 'OWS-OFFDL')`); err != nil {
+	add("OWS-DIED", "downloading", "", true)       // died 10 min ago: offline, though inside the stall window
+	add("OWS-DEADFAIL", "failed", "stalled", true) // failed by the old sweep after it had died
+	if _, err := d.pool.Exec(ctx, `UPDATE devices SET last_seen_at = NOW() - interval '2 hours' WHERE serial_number IN ('OWS-OFFSENT', 'OWS-OFFDL', 'OWS-DEADFAIL')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.pool.Exec(ctx, `UPDATE devices SET last_seen_at = NOW() - interval '10 minutes' WHERE serial_number = 'OWS-DIED'`); err != nil {
 		t.Fatal(err)
 	}
 	offCmd := map[string]bool{}
@@ -77,7 +82,7 @@ func TestOTAWaveStallAgainstPostgres(t *testing.T) {
 	}
 	_ = offCmd
 
-	back, err := d.RequeueOfflineOTAs(ctx, 30)
+	back, err := d.RequeueOfflineOTAs(ctx, 30, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,8 +90,8 @@ func TestOTAWaveStallAgainstPostgres(t *testing.T) {
 	for _, s := range back {
 		gotBack[s.DeviceID] = true
 	}
-	if len(back) != 2 || !gotBack[dev["OWS-OFFSENT"]] || !gotBack[dev["OWS-OFFDL"]] {
-		t.Errorf("requeued offline = %v, want OWS-OFFSENT and OWS-OFFDL", back)
+	if len(back) != 4 || !gotBack[dev["OWS-OFFSENT"]] || !gotBack[dev["OWS-OFFDL"]] || !gotBack[dev["OWS-DIED"]] || !gotBack[dev["OWS-DEADFAIL"]] {
+		t.Errorf("requeued offline = %v, want OWS-OFFSENT, OWS-OFFDL, OWS-DIED and OWS-DEADFAIL", back)
 	}
 	var open int
 	d.pool.QueryRow(ctx, `SELECT count(*) FROM command_status WHERE device_id IN ($1, $2) AND status <> 'expired'`, dev["OWS-OFFSENT"], dev["OWS-OFFDL"]).Scan(&open)
@@ -98,7 +103,7 @@ func TestOTAWaveStallAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stalled, err := d.ExpireStalledOTAs(ctx, 30)
+	stalled, err := d.ExpireStalledOTAs(ctx, 30, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +114,7 @@ func TestOTAWaveStallAgainstPostgres(t *testing.T) {
 	if got[dev["OWS-WAIT"]] {
 		t.Error("a device waiting for its wave slot was failed as stalled")
 	}
-	if got[dev["OWS-OFFSENT"]] || got[dev["OWS-OFFDL"]] {
+	if got[dev["OWS-OFFSENT"]] || got[dev["OWS-OFFDL"]] || got[dev["OWS-DIED"]] || got[dev["OWS-DEADFAIL"]] {
 		t.Error("an offline device was failed as stalled")
 	}
 	if !got[dev["OWS-SENT"]] || !got[dev["OWS-DL"]] {
@@ -133,7 +138,7 @@ func TestOTAWaveStallAgainstPostgres(t *testing.T) {
 	if s, _ := status("OWS-REALFAIL"); s != "failed" {
 		t.Errorf("OWS-REALFAIL = %s, want still failed (it was offered)", s)
 	}
-	for _, sn := range []string{"OWS-WAIT", "OWS-OFFSENT", "OWS-OFFDL"} {
+	for _, sn := range []string{"OWS-WAIT", "OWS-OFFSENT", "OWS-OFFDL", "OWS-DIED", "OWS-DEADFAIL"} {
 		if s, _ := status(sn); s != "pending" {
 			t.Errorf("%s = %s, want pending", sn, s)
 		}

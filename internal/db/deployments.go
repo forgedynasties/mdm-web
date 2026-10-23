@@ -108,7 +108,9 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		       COUNT(CASE WHEN ud.status = 'downloading' THEN 1 END) AS device_downloading,
 		       COUNT(CASE WHEN ud.status IN ('installing', 'verifying', 'finalizing') THEN 1 END) AS device_installing,
 		       COUNT(CASE WHEN ud.status IN ('awaiting_reboot', 'reboot_sent') THEN 1 END) AS device_awaiting,
-		       COUNT(CASE WHEN ud.status = 'failed' THEN 1 END) AS device_failed
+		       COUNT(CASE WHEN ud.status = 'failed' THEN 1 END) AS device_failed,
+		       -- rebooted to apply it 15+ minutes ago and not confirmed on the new build
+		       COUNT(CASE WHEN ud.status = 'reboot_sent' AND COALESCE(ud.reboot_sent_at, ud.updated_at) < NOW() - INTERVAL '15 minutes' THEN 1 END) AS device_not_back
 		FROM updates u
 		LEFT JOIN releases rel ON rel.id = u.release_id
 		LEFT JOIN update_devices ud ON ud.update_id = u.id
@@ -126,7 +128,7 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		var version, product string
 		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime,
 			&u.Status, &u.CreatedAt, &u.CreatedBy, &version, &product, &u.ReleaseIsDev, &u.DeviceTotal, &u.DeviceInstalled,
-			&u.DeviceDownloading, &u.DeviceInstalling, &u.DeviceAwaiting, &u.DeviceFailed); err != nil {
+			&u.DeviceDownloading, &u.DeviceInstalling, &u.DeviceAwaiting, &u.DeviceFailed, &u.DeviceNotBack); err != nil {
 			return nil, err
 		}
 		u.Product = product

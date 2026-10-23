@@ -210,3 +210,31 @@ func TestDeployD1Renders(t *testing.T) {
 		os.WriteFile(p, buf.Bytes(), 0o644)
 	}
 }
+
+// TestDeployD1WentOffline: a device that went dark mid-update (AT070AABU00101 at 2 %, 23 Oct
+// 2026) reads "Waiting for the device to come back", never "stalled".
+func TestDeployD1WentOffline(t *testing.T) {
+	now := time.Date(2026, 10, 23, 9, 10, 0, 0, time.UTC)
+	started, seen := now.Add(-80*time.Minute), now.Add(-31*time.Minute)
+	dl := db.UpdateTarget{DeviceID: uuid.New(), SerialNumber: "AT070AABU00101", Status: "downloading",
+		StartedAt: &started, UpdatedAt: started, LastSeenAt: seen}
+	back := db.UpdateTarget{DeviceID: uuid.New(), SerialNumber: "AT070AABU00102", Status: "pending",
+		StartedAt: &started, UpdatedAt: now.Add(-time.Minute), LastSeenAt: seen}
+	v := buildDeployD1(dp1Inputs{
+		Dep: &db.Update{ID: 458, Status: "active", RebootBehavior: "immediate", CreatedAt: started}, Version: "v2.1.040",
+		Targets:  []db.UpdateTarget{dl, back},
+		Progress: map[uuid.UUID]otaRowView{dl.DeviceID: {Phase: "downloading", Percent: 11, SeenAt: seen, AdvancedAt: seen}},
+		SeenSecs: 180, Now: now,
+	})
+	if v.Counts["look"] != 0 || v.Counts["wait"] != 2 {
+		t.Errorf("counts = %v", v.Counts)
+	}
+	for _, r := range v.Rows {
+		if r.Word != "Waiting for the device to come back" || !strings.Contains(r.Detail, "retries when it is back") {
+			t.Errorf("%s = %q / %q", r.Serial, r.Word, r.Detail)
+		}
+	}
+	if r := v.Rows[0]; r.Serial == "AT070AABU00101" && !strings.Contains(r.Detail, "at 11%") {
+		t.Errorf("downloading row detail = %q", r.Detail)
+	}
+}

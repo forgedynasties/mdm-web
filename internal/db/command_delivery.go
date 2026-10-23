@@ -472,7 +472,11 @@ type StalledInstall struct {
 // it started would be failed while its device was reporting progress every few
 // seconds. Progress frames are written to command_status (SetCommandProgress), so
 // a row is only stalled when its device has also sent no OTA progress in the window.
-func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
+//
+// offlineMinutes is how long a device can go unheard and still count as online. It used
+// to be stallMinutes, so a tablet whose battery died mid-download (AT070AABU00101, 23 Oct
+// 2026, at 2 %) was failed as "stalled" 28 minutes after it went dark instead of waiting.
+func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes, offlineMinutes int) ([]StalledInstall, error) {
 	rows, err := d.pool.Query(ctx, `
 		UPDATE update_devices ud
 		SET status = 'failed', error_code = 'stalled', updated_at = NOW()
@@ -484,7 +488,7 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		  -- put back in line by RequeueOfflineOTAs instead (user, 21 Oct 2026: "it
 		  -- does not get failed even if the devices are offline ... they get it later").
 		  AND EXISTS (SELECT 1 FROM devices dev WHERE dev.id = ud.device_id
-		              AND dev.last_seen_at > NOW() - make_interval(mins => $1))
+		              AND dev.last_seen_at > NOW() - make_interval(mins => $2))
 		  -- A pending row is only stalled once it was handed the OTA and that was
 		  -- stallMinutes ago. Without a command it has not checked in since the
 		  -- deployment started: on 21 Oct ten tablets at one venue were failed while
@@ -506,7 +510,7 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 		        AND c.created_at >= u.created_at
 		        AND cs.updated_at > NOW() - make_interval(mins => $1))
 		RETURNING ud.update_id, ud.device_id
-	`, stallMinutes)
+	`, stallMinutes, offlineMinutes)
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +533,12 @@ func (d *DB) ExpireStalledOTAs(ctx context.Context, stallMinutes int) ([]Stalled
 // 'pending' and their open OTA command is expired, so the next check-in offers the
 // update again from the start: an offline device is never failed, it gets the update
 // when it is back. Runs before ExpireStalledOTAs, which only fails online devices.
-func (d *DB) RequeueOfflineOTAs(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
+//
+// A row failed as 'stalled' in the last day while its device was already offline (last
+// seen offlineMinutes or more before the verdict, and not since) goes back in line too:
+// the old sweep did that to devices that died mid-download. The dashboard says "Waiting
+// for the device to come back" for these rows (user, 23 Oct 2026).
+func (d *DB) RequeueOfflineOTAs(ctx context.Context, stallMinutes, offlineMinutes int) ([]StalledInstall, error) {
 	rows, err := d.pool.Query(ctx, `
 		WITH rq AS (
 		    UPDATE update_devices ud
@@ -537,16 +546,20 @@ func (d *DB) RequeueOfflineOTAs(ctx context.Context, stallMinutes int) ([]Stalle
 		    FROM updates u, devices dev
 		    WHERE ud.update_id = u.id AND dev.id = ud.device_id
 		      AND u.status = 'active'
-		      AND ud.status IN ('pending', 'downloading')
-		      AND ud.updated_at <= NOW() - make_interval(mins => $1)
-		      AND dev.last_seen_at <= NOW() - make_interval(mins => $1)
-		      AND (ud.status = 'downloading' OR EXISTS (
-		             SELECT 1 FROM commands c
-		             JOIN command_targets ct ON ct.command_id = c.id
-		             LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ud.device_id
-		             WHERE ct.target_id = ud.device_id AND c.type = 'ota'
-		               AND (cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled'))
-		               AND c.created_at >= u.created_at))
+		      AND dev.last_seen_at <= NOW() - make_interval(mins => $2)
+		      AND ((ud.status IN ('pending', 'downloading')
+		            AND ud.updated_at <= NOW() - make_interval(mins => $1)
+		            AND (ud.status = 'downloading' OR EXISTS (
+		                   SELECT 1 FROM commands c
+		                   JOIN command_targets ct ON ct.command_id = c.id
+		                   LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ud.device_id
+		                   WHERE ct.target_id = ud.device_id AND c.type = 'ota'
+		                     AND (cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled'))
+		                     AND c.created_at >= u.created_at)))
+		        OR (ud.status = 'failed' AND ud.error_code = 'stalled'
+		            AND ud.started_at IS NOT NULL
+		            AND ud.updated_at > NOW() - INTERVAL '1 day'
+		            AND dev.last_seen_at <= ud.updated_at - make_interval(mins => $2)))
 		      AND NOT EXISTS (
 		          SELECT 1 FROM command_status cs
 		          JOIN commands c ON c.id = cs.command_id
@@ -567,7 +580,7 @@ func (d *DB) RequeueOfflineOTAs(ctx context.Context, stallMinutes int) ([]Stalle
 		    RETURNING command_id
 		)
 		SELECT update_id, device_id FROM rq
-	`, stallMinutes)
+	`, stallMinutes, offlineMinutes)
 	if err != nil {
 		return nil, err
 	}
