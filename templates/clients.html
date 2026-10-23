@@ -146,17 +146,9 @@
 <script src="/static/js/clients.js?v={{assetVer}}"></script>
 {{end}}
 
-{{define "clients-detail"}}
-  {{with .Selected}}
-  <div id="cl-detail"{{if .Updating}} hx-get="/clients?client={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-detail" hx-swap="outerHTML"{{end}}>
-    <div class="cl-hd cv-top">
-      <div class="cv-id">
-        <h2>{{if .GroupLabel}}{{.GroupLabel}}{{else}}{{.Label}}{{end}}</h2>
-        <div class="cl-note">{{if .GroupNote}}{{.GroupNote}}{{else}}{{.Note}}{{end}}</div>
-      </div>
-      {{/* The standing instruction, in the header: keep devices on the hosted build, inside
-           a window in each device's own timezone. "Update N now" on a version row stays for
-           "now, and I am watching". */}}
+{{/* The auto-update controls (keep devices on hosted, pause, window): in the bento's
+     completion card since R1 (23 Oct 2026). Context: the page data (.Selected, .Role). */}}
+{{define "cl-policy"}}{{with .Selected}}
       <div class="cv-pol">
         {{if canAdmin $.Role}}
         <form method="POST" action="/clients/auto-update" class="ca-form">
@@ -193,8 +185,11 @@
         <span class="cl-tag {{if and .Auto.On (not .Auto.Paused)}}ok{{else}}unk{{end}}">{{if .Auto.On}}{{if .Auto.Paused}}Auto-update paused{{else}}Auto-update on{{if .Auto.WindowStart}} · {{.Auto.WindowStart}}–{{.Auto.WindowEnd}}{{end}}{{end}}{{else}}Auto-update off{{end}}</span>
         {{end}}
       </div>
-    </div>
+{{end}}{{end}}
 
+{{define "clients-detail"}}
+  {{with .Selected}}
+  <div id="cl-detail"{{if .Updating}} hx-get="/clients?client={{.Slot}}&partial=1" hx-trigger="every 6s" hx-target="#cl-detail" hx-swap="outerHTML"{{end}}>
     {{/* One client, one build per signing key. The variant is an explicit choice
          because picking the wrong one is the mistake this page exists to prevent —
          and it stays in the URL, so ?slot=firmware-qcom links and the publish API
@@ -278,4 +273,108 @@
     </div><!-- /cl-body -->
   </div>
   {{end}}
+{{end}}
+
+{{/* R1 bento styles (23 Oct 2026, from the user's reference, the MDM's colours): shared
+     by MDM clients and Host apps. */}}
+{{define "bt-style"}}
+<style>
+.bt-stage{display:grid;gap:16px;margin:0 0 18px}
+.bt-row1{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px}
+.bt-row2{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.45fr);gap:16px}
+.bt-card{background:var(--surface);border:1px solid var(--border-soft,var(--border));border-radius:24px;padding:22px 24px;min-width:0}
+.bt-hero{background:var(--accent-fill);border-color:transparent;color:#fff;position:relative;overflow:hidden;min-height:200px;display:flex;flex-direction:column;justify-content:space-between;gap:18px}
+.bt-hero::before,.bt-hero::after{content:"";position:absolute;border:1px solid rgba(255,255,255,.28);border-radius:50%;pointer-events:none}
+.bt-hero::before{width:440px;height:440px;left:-70px;top:80px}
+.bt-hero::after{width:260px;height:260px;left:-120px;top:-150px}
+.bt-chip{display:inline-flex;align-items:center;font-size:12px;padding:5px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.55);color:#fff;width:max-content;position:relative;z-index:1;text-decoration:none}
+.bt-hero p{font-family:var(--font-display);font-size:24px;line-height:1.3;font-weight:400;max-width:440px;margin:0;position:relative;z-index:1;color:#fff}
+.bt-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.bt-h h3{font-family:var(--font-display);font-size:18px;font-weight:500;margin:0}
+.bt-h small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px}
+.bt-pct{display:flex;align-items:center;gap:14px;margin:14px 0 12px;flex-wrap:wrap}
+.bt-pct b{font-family:var(--font-display);font-size:44px;font-weight:400;line-height:1}
+.bt-soft{font-size:12px;padding:6px 13px;border-radius:99px;background:var(--surface2);color:var(--text-2)}
+.bt-segs,.bt-seglbl{display:grid;gap:6px;grid-auto-flow:column}
+.bt-segs i{display:block;height:7px;border-radius:99px;background:var(--surface2)}
+.bt-segs i.on{background:var(--accent-fill)}.bt-segs i.behind{background:var(--warn)}.bt-segs i.bad{background:var(--danger)}.bt-segs i.run{background:#4f7cff}
+.bt-seglbl{font-size:11.5px;color:var(--text-2);margin-top:8px}
+.bt-seglbl span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-acts{display:flex;align-items:center;gap:8px;margin-top:18px;flex-wrap:wrap}
+.bt-acts form{margin:0}
+.bt-acts .cv-pol{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bt-pill{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:12.5px;font-weight:500;padding:8px 14px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);white-space:nowrap;cursor:pointer;text-decoration:none}
+.bt-pill:hover{background:var(--hover)}
+.bt-sw{display:inline-flex;border:1px solid var(--border);border-radius:99px;padding:3px;gap:2px}
+.bt-sw a{font-size:12px;font-weight:500;padding:5px 12px;border-radius:99px;color:var(--text-2);text-decoration:none;white-space:nowrap}
+.bt-sw a.on{background:var(--surface2);color:var(--text)}
+.bt-bars{display:flex;align-items:flex-end;gap:10px;height:180px;margin:18px 0 22px}
+.bt-bar{flex:1;min-width:0;border-radius:14px;background:var(--surface2);position:relative;text-decoration:none;color:var(--text)}
+.bt-bar b{display:block;font-family:var(--font-display);font-size:15px;font-weight:500;padding:9px 10px}
+.bt-bar.on{background:var(--accent-fill);color:#fff}
+.bt-bar.on::after{content:"";position:absolute;left:8px;right:8px;top:42px;bottom:8px;border-radius:9px;background:repeating-linear-gradient(135deg,rgba(255,255,255,.45) 0 2px,transparent 2px 9px)}
+.bt-bar small{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-tbl{width:100%;border-collapse:separate;border-spacing:0 3px;font-size:13px;margin-top:10px}
+.bt-tbl td{padding:8px 10px;white-space:nowrap}
+.bt-tbl tr:hover td{background:var(--surface2)}
+.bt-tbl tr td:first-child{border-radius:12px 0 0 12px}.bt-tbl tr td:last-child{border-radius:0 12px 12px 0}
+.bt-nm{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none}
+.bt-ic{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--surface2);font-size:10.5px;font-weight:700;color:var(--text-2);flex:none}
+.bt-nm .mono{font-family:var(--font-mono,ui-monospace);font-size:12.5px}
+.bt-st{display:inline-flex;align-items:center;gap:7px;font-size:12px;padding:5px 11px;border-radius:99px;border:1px solid var(--border);white-space:nowrap}
+.bt-st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--text-faint)}
+.bt-st.ok::before{background:var(--ok)}.bt-st.warn::before{background:var(--warn)}.bt-st.bad::before{background:var(--danger)}.bt-st.run::before{background:#4f7cff}
+.bt-tg{font-size:12px;padding:5px 11px;border-radius:99px;border:1px solid var(--border);color:var(--text-2);white-space:nowrap;font-family:var(--font-mono,ui-monospace)}
+.bt-mut{color:var(--muted)}
+.bt-more{display:block;font-size:12.5px;color:var(--accent-text);font-weight:600;margin-top:8px;text-decoration:none}
+.bt-hist{padding:18px 20px}
+.bt-hist .bt-h{margin-bottom:10px}
+@media(max-width:1180px){.bt-row1,.bt-row2{grid-template-columns:minmax(0,1fr)}}
+</style>
+{{end}}
+
+{{/* MDM clients, R1 bento (23 Oct 2026): hero, completion with the client switch and the
+     auto-update controls, versions as bars, devices behind first. clients_bento.go */}}
+{{define "cl-bento"}}{{template "bt-style"}}{{$b := .ClientBento}}
+{{with .Client}}
+<div class="bt-stage">
+  <div class="bt-row1">
+    <div class="bt-card bt-hero"><a class="bt-chip" href="#cv-hist">{{.Label}}</a><p>{{$b.Hero}}</p></div>
+    <div class="bt-card">
+      <div class="bt-h"><div><h3>{{if .Hosted}}On {{.Build.Version}}{{else}}Nothing hosted{{end}}</h3><small>{{.Note}}</small></div>
+        <span class="bt-sw" role="tablist" aria-label="Client">{{range $.ClientCards}}<a href="/clients?client={{.Slot}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+      <div class="bt-pct"><b>{{$b.Pct}}%</b><span class="bt-soft">{{.UpToDate}} of {{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Hosted}} · hosted code {{.Build.VersionCode}}{{end}}</span></div>
+      {{if $b.Segs}}
+      <div class="bt-segs" style="grid-template-columns:{{range $b.Segs}}{{.Frac}}fr {{end}}">{{range $b.Segs}}<i class="{{.Class}}" title="{{.N}} {{.Label}}"></i>{{end}}</div>
+      <div class="bt-seglbl" style="grid-template-columns:{{range $b.Segs}}{{.Frac}}fr {{end}}">{{range $b.Segs}}<span title="{{.N}} {{.Label}}">{{.Label}} · {{.N}}</span>{{end}}</div>
+      {{end}}
+      <div class="bt-acts">
+        {{template "cl-policy" $}}
+        {{if and .BehindSerials (canOperate $.Role)}}<form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on every device behind {{.Build.Version}}?" onsubmit="clSent(this)"><input type="hidden" name="type" value="app_update"><input type="hidden" name="target_type" value="devices"><input type="hidden" name="target_serials" value="{{.BehindSerials}}"><button type="submit" class="bt-pill">Update all behind</button></form>{{end}}
+      </div>
+    </div>
+  </div>
+  <div class="bt-row2">
+    <div class="bt-card">
+      <div class="bt-h"><div><h3>Versions in use</h3><small>devices per build · hosted marked</small></div></div>
+      {{if $b.Bars}}<div class="bt-bars">{{range $b.Bars}}<a class="bt-bar{{if .On}} on{{end}}" href="{{.Href}}" style="height:{{.Height}}%" title="{{.N}} on {{.Label}}"><b>{{.N}}</b><small>{{.Label}}</small></a>{{end}}</div>
+      {{else}}<p class="bt-mut" style="margin:14px 0 0">No device reports a version yet.</p>{{end}}
+    </div>
+    <div class="bt-card">
+      <div class="bt-h"><div><h3>Devices</h3><small>behind first · {{.Devices}} on {{.Label}}</small></div></div>
+      <table class="bt-tbl"><tbody>
+        {{range $b.Devices}}
+        <tr>
+          <td><a class="bt-nm" href="/devices/{{.Serial}}"><span class="bt-ic"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M11 18h2"/></svg></span><span class="mono">{{.Serial}}</span></a></td>
+          <td class="bt-mut">{{timeSince .LastSeen}}</td>
+          <td>{{if eq .State "current"}}<span class="bt-st ok">Up to date</span>{{else if eq .State "updating"}}<span class="bt-st run">Updating{{with .Progress}} · {{.}}{{end}}</span>{{else if eq .State "behind"}}<span class="bt-st warn">Behind{{if .Unreachable}} · offline{{end}}{{with .Elsewhere}} · on {{.}}{{end}}</span>{{else}}<span class="bt-st">No version</span>{{end}}</td>
+          <td>{{if .Version}}<span class="bt-tg">{{.Version}}</span>{{else}}<span class="bt-mut">—</span>{{end}}</td>
+        </tr>
+        {{end}}
+      </tbody></table>
+      {{if $b.MoreDevs}}<a class="bt-more" href="#cv-hist">{{$b.MoreDevs}} more in Version history ↓</a>{{end}}
+    </div>
+  </div>
+</div>
+{{end}}
 {{end}}

@@ -264,7 +264,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	// Apps (A1, 23 Oct 2026): a card per product's app, then the chosen one's units.
 	if tab == "apps" {
 		cards, pane := h.lineupApps(r, library, devices)
-		h.render(w, r, "pipeline.html", common(map[string]any{"View": "apps", "AppCards": cards, "AppsPane": pane,
+		h.render(w, r, "pipeline.html", common(map[string]any{"View": "apps", "AppCards": cards, "AppsPane": pane, "AppsBento": hostAppsBentoOf(cards, pane),
 			"AppChoicesLU": h.lineupApp(ctx, r.URL.Query().Get("app"), devices).Choices}))
 		return
 	}
@@ -284,7 +284,8 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/clients", http.StatusSeeOther)
 			return
 		}
-		data := common(map[string]any{"View": "clients", "ClientCards": cards, "Client": v, "Selected": v, "ServerURL": h.baseURL(r)})
+		data := common(map[string]any{"View": "clients", "ClientCards": cards, "Client": v, "Selected": v, "ServerURL": h.baseURL(r),
+			"ClientBento": clientBentoOf(v)})
 		if r.URL.Query().Get("partial") == "1" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			h.tmpl.ExecuteTemplate(w, "clients-detail", h.withRole(r, data))

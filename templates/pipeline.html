@@ -61,19 +61,10 @@
       {{template "lu-apps" .}}
       <script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
     {{else if .Client}}
-      <div class="lu1-clients">
-        {{range .ClientCards}}
-        <a href="/clients?client={{.Slot}}" hx-get="/clients?client={{.Slot}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lu1-cl{{if .On}} on{{end}}"{{if .On}} aria-current="true"{{end}}>
-          <span class="hd"><span class="ic"><svg aria-hidden="true"><use href="#lu-cl-{{.Slot}}"/></svg></span><span><b>{{.Label}}</b><small>{{.Note}}</small></span></span>
-          {{if .Hosted}}<span class="big">{{.Version}}<span>hosted · code {{.Code}}</span></span>{{else}}<span class="big none">Nothing hosted</span>{{end}}
-          {{if .Devices}}<span class="lu1-bar">{{range .Bar}}<i class="lu1-s-{{.Tone}}" style="width:{{.Pct}}%" title="{{.Title}}"></i>{{end}}</span>{{end}}
-          <span class="row">{{if .Hosted}}{{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{if .NoBuild}} · {{.NoBuild}} on an image that can't take it{{end}}{{if .Unknown}} · {{.Unknown}} not reporting{{end}}{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}</span>
-          <span class="row"><span class="lu1-auto{{if .AutoOn}} on{{end}}"></span>{{.Auto}}</span>
-          {{if .Products}}<span class="lu1-prods">{{range .Products}}<span>{{.Label}} {{.N}}</span>{{end}}</span>{{end}}
-        </a>
-        {{end}}
-      </div>
+      {{template "cl-bento" .}}
+      <section class="bt-card bt-hist" id="cv-hist"><div class="bt-h"><div><h3>Version history</h3><small>every build hosted here, its devices, Update now and roll back</small></div></div>
       {{template "clients-detail" .}}
+      </section>
       {{if or .KeysOwn .KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling.</div>{{end}}
     {{else}}{{with .LU}}
       <div class="ov2">
@@ -586,52 +577,60 @@
       {{end}}
 {{end}}
 
-{{define "lu-apps"}}
-<div class="lua-cards">
-  {{range .AppCards}}
-  <a href="/host-apps?app={{.Role}}" hx-get="/host-apps?app={{.Role}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true" class="lua-c{{if .On}} on{{end}}"{{if .On}} aria-current="true"{{end}}>
-    <span class="hd"><b>{{.Label}}</b>{{if .Base}}<span class="lua-auto{{if .AutoInstall}} on{{end}}">{{if .AutoInstall}}Auto{{else}}Off{{end}}</span>{{end}}</span>
-    <code>{{if .Base}}{{.Base}} · {{if .Build}}{{.Build}}{{else}}no build{{end}}{{else}}no app set{{end}}</code>
-    <span class="big">{{.OnProd}}<small> of {{.Total}} on prod</small></span>
-    {{if .Total}}<span class="lua-bar">{{range .Bar}}{{if .N}}<i class="{{.Tone}}" style="flex:{{.N}}"></i>{{end}}{{end}}</span>{{end}}
-    {{if .Note}}<span class="note {{.NoteTone}}">{{.Note}}</span>{{end}}
-  </a>
-  {{end}}
-</div>
+{{define "lu-apps"}}{{template "bt-style"}}{{$hb := .AppsBento}}
+{{/* Host apps, R1 bento (23 Oct 2026): hero, the chosen product's completion with the
+     product switch, on-prod coverage per product as bars, the units, then App & build and
+     versions in service. clients_bento.go, lineup_apps.go */}}
+<div class="bt-stage">
 {{with .AppsPane}}{{$p := .}}
-<div class="lua-pane">
-  <div class="oc-card lua-list">
-    <div class="lua-lh"><h2>{{.Card.Label}} · host app installs</h2>
-      <div class="oc-bar lua-f" role="group" aria-label="Filter the units">
-        <div class="oc-f"><button class="oc-fb{{if .StateF}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">State: <b>{{.StateLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu" hidden>{{range .StateLinks}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}" hx-get="{{.Href}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true">{{.Label}}</a>{{end}}</div></div>
-        {{if gt (len .Venues) 1}}<div class="oc-f"><button class="oc-fb{{if .VenueF}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{.VenueLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu oc-scroll" hidden>{{range .VenueLinks}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}" hx-get="{{.Href}}" hx-target="#pl-split" hx-select="#pl-split" hx-swap="outerHTML show:none" hx-push-url="true">{{.Label}}</a>{{end}}</div></div>{{end}}
+  <div class="bt-row1">
+    <div class="bt-card bt-hero"><span class="bt-chip">Host apps</span><p>{{$hb.Hero}}</p></div>
+    <div class="bt-card">
+      <div class="bt-h"><div><h3>{{.Card.Label}}{{if .Card.Base}} · {{if .Build}}{{.Build.VersionName}}{{else}}no build{{end}}{{end}}</h3><small>{{if .Card.Base}}{{.Card.Base}}{{else}}no app set{{end}}</small></div>
+        <span class="bt-sw" role="tablist" aria-label="Product">{{range $.AppCards}}<a href="/host-apps?app={{.Role}}" class="{{if .On}}on{{end}}"{{if .On}} aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
+      <div class="bt-pct"><b>{{.Pct}}%</b><span class="bt-soft">{{.Card.OnProd}} of {{.Card.Total}} unit{{if ne .Card.Total 1}}s{{end}} on prod{{if gt .PctAfter .Pct}} · {{.PctAfter}}% once {{.Card.Running}} finish{{end}}</span></div>
+      {{if $hb.Segs}}
+      <div class="bt-segs" style="grid-template-columns:{{range $hb.Segs}}{{.Frac}}fr {{end}}">{{range $hb.Segs}}<i class="{{.Class}}" title="{{.N}} {{.Label}}"></i>{{end}}</div>
+      <div class="bt-seglbl" style="grid-template-columns:{{range $hb.Segs}}{{.Frac}}fr {{end}}">{{range $hb.Segs}}<span title="{{.N}} {{.Label}}">{{.Label}} · {{.N}}</span>{{end}}</div>
+      {{end}}
+      <div class="bt-acts">
+        {{if .Card.Base}}{{if canAdmin $.Role}}<form method="post" action="/products/role-app-auto"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoInstall}}0{{else}}1{{end}}"><button type="submit" class="bt-pill" title="Units without the prod package get the build that goes out">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</button></form>{{else}}<span class="bt-pill">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</span>{{end}}
+        {{if .Newer}}<a class="bt-pill" href="/apps/{{.Card.Base}}">Upload {{.Newer}}</a>{{else if not .Build}}<a class="bt-pill" href="/apps/{{.Card.Base}}">Upload a build</a>{{end}}
+        {{with .Overrides}}<a class="bt-pill" href="#lua-ab">Venue overrides · {{len .}}</a>{{end}}{{end}}
       </div>
     </div>
-    <div class="lua-legend"><span class="p">On prod {{.Card.OnProd}}</span><span class="g">Installing {{.Card.Running}}</span>{{with index .Counts "failed"}}<span class="f">Failed {{.}}</span>{{end}}{{with index .Counts "off"}}<span class="o">Offline {{.}}</span>{{end}}{{with index .Counts "unknown"}}<span class="n">No app list {{.}}</span>{{end}}</div>
-    {{if .Card.Base}}
-    <table class="ft lua-t">
-      <thead><tr><th>Device</th><th>Venue</th><th>Has now</th><th>Host app</th><th></th></tr></thead>
-      <tbody>
-      {{range .Rows}}
-      <tr><td><a href="/devices/{{.Serial}}">{{.Serial}}</a></td><td>{{.Venue}}</td><td><code>{{.Has}}</code></td>
-        <td><span class="lua-st {{.Key}}"><i></i>{{.Word}}{{if .Bar}}<span class="lua-pg"><b style="width:{{.Pct}}%"></b></span>{{end}}</span><small>{{.Detail}}</small></td>
-        <td class="act">{{if and .Retry (canAdmin $.Role)}}<form method="post" action="/products/role-app-retry"><input type="hidden" name="serial" value="{{.Serial}}"><button class="cc-btn" type="submit">Retry now</button></form>{{else if .CommandID}}<a class="cc-btn" href="/commands/{{.CommandID}}">Open</a>{{end}}</td></tr>
-      {{else}}<tr><td colspan="5" class="pl-faint">No units match.</td></tr>{{end}}
-      </tbody>
-    </table>
-    <div class="pl-faint" style="margin-top:8px">{{len .Rows}} of {{.TotalShown}} units · problems first, then installing, next in line, on prod</div>
-    {{else}}<div class="pl-empty">{{.Card.Label}} has no app set. Pick one under App &amp; build.</div>{{end}}
   </div>
-  <div class="lua-rail">
-    {{if .Card.Total}}
-    <div class="oc-card"><h2>Coverage</h2>
-      <div class="lua-ring" style="--a:{{.Pct}};--b:{{.PctAfter}}"><div><b>{{.Pct}}%</b><small>on prod</small></div></div>
-      {{if gt .PctAfter .Pct}}<div class="pl-faint lua-cn">{{.PctAfter}}% once the {{.Card.Running}} running finish</div>{{end}}
+  <div class="bt-row2">
+    <div class="bt-card">
+      <div class="bt-h"><div><h3>On prod, by product</h3><small>share of each product's units</small></div></div>
+      {{if $hb.Bars}}<div class="bt-bars">{{range $hb.Bars}}<a class="bt-bar{{if .On}} on{{end}}" href="{{.Href}}" style="height:{{.Height}}%" title="{{.Label}}: {{.N}}% on prod"><b>{{.N}}%</b><small>{{.Label}}</small></a>{{end}}</div>
+      {{else}}<p class="bt-mut" style="margin:14px 0 0">No product has units yet.</p>{{end}}
     </div>
-    {{end}}
-    <div class="oc-card"><div class="lua-rh"><h2>App &amp; build</h2>
+    <div class="bt-card lua-list">
+      <div class="bt-h"><div><h3>Units</h3><small>problems first · {{len .Rows}} of {{.TotalShown}}{{if index .Counts "failed"}} · {{index .Counts "failed"}} failed{{end}}</small></div>
+        <div class="oc-bar lua-f" role="group" aria-label="Filter the units">
+          <div class="oc-f"><button class="oc-fb{{if .StateF}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">State: <b>{{.StateLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+            <div class="cc-menu" hidden>{{range .StateLinks}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+          {{if gt (len .Venues) 1}}<div class="oc-f"><button class="oc-fb{{if .VenueF}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{.VenueLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+            <div class="cc-menu oc-scroll" hidden>{{range .VenueLinks}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>{{end}}
+        </div></div>
+      {{if .Card.Base}}
+      <table class="bt-tbl lua-t"><tbody>
+        {{range .Rows}}
+        <tr>
+          <td><a class="bt-nm" href="/devices/{{.Serial}}"><span class="bt-ic"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M11 18h2"/></svg></span><span class="mono">{{.Serial}}</span></a></td>
+          <td class="bt-mut">{{.Venue}}</td>
+          <td><span class="bt-st{{if eq .Key "ok"}} ok{{else if eq .Key "run"}} run{{else if eq .Key "failed"}} bad{{end}}" title="{{.Detail}}">{{.Word}}{{if .Bar}} · {{.Pct}}%{{end}}</span>{{with .Detail}}<small class="bt-mut lua-dt">{{.}}</small>{{end}}</td>
+          <td>{{if and .Has (ne .Has "–")}}<span class="bt-tg">{{.Has}}</span>{{else}}<span class="bt-mut">—</span>{{end}}</td>
+          <td style="text-align:right">{{if and .Retry (canAdmin $.Role)}}<form method="post" action="/products/role-app-retry" style="margin:0"><input type="hidden" name="serial" value="{{.Serial}}"><button class="bt-pill" type="submit">Retry now</button></form>{{else if .CommandID}}<a class="bt-pill" href="/commands/{{.CommandID}}">Open</a>{{end}}</td>
+        </tr>
+        {{else}}<tr><td colspan="5" class="bt-mut">No units match.</td></tr>{{end}}
+      </tbody></table>
+      {{else}}<p class="bt-mut">{{.Card.Label}} has no app set. Pick one under App &amp; build.</p>{{end}}
+    </div>
+  </div>
+  <div class="bt-row2" id="lua-ab">
+    <div class="bt-card"><div class="lua-rh"><h3 class="bt-h3">App &amp; build</h3>
       {{if .Card.Base}}{{if canAdmin $.Role}}<form method="post" action="/products/role-app-auto"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoInstall}}0{{else}}1{{end}}"><button type="submit" class="lua-auto{{if .Card.AutoInstall}} on{{end}}" title="Units without the prod package get the build below">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</button></form>{{else}}<span class="lua-auto{{if .Card.AutoInstall}} on{{end}}">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</span>{{end}}{{end}}</div>
       {{if canAdmin $.Role}}
       <form method="POST" action="/products/role-app" class="lua-kv">
@@ -651,14 +650,14 @@
       <p class="pl-faint">Units without their host app get it: <code>{{.Card.Base}}</code>, or the variant their venue chose (Venue settings › Host app). At a venue or not; nothing is upgraded or removed.</p>
       {{end}}
     </div>
-    {{if .Versions}}
-    <div class="oc-card"><h2>Versions in service</h2>
-      {{range .Versions}}<div class="lua-kv"><code>{{.Label}}</code><span>{{.N}}</span></div>{{end}}
+    <div class="bt-card"><div class="bt-h"><div><h3>Versions in service</h3><small>what {{.Card.Label}} units run now</small></div></div>
+      {{range .Versions}}<div class="lua-kv"><code>{{.Label}}</code><span>{{.N}}</span></div>{{else}}<p class="bt-mut">No versions reported.</p>{{end}}
     </div>
-    {{end}}
   </div>
-</div>
+{{else}}
+  <div class="bt-card bt-hero"><span class="bt-chip">Host apps</span><p>{{$hb.Hero}}</p></div>
 {{end}}
+</div>
 <style>
   .lua-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 0 0 16px; }
   .lua-c { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit; min-width: 0; }

@@ -226,12 +226,16 @@ func TestLineupRolePaneRenders(t *testing.T) {
 	}
 	sel := views["dpc"]
 	data["Tab"], data["View"], data["ClientCards"], data["Client"], data["Selected"] = "clients", "clients", cards, sel, sel
+	data["ClientBento"] = clientBentoOf(sel)
 	buf.Reset()
 	if err := tmpl.ExecuteTemplate(&buf, "pipeline.html", data); err != nil {
 		t.Fatalf("clients tab failed to render: %v", err)
 	}
 	out = buf.String()
-	for _, want := range []string{`<h1 class="cc-h1">MDM clients</h1>`, `class="lu1-cl on"`, `0.4.0<span>hosted · code 24</span>`, `Auto-update on · any time`, `Kitchen display 1`, `MDM clients · Standard MDM`} {
+	// R1 bento (23 Oct): hero, completion card with the client switch, history below.
+	for _, want := range []string{`<h1 class="cc-h1">MDM clients</h1>`, `class="bt-card bt-hero"`, `Every device on Standard MDM runs 0.4.0.`,
+		`class="on" aria-current="true">Standard MDM</a>`, `<h3>On 0.4.0</h3>`, `<b>100%</b>`, `12 of 12 devices · hosted code 24`,
+		`id="cv-hist"`, `MDM clients · Standard MDM`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("clients tab is missing %q", want)
 		}
