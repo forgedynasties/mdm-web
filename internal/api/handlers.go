@@ -2521,8 +2521,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	// The types a single request can specify completely — the same catalogue the
 	// dashboard's role allowlist comes from (internal/product/commands.go), so the
 	// two can no longer disagree about what exists. A type with no entry is refused
-	// rather than stored half-specified; "query" is dashboard-only because its
-	// payload must come from the vetted query catalog, not from the caller.
+	// rather than stored half-specified.
 	if !product.APICommandTypes()[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return

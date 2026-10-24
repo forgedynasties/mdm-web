@@ -678,7 +678,6 @@ a.fleet-rail-item{min-height:40px}
         <div class="fl-mpane" data-pane="main">
           {{if canAdminOrOperator .Role}}
           <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkShell()"><svg viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell…</button>
-          {{if .Queries}}<button type="button" class="cc-mi" role="menuitem" onclick="flPane('sel-menu','checks')"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Run a check<span class="rt">›</span></button>{{end}}
           <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkRun('screenshot')"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/></svg>Screenshot</button>
           <button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkRun('collect_logs')"><svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg>Collect logs</button>
           <div class="cc-msep"></div>
@@ -710,15 +709,6 @@ a.fleet-rail-item{min-height:40px}
           </div>
           {{end}}
         </div>
-        {{if and (canAdminOrOperator .Role) .Queries}}
-        {{/* The vetted checks. Their payload is rebuilt server-side from the catalog, so
-             nothing here can send an arbitrary command under the Query name. */}}
-        <div class="fl-mpane" data-pane="checks" hidden>
-          <button type="button" class="cc-mi fl-mback" onclick="flPane('sel-menu','main')"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>Run a check</button>
-          <div class="cc-msep"></div>
-          {{range .Queries}}<button type="button" class="cc-mi" role="menuitem" onclick="selMenuClose();bulkRun('query',{query_id:'{{.ID}}'})">{{.Label}}</button>{{end}}
-        </div>
-        {{end}}
       </div>
     </div>
   </div>

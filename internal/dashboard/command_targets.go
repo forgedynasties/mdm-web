@@ -333,7 +333,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 				unsupRows = append(unsupRows, skipRow{Serial: d.SerialNumber, Kind: k})
 			}
 		}
-		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "query", "collect_logs", "shell", "set_kiosk", "update_splash", "wipe"} {
+		for _, t := range []string{"install_apk", "uninstall", "reboot", "screenshot", "collect_logs", "shell", "set_kiosk", "update_splash", "wipe"} {
 			need := t
 			if t == "set_kiosk" {
 				need = "kiosk_set"

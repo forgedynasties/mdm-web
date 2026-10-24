@@ -110,15 +110,11 @@ var commands = []Command{
 	{Type: "app_update", Cap: CapSelfUpdate, Roles: rolesOperator, API: true, Access: "install_apk", InstallShaped: true},
 
 	// ── Diagnostics ─────────────────────────────────────────────────────────
-	// A read-only diagnostic whose command text comes only from the admin-curated
-	// query catalog (chosen by query_id, never user-supplied) — which is why
-	// operators may issue it without raw-shell rights. The admin API does not
-	// accept it: it names no query_id, and taking the payload from the caller would
-	// hand an admin key arbitrary shell text labelled "query".
-	{Type: "query", Cap: CapShell, Roles: rolesOperator, Access: "query"},
 	// A log bundle: logcat, dumpsys, getprop and the OTA log, from one fixed script the
-	// server writes (see internal/dashboard/collect_logs.go). Same reasoning and grant as
-	// query — operators get it without raw-shell rights because the text is not theirs.
+	// server writes (see internal/dashboard/collect_logs.go). Operators get it without
+	// raw-shell rights because the text is not theirs. Its access key is still "query":
+	// the diagnostic queries it once shared it with were removed on 24 Oct 2026, and
+	// stored access rules name the key.
 	{Type: "collect_logs", Cap: CapShell, Roles: rolesOperator, Access: "query"},
 
 	// Live logs are not a queued command at all — a log stream is a logcat_request

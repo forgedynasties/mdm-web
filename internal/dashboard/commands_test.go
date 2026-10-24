@@ -25,7 +25,6 @@ var wantCommandRoles = map[string][]string{
 	"app_update_check": {"admin", "fleet_admin", "fleet_manager", "operator"},
 	"app_update":       {"admin", "fleet_admin", "fleet_manager", "operator"},
 	"shell":            {"admin"},
-	"query":            {"admin", "fleet_admin", "fleet_manager", "operator"},
 	"collect_logs":     {"admin", "fleet_admin", "fleet_manager", "operator"},
 	"ota":              {"admin", "fleet_admin", "fleet_manager"},
 	"update_splash":    {"admin"},

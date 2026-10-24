@@ -54,12 +54,11 @@ func (d *DB) DismissCommands(ctx context.Context, ids []uuid.UUID, by string) er
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 // DeviceCommandType maps a stored command type to what the device agent expects on
-// the wire. "query" is a dashboard-only label for an admin-vetted read-only
-// diagnostic; the device runs it as an ordinary shell command, so it needs no new
-// type. Every place that serializes a command to a device must route through this.
+// the wire: a log bundle and a canary are shell commands whose text the server wrote,
+// so they need no new type. Every place that serializes a command to a device must
+// route through this.
 func DeviceCommandType(t string) string {
-	// A query and a log bundle are shell commands whose text the server wrote.
-	if t == "query" || t == "collect_logs" || t == "canary" {
+	if t == "collect_logs" || t == "canary" {
 		return "shell"
 	}
 	return t

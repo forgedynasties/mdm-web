@@ -81,7 +81,6 @@ func TestCommandNeeds(t *testing.T) {
 	// the agents advertise, and stay additive (an unknown type needs nothing).
 	cases := map[string]string{
 		"screenshot":    CapScreenCapture,
-		"query":         CapShell, // runs as a shell command on the device
 		"app_update":    CapSelfUpdate,
 		"mic_gain_read": CapMicGain,
 		"reboot":        CapReboot,

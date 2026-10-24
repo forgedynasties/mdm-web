@@ -599,17 +599,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "fleet-headline-oob", rd)
 		return
 	}
-	// The vetted checks, for the selection's "Run a check" — the catalog is the only thing
-	// multi-device query needed that the Devices page did not already have.
-	if qs, err := h.db.ListDeviceQueries(r.Context()); err == nil {
-		var enabled []db.DeviceQuery
-		for _, q := range qs {
-			if q.Enabled {
-				enabled = append(enabled, q)
-			}
-		}
-		data["Queries"] = enabled
-	}
 	if view == "restaurants" || view == "groups" || view == "releases" {
 		data["CollRows"], data["CollSummary"] = h.collRows(r, view)
 	}

@@ -165,54 +165,6 @@
     </form>
   </div>
 </div>
-<div class="cc-card" style="margin-bottom:16px;">
-  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><h2>Queries</h2><span class="muted small m">admin-curated read-only device property checks</span></div>
-  <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed, read-only command. Operators and admins run them on selected devices from Fleet (select devices › Run a check) — no raw shell access needed.</div>
-    {{if .DeviceQueries}}
-    <div class="dq-list">
-      {{range .DeviceQueries}}
-      <details class="dq-item">
-        <summary>
-          <span class="dq-cat">{{.Category}}</span>
-          <span class="dq-label">{{.Label}}</span>
-          <code class="dq-cmd">{{.Command}}</code>
-          {{if not .Enabled}}<span class="dq-off">disabled</span>{{end}}
-        </summary>
-        <form action="/settings/queries/{{.ID}}/edit" method="POST" class="dq-form">
-          <div class="dq-grid">
-            <label>Label<input type="text" name="label" value="{{.Label}}" class="form-input" required></label>
-            <label>Category<input type="text" name="category" value="{{.Category}}" class="form-input"></label>
-            <label>Sort<input type="number" name="sort" value="{{.Sort}}" class="form-input"></label>
-            <label class="dq-wide">Command<input type="text" name="command" value="{{.Command}}" class="form-input mono" required></label>
-            <label class="dq-wide">Description<input type="text" name="description" value="{{.Description}}" class="form-input"></label>
-            <label class="dq-chk"><input type="checkbox" name="enabled" value="on" {{if .Enabled}}checked{{end}}> Enabled</label>
-          </div>
-          <div class="dq-actions">
-            <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
-            <button type="submit" formaction="/settings/queries/{{.ID}}/delete" class="btn-outline" style="font-size:12px;padding:4px 14px;color:var(--danger);" onclick="return confirm('Delete this query?')">Delete</button>
-          </div>
-        </form>
-      </details>
-      {{end}}
-    </div>
-    {{else}}
-    <div class="muted small" style="margin-bottom:12px;">No queries yet — add one below.</div>
-    {{end}}
-    <form action="/settings/queries" method="POST" class="dq-add">
-      <strong style="font-size:13px;">Add a query</strong>
-      <div class="dq-grid" style="margin-top:8px;">
-        <label>Label<input type="text" name="label" class="form-input" placeholder="Build ID" required></label>
-        <label>Category<input type="text" name="category" class="form-input" placeholder="System"></label>
-        <label>Sort<input type="number" name="sort" class="form-input" value="0"></label>
-        <label class="dq-wide">Command<input type="text" name="command" class="form-input mono" placeholder="getprop ro.build.id" required></label>
-        <label class="dq-wide">Description<input type="text" name="description" class="form-input" placeholder="Full build fingerprint id"></label>
-        <label class="dq-chk"><input type="checkbox" name="enabled" value="on" checked> Enabled</label>
-      </div>
-      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;margin-top:10px;">Add query</button>
-    </form>
-  </div>
-</div>
   </section>
 
   {{template "settings-people" .}}

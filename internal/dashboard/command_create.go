@@ -53,23 +53,6 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A "query" is a read-only diagnostic whose command text comes only from the
-	// admin-curated catalog (chosen by query_id), never from the client. That's why
-	// admin/dev/operator may issue it without raw-shell rights: whatever shell_cmd the
-	// client might send is ignored — the payload is rebuilt from the catalog here.
-	// The command is stored as type "query" and only translated to "shell" at the
-	// device boundary (see deviceCommandType), so the dashboard shows it as a Query.
-	var queryPayload json.RawMessage
-	if cmdType == "query" {
-		qid, _ := strconv.Atoi(r.FormValue("query_id"))
-		q, err := h.db.GetDeviceQuery(r.Context(), qid)
-		if err != nil || !q.Enabled {
-			http.Error(w, "Unknown query", http.StatusBadRequest)
-			return
-		}
-		b, _ := json.Marshal(map[string]any{"cmd": q.Command, "query_id": q.ID, "query": q.Label})
-		queryPayload = json.RawMessage(b)
-	}
 	reason := strings.TrimSpace(r.FormValue("reason"))
 	if isDestructiveCmd(cmdType) && h.cfg.RequireReason() && reason == "" {
 		http.Error(w, "A reason is required for this command.", http.StatusBadRequest)
@@ -265,8 +248,6 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			b, _ := json.Marshal(map[string]string{"package": p})
 			items = append(items, cmdItem{payload: json.RawMessage(b)})
 		}
-	case "query":
-		items = []cmdItem{{payload: queryPayload}}
 	case "app_update":
 		// Fleet-wide agent update: every target gets the build this server hosts.
 		// MDM-lite hosts pick their own APK from the app library, so a URL supplied

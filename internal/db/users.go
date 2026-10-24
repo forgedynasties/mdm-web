@@ -184,7 +184,6 @@ var actorColumns = [][2]string{
 	{"commands", "created_by"},
 	{"command_recipes", "created_by"},
 	{"scheduled_recipes", "created_by"},
-	{"device_queries", "created_by"},
 	{"qfil_packages", "added_by"},
 	{"dismissed_commands", "dismissed_by"},
 	{"release_problems", "reported_by"},
@@ -292,7 +291,6 @@ type UserStats struct {
 	Installs       int64
 
 	ReleasesMerged int64
-	QueriesCreated int64
 	RecipesCreated int64
 }
 
@@ -465,9 +463,8 @@ func (d *DB) UserStats(ctx context.Context, username, excludeFromRank string) (*
 	err = d.pool.QueryRow(ctx, `
 		SELECT
 		  (SELECT COUNT(*) FROM releases WHERE merged_by = $1),
-		  (SELECT COUNT(*) FROM device_queries WHERE created_by = $1),
 		  (SELECT COUNT(*) FROM command_recipes WHERE created_by = $1)`, username).Scan(
-		&st.ReleasesMerged, &st.QueriesCreated, &st.RecipesCreated)
+		&st.ReleasesMerged, &st.RecipesCreated)
 	if err != nil {
 		return nil, err
 	}

@@ -86,7 +86,6 @@ var specs = map[string]Spec{
 
 	// ── operator tools: short-lived, answer or nothing ─────────────────────────
 	"shell":         {AtLeastOnce, LaneShell, 5 * time.Minute, 5 * time.Minute, 0, nil, false},
-	"query":         {AtLeastOnce, LaneShell, 5 * time.Minute, 5 * time.Minute, 0, nil, false},
 	"collect_logs":  {AtLeastOnce, LaneShell, 10 * time.Minute, 15 * time.Minute, 0, nil, false},
 	"screenshot":    {AtLeastOnce, LaneShell, 5 * time.Minute, 5 * time.Minute, 0, nil, false},
 	"mic_gain_read": {AtLeastOnce, LaneShell, 5 * time.Minute, 5 * time.Minute, 0, nil, false},

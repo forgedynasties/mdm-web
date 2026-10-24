@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"mdm/internal/config"
-	"mdm/internal/db"
 	"mdm/internal/geolocate"
 )
 
@@ -85,7 +84,6 @@ func (h *Handler) settingsData(r *http.Request) map[string]any {
 	googleUsage := h.buildGoogleUsage(r.Context())
 	googleUsageJSON, _ := json.Marshal(googleUsage)
 	learnedAPs, _ := h.db.ListWifiAPsRecent(r.Context(), 25)
-	deviceQueries, _ := h.db.ListDeviceQueries(r.Context())
 	repoApps, _ := h.db.ListApps(r.Context())
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	// People & sign-in (S1): who is signed in now, by name, and the access profiles.
@@ -117,7 +115,6 @@ func (h *Handler) settingsData(r *http.Request) map[string]any {
 		"Suggestions":      setSugg,
 		"AppFamilyMode":    setMode,
 		"Productions":      productions,
-		"DeviceQueries":    deviceQueries,
 		"ExtraColumns":     h.cfg.Columns(),
 		"LegacyCheckin":    h.cfg.LegacyCheckin(),
 		"CommandCanary":    h.cfg.CommandCanary(),
@@ -426,88 +423,6 @@ func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) 
 	}
 	h.cfg.SetMaxTargets(n)
 	h.hxRedirect(w, r, h.settingsDest(r)) // may clamp to 0/default — re-render the stored value
-}
-
-// ── Device diagnostics catalog ───────────────────────────────────────────────
-// Admins curate a set of read-only device queries (label + shell command). They're
-// surfaced on the device page as "retrieve property" buttons; because the command
-// text comes only from this catalog (never user input), operators may run them even
-// though they cannot send raw shell.
-
-// deviceQueryFromForm reads the shared create/edit form fields into a DeviceQuery.
-func deviceQueryFromForm(r *http.Request) db.DeviceQuery {
-	q := db.DeviceQuery{
-		Label:       strings.TrimSpace(r.FormValue("label")),
-		Description: strings.TrimSpace(r.FormValue("description")),
-		Command:     strings.TrimSpace(r.FormValue("command")),
-		Category:    strings.TrimSpace(r.FormValue("category")),
-		Enabled:     r.FormValue("enabled") == "on",
-	}
-	if n, err := strconv.Atoi(strings.TrimSpace(r.FormValue("sort"))); err == nil {
-		q.Sort = n
-	}
-	if q.Category == "" {
-		q.Category = "General"
-	}
-	return q
-}
-
-func (h *Handler) SettingsQueryCreate(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	q := deviceQueryFromForm(r)
-	q.CreatedBy = h.currentUsername(r)
-	if q.Label == "" || q.Command == "" {
-		http.Error(w, "A label and a command are required.", http.StatusBadRequest)
-		return
-	}
-	if _, err := h.db.CreateDeviceQuery(r.Context(), q); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "query.create", q.Label, q.Command)
-	h.settingsRedirect(w, r)
-}
-
-func (h *Handler) SettingsQueryEdit(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	r.ParseForm()
-	q := deviceQueryFromForm(r)
-	q.ID = id
-	if q.Label == "" || q.Command == "" {
-		http.Error(w, "A label and a command are required.", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.UpdateDeviceQuery(r.Context(), q); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "query.edit", q.Label, q.Command)
-	h.settingsRedirect(w, r)
-}
-
-func (h *Handler) SettingsQueryDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	h.db.DeleteDeviceQuery(r.Context(), id)
-	h.audit(r, "query.delete", strconv.Itoa(id), "")
-	h.settingsRedirect(w, r)
-}
-
-func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	h.db.SetDeviceQueryEnabled(r.Context(), id, r.FormValue("enabled") == "1")
-	h.settingsRedirect(w, r)
 }
 
 func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
