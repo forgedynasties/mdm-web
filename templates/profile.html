@@ -30,7 +30,7 @@
     <div class="pf-hero">
       <span class="pf-av{{if and .Bubble .Bubble.URL}} has-img{{end}}">{{if and .Bubble .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{slice .Display 0 1}}{{end}}</span>
       <div>
-        <div class="cc-eyebrow">{{if or .CanManage .ViewingOther}}People · Users{{else}}My profile{{end}}</div>
+        <div class="cc-eyebrow">{{if .ViewingOther}}People · Users{{else}}My profile{{end}}</div>
         <h1 class="pf-name">{{.Display}}</h1>
         <div class="pf-meta">
           <span class="pf-role">{{if .User}}{{roleLabel .User.Role}}{{else}}{{roleLabel .Role}}{{end}}</span>
@@ -50,53 +50,10 @@
       </div>
     </div>
     <div class="cc-actions">
-      {{if .CanManage}}<a class="cc-btn" href="/users/access">Access control</a>{{else if .ViewingOther}}<a class="cc-btn" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
+      {{if .ViewingOther}}<a class="cc-btn" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
       {{if and .CanSeeActivity (canManageUsers .Role)}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
     </div>
   </div>
-
-  {{if and .ViewingOther .User .CanManage}}
-  <div class="pf-grid" style="margin-top:0;margin-bottom:16px;">
-    <div class="cc-card">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></span><h2>Manage account</h2></div>
-      <div class="pf-list">
-        <form action="/users/{{.User.ID}}/name" method="POST" class="pf-row" style="gap:8px;">
-          <span class="k" style="flex:0 0 90px;">Name</span>
-          <input type="text" name="first_name" class="form-input" placeholder="First" value="{{.User.FirstName}}" style="width:120px;">
-          <input type="text" name="last_name" class="form-input" placeholder="Last" value="{{.User.LastName}}" style="width:120px;">
-          <button type="submit" class="cc-btn sm">Save</button>
-        </form>
-        <form action="/users/{{.User.ID}}/role" method="POST" class="pf-row" style="gap:8px;">
-          <span class="k" style="flex:0 0 90px;">Role</span>
-          <select name="role" class="form-input" style="width:160px;">
-            {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}</option>{{end}}
-            {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
-          </select>
-          <button type="submit" class="cc-btn sm">Save</button>
-        </form>
-        <form action="/users/{{.User.ID}}/password" method="POST" class="pf-row" style="gap:8px;">
-          <span class="k" style="flex:0 0 90px;">Password</span>
-          <input type="password" name="password" class="form-input" placeholder="New password" required autocomplete="new-password" minlength="8" style="width:200px;">
-          <button type="submit" class="cc-btn sm">Set</button>
-        </form>
-        <form action="/users/{{.User.ID}}/delete" method="POST" class="pf-row" style="gap:8px;" hx-boost="true" hx-confirm="Delete user {{.User.Username}}? Their past activity stays and can be merged into another account later.">
-          <span class="k" style="flex:0 0 90px;">Delete</span>
-          <button type="submit" class="cc-btn sm" style="color:var(--danger);border-color:var(--danger-edge);">Delete account</button>
-        </form>
-      </div>
-    </div>
-
-    {{if ne .User.Role "admin"}}
-    <div class="cc-card" id="pf-access">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h2>Access</h2><span class="m">{{if .PolicyEmpty}}default for {{roleLabel .User.Role}}{{else}}custom rules{{end}}</span></div>
-      <div class="pf-list">
-        <ul style="list-style:none;margin:0;padding:6px 0 10px;font-size:13px;line-height:1.5;">{{range .PolicySummary}}<li style="display:flex;gap:8px;padding:3px 0;"><span style="flex:none;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:8px;"></span><span>{{.}}</span></li>{{end}}</ul>
-        <a class="cc-btn sm primary js-dest" href="/users/{{.User.ID}}/profile?open=access" style="width:max-content;margin-bottom:8px;">Manage account &amp; access</a>
-      </div>
-    </div>
-    {{end}}
-  </div>
-  {{end}}
 
   {{with .DisplayPrefs}}
   <div class="cc-card" id="display" style="max-width:560px;margin-bottom:16px;">

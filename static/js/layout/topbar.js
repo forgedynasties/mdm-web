@@ -98,23 +98,9 @@
       var lw = document.getElementById('alerts-wrap'), lp = document.getElementById('alerts-pop');
       if (!(lw && lw.contains(e.target)) && !(lp && lp.contains(e.target))) pop('alerts-pop', '#alerts-indicator', false);
     });
-    // What's new modal: toggle open/close; lazy-load the latest release on open.
-    window.navWhatsNew = function (e) {
-      if (e) { e.preventDefault(); e.stopPropagation(); }
-      var m = document.getElementById('whatsnew'); if (!m) return;
-      var btn = document.getElementById('whatsnew-btn');
-      var willOpen = !m.classList.contains('modal-open');
-      m.classList.toggle('modal-open', willOpen);
-      if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-      if (willOpen) {
-        pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
-        if (window.htmx) htmx.ajax('GET', '/changelog/latest', { target: '#whatsnew-body', swap: 'innerHTML' });
-      }
-    };
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
-        var m = document.getElementById('whatsnew'); if (m && m.classList.contains('modal-open')) navWhatsNew();
       }
     });
   })();

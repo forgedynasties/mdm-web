@@ -388,21 +388,6 @@
       </div>
     </div>
   </div>
-  {{/* What's new popup: latest release only, lazy-loaded into the body on open. */}}
-  <div id="whatsnew" class="modal-backdrop" onclick="if(event.target===this)navWhatsNew()">
-    <div class="modal-box whatsnew-box" role="dialog" aria-modal="true" aria-label="What's new">
-      <div class="modal-header">
-        <span class="modal-title">What's new</span>
-        <button class="modal-close" type="button" onclick="navWhatsNew()" aria-label="Close">&times;</button>
-      </div>
-      <div class="modal-body whatsnew-body" id="whatsnew-body">
-        <div class="nbar-al-empty">Loading…</div>
-      </div>
-      <div class="whatsnew-foot">
-        <a href="/changelog" class="btn-outline" onclick="navWhatsNew()">Show all changelogs</a>
-      </div>
-    </div>
-  </div>
   <main id="main" class="container" tabindex="-1">
 {{end}}{{/* end boosted/non-boosted chrome; <main> is now open in both paths */}}
     {{if .Preview}}

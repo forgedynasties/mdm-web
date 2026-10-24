@@ -20,7 +20,7 @@ import (
 // ProfilePage shows the signed-in user their own account details and footprint:
 // actions, commands, devices touched, release work, recent activity.
 func (h *Handler) ProfilePage(w http.ResponseWriter, r *http.Request) {
-	h.renderProfile(w, r, h.currentUsername(r), false, false)
+	h.renderProfile(w, r, h.currentUsername(r), false)
 }
 
 // UserProfilePage is an admin's view of another user's profile (Users → Stats).
@@ -36,7 +36,7 @@ func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if u.Username == h.currentUsername(r) {
-		h.renderProfile(w, r, u.Username, false, false)
+		h.renderProfile(w, r, u.Username, false)
 		return
 	}
 	// Anyone signed in may look at a colleague's profile (stats, recent activity);
@@ -47,10 +47,10 @@ func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 		h.renderUserI1(w, r, u)
 		return
 	}
-	h.renderProfile(w, r, u.Username, true, canManage)
+	h.renderProfile(w, r, u.Username, true)
 }
 
-func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username string, viewingOther, canManage bool) {
+func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username string, viewingOther bool) {
 	ctx := r.Context()
 	stats, err := h.db.UserStats(ctx, username, legacyAdminActor)
 	if err != nil {
@@ -89,15 +89,8 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 			}
 		}
 	}
-	var pol db.AccessPolicy
-	if viewingOther && canManage && user != nil {
-		pol, _ = h.db.GetUserAccess(ctx, user.Username)
-	}
 	enrolled, _ := h.db.RecentEnrollments(ctx, username, time.Time{}, 50)
 	h.render(w, r, "profile.html", map[string]any{
-		"Policy":         pol,
-		"PolicyEmpty":    pol.IsEmpty(),
-		"PolicySummary":  h.policySummary(ctx, user, pol),
 		"Title":          title,
 		"User":           user,
 		"Bubble":         userBubbleFn(username),
@@ -108,12 +101,9 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"Recent":         recent,
 		"Enrolled":       enrolled,
 		"ViewingOther":   viewingOther,
-		"CanManage":      canManage,
 		"CanSeeActivity": !viewingOther || h.role(r) == "admin", // only a super admin reads someone else's activity
 		"OwnerSelf":      !viewingOther && roleIsCustomer(h.role(r)),
 		"OwnerVenues":    ownerVenues,
-		"UsersTab":       map[bool]string{true: "access", false: ""}[canManage],
-		"Assignable":     assignableRoles(h.role(r)),
 		"DisplayPrefs":   h.profileDisplay(r, viewingOther),
 	})
 }

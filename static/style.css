@@ -6641,34 +6641,6 @@ a.hl-row:hover { background: var(--hover); }
   .cl-shot-wide { grid-column: auto; }
 }
 
-/* What's new popup: a wider modal that can hold the media gallery, with a
-   pinned "Show all changelogs" footer under a scrolling body. */
-.whatsnew-box { max-width: 620px; }
-.whatsnew-body { gap: var(--s-2, 8px); }
-.whatsnew-head { display: flex; align-items: flex-start; justify-content: space-between; }
-.whatsnew-kicker {
-  font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--accent); margin-bottom: 2px;
-}
-.whatsnew-ver { font-size: 16px; font-weight: 700; }
-.whatsnew-changes { margin: 0; padding: 0; list-style: none; }
-.whatsnew-changes li {
-  position: relative; padding: 9px 0 9px 20px; line-height: 1.6; font-size: 12.5px;
-  color: var(--text2, var(--muted)); border-top: 1px dashed var(--border-soft);
-}
-.whatsnew-changes li:first-child { border-top: none; }
-.whatsnew-changes li::before {
-  content: ""; position: absolute; left: 3px; top: 15px; width: 6px; height: 6px;
-  border-radius: 50%; background: var(--accent);
-}
-/* clFormat's bold lead sentence — styled globally so it also renders in the popup
-   (the changelog page has its own scoped copy). */
-.whatsnew-changes .cl-lead { color: var(--text); font-weight: 650; }
-.whatsnew-foot {
-  display: flex; justify-content: flex-end;
-  padding: var(--s-3) var(--s-5); border-top: 1px solid var(--border);
-}
-
 /* Release push pane: group/restaurant target chips. */
 .push-tgt-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; }
 .push-tgt-chip {

@@ -62,10 +62,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Releases (pipeline.go): what every role runs, and the per-model firmware.
 	mux.HandleFunc("GET /lineup", h.requireAuth(h.Pipeline))
 	mux.HandleFunc("GET /pipeline", h.requireAuth(h.PipelineRedirect))
-	post("POST /pipeline/channel", h.requireLab(h.PipelineChannel))
 	post("POST /pipeline/firmware", h.requireLab(h.PipelineFirmware))
 	post("POST /pipeline/rollout", h.requireLab(h.PipelineRollout))
-	post("POST /pipeline/fetch", h.requireLab(h.PipelineFetch))
 	// Lab sessions (lab.go): the timed lab view and its actions.
 	mux.HandleFunc("GET /devices/{serial}/lab", h.requireLab(h.deviceRoute("shell", h.LabView)))
 	post("POST /devices/{serial}/lab/open", h.requireLab(h.deviceRoute("shell", h.LabOpen)))
@@ -79,7 +77,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.deviceRoute("view", h.DeviceQueuePartial)))
 	post("POST /devices/{serial}/queue/clear", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceQueueClear)))
 	post("POST /devices/{serial}/queue/{id}/remove", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceQueueRemove)))
-	mux.HandleFunc("GET /devices/{serial}/installs", h.requireAuth(h.deviceRoute("view", h.DeviceInstallProgress)))
 	post("POST /devices/{serial}/installs/cancel", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceInstallCancel)))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.deviceRoute("view", h.DeviceCommandCreate)))
 	// Wireless adb page: batch on/off and tunnels (admin only, like adb_tcp itself).
@@ -368,7 +365,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/queries/{id}/delete", h.requireStrictAdmin(h.SettingsQueryDelete))
 	post("POST /settings/queries/{id}/toggle", h.requireStrictAdmin(h.SettingsQueryToggle))
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
-	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/compliance-reports/toggle", h.requireStrictAdmin(h.SettingsToggleComplianceReports))
 	post("POST /settings/lost-mode-phone", h.requireStrictAdmin(h.SettingsSetLostModePhone))

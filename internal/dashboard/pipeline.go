@@ -3,11 +3,9 @@ package dashboard
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,11 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"mdm/internal/apkstore"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	prod "mdm/internal/product"
-	"mdm/internal/safehttp"
 )
 
 // Releases — the pipeline (static/releases-pipeline-demos.html, option B, picked 14 Oct):
@@ -320,98 +316,6 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	base := st.Apps[sel]
-	history, _ := h.db.ChannelHistory(ctx, 4)
-	var columns []pipeColumn
-	var inbox []pipeInbox
-	if base != "" {
-		pkgs := map[string]bool{base: true}
-		for _, a := range library {
-			if inFamily(base, a.PackageName) {
-				pkgs[a.PackageName] = true
-			}
-		}
-		for p := range st.Channels[sel] {
-			pkgs[p] = true
-		}
-		var ordered []string
-		for p := range pkgs {
-			if p != base {
-				ordered = append(ordered, p)
-			}
-		}
-		sort.Strings(ordered)
-		ordered = append(ordered, base) // prod last, as in the demo
-		chans, _ := h.db.ListChannels(ctx)
-		meta := map[string]db.Channel{}
-		for _, c := range chans {
-			if c.Role == sel {
-				meta[c.Package] = c
-			}
-		}
-		for _, p := range ordered {
-			col := pipeColumn{Package: p, Label: variantLabel(p, base), IsProd: p == base, Current: st.Channels[sel][p]}
-			if m, ok := meta[p]; ok {
-				col.SetBy, col.SetAt = m.SetBy, m.SetAt
-			}
-			for _, e := range history {
-				if e.Role == sel && e.Package == p && (col.Current == nil || e.AppID == nil || *e.AppID != col.Current.ID) {
-					col.Earlier = append(col.Earlier, e)
-				}
-			}
-			if len(col.Earlier) > 3 {
-				col.Earlier = col.Earlier[:3]
-			}
-			for _, s := range st.Labs {
-				if s.Package == p {
-					col.LabDevices++
-				}
-			}
-			if col.IsProd && col.Current != nil {
-				for i := range devices {
-					d := &devices[i]
-					if d.Hidden || d.Retired() || d.Class() != sel || d.RestaurantID == nil {
-						continue
-					}
-					if _, inLab := st.Labs[d.ID]; inLab {
-						continue
-					}
-					col.Total++
-					s := planAppStep(base, installed[d.ID], col.Current)
-					_, has := installed[d.ID][base]
-					switch {
-					case s.Ahead:
-						col.Ahead++
-					case s.Install == nil:
-						col.On++
-					case !has:
-						col.Missing++
-					default:
-						col.Waiting++
-					}
-				}
-			}
-			columns = append(columns, col)
-			// New builds of this package: newer than what its column holds.
-			var since time.Time
-			if col.Current != nil {
-				since = col.Current.CreatedAt
-			}
-			var builds []db.App
-			for _, a := range library {
-				if a.PackageName == p && (col.Current == nil || (a.ID != col.Current.ID && a.CreatedAt.After(since))) {
-					builds = append(builds, a)
-				}
-			}
-			sort.Slice(builds, func(i, j int) bool { return builds[i].CreatedAt.After(builds[j].CreatedAt) })
-			if col.Current == nil && len(builds) > 1 {
-				builds = builds[:1] // a column never set: offer its latest build only
-			}
-			for _, b := range builds {
-				inbox = append(inbox, pipeInbox{App: b, Label: col.Label, IsProd: col.IsProd})
-			}
-		}
-		sort.Slice(inbox, func(i, j int) bool { return inbox[i].App.CreatedAt.After(inbox[j].App.CreatedAt) })
-	}
 
 	names := map[string]string{}
 	for _, a := range library {
@@ -501,12 +405,9 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		"RoleLabel":   selLabel,
 		"BasePackage": base,
 		"BaseName":    names[base],
-		"Columns":     columns,
-		"Inbox":       inbox,
 		"Models":      models,
 		"RoleClients": roleClients,
 		"App":         app,
-		"AppRollout":  h.cfg.RoleRollout(config.RolloutApps),
 		"FwRollout":   h.cfg.RoleRollout(config.RolloutFirmware),
 	}))
 }
@@ -634,44 +535,6 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/apps/products?"+q.Encode(), http.StatusSeeOther)
 }
 
-// PipelineChannel puts a build on its package's column. On the base package this is
-// "promote to prod": every deployed device of the role moves to it in its window.
-func (h *Handler) PipelineChannel(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	role := strings.TrimSpace(r.FormValue("role"))
-	appID, err := uuid.Parse(strings.TrimSpace(r.FormValue("app_id")))
-	if err != nil {
-		http.Error(w, "Choose a build", http.StatusBadRequest)
-		return
-	}
-	app, err := h.db.GetApp(ctx, appID)
-	if err != nil {
-		http.Error(w, "Build not found", http.StatusNotFound)
-		return
-	}
-	st, err := h.loadRoleAppState(ctx)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	base := st.Apps[role]
-	if base == "" || !inFamily(base, app.PackageName) {
-		http.Error(w, "That build is not this role's app.", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetChannel(ctx, role, app.PackageName, app.ID, h.currentUsername(r)); err != nil {
-		http.Error(w, "Could not save: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-	what := "release.app_channel"
-	if app.PackageName == base {
-		what = "release.app_prod"
-	}
-	h.audit(r, what, role, app.PackageName+" "+app.VersionName)
-	go h.reconcileKiosk(context.Background()) // a first prod build turns the role lock on
-	h.pipelineBack(w, r, role, "channel")
-}
-
 // PipelineFirmware sets a model's prod firmware release.
 func (h *Handler) PipelineFirmware(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -753,95 +616,6 @@ func (h *Handler) PipelineRollout(w http.ResponseWriter, r *http.Request) {
 
 // maxFetchedAPK caps a fetched build.
 const maxFetchedAPK = 1 << 30
-
-// PipelineFetch adds a build from a link. The download runs in the background, because
-// a large APK outlasts a request; the result shows under New builds, or as an error line
-// on the page.
-func (h *Handler) PipelineFetch(w http.ResponseWriter, r *http.Request) {
-	if h.apk == nil {
-		http.Error(w, "APK storage is not configured on this server.", http.StatusServiceUnavailable)
-		return
-	}
-	link := strings.TrimSpace(r.FormValue("url"))
-	if err := safehttp.CheckURL(link, false); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	base := h.baseURL(r)
-	by := h.currentUsername(r)
-	noteFetch(link, "fetching…")
-	h.audit(r, "release.fetch", link, "")
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
-		defer cancel()
-		app, err := h.fetchBuild(ctx, link, base)
-		if err != nil {
-			log.Printf("[releases] fetch %s (by %s): %v", link, by, err)
-			noteFetch(link, "failed: "+err.Error())
-			return
-		}
-		noteFetch(link, "added "+app.PackageName+" "+app.VersionName)
-	}()
-	h.pipelineBack(w, r, r.FormValue("role"), "fetching")
-}
-
-// fetchBuild downloads, parses and stores one APK.
-func (h *Handler) fetchBuild(ctx context.Context, link, base string) (*db.App, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := safehttp.Client(20 * time.Minute).Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("the link answered %s", resp.Status)
-	}
-	f, err := os.CreateTemp("", "fetched-*.apk")
-	if err != nil {
-		return nil, err
-	}
-	defer os.Remove(f.Name())
-	n, err := io.Copy(f, io.LimitReader(resp.Body, maxFetchedAPK+1))
-	f.Close()
-	if err != nil {
-		return nil, err
-	}
-	if n > maxFetchedAPK {
-		return nil, fmt.Errorf("larger than 1 GB")
-	}
-	meta, err := apkstore.ParseFile(f.Name())
-	if err != nil {
-		return nil, fmt.Errorf("not an APK: %w", err)
-	}
-	body, err := os.ReadFile(f.Name())
-	if err != nil {
-		return nil, err
-	}
-	key := h.apk.Key(uuid.NewString() + ".apk")
-	if err := h.apk.Put(ctx, key, "application/vnd.android.package-archive", body); err != nil {
-		return nil, fmt.Errorf("store: %w", err)
-	}
-	name := meta.Label
-	if name == "" {
-		name = meta.Package
-	}
-	app, err := h.db.CreateS3App(ctx, name, meta.Package, meta.VersionName, key, base)
-	if err != nil {
-		return nil, err
-	}
-	if meta.IconPNGB64 != "" && len(meta.IconPNGB64) <= 128*1024 {
-		_ = h.db.UpsertAppIcon(ctx, meta.Package, meta.IconPNGB64)
-	}
-	go func() {
-		if err := h.apk.EnsureCached(context.Background(), key); err != nil {
-			log.Printf("[releases] cache %s: %v", key, err)
-		}
-	}()
-	return app, nil
-}
 
 // appChoice is one app a role can be set to: a root package of the library.
 type appChoice struct{ Package, Name string }

@@ -125,7 +125,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 // see the Cache-Control comment below for why this can't just apply everywhere.
 var prefetchableTemplates = map[string]bool{
 	"overview.html": true, "devices.html": true, "health.html": true,
-	"commands.html": true, "releases.html": true, "compliance.html": true,
+	"releases.html": true, "compliance.html": true,
 	// Child-rail destinations: moving within a section is the most common
 	// navigation in the dashboard, and the rail warms the next page on hover.
 	"alerts.html": true, "alert_config.html": true, "report_alerts.html": true,
