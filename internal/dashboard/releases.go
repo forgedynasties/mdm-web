@@ -1155,7 +1155,9 @@ func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request,
 		h.writeReleaseProblemsResponse(w, r, id)
 		return
 	}
-	h.render(w, r, "release_workspace.html", h.releaseWorkspaceData(r, rel, tab))
+	data := h.releaseWorkspaceData(r, rel, tab)
+	data["ProdFor"] = h.releaseProdFor(r.Context())[rel.ID]
+	h.render(w, r, "release_workspace.html", data)
 }
 
 // releaseWorkspaceData assembles the release page's data. It builds on

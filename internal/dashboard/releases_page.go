@@ -319,6 +319,7 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 			data["R2"] = buildReleaseR2(in)
 		}
 	}
+	data["ProdFor"] = h.releaseProdFor(r.Context())
 	h.render(w, r, "releases.html", data)
 }
 

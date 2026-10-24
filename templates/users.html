@@ -94,6 +94,7 @@
       {{if .Assignable}}<button type="button" class="cc-btn primary" onclick="upInviteOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Invite</button>{{end}}
     </div>
   </div>
+  {{template "users-tabs" .}}
 
   {{if .InviteFailed}}<div class="vf-strip"><div class="vf-strip-h"><span class="i"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></span><div><h2>The account was made, but the invite email to {{.InviteFailed}} didn't go out</h2><small>Use "Send invite again" in their row's ⋯ menu.</small></div></div></div>{{end}}
 

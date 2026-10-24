@@ -126,7 +126,7 @@ func TestAccessAC1Renders(t *testing.T) {
 	funcs["add"] = func(a, b int) int { return a + b }
 	funcs["hasPrefix"] = strings.HasPrefix
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}{{define "ubub"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/users_access.html"))
+	tmpl = template.Must(tmpl.ParseFiles("../../templates/users_access.html", "../../templates/_users_tabs.html"))
 	v := buildAccessAC1(ac1Sample(time.Now()))
 	data := map[string]any{"AC1": v, "Show": "extras", "Assignable": []string{"viewer", "support", "operator", "staff"}, "ActivePath": "/users/access"}
 	var buf bytes.Buffer

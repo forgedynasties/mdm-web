@@ -36,6 +36,7 @@
     </div>
     <div class="cc-actions">{{if .CanEdit}}<button type="button" class="cc-btn primary" onclick="apOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New profile</button>{{end}}</div>
   </div>
+  {{template "users-tabs" .}}
 
   <form class="cc-card ap-form" id="ap-form" hidden onsubmit="return apSave(event)">
     <h2 id="ap-title" style="margin:0 0 12px;font-size:14px">New profile</h2>

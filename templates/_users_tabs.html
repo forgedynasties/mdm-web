@@ -1,0 +1,10 @@
+{{/* People tabs (audit, 24 Oct 2026): the People section's pages, in the menu's order.
+     Shown under the header of /users, /users/access, /users/access/profiles, /activity. */}}
+{{define "users-tabs"}}
+<nav class="cc-tabs" aria-label="People" style="display:flex;gap:4px;margin:-6px 0 16px;padding:3px;background:var(--surface-3);border:1px solid var(--border);border-radius:11px;width:max-content;">
+  <a href="/users" class="cc-btn sm js-dest{{if eq .UsersTab "people"}} primary{{end}}"{{if eq .UsersTab "people"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "people"}}background:transparent;box-shadow:none;{{end}}">Users</a>
+  <a href="/users/access" class="cc-btn sm js-dest{{if eq .UsersTab "access"}} primary{{end}}"{{if eq .UsersTab "access"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "access"}}background:transparent;box-shadow:none;{{end}}">Access rules</a>
+  <a href="/users/access/profiles" class="cc-btn sm js-dest{{if eq .UsersTab "profiles"}} primary{{end}}"{{if eq .UsersTab "profiles"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "profiles"}}background:transparent;box-shadow:none;{{end}}">Access profiles</a>
+  <a href="/activity" class="cc-btn sm js-dest{{if eq .UsersTab "activity"}} primary{{end}}"{{if eq .UsersTab "activity"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "activity"}}background:transparent;box-shadow:none;{{end}}">Activity log</a>
+</nav>
+{{end}}

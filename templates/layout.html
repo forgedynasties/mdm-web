@@ -574,17 +574,6 @@
 </div>
 {{end}}
 
-{{/* Users hub tabs: People (roster + per-user stats) and Activity (the audit log).
-     Shown on /users, /activity and admin views of a user's profile. */}}
-{{define "users-tabs"}}
-<div class="cc-tabs" style="display:flex;gap:4px;margin:-6px 0 16px;padding:3px;background:var(--surface-3);border:1px solid var(--border);border-radius:11px;width:max-content;">
-  <a href="/users" class="cc-btn sm{{if eq .UsersTab "people"}} primary{{end}}" style="border-color:transparent;{{if ne .UsersTab "people"}}background:transparent;box-shadow:none;{{end}}">People</a>
-  <a href="/activity" class="cc-btn sm{{if eq .UsersTab "activity"}} primary{{end}}" style="border-color:transparent;{{if ne .UsersTab "activity"}}background:transparent;box-shadow:none;{{end}}">Activity</a>
-  <a href="/users/access" class="cc-btn sm{{if eq .UsersTab "access"}} primary{{end}}" style="border-color:transparent;{{if ne .UsersTab "access"}}background:transparent;box-shadow:none;{{end}}">Access control</a>
-</div>
-{{end}}
-
-
 {{define "nav-users"}}<a href="/users" class="{{.cls}}{{if eq .active "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}
 
 {{/* The three firmware views as this page's own rail: they were separate nav entries

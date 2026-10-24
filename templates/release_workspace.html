@@ -18,11 +18,12 @@
 <div class="cc-wrap">
 <div class="cc-top">
   <div>
-    <div class="cc-eyebrow"><a href="/releases" style="color:inherit;text-decoration:none;">Releases</a> · manage</div>
+    <div class="cc-eyebrow">Software · <a href="/releases" style="color:inherit;text-decoration:none;">Releases</a></div>
     <h1 class="cc-h1 rw-title">
       <span class="cc-tag {{releaseStatusClass $rel.Status}}" style="font-size:11px;padding:3px 8px;">{{$rel.Status}}</span>
       <span class="mono">{{$rel.Version}}</span>
       <span class="cc-tag" title="Target product — only {{productLabel $rel.Product}} devices are offered this release">{{productLabel $rel.Product}}</span>
+      {{range .ProdFor}}<a class="cc-tag ok" href="{{.Href}}" title="Lineup's prod firmware for {{.Model}}: devices at venues move to it by themselves">Prod for {{.Label}}</a>{{end}}
       {{if $rel.IsDev}}<span class="cc-tag warn" title="Work-in-progress release — only super admins see it, but anyone with OTA rights can push it">dev</span>{{end}}
     </h1>
     {{if $rel.Name}}<div class="cc-sub">{{$rel.Name}}</div>{{end}}

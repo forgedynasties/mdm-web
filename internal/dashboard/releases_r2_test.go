@@ -99,6 +99,12 @@ func TestReleasesR2Renders(t *testing.T) {
 	funcs["canRelease"] = func(role string) bool { return role == "admin" }
 	funcs["canOTA"] = func(string) bool { return true }
 	funcs["canSeeDev"] = func(string) bool { return true }
+	funcs["derefInt"] = func(p *int) int {
+		if p == nil {
+			return 0
+		}
+		return *p
+	}
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
 	tmpl = template.Must(tmpl.ParseFiles("../../templates/releases.html"))
 
@@ -109,6 +115,7 @@ func TestReleasesR2Renders(t *testing.T) {
 		"Packages": in.Packages, "Rollouts": in.Rollouts, "Active": in.Rollouts, "CanPush": true, "HasFull": true,
 		"RolloutCounts": map[string]rolloutCount{"v2.1.035": {N: 1, Active: 1}},
 		"R2":            buildReleaseR2(in),
+		"ProdFor":       map[int][]prodTag{35: {{Label: "Tableside AI", Model: "T7", Href: "/lineup?role=t7#model-t7"}}},
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "releases.html", data); err != nil {
@@ -122,6 +129,8 @@ func TestReleasesR2Renders(t *testing.T) {
 		`>On devices</a>`, `▲ 3 this week`, `>Update #401</a>`, `3/12</b><small>installed</small>`, `>Crashes</a>`, `▲ 7`,
 		`Packages <span>2</span>`, `2.0 GB`, `from <span class="mono">v2.1.034</span>`, `Staff mode pill on the guest screen.`,
 		`Updates <span>1</span>`, `href="/releases/35/deployments/401">#401</a>`,
+		// Lineup's prod firmware, named and linked back (audit, 24 Oct 2026).
+		`href="/lineup?role=t7#model-t7"`, `>Prod for Tableside AI</a>`, `prod firmware for T7">prod</span>`,
 		// The header's own actions stay.
 		`title="Only super admins can see this release now"`, `Show devices`, `href="/updates/new?release=35"`, `title="Open the release page"`,
 	} {

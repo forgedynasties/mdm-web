@@ -495,7 +495,7 @@ func (h *Handler) AccessProfilesPage(w http.ResponseWriter, r *http.Request) {
 		"Profiles": rows,
 		"Actions":  profileActions(),
 		"CanEdit":  h.canEditProfiles(r),
-		"UsersTab": "access",
+		"UsersTab": "profiles",
 	})
 }
 
