@@ -49,7 +49,6 @@
     <div>
       <h1 class="cc-h1">Activity</h1>
     <div class="cc-status">{{.Total}} action{{if ne .Total 1}}s{{end}} logged{{if .Actor}} by <span class="hl">{{.ActorName}}</span>{{else}} by {{.DistinctUsers}} user{{if ne .DistinctUsers 1}}s{{end}}{{end}}</div>
-      <div class="cc-sub">Every tracked admin/account action across the dashboard. Filter by user to see just their activity.</div>
     </div>
   </div>
   {{template "users-tabs" .}}

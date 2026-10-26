@@ -10,16 +10,13 @@
       <div class="cc-eyebrow">Software</div>
       <h1 class="cc-h1">MDM clients</h1>
       <div class="cc-status">{{len .Clients}} client{{if ne (len .Clients) 1}}s{{end}}{{if .BehindTotal}} · <span class="warn">{{.BehindTotal}} device{{if ne .BehindTotal 1}}s{{end}} behind</span>{{end}}</div>
-      <div class="cc-sub">Our agents on every device, and the build each is kept on. Auto-update moves present devices to the hosted build inside their window.</div>
     {{else if eq .Tab "apps"}}
       <div class="cc-eyebrow">Software</div>
       <h1 class="cc-h1">Apps</h1>
       <div class="cc-status">By product · the app each product runs{{if .AppsNoBuild}} · <span class="warn">{{.AppsNoBuild}} with no build in the library</span>{{end}}</div>
-      <div class="cc-sub">Which build of each product's app goes out, which units have it, and where it is still being installed.</div>
     {{else}}
       <div class="cc-eyebrow">Software</div>
     <h1 class="cc-h1">Lineup</h1>
-      <div class="cc-sub">Each kind of device: the models that are it, the firmware they run and the MDM client on them. A device at a venue follows its model's prod firmware by itself, inside its quiet window.</div>
     {{end}}
     </div>
   </div>

@@ -118,7 +118,6 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
     <div>
       <div class="cc-eyebrow">Software</div>
       <h1 class="cc-h1">Releases</h1>
-      <div class="cc-sub">Firmware builds, and the updates that carry them to devices.</div>
     </div>
     <div class="cc-actions isl-dup">{{if canAdmin .Role}}<a class="cc-btn" href="/releases/settings">Update settings</a>{{end}}{{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
       {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}</div>

@@ -24,7 +24,6 @@
   <div>
     <div class="cc-eyebrow">Software · Legacy OTA</div>
     <h1 class="cc-h1">{{.KPI.seen}} legacy device{{if ne .KPI.seen 1}}s{{end}} <span class="hl {{if gt .KPI.failed 0}}danger{{else}}ok{{end}}">· {{.KPI.updating}} updating</span></h1>
-    <div class="cc-sub">Builds without the MDM agent speak the old <code>otautil</code> protocol and stay out of the fleet. They pick up an update on their next poll, every 15 minutes at least.{{if ne .LegacyOTAMode "mdm"}} <b class="hl danger">Their requests are being forwarded to the old ota-server right now</b> — nothing pushed from here reaches them until that is switched back in <a href="/settings#devices">Settings</a>.{{end}}</div>
   </div>
   <div class="cc-actions">
     <a href="/updates" class="cc-btn">Updates</a>
