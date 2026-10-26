@@ -104,7 +104,17 @@
     {{if .NProbe}}<button type="button" class="dtl-pill{{if .Probe}} on{{end}}" hx-get="{{$base}}?show={{.Show}}{{if not .Probe}}&probe=1{{end}}" hx-target="#device-timeline" hx-swap="outerHTML" title="The daily control probe: a no-op command that proves the device still answers">Control probe {{.NProbe}}</button>{{end}}
   </div>
   {{if .Items}}
-  <div class="dtl-list">
+  <div class="dtl-list">{{template "dtl-rows" .}}</div>
+  {{if .More}}<button type="button" class="app-more" hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}&n={{.Next}}" hx-target="#device-timeline" hx-swap="outerHTML">Show more</button>{{end}}
+  {{else}}
+  <div class="muted small" style="padding:10px 14px">{{if eq .Show "changes"}}No changes made from this page yet: locking, wireless charging, placement and naming show here with who did them.{{else if eq .Show "commands"}}No commands sent to this device yet.{{else}}Nothing done to this device yet.{{end}}</div>
+  {{end}}
+</div>
+{{end}}
+
+{{/* One row per command or page change, newest first; shared by the Activity tab and the
+     "Recent on this device" card under the split. */}}
+{{define "dtl-rows"}}
   {{range .Items}}
     {{if .Cmd}}{{$c := .Cmd}}
     <a class="ddc-tl ddc-tl-link" data-cmd-id="{{$c.ID}}" href="/commands/{{$c.ID}}">
@@ -120,11 +130,17 @@
     </div>
     {{end}}
   {{end}}
-  </div>
-  {{if .More}}<button type="button" class="app-more" hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}&n={{.Next}}" hx-target="#device-timeline" hx-swap="outerHTML">Show more</button>{{end}}
-  {{else}}
-  <div class="muted small" style="padding:10px 14px">{{if eq .Show "changes"}}No changes made from this page yet: locking, wireless charging, placement and naming show here with who did them.{{else if eq .Show "commands"}}No commands sent to this device yet.{{else}}Nothing done to this device yet.{{end}}</div>
-  {{end}}
+{{end}}
+
+{{/* Recent on this device (G3, picked 26 Oct 2026): under both panes of the split, the
+     latest commands and changes at full width, so a tall window shows what happened to the
+     device instead of a taller graph. The Activity tab keeps the full list and filters. */}}
+{{define "device-recent"}}
+<div class="ddc-card dd-recent-card" id="dd-recent-card" data-diff-guard data-morph
+  {{if .Pending}}hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-select="unset" hx-target="this" hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML"{{end}}>
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Recent on this device</h2><span class="m muted small"><a href="?tab=activity" class="link-detail" onclick="var t=document.getElementById('dd-tab-activity');if(t&&window.setDeviceTab){window.setDeviceTab('activity',t);window.scrollTo({top:0,behavior:'smooth'});return false}">All activity</a></span></div>
+  {{if .Items}}<div class="dtl-list">{{template "dtl-rows" .}}</div>
+  {{else}}<div class="muted small" style="padding:10px 14px">Nothing done to this device yet.</div>{{end}}
 </div>
 {{end}}
 
@@ -1500,6 +1516,8 @@ window.DEVICE_VITALS = {
   <div hx-get="/devices/{{.Device.SerialNumber}}/timeline" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
        class="muted small" style="padding:26px;text-align:center;">Loading activity…</div>
 </section><!-- /activity -->
+{{/* Moved under the split by split.js and loaded when it is first shown (G3). */}}
+<div id="dd-recent" class="dd-recent" hidden hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-trigger="dd-show once" hx-swap="innerHTML"></div>
 <style>.dd-activity .dd-act-queue{margin-bottom:12px}
 .dq-strip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);padding:9px 14px;border:1px dashed var(--border);border-radius:12px}
 .dq-strip .dq-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none}.dq-strip .dq-dot.on{background:var(--ok)}
@@ -1580,7 +1598,10 @@ window.DEVICE_VITALS = {
 .dd-split{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:14px;align-items:start}
 .dd-split-l{position:sticky;top:76px;min-width:0}
 /* Fitted to the window: the page stays put, the panes scroll. */
-html.dd-fit{overflow:hidden}
+/* The page scrolls again in the split (G3, 26 Oct 2026): Recent on this device sits under it. */
+.dd-recent{margin-top:16px}.dd-recent .ddc-card{margin:0}
+.dd-recent .dtl-list{columns:2 420px;column-gap:28px;padding-top:4px}
+.dd-recent .ddc-tl{break-inside:avoid}
 html.dd-fit .dd-split{align-items:stretch}
 html.dd-fit .dd-split-l,html.dd-fit .dd-split-r{position:static;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:12px}
 html.dd-fit .dd-split-r{padding-right:4px}

@@ -45,6 +45,7 @@
       split.remove();
     } else return;
     aboutIntoOverview(on);
+    recent(on, document.getElementById('dd-split'));
     // In Overview the facts follow the device pane (and what needs a look).
     if (on) { var anc = document.getElementById('dd-hw'); if (anc) anc.parentNode.insertBefore(facts, anc.nextSibling); }
     paneFacts(on);
@@ -125,12 +126,33 @@
     var ok = avail >= 420;
     root.classList.toggle('dd-fit', ok);
     if (!ok) return;
-    // Both panes take the window's height (26 Oct 2026: capping the split at the right
-    // pane's content squashed the graph on a device with little in its tabs). Zooming out
-    // and back no longer leaves the graph tall: its canvas fills its box (device.html).
+    // The split takes the window's height, but the graph keeps its shape (G3, picked
+    // 26 Oct 2026): the plot is at most half as tall as it is wide, never under 360 px,
+    // so zooming out or a tall monitor no longer turns it into a wall. What is left of
+    // the window goes to Recent on this device under the split. It never depends on the
+    // right pane's content (capping at that squashed the graph on a device with little in
+    // its tabs).
     var h = avail;
     split.style.height = h + 'px';
-    window.scrollTo(0, 0);
+    var wrap = Array.prototype.filter.call(split.querySelectorAll('.dd-split-l .chart-wrap--tall'),
+      function (w) { return w.offsetParent !== null; })[0];
+    if (wrap) {
+      var extra = wrap.clientHeight - Math.max(360, Math.round(wrap.clientWidth / 2));
+      if (extra > 0) split.style.height = (h - extra) + 'px';
+    }
+  }
+  // The graph's tabs (Battery, Temp, RAM, Network) differ in what sits under the plot.
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('.dd-split-l')) setTimeout(fitLater, 30);
+  });
+  function recent(on, split) {
+    var el = document.getElementById('dd-recent');
+    if (!el) return;
+    if (on && split) {
+      split.parentNode.insertBefore(el, split.nextSibling);
+      el.hidden = false;
+      if (window.htmx) window.htmx.trigger(el, 'dd-show');
+    } else el.hidden = true;
   }
   var fitRaf = 0;
   function fitLater() { if (!fitRaf) fitRaf = requestAnimationFrame(function () { fitRaf = 0; fit(); }); }

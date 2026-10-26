@@ -57,6 +57,9 @@ type timelineItem struct {
 
 const timelinePage = 30
 
+// timelineRecent is how many rows the Recent on this device card shows.
+const timelineRecent = 10
+
 func timelineIsProbe(c db.DeviceCommand) bool {
 	return c.Type == "canary" || c.CreatedBy == "control probe"
 }
@@ -77,6 +80,11 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 	n, _ := strconv.Atoi(r.URL.Query().Get("n"))
 	if n < timelinePage {
 		n = timelinePage
+	}
+	// The "Recent on this device" card under the split: the latest few, no probes.
+	tpl := "device-timeline"
+	if r.URL.Query().Get("recent") == "1" {
+		tpl, show, probe, n = "device-recent", "all", false, timelineRecent
 	}
 
 	cmds, err := h.db.GetDeviceCommands(ctx, device.ID, h.cfg.CommandExpiry())
@@ -117,7 +125,7 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 	if more {
 		items = items[:n]
 	}
-	h.renderCachedHTML(w, r, "device-timeline", h.withRole(r, map[string]any{
+	h.renderCachedHTML(w, r, tpl, h.withRole(r, map[string]any{
 		"Device":   device,
 		"Items":    items,
 		"Show":     show,
