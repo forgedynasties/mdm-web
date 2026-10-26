@@ -1,13 +1,11 @@
-{{/* The Apps hub (P1, picked 23 Oct 2026): one name, four tabs, each its own URL. Library
+{{/* The Apps hub (P1, picked 23 Oct 2026): one name, three tabs, each its own URL. Library
      (/apps, app-library roles), By product (/apps/products, was Host apps), Resource use
-     (/apps/usage), Classification (/apps/classification, was /packages; admin). Context: the
-     page's data, with .AppsTab naming the open tab. */}}
+     (/apps/usage). Context: the page's data, with .AppsTab naming the open tab. */}}
 {{define "apps-hub-tabs"}}
 <nav class="ah-tabs" aria-label="Apps">
   {{if canAppLibrary .Role}}<a href="/apps"{{if eq .AppsTab "library"}} class="on" aria-current="page"{{end}}>Library</a>{{end}}
   <a href="/apps/products"{{if eq .AppsTab "products"}} class="on" aria-current="page"{{end}}>By product</a>
   <a href="/apps/usage"{{if eq .AppsTab "usage"}} class="on" aria-current="page"{{end}}>Resource use</a>
-  {{if canAdmin .Role}}<a href="/apps/classification"{{if eq .AppsTab "classification"}} class="on" aria-current="page"{{end}}>Classification</a>{{end}}
 </nav>
 <style>
 .ah-tabs{display:flex;gap:2px;padding:4px;border-radius:12px;background:var(--surface2);width:max-content;margin:-4px 0 18px}

@@ -20,10 +20,10 @@ type DevicePackage struct {
 	AppName     string `json:"app_name"`
 	VersionName string `json:"version_name"`
 	// IsSystem is the client-reported system flag: nil when the device's client is
-	// too old to report it (so the admin override decides). Used on the write path.
+	// too old to report it (then it counts as system). Used on the write path.
 	IsSystem *bool `json:"is_system,omitempty"`
-	// EffectiveSystem is the resolved classification (client report if present, else
-	// admin override, else false). Populated on the read path; gates uninstall.
+	// EffectiveSystem is the resolved classification (the client's report, or a vendor
+	// package by name: vendorPackageSQL). Populated on the read path; gates uninstall.
 	EffectiveSystem bool `json:"effective_system"`
 	// Launchable is the client-reported "has a launcher (drawer) entry" flag: nil when
 	// the client is too old to report it. The dashboard's app lists default to
@@ -37,7 +37,7 @@ type DevicePackage struct {
 	Icon string `json:"icon,omitempty"`
 }
 
-// AdminPackage is a fleet-wide package row for the admin classification page.
+// AdminPackage is a fleet-wide package row (the lock allowlist picker reads it).
 type AdminPackage struct {
 	PackageName     string `json:"package_name"`
 	AppName         string `json:"app_name"`
@@ -45,7 +45,7 @@ type AdminPackage struct {
 	ReportedSystem  int    `json:"reported_system"`  // devices whose client reported is_system=true
 	ReportedUser    int    `json:"reported_user"`    // devices whose client reported is_system=false
 	ReportedUnknown int    `json:"reported_unknown"` // devices whose client didn't report
-	AdminFlagged    bool   `json:"admin_flagged"`    // an admin override row exists
+	Vendor          bool   `json:"vendor"`           // firmware-bundled by name (vendorPackageSQL)
 	EffectiveSystem bool   `json:"effective_system"`
 	Icon            string `json:"icon"` // base64 PNG from app_icons, "" if none
 	// App-drawer visibility as reported by clients that send the launchable flag
@@ -196,10 +196,9 @@ func (d *DB) upsertAppIcons(ctx context.Context, q interface {
 func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]DevicePackage, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT dp.package_name, dp.app_name, dp.version_name,
-		       (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL) AS effective_system,
+		       `+effectiveSystemSQL+` AS effective_system,
 		       dp.launchable, dp.updated_at, COALESCE(ai.icon, '')
 		FROM device_packages dp
-		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		-- Icons come from the shared index, so a device shows an icon for a package even
 		-- if this particular device never reported one.
 		LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
@@ -223,20 +222,20 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	return out, rows.Err()
 }
 
-// notSystemHeuristicSQL further excludes obvious AOSP/vendor system packages from
-// the uninstall picker. Unknown packages (is_system NULL, e.g. an old client that
-// didn't report the flag) already default to system and are treated as
-// non-uninstallable; this name filter is a secondary belt against vendor packages
-// that are somehow reported as user. Admins can still fine-tune via app_system_overrides.
-const notSystemHeuristicSQL = `
-			  AND dp.package_name <> 'android'
-			  AND dp.package_name NOT LIKE 'android.%'
-			  AND dp.package_name NOT LIKE 'com.android.%'
-			  AND dp.package_name NOT LIKE 'com.google.android.%'
-			  AND dp.package_name NOT LIKE 'com.qualcomm.%'
-			  AND dp.package_name NOT LIKE 'com.qti.%'
-			  AND dp.package_name NOT LIKE 'com.mediatek.%'
-			  AND dp.package_name NOT LIKE 'org.chromium.%'`
+// vendorPackageSQL is the automatic system-app rule by name (26 Oct 2026; the user:
+// "no need for manual classification", which retired the admin flag list): packages that
+// come with the firmware (AOSP, Google, Qualcomm / CodeAurora, MediaTek, Chromium, NXP,
+// test apps) count as system even where a client reports them as user apps, which
+// firmware-bundled apps often are. A device's own is_system report still applies on top.
+func vendorPackageSQL(col string) string {
+	return "(" + col + " = 'android' OR " + col + " = 'io.github.vvb2060.keyattestation' OR " + col +
+		" LIKE ANY (ARRAY['android.%', 'com.android.%', 'com.google.android.%', 'com.qualcomm.%'," +
+		" 'com.qti.%', 'com.quicinc.%', 'org.codeaurora.%', 'com.caf.%', 'com.mediatek.%'," +
+		" 'org.chromium.%', 'com.nxp.%', 'com.example.%', 'my.tests.%']))"
+}
+
+// effectiveSystemSQL: the package row counts as system on that device.
+var effectiveSystemSQL = "(COALESCE(dp.is_system, true) OR " + vendorPackageSQL("dp.package_name") + ")"
 
 func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPackage, error) {
 	var q string
@@ -252,10 +251,9 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions,
 				COALESCE(MAX(ai.icon), '') AS icon
 			FROM device_packages dp
-			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 			LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
 			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1)
-			  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
+			  AND NOT `+effectiveSystemSQL+`
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -269,9 +267,8 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions,
 				COALESCE(MAX(ai.icon), '') AS icon
 			FROM device_packages dp
-			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 			LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
-			WHERE NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
+			WHERE NOT `+effectiveSystemSQL+`
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -314,10 +311,9 @@ func (d *DB) PackagesForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]F
 			string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions,
 			COALESCE(MAX(ai.icon), '') AS icon
 		FROM device_packages dp
-		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
 		WHERE dp.device_id = ANY($1)
-		  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
+		  AND NOT `+effectiveSystemSQL+`
 		GROUP BY dp.package_name
 		ORDER BY device_count DESC, dp.package_name
 		LIMIT 200
@@ -347,9 +343,8 @@ func (d *DB) KioskAppsForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]
 			COALESCE(MAX(dp.app_name), '') AS app_name,
 			COUNT(DISTINCT dp.device_id) AS device_count
 		FROM device_packages dp
-		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		WHERE dp.device_id = ANY($1)
-		  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)
+		  AND NOT `+effectiveSystemSQL+`
 		GROUP BY dp.package_name
 		ORDER BY device_count DESC, app_name, dp.package_name
 	`, deviceIDs)
@@ -369,8 +364,8 @@ func (d *DB) KioskAppsForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]
 }
 
 // ListPackagesAdmin returns every distinct package across the fleet with how each
-// device's client classified it (system / user / not-reported) and whether an admin
-// override exists — backing the admin app-classification page. Optional name filter.
+// device's client classified it (system / user / not-reported) and whether it is a
+// vendor package by name. Optional name filter.
 func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackage, error) {
 	base := `
 		SELECT
@@ -380,12 +375,11 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 			COUNT(*) FILTER (WHERE dp.is_system IS TRUE)  AS rep_system,
 			COUNT(*) FILTER (WHERE dp.is_system IS FALSE) AS rep_user,
 			COUNT(*) FILTER (WHERE dp.is_system IS NULL)  AS rep_unknown,
-			bool_or(ov.package_name IS NOT NULL) AS admin_flagged,
+			bool_or(` + vendorPackageSQL("dp.package_name") + `) AS vendor,
 			COALESCE(MAX(ai.icon), '') AS icon,
 			COUNT(*) FILTER (WHERE dp.launchable IS TRUE)     AS rep_launchable,
 			COUNT(*) FILTER (WHERE dp.launchable IS NOT NULL) AS rep_launch_known
 		FROM device_packages dp
-		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		LEFT JOIN app_icons ai ON ai.package_name = dp.package_name`
 	var rows pgx.Rows
 	var err error
@@ -412,16 +406,15 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 	for rows.Next() {
 		var p AdminPackage
 		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount,
-			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.AdminFlagged, &p.Icon,
+			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.Vendor, &p.Icon,
 			&p.ReportedLaunchable, &p.ReportedLaunchKnown); err != nil {
 			return nil, err
 		}
-		// Effective classification. The admin override forces system and overrides
-		// whatever devices reported (matching the consumer query
-		// `COALESCE(is_system,true) OR override`). Otherwise a client system report
-		// wins, then a client user report, then unknown defaults to system.
+		// Effective classification, matching effectiveSystemSQL: a vendor package or a
+		// client system report wins, then a client user report, then unknown defaults
+		// to system.
 		switch {
-		case p.AdminFlagged || p.ReportedSystem > 0:
+		case p.Vendor || p.ReportedSystem > 0:
 			p.EffectiveSystem = true
 		case p.ReportedUser > 0:
 			p.EffectiveSystem = false
@@ -431,16 +424,4 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 		out = append(out, p)
 	}
 	return out, rows.Err()
-}
-
-// SetPackageSystemOverride adds (flagged) or removes (unflagged) an admin
-// system-app override for a package name.
-func (d *DB) SetPackageSystemOverride(ctx context.Context, pkg string, flagged bool) error {
-	if flagged {
-		_, err := d.pool.Exec(ctx,
-			`INSERT INTO app_system_overrides (package_name) VALUES ($1) ON CONFLICT DO NOTHING`, pkg)
-		return err
-	}
-	_, err := d.pool.Exec(ctx, `DELETE FROM app_system_overrides WHERE package_name = $1`, pkg)
-	return err
 }

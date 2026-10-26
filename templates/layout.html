@@ -317,7 +317,6 @@
         {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Library">Apps · Library</a>{{end}}
         <a class="js-dest{{if eq .ActivePath "/apps/products"}} on{{end}}" href="/apps/products" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · By product">Apps · By product</a>
         <a class="js-dest{{if eq .ActivePath "/apps/usage"}} on{{end}}" href="/apps/usage" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Resource use">Apps · Resource use</a>
-        {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/apps/classification"}} on{{end}}" href="/apps/classification" data-ic="download" data-cmdk-sec="Software" data-cmdk-label="Apps · Classification">Apps · Classification</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">

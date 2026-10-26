@@ -119,10 +119,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.deviceRoute("view", h.DevicePackages)))
 	mux.HandleFunc("GET /devices/{serial}/apps-list", h.requireAuth(h.deviceRoute("view", h.DeviceAppsList)))
 	mux.HandleFunc("GET /devices/{serial}/ota-progress", h.requireAuth(h.deviceRoute("view", h.DeviceOtaProgress)))
-	// App classification is a tab of the Apps hub (P1, 23 Oct 2026).
-	mux.HandleFunc("GET /apps/classification", h.requireStrictAdmin(h.FleetPackages))
-	mux.Handle("GET /packages", http.RedirectHandler("/apps/classification", http.StatusMovedPermanently))
-	post("POST /packages/flag", h.requireStrictAdmin(h.PackageFlag))
+	// Manual app classification is gone (26 Oct 2026; the user: "no need for manual
+	// classification"): system apps are told apart automatically (db.vendorPackageSQL).
+	mux.Handle("GET /apps/classification", http.RedirectHandler("/apps", http.StatusMovedPermanently))
+	mux.Handle("GET /packages", http.RedirectHandler("/apps", http.StatusMovedPermanently))
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.deviceRoute("logcat", h.LogcatLivePage)))
 	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(drainable(h.deviceRoute("logcat", h.LogcatStream))))
 
