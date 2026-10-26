@@ -53,7 +53,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">
-  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <link rel="apple-touch-icon" href="/static/icons/mdm-192.png">
   <script>
     // Set theme before first paint to avoid a flash of the wrong theme.
     (function () {
@@ -67,7 +67,7 @@
     })();
   </script>
   <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
-  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
@@ -305,7 +305,6 @@
         <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-ic="layers" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>
         <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>
         {{if canAdmin .Role}}<a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>{{end}}
-        {{if and (not (isCustomer .Role)) (not (canAdmin .Role))}}<a class="js-dest{{if eq .ActivePath "/coverage"}} on{{end}}" href="/coverage" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="AIO backend coverage">AIO backend coverage</a>{{end}}
         {{if canAppLibrary .Role}}<a class="js-dest{{if eq .ActivePath "/battery"}} on{{end}}" href="/battery" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Battery data">Battery data</a>{{end}}
       </div>
 

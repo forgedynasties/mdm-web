@@ -2,10 +2,10 @@
 // (fonts, CSS, vendor JS, icons) available offline. Pages themselves are always
 // network-first — the dashboard is live data — with a small offline fallback so an
 // installed app never shows the browser's error page.
-var VERSION = 'mdm-shell-v1';
+var VERSION = 'mdm-shell-v2'; // v2: the shield icons (26 Oct 2026)
 var SHELL = [
   '/static/style.css', '/static/fonts/fonts.css', '/static/vendor/htmx.min.js',
-  '/static/favicon.svg', '/static/icons/icon-192.png', '/static/icons/icon-512.png', '/static/offline.html'
+  '/static/favicon.svg', '/static/icons/mdm-192.png', '/static/icons/mdm-512.png', '/static/offline.html'
 ];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(SHELL).catch(function () {}); }).then(function () { return self.skipWaiting(); }));

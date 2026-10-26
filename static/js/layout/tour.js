@@ -12,7 +12,7 @@
       if (standalone || dismissed() || window.innerWidth > 900) return;
       e.preventDefault(); deferred = e;
       var b = document.createElement('div'); b.className = 'pwa-nudge'; b.setAttribute('role', 'dialog');
-      b.innerHTML = '<img src="/static/icons/icon-192.png" alt=""><div class="t"><b>Install AIO MDM</b><span>Add it to your home screen for a full-screen app.</span></div><button type="button" class="ok">Install</button><button type="button" class="x" aria-label="Not now">×</button>';
+      b.innerHTML = '<img src="/static/icons/mdm-192.png" alt=""><div class="t"><b>Install AIO MDM</b><span>Add it to your home screen for a full-screen app.</span></div><button type="button" class="ok">Install</button><button type="button" class="x" aria-label="Not now">×</button>';
       document.body.appendChild(b);
       b.querySelector('.ok').addEventListener('click', function () { if (deferred) { deferred.prompt(); deferred = null; } b.remove(); });
       b.querySelector('.x').addEventListener('click', function () { try { localStorage.setItem('mdm-install-dismissed', String(Date.now())); } catch (e) {} b.remove(); });
