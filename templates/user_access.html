@@ -508,7 +508,7 @@
         <summary><span class="vs-k">Password</span><span class="vs-v"><span>Set a new one</span></span><svg class="vs-ch" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></summary>
         <div class="vs-body"><form action="/users/{{$u.ID}}/password" method="POST" hx-boost="false" class="i1-f" autocomplete="off">
           <input type="hidden" name="redirect" value="{{$base}}?open=password">
-          <input type="password" name="password" class="form-input" placeholder="New password" autocomplete="new-password" minlength="6" required aria-label="New password">
+          <input type="password" name="password" class="form-input" placeholder="New password" autocomplete="new-password" minlength="8" required aria-label="New password">
           <button type="submit" class="cc-btn sm primary">Set</button>
         </form></div>
       </details>

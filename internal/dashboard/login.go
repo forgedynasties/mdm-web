@@ -17,6 +17,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// minPasswordLen applies to passwords set from now on (security audit, 26 Oct 2026: it
+// was 6); existing passwords keep working until they are changed.
+const minPasswordLen = 8
+
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	if h.isLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -153,8 +157,8 @@ func (h *Handler) SignupSubmit(w http.ResponseWriter, r *http.Request) {
 		fail("Sign-up is limited to " + signupEmailDomain + " email addresses.")
 		return
 	}
-	if len(password) < 6 {
-		fail("Password must be at least 6 characters.")
+	if len(password) < minPasswordLen {
+		fail(fmt.Sprintf("Password must be at least %d characters.", minPasswordLen))
 		return
 	}
 	if password != confirm {
@@ -317,8 +321,8 @@ func (h *Handler) ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Invite": r.FormValue("invite") == "1", "Error": msg, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 	}
 
-	if len(password) < 6 {
-		retry("Password must be at least 6 characters.")
+	if len(password) < minPasswordLen {
+		retry(fmt.Sprintf("Password must be at least %d characters.", minPasswordLen))
 		return
 	}
 	if password != confirm {

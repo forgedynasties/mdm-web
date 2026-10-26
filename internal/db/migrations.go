@@ -2177,6 +2177,9 @@ CREATE TABLE IF NOT EXISTS backend_hours (
 -- Venue fields that follow the AIO backend (B1): address, pin, timezone, hours. A field
 -- leaves the list when someone edits it in the MDM ("Set here").
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_follow TEXT[] NOT NULL DEFAULT '{}';
+-- Session ids are stored hashed (26 Oct 2026, see storedSessionID): hash the rows
+-- written before, in place, so every signed-in person stays signed in. Idempotent.
+UPDATE sessions SET id = 'h:' || encode(sha256(convert_to(id, 'UTF8')), 'hex') WHERE id NOT LIKE 'h:%';
 -- Each person's display preferences (24 Oct 2026): rows per page, default sort, density,
 -- time format; a missing key means the fleet default (Settings › Display).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_prefs JSONB NOT NULL DEFAULT '{}';

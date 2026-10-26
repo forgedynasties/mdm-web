@@ -485,8 +485,8 @@ func (h *Handler) UserSetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	password := r.FormValue("password")
-	if len(password) < 6 {
-		http.Error(w, "Password must be at least 6 characters", http.StatusBadRequest)
+	if len(password) < minPasswordLen {
+		http.Error(w, fmt.Sprintf("Password must be at least %d characters", minPasswordLen), http.StatusBadRequest)
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

@@ -2,10 +2,22 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// Session ids are stored hashed (security audit, 26 Oct 2026): the id in a cookie or
+// an app bearer token is the credential, so anyone who could read the table could use
+// any row. Callers keep passing and seeing the raw id; only this file knows the
+// difference. "h:" tells a hashed row from one written before the change (raw ids are
+// plain hex), and a lookup that finds an old row hashes it, so nobody is signed out.
+func storedSessionID(id string) string {
+	sum := sha256.Sum256([]byte(id))
+	return "h:" + hex.EncodeToString(sum[:])
+}
 
 // ── Dashboard sessions ──────────────────────────────────────────────────────
 
@@ -26,33 +38,37 @@ func (d *DB) CreateSession(ctx context.Context, s Session) error {
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO sessions (id, user_id, username, role, created_at, last_seen, expires_at)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), $5)
-	`, s.ID, s.UserID, s.Username, s.Role, s.ExpiresAt)
+	`, storedSessionID(s.ID), s.UserID, s.Username, s.Role, s.ExpiresAt)
 	return err
 }
 
 // GetSession returns the session by id, or an error if it does not exist.
 func (d *DB) GetSession(ctx context.Context, id string) (*Session, error) {
 	var s Session
-	err := d.pool.QueryRow(ctx, `
-		SELECT id, user_id, username, role, created_at, last_seen, expires_at
-		FROM sessions WHERE id = $1
-	`, id).Scan(&s.ID, &s.UserID, &s.Username, &s.Role, &s.CreatedAt, &s.LastSeen, &s.ExpiresAt)
+	const q = `SELECT user_id, username, role, created_at, last_seen, expires_at FROM sessions WHERE id = $1`
+	err := d.pool.QueryRow(ctx, q, storedSessionID(id)).Scan(&s.UserID, &s.Username, &s.Role, &s.CreatedAt, &s.LastSeen, &s.ExpiresAt)
 	if err != nil {
-		return nil, err
+		// A row from before hashing (or written by the old server during a deploy):
+		// accept it once and store it hashed.
+		if err2 := d.pool.QueryRow(ctx, q, id).Scan(&s.UserID, &s.Username, &s.Role, &s.CreatedAt, &s.LastSeen, &s.ExpiresAt); err2 != nil {
+			return nil, err
+		}
+		_, _ = d.pool.Exec(ctx, `UPDATE sessions SET id = $2 WHERE id = $1`, id, storedSessionID(id))
 	}
+	s.ID = id
 	return &s, nil
 }
 
 // TouchSession slides a session's last_seen forward to keep an active user
 // logged in (the absolute expires_at is left unchanged).
 func (d *DB) TouchSession(ctx context.Context, id string) error {
-	_, err := d.pool.Exec(ctx, `UPDATE sessions SET last_seen = NOW() WHERE id = $1`, id)
+	_, err := d.pool.Exec(ctx, `UPDATE sessions SET last_seen = NOW() WHERE id = $1`, storedSessionID(id))
 	return err
 }
 
 // DeleteSession removes a single session (logout).
 func (d *DB) DeleteSession(ctx context.Context, id string) error {
-	_, err := d.pool.Exec(ctx, `DELETE FROM sessions WHERE id = $1`, id)
+	_, err := d.pool.Exec(ctx, `DELETE FROM sessions WHERE id = $1 OR id = $2`, storedSessionID(id), id)
 	return err
 }
 
