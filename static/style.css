@@ -969,8 +969,11 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 }
 
 /* ── Layout ──────────────────────────────────────── */
+/* Pages grow with the screen up to --page-max, then centre (user, 26 Oct 2026, picked
+   "Grow to 1760 px, all pages": at 1280 px big screens had empty sides). */
+:root { --page-max: 1760px; }
 .container {
-  max-width: 1280px;
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: 28px 24px;
 }
@@ -6658,7 +6661,7 @@ a.hl-row:hover { background: var(--hover); }
    introduced with the Overview redesign. Every page uses
    these for its header, KPI strip, cards, chips, empties.
    ════════════════════════════════════════════════════ */
-.cc-wrap{max-width:1280px;margin:0 auto}
+.cc-wrap{max-width:var(--page-max);margin:0 auto}
 .cc-tnum{font-variant-numeric:tabular-nums}
 
 /* page top bar: eyebrow · headline · subtitle | actions */

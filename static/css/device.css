@@ -5,8 +5,8 @@
 /* ── Device detail · command-center alignment ("dd-cc" prefix) ──────────
    The page keeps its existing ddc-*/dq-*/da-* component CSS (already close
    to the cc-* language); this block only layers cc-* class names on top and
-   widens the page to match the 1280px cc-wrap used by Overview. */
-.device-detail.cc-wrap{max-width:1280px}
+   widens the page to the shared page width (--page-max, style.css). */
+.device-detail.cc-wrap{max-width:var(--page-max)}
 .dd-cc .ddc-hero--ribbon{margin-bottom:16px}
 .dd-cc .ddc-idw{flex:1;min-width:0;display:flex;gap:16px;align-items:center}
 .dd-cc .ddc-id{flex:1;min-width:0}
