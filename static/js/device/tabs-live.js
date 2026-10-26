@@ -109,6 +109,7 @@
     if (want === 'hostapp') want = 'apps';
     if (want === 'alerts' || want === 'compliance') want = 'health';
     if (want === 'wifi') want = 'network';
+    if (want === 'location') want = 'about'; // Location moved into About (26 Oct 2026)
     if (!want || want === 'summary') return;
     var btn = document.getElementById('dd-tab-' + want);
     if (btn && btn.hidden) return;   // About lives in Overview in the split view

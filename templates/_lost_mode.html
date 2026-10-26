@@ -20,7 +20,7 @@
     {{with .LostReport}}<span class="lb-heard">{{if .LastHeard}}<span class="lb-bars lb-n{{.Bars}}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Last heard {{localShortTime .LastHeard.LastAt}} by {{.LastHeard.HeardByName}}, {{.Signal}}{{else if and .Beacon (not .Beacon.OK)}}Its Bluetooth beacon isn't running: {{.Beacon.Why}}{{else if $.Lost.On}}Not heard by any device nearby{{end}}</span>{{end}}
   </span>
   <span class="lb-acts">
-    <button type="button" class="cc-btn sm" onclick="var t=document.getElementById('dd-tab-location'); if(t){t.click(); var c=document.getElementById('lost-report')||t; setTimeout(function(){c.scrollIntoView({behavior:'smooth',block:'start'})},60)}">{{if .LostReport}}Where it's been{{else}}Show on map{{end}}</button>
+    <button type="button" class="cc-btn sm" onclick="var t=document.getElementById('dd-tab-about'); if(t){t.click(); var c=document.getElementById('lost-report')||t; setTimeout(function(){c.scrollIntoView({behavior:'smooth',block:'start'})},60)}">{{if .LostReport}}Where it's been{{else}}Show on map{{end}}</button>
     {{if .Lost.On}}<button type="button" class="cc-btn sm{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} data-role-need="support"{{end}} onclick="document.getElementById('lost-lift-dlg').showModal()">Found it — lift lost mode</button>{{end}}
   </span>
 </div>

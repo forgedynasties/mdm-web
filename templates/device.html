@@ -549,7 +549,6 @@
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-health" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-health" data-dd-tab="health" onclick="setDeviceTab('health', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-9.3-9A5.2 5.2 0 0 1 12 6.6 5.2 5.2 0 0 1 21.3 12C19 16.6 12 21 12 21z"/></svg>Health{{if .Health.Count}} <span class="dd-tab-n warn" title="Open alerts and failing required checks">{{.Health.Count}}</span>{{end}}</button>{{end}}
   <button class="dd-tab" id="dd-tab-network" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-network" data-dd-tab="network" onclick="setDeviceTab('network', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg>Network</button>
-  <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.5-7-11a7 7 0 0 1 14 0c0 4.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Location</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5h.01"/></svg>About</button>
 </div>
 <div class="dd-tabrow-r">
@@ -1224,10 +1223,6 @@ window.DEVICE_VITALS = {
       <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
       {{if .ShowBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
-      <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
-      <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-      {{/* Build (user, 23 Oct 2026: "on overview page show build id also"). */}}
-      <div class="ddc-kv"><span class="k">Build</span><span class="v mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       </div>
     </div>
     {{/* Security posture as the client reports it (a dash = never reported), and the
@@ -1250,6 +1245,43 @@ window.DEVICE_VITALS = {
   {{/* Enrollment stays on About in the wide layout too (V1, 23 Oct 2026): only the device
        pane and what needs a look fold into the Overview (split.js aboutIntoOverview). */}}
   <div class="about-more">
+    {{/* About holds what was on the device card's lower rows and the Location tab (user,
+         26 Oct 2026: "location need no tab on device page since it can go in about",
+         "timezone and build can go to about also"). */}}
+    <div class="ddc-card" id="about-facts">
+      <div class="ddc-kv"><span class="k">Build</span><span class="v mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
+      <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
+    </div>
+    <div id="about-location">
+{{template "lost-report-card" .}}
+{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
+     themed) so it can follow the dashboard's dark mode like the Overview
+     fleet map does. Rendered only when the device has resolved WiFi-
+     geolocation coordinates AND a browser-facing Maps key is configured
+     (MapsEmbedKey, referrer-restricted). */}}
+{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
+{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
+<div class="card dev-map-card" id="dev-map-card">
+  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
+    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
+  </div>
+  <div id="dev-map" class="dev-map"></div>
+  <div class="dev-map-foot">
+    {{$maddr := extraField .Device.LatestExtra "location_address"}}
+    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
+    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
+  </div>
+</div>
+<script>window.DEVICE_MAP = {lat: {{$mlat}}, lng: {{$mlon}}, serial: {{.Device.SerialNumber}}};</script>
+<script src="/static/js/device/map.js?v={{assetVer}}"></script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
+{{end}}
+<div class="ddc-card" style="margin-top:12px">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2></div>
+  <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
+  <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
+</div>
+    </div>
     {{if not .IsOwner}}
     {{/* Enrollment facts: how this device got here. Its actions (key, server, retire,
          unenroll, wipe, wireless adb) are in the ⋯ menu. */}}
@@ -1530,39 +1562,13 @@ window.DEVICE_VITALS = {
 {{/* Network tab (23 Oct 2026): the Wi-Fi card (W1). It was briefly folded into Location;
      the user: "its not good to put location under network". */}}
 <section class="dd-panel" data-dd-panel="network" id="dd-panel-network" role="tabpanel" aria-labelledby="dd-tab-network" tabindex="0" hidden>
+{{/* IP moved here from the device card (user, 26 Oct 2026). */}}
+<div class="ddc-card" id="net-addr" style="margin-bottom:12px">
+  <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
+</div>
 {{template "dd-wifi-card" .Wifi}}
 </section><!-- /network -->
 
-<section class="dd-panel" data-dd-panel="location" id="dd-panel-location" role="tabpanel" aria-labelledby="dd-tab-location" tabindex="0" hidden>
-{{template "lost-report-card" .}}
-{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
-     themed) so it can follow the dashboard's dark mode like the Overview
-     fleet map does. Rendered only when the device has resolved WiFi-
-     geolocation coordinates AND a browser-facing Maps key is configured
-     (MapsEmbedKey, referrer-restricted). */}}
-{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
-{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
-<div class="card dev-map-card" id="dev-map-card">
-  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
-    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
-  </div>
-  <div id="dev-map" class="dev-map"></div>
-  <div class="dev-map-foot">
-    {{$maddr := extraField .Device.LatestExtra "location_address"}}
-    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
-    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
-  </div>
-</div>
-<script>window.DEVICE_MAP = {lat: {{$mlat}}, lng: {{$mlon}}, serial: {{.Device.SerialNumber}}};</script>
-<script src="/static/js/device/map.js?v={{assetVer}}"></script>
-<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
-{{end}}
-<div class="ddc-card" style="margin-top:12px">
-  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2></div>
-  <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
-  <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
-</div>
-</section><!-- /location -->
 </div><!-- /ddc-main -->
 <style>
 /* Split view (static/device-split-demos.html, S4 with split on by default, picked 14 Oct):

@@ -53,9 +53,9 @@
     s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(el.dataset.key) + '&callback=lostTrailInit';
     document.head.appendChild(s);
   }
-  // The Location tab is hidden until opened; draw on load and when the tab is shown.
+  // Location lives on the About tab (26 Oct 2026); draw on load and when About is shown.
   load();
-  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#dd-tab-location')) setTimeout(load, 50); });
+  document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#dd-tab-about')) setTimeout(load, 50); });
   document.body.addEventListener('htmx:afterSettle', load);
 })();
 

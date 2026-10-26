@@ -20,7 +20,7 @@ import (
 
 // ── Lost-device reporting on the dashboard (18 Oct; A+B+C+D) ──────────────────
 //
-// The device page's lost band and the Location tab's "Since it went missing" card (H1,
+// The device page's lost band and About's location section ("Since it went missing") (H1,
 // picked 18 Oct), the venue's self-lock switch (S1) and the job that places the Wi-Fi
 // scans a device kept while out of reach. The storage and the alerts are in
 // internal/db/lost_reporting.go and alert_feature_rules.go.
@@ -71,7 +71,7 @@ func (h *Handler) RunLostTrail(ctx context.Context) {
 }
 
 // lostReport is what the device page shows of a lost device's time out of reach: the
-// band's "Last heard … by …" line and the Location tab's timeline.
+// band's "Last heard … by …" line and the timeline in About's location section.
 type lostReport struct {
 	LastHeard *db.BLESighting // the most recent neighbour that heard it, nil when none
 	Signal    string          // LastHeard's strength in words ("very close" …)
@@ -203,7 +203,7 @@ func (h *Handler) RestaurantStaffPIN(w http.ResponseWriter, r *http.Request) {
 
 var staffPINRe = regexp.MustCompile(`^[0-9]{4,8}$`)
 
-// Newest is the timeline newest first, as the Location tab lists it.
+// Newest is the timeline newest first, as About's location section lists it.
 func (r *lostReport) Newest() []db.LostEvent {
 	out := make([]db.LostEvent, len(r.Timeline))
 	for i, e := range r.Timeline {
