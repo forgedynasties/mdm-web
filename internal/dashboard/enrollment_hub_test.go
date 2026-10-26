@@ -81,9 +81,25 @@ func TestEnrollmentHubRenders(t *testing.T) {
 		`data-tab="backend">From the AIO backend`, `<section class="en-tabpane" data-tab="backend"`,
 		`In the AIO backend, not here yet`, `Ole Ole Burrito`, `Redwood Grill`, `href="/enrollment?tab=backend&amp;type=pos"`,
 		`Standard MDM for QR provisioning`, `id="fleet-adb-key"`,
+		`data-tab="how">How to enroll</button>`, `/static/video/enroll-guide.mp4`, `data-t="43.6"`,
+		`data-tab="found">Found on Wi-Fi`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Enrollment hub is missing %q", want)
+		}
+	}
+	if strings.Contains(out, "Unenrollments") || strings.Contains(out, "How devices get here") {
+		t.Error("Enrollment hub still shows unenrollments or the old tab name")
+	}
+	// Found on Wi-Fi and From the AIO backend are super admin only (26 Oct 2026).
+	data["Role"] = "fleet_admin"
+	buf.Reset()
+	if err := hubTmpl(t, "enrollment.html", "coverage.html", "restaurants.html", "layout.html", "_settings_cards.html").ExecuteTemplate(&buf, "enrollment.html", data); err != nil {
+		t.Fatalf("enrollment.html as fleet_admin: %v", err)
+	}
+	for _, gone := range []string{`data-tab="found"`, `data-tab="backend"`, `href="?tab=found"`, `href="?tab=backend"`} {
+		if strings.Contains(buf.String(), gone) {
+			t.Errorf("a non-super-admin sees %q", gone)
 		}
 	}
 }

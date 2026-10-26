@@ -157,9 +157,12 @@
 
   {{/* The funnel (E1, 23 Oct 2026): listed in the AIO backend → found on Wi-Fi → in the
        MDM → placed at a venue, each linking to its tab. */}}
+  {{/* Found on Wi-Fi and From the AIO backend are super admin only (user, 26 Oct 2026),
+       wherever they show: funnel cards, tabs, panes. */}}
+  {{$super := eq .Role "admin"}}
   <div class="en-fun">
-    {{with .Cov}}<a class="en-fc" href="?tab=backend"><span class="k">In the AIO backend</span><b>{{.C.Total}}</b><small>{{.EnvLabel}} devices · {{.C.InMDM}} in the MDM ({{.C.Pct}}%)</small></a>{{end}}
-    <a class="en-fc" href="?tab=found"><span class="k">Found on Wi-Fi</span><b>{{.SightingsReady}}</b><small>ready to enrol</small></a>
+    {{if $super}}{{with .Cov}}<a class="en-fc" href="?tab=backend"><span class="k">In the AIO backend</span><b>{{.C.Total}}</b><small>{{.EnvLabel}} devices · {{.C.InMDM}} in the MDM ({{.C.Pct}}%)</small></a>{{end}}
+    <a class="en-fc" href="?tab=found"><span class="k">Found on Wi-Fi</span><b>{{.SightingsReady}}</b><small>ready to enrol</small></a>{{end}}
     <a class="en-fc" href="?tab=recent"><span class="k">In the MDM</span><b>{{add .Stats.Firmware .Stats.DPC}}</b><small>{{if gt .Stats.Enrolled7d 0}}▲ {{.Stats.Enrolled7d}} this week{{else}}none new this week{{end}}</small></a>
     <a class="en-fc{{if gt .Stats.Inbox 0}} warn{{end}}" href="?tab=inbox"><span class="k">Needs a venue</span><b>{{.Stats.Inbox}}</b><small>{{if gt .Stats.Inbox 0}}assign them below{{else}}every device is placed{{end}}</small></a>
   </div>
@@ -174,23 +177,23 @@
   </style>
   {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
        any are ready, else profiles — whatever has work, or setup when nothing does. */}}
-  <div class="en-tabs" role="tablist" aria-label="Enrollment" data-default="{{if gt $inboxN 0}}inbox{{else if gt .SightingsReady 0}}found{{else}}profiles{{end}}">
+  <div class="en-tabs" role="tablist" aria-label="Enrollment" data-default="{{if gt $inboxN 0}}inbox{{else if and $super (gt .SightingsReady 0)}}found{{else}}profiles{{end}}">
     <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
-    <button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
-    {{if .Cov}}<button type="button" role="tab" data-tab="backend">From the AIO backend<span class="n{{if .CovWork}} w{{end}}" title="AIO {{.Cov.EnvLabel}} devices not in the MDM yet">{{.CovWork}}</span></button>{{end}}
+    {{if $super}}<button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
+    {{if .Cov}}<button type="button" role="tab" data-tab="backend">From the AIO backend<span class="n{{if .CovWork}} w{{end}}" title="AIO {{.Cov.EnvLabel}} devices not in the MDM yet">{{.CovWork}}</span></button>{{end}}{{end}}
     <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>
-    <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span>{{if .Unenrollments}}<span class="n" title="handed back">−{{len .Unenrollments}}</span>{{end}}</button>
-    <button type="button" role="tab" data-tab="how">How devices get here</button>
+    <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span></button>
+    <button type="button" role="tab" data-tab="how">How to enroll</button>
   </div>
 
-  <section class="en-tabpane" data-tab="found" role="tabpanel">
+  {{if $super}}<section class="en-tabpane" data-tab="found" role="tabpanel">
   {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
   <div class="cc-card" id="en-scout-card">
     <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">{{if .Sightings}}{{.SightingsReady}} ready{{else}}nothing nearby{{end}}</span></div>
     {{template "enroll-scout" .}}
   </div>
 
-  </section>
+  </section>{{end}}
 
   <section class="en-tabpane" data-tab="inbox" role="tabpanel">
   {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
@@ -216,7 +219,7 @@
 
   {{/* From the AIO backend (E1, 23 Oct 2026): Prod coverage as a tab, the same view
        /coverage shows. prod_coverage.go */}}
-  {{if .Cov}}<section class="en-tabpane" data-tab="backend" role="tabpanel">
+  {{if and $super .Cov}}<section class="en-tabpane" data-tab="backend" role="tabpanel">
   {{template "cov-style"}}
   {{template "venues-backend-place" (dict "Placements" .Placements "Role" .Role)}}
   {{template "cov-body" (dict "Cov" .Cov "Role" .Role)}}
@@ -315,36 +318,60 @@
     {{else}}<div class="en-empty">No enrollments in the last 30 days.</div>{{end}}
   </div>
 
-  {{/* ── Unenrollments: who handed a device back (devices.unenrolled_by). The device
-       dropped Device Owner and stopped reporting; its data stayed on it. Only shown
-       once it has happened, so a server that has never unenrolled anything is unchanged. ── */}}
-  {{if .Unenrollments}}
-  <div class="cc-card lt" id="en-unenrolled" data-lt-n="15" style="margin-top:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span><h2>Unenrollments</h2><span class="m">handed back · last 90 days · {{len .Unenrollments}}</span></div>
-    <div style="overflow:auto"><table class="en-recent">
-      <tr><th>When</th><th>Unenrolled by</th><th>Device</th><th>Class</th><th>Venue</th></tr>
-      {{range .Unenrollments}}
-      <tr class="lt-row" data-lt-text="{{.Serial}} {{if .UnenrolledBy}}{{(userBubble .UnenrolledBy).Name}} {{.UnenrolledBy}}{{end}} {{.RestaurantName}} {{classLabel .DeviceClass}}">
-        <td class="small" title="{{formatTime .UnenrolledAt}}">{{timeSince .UnenrolledAt}}</td>
-        <td>{{if .UnenrolledBy}}{{template "ubub" (userBubble .UnenrolledBy)}} {{if userURL .UnenrolledBy}}<a href="{{userURL .UnenrolledBy}}" class="link-detail">{{(userBubble .UnenrolledBy).Name}}</a>{{else}}{{(userBubble .UnenrolledBy).Name}}{{end}}{{else}}<span class="muted" title="Unenrolled before this was recorded.">not recorded</span>{{end}}</td>
-        <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
-        <td>{{classLabel .DeviceClass}}</td>
-        <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">—</span>{{end}}</td>
-      </tr>
-      {{end}}
-      <tr class="lt-more lt-out" data-what="unenrollments"><td colspan="5"><button type="button" class="app-more lt-more-t"></button></td></tr>
-    </table></div>
-    <div class="muted small" style="padding:0 16px 14px;">The device kept its data; it stopped being managed from here. Enrolling it again starts from a factory reset.</div>
-  </div>
-  {{end}}
 
   </section>
 
   <section class="en-tabpane" data-tab="how" role="tabpanel">
+  {{/* The onboarding guide (26 Oct 2026, user: "add the animation"): a device enrolled with
+       AIO Enroll on a phone, start to finish. Steps beside it seek the video. */}}
+  <div class="cc-card en-guide">
+    <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3z"/></svg></span><h2>Enroll a device with your phone</h2><span class="m">AIO Enroll for Android · about a minute</span></div>
+    <div class="en-guide-b">
+      <video id="en-guide-v" src="/static/video/enroll-guide.mp4?v={{assetVer}}" poster="/static/video/enroll-guide.jpg?v={{assetVer}}" controls muted playsinline preload="metadata"></video>
+      <ol class="en-guide-s" aria-label="Steps in the video">
+        <li><button type="button" data-t="4"><span class="n">1</span><span><b>Turn the device on</b><small>If it has been used before, factory reset it first</small></span></button></li>
+        <li><button type="button" data-t="9.4"><span class="n">2</span><span><b>Connect it to the office Wi-Fi</b><small>The same Wi-Fi as your phone</small></span></button></li>
+        <li><button type="button" data-t="15"><span class="n">3</span><span><b>Skip the Google account</b><small>Don't sign in to anything on the device</small></span></button></li>
+        <li><button type="button" data-t="20.2"><span class="n">4</span><span><b>On your phone, open AIO Enroll and tap Start</b><small>Then “It's ready”</small></span></button></li>
+        <li><button type="button" data-t="25"><span class="n">5</span><span><b>On the device: Settings › About › tap Build number 7 times</b><small>This turns on Developer options</small></span></button></li>
+        <li><button type="button" data-t="33.4"><span class="n">6</span><span><b>Developer options › turn on Wireless debugging</b><small>Tap Allow when it asks about this network</small></span></button></li>
+        <li><button type="button" data-t="39.2"><span class="n">7</span><span><b>Tap “Pair device with pairing code”</b><small>The app sees it and opens the code screen by itself</small></span></button></li>
+        <li><button type="button" data-t="43.6"><span class="n">8</span><span><b>Type the 6-digit code into the app</b><small>Connects as soon as the last digit is in</small></span></button></li>
+        <li><button type="button" data-t="48.4"><span class="n">9</span><span><b>Wait about a minute while it sets itself up</b><small>Leave both on the Wi-Fi</small></span></button></li>
+        <li><button type="button" data-t="56.2"><span class="n">10</span><span><b>Done: the device is on the MDM</b><small>Tap “Set up another” for the next one</small></span></button></li>
+      </ol>
+    </div>
+  </div>
+  <style>
+  .en-guide-b{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,1fr);gap:18px;padding:4px 18px 18px;align-items:start}
+  .en-guide-b video{width:100%;aspect-ratio:16/9;border-radius:14px;background:#000;display:block}
+  .en-guide-s{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+  .en-guide-s button{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:7px 8px;font:inherit;color:var(--text);cursor:pointer}
+  .en-guide-s button:hover{background:var(--surface-3)}
+  .en-guide-s button.on{background:var(--accent-soft)}
+  .en-guide-s .n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--surface-3);color:var(--text-2);display:grid;place-items:center;font-size:11.5px;font-weight:700}
+  .en-guide-s button.on .n{background:var(--accent-fill);color:#fff}
+  .en-guide-s b{display:block;font-size:13px;font-weight:600;line-height:1.3}
+  .en-guide-s small{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+  @media (max-width:1024px){.en-guide-b{grid-template-columns:1fr}}
+  </style>
+  <script>
+  (function () {
+    var v = document.getElementById('en-guide-v'); if (!v) return;
+    var bs = Array.prototype.slice.call(document.querySelectorAll('.en-guide-s button'));
+    bs.forEach(function (b) { b.addEventListener('click', function () { v.currentTime = parseFloat(b.dataset.t) + 0.1; v.play(); }); });
+    // The step the video is on stays marked.
+    v.addEventListener('timeupdate', function () {
+      var cur = -1; bs.forEach(function (b, i) { if (v.currentTime >= parseFloat(b.dataset.t)) cur = i; });
+      bs.forEach(function (b, i) { b.classList.toggle('on', i === cur); });
+    });
+  })();
+  </script>
+  <div style="height:16px"></div>
   {{with .St}}{{template "st-getting-started" .}}{{end}}
-  {{/* ── How devices get here ───────────────────────────────────────────── */}}
+  {{/* ── How to enroll (renamed from "How devices get here", 26 Oct 2026) ── */}}
   <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h2>How devices get here</h2><span class="m">four paths, one fleet</span></div>
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg></span><h2>How to enroll</h2><span class="m">four paths, one fleet</span></div>
     <div class="en-how">
       <div class="cc-seg" id="en-how-tabs">
         <button type="button" class="on" data-pane="app">AIO Enroll app</button>

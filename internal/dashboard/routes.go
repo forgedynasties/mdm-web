@@ -213,7 +213,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/host-app", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantHostAppSave)))
 	post("POST /restaurants/{id}/backend", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantBackendSave)))
 	post("POST /restaurants/{id}/backend-move", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantBackendMove)))
-	post("POST /restaurants/backend-place", h.requireAdminOrOperator(h.BackendPlaceSave))
+	post("POST /restaurants/backend-place", h.requireStrictAdmin(h.BackendPlaceSave))
 	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.deviceRoute("view", h.DeviceSetRestaurant)))
 	post("POST /groups/{id}/devices/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupBulkRemoveDevice)))
 	post("POST /groups/{id}/devices/{serial}/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupRemoveDevice)))
@@ -276,9 +276,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /enrollment", h.requireStrictAdmin(h.EnrollmentPage))
 	mux.HandleFunc("GET /enrollment/profiles/{id}/qr.png", h.requireStrictAdmin(h.EnrollmentProfileQR))
 	mux.HandleFunc("GET /enrollment/android-app/qr.png", h.requireAuth(h.EnrollAndroidQR))
-	post("POST /enrollment/scan", h.requireOperatorOrAdmin(h.ScoutScan))
-	post("POST /enrollment/sightings/{id}/enroll", h.requireOperatorOrAdmin(h.ScoutEnroll))
-	post("POST /enrollment/sightings/{id}/recheck", h.requireOperatorOrAdmin(h.ScoutRecheck))
+	post("POST /enrollment/scan", h.requireStrictAdmin(h.ScoutScan))
+	post("POST /enrollment/sightings/{id}/enroll", h.requireStrictAdmin(h.ScoutEnroll))
+	post("POST /enrollment/sightings/{id}/recheck", h.requireStrictAdmin(h.ScoutRecheck))
 	post("POST /enrollment/profiles", h.requireStrictAdmin(h.EnrollmentProfileCreate))
 	post("POST /enrollment/profiles/{id}/revoke", h.requireStrictAdmin(h.EnrollmentProfileRevoke))
 	post("POST /enrollment/profiles/{id}/activate", h.requireStrictAdmin(h.EnrollmentProfileActivate))
@@ -389,7 +389,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 		http.Redirect(w, r, to, http.StatusMovedPermanently)
 	})
 	// Prod coverage (C1, 23 Oct 2026): how much of the AIO backend is in the MDM.
-	mux.HandleFunc("GET /coverage", h.requireAuth(h.fleetWide(h.ProdCoveragePage)))
+	mux.HandleFunc("GET /coverage", h.requireStrictAdmin(h.ProdCoveragePage))
 	// The server's own vitals. Operator-and-up: it exposes no device data, but it does
 	// say how hard the box is working, which is not a customer-facing fact.
 	mux.HandleFunc("GET /server", h.requireAdminOrOperator(h.ServerPage))

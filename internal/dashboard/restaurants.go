@@ -138,8 +138,9 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 	} else {
 		data["V1"] = buildVenuesV1(rows, h.venueExtras(r.Context(), devices), time.Now())
 	}
-	// M2: backend restaurants that list the MDM's devices but have no venue (team only).
-	if !roleIsCustomer(h.role(r)) {
+	// M2: backend restaurants that list the MDM's devices but have no venue. Super admin
+	// only since 26 Oct 2026, like Enrollment › From the AIO backend it links to.
+	if h.role(r) == "admin" {
 		if p := h.venuesPlacementView(r.Context()); p != nil {
 			data["Placements"] = p
 		}

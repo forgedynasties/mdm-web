@@ -427,8 +427,8 @@ func (h *Handler) prodCoverageFor(r *http.Request, base string) (prodCoverageVie
 }
 
 // ProdCoveragePage is GET /coverage. Since E1 (23 Oct 2026) coverage is a tab of the
-// Enrollment hub, so admins land there; fleet-wide team members who can't open
-// Enrollment (it holds profile tokens and adb keys) keep this page, the same content.
+// Enrollment hub, and since 26 Oct it is super admin only (user: "from the aio backend
+// also" super admin only), so everyone who may open it lands on that tab.
 func (h *Handler) ProdCoveragePage(w http.ResponseWriter, r *http.Request) {
 	if h.role(r) == "admin" {
 		to := "/enrollment?tab=backend"
