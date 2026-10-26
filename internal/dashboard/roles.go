@@ -153,11 +153,11 @@ func roleCanSupport(role string) bool { return roleAtLeast(role, "support") }
 // roleCanOperate: operator powers (device actions, venues, groups, lock rules…).
 func roleCanOperate(role string) bool { return roleAtLeast(role, "operator") }
 
-// roleCanOTA: may push firmware (create deployments, add targets, retry, cancel).
-// Admin and up by default; a fleet manager reaches the routes too, and the access
-// policy then lets them push only where a rule names "OTA updates". Release packages
-// themselves stay with the super admin (requireReleaseAdmin).
-func roleCanOTA(role string) bool { return roleAtLeast(role, "fleet_manager") }
+// roleCanOTA: may push firmware (create deployments, add targets, retry, cancel, set a
+// model's prod firmware). Admin and super admin only (user, 26 Oct 2026: "ota is for
+// admin and super admin only"); no access rule gives it to anyone else. Release
+// packages themselves stay with the super admin (requireReleaseAdmin).
+func roleCanOTA(role string) bool { return roleAtLeast(role, "fleet_admin") }
 
 // roleIsOperatorLike: operator up to admin, not the super admin (hides super-admin-only
 // command types from their pickers).

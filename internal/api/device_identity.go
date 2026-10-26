@@ -82,7 +82,11 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 	}
 	if serial != "" && h.serialHasOwnKey(r.Context(), serial) {
 		ip := ratelimit.ClientIP(r)
-		if h.recoverLostKey(r.Context(), serial, ip) {
+		// Only the enrollment key may reset a serial's own key: the public key's value
+		// is in the client source, so with it anyone knowing a serial could take the
+		// device over (security audit, 26 Oct 2026). Images without the enrollment key
+		// need Reset device key, as before 8 Oct.
+		if middleware.EnrollKeyUsed(r) && h.recoverLostKey(r.Context(), serial, ip) {
 			return true
 		}
 		log.Printf("[device-auth] refused the shared key for %s (it has its own key) from %s", serial, ip)
@@ -193,7 +197,9 @@ func (h *Handler) raiseIdentityAlert(ctx context.Context, serial, what, ip, prev
 // Until 2026-10-08 it was let back in only after three refusals, from the address it
 // last used its key from, once a day — otherwise locked out until an admin pressed
 // Reset. The user asked for the opposite default: let it straight back in, from
-// anywhere, on the first call, and raise an alert so a person can look. A device in a
+// anywhere, on the first call, and raise an alert so a person can look. Since
+// 2026-10-26 that needs the enrollment key (requireDeviceIdentity): with the public key
+// anyone could reset any serial and register their own key for it. A device in a
 // restaurant that is dark because of a check we could not act on costs more than an
 // alert that turns out to be a reflash. The only gate left is a per-device ceiling on
 // how often this can happen in a day, past which the old refusal and the critical

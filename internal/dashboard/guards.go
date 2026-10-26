@@ -269,3 +269,28 @@ func (h *Handler) originAllowed(origin string, r *http.Request) bool {
 	}
 	return u.Host == r.Host
 }
+
+// requireFleetOTA: firmware decisions that reach a whole model (Lineup's prod firmware
+// and the firmware rollout window) need OTA and access to every device, because the
+// minute job ships them fleet-wide whoever set them (security audit, 26 Oct 2026).
+func (h *Handler) requireFleetOTA(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.fleetOTAAllowed(w, r) {
+			return
+		}
+		next(w, r)
+	}
+}
+
+func (h *Handler) fleetOTAAllowed(w http.ResponseWriter, r *http.Request) bool {
+	if !roleCanOTA(h.role(r)) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return false
+	}
+	if !h.access(r).unrestricted() {
+		h.denied(r, "ota", nil, decision{Reason: "fleet-wide firmware needs access to every device"})
+		http.Error(w, "Fleet-wide firmware changes need access to every device.", http.StatusForbidden)
+		return false
+	}
+	return true
+}

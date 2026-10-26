@@ -251,6 +251,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		}
 		m["ClientSel"] = clientSel
 		m["CanEdit"] = canLab(h.role(r))
+		m["CanFirmware"] = h.canFleetFirmware(r)
 		m["Flash"] = r.URL.Query().Get("flash")
 		return m
 	}
@@ -390,7 +391,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	pane := buildLineupPane(luInputs{
 		RoleKey: sel, RoleLabel: selLabel, Models: models, HW: hw.ByRole[sel], App: app,
 		Clients: roleClients, Full: full, Deployed: deployed, Moves: moves, History: fwHistory,
-		Pic: rolePic(sel, hw.ByRole[sel]), CanEdit: canLab(h.role(r)), Now: time.Now(),
+		Pic: rolePic(sel, hw.ByRole[sel]), CanEdit: h.canFleetFirmware(r), Now: time.Now(),
 	})
 
 	h.render(w, r, "pipeline.html", common(map[string]any{
@@ -594,6 +595,9 @@ func (h *Handler) PipelineRollout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unknown rollout", http.StatusBadRequest)
 		return
 	}
+	if kind == config.RolloutFirmware && !h.fleetOTAAllowed(w, r) {
+		return
+	}
 	pol := config.ClientAutoUpdate{
 		On:          true,
 		Paused:      r.FormValue("paused") == "1",
@@ -658,4 +662,10 @@ func appChoicesFrom(library []db.App) []appChoice {
 	}
 	sort.Slice(out, func(i, j int) bool { return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name) })
 	return out
+}
+
+// canFleetFirmware: may this viewer set a model's prod firmware or the firmware window
+// (OTA, and access to every device); see requireFleetOTA. Lineup shows the forms only then.
+func (h *Handler) canFleetFirmware(r *http.Request) bool {
+	return roleCanOTA(h.role(r)) && h.access(r).unrestricted()
 }

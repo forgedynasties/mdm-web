@@ -67,7 +67,7 @@ to their venues.
 |---|---|---|
 | `admin` (Super admin) | everything, everywhere; rules never apply | admin |
 | `fleet_admin` (Admin) | fleet manager + `ota` by default; no `shell`, no Releases / Lineup / Settings | admin |
-| `fleet_manager` (Fleet manager) | operator + `remote` by default, app library, client updates, Users pages; `ota` only where a rule names it | admin, Admin |
+| `fleet_manager` (Fleet manager) | operator + `remote` by default, app library, client updates, Users pages; never `ota` (firmware is Admin and Super admin only, 26 Oct 2026) | admin, Admin |
 | `operator` (Operator) | device actions, lock, notes, queue, logcat, venues / groups / lock rules; `remote` only by rule | Fleet manager up |
 | `support` (Support) | `view`, `screenshot`, `reboot`, `kiosk`, `lost_mode`, `notes`, `alerts` | Fleet manager up |
 | `viewer` (Viewer) | `view` (no screenshot) | Fleet manager up |
@@ -86,7 +86,7 @@ One row per rule: `effect` allow/deny · `scope_type` all/restaurant/group/devic
 Evaluation, `access.decide(action, device)`:
 
 1. admin → allow.
-2. action outside the role ceiling → deny (`shell` for anyone but the super admin, `ota` below fleet manager). Customers then go to the venue wall.
+2. action outside the role ceiling → deny (`shell` for anyone but the super admin, `ota` below Admin). Customers then go to the venue wall.
 3. any matching **deny** rule → deny. A deny of `*` covers everything, sensitive actions included.
 4. any matching **allow** rule → allow. An allow of `*` never covers `remote`, `shell` or `ota`.
 5. owner → deny. Sensitive action for a non-dev → deny (explicit rule required).

@@ -15,3 +15,9 @@ __pycache__/
 # The firmware-client audit is a working report, not a product asset — kept out of the
 # repo and served from the running container only.
 static/firmware-client-audit.html
+
+# Keys never go in git (a private key was committed here once, 11 Oct 2026)
+tools/enroll-console/keys/
+*.pem
+id_rsa
+id_ed25519

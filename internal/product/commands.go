@@ -79,8 +79,8 @@ var (
 	rolesSupport = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner"}
 	// rolesFloor: what restaurant staff may also do — reboot, find a tablet.
 	rolesFloor = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"}
-	// rolesOTA: firmware pushes — admin up by default, fleet managers where a rule says.
-	rolesOTA = []string{"admin", "fleet_admin", "fleet_manager"}
+	// rolesOTA: firmware pushes — admin and super admin only (26 Oct 2026).
+	rolesOTA = []string{"admin", "fleet_admin"}
 )
 
 var commands = []Command{

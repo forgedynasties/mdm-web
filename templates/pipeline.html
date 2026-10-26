@@ -133,11 +133,11 @@
               {{/* The decisions the lane offered: promote a newer build, or pick the first prod. */}}
               {{if and (eq $m.Mode "prod") $m.Channel}}
                 {{if $m.Newer}}<div class="lu1-acts">{{range $m.Newer}}<span class="lu1-act"><b>{{.Version}}</b>{{if .IsDev}} <span class="cc-tag">dev</span>{{end}}
-                  {{if $.CanEdit}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?\n\nDeployed devices on the same line move to it in their quiet window, and reboot.')"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs primary" type="submit">Promote to prod</button></form>{{end}}</span>{{end}}</div>{{end}}
+                  {{if $.CanFirmware}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?\n\nDeployed devices on the same line move to it in their quiet window, and reboot.')"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs primary" type="submit">Promote to prod</button></form>{{end}}</span>{{end}}</div>{{end}}
                 {{if $m.OtherLine}}<div class="pl-note">{{$m.OtherLine}} deployed device{{if ne $m.OtherLine 1}}s are{{else}} is{{end}} on another firmware line. Prod only moves devices already on the v{{$m.Line}} line; migrate the rest with rollouts you watch, after which they follow prod by themselves.</div>{{end}}
               {{else if $m.Releases}}
                 <div class="lu1-acts"><span class="pl-faint">{{if eq $m.Mode "lab"}}Lab only: no prod firmware and no gating; lab devices take any published build from its release page.{{else}}No prod firmware yet. Deployed devices are left alone until one is set:{{end}}</span>
-                {{range $m.Releases}}<span class="lu1-act"><b>{{.Version}}</b>{{if $.CanEdit}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?')"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs" type="submit">Set as prod</button></form>{{else}}<a href="/releases/{{.ID}}">open</a>{{end}}</span>{{end}}</div>
+                {{range $m.Releases}}<span class="lu1-act"><b>{{.Version}}</b>{{if $.CanFirmware}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$m.Label}}?')"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><button class="cc-btn xs" type="submit">Set as prod</button></form>{{else}}<a href="/releases/{{.ID}}">open</a>{{end}}</span>{{end}}</div>
               {{end}}
               {{end}}
             </div>
@@ -190,7 +190,7 @@
               <label>from <input type="time" name="window_start" value="{{.WindowStart}}"></label>
               <label>to <input type="time" name="window_end" value="{{.WindowEnd}}"></label>
               <label><input type="checkbox" name="paused" value="1"{{if .Paused}} checked{{end}}> paused</label>
-              {{if $.CanEdit}}<button class="cc-btn sm" type="submit">Save</button>{{end}}
+              {{if $.CanFirmware}}<button class="cc-btn sm" type="submit">Save</button>{{end}}
               <p class="pl-faint">Deployed devices move to a new prod firmware only while present and inside this window, in their own timezone.</p>
             </form>
           </details>

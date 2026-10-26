@@ -42,7 +42,7 @@ var accessActions = []accessAction{
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
 	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Fleet managers and admins have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
 	{Key: "shell", Label: "Shell", Group: "Sessions", Sensitive: true, DevOnly: true, Help: "Raw shell on the device. Super admins only."},
-	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Admins have it by default; a fleet manager needs a rule that names it."},
+	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Admins and super admins only; a rule can narrow it for an admin but never give it to anyone else."},
 	{Key: "alerts", Label: "Acknowledge / resolve alerts", Group: "Fleet", Fleet: true},
 	{Key: "groups", Label: "Manage groups & venues", Group: "Fleet", Fleet: true},
 	{Key: "deploy", Label: "Cancel deployments", Group: "Fleet", Fleet: true},
@@ -100,8 +100,8 @@ func roleCeiling(role string) map[string]bool {
 	m := map[string]bool{}
 	for _, a := range accessActions {
 		// DevOnly actions (shell, OTA) sit above every ceiling but the super admin's,
-		// except firmware pushes: an admin's by default, a fleet manager's by rule.
-		if a.DevOnly && !(a.Key == "ota" && (role == "fleet_admin" || role == "fleet_manager")) {
+		// except firmware pushes, which the admin holds too (and nobody below it).
+		if a.DevOnly && !(a.Key == "ota" && role == "fleet_admin") {
 			continue
 		}
 		m[a.Key] = true
@@ -110,8 +110,8 @@ func roleCeiling(role string) map[string]bool {
 }
 
 // sensitiveByDefault: the sensitive actions a role holds without a rule — firmware
-// pushes for the admin, remote control from fleet manager up. Everyone else (an
-// operator's remote, a fleet manager's OTA) needs an allow rule that names the action.
+// pushes for the admin, remote control from fleet manager up. An operator's remote
+// needs an allow rule that names it; OTA below the admin is not grantable at all.
 func sensitiveByDefault(role, action string) bool {
 	return (action == "ota" && role == "fleet_admin") ||
 		(action == "remote" && (role == "fleet_admin" || role == "fleet_manager"))

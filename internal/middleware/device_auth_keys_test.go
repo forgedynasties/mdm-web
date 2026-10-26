@@ -29,3 +29,20 @@ func TestDeviceAuthAcceptsEitherSharedKey(t *testing.T) {
 		}
 	}
 }
+
+func TestDeviceAuthMarksTheEnrollKey(t *testing.T) {
+	var got bool
+	h := DeviceAuth([]string{"public-default", "enroll-secret-0123456789abcdef0123456789"},
+		func(context.Context, string) (string, bool) { return "", false },
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { got = EnrollKeyUsed(r) }))
+	for key, want := range map[string]bool{"public-default": false, "enroll-secret-0123456789abcdef0123456789": true} {
+		got = !want
+		req := httptest.NewRequest("POST", "/api/v1/device-key", nil)
+		req.RemoteAddr = "192.0.2.9:1234"
+		req.Header.Set("X-API-Key", key)
+		h.ServeHTTP(httptest.NewRecorder(), req)
+		if got != want {
+			t.Errorf("key %q: EnrollKeyUsed = %v, want %v", key, got, want)
+		}
+	}
+}

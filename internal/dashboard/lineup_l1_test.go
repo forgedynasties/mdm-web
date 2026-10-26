@@ -172,7 +172,7 @@ func TestLineupRolePaneRenders(t *testing.T) {
 	now := time.Now()
 	in := luSample(now)
 	data := map[string]any{
-		"Role": "admin", "CanEdit": true, "RoleKey": "t7", "RoleLabel": "Tableside AI", "HWDevices": 160,
+		"Role": "admin", "CanEdit": true, "CanFirmware": true, "RoleKey": "t7", "RoleLabel": "Tableside AI", "HWDevices": 160,
 		"Roles":   []pipeRole{{Key: "t7", Label: "Tableside AI", Status: "160 devices · 1 model", Tone: "ok", On: true}, {Key: "kds", Label: "Kitchen display", Status: "4 devices · 1 model", Tone: "ok"}},
 		"Clients": []pipeClient{{Slot: "dpc", Label: "Standard client", Status: "all on 0.4.0", Tone: "ok"}},
 		"NoneCount": 2, "RunCount": 4, "Tab": "products", "BehindTotal": 23,

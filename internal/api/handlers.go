@@ -803,6 +803,11 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid enrollment token"})
 		return
 	}
+	if why := h.reenrollRefusal(r.Context(), req.Serial, profile.RestaurantID); why != "" {
+		log.Printf("[enroll] %s via %q refused: %s", req.Serial, profile.Name, why)
+		writeJSON(w, http.StatusConflict, map[string]string{"error": why})
+		return
+	}
 	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
@@ -3126,4 +3131,27 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
+}
+
+// reenrollRefusal says why an enrollment token may not take this serial, or "". A token
+// re-keys the serial and moves it into its venue, so it must not reach a device that is
+// already somebody's (security audit, 26 Oct 2026): a firmware device is never re-keyed
+// by enrollment, and a Standard-client device with its own key re-enrolls only into the
+// venue it is already at (or when it has none; a factory reset re-provisions that way).
+// Anything else needs an admin's Reset device key first.
+func (h *Handler) reenrollRefusal(ctx context.Context, serial string, venue *uuid.UUID) string {
+	dev, err := h.db.GetDevice(ctx, serial)
+	if err != nil || dev == nil {
+		return "" // a new serial
+	}
+	if dev.AgentKind == product.KindFirmware {
+		return "this serial is a firmware device already in the MDM; enrollment can't take it over"
+	}
+	if !h.serialHasOwnKey(ctx, serial) || dev.RestaurantID == nil {
+		return ""
+	}
+	if venue != nil && *venue == *dev.RestaurantID {
+		return ""
+	}
+	return "this device is already enrolled at another venue; reset its key in the MDM first"
 }

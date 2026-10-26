@@ -182,6 +182,17 @@ configs:
       server {
         listen 80;
 
+        # The client's real address (security audit, 26 Oct 2026). The load balancer
+        # appends it to X-Forwarded-For, after anything the caller wrote there, so only
+        # private hops (the ALB inside the VPC, docker) are trusted and the right-most
+        # other address wins; X-Real-IP below then carries it to the server, which reads
+        # nothing else. A caller that reaches this port directly is its own address.
+        set_real_ip_from 10.0.0.0/8;
+        set_real_ip_from 172.16.0.0/12;
+        set_real_ip_from 192.168.0.0/16;
+        real_ip_header X-Forwarded-For;
+        real_ip_recursive on;
+
         # Buffering off so live logcat, remote screen and SSE stream rather than stall.
         proxy_buffering off;
         # 60s, NOT an hour. An hour here means a request that reached the OUTGOING

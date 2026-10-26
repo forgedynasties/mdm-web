@@ -39,7 +39,7 @@ on:
 
 env:
   AWS_REGION: us-west-2
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.26"
   # A push is always a stage deploy; a manual run uses the dropdown.
   TARGET: ${{ github.event_name == 'push' && 'stage' || inputs.target }}
 

@@ -93,6 +93,14 @@ func (h *Handler) RegisterDeviceKey(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusConflict, map[string]string{"error": "already using its own key"})
 		return
 	}
+	// A first key binds the serial to whoever registers it, so it needs the enrollment
+	// key: with the public one, anyone could claim a key-less serial and lock the real
+	// device out (security audit, 26 Oct 2026). Devices on images without it stay on the
+	// shared key, as before.
+	if !middleware.EnrollKeyUsed(r) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "registering a device key needs the enrollment key"})
+		return
+	}
 	var req struct {
 		Serial    string `json:"serial"`
 		KeySHA256 string `json:"key_sha256"`

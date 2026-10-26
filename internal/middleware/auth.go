@@ -65,6 +65,18 @@ func DeviceAPIKeyAuth(apiKey string, next http.Handler) http.Handler {
 
 type boundSerialKey struct{}
 
+type enrollKeyUsedKey struct{}
+
+// EnrollKeyUsed reports whether the request authenticated with the secret enrollment
+// key (any shared key after the first, which is the public one whose value is in the
+// client source). Taking over a serial's identity — recovering a lost own key,
+// registering a first one — needs it (security audit, 26 Oct 2026): with only the
+// public key, anyone who knew a serial could do it.
+func EnrollKeyUsed(r *http.Request) bool {
+	used, _ := r.Context().Value(enrollKeyUsedKey{}).(bool)
+	return used
+}
+
 // BoundSerial returns the device serial derived from a per-device credential, when the
 // request authenticated with one. Handlers use it to reject client-supplied serials that
 // don't match the caller's own identity. Empty for legacy shared-key requests.
@@ -78,11 +90,18 @@ func BoundSerial(r *http.Request) string {
 // at enrollment. Per-device keys are resolved via lookup (SHA-256 hex of the presented
 // key → serial); on success the bound serial is attached to the request context so
 // handlers can enforce identity. Same rate limiting and uniform error body as APIKeyAuth.
+//
+// sharedKeys[0] is the public key; any later one is a secret enrollment key, and a
+// request that used one is marked for EnrollKeyUsed.
 func DeviceAuth(sharedKeys []string, lookup func(ctx context.Context, keyHashHex string) (string, bool), next http.Handler) http.Handler {
-	var shared [][]byte
-	for _, k := range sharedKeys {
+	type sharedKey struct {
+		key    []byte
+		enroll bool
+	}
+	var shared []sharedKey
+	for i, k := range sharedKeys {
 		if k != "" {
-			shared = append(shared, []byte(k))
+			shared = append(shared, sharedKey{[]byte(k), i > 0})
 		}
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +115,10 @@ func DeviceAuth(sharedKeys []string, lookup func(ctx context.Context, keyHashHex
 		}
 		provided := []byte(r.Header.Get("X-API-Key"))
 		for _, k := range shared {
-			if subtle.ConstantTimeCompare(provided, k) == 1 {
+			if subtle.ConstantTimeCompare(provided, k.key) == 1 {
+				if k.enroll {
+					r = r.WithContext(context.WithValue(r.Context(), enrollKeyUsedKey{}, true))
+				}
 				next.ServeHTTP(w, r)
 				return
 			}

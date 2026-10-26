@@ -83,19 +83,21 @@ func (c *Counter) sweep(now time.Time) {
 	}
 }
 
-// ClientIP extracts the best-effort client address, honouring the first hop of
-// X-Forwarded-For (set by the AWS load balancer) and falling back to the socket
-// peer.
+// ClientIP is the client's address: X-Real-IP when the request came from our own
+// proxy (a private peer: the nginx container, which resolves the real address from the
+// load balancer's X-Forwarded-For and overwrites X-Real-IP), else the socket peer.
+// X-Forwarded-For itself is never read: its first entry is whatever the caller wrote
+// (security audit, 26 Oct 2026), which let anyone dodge rate limits and fake the
+// addresses in alerts.
 func ClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if i := strings.IndexByte(xff, ','); i >= 0 {
-			return strings.TrimSpace(xff[:i])
-		}
-		return strings.TrimSpace(xff)
-	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	if peer := net.ParseIP(host); peer != nil && (peer.IsPrivate() || peer.IsLoopback()) {
+		if real := strings.TrimSpace(r.Header.Get("X-Real-IP")); net.ParseIP(real) != nil {
+			return real
+		}
 	}
 	return host
 }

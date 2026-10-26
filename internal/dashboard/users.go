@@ -423,6 +423,11 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Sessions carry the role they signed in with; a changed role signs them out so it
+	// applies now, not when the session expires (security audit, 26 Oct 2026).
+	if role != target.Role {
+		_ = h.db.DeleteSessionsForUser(r.Context(), id)
+	}
 	// Rules the new role makes pointless go with the change: left behind, an
 	// operator's "remote control" grant kept showing on a super op's page as if it
 	// still added something. Also runs when the role is saved unchanged, which is
@@ -440,8 +445,13 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 	h.usersRedirect(w, r)
 }
 
-// widens reports whether moving from one role to another adds any power.
+// widens reports whether moving from one role to another adds any power: a higher rung
+// always does (a fleet manager's app library and Users pages are not device actions,
+// so the ceilings alone can match), and otherwise any device action the new role adds.
 func widens(from, to string) bool {
+	if lf, lt := roleLevel(from), roleLevel(to); lf >= 0 && lt > lf {
+		return true
+	}
 	a, b := roleCeiling(from), roleCeiling(to)
 	if b == nil {
 		return a != nil
@@ -488,6 +498,9 @@ func (h *Handler) UserSetPassword(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// A password set for someone (often because the account was compromised) signs them
+	// out everywhere, as a reset by email already does.
+	_ = h.db.DeleteSessionsForUser(r.Context(), id)
 	h.audit(r, "user.password_reset", id.String(), "")
 	h.usersRedirect(w, r)
 }

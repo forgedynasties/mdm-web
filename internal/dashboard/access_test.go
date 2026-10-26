@@ -82,7 +82,7 @@ func TestDecide(t *testing.T) {
 		{"admin ota scoped: base deny + venue allow out", "fleet_admin", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d3, false},
 		{"fleet manager holds remote by default", "fleet_manager", db.AccessPolicy{}, "remote", &d1, true},
 		{"fleet manager has no ota without a rule", "fleet_manager", db.AccessPolicy{}, "ota", &d1, false},
-		{"fleet manager ota by rule", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d1, true},
+		{"fleet manager never ota, even by rule", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d1, false},
 		{"fleet manager never shell", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
 		{"support reboots", "support", db.AccessPolicy{}, "reboot", &d1, true},
 		{"support locks", "support", db.AccessPolicy{}, "kiosk", &d1, true},
@@ -188,10 +188,11 @@ func TestRoleCeilings(t *testing.T) {
 			t.Fatalf("%s leaked below the fleet manager", k)
 		}
 	}
-	for _, r := range []string{"fleet_manager", "fleet_admin"} {
-		if roleCeiling(r)["shell"] || !roleCeiling(r)["ota"] {
-			t.Fatalf("%s ceiling must hold ota and not shell", r)
-		}
+	if roleCeiling("fleet_manager")["ota"] || roleCeiling("fleet_manager")["shell"] {
+		t.Fatal("fleet_manager ceiling must hold neither ota nor shell (OTA is admin and super admin only)")
+	}
+	if roleCeiling("fleet_admin")["shell"] || !roleCeiling("fleet_admin")["ota"] {
+		t.Fatal("fleet_admin ceiling must hold ota and not shell")
 	}
 	// Each level holds everything the one below it can.
 	ladder := []string{"viewer", "support", "operator", "fleet_manager", "fleet_admin"}
@@ -311,7 +312,7 @@ func TestGrantRedundant(t *testing.T) {
 		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"reboot", "*"}}, true},
 		{"operator", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"shell"}}, false}, // outside the ceiling
 		{"fleet_admin", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"ota"}}, true},
-		{"fleet_manager", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"ota"}}, false}, // a fleet manager's OTA rule is what grants it
+		{"fleet_manager", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"ota"}}, false}, // outside a fleet manager's ceiling (OTA is admin+ only)
 		{"fleet_manager", "allow", db.AccessGrant{Effect: "deny", Actions: []string{"remote"}}, false},
 		{"owner", "allow", db.AccessGrant{Effect: "allow", Actions: []string{"view"}}, false},
 	}
