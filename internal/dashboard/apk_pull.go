@@ -216,7 +216,8 @@ func (h *Handler) RunAPKAutoPull(ctx context.Context) {
 }
 
 // pickAutoPulls chooses, per package, the newest version on the devices (cands come
-// freshest device first, so the first device seen with it is the one asked) when the
+// venue-less devices first, then freshest, so the first device seen with it is the
+// one asked) when the
 // library holds neither that version nor a newer one and nobody asked for it lately.
 func pickAutoPulls(cands []db.PullCandidate, apps []db.App, recent map[string]bool, max int) []db.PullCandidate {
 	newestLib := map[string]string{}
