@@ -13,7 +13,7 @@ func TestCommandCatalogueIsCoherent(t *testing.T) {
 		CapInput: true, CapLogcat: true, CapShell: true, CapOTA: true,
 		CapUpdateSplash: true, CapMicGain: true, CapWLC: true, CapAppControl: true,
 		CapSelfUpdate: true, CapAdbTcp: true, CapUnenroll: true,
-		CapLostMode: true, CapWifiConfig: true,
+		CapLostMode: true, CapWifiConfig: true, CapApkPull: true,
 	}
 	seen := map[string]bool{}
 	for _, c := range Commands() {

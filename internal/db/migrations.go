@@ -2177,6 +2177,9 @@ CREATE TABLE IF NOT EXISTS backend_hours (
 -- Venue fields that follow the AIO backend (B1): address, pin, timezone, hours. A field
 -- leaves the list when someone edits it in the MDM ("Set here").
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_follow TEXT[] NOT NULL DEFAULT '{}';
+-- The signing certificate (SHA-256) of a library APK, read from its v2/v3 signing block
+-- (26 Oct 2026): an APK pulled from a device must match the package's earlier ones.
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS signer_sha256 TEXT NOT NULL DEFAULT '';
 -- Session ids are stored hashed (26 Oct 2026, see storedSessionID): hash the rows
 -- written before, in place, so every signed-in person stays signed in. Idempotent.
 UPDATE sessions SET id = 'h:' || encode(sha256(convert_to(id, 'UTF8')), 'hex') WHERE id NOT LIKE 'h:%';

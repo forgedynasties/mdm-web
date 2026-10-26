@@ -105,6 +105,7 @@ window.appInfoOpen = function (el) {
   var host = byId('ai-icon'); host.innerHTML = '';
   var ic = el.querySelector('.app-icon, .app-mono');
   if (ic) { var c = ic.cloneNode(true); c.classList.add('ai-iconimg'); host.appendChild(c); }
+  var save = byId('ai-save-pkg'); if (save) save.value = pkg;
   var btn = byId('ai-uninstall-btn');
   if (btn) {
     var note = byId('ai-sysnote');

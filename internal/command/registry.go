@@ -70,6 +70,9 @@ var specs = map[string]Spec{
 	"install_apk": {AtLeastOnce, LaneInstall, 30 * time.Minute, 2 * time.Hour, 0, nil, false},
 	"app_update":  {AtLeastOnce, LaneInstall, 30 * time.Minute, 2 * time.Hour, 0, nil, false},
 	"uninstall":   {AtLeastOnce, LaneInstall, 10 * time.Minute, time.Hour, 0, nil, false},
+	// An upload of an installed APK into the library: long like an install, safe to repeat
+	// (the server keeps one library entry per package and version).
+	"pull_apk": {AtLeastOnce, LaneInstall, 30 * time.Minute, 2 * time.Hour, 0, nil, false},
 
 	// ── firmware: its own lane, and exempt from the device lane in both directions ──
 	"ota": {AtLeastOnce, LaneFirmware, 2 * time.Hour, 6 * time.Hour, 0, []string{"ota"}, false},

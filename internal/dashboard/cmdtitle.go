@@ -81,6 +81,13 @@ func cmdTitleOf(s cmdShape) (title, hint string) {
 		}
 		_ = json.Unmarshal(s.Payload, &p)
 		return "Uninstall", p.Package
+	case "pull_apk":
+		var p struct {
+			Package string `json:"package"`
+			Version string `json:"version"`
+		}
+		_ = json.Unmarshal(s.Payload, &p)
+		return "Save to library", strings.TrimSpace(p.Package + " " + p.Version)
 	case "app_update":
 		var p struct {
 			Package string `json:"package"`
@@ -187,6 +194,8 @@ func cmdVerbOf(s cmdShape) string {
 		return "installed"
 	case "uninstall":
 		return "uninstalled"
+	case "pull_apk":
+		return "saved"
 	case "app_update":
 		return "updated"
 	case "reboot":

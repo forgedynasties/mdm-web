@@ -77,6 +77,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.deviceRoute("view", h.DeviceQueuePartial)))
 	post("POST /devices/{serial}/queue/clear", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceQueueClear)))
 	post("POST /devices/{serial}/queue/{id}/remove", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceQueueRemove)))
+	post("POST /devices/{serial}/apps/save", h.requireAppLibrary(h.deviceRoute("install_apk", h.DeviceSaveToLibrary)))
 	post("POST /devices/{serial}/installs/cancel", h.requireOperatorOrAdmin(h.deviceRoute("queue", h.DeviceInstallCancel)))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.deviceRoute("view", h.DeviceCommandCreate)))
 	// Wireless adb page: batch on/off and tunnels (admin only, like adb_tcp itself).

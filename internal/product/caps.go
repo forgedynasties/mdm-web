@@ -163,6 +163,9 @@ const (
 	// second: a DPC agent may list it with the radio off.
 	CapBLEListen = "ble_listen"
 	CapBLEBeacon = "ble_beacon"
+	// CapApkPull: uploads an installed app's APK into the app library (pull_apk; DPC agent
+	// 0.11.0, 26 Oct 2026).
+	CapApkPull = "apk_pull"
 )
 
 // FirmwareCapFlags map the extra flags the firmware client sends (it reports no

@@ -18,6 +18,7 @@ var wantCommandRoles = map[string][]string{
 	"screenshot":       {"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner"},
 	"install_apk":      {"admin", "fleet_admin", "fleet_manager", "operator"},
 	"uninstall":        {"admin", "fleet_admin", "fleet_manager", "operator"},
+	"pull_apk":         {"admin", "fleet_admin", "fleet_manager"}, // Save to library (26 Oct 2026)
 	"reboot":           {"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"},
 	"app_reload":       {"admin", "fleet_admin", "fleet_manager", "operator"},
 	"app_restart":      {"admin", "fleet_admin", "fleet_manager", "operator"},

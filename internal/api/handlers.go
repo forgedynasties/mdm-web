@@ -76,6 +76,9 @@ type Handler struct {
 	// kioskRelock locks a device again after an exit on site, the same way the
 	// dashboard's "Lock again" does (dashboard.Handler.RelockFromDevice, set in main.go).
 	kioskRelock func(ctx context.Context, deviceID uuid.UUID, relockedAt time.Time) bool
+	// apkPuller adds an APK a device uploaded to the app library (the dashboard, set in
+	// main.go): see apk_pull.go.
+	apkPuller APKPuller
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API

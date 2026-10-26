@@ -568,6 +568,9 @@ func main() {
 	mux.Handle("GET /api/v1/commands/pending", deviceAuth(http.HandlerFunc(apiHandler.PendingCommands)))
 	mux.Handle("GET /api/v1/venue-icon", deviceAuth(http.HandlerFunc(apiHandler.VenueIcon)))
 	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
+	// Save to library (26 Oct 2026): a device uploads an installed APK for a pull_apk.
+	mux.Handle("POST /api/v1/apk-pull/url", devicePost(apiHandler.APKPullURL))
+	mux.Handle("POST /api/v1/apk-pull/done", devicePost(apiHandler.APKPullDone))
 	mux.Handle("POST /api/v1/logcat", devicePost(apiHandler.SubmitLogcat))
 	mux.Handle("POST /api/v1/ota/status", devicePost(apiHandler.OtaStatus))
 	mux.Handle("POST /api/v1/ota/progress", devicePost(apiHandler.OtaProgress))
@@ -633,6 +636,7 @@ func main() {
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
 	apiHandler.SetKioskRelocker(dash.RelockFromDevice)
+	apiHandler.SetAPKPuller(dash)
 	// Test-bench routes (admin key): lock/unlock one device, take one off a venue.
 	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))
 	mux.Handle("POST /api/v1/devices/{serial}/brightness", adminAuth(http.HandlerFunc(dash.APISetDeviceBrightness)))
@@ -857,6 +861,7 @@ func main() {
 				// Install the product's prod app (Lineup → role → App) on online devices
 				// that lack it, at a venue or not — see dashboard/role_app_install.go.
 				runJob(bgCtx, "role-app-install", time.Minute, dash.RunRoleAppInstalls)
+				runJob(bgCtx, "apk-auto-pull", 5*time.Minute, dash.RunAPKAutoPull)
 				runJob(bgCtx, "backend-sync", 5*time.Minute, dash.RunBackendSync)
 				// Record when each device goes online and offline, for the network graph's
 				// online strip (dashboard/presence_record.go).

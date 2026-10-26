@@ -172,11 +172,16 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// Warm the local cache in the background so device installs serve from LAN disk
 	// (S3 here is too slow to stream a large APK within the device's download timeout).
-	go func(key string) {
+	go func(key string, id uuid.UUID) {
+		// The signer too, so a later pull of this package from a device can be checked
+		// against it (apk_pull.go).
+		if s, err := h.apk.SignerSHA256(context.Background(), key); err == nil {
+			_ = h.db.SetAppSigner(context.Background(), id, s)
+		}
 		if err := h.apk.EnsureCached(context.Background(), key); err != nil {
 			log.Printf("apk cache warm %s: %v", key, err)
 		}
-	}(req.Key)
+	}(req.Key, app.ID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(app)
 }

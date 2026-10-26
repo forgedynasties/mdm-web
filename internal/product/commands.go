@@ -79,17 +79,22 @@ var (
 	rolesSupport = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner"}
 	// rolesFloor: what restaurant staff may also do — reboot, find a tablet.
 	rolesFloor = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"}
+	// rolesAppLibrary: who manages the app library (roleCanAppLibrary), fleet manager up.
+	rolesAppLibrary = []string{"admin", "fleet_admin", "fleet_manager"}
 	// rolesOTA: firmware pushes — admin and super admin only (26 Oct 2026).
 	rolesOTA = []string{"admin", "fleet_admin"}
 )
 
 var commands = []Command{
 	// ── Everyday device actions ──────────────────────────────────────────────
-	// Raw shell is limited to admin/dev; operators reach vetted commands through
-	// the device-query catalog instead (the "diagnostic" action on the Actions page).
+	// Raw shell is limited to the super admin.
 	{Type: "screenshot", Cap: CapScreenCapture, Roles: rolesSupport, API: true},
 	{Type: "install_apk", Cap: CapInstallAPK, Roles: rolesOperator, API: true, InstallShaped: true},
 	{Type: "uninstall", Cap: CapUninstall, Roles: rolesOperator, API: true},
+	// Save to library: the device uploads an installed app's APK into the app library
+	// (26 Oct 2026). The app library's people (fleet manager up); the server keeps the
+	// library current from Standard-client devices by itself (RunAPKAutoPull).
+	{Type: "pull_apk", Cap: CapApkPull, Roles: rolesAppLibrary, Access: "install_apk"},
 	{Type: "reboot", Cap: CapReboot, Roles: rolesFloor, API: true},
 	{Type: "shell", Cap: CapShell, Roles: rolesAdmin, API: true},
 

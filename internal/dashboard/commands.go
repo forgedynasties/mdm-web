@@ -820,6 +820,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Install app"
 	case "uninstall":
 		return "Uninstall"
+	case "pull_apk":
+		return "Save to library"
 	case "shell":
 		return "Shell"
 	case "query":

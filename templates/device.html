@@ -1482,6 +1482,8 @@ window.DEVICE_VITALS = {
       {{/* hx-post + hx-swap="none" + close the popup after: fire the uninstall without
            navigating; the drawer refreshes (device-updated) to show "Uninstalling…". */}}
       <input type="hidden" id="ai-uninstall-pkg" value="">
+      {{/* Save to library (26 Oct 2026): the device uploads this app's APK into the library. */}}
+      {{if and (canAppLibrary .Role) (supports .Device "pull_apk")}}<form hx-post="/devices/{{.Device.SerialNumber}}/apps/save" hx-swap="none" style="margin:0 8px 0 0" onsubmit="appInfoClose()"><input type="hidden" name="package" id="ai-save-pkg" value=""><button type="submit" class="cc-btn sm">Save to library</button></form>{{end}}
       {{if .Restricted}}<span class="muted small">At a venue: apps are kept by its role. Open lab to remove one by hand.</span>{{else if supports .Device "uninstall"}}<button type="button" class="btn-danger-sm" id="ai-uninstall-btn" onclick="var t=window.__aiTile; appInfoClose(); if(t){doUninstall(t);}">Uninstall</button>{{else}}<span class="muted small">This device's agent ({{.Device.KindLabel}}) can't uninstall apps.</span>{{end}}
     </div>
     {{end}}
