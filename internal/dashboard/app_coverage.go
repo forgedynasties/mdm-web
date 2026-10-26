@@ -278,6 +278,9 @@ func (h *Handler) AppInstallTargets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	vis := h.visibleSerialSet(r)
+	missing.Serials = keepSerials(missing.Serials, vis)
+	other.Serials = keepSerials(other.Serials, vis)
 	h.renderCachedHTML(w, r, "app-install-targets", h.withRole(r, map[string]any{
 		"Package":         pkg,
 		"App":             latest,

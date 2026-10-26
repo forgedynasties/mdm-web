@@ -22,7 +22,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cmd, err := h.db.GetCommand(r.Context(), id)
-	if err != nil {
+	if err != nil || h.commandHiddenFrom(r, *cmd) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}

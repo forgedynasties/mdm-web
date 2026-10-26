@@ -42,7 +42,13 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 	// People: anyone signed in may open a colleague's profile (owners have no Users area).
 	if !roleIsCustomer(h.role(r)) {
 		if us, err := h.db.ListUsers(r.Context()); err == nil {
+			managesPeople := roleManagesUsers(h.role(r))
 			for _, u := range us {
+				// Customer accounts only for people who manage users (security audit,
+				// 26 Oct 2026): this listed every owner and staff member to the whole team.
+				if roleIsCustomer(u.Role) && !managesPeople {
+					continue
+				}
 				sub := roleLabel(u.Role)
 				if u.Username != u.DisplayName() {
 					sub += " · " + u.Username

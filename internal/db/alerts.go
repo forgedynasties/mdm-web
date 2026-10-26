@@ -596,10 +596,17 @@ func (d *DB) AlertsByRestaurant(ctx context.Context) ([]RestaurantAlerts, error)
 // BulkSetAlertStatus transitions every applicable alert to status and returns the
 // number changed. "acknowledged" affects open alerts; "resolved" affects every
 // non-resolved alert (open + acknowledged). resolved sets resolved_at.
-func (d *DB) BulkSetAlertStatus(ctx context.Context, status string) (int64, error) {
+//
+// keepSuperAdmin leaves the super-admin-only alerts (IsSuperAdminAlert) as they are, for
+// a caller who cannot see them (security audit, 26 Oct 2026: support's "Resolve all"
+// silenced impersonation findings they were never shown).
+func (d *DB) BulkSetAlertStatus(ctx context.Context, status string, keepSuperAdmin bool) (int64, error) {
 	where := "status = 'open'"
 	if status == "resolved" {
 		where = "status <> 'resolved'"
+	}
+	if keepSuperAdmin {
+		where += " AND type NOT IN ('" + AlertTypeIdentityConflict + "', 'control_stale', 'key_not_registered')"
 	}
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE alerts
@@ -1045,4 +1052,11 @@ func (d *DB) AlertsRaisedCounts(ctx context.Context, hideIdentity bool) (AlertsR
 		  AND NOT ($1 AND a.type IN `+superAdminAlertSQL+`)`, hideIdentity).
 		Scan(&r.Critical24, &r.CriticalPrev, &r.Warning24, &r.WarningPrev)
 	return r, err
+}
+
+// AlertType returns one alert's type.
+func (d *DB) AlertType(ctx context.Context, id uuid.UUID) (string, error) {
+	var t string
+	err := d.pool.QueryRow(ctx, `SELECT type FROM alerts WHERE id = $1`, id).Scan(&t)
+	return t, err
 }

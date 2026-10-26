@@ -110,7 +110,7 @@ func (h *Handler) ScoutScan(w http.ResponseWriter, r *http.Request) {
 	rid := strings.TrimSpace(r.FormValue("restaurant_id"))
 	host := strings.TrimSpace(r.FormValue("host"))
 	id, err := uuid.Parse(rid)
-	if err != nil {
+	if err != nil || !h.access(r).venueInScope(id) {
 		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown venue", "error")
 		return
 	}
@@ -129,6 +129,10 @@ func (h *Handler) ScoutEnroll(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
+		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
+		return
+	}
+	if sg, err := h.db.GetSighting(r.Context(), id); err != nil || sg == nil || !h.access(r).venueInScope(sg.RestaurantID) {
 		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
 		return
 	}
@@ -160,7 +164,7 @@ func (h *Handler) ScoutRecheck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sg, err := h.db.GetSighting(r.Context(), id)
-	if err != nil || sg == nil {
+	if err != nil || sg == nil || !h.access(r).venueInScope(sg.RestaurantID) {
 		h.hxDoneToast(w, r, "/enrollment?tab=found", "Unknown device", "error")
 		return
 	}
@@ -1841,6 +1845,11 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 	}
 	if rid := r.FormValue("restaurant_id"); rid != "" {
 		if parsed, err := uuid.Parse(rid); err == nil {
+			// Only into a venue this person may act on (security audit, 26 Oct 2026).
+			if !h.access(r).venueInScope(parsed) {
+				http.Error(w, "That venue is outside your access.", http.StatusForbidden)
+				return
+			}
 			if err := h.db.AssignDeviceToRestaurant(r.Context(), serial, &parsed); err != nil {
 				http.Error(w, "Internal error", http.StatusInternalServerError)
 				return

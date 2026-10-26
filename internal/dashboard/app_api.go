@@ -149,7 +149,8 @@ func (h *Handler) AppLogout(w http.ResponseWriter, r *http.Request, s *db.Sessio
 // AppEnrollStatus: GET /api/v1/app/enroll-status?serials=a,b,c →
 // {"devices": {"<serial>": {"enrolled":bool,"status","class","agent_kind","agent_version","last_seen_at",
 // "online","battery_pct","has_battery","restaurant"}}}. A serial the server has never seen is reported enrolled=false.
-func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, _ *db.Session) {
+func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, s *db.Session) {
+	acc := h.accessFor(r.Context(), s.Role, s.Username)
 	var serials []string
 	seen := map[string]bool{}
 	for _, s := range strings.Split(r.URL.Query().Get("serials"), ",") {
@@ -172,6 +173,12 @@ func (h *Handler) AppEnrollStatus(w http.ResponseWriter, r *http.Request, _ *db.
 		d, err := h.db.GetDevice(r.Context(), serial)
 		if err != nil || d == nil {
 			out[serial] = map[string]any{"enrolled": false}
+			continue
+		}
+		// Outside this person's access: say it is taken, nothing about it (security
+		// audit, 26 Oct 2026; this answered any serial's venue, battery and state).
+		if !acc.visible(d.ID) {
+			out[serial] = map[string]any{"enrolled": d.EnrollmentStatus == db.EnrollEnrolled, "elsewhere": true}
 			continue
 		}
 		by, _ := h.db.DeviceEnrolledBy(r.Context(), serial)
@@ -226,6 +233,10 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 		}
 		if site, err = h.db.GetRestaurant(r.Context(), id); err != nil || site == nil {
 			appErr(w, http.StatusBadRequest, "unknown restaurant")
+			return
+		}
+		if !h.accessFor(r.Context(), s.Role, s.Username).venueInScope(site.ID) {
+			appErr(w, http.StatusForbidden, "that venue is outside your access")
 			return
 		}
 		name = appEnrollProfilePrefix + site.Name + " · " + s.Username
@@ -286,14 +297,18 @@ func appTokenResp(serverURL string, p db.EnrollmentProfile) map[string]any {
 
 // AppRestaurants: GET /api/v1/app/restaurants → {"restaurants":[{"id","name","address","device_count"}]},
 // for the "Goes to" picker. Every role that may enroll may also place a device.
-func (h *Handler) AppRestaurants(w http.ResponseWriter, r *http.Request, _ *db.Session) {
+func (h *Handler) AppRestaurants(w http.ResponseWriter, r *http.Request, s *db.Session) {
 	list, err := h.db.ListRestaurants(r.Context())
 	if err != nil {
 		appErr(w, http.StatusInternalServerError, "internal error")
 		return
 	}
+	acc := h.accessFor(r.Context(), s.Role, s.Username)
 	out := make([]map[string]any, 0, len(list))
 	for _, x := range list {
+		if !acc.venueInScope(x.ID) {
+			continue
+		}
 		out = append(out, map[string]any{"id": x.ID, "name": x.Name, "address": x.Address, "device_count": x.DeviceCount})
 	}
 	appJSON(w, http.StatusOK, map[string]any{"restaurants": out})

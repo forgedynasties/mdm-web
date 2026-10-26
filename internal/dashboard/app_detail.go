@@ -35,8 +35,13 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	in := d1Inputs{Package: pkg, Cov: cov.Of(pkg), Fleet: cov.Totals.Devices, Apps: apps, Families: fams,
 		Siblings: map[string]map[string]bool{}, SiblingCov: map[string]pkgCoverage{}}
+	acc := h.access(r)
 	if rows, err := h.db.DevicesWithPackage(ctx, pkg); err == nil {
-		in.Devices = rows
+		for _, d := range rows {
+			if acc.visible(d.DeviceID) {
+				in.Devices = append(in.Devices, d)
+			}
+		}
 	}
 	// The other channels of its family: who runs them, so "without it" can say how many
 	// of those devices already have the app under another package.
@@ -58,7 +63,9 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 			set := map[string]bool{}
 			if rows, err := h.db.DevicesWithPackage(ctx, vr.Package); err == nil {
 				for _, d := range rows {
-					set[d.Serial] = true
+					if acc.visible(d.DeviceID) {
+						set[d.Serial] = true
+					}
 				}
 			}
 			in.Siblings[vr.Package] = set

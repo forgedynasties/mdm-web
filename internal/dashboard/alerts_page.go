@@ -573,6 +573,12 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 		http.Error(w, "Alert not found", http.StatusNotFound)
 		return
 	}
+	if h.access(r).hidesIdentityAlerts() {
+		if t, err := h.db.AlertType(r.Context(), id); err != nil || db.IsSuperAdminAlert(t) {
+			http.Error(w, "Alert not found", http.StatusNotFound)
+			return
+		}
+	}
 	if err := h.db.SetAlertStatus(r.Context(), id, status); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -628,7 +634,7 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 		h.hxDone(w, r, "/alerts")
 		return
 	}
-	n, err := h.db.BulkSetAlertStatus(r.Context(), status)
+	n, err := h.db.BulkSetAlertStatus(r.Context(), status, h.access(r).hidesIdentityAlerts())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return

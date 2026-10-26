@@ -90,6 +90,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		}
 	}
 	enrolled, _ := h.db.RecentEnrollments(ctx, username, time.Time{}, 50)
+	enrolled = keepVisibleEnrollments(enrolled, h.visibleSerialSet(r))
 	h.render(w, r, "profile.html", map[string]any{
 		"Title":          title,
 		"User":           user,

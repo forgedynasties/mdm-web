@@ -112,7 +112,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /export/report/inventory.csv", h.requireAuth(h.fleetWide(h.ReportInventoryCSV)))
-	mux.HandleFunc("GET /export/report/activity.csv", h.requireAuth(h.ReportActivityCSV))
+	mux.HandleFunc("GET /export/report/activity.csv", h.requireAuth(h.fleetWide(h.ReportActivityCSV)))
 	// Admin-only for now (see the Overview card's same gate) — loosen to
 	// requireAuth if this opens up to other roles later.
 	mux.HandleFunc("GET /export/visualize", h.requireAuth(h.ExportVisualizePage))

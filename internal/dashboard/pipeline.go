@@ -134,7 +134,11 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	devices, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 100000, "serial", "asc")
+	// Only the devices this viewer may see (security audit, 26 Oct 2026): these pages
+	// listed every serial and venue to people whose access rules hide some.
+	devFilter := db.DeviceFilter{}
+	h.access(r).applyFilter(&devFilter)
+	devices, err := h.db.ListDevices(ctx, devFilter, 0, 100000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return

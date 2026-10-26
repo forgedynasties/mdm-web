@@ -6,6 +6,8 @@ import (
 	"net/url"
 
 	"github.com/google/uuid"
+
+	"mdm/internal/db"
 )
 
 // Kiosk on the venue page.
@@ -39,6 +41,22 @@ func (h *Handler) RestaurantKioskSave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
+	// Same scope check as a lock rule (security audit, 26 Oct 2026): seeing one device
+	// here was enough to lock or unlock every device at the venue.
+	if !h.access(r).unrestricted() {
+		devs, err := h.db.ListDevices(ctx, db.DeviceFilter{RestaurantID: id}, 0, 100000, "serial", "asc")
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		ids := make([]uuid.UUID, 0, len(devs))
+		for _, d := range devs {
+			ids = append(ids, d.ID)
+		}
+		if !h.kioskPolicyInScope(w, r, ids) {
+			return
+		}
+	}
 	// The venue's rule locks each tablet to its role's app (Lineup); it names no package.
 	lock := r.FormValue("lock") == "on"
 	existing, _ := h.db.KioskPolicyForRestaurant(ctx, id)

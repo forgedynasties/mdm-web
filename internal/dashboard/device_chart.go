@@ -444,6 +444,10 @@ func (h *Handler) GroupDailyStatsJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
+	if !h.seesAllOf(r, db.DeviceFilter{GroupID: id}) {
+		http.Error(w, "These totals cover devices outside your access.", http.StatusForbidden)
+		return
+	}
 
 	days := 30
 	if v := r.URL.Query().Get("days"); v != "" {

@@ -435,11 +435,20 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 
 	// emitCount sends the current open-alert count so every connected client (the
 	// global nav badge and the alerts list) can update without each re-querying.
-	hideIdentity := h.access(r).hidesIdentityAlerts()
+	acc := h.access(r)
+	hideIdentity := acc.hidesIdentityAlerts()
 	emitCount := func() {
-		n, err := h.db.CountOpenAlerts(ctx, hideIdentity)
-		if err != nil {
-			return
+		// Scoped like the dock (security audit, 26 Oct 2026): this sent customers and
+		// restricted team members the whole fleet's open-alert count, live.
+		var n int
+		if acc.hidesDevices() {
+			n, _ = h.visibleAlertCounts(r)
+		} else {
+			c, err := h.db.CountOpenAlerts(ctx, hideIdentity)
+			if err != nil {
+				return
+			}
+			n = c
 		}
 		fmt.Fprintf(w, "event: alert-update\ndata: %d\n\n", n)
 		flusher.Flush()
@@ -668,6 +677,10 @@ func (h *Handler) CommandOutputStream(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil || !h.access(r).visible(device.ID) {
 		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	if cmd, err := h.db.GetCommand(r.Context(), cmdID); err != nil || h.commandHiddenFrom(r, *cmd) {
+		http.Error(w, "command not found", http.StatusNotFound)
 		return
 	}
 

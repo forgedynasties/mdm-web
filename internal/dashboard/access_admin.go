@@ -355,6 +355,7 @@ func (h *Handler) renderUserI1(w http.ResponseWriter, r *http.Request, u *db.Use
 		recent, _ = h.db.ListAuditFiltered(ctx, u.Username, 12)
 	}
 	enrolled, _ := h.db.RecentEnrollments(ctx, u.Username, time.Time{}, 50)
+	enrolled = keepVisibleEnrollments(enrolled, h.visibleSerialSet(r))
 	choices := h.simpleChoices(u.Role, profiles)
 	h.render(w, r, "user_access.html", map[string]any{
 		"I1": buildUserI1(i1Inputs{User: u, Simple: simple, Choices: choices, Grants: views, Week: week,

@@ -365,7 +365,14 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	}
 	// Serials the picker offered that are not in the fleet at all: otautil devices,
 	// which only ever had the legacy path. They come straight from the form.
-	legacySerials = append(legacySerials, h.legacyOnlySerials(r, rel)...)
+	// The same OTA check the enrolled targets get (security audit, 26 Oct 2026): these
+	// came straight from the form, so a push could reach legacy devices outside the policy.
+	acc := h.access(r)
+	for _, s := range h.legacyOnlySerials(r, rel) {
+		if h.legacySerialAllowed(r, acc, s, "ota") {
+			legacySerials = append(legacySerials, s)
+		}
+	}
 	legacySerials = dedupeStrings(legacySerials)
 
 	if len(eligible) == 0 && len(legacySerials) == 0 {

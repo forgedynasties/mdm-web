@@ -372,7 +372,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	// bars are always the evidence for the figure above them.
 	powerDays := powerWindowDays(r.URL.Query().Get("days"))
 	data["PowerRanges"] = powerWindowChoices
-	if m, err := h.db.SiteMetricsFor(r.Context(), id, powerDays, time.Time{}); err == nil {
+	if m, err := h.db.SiteMetricsFor(r.Context(), id, powerDays, time.Time{}); err == nil && h.seesAllOf(r, db.DeviceFilter{RestaurantID: id}) {
 		data["Metrics"] = m
 		// The evidence behind the headline: the same window, day by day.
 		if daily, err := h.db.SiteMetricsDaily(r.Context(), id, powerDays, time.Time{}); err == nil {
@@ -456,6 +456,9 @@ func (h *Handler) venueP1(r *http.Request, rest *db.Restaurant, devices []db.Dev
 				in.Alerts = append(in.Alerts, a)
 			}
 		}
+	}
+	if !h.seesAllOf(r, db.DeviceFilter{RestaurantID: id}) {
+		return buildVenueP1(in) // whole-venue totals only for someone who sees all of it
 	}
 	if groups, err := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7); err == nil {
 		for i := range groups {
@@ -1066,6 +1069,10 @@ func (h *Handler) RestaurantDailyStatsJSON(w http.ResponseWriter, r *http.Reques
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	if !h.seesAllOf(r, db.DeviceFilter{RestaurantID: id}) {
+		http.Error(w, "These totals cover devices outside your access.", http.StatusForbidden)
 		return
 	}
 	days := 30
