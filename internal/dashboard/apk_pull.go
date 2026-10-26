@@ -274,7 +274,7 @@ func (h *Handler) DeviceSaveToLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !d.CapSet()[prod.CapApkPull] {
-		http.Error(w, "This device's client can't upload apps (Standard client 0.11.0 or later).", http.StatusBadRequest)
+		http.Error(w, "This device's client can't upload apps (Standard client 0.11.0 or Firmware MDM 1.21.0 or later).", http.StatusBadRequest)
 		return
 	}
 	pkg := strings.TrimSpace(r.FormValue("package"))

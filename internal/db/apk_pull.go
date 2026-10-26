@@ -26,18 +26,19 @@ type PullCandidate struct {
 }
 
 // APKPullCandidates lists our own apps (aio.app.*, but not the MDM agent, whose builds
-// are hosted separately) with a version on Standard-client devices that advertise
-// apk_pull and were heard since `since`: devices with no venue first (an upload is large,
-// and a lab unit's Wi-Fi is not a restaurant's), then the most recently heard.
+// are hosted separately) with a version on devices that can upload it (a Standard client
+// listing apk_pull, a firmware client 1.21.0+ sending apk_pull_cmd) and were heard since
+// `since`: devices with no venue first (an upload is large, and a lab unit's Wi-Fi is not
+// a restaurant's), then the most recently heard.
 func (d *DB) APKPullCandidates(ctx context.Context, since time.Time) ([]PullCandidate, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.id, d.serial_number, dp.package_name, dp.version_name
 		FROM device_packages dp
 		JOIN devices d ON d.id = dp.device_id
-		WHERE d.agent_kind = 'dpc'
-		  AND NOT COALESCE(d.hidden, false)
+		WHERE NOT COALESCE(d.hidden, false)
 		  AND d.last_seen_at > $1
-		  AND d.capabilities ? 'apk_pull'
+		  AND ((d.agent_kind = 'dpc' AND d.capabilities ? 'apk_pull')
+		    OR (d.agent_kind = 'firmware' AND d.latest_extra->'apk_pull_cmd' = 'true'::jsonb))
 		  AND dp.package_name LIKE 'aio.app.%'
 		  AND dp.package_name NOT LIKE 'aio.app.mdmclient%'
 		  AND dp.version_name <> ''

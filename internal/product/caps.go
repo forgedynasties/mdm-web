@@ -164,7 +164,7 @@ const (
 	CapBLEListen = "ble_listen"
 	CapBLEBeacon = "ble_beacon"
 	// CapApkPull: uploads an installed app's APK into the app library (pull_apk; DPC agent
-	// 0.11.0, 26 Oct 2026).
+	// 0.11.0 lists it, firmware client 1.21.0 sends the apk_pull_cmd flag; 26 Oct 2026).
 	CapApkPull = "apk_pull"
 )
 
@@ -179,6 +179,8 @@ var FirmwareCapFlags = map[string]string{
 	// when its radio can scan / advertise. The DPC agent lists both itself.
 	"ble_listen": CapBLEListen,
 	"ble_beacon": CapBLEBeacon,
+	// Save to library (26 Oct): firmware client 1.21.0 runs pull_apk.
+	"apk_pull_cmd": CapApkPull,
 }
 
 // The command types themselves, and the capability each one requires, live in

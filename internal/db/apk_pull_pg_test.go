@@ -55,3 +55,45 @@ func TestRecentAPKPullsRetriesFailedAgainstPostgres(t *testing.T) {
 		t.Fatalf("recent = %v", got)
 	}
 }
+
+// Firmware clients 1.21.0+ (apk_pull_cmd in latest_extra) are asked too; older ones are not.
+func TestAPKPullCandidatesFirmwareAgainstPostgres(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer d.pool.Exec(ctx, `DELETE FROM devices WHERE serial_number LIKE 'PULLC-%'`)
+	add := func(serial, kind, caps, extra string) {
+		var id uuid.UUID
+		if err := d.pool.QueryRow(ctx, `INSERT INTO devices (serial_number, agent_kind, capabilities, latest_extra, last_seen_at)
+			VALUES ($1, $2, $3::jsonb, $4::jsonb, NOW()) RETURNING id`, serial, kind, caps, extra).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.pool.Exec(ctx, `INSERT INTO device_packages (device_id, package_name, version_name) VALUES ($1, 'aio.app.nugget.uatv2', '117-uatv2')`, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add("PULLC-DPC", "dpc", `["apk_pull"]`, `{}`)
+	add("PULLC-FW", "firmware", `[]`, `{"apk_pull_cmd":true}`)
+	add("PULLC-OLD", "firmware", `[]`, `{"wifi_config_cmd":true}`)
+	cands, err := d.APKPullCandidates(ctx, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, c := range cands {
+		got[c.Serial] = true
+	}
+	if !got["PULLC-DPC"] || !got["PULLC-FW"] || got["PULLC-OLD"] {
+		t.Errorf("candidates = %v", got)
+	}
+}
