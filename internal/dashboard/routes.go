@@ -62,7 +62,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Releases (pipeline.go): what every role runs, and the per-model firmware.
 	mux.HandleFunc("GET /lineup", h.requireAuth(h.Pipeline))
 	mux.HandleFunc("GET /pipeline", h.requireAuth(h.PipelineRedirect))
-	post("POST /pipeline/firmware", h.requireLab(h.PipelineFirmware))
+	post("POST /pipeline/firmware", h.requireOTA(h.requireFleetOTA(h.PipelineFirmware)))
 	post("POST /pipeline/rollout", h.requireLab(h.PipelineRollout))
 	// Lab sessions (lab.go): the timed lab view and its actions.
 	mux.HandleFunc("GET /devices/{serial}/lab", h.requireLab(h.deviceRoute("shell", h.LabView)))
