@@ -1516,8 +1516,9 @@ window.DEVICE_VITALS = {
   <div hx-get="/devices/{{.Device.SerialNumber}}/timeline" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
        class="muted small" style="padding:26px;text-align:center;">Loading activity…</div>
 </section><!-- /activity -->
-{{/* Moved under the split by split.js and loaded when it is first shown (G3). */}}
-<div id="dd-recent" class="dd-recent" hidden hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-trigger="dd-show once" hx-swap="innerHTML"></div>
+{{/* Moved under the split by split.js and loaded when it is first shown (G3). Its own
+     target and select: inherited ones made the card replace the whole page. */}}
+<div id="dd-recent" class="dd-recent" hidden hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML"></div>
 <style>.dd-activity .dd-act-queue{margin-bottom:12px}
 .dq-strip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);padding:9px 14px;border:1px dashed var(--border);border-radius:12px}
 .dq-strip .dq-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none}.dq-strip .dq-dot.on{background:var(--ok)}
