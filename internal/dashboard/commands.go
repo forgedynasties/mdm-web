@@ -629,15 +629,26 @@ func (h *Handler) CommandScreenshot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not a screenshot command", http.StatusBadRequest)
 		return
 	}
+	if h.commandHiddenFrom(r, *cmd) {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
 	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id, h.cfg.CommandExpiry())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	deliveries = h.keepVisibleDeliveries(r, deliveries)
+	// Seeing a screenshot needs the right to take one (security audit, 26 Oct 2026):
+	// viewers, documented as "no screenshots", could open any result from Jobs.
+	acc := h.access(r)
 	var b64 string
 	for _, d := range deliveries {
 		if d.SerialNumber == serial {
+			if !acc.canDevice("screenshot", d.DeviceID) {
+				http.Error(w, "You can't view screenshots of this device.", http.StatusForbidden)
+				return
+			}
 			b64 = d.Output
 			break
 		}

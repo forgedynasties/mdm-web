@@ -42,7 +42,7 @@ const OVERLAY_JS = `(() => {
 })();`;
 
 class Scene {
-  constructor(page, t0) { this.page = page; this.t0 = t0; this.pos = { x: W / 2, y: H / 2 }; this.BASE = BASE; this.HERO = HERO; this.OPS_USER = process.env.OPS_USER || "ops@aioapp.com"; this.OPS_PASS = process.env.OPS_PASS || "OpsDemo2026!"; }
+  constructor(page, t0) { this.page = page; this.t0 = t0; this.pos = { x: W / 2, y: H / 2 }; this.BASE = BASE; this.HERO = HERO; this.OPS_USER = process.env.OPS_USER || "ops@aioapp.com"; this.OPS_PASS = process.env.OPS_PASS || ""; }
   now() { return Date.now() - this.t0; }
   locator(t) { return typeof t === "string" ? this.page.locator(t).first() : t; }
   async box(target) {

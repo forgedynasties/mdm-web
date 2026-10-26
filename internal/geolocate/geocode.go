@@ -96,6 +96,7 @@ func (g *Geocoder) Reverse(ctx context.Context, lat, lon float64) (string, error
 
 	resp, err := g.client.Do(req)
 	if err != nil {
+		err = withoutKey(err)
 		g.meter.MarkError(err)
 		return "", err
 	}
@@ -191,6 +192,7 @@ func (g *Geocoder) Forward(ctx context.Context, query string) ([]Place, error) {
 	}
 	resp, err := g.client.Do(req)
 	if err != nil {
+		err = withoutKey(err)
 		g.meter.MarkError(err)
 		return nil, err
 	}

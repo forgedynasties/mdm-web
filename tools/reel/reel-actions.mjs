@@ -1,7 +1,7 @@
 // Actions-page reel: scenes for record.mjs (REEL_SCRIPT=reel-actions.mjs).
 // Record as the operator account so the Recent / Most frequent panes show real
 // operator sends (admin sends are excluded from presets by design):
-//   MDM_USER=ops@aioapp.com MDM_PASS=OpsDemo2026! REEL_SCRIPT=reel-actions.mjs \
+//   MDM_USER=ops@aioapp.com MDM_PASS=<their password> REEL_SCRIPT=reel-actions.mjs \
 //   REEL_SCENES_DIR=out/scenes_actions node record.mjs
 import { execFileSync } from "node:child_process";
 

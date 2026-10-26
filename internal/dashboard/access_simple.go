@@ -538,6 +538,19 @@ func (h *Handler) AccessProfileSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		id = &pid
+		// A profile edit changes everyone on it, so it may only reach accounts the editor
+		// may manage (security audit, 26 Oct 2026).
+		users, err := h.db.ProfileUserIDs(r.Context(), pid)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		for _, uid := range users {
+			if u, err := h.db.GetUser(r.Context(), uid); err != nil || u == nil || !mayManageUser(h.role(r), u.Role, "") {
+				http.Error(w, "This profile is used by an account above your level, so you can't change it.", http.StatusForbidden)
+				return
+			}
+		}
 	}
 	if _, err := h.db.SaveAccessProfile(r.Context(), id, name, desc, actions, h.currentUsername(r)); err != nil {
 		if strings.Contains(err.Error(), "unique") || strings.Contains(err.Error(), "duplicate") {

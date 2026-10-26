@@ -122,8 +122,14 @@ func (h *Handler) UserMergeActor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target, err := h.db.GetUser(r.Context(), toID)
-	if err != nil {
+	if err != nil || target == nil {
 		http.Error(w, "Target user not found", http.StatusNotFound)
+		return
+	}
+	// Only into an account you may manage (security audit, 26 Oct 2026): history merged
+	// into a super admin's name reads as theirs.
+	if !mayManageUser(h.role(r), target.Role, "") {
+		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
 		return
 	}
 	if u, err := h.db.GetUserByUsername(r.Context(), from); err == nil && u != nil {

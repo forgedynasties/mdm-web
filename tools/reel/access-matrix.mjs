@@ -14,7 +14,7 @@ async function get(cookie, path, method = "GET", body) {
 let fail = 0;
 function expect(name, got, want) { const ok = Array.isArray(want) ? want.includes(got) : got === want; if (!ok) fail++; console.log((ok ? "  ok  " : "  FAIL") + ` ${name}: ${got}` + (ok ? "" : ` (want ${want})`)); }
 
-const ops = await login("ops@aioapp.com", "OpsDemo2026!");
+const ops = await login("ops@aioapp.com", process.env.OPS_PASS ?? "");
 console.log("operator (venue Harbor Grill: view/reboot/screenshot; remote on " + IN + "; hidden elsewhere)");
 let r = await get(ops, "/devices"); expect("device list", r.s, 200);
 const seen = (r.t.match(/AT070AA26\d{5}|AK\d{3}AA26\d{5}/g) || []); const uniq = [...new Set(seen)];
@@ -43,7 +43,7 @@ expect("reboot OUT only → 403", r.s, 403);
 r = await get(ops, "/commands", "POST", new URLSearchParams({ type: "install_apk", target_type: "devices", target_serials: IN, apk_url: "x" }).toString());
 expect("install without grant → 403/400", [403, 400].includes(r.s), true);
 
-const dev = await login("dev@aioapp.com", "OpsDemo2026!");
+const dev = await login("dev@aioapp.com", process.env.DEV_PASS ?? "");
 console.log("dev (everything; OTA + shell only in Harbor Grill)");
 expect("shell page in scope", (await get(dev, "/devices/" + IN + "/shell")).s, [200, 403]); // 403 only when shell is disabled in settings
 expect("shell page outside scope → 403", (await get(dev, "/devices/" + OUT + "/shell")).s, 403);

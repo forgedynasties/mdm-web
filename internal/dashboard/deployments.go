@@ -18,6 +18,7 @@ import (
 	"mdm/internal/db"
 	"mdm/internal/ota"
 	"mdm/internal/product"
+	"mdm/internal/safehttp"
 
 	"github.com/google/uuid"
 )
@@ -427,6 +428,9 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 func (h *Handler) learnPackageSizes(pkgs []db.OTAPackage) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+	// The guarded client (security audit, 26 Oct 2026): the URL is typed in by a release
+	// admin, and a HEAD to an internal address is still a request from inside the VPC.
+	client := safehttp.Client(15 * time.Second)
 	for _, p := range pkgs {
 		if p.PayloadSize > 0 || p.UpdateURL == "" {
 			continue
@@ -435,7 +439,7 @@ func (h *Handler) learnPackageSizes(pkgs []db.OTAPackage) {
 		if err != nil {
 			continue
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			continue
 		}

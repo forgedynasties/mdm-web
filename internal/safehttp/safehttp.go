@@ -82,9 +82,16 @@ func isBlockedIP(ip net.IP) bool {
 	}
 	if v4 := ip.To4(); v4 != nil {
 		ip = v4
+	} else if v4 := embeddedV4(ip); v4 != nil {
+		ip = v4 // NAT64 / 6to4: judge the IPv4 address it reaches
 	}
 	if isAllowed(ip) {
 		return false // operator-trusted internal host (e.g. LAN OTA server)
+	}
+	for _, n := range extraBlocked {
+		if n.Contains(ip) {
+			return true
+		}
 	}
 	return ip.IsLoopback() || // 127.0.0.0/8, ::1
 		ip.IsPrivate() || // 10/8, 172.16/12, 192.168/16, fc00::/7
@@ -174,4 +181,32 @@ func LimitedReadAll(r io.Reader, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("response exceeds %d-byte limit", limit)
 	}
 	return b, nil
+}
+
+// extraBlocked are non-public ranges the net.IP predicates don't cover (security audit,
+// 26 Oct 2026): "this network", carrier-grade NAT (also the tailnet's range), IETF
+// protocol assignments, benchmarking, and the reserved class E block.
+var extraBlocked = func() []*net.IPNet {
+	var out []*net.IPNet
+	for _, c := range []string{"0.0.0.0/8", "100.64.0.0/10", "192.0.0.0/24", "198.18.0.0/15", "240.0.0.0/4"} {
+		_, n, _ := net.ParseCIDR(c)
+		out = append(out, n)
+	}
+	return out
+}()
+
+// embeddedV4 returns the IPv4 address inside a NAT64 (64:ff9b::/96, 64:ff9b:1::/48) or
+// 6to4 (2002::/16) IPv6 address, which would otherwise route to a blocked IPv4 host.
+func embeddedV4(ip net.IP) net.IP {
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return nil
+	}
+	switch {
+	case ip16[0] == 0x00 && ip16[1] == 0x64 && ip16[2] == 0xff && ip16[3] == 0x9b:
+		return net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15]).To4()
+	case ip16[0] == 0x20 && ip16[1] == 0x02:
+		return net.IPv4(ip16[2], ip16[3], ip16[4], ip16[5]).To4()
+	}
+	return nil
 }

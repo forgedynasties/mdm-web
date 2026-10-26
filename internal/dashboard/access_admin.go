@@ -809,6 +809,15 @@ func (h *Handler) UserAccessEditGrant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
+	// Editing a deny rule (narrowing it, expiring it, turning it into an allow) can widen
+	// their access like removing it does, so it needs the same right (security audit,
+	// 26 Oct 2026).
+	if g.Effect == "deny" {
+		if err := h.canWiden(r, u); err != nil {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+	}
 	if err := h.db.UpdateAccessGrant(r.Context(), g.ID, effect, actions, note, expires); err != nil {
 		http.Error(w, "Could not save", http.StatusInternalServerError)
 		return

@@ -536,8 +536,14 @@ func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, 
 			return nil, "", false
 		}
 		kept, dropped := acc.filterDevices(action, devIDs)
-		if dropped == 0 {
+		// Membership is read again at delivery, so a group target from someone whose
+		// rules hide devices would reach devices added to the group later, outside their
+		// scope (security audit, 26 Oct 2026): store what they may reach now instead.
+		if dropped == 0 && !acc.hidesDevices() {
 			return ids, targetType, true
+		}
+		if dropped == 0 {
+			return kept, "devices", true
 		}
 		if len(kept) == 0 {
 			h.denied(r, action, nil, decision{Reason: "no device in the group is in scope"})

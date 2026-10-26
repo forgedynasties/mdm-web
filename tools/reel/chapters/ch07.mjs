@@ -10,7 +10,7 @@ const REEL = "restaurant_id IN (SELECT id FROM restaurants WHERE notes = 'reel-s
 async function startRollout(release, serials) {
   const jar = [];
   const login = await fetch(`${BASE}/login`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ username: "release@aioapp.com", password: "ReleaseDemo2026!" }) });
+    body: new URLSearchParams({ username: "release@aioapp.com", password: process.env.RELEASE_PASS ?? "" }) });
   for (const c of login.headers.getSetCookie?.() || []) jar.push(c.split(";")[0]);
   const form = new URLSearchParams({ release_id: release, reboot_behavior: "immediate", delivery: "smart" });
   for (const s of serials) form.append("serials", s);

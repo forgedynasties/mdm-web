@@ -336,7 +336,7 @@ func (r *Resolver) query(ctx context.Context, aps []WifiAP) (float64, float64, f
 
 	resp, err := r.client.Do(req)
 	if err != nil {
-		return 0, 0, 0, err
+		return 0, 0, 0, withoutKey(err)
 	}
 	defer resp.Body.Close()
 
