@@ -97,3 +97,44 @@ func TestAPKPullCandidatesFirmwareAgainstPostgres(t *testing.T) {
 		t.Errorf("candidates = %v", got)
 	}
 }
+
+func TestRefusedAPKPullsAgainstPostgres(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var dev uuid.UUID
+	if err := d.pool.QueryRow(ctx, `INSERT INTO devices (serial_number) VALUES ('PULLR-1') RETURNING id`).Scan(&dev); err != nil {
+		t.Fatal(err)
+	}
+	defer d.pool.Exec(ctx, `DELETE FROM devices WHERE serial_number = 'PULLR-1'`)
+	for _, c := range []struct{ ver, out string }{
+		{"1000-uatv2", "HTTP 422: signed with a different key than aio.app.kiosk.uatv2 in the library; not added"},
+		{"343-uatv2", "upload refused: HTTP 400"},
+	} {
+		p, _ := json.Marshal(map[string]string{"package": "aio.app.kiosk.uatv2", "version": c.ver})
+		cmd, err := d.CreateCommand(ctx, "pull_apk", "", p, "devices", []uuid.UUID{dev})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := d.pool.Exec(ctx, `INSERT INTO command_results (command_id, device_id, output) VALUES ($1, $2, $3)`, cmd.ID, dev, c.out); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := d.RefusedAPKPulls(ctx, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got["aio.app.kiosk.uatv2@1000-uatv2"] || got["aio.app.kiosk.uatv2@343-uatv2"] {
+		t.Errorf("refused = %v", got)
+	}
+}

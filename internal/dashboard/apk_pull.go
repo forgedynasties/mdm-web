@@ -34,6 +34,9 @@ import (
 const (
 	apkPullRetry       = 6 * time.Hour
 	apkPullRetryFailed = 30 * time.Minute
+	// apkPullRefusedFor: a version the library refused for its signing key is not asked
+	// for again in this long.
+	apkPullRefusedFor = 7 * 24 * time.Hour
 )
 
 // apkPullPerTick caps how many pulls one run of the job starts.
@@ -210,7 +213,12 @@ func (h *Handler) RunAPKAutoPull(ctx context.Context) {
 		log.Printf("[apk-pull] recent: %v", err)
 		return
 	}
-	for _, j := range pickAutoPulls(cands, apps, recent, apkPullPerTick) {
+	refused, err := h.db.RefusedAPKPulls(ctx, apkPullRefusedFor)
+	if err != nil {
+		log.Printf("[apk-pull] refused: %v", err)
+		return
+	}
+	for _, j := range pickAutoPulls(cands, apps, recent, refused, apkPullPerTick) {
 		if err := h.queuePull(ctx, j.DeviceID, j.Package, j.Version, "auto-pull"); err != nil {
 			log.Printf("[apk-pull] %s %s from %s: %v", j.Package, j.Version, j.Serial, err)
 			continue
@@ -223,7 +231,11 @@ func (h *Handler) RunAPKAutoPull(ctx context.Context) {
 // venue-less devices first, then freshest, so the first device seen with it is the
 // one asked) when the
 // library holds neither that version nor a newer one and nobody asked for it lately.
-func pickAutoPulls(cands []db.PullCandidate, apps []db.App, recent map[string]bool, max int) []db.PullCandidate {
+//
+// A version the library refused for its signing key is left out, so the next newest one
+// is pulled instead (on 26 Oct a developer build kiosk.uatv2 1000-uatv2 was uploaded and
+// refused every 30 min, and kept 343-uatv2 out).
+func pickAutoPulls(cands []db.PullCandidate, apps []db.App, recent, refused map[string]bool, max int) []db.PullCandidate {
 	newestLib := map[string]string{}
 	have := map[string]bool{}
 	for _, a := range apps {
@@ -235,6 +247,9 @@ func pickAutoPulls(cands []db.PullCandidate, apps []db.App, recent map[string]bo
 	best := map[string]db.PullCandidate{}
 	var order []string
 	for _, c := range cands {
+		if refused[c.Package+"@"+c.Version] {
+			continue
+		}
 		cur, ok := best[c.Package]
 		if !ok {
 			order = append(order, c.Package)

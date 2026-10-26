@@ -86,6 +86,32 @@ func (d *DB) RecentAPKPulls(ctx context.Context, within, retryFailed time.Durati
 	return out, rows.Err()
 }
 
+// RefusedAPKPulls is the package@version pairs whose upload the library refused because
+// the APK is signed with another key than the package's library versions (a developer
+// build, say) within the window. Asking again would upload the same refused file, so the
+// auto-pull skips that version and takes the newest one it can use.
+func (d *DB) RefusedAPKPulls(ctx context.Context, within time.Duration) (map[string]bool, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT COALESCE(c.payload->>'package', ''), COALESCE(c.payload->>'version', '')
+		FROM commands c
+		JOIN command_results r ON r.command_id = c.id
+		WHERE c.type = 'pull_apk' AND c.created_at > NOW() - $1::interval
+		  AND r.output ILIKE '%signed with a different key%'`, within.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var p, v string
+		if err := rows.Scan(&p, &v); err != nil {
+			return nil, err
+		}
+		out[p+"@"+v] = true
+	}
+	return out, rows.Err()
+}
+
 // AppSigner is one library APK's stored signing certificate ("" until it is read).
 type AppSigner struct {
 	ID     uuid.UUID
