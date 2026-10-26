@@ -229,6 +229,9 @@
 
 /* device.html block @2547 */
   .about-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;}
+  /* Folded into the Overview (split pane) it is one column: Needs a look on top, the device
+     card under it at the pane's width, however wide the page grows. */
+  #dd-panel-summary > .about-grid{grid-template-columns:minmax(0,1fr);align-items:start;}
 
 /* device.html block @2996 */
 /* App-drawer grid for the Applications tab. */
