@@ -137,12 +137,3 @@ func (h *Handler) AppPackageAssign(w http.ResponseWriter, r *http.Request) {
 
 func mustList[T any](v []T, _ error) []T { return v }
 
-// SettingsSetAppFamilyMode switches auto / suggest / off.
-func (h *Handler) SettingsSetAppFamilyMode(w http.ResponseWriter, r *http.Request) {
-	if err := h.cfg.SetAppFamilyMode(r.FormValue("app_family_mode")); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "settings.app_family_mode", "", h.cfg.AppFamilyMode())
-	h.libraryRedirect(w, r, "Variant grouping: "+h.cfg.AppFamilyMode(), "success")
-}

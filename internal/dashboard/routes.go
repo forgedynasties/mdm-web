@@ -454,7 +454,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /apps/families/{id}/rename", h.requireAppLibrary(h.AppFamilyRename))
 	post("POST /apps/families/{id}/ungroup", h.requireAppLibrary(h.AppFamilyUngroup))
 	post("POST /apps/package/assign", h.requireAppLibrary(h.AppPackageAssign))
-	post("POST /settings/app-family-mode", h.requireStrictAdmin(h.SettingsSetAppFamilyMode))
 	mux.HandleFunc("GET /apps/{id}/apk", h.AppAPK) // open: device installer fetches by URL
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp)) // removing an APK stays admin-only

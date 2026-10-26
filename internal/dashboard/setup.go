@@ -25,6 +25,8 @@ func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 	added, _ := h.db.AppsAddedSince(r.Context(), time.Now().AddDate(0, 0, -30))
 	h.render(w, r, "apps.html", map[string]any{
 		"AppsTab": "library",
+		// Only the role apps (Lineup) unless "Show all apps" is ticked (user, 26 Oct 2026).
+		"ShowAllApps": r.URL.Query().Get("all") == "1",
 		// A1 (picked 21 Oct 2026): banner, cards, one app table and a rail. apps_a1.go.
 		"A1": buildAppsA1(a1Inputs{Families: families, Apps: apps, Cov: cov, RoleApps: roleApps,
 			Installs: installs, AddedLast: added, Now: time.Now()}),

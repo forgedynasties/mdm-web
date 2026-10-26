@@ -12,11 +12,10 @@
   .a1-q:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .a1-q input,.a1-q input[type=search]{border:0;background:none;outline:none;box-shadow:none;padding:0;height:auto;min-height:0;border-radius:0;font:inherit;font-size:12.5px;color:var(--text);width:100%}
   .a1-q svg{width:14px;height:14px;color:var(--muted);flex:none}
-  .a1-mode{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);margin:0}
+  .a1-all{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-2);cursor:pointer;white-space:nowrap}
   #a1-apps .oc-ch h2{white-space:nowrap}
   .a1-nm b a{color:inherit;text-decoration:none;overflow:hidden;text-overflow:ellipsis}
   .a1-nm b a:hover{text-decoration:underline}
-  .a1-mode select{font-size:12px;padding:4px 6px;border-radius:8px}
   .a1-t{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
   .a1-t th{text-align:left;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border-soft)}
   .a1-t th:nth-child(1){width:auto}.a1-t th:nth-child(2){width:110px}.a1-t th:nth-child(3){width:30%}.a1-t th:nth-child(4){width:150px}.a1-t th:nth-child(5){width:118px}
@@ -112,11 +111,11 @@
       <div class="oc-ch"><h2>Apps <span>most installed first</span></h2>
         <div class="a1-ch-r">
           <label class="a1-q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="a1-q" type="search" placeholder="Search apps, packages, versions" autocomplete="off" aria-label="Search apps"></label>
+          <label class="a1-all"><input type="checkbox" id="a1-all"{{if .ShowAllApps}} checked{{end}}> Show all apps</label>
           <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-a1-pill="show">Show: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
             <div class="cc-menu" hidden>
               <button type="button" class="cc-mi active" data-a1-set="show" data-val="">All</button>
               <button type="button" class="cc-mi" data-a1-set="show" data-val="look">Needs a look</button>
-              <button type="button" class="cc-mi" data-a1-set="show" data-val="role">Role apps</button>
               <button type="button" class="cc-mi" data-a1-set="show" data-val="none">On no device</button>
             </div></div>
           <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-a1-pill="chan">Channels: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
@@ -144,7 +143,7 @@
         <thead><tr><th>App</th><th>Library</th><th>On devices</th><th>Channels</th><th></th></tr></thead>
         <tbody>
         {{range $i, $r := $a.Rows}}
-        <tr class="a1-r" data-search="{{.Search}}" data-look="{{if .Look}}1{{end}}" data-role="{{if .Role}}1{{end}}" data-none="{{if eq .Devices 0}}1{{end}}" data-chan="{{if .Single}}one{{else if .InLibrary}}many{{end}}" data-href="{{.Href}}">
+        <tr class="a1-r"{{if and (not .Role) (not $.ShowAllApps)}} hidden{{end}} data-search="{{.Search}}" data-look="{{if .Look}}1{{end}}" data-role="{{if .Role}}1{{end}}" data-none="{{if eq .Devices 0}}1{{end}}" data-chan="{{if .Single}}one{{else if .InLibrary}}many{{end}}" data-href="{{.Href}}">
           <td><div class="a1-id">{{if .Icon}}<img class="a1-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="a1-ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="a1-nm"><b title="{{.Name}}"><a href="{{.Href}}">{{.Name}}</a>{{if .Role}}<span class="a1-role" title="The {{.RoleLabel}} app (Host apps)">role app</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></span></div></td>
           <td>{{if .InLibrary}}<span class="a1-ver" title="The library's newest">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{else}}<span class="a1-ver none">not in library</span>{{end}}</td>
           <td><div class="a1-cov" title="{{.Devices}} device{{if ne .Devices 1}}s{{end}} · {{.OnLib}} on the library version · {{.Other}} on another · {{.Unknown}} report no version">{{if gt .Devices 0}}<div class="a1-bar" aria-hidden="true">{{if .OnLib}}<i class="ok" style="width:{{.OnLibPct}}%"></i>{{end}}{{if .Other}}<i class="ot" style="width:{{.OtherPct}}%"></i>{{end}}{{if .Unknown}}<i class="un" style="width:{{.UnknownPct}}%"></i>{{end}}</div><small><b>{{.Devices}}</b> · {{.Note}}</small>{{else}}<small>{{.Note}}</small>{{end}}</div></td>
@@ -163,7 +162,7 @@
       {{else}}
       <div class="a1-none">No apps yet: upload an APK, then install it on devices.</div>
       {{end}}
-      <div class="oc-foot"><span><i style="background:var(--ok)"></i>On the library version</span><span><i style="background:var(--warn)"></i>Another version</span><span><i style="background:var(--text-faint);opacity:.45"></i>No version reported</span>{{if $a.Hidden}}<span>· {{$a.Hidden}} more package{{if ne $a.Hidden 1}}s{{end}} on devices, not in the library</span>{{end}}{{if canAdmin .Role}}<form action="/settings/app-family-mode" method="POST" class="a1-mode" title="How package variants (x, x.internal, x.uatv2) are shown"><input type="hidden" name="next" value="/apps"><span>Variants</span><select name="app_family_mode" onchange="this.form.submit()" aria-label="Variants"><option value="auto"{{if eq .AppFamilyMode "auto"}} selected{{end}}>grouped automatically</option><option value="suggest"{{if eq .AppFamilyMode "suggest"}} selected{{end}}>suggest merges</option><option value="off"{{if eq .AppFamilyMode "off"}} selected{{end}}>never grouped</option></select></form>{{end}}{{if .Coverage}}<span class="tot">Total: <b>{{$a.Rail.OnLib}}</b> of {{$a.Rail.Known}} installs on the library version</span>{{end}}</div>
+      <div class="oc-foot"><span><i style="background:var(--ok)"></i>On the library version</span><span><i style="background:var(--warn)"></i>Another version</span><span><i style="background:var(--text-faint);opacity:.45"></i>No version reported</span>{{if $a.Hidden}}<span>· {{$a.Hidden}} more package{{if ne $a.Hidden 1}}s{{end}} on devices, not in the library</span>{{end}}{{if .Coverage}}<span class="tot">Total: <b>{{$a.Rail.OnLib}}</b> of {{$a.Rail.Known}} installs on the library version</span>{{end}}</div>
     </section>
   </div>
 

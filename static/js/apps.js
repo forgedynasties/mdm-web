@@ -7,8 +7,11 @@
   var F = { show: '', chan: '', q: '' };
   function apply() {
     var rows = document.querySelectorAll('.a1-r'), shown = 0;
+    // Role apps only, unless "Show all apps" is ticked; a search looks through every app.
+    var allBox = document.getElementById('a1-all'), all = !allBox || allBox.checked || !!F.q;
     rows.forEach(function (r) {
-      var ok = (!F.q || (r.dataset.search || '').indexOf(F.q) !== -1) &&
+      var ok = (all || r.dataset.role === '1') &&
+        (!F.q || (r.dataset.search || '').indexOf(F.q) !== -1) &&
         (!F.show || r.dataset[F.show] === '1') &&
         (!F.chan || r.dataset.chan === F.chan);
       r.hidden = !ok;
@@ -44,6 +47,13 @@
       var a = r.querySelector('.a1-nm a');
       if (a) a.click(); else location.href = r.dataset.href;
     }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id !== 'a1-all') return;
+    var u = new URL(location.href);
+    if (e.target.checked) u.searchParams.set('all', '1'); else u.searchParams.delete('all');
+    history.replaceState(history.state, '', u);
+    apply();
   });
   document.addEventListener('input', function (e) {
     if (e.target.id !== 'a1-q') return;

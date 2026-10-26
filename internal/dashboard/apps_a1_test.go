@@ -195,6 +195,14 @@ func TestAppsA1Renders(t *testing.T) {
 	if strings.Contains(out, `lf-modal`) {
 		t.Error("the family dialogs are back on the list (their tools live on the app page)")
 	}
+	// Role apps only by default (user, 26 Oct 2026), a "Show all apps" box, and no
+	// variant-grouping choice any more.
+	if !strings.Contains(out, `id="a1-all"`) || !strings.Contains(out, `<tr class="a1-r" hidden`) {
+		t.Error("apps.html must hide non-role apps behind a Show all apps checkbox")
+	}
+	if strings.Contains(out, "app-family-mode") || strings.Contains(out, `data-val="role"`) {
+		t.Error("the variant choice and the Role apps option are gone")
+	}
 	if strings.Contains(out, `class="lib-drawer"`) {
 		t.Error("the tile grid is still on the Apps list")
 	}

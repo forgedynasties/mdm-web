@@ -184,9 +184,8 @@ type Config struct {
 	// OTAMinReleaseVal is, per product key, the oldest release whose firmware has
 	// the MDM OTA agent. Devices on a build older than it get no MDM OTA.
 	OTAMinReleaseVal map[string]int `json:"ota_min_release,omitempty"`
-	// AppFamilyModeVal: "auto" groups package variants (x, x.internal, x.uatv2)
-	// into one library family, "suggest" only proposes merges, "off" never
-	// groups variants. Versions of one package always group. "" = auto.
+	// AppFamilyModeVal is no longer read (variants are always grouped, 26 Oct 2026);
+	// the field stays so an old config file still loads.
 	AppFamilyModeVal string `json:"app_family_mode,omitempty"`
 	// MDMServersVal are the servers a device can be moved to from its page (the
 	// dropdown behind "Move & reboot", which sets persist.sys.mdm.url). Empty means
@@ -700,27 +699,10 @@ func (c *Config) SetMDMServers(urls []string) error {
 // SetKioskAllowlist replaces the kiosk allowlist (patterns already trimmed/deduped
 // by the caller).
 // OTAMinRelease returns the per-product OTA support cutoff (release id), a copy.
-// AppFamilyMode is "auto", "suggest" or "off"; see AppFamilyModeVal.
-func (c *Config) AppFamilyMode() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	switch c.AppFamilyModeVal {
-	case "suggest", "off":
-		return c.AppFamilyModeVal
-	}
-	return "auto"
-}
-
-func (c *Config) SetAppFamilyMode(mode string) error {
-	if mode != "suggest" && mode != "off" {
-		mode = "auto"
-	}
-	c.mu.Lock()
-	c.AppFamilyModeVal = mode
-	data, _ := json.MarshalIndent(c, "", "  ")
-	c.mu.Unlock()
-	return writeFileAtomic(c.path, data)
-}
+// AppFamilyMode is always "auto" since 26 Oct 2026 (user: "variants are grouped
+// automatically"): the suggest / off choice and its control are gone; a stored value is
+// ignored.
+func (c *Config) AppFamilyMode() string { return "auto" }
 
 // LegacyOTAMode is "mdm" or "passthrough"; see LegacyOTAModeVal.
 func (c *Config) LegacyOTAMode() string {

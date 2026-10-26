@@ -262,7 +262,7 @@
     <span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
     <h2>App library</h2>
     <div class="card-header-actions" style="margin-left:auto">
-      {{if canAdmin .Role}}<form action="/settings/app-family-mode" method="POST" class="lib-mode" title="How package variants (x, x.internal, x.uatv2) are shown"><input type="hidden" name="next" value="/apps"><span>Variants</span><select name="app_family_mode" class="form-input" onchange="this.form.submit()"><option value="auto"{{if eq .AppFamilyMode "auto"}} selected{{end}}>grouped automatically</option><option value="suggest"{{if eq .AppFamilyMode "suggest"}} selected{{end}}>suggest merges</option><option value="off"{{if eq .AppFamilyMode "off"}} selected{{end}}>never grouped</option></select></form>{{end}}
+      
       <span class="muted small" style="margin-right:6px;">{{len .Families}} app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} APK{{if ne (len .Apps) 1}}s{{end}}</span>
       <button type="button" class="cc-btn sm primary" onclick="libAddOpen()"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Add apps</button>
     </div>
