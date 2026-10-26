@@ -35,6 +35,7 @@ func TestNormalizeWifiConfig(t *testing.T) {
 		`{"action": "add", "ssid": "Nugget-Staff", "security": "wpa2", "password": "correcthorse"}`,
 		`{"action": "add", "ssid": "Guest", "security": "open"}`,
 		`{"action": "remove", "ssid": "Nugget-Old"}`,
+		`{"action": "export"}`,
 	}
 	for _, in := range ok {
 		if _, msg := NormalizeWifiConfig(json.RawMessage(in)); msg != "" {

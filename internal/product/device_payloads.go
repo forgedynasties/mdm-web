@@ -74,6 +74,12 @@ func NormalizeWifiConfig(payload json.RawMessage) (json.RawMessage, string) {
 		return nil, `payload must be {"action": "add"|"remove", "ssid": "…", "security": "open"|"wpa2"|"wpa3", "password": "…"}`
 	}
 	action := strings.ToLower(strings.TrimSpace(p.Action))
+	if action == "export" {
+		// The device's saved networks with their passwords (W2, 23 Oct 2026), to build the
+		// firmware's bootstrap list. The client answers with them encrypted to a key held
+		// off this server, so the stored output is never readable here.
+		return json.RawMessage(`{"action":"export"}`), ""
+	}
 	ssid := p.SSID // an SSID's spaces are its own; only an all-blank one is refused
 	if strings.TrimSpace(ssid) == "" {
 		return nil, "ssid is required"
@@ -92,7 +98,7 @@ func NormalizeWifiConfig(payload json.RawMessage) (json.RawMessage, string) {
 		return b, ""
 	case "add":
 	default:
-		return nil, `action must be "add", "remove" or "connect"`
+		return nil, `action must be "add", "remove", "connect" or "export"`
 	}
 	sec := strings.ToLower(strings.TrimSpace(p.Security))
 	switch sec {

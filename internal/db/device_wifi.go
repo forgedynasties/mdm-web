@@ -21,8 +21,8 @@ type WifiOp struct {
 }
 
 // LatestWifiOp returns the newest wifi_config a person sent this device in the last
-// `within`, nil when none. The venue's own pushes are left out: they are not something
-// someone is watching from the device page.
+// `within`, nil when none. The venue's own pushes and exports are left out: they are not
+// something someone is watching from the device page.
 func (d *DB) LatestWifiOp(ctx context.Context, deviceID uuid.UUID, within time.Duration, venueActor string) (*WifiOp, error) {
 	var op WifiOp
 	err := d.pool.QueryRow(ctx, `
@@ -32,6 +32,7 @@ func (d *DB) LatestWifiOp(ctx context.Context, deviceID uuid.UUID, within time.D
 		JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
 		LEFT JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = $1
 		WHERE c.type = 'wifi_config' AND c.created_at > $2 AND COALESCE(c.created_by, '') <> $3
+		  AND COALESCE(c.payload->>'action', '') <> 'export'
 		ORDER BY c.created_at DESC LIMIT 1`, deviceID, time.Now().Add(-within), venueActor).
 		Scan(&op.Action, &op.SSID, &op.Status, &op.Output, &op.CreatedAt, &op.UpdatedAt)
 	if err != nil {
