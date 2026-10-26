@@ -28,6 +28,12 @@
   .p1-share .p1-trk{width:64px;height:6px}
   .p1-share span.num{min-width:34px;text-align:right;font-variant-numeric:tabular-nums;font-weight:650}
   .p1-heavy .note{color:var(--muted)}
+  /* The main column and the rail end level (user, 26 Oct 2026): the cards above All apps
+     grow to the rail's height, or the rail to theirs. */
+  .p1-wrap .ov2{align-items:stretch}
+  .p1-wrap .ov2-main{display:flex;flex-direction:column}
+  .p1-wrap .ov2-main>.oc-two{flex:1;margin-bottom:0}
+  .p1-all{margin-top:24px}
   .p1-heavy .ovd-dot:not(.danger):not(.warn){background:var(--text-faint);opacity:.5}
   .p1-cap{margin-top:-6px}
   .p1-gap{margin-top:14px}
@@ -118,28 +124,6 @@
       </div>
     </div>
 
-    {{if .Rows}}
-    <div class="ov2-sec" id="p1-apps"><h2>All apps <span>{{len .Rows}}{{if .More}} of {{add (len .Rows) .More}}{{end}} · by {{.MeasureLabel}}</span></h2></div>
-    <div class="cc-card p1-at">
-      <table class="ov2-t">
-        <thead><tr><th>App</th><th class="num">Devices</th><th class="num">Screen</th>{{if .Full}}<th class="num">Memory</th><th class="num">CPU</th>{{end}}<th class="num">Network</th>{{if .Battery}}<th class="num">Battery</th>{{end}}<th class="num">Share</th><th></th></tr></thead>
-        <tbody>
-        {{range .Rows}}
-        <tr>
-          <td><div class="p1-app"><b title="{{.Name}}">{{.Name}}{{if .Role}}<span class="p1-chip role">role app</span>{{else if .System}}<span class="p1-chip">system</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></div></td>
-          <td class="num">{{.On}}</td>
-          <td class="num">{{.Screen}}</td>
-          {{if $.P.Full}}<td class="num" title="{{.Worst}}">{{.Mem}}</td><td class="num">{{.CPU}}</td>{{end}}
-          <td class="num">{{.Net}}</td>
-          {{if $.P.Battery}}<td class="num">{{.Battery}}</td>{{end}}
-          <td><div class="p1-share"><span class="p1-trk"><i class="{{if .Role}}role{{end}}" style="width:{{.BarPct}}%"></i></span><span class="num">{{.Share}} %</span></div></td>
-          <td class="act"><a class="cc-btn sm" href="/apps/{{.Package}}">App</a></td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
-    </div>
-    {{end}}
   </div>
 
   <aside class="ov2-rail" aria-label="{{.ModelLabel}} resource use">
@@ -171,6 +155,33 @@
     <div class="ovd-empty"><b>No devices reporting.</b></div>
     {{end}}
   </aside>
+  </div>
+
+  {{/* Full width under the grid (user, 26 Oct 2026): the table needs the room the
+       rail took. */}}
+  <div class="p1-all">
+    {{if .Rows}}
+    <div class="ov2-sec" id="p1-apps"><h2>All apps <span>{{len .Rows}}{{if .More}} of {{add (len .Rows) .More}}{{end}} · by {{.MeasureLabel}}</span></h2></div>
+    <div class="cc-card p1-at">
+      <table class="ov2-t">
+        <thead><tr><th>App</th><th class="num">Devices</th><th class="num">Screen</th>{{if .Full}}<th class="num">Memory</th><th class="num">CPU</th>{{end}}<th class="num">Network</th>{{if .Battery}}<th class="num">Battery</th>{{end}}<th class="num">Share</th><th></th></tr></thead>
+        <tbody>
+        {{range .Rows}}
+        <tr>
+          <td><div class="p1-app"><b title="{{.Name}}">{{.Name}}{{if .Role}}<span class="p1-chip role">role app</span>{{else if .System}}<span class="p1-chip">system</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></div></td>
+          <td class="num">{{.On}}</td>
+          <td class="num">{{.Screen}}</td>
+          {{if $.P.Full}}<td class="num" title="{{.Worst}}">{{.Mem}}</td><td class="num">{{.CPU}}</td>{{end}}
+          <td class="num">{{.Net}}</td>
+          {{if $.P.Battery}}<td class="num">{{.Battery}}</td>{{end}}
+          <td><div class="p1-share"><span class="p1-trk"><i class="{{if .Role}}role{{end}}" style="width:{{.BarPct}}%"></i></span><span class="num">{{.Share}} %</span></div></td>
+          <td class="act"><a class="cc-btn sm" href="/apps/{{.Package}}">App</a></td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{end}}
   </div>
 </div>
 {{end}}
