@@ -125,7 +125,7 @@
     var avail = window.innerHeight - top - 100;        // clear of the floating dock
     var ok = avail >= 420;
     root.classList.toggle('dd-fit', ok);
-    if (!ok) return;
+    if (!ok) { showRecent(false); return; }
     // The split takes the window's height, but the graph keeps its shape (G3, picked
     // 26 Oct 2026): the plot is at most half as tall as it is wide, never under 360 px,
     // so zooming out or a tall monitor no longer turns it into a wall. What is left of
@@ -140,20 +140,30 @@
       var extra = wrap.clientHeight - Math.max(360, Math.round(wrap.clientWidth / 2));
       if (extra > 0) split.style.height = (h - extra) + 'px';
     }
+    // Recent on this device only where the window has room for it above the dock
+    // (26 Oct 2026, user: "only on screens which support"); on a laptop it stays hidden
+    // rather than peeking out under the dock.
+    showRecent(avail - split.getBoundingClientRect().height >= RECENT_ROOM);
+  }
+  var RECENT_ROOM = 180;
+  function showRecent(on) {
+    var el = document.getElementById('dd-recent');
+    if (!el) return;
+    on = on && !!document.getElementById('dd-split') && el.previousElementSibling === document.getElementById('dd-split');
+    el.hidden = !on;
+    // This runs before htmx has processed the page, so attach its trigger first.
+    if (on && window.htmx && !el.dataset.asked) { el.dataset.asked = '1'; window.htmx.process(el); window.htmx.trigger(el, 'dd-show'); }
   }
   // The graph's tabs (Battery, Temp, RAM, Network) differ in what sits under the plot.
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('.dd-split-l')) setTimeout(fitLater, 30);
   });
+  // Places the card under the split; fit() decides whether it shows.
   function recent(on, split) {
     var el = document.getElementById('dd-recent');
     if (!el) return;
-    if (on && split) {
-      split.parentNode.insertBefore(el, split.nextSibling);
-      el.hidden = false;
-      // This runs before htmx has processed the page, so attach its trigger first.
-      if (window.htmx) { window.htmx.process(el); window.htmx.trigger(el, 'dd-show'); }
-    } else el.hidden = true;
+    if (on && split) split.parentNode.insertBefore(el, split.nextSibling);
+    else el.hidden = true;
   }
   var fitRaf = 0;
   function fitLater() { if (!fitRaf) fitRaf = requestAnimationFrame(function () { fitRaf = 0; fit(); }); }

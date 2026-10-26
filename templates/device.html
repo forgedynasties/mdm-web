@@ -1604,8 +1604,13 @@ window.DEVICE_VITALS = {
 .dd-recent .dtl-list{columns:2 420px;column-gap:28px;padding-top:4px}
 .dd-recent .ddc-tl{break-inside:avoid}
 html.dd-fit .dd-split{align-items:stretch}
-html.dd-fit .dd-split-l,html.dd-fit .dd-split-r{position:static;height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;padding-bottom:12px}
+/* No overscroll containment (26 Oct 2026): a pane at its end hands the wheel to the page,
+   which scrolls to Recent on this device. */
+html.dd-fit .dd-split-l,html.dd-fit .dd-split-r{position:static;height:100%;overflow-y:auto;scrollbar-width:thin;padding-bottom:12px}
 html.dd-fit .dd-split-r{padding-right:4px}
+/* The graph pane does not clip (26 Oct 2026): it is sized to fit since G3, and as a scroller
+   it cut the cards' 40 px shadows at its edges into a grey box around the graph. */
+html.dd-fit .dd-split-l{overflow:visible}
 .dd-split-l .chart-card{margin:0}
 /* Fitted to the window, the graph takes the left pane's whole height (19 Oct): the page
    doesn't scroll, so the space under a fixed 260px chart was simply empty. The legend card
