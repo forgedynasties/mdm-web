@@ -58,12 +58,17 @@ func (d *DB) APKPullCandidates(ctx context.Context, since time.Time) ([]PullCand
 }
 
 // RecentAPKPulls is the package@version pairs a pull_apk command was sent for within
-// the window, whatever came of it: a pull is asked for once, then left alone a while.
-func (d *DB) RecentAPKPulls(ctx context.Context, within time.Duration) (map[string]bool, error) {
+// the window: a pull is asked for once, then left alone a while. A failed one counts only
+// for retryFailed after it failed, so a cut upload is asked for again soon.
+func (d *DB) RecentAPKPulls(ctx context.Context, within, retryFailed time.Duration) (map[string]bool, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT COALESCE(payload->>'package', ''), COALESCE(payload->>'version', '')
-		FROM commands
-		WHERE type = 'pull_apk' AND created_at > NOW() - $1::interval`, within.String())
+		SELECT COALESCE(c.payload->>'package', ''), COALESCE(c.payload->>'version', '')
+		FROM commands c
+		WHERE c.type = 'pull_apk' AND c.created_at > NOW() - $1::interval
+		  AND NOT EXISTS (
+			SELECT 1 FROM command_status cs
+			WHERE cs.command_id = c.id AND cs.status = 'failed'
+			  AND cs.updated_at < NOW() - $2::interval)`, within.String(), retryFailed.String())
 	if err != nil {
 		return nil, err
 	}

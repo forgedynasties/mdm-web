@@ -29,8 +29,12 @@ import (
 // RunAPKAutoPull asks for the newest build of each of our apps that the devices run
 // whenever the library has neither it nor anything newer.
 
-// apkPullRetry: a package@version is asked for once, then left alone this long.
-const apkPullRetry = 6 * time.Hour
+// apkPullRetry: a package@version is asked for once, then left alone this long; a
+// failed ask is retried after apkPullRetryFailed.
+const (
+	apkPullRetry       = 6 * time.Hour
+	apkPullRetryFailed = 30 * time.Minute
+)
 
 // apkPullPerTick caps how many pulls one run of the job starts.
 const apkPullPerTick = 3
@@ -201,7 +205,7 @@ func (h *Handler) RunAPKAutoPull(ctx context.Context) {
 		log.Printf("[apk-pull] library: %v", err)
 		return
 	}
-	recent, err := h.db.RecentAPKPulls(ctx, apkPullRetry)
+	recent, err := h.db.RecentAPKPulls(ctx, apkPullRetry, apkPullRetryFailed)
 	if err != nil {
 		log.Printf("[apk-pull] recent: %v", err)
 		return
