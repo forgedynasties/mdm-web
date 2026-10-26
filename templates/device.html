@@ -1587,11 +1587,14 @@ html.dd-fit .dd-split-r{padding-right:4px}
    doesn't scroll, so the space under a fixed 260px chart was simply empty. The legend card
    keeps its height under it; the chart never shrinks below 260px. */
 html.dd-fit .dd-split-l{display:flex;flex-direction:column}
-html.dd-fit .dd-split-l>.chart-card{flex:1 0 auto;display:flex;flex-direction:column}
+html.dd-fit .dd-split-l>.chart-card{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
 html.dd-fit .dd-split-l>.chart-card>.chart-split{flex:1;min-height:0;display:flex;flex-direction:column}
-html.dd-fit .dd-split-l .chart-body{flex:1;display:flex;flex-direction:column}
+html.dd-fit .dd-split-l .chart-body{flex:1;min-height:0;display:flex;flex-direction:column}
 html.dd-fit .dd-split-l .chart-body>.vt-panel,html.dd-fit .dd-split-l .chart-body>#chart-panel-all{flex:1;display:flex;flex-direction:column;min-height:0}
-html.dd-fit .dd-split-l .chart-body .chart-wrap--tall{flex:1;height:auto;min-height:260px}
+html.dd-fit .dd-split-l .chart-body .chart-wrap--tall{flex:1;height:auto;min-height:260px;position:relative}
+/* The canvas fills its box instead of sizing it (26 Oct 2026): Chart.js had stretched it on a
+   zoom-out, and as content it held the column at that height after zooming back in. */
+html.dd-fit .dd-split-l .chart-body .chart-wrap--tall>canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
 .dd-split-r #dev-map-card{margin-top:0}
 .dd-split-r{min-width:0}
 /* Seven tabs in one row of the right pane (Compliance joined 15 Oct). */

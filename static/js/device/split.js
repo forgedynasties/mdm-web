@@ -121,12 +121,48 @@
     if (!split) { root.classList.remove('dd-fit'); return; }
     split.style.height = '';
     var top = split.getBoundingClientRect().top + (window.scrollY || 0);
-    var h = window.innerHeight - top - 100;            // clear of the floating dock
-    var ok = h >= 420;
+    var avail = window.innerHeight - top - 100;        // clear of the floating dock
+    var ok = avail >= 420;
     root.classList.toggle('dd-fit', ok);
-    if (ok) { split.style.height = h + 'px'; window.scrollTo(0, 0); }
+    if (!ok) return;
+    // Never taller than what the right pane holds (user, 26 Oct 2026: zoomed out, the
+    // graph grew far past it). The pane may be stretched to the row, so measure its
+    // content: the bottom of its last visible child. The graph keeps 420 px at least.
+    var right = split.querySelector('.dd-split-r');
+    var h = avail;
+    if (right) {
+      var pr = right.getBoundingClientRect(), bottom = pr.top;
+      Array.prototype.forEach.call(right.children, function (c) {
+        if (c.classList.contains('dd-cue') || /^(SCRIPT|STYLE|TEMPLATE)$/.test(c.tagName)) return;
+        var b = c.getBoundingClientRect();
+        if (b.height > 0 && b.bottom > bottom) bottom = b.bottom;
+      });
+      var content = bottom - pr.top + (parseFloat(getComputedStyle(right).paddingBottom) || 0);
+      h = Math.min(avail, Math.max(420, Math.ceil(content)));
+    }
+    split.style.height = h + 'px';
+    window.scrollTo(0, 0);
   }
-  window.addEventListener('resize', function () { requestAnimationFrame(fit); });
+  var fitRaf = 0;
+  function fitLater() { if (!fitRaf) fitRaf = requestAnimationFrame(function () { fitRaf = 0; fit(); }); }
+  window.addEventListener('resize', fitLater);
+  // The right pane's content changes height (a tab switch, a card loading): fit again.
+  if (window.ResizeObserver) {
+    var fitRO = new ResizeObserver(fitLater), watched = null;
+    var watch = function () {
+      var r = document.querySelector('#dd-split .dd-split-r');
+      if (!r || r === watched) return;
+      watched = r;
+      Array.prototype.forEach.call(r.children, function (c) { fitRO.observe(c); });
+      if (window.MutationObserver) new MutationObserver(function (ms) {
+        ms.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, function (n) { if (n.nodeType === 1) fitRO.observe(n); }); });
+        fitLater();
+      }).observe(r, { childList: true });
+    };
+    watch();
+    window.addEventListener('load', watch);
+    document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.dd-tab')) setTimeout(function () { watch(); fitLater(); }, 30); });
+  }
   // The split's height is worked out from where it starts. The page header above it hides
   // only when the top bar takes over (body.has-island, set by the layout after this ran),
   // so measured once it came out ~200 px short and left an empty band above the dock.
