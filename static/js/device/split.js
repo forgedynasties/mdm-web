@@ -151,7 +151,8 @@
     if (on && split) {
       split.parentNode.insertBefore(el, split.nextSibling);
       el.hidden = false;
-      if (window.htmx) window.htmx.trigger(el, 'dd-show');
+      // This runs before htmx has processed the page, so attach its trigger first.
+      if (window.htmx) { window.htmx.process(el); window.htmx.trigger(el, 'dd-show'); }
     } else el.hidden = true;
   }
   var fitRaf = 0;
