@@ -213,22 +213,44 @@ func evalReleaseBuild(_ *compSnapshot, d *db.Device, _ int) (string, string) {
 }
 
 func evalUnknownSources(_ *compSnapshot, d *db.Device, _ int) (string, string) {
-	on, ok := extraTri(d.LatestExtra, "unknown_sources")
+	apps, on, ok := unknownSourcesOf(d.LatestExtra)
 	if !ok {
 		return db.ComplianceUnknown, "Not reported by its client"
 	}
 	if !on {
 		return db.CompliancePass, "None allowed"
 	}
-	detail := "An app may install other apps"
-	var m map[string]json.RawMessage
-	if json.Unmarshal(d.LatestExtra, &m) == nil {
-		var apps []string
-		if json.Unmarshal(m["unknown_source_apps"], &apps) == nil && len(apps) > 0 {
-			detail = "Allowed for " + strings.Join(apps, ", ")
-		}
+	if len(apps) == 0 {
+		return db.ComplianceFail, "An app may install other apps"
 	}
-	return db.ComplianceFail, detail
+	return db.ComplianceFail, "Allowed for " + strings.Join(apps, ", ")
+}
+
+// mdmInstallers are our own clients. Installing apps is their job, so their holding
+// "install unknown apps" is not a finding (26 Oct 2026: the firmware client listed itself,
+// so every firmware device failed this check).
+var mdmInstallers = map[string]bool{"com.aioapp.mdm": true, "aio.app.mdmclient.dpc": true}
+
+// unknownSourcesOf reads whether any app other than the MDM may install apps, and which.
+// When the client sends its list, the list alone decides: the firmware client also counts
+// the old global install_non_market_apps setting, which Android ignores since 8.0. ok is
+// false when the client reports nothing.
+func unknownSourcesOf(extra json.RawMessage) (apps []string, on, ok bool) {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(extra, &m) != nil {
+		return nil, false, false
+	}
+	var listed []string
+	if raw, has := m["unknown_source_apps"]; has && json.Unmarshal(raw, &listed) == nil {
+		for _, a := range listed {
+			if !mdmInstallers[a] {
+				apps = append(apps, a)
+			}
+		}
+		return apps, len(apps) > 0, true
+	}
+	on, ok = extraTri(extra, "unknown_sources")
+	return nil, on, ok
 }
 
 // evalSecurityPatch passes when extra.security_patch ("2026-08-05") is no more than

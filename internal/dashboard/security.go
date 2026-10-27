@@ -62,6 +62,12 @@ func (h *Handler) securityFor(ctx context.Context, d *db.Device) deviceSecurity 
 	if len(d.LatestExtra) > 0 {
 		_ = json.Unmarshal(d.LatestExtra, &p)
 	}
+	// Unknown sources as compliance reads it: apps other than the MDM itself (26 Oct 2026).
+	if _, on, ok := unknownSourcesOf(d.LatestExtra); ok {
+		p.UnknownSources = &on
+	} else {
+		p.UnknownSources = nil
+	}
 	s := deviceSecurity{USBDebugging: postureWord(p.AdbEnabled), DevOptions: postureWord(p.DevOptions),
 		UnknownSources: postureWord(p.UnknownSources), AdbKnown: p.AdbTCP != nil,
 		AdbOn: p.AdbTCP != nil && *p.AdbTCP, IP: p.IP, CanAdbTCP: d.Supports("adb_tcp")}
