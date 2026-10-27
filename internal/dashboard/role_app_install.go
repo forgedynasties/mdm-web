@@ -129,7 +129,7 @@ func deviceTargets(devices []db.Device, bases map[string]string, venueCh map[uui
 // roleAppPick is what pickRoleAppInstalls decides from. target is each device's host
 // app package, lib the newest build per package, missing per package the devices known
 // not to have it, have each device's installed versions; skip holds devices with an
-// install on its way or sent this APK recently. install says whether a device's product
+// install on its way, recent the APKs each device was sent lately. install says whether a device's product
 // installs a missing app, upgrade whether it may be upgraded now (its product's switch
 // and its update window).
 type roleAppPick struct {
@@ -138,6 +138,7 @@ type roleAppPick struct {
 	missing map[string]map[uuid.UUID]bool
 	have    map[uuid.UUID]map[string]string
 	skip    map[uuid.UUID]bool
+	recent  map[uuid.UUID]map[string]bool // APKs each device was sent lately: not again
 	install func(*db.Device) bool
 	upgrade func(*db.Device) bool
 }
@@ -157,7 +158,7 @@ func pickRoleAppInstalls(devices []db.Device, p roleAppPick, seenWithin time.Dur
 			}
 			pkg := p.target[d.ID]
 			app := p.lib[pkg]
-			if pkg == "" || app == nil || !d.Supports("install_apk") {
+			if pkg == "" || app == nil || !d.Supports("install_apk") || p.recent[d.ID][app.ApkURL] {
 				continue
 			}
 			if pass == 0 {
@@ -250,9 +251,8 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 		log.Printf("[role-app-install] recent: %v", err)
 		return
 	}
-	for id := range recent {
-		skip[id] = true
-	}
+	// Recent sends are per APK (27 Oct 2026): a tablet sent prod Nugget an hour ago must
+	// still get the stage build its venue just switched to.
 	// Upgrades restart the app, so they wait for the update window: Lineup's fleet window
 	// and the venue's own Updates setting, as prod firmware does.
 	pol := h.cfg.RoleRollout(config.RolloutFirmware)
@@ -263,7 +263,7 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 		log.Printf("[role-app-install] refused: %v", err)
 		return
 	}
-	pick := roleAppPick{target: target, lib: lib, missing: missing, have: have, skip: skip,
+	pick := roleAppPick{target: target, lib: lib, missing: missing, have: have, skip: skip, recent: recent,
 		install: func(d *db.Device) bool { return installOn[d.Class()] },
 		upgrade: func(d *db.Device) bool {
 			return upgradeOn[d.Class()] && !refused[d.ID] && pol.Active() && gate.allows(d, pol, now)

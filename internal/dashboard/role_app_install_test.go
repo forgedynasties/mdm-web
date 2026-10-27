@@ -85,3 +85,21 @@ func TestRoleAppUpgradePick(t *testing.T) {
 		t.Fatalf("outside the window = %+v", got)
 	}
 }
+
+// A recent send blocks that APK only (27 Oct 2026): Flights' tablets had prod Nugget an
+// hour before the venue switched to stage, and the stage build must still go out.
+func TestRoleAppRecentIsPerAPK(t *testing.T) {
+	now := time.Now()
+	d := db.Device{ID: uuid.New(), SerialNumber: "FLIGHTS", Product: "t7", AgentKind: "firmware", LastSeenAt: now}
+	lib := map[string]*db.App{"aio.app.nugget.stagev2": {PackageName: "aio.app.nugget.stagev2", VersionName: "20.0.0-stagev2", ApkURL: "stage"}}
+	p := roleAppPick{target: map[uuid.UUID]string{d.ID: "aio.app.nugget.stagev2"}, lib: lib,
+		missing: map[string]map[uuid.UUID]bool{"aio.app.nugget.stagev2": {d.ID: true}},
+		recent:  map[uuid.UUID]map[string]bool{d.ID: {"prod18": true}}}
+	if got := pickRoleAppInstalls([]db.Device{d}, p, time.Minute, now); len(got) != 1 {
+		t.Fatalf("stage build held back by a prod send: %+v", got)
+	}
+	p.recent[d.ID]["stage"] = true
+	if got := pickRoleAppInstalls([]db.Device{d}, p, time.Minute, now); len(got) != 0 {
+		t.Fatalf("the same APK sent again: %+v", got)
+	}
+}

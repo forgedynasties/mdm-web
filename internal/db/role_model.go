@@ -763,16 +763,16 @@ func (d *DB) DevicesWithoutPackage(ctx context.Context, ids []uuid.UUID, pkg str
 // stall sweep failed it with no word from the device.
 const TransientInstallSQL = `(COALESCE(cr.output, '') = '' OR cr.output ~* '(unexpected end of stream|ProtocolException|SocketException|SocketTimeout|timeout|connection reset|HTTP 5[0-9][0-9])')`
 
-// RecentInstallsOf returns the devices sent an install of one of these APKs within the
+// RecentInstallsOf returns, per device, which of these APKs it was sent within the
 // window, whatever became of it, except a transient failure (TransientInstallSQL) older
 // than retrySoon: that one may be tried again.
-func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string, within, retrySoon time.Duration) (map[uuid.UUID]bool, error) {
-	out := map[uuid.UUID]bool{}
+func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string, within, retrySoon time.Duration) (map[uuid.UUID]map[string]bool, error) {
+	out := map[uuid.UUID]map[string]bool{}
 	if len(ids) == 0 || len(urls) == 0 {
 		return out, nil
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT DISTINCT ct.target_id
+		SELECT DISTINCT ct.target_id, c.apk_url
 		FROM commands c
 		JOIN command_targets ct ON ct.command_id = c.id
 		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
@@ -789,10 +789,14 @@ func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []strin
 	defer rows.Close()
 	for rows.Next() {
 		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
+		var url string
+		if err := rows.Scan(&id, &url); err != nil {
 			return nil, err
 		}
-		out[id] = true
+		if out[id] == nil {
+			out[id] = map[string]bool{}
+		}
+		out[id][url] = true
 	}
 	return out, rows.Err()
 }
