@@ -62,12 +62,18 @@ func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 
 // GetOTAPayloadMeta returns the cached payload location for a package (what the
 // legacy otautil client is told), ok=false when it was never computed.
+//
+// payload_size alone does not mean computed: publishing fills it with the whole zip's
+// size and leaves offset 0 and no headers. Served as-is, otautil hands update_engine
+// offset 0 — the zip's "PK" header, not "CrAU" — and the whole download is thrown away
+// with kDownloadInvalidMetadataMagicString (27 Oct: AT070AABU00848, 1.9 GB, package 112).
+// A computed location always has the payload's offset inside the zip and its headers.
 func (d *DB) GetOTAPayloadMeta(ctx context.Context, id int) (offset, size int64, headers []string, ok bool, err error) {
 	err = d.pool.QueryRow(ctx, `SELECT payload_offset, payload_size, payload_headers FROM ota_packages WHERE id = $1`, id).Scan(&offset, &size, &headers)
 	if err != nil {
 		return 0, 0, nil, false, err
 	}
-	return offset, size, headers, size > 0, nil
+	return offset, size, headers, offset > 0 && size > 0 && len(headers) > 0, nil
 }
 
 // SetOTAPayloadMeta caches the payload location computed from the package zip.
