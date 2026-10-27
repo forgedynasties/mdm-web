@@ -58,7 +58,7 @@ func (h *Handler) deviceHealthView(ctx context.Context, r *http.Request, device 
 	}
 	names := make(map[string]string, len(complianceChecks))
 	for _, c := range complianceChecks {
-		names[c.ID] = c.Name
+		names[c.ID] = c.Problem
 	}
 	rs, _ := h.db.DeviceComplianceResults(ctx, device.ID)
 	for _, res := range rs {
@@ -70,6 +70,9 @@ func (h *Handler) deviceHealthView(ctx context.Context, r *http.Request, device 
 		switch res.State {
 		case db.ComplianceFail:
 			it := healthItem{Kind: "compliance", Title: name, Note: res.Detail, Since: res.Since, Label: "compliance · " + res.Level}
+			if restates(name, res.Detail) {
+				it.Note = ""
+			}
 			if res.Level == db.ComplianceRequired {
 				it.Tone, it.rank = "warn", 1
 				v.Count++

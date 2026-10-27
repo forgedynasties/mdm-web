@@ -309,7 +309,7 @@ func buildK1Banner(checks []compCheckView, rules compRules, fixesWeek map[string
 			t.Sub = k1TopVenues(c.Failing, 2)
 			t.Action, t.Href = "Lock", "/lock"
 		default:
-			t.Title = fmt.Sprintf("%d fail %q", n, c.Name)
+			t.Title = fmt.Sprintf("%s · %d device%s", c.Problem, n, sIfN(n))
 			if len(c.Failing) > 0 && c.Failing[0].Detail != "" {
 				t.Sub = c.Failing[0].Detail
 				if len(c.Failing) > 1 {
@@ -319,7 +319,7 @@ func buildK1Banner(checks []compCheckView, rules compRules, fixesWeek map[string
 			if rules.autoFix(c.compCheck) {
 				t.Who = "auto-fix"
 				fixed := fixesWeek[c.ID]
-				t.Title = fmt.Sprintf("%s: %d still failing", c.Name, n)
+				t.Title = fmt.Sprintf("%s · %d device%s left", c.Problem, n, sIfN(n))
 				t.Sub = fmt.Sprintf("auto-fix %s this week and tries again every %d h; one someone turned on from the adb page is left until its window ends",
 					map[bool]string{true: fmt.Sprintf("fixed %d", fixed), false: "fixed none"}[fixed > 0], int(compFixAgain.Hours()))
 				if c.Fix == "" {

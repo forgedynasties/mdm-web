@@ -28,3 +28,18 @@ func TestUnknownSourcesIgnoresTheMDM(t *testing.T) {
 		}
 	}
 }
+
+// Every check reads as a problem when it fails, and a detail that only repeats it is dropped.
+func TestEveryCheckHasAProblem(t *testing.T) {
+	for _, c := range complianceChecks {
+		if c.Problem == "" || c.Problem == c.Name {
+			t.Errorf("%s: problem %q", c.ID, c.Problem)
+		}
+	}
+	if !restates("Developer options on", "Developer options are on") || !restates("Storage not encrypted", "Storage is not encrypted") {
+		t.Error("restates misses a plain repeat")
+	}
+	if restates("Rooted", "An su binary is present") {
+		t.Error("restates drops a detail that adds something")
+	}
+}

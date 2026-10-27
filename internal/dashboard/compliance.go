@@ -42,6 +42,10 @@ type compSnapshot struct {
 // compCheck is one question in the registry.
 type compCheck struct {
 	ID, Group, Name, Help string
+	// Problem is how a failing device reads (26 Oct 2026, user: "it should just say
+	// installs from unknown sources allowed, developer options on"): the name states the
+	// rule, the problem what is wrong.
+	Problem string
 	Device                bool   // answered by what the device reports (else by the server)
 	Level                 string // default level
 	Param                 int    // default threshold, 0 when the check has none
@@ -59,51 +63,51 @@ const (
 )
 
 var complianceChecks = []compCheck{
-	{ID: "firmware_approved", Group: compGroupSetup, Name: "Firmware on the approved build", Level: db.ComplianceRequired,
+	{ID: "firmware_approved", Group: compGroupSetup, Name: "Firmware on the approved build", Problem: "Firmware not on the approved build", Level: db.ComplianceRequired,
 		Help: "The prod firmware set for its model, or newer. Devices in a lab session and stock devices are not measured.", FixedBy: "Role firmware",
 		eval: evalFirmwareApproved},
-	{ID: "locked", Group: compGroupSetup, Name: "Locked as its rule says", Level: db.ComplianceRequired,
+	{ID: "locked", Group: compGroupSetup, Name: "Locked as its rule says", Problem: "Not locked as its rule says", Level: db.ComplianceRequired,
 		Help: "The lock rule covering it has it locked. Taken out on the device, or unlocked by hand, fails.", FixedBy: "Lock rules",
 		eval: evalLocked},
-	{ID: "client_current", Group: compGroupSetup, Name: "Client current", Level: db.ComplianceRecommended,
+	{ID: "client_current", Group: compGroupSetup, Name: "Client current", Problem: "Client out of date", Level: db.ComplianceRecommended,
 		Help: "On the client build hosted for its signing key. Not measured where none is hosted (v2.0 images).", FixedBy: "Client auto-update",
 		eval: evalClientCurrent},
-	{ID: "checked_in", Group: compGroupSetup, Name: "Checked in recently", Level: db.ComplianceRequired, Param: 24, Unit: "hours",
+	{ID: "checked_in", Group: compGroupSetup, Name: "Checked in recently", Problem: "Not checked in recently", Level: db.ComplianceRequired, Param: 24, Unit: "hours",
 		Help: "Seen by the server within the time below.",
 		eval: evalCheckedIn},
-	{ID: "own_key", Group: compGroupSetup, Name: "Own device key", Level: db.ComplianceRecommended,
+	{ID: "own_key", Group: compGroupSetup, Name: "Own device key", Problem: "On the shared key, no key of its own", Level: db.ComplianceRecommended,
 		Help: "Registered its own key, so the shared key no longer works for it (firmware client 1.6.2+).",
 		eval: evalOwnKey},
-	{ID: "adb_off", Group: compGroupDebug, Name: "USB debugging off", Device: true, Level: db.ComplianceRequired,
+	{ID: "adb_off", Group: compGroupDebug, Name: "USB debugging off", Problem: "USB debugging on", Device: true, Level: db.ComplianceRequired,
 		eval: evalExtraFalse("adb_enabled", "USB debugging is on")},
-	{ID: "wireless_adb_off", Group: compGroupDebug, Name: "Wireless adb off", Device: true, Level: db.ComplianceRequired,
+	{ID: "wireless_adb_off", Group: compGroupDebug, Name: "Wireless adb off", Problem: "Wireless adb on", Device: true, Level: db.ComplianceRequired,
 		Help: "Nothing listening for adb on the venue network.",
 		Fix:  "turns wireless adb off, unless someone turned it on for a while from the adb page", AutoFixDefault: true,
 		eval: evalExtraFalse("adb_tcp", "adb is listening on the network")},
-	{ID: "dev_options_off", Group: compGroupDebug, Name: "Developer options off", Device: true, Level: db.ComplianceRecommended,
+	{ID: "dev_options_off", Group: compGroupDebug, Name: "Developer options off", Problem: "Developer options on", Device: true, Level: db.ComplianceRecommended,
 		eval: evalExtraFalse("dev_options_enabled", "Developer options are on")},
-	{ID: "release_build", Group: compGroupDebug, Name: "Release build", Level: db.ComplianceRequired,
+	{ID: "release_build", Group: compGroupDebug, Name: "Release build", Problem: "Not a release build", Level: db.ComplianceRequired,
 		Help: "A user build, not userdebug or eng.",
 		eval: evalReleaseBuild},
-	{ID: "unknown_sources_off", Group: compGroupIntact, Name: "No installs from unknown sources", Device: true, Level: db.ComplianceRequired,
+	{ID: "unknown_sources_off", Group: compGroupIntact, Name: "No installs from unknown sources", Problem: "Installs from unknown sources allowed", Device: true, Level: db.ComplianceRequired,
 		Help: "No app is allowed to install other apps outside the MDM.",
 		eval: evalUnknownSources},
-	{ID: "not_rooted", Group: compGroupIntact, Name: "Not rooted", Device: true, Level: db.ComplianceRequired,
+	{ID: "not_rooted", Group: compGroupIntact, Name: "Not rooted", Problem: "Rooted", Device: true, Level: db.ComplianceRequired,
 		eval: evalExtraFalse("su_present", "An su binary is present")},
-	{ID: "encrypted", Group: compGroupIntact, Name: "Storage encrypted", Device: true, Level: db.ComplianceRequired,
+	{ID: "encrypted", Group: compGroupIntact, Name: "Storage encrypted", Problem: "Storage not encrypted", Device: true, Level: db.ComplianceRequired,
 		eval: evalExtraTrue("storage_encrypted", "Storage is not encrypted")},
-	{ID: "play_protect", Group: compGroupIntact, Name: "Play Protect on", Device: true, Level: db.ComplianceRecommended,
+	{ID: "play_protect", Group: compGroupIntact, Name: "Play Protect on", Problem: "Play Protect off", Device: true, Level: db.ComplianceRecommended,
 		Help: "Only where the image has Google Play.",
 		eval: evalExtraTrue("play_protect", "Play Protect is off")},
-	{ID: "security_patch_recent", Group: compGroupIntact, Name: "Security patch recent", Device: true, Level: db.ComplianceRecommended, Param: 180, Unit: "days",
+	{ID: "security_patch_recent", Group: compGroupIntact, Name: "Security patch recent", Problem: "Security patch out of date", Device: true, Level: db.ComplianceRecommended, Param: 180, Unit: "days",
 		Help: "The Android security patch level is no older than the time below.",
 		eval: evalSecurityPatch},
-	{ID: "verified_boot", Group: compGroupIntact, Name: "Verified boot", Device: true, Level: db.ComplianceRecommended,
+	{ID: "verified_boot", Group: compGroupIntact, Name: "Verified boot", Problem: "Boot not verified", Device: true, Level: db.ComplianceRecommended,
 		Help: "The bootloader verified the image it started (green). Yellow, orange or red means a self-signed, unlocked or failed boot.",
 		eval: evalVerifiedBoot},
-	{ID: "selinux_enforcing", Group: compGroupIntact, Name: "SELinux enforcing", Device: true, Level: db.ComplianceRequired,
+	{ID: "selinux_enforcing", Group: compGroupIntact, Name: "SELinux enforcing", Problem: "SELinux not enforcing", Device: true, Level: db.ComplianceRequired,
 		eval: evalSELinux},
-	{ID: "device_owner", Group: compGroupSetup, Name: "Standard client is Device Owner", Device: true, Level: db.ComplianceRequired,
+	{ID: "device_owner", Group: compGroupSetup, Name: "Standard client is Device Owner", Problem: "Standard client not Device Owner", Device: true, Level: db.ComplianceRequired,
 		Help: "Without Device Owner the standard client cannot lock, install or reset. Firmware clients are system apps and are not measured.",
 		eval: evalDeviceOwner},
 }
@@ -700,4 +704,19 @@ func (h *Handler) compAutoFix(ctx context.Context, s *compSnapshot, rules compRu
 		log.Printf("[compliance] auto-fix: wireless adb off for %s", devs[id].SerialNumber)
 		sent++
 	}
+}
+
+// restates reports whether a check's detail only repeats its problem ("Developer options
+// are on" under "Developer options on"), so a list can leave it out.
+func restates(problem, detail string) bool {
+	norm := func(x string) string {
+		var out []string
+		for _, w := range strings.Fields(strings.ToLower(x)) {
+			if w != "is" && w != "are" && w != "the" {
+				out = append(out, w)
+			}
+		}
+		return strings.Join(out, " ")
+	}
+	return norm(problem) == norm(detail)
 }

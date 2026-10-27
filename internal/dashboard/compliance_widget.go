@@ -149,7 +149,7 @@ func buildCompWidget(devices []compDeviceView, checkViews map[string]*compCheckV
 			}
 			line += "auto-fix on"
 		}
-		failing = append(failing, compWidgetCheck{ID: c.ID, Name: c.Name, Line: line, Count: n,
+		failing = append(failing, compWidgetCheck{ID: c.ID, Name: c.Problem, Line: line, Count: n,
 			Href: "/compliance?tab=devices&show=failing&check=" + url.QueryEscape(c.ID)})
 	}
 	sort.SliceStable(failing, func(i, j int) bool { return failing[i].Count > failing[j].Count })

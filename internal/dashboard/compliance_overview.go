@@ -383,7 +383,7 @@ func compDeviceViews(rules compRules, results map[db.ComplianceResultKey]db.Comp
 				}
 			}
 			if res.State == db.ComplianceFail {
-				f := compFailView{CheckID: c.ID, Name: c.Name, Detail: res.Detail, Level: res.Level, Since: res.Since}
+				f := compFailView{CheckID: c.ID, Name: c.Problem, Detail: res.Detail, Level: res.Level, Since: res.Since}
 				if res.Level == db.ComplianceRequired {
 					v.Fails = append(v.Fails, f)
 					v.Compliant = false
