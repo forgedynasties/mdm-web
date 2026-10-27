@@ -92,6 +92,15 @@
 {{/* The Activity tab's timeline (A1, picked 16 Oct): commands and page changes in one list,
      newest first; the control-probe canary hidden unless asked for. Refreshes itself while
      a command in it is unfinished. */}}
+{{/* The device's to-do rows (N1), shared by the Overview and the Health tab. On Health the
+     "Open"/"Details" buttons that lead to Health are left out. device_needs.go */}}
+{{define "dd-todo-rows"}}{{$adbOK := .AdbOK}}{{$onHealth := .OnHealth}}{{range .Items}}
+      <div class="dd-nr"><span class="dd-nd {{.Tone}}" aria-hidden="true"></span><span class="dd-nt">{{.Title}}<small>{{.Why}}</small></span>
+        {{if and (eq .Action "adb") $adbOK}}<button type="button" class="cc-btn sm primary" onclick="window.adbPillOpen && adbPillOpen()">{{.Label}}</button>
+        {{else if and (eq .Action "health") (not $onHealth)}}<a class="cc-btn sm" href="?tab=health" onclick="var t=document.getElementById('dd-tab-health');if(t&&window.setDeviceTab){window.setDeviceTab('health',t);return false}">{{.Label}}</a>{{end}}
+      </div>
+{{end}}{{end}}
+
 {{define "device-timeline"}}{{$q := printf "show=%s%s" .Show (or (and .Probe "&probe=1") "")}}
 <div class="ddc-card" id="device-timeline" data-diff-guard data-morph
   {{if .Pending}}hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}" hx-select="unset" hx-target="this" hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML"{{end}}>
@@ -1178,15 +1187,10 @@ window.DEVICE_VITALS = {
     {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
     {{/* What needs a look on this device (O5), first on the Overview since V1 (23 Oct 2026);
          to-do rows with a fix since N1 (27 Oct). device_needs.go */}}
-    {{with .Needs}}{{$adbOK := and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)}}
+    {{with .Needs}}
     <div class="dd-needs" id="dd-needs">
       <div class="dd-nh">{{len .}} thing{{if ne (len .) 1}}s{{end}} to look at</div>
-      {{range .}}
-      <div class="dd-nr"><span class="dd-nd {{.Tone}}" aria-hidden="true"></span><span class="dd-nt">{{.Title}}<small>{{.Why}}</small></span>
-        {{if and (eq .Action "adb") $adbOK}}<button type="button" class="cc-btn sm primary" onclick="window.adbPillOpen && adbPillOpen()">{{.Label}}</button>
-        {{else if eq .Action "health"}}<a class="cc-btn sm" href="?tab=health" onclick="var t=document.getElementById('dd-tab-health');if(t&&window.setDeviceTab){window.setDeviceTab('health',t);return false}">{{.Label}}</a>{{end}}
-      </div>
-      {{end}}
+      {{template "dd-todo-rows" (dict "Items" . "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" false)}}
     </div>
     {{end}}
     {{/* M2 (23 Oct 2026): the AIO backend lists this device at another place. */}}
@@ -1542,36 +1546,41 @@ window.DEVICE_VITALS = {
      compliance checks together, worst first — then the compliance checklist and the alert
      history, each fetched on first open as the two tabs did before (device_health.go). */}}
 <section class="dd-panel" data-dd-panel="health" id="dd-panel-health" role="tabpanel" aria-labelledby="dd-tab-health" tabindex="0" hidden>
-  {{with .Health}}
-  <div class="card dh-attn">
-    <div class="card-header cc-ch"><span class="ic{{if .Count}} warn{{else}} ok{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h2>Needs attention</h2>{{if .Items}}<span class="muted small">{{len .Items}}</span>{{end}}</div>
-    {{if .Items}}
-    <ul class="dh-list">
-      {{range .Items}}
-      <li class="dh-row"><span class="dh-dot {{.Tone}}" aria-hidden="true"></span><span class="dh-t"><b>{{.Title}}</b>{{if .Note}}<small>{{.Note}}</small>{{end}}</span><span class="dh-m"><span class="dh-k">{{.Label}}</span>{{if not .Since.IsZero}}<span class="reltime" data-ts="{{.Since.Unix}}">{{timeSince .Since}}</span>{{end}}</span></li>
-      {{end}}
-    </ul>
-    {{else}}
-    <div class="dh-none">Nothing needs attention: no open alerts{{if .Scored}}, and it passes every compliance check it is held to{{end}}.</div>
-    {{end}}
+  {{/* One Health card (device tabs plan, 27 Oct 2026; user: "health also too many panes"):
+       a status line, the same to-do rows as the Overview, then the compliance checklist and
+       the alert history folded under it, each loaded when first opened. */}}
+  {{$hv := .Health}}
+  <div class="card dh-card">
+    <div class="card-header cc-ch"><span class="ic{{if .Needs}} warn{{else}} ok{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h2>Health</h2>
+      <span class="m muted small">{{with .Needs}}{{len .}} to look at · {{end}}{{if $hv.Scored}}compliance {{$hv.Passing}} of {{$hv.Scored}} pass{{else}}compliance not checked{{if not .Device.RestaurantID}} (no venue){{end}}{{end}} · {{if $hv.Alerts}}{{$hv.Alerts}} open alert{{if ne $hv.Alerts 1}}s{{end}}{{else}}no alerts{{end}}</span></div>
+    {{with .Needs}}{{template "dd-todo-rows" (dict "Items" . "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" true)}}
+    {{else}}<div class="dh-none">Nothing to look at.</div>{{end}}
+    <details class="dh-fold"><summary>Compliance checklist <span class="muted">· {{if $hv.Scored}}{{$hv.Passing}} of {{$hv.Scored}} pass{{else}}not checked{{end}}</span></summary>
+      <div hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="toggle once from:closest details" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+        <div class="muted small" style="padding:18px;text-align:center;">Loading compliance…</div></div></details>
+    <details class="dh-fold"><summary>Alert history</summary>
+      <div hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="toggle once from:closest details" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+        <div class="muted small" style="padding:18px;text-align:center;">Loading alerts…</div></div></details>
   </div>
-  {{end}}
-  <div class="dh-sec">Compliance{{if .Health.Scored}} <span class="muted">· {{.Health.Passing}} of {{.Health.Scored}} pass</span>{{end}}</div>
-  <div class="dh-lazy" hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
-    <div class="muted small" style="padding:26px;text-align:center;">Loading compliance…</div>
-  </div>
-  <div class="dh-sec">Alerts</div>
-  <div class="dh-lazy" hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
-    <div class="muted small" style="padding:26px;text-align:center;">Loading alerts…</div>
-  </div>
+  <style>
+  .dh-card{overflow:visible}
+  .dh-card .dh-none{padding:12px 16px;font-size:13px;color:var(--muted);border-top:1px solid var(--border)}
+  .dh-fold{border-top:1px solid var(--border)}
+  .dh-fold>summary{list-style:none;cursor:pointer;padding:11px 16px;font-size:13px;font-weight:600;display:flex;gap:6px;align-items:center}
+  .dh-fold>summary::-webkit-details-marker{display:none}
+  .dh-fold>summary::before{content:"▸";color:var(--muted);font-size:11px;transition:transform .15s}
+  .dh-fold[open]>summary::before{transform:rotate(90deg)}
+  .dh-fold>summary .muted{font-weight:500}
+  .dh-fold>div{padding:0 6px 8px}
+  </style>
 {{/* Battery wear (B2), moved here from the Overview (V1, 23 Oct 2026). */}}
 {{template "battery-wear-card" .}}
 </section><!-- /health -->
 <style>
 .dd-apps-host{margin-bottom:14px}
 .dd-tab-n.warn{background:var(--warn-bg);color:var(--warn)}
-.dh-attn{margin-bottom:6px}
-.dh-attn .ic.warn{color:var(--warn)}.dh-attn .ic.ok{color:var(--ok)}
+.dh-card{margin-bottom:12px}
+.dh-card .ic.warn{color:var(--warn)}.dh-card .ic.ok{color:var(--ok)}
 .dh-list{list-style:none;margin:0;padding:2px 16px 8px}
 .dh-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
 .dh-row:first-child{border-top:0}

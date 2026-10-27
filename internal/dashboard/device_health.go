@@ -17,13 +17,14 @@ import (
 
 // healthItem is one row of "Needs attention".
 type healthItem struct {
-	Kind  string // alert | compliance
-	Title string
-	Note  string
-	Tone  string // danger | warn | info
-	Label string // "alert · critical", "compliance · required"
-	Since time.Time
-	rank  int
+	Kind    string // alert | compliance
+	CheckID string // the compliance check, for Kind compliance
+	Title   string
+	Note    string
+	Tone    string // danger | warn | info
+	Label   string // "alert · critical", "compliance · required"
+	Since   time.Time
+	rank    int
 }
 
 // deviceHealth is the Health tab's head and its badge count.
@@ -32,6 +33,7 @@ type deviceHealth struct {
 	Count   int // open alerts + failing required checks: the tab's badge
 	Passing int // checks this device passes
 	Scored  int // checks scored for it
+	Alerts  int // open alerts
 }
 
 func (h *Handler) deviceHealthView(ctx context.Context, r *http.Request, device *db.Device) deviceHealth {
@@ -55,6 +57,7 @@ func (h *Handler) deviceHealthView(ctx context.Context, r *http.Request, device 
 		}
 		v.Items = append(v.Items, it)
 		v.Count++
+		v.Alerts++
 	}
 	names := make(map[string]string, len(complianceChecks))
 	for _, c := range complianceChecks {
@@ -69,7 +72,7 @@ func (h *Handler) deviceHealthView(ctx context.Context, r *http.Request, device 
 		v.Scored++
 		switch res.State {
 		case db.ComplianceFail:
-			it := healthItem{Kind: "compliance", Title: name, Note: res.Detail, Since: res.Since, Label: "compliance · " + res.Level}
+			it := healthItem{Kind: "compliance", CheckID: res.CheckID, Title: name, Note: res.Detail, Since: res.Since, Label: "compliance · " + res.Level}
 			if restates(name, res.Detail) {
 				it.Note = ""
 			}

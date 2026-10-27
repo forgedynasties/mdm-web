@@ -508,7 +508,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	sec := h.securityFor(r.Context(), device)
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
 		"Title":  device.SerialNumber,
-		"Needs":  deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10),
+		"Needs":  deviceTodoOf(deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10), health),
 		"Device": device,
 		// Lab session (lab.go): the banner, the entry dialog and the lab view link.
 		"Lab":          labSess,
