@@ -1617,7 +1617,15 @@ window.DEVICE_VITALS = {
    on wide screens the Vitals graph is a pane on the left that stays in view on every
    tab, and the tabs with their panels are the right pane. ⇆ on the graph puts it back
    into Overview; the choice is kept per browser. */
-.dd-split{display:grid;grid-template-columns:minmax(0,55fr) minmax(0,45fr);gap:14px;align-items:start}
+.dd-split{display:grid;grid-template-columns:minmax(0,55fr) 14px minmax(0,45fr);gap:0;align-items:start}
+/* The divider between the panes (27 Oct 2026): a grip in the gap, drag or arrow keys. */
+.dd-split-dv{align-self:stretch;cursor:col-resize;position:relative;touch-action:none;outline:none}
+.dd-split-dv::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:2px;background:transparent;transition:background .15s}
+.dd-split-dv::after{content:"";position:absolute;left:50%;top:50%;width:6px;height:36px;margin:-18px 0 0 -3px;border-radius:4px;background:var(--border);transition:background .15s}
+.dd-split-dv:hover::before,.dd-split-dv:focus-visible::before,body.dd-resizing .dd-split-dv::before{background:var(--accent)}
+.dd-split-dv:hover::after,.dd-split-dv:focus-visible::after,body.dd-resizing .dd-split-dv::after{background:var(--accent)}
+body.dd-resizing{cursor:col-resize;user-select:none}
+body.dd-resizing iframe,body.dd-resizing canvas{pointer-events:none}
 .dd-split-l{position:sticky;top:76px;min-width:0}
 /* Fitted to the window: the page stays put, the panes scroll. */
 /* The page scrolls again in the split (G3, 26 Oct 2026): Recent on this device sits under it. */
@@ -1629,6 +1637,9 @@ html.dd-fit .dd-split{align-items:stretch}
    which scrolls to Recent on this device. */
 html.dd-fit .dd-split-l,html.dd-fit .dd-split-r{position:static;height:100%;overflow-y:auto;scrollbar-width:thin;padding-bottom:12px}
 html.dd-fit .dd-split-r{padding-right:4px}
+/* The right pane ends in a fade while there is more below (27 Oct 2026): a gradient into the
+   page background stuck to the pane's foot, under the ↓ button, instead of a hard cut. */
+html.dd-fit .dd-split-r.dd-fade::after{content:"";position:sticky;bottom:-12px;display:block;height:72px;margin-top:-72px;background:linear-gradient(to bottom,transparent,var(--bg) 85%);pointer-events:none;z-index:4}
 /* The graph pane does not clip (26 Oct 2026): it is sized to fit since G3, and as a scroller
    it cut the cards' 40 px shadows at its edges into a grey box around the graph. */
 html.dd-fit .dd-split-l{overflow:visible}

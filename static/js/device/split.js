@@ -19,7 +19,14 @@
       split = document.createElement('div'); split.id = 'dd-split'; split.className = 'dd-split';
       var l = document.createElement('div'); l.className = 'dd-split-l';
       var r = document.createElement('div'); r.className = 'dd-split-r';
-      split.appendChild(l); split.appendChild(r);
+      // A divider between the panes resizes them (27 Oct 2026, user: "the panes should be
+      // adjustable with a divider in between"); see divider() below.
+      var dv = document.createElement('div'); dv.className = 'dd-split-dv';
+      dv.setAttribute('role', 'separator'); dv.setAttribute('aria-orientation', 'vertical');
+      dv.setAttribute('aria-label', 'Resize the graph and the tabs'); dv.tabIndex = 0;
+      dv.title = 'Drag to resize · double-click to reset';
+      split.appendChild(l); split.appendChild(dv); split.appendChild(r);
+      divider(split, dv);
       facts.parentNode.insertBefore(split, facts.nextSibling);
       // Facts line above both panes; the tab row heads the right pane.
       tabrow.parentNode.insertBefore(facts, split);
@@ -165,6 +172,50 @@
     if (on && split) split.parentNode.insertBefore(el, split.nextSibling);
     else el.hidden = true;
   }
+  // The divider: the graph pane's share of the width, 30-75 %, kept per browser. The graph
+  // never gets narrower than 520 px nor the tabs than 420 px. Double-click goes back to
+  // 55 %; the arrow keys move it 2 % at a time. The graph re-fits its height as it moves.
+  var SPLIT_KEY = 'mdm.deviceSplit', SPLIT_DEFAULT = 55;
+  function splitShare() {
+    try { var v = parseFloat(localStorage.getItem(SPLIT_KEY)); if (v >= 30 && v <= 75) return v; } catch (e) {}
+    return SPLIT_DEFAULT;
+  }
+  function setSplit(split, pct, save) {
+    var w = split.getBoundingClientRect().width - 14;
+    if (w > 0) pct = Math.min(Math.max(pct, 520 * 100 / w), 100 - 420 * 100 / w);
+    pct = Math.min(Math.max(pct, 30), 75);
+    split.style.gridTemplateColumns = 'minmax(0,' + pct + 'fr) 14px minmax(0,' + (100 - pct) + 'fr)';
+    var dv = split.querySelector('.dd-split-dv');
+    if (dv) dv.setAttribute('aria-valuenow', Math.round(pct));
+    if (save) { try { localStorage.setItem(SPLIT_KEY, String(Math.round(pct * 10) / 10)); } catch (e) {} }
+    fitLater();
+  }
+  function divider(split, dv) {
+    dv.setAttribute('aria-valuemin', '30'); dv.setAttribute('aria-valuemax', '75');
+    setSplit(split, splitShare(), false);
+    dv.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      dv.setPointerCapture(e.pointerId);
+      document.body.classList.add('dd-resizing');
+      var box = split.getBoundingClientRect();
+      function move(ev) { setSplit(split, (ev.clientX - box.left - 7) * 100 / (box.width - 14), false); }
+      function up(ev) {
+        move(ev);
+        setSplit(split, (ev.clientX - box.left - 7) * 100 / (box.width - 14), true);
+        document.body.classList.remove('dd-resizing');
+        dv.removeEventListener('pointermove', move); dv.removeEventListener('pointerup', up); dv.removeEventListener('pointercancel', up);
+      }
+      dv.addEventListener('pointermove', move); dv.addEventListener('pointerup', up); dv.addEventListener('pointercancel', up);
+    });
+    dv.addEventListener('dblclick', function () { try { localStorage.removeItem(SPLIT_KEY); } catch (e) {} setSplit(split, SPLIT_DEFAULT, false); });
+    dv.addEventListener('keydown', function (e) {
+      var step = e.key === 'ArrowLeft' ? -2 : e.key === 'ArrowRight' ? 2 : 0;
+      if (!step) return;
+      e.preventDefault();
+      setSplit(split, (parseFloat(dv.getAttribute('aria-valuenow')) || splitShare()) + step, true);
+    });
+    window.addEventListener('resize', function () { setSplit(split, splitShare(), false); });
+  }
   var fitRaf = 0;
   function fitLater() { if (!fitRaf) fitRaf = requestAnimationFrame(function () { fitRaf = 0; fit(); }); }
   window.addEventListener('resize', fitLater);
@@ -217,6 +268,9 @@
       var fitted = document.documentElement.classList.contains('dd-fit');
       var more = pane.scrollHeight - pane.scrollTop - pane.clientHeight > 24;
       wrap.classList.toggle('on', fitted && more);
+      // The pane's last pixels fade out while there is more below, instead of cutting the
+      // content off with a hard line (27 Oct 2026); at the end the fade goes.
+      pane.classList.toggle('dd-fade', fitted && more);
     }
     function later() { if (!raf) raf = requestAnimationFrame(sync); }
     btn.addEventListener('click', function () {
