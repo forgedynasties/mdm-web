@@ -1859,22 +1859,16 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
      downloading/installing is caught live — the card itself only appears once
      there's something worth showing, per "don't show OTA while just queued". */}}
 <div id="ota-progress-poller" hidden hx-get="/devices/{{.Device.SerialNumber}}/ota-progress" hx-target="#ota-card" hx-swap="innerHTML" hx-trigger="every 2s"></div>
-{{if ne .OtaUpdate.DeviceStatus "pending"}}
-<div class="ddc-ota">
-  <div class="ddc-ota-top">
-    <span class="dq-pill {{.OtaClass}}">{{.OtaLabel}}</span>
-    {{if eq .OtaUpdate.DeviceStatus "awaiting_reboot"}}
-    <span class="ddc-ota-target">Will boot into build <b>{{if .OtaUpdate.OtaPackage}}{{.OtaUpdate.OtaPackage.TargetBuildID}}{{else}}the new build{{end}}</b> on reboot</span>
-    {{else if eq .OtaUpdate.DeviceStatus "reboot_sent"}}
-    <span class="ddc-ota-target">Reboot pushed for build <b>{{if .OtaUpdate.OtaPackage}}{{.OtaUpdate.OtaPackage.TargetBuildID}}{{else}}the new build{{end}}</b> · the build ID updates at the next check-in</span>
-    {{else}}
-    <span class="ddc-ota-target">Updating to <b>{{if .OtaUpdate.OtaPackage}}{{.OtaUpdate.OtaPackage.TargetBuildID}}{{else}}new build{{end}}</b></span>
-    {{end}}
-    <span class="ddc-ota-pct">{{.OtaPercent}}%</span>
-  </div>
-  <div class="ddc-ota-bar"><i class="{{.OtaClass}}" style="width:{{.OtaPercent}}%"></i></div>
+{{if ne .OtaUpdate.DeviceStatus "pending"}}{{with .OtaLine}}
+{{/* One line with the steps (U2, picked 27 Oct 2026; replaced the tall bar). device_ota_line.go */}}
+<div class="ota-ln{{if .Failed}} bad{{end}}">
+  <span class="ota-t">{{.Title}}{{with .Sub}} <span>· {{.}}</span>{{end}}</span>
+  {{if .Steps}}<div class="ota-steps">{{$prev := ""}}{{$pp := 0}}{{range $i, $s := .Steps}}{{if $i}}<span class="ota-sl {{if eq $prev "done"}}done{{else if eq $prev "cur"}}cur{{end}}"{{if and (eq $prev "cur") $pp}} style="--p:{{$pp}}%"{{end}}></span>{{end}}<span class="ota-st {{$s.State}}"><i aria-hidden="true">{{if eq $s.State "done"}}✓{{end}}</i>{{$s.Name}}{{if $s.Pct}} {{$s.Pct}} %{{end}}</span>{{$prev = $s.State}}{{$pp = $s.Pct}}{{end}}</div>{{else}}<span class="ota-gap"></span>{{end}}
+  <a class="ota-a" href="{{.Href}}">Update #{{.UpdateID}} →</a>
+  {{if and .CanCancel (canOTA $.Role)}}<form method="POST" action="/releases/{{.ReleaseID}}/deployments/{{.UpdateID}}/devices/{{$.Device.SerialNumber}}/cancel-ota" hx-boost="false" onsubmit="return confirm('Cancel this update on {{$.Device.SerialNumber}}? It can be retried from the update.')"><input type="hidden" name="back" value="device"><button type="submit" class="cc-btn sm">Cancel</button></form>{{end}}
+  {{if and .AwaitsReboot (canAdminOrOperator $.Role)}}<form method="POST" action="/releases/{{.ReleaseID}}/deployments/{{.UpdateID}}/devices/{{$.Device.SerialNumber}}/reboot" hx-boost="false" onsubmit="return confirm('Reboot {{$.Device.SerialNumber}} now to apply the update?')"><input type="hidden" name="back" value="device"><button type="submit" class="cc-btn sm primary">Reboot now</button></form>{{end}}
 </div>
-{{end}}
+{{end}}{{end}}
 {{end}}
 {{end}}
 

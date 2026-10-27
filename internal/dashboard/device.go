@@ -119,7 +119,10 @@ func (h *Handler) DeviceOtaProgress(w http.ResponseWriter, r *http.Request) {
 		data["OtaLabel"] = label
 		data["OtaClass"] = class
 		data["OtaPercent"] = percent
+		ol := otaLineOf(u, label, percent)
+		data["OtaLine"] = &ol
 	}
+	data["Role"] = h.role(r)
 	h.tmpl.ExecuteTemplate(w, "device-ota-progress", data)
 }
 
@@ -229,6 +232,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		otaLabel      string
 		otaClass      string
 		otaPercent    int
+		otaLn         *otaLine
 		buildChanges  []db.BuildChange
 		activity      []deviceActivityItem
 	)
@@ -429,6 +433,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		if err == nil && u != nil {
 			otaUpdate = u
 			otaLabel, otaClass, otaPercent = otaStatusView(u.DeviceStatus, h.shell.GetOTAProgress(device.ID))
+			ol := otaLineOf(u, otaLabel, otaPercent)
+			otaLn = &ol
 		}
 	})
 	run(func() {
@@ -564,6 +570,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"OtaLabel":         otaLabel,
 		"OtaClass":         otaClass,
 		"OtaPercent":       otaPercent,
+		"OtaLine":          otaLn,
 		"Online":           h.hub.IsConnectedForDisplay(device.ID),
 		"ChartCheckins":    chartCheckins,
 		// Whether to render any battery UI at all. The product catalog is the first

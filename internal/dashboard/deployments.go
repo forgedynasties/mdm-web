@@ -1012,7 +1012,7 @@ func (h *Handler) DeploymentCancelDeviceOTA(w http.ResponseWriter, r *http.Reque
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishDeploymentUpdate()
 	h.auditDev(r, "deployment.cancel_ota", device.ID, r.PathValue("serial"), strconv.Itoa(did))
-	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
+	h.hxRedirect(w, r, deploymentBack(r, relID, did))
 }
 
 // DeploymentRetryDevice re-arms one failed device on a deployment: it clears the
@@ -1131,7 +1131,7 @@ func (h *Handler) DeploymentRebootDevice(w http.ResponseWriter, r *http.Request)
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishDeploymentUpdate()
 	h.auditDev(r, "deployment.reboot", device.ID, r.PathValue("serial"), strconv.Itoa(did))
-	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
+	h.hxRedirect(w, r, deploymentBack(r, relID, did))
 }
 
 // DeploymentRebootAll reboots every device in a deployment that has installed and is
@@ -1503,4 +1503,13 @@ func offeredPackageSize(t db.UpdateTarget, incSize map[string]int64, fullSize in
 		return n
 	}
 	return fullSize
+}
+
+// deploymentBack is where a per-device update action returns: the device's page when it
+// was sent from there (back=device: the update line, U2), else the update's page.
+func deploymentBack(r *http.Request, relID, did int) string {
+	if r.FormValue("back") == "device" {
+		return "/devices/" + url.PathEscape(r.PathValue("serial"))
+	}
+	return fmt.Sprintf("/releases/%d/deployments/%d", relID, did)
 }
