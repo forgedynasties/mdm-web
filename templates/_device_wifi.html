@@ -57,10 +57,15 @@
 .wf-note a{color:var(--accent-text)}
 .wf-st form{margin:6px 0 0}
 .wf-add [hidden]{display:none!important}
+.wf-conn{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px 16px;padding:12px 16px 14px;border-top:1px solid var(--border-soft)}
+.wf-conn div{display:flex;flex-direction:column;min-width:0}
+.wf-conn span{font-size:11px;color:var(--muted)}
+.wf-conn b{font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wf-sec{padding:7px 16px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border-soft)}
 </style>
   <div class="card-header cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg></span>
-    <h2>Wi-Fi</h2>{{if .Current}}<span class="m">{{.Current}}</span>{{end}}
+    <h2>Network</h2>
     {{if and .CanManage .Supported}}<div class="right" style="margin-left:auto"><button type="button" class="cc-btn sm" onclick="var d=document.getElementById('wf-add');d.open=!d.open;if(d.open)d.querySelector('input').focus()">Add network</button></div>{{end}}
   </div>
   {{if .Error}}<div class="wf-err" role="alert">{{.Error}}</div>{{end}}
@@ -92,6 +97,15 @@
     </form>
   </details>
   {{end}}
+  {{/* The connection first (device tabs plan, 27 Oct 2026), then the saved networks. */}}
+  {{with .Conn}}<div class="wf-conn">
+    <div><span>On</span><b>{{if .Network}}{{.Network}}{{else}}Not on Wi-Fi{{end}}</b></div>
+    {{if .Signal}}<div><span>Signal</span><b>{{.Signal}}</b></div>{{end}}
+    {{if .Link}}<div><span>Band</span><b>{{.Link}}</b></div>{{end}}
+    <div><span>IP</span><b class="mono">{{if .IP}}{{.IP}}{{else}}—{{end}}</b></div>
+    {{if .BSSID}}<div><span>Access point</span><b class="mono">{{.BSSID}}</b></div>{{end}}
+  </div>{{end}}
+  {{if .Nets}}<div class="wf-sec">Saved networks</div>{{end}}
   {{$cur := ""}}{{range .Nets}}{{if .Connected}}{{$cur = .SSID}}{{end}}{{end}}
   {{range .Nets}}
   <div class="wf-net">

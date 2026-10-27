@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
+
 	"mdm/internal/db"
 )
 
@@ -97,6 +99,19 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 	entries, _ := h.db.ListAuditForDevice(ctx, device.ID, 500)
 	changes := h.deviceActivityItems(ctx, role, entries, 500)
 
+	// The queue is the timeline's "Now" section on the Activity tab (device tabs plan, 27 Oct
+	// 2026: "queue and activity pane should be merged"); its commands are not repeated below.
+	var queue []db.DeviceCommand
+	queued := map[uuid.UUID]bool{}
+	if tpl == "device-timeline" {
+		if q, err := h.db.GetDeviceQueue(ctx, device.ID); err == nil {
+			redactDeviceCommandURLs(role, q)
+			queue = withoutOTA(filterShellDeviceCommands(role, q))
+			for _, c := range queue {
+				queued[c.ID] = true
+			}
+		}
+	}
 	var items []timelineItem
 	nCmd, nProbe, pending := 0, 0, false
 	for i := range cmds {
@@ -111,7 +126,7 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 		if c.Status == "pending" || c.Status == "delivered" || c.Status == "running" || c.Status == "downloading" || c.Status == "installing" {
 			pending = true
 		}
-		if show != "changes" {
+		if show != "changes" && !queued[c.ID] {
 			items = append(items, timelineItem{At: c.CreatedAt, Cmd: c})
 		}
 	}
@@ -126,16 +141,17 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 		items = items[:n]
 	}
 	h.renderCachedHTML(w, r, tpl, h.withRole(r, map[string]any{
-		"Device":   device,
-		"Items":    items,
-		"Show":     show,
-		"Probe":    probe,
-		"NCmd":     nCmd,
-		"NChange":  len(changes),
-		"NProbe":   nProbe,
-		"More":     more,
-		"Next":     n + timelinePage*2,
-		"Pending":  pending,
-		"Online":   h.hub.IsConnectedForDisplay(device.ID),
+		"Device":  device,
+		"Items":   items,
+		"Show":    show,
+		"Probe":   probe,
+		"NCmd":    nCmd,
+		"NChange": len(changes),
+		"NProbe":  nProbe,
+		"More":    more,
+		"Next":    n + timelinePage*2,
+		"Pending": pending,
+		"Queue":   queue,
+		"Online":  h.hub.IsConnectedForDisplay(device.ID),
 	}))
 }

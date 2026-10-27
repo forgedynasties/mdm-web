@@ -103,7 +103,9 @@
     <button type="button" class="dtl-pill{{if eq .Show "changes"}} on{{end}}" hx-get="{{$base}}?show=changes{{$pq}}" hx-target="#device-timeline" hx-swap="outerHTML">Changes</button>
     {{if .NProbe}}<button type="button" class="dtl-pill{{if .Probe}} on{{end}}" hx-get="{{$base}}?show={{.Show}}{{if not .Probe}}&probe=1{{end}}" hx-target="#device-timeline" hx-swap="outerHTML" title="The daily control probe: a no-op command that proves the device still answers">Control probe {{.NProbe}}</button>{{end}}
   </div>
+  {{template "device-queue" .}}
   {{if .Items}}
+  {{if .Queue}}<div class="dtl-sec">Earlier</div>{{end}}
   <div class="dtl-list">{{template "dtl-rows" .}}</div>
   {{if .More}}<button type="button" class="app-more" hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}&n={{.Next}}" hx-target="#device-timeline" hx-swap="outerHTML">Show more</button>{{end}}
   {{else}}
@@ -154,7 +156,7 @@
   <div class="dq-bar">
     <div class="dq-bar-l">
       <span class="ic mut" style="width:22px;height:22px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;background:var(--surface2);color:var(--muted);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
-      <span class="dq-title">Queue</span>
+      <span class="dq-title">Now</span>
       {{if .Queue}}<span class="dq-badge">{{len .Queue}}</span>{{end}}
       <span class="dq-state{{if .Online}} on{{end}}"><span class="dq-dot"></span>{{if .Online}}running{{else}}waiting for device{{end}}</span>
     </div>
@@ -195,10 +197,8 @@
     </li>
     {{end}}
   </ol>
-  {{else}}
-  {{/* Empty, the queue is a line, not a card (Activity tab A1, 16 Oct). */}}
-  <div class="dq-strip"><span class="dq-dot{{if .Online}} on{{end}}"></span>Nothing queued<span class="muted"> · {{if .Online}}the device runs commands one at a time{{else}}waiting for the device to come online{{end}}</span></div>
   {{end}}
+  {{/* Empty, nothing is shown: the queue is the timeline's "Now" section (27 Oct 2026). */}}
 </div>
 {{end}}
 
@@ -1265,45 +1265,17 @@ window.DEVICE_VITALS = {
     {{/* About holds what was on the device card's lower rows and the Location tab (user,
          26 Oct 2026: "location need no tab on device page since it can go in about",
          "timezone and build can go to about also"). */}}
-    <div class="ddc-card" id="about-facts">
+    {{if .IsOwner}}<div class="ddc-card" id="about-facts">
       <div class="ddc-kv"><span class="k">Build</span><span class="v mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
-    </div>
-    <div id="about-location">
-{{template "lost-report-card" .}}
-{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
-     themed) so it can follow the dashboard's dark mode like the Overview
-     fleet map does. Rendered only when the device has resolved WiFi-
-     geolocation coordinates AND a browser-facing Maps key is configured
-     (MapsEmbedKey, referrer-restricted). */}}
-{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
-{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
-<div class="card dev-map-card" id="dev-map-card">
-  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
-    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
-  </div>
-  <div id="dev-map" class="dev-map"></div>
-  <div class="dev-map-foot">
-    {{$maddr := extraField .Device.LatestExtra "location_address"}}
-    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
-    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
-  </div>
-</div>
-<script>window.DEVICE_MAP = {lat: {{$mlat}}, lng: {{$mlon}}, serial: {{.Device.SerialNumber}}};</script>
-<script src="/static/js/device/map.js?v={{assetVer}}"></script>
-<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
-{{end}}
-<div class="ddc-card" style="margin-top:12px">
-  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2></div>
-  <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
-  <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
-</div>
-    </div>
+    </div>{{end}}
+    {{/* The lost-device report leads About while the device is lost (it renders nothing otherwise). */}}
+    {{template "lost-report-card" .}}
     {{if not .IsOwner}}
     {{/* Enrollment facts: how this device got here. Its actions (key, server, retire,
          unenroll, wipe, wireless adb) are in the ⋯ menu. */}}
     <div class="ddc-card en-card" id="enrollment-card">
-      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrollment</h2>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">{{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else if eq .Device.EnrollmentStatus "unenrolled"}}unenrolled{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
+      <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Device</h2>{{if .Device.NeedsOnboarding}}<span class="cc-tag warn">{{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{else if .Device.Retired}}<span class="cc-tag bad">{{if eq .Device.EnrollmentStatus "wiped"}}wiped{{else if eq .Device.EnrollmentStatus "unenrolled"}}unenrolled{{else}}retired{{end}}</span>{{else}}<span class="cc-tag ok">active</span>{{end}}</div>
     {{with .Custody}}{{if .Server}}
     {{/* The device is not here. Said plainly and at the top, because every action on
          this page is about a device this server can reach, and this one it cannot. */}}
@@ -1320,6 +1292,9 @@ window.DEVICE_VITALS = {
       {{if and $hv (ne $hv "—")}}{{if misreportedVersion $hv $hp}}<span class="mono en-hero-v muted" title="Reported the platform release as its own version — the pre-1.0.2 client bug.">pre-1.0.2</span>{{else}}<span class="mono en-hero-v">{{$hv}}</span>{{end}}{{end}}
       <span class="cc-tag">{{if .Device.IsMDMLite}}in app, no device owner{{else if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
     </div>
+    {{/* Build and timezone join the device's facts (device tabs plan, 27 Oct 2026). */}}
+    <div class="ddc-kv"><span class="k">Build</span><span class="v mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
     {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
     {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
     <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if and .IsDPC .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
@@ -1342,6 +1317,36 @@ window.DEVICE_VITALS = {
 
     </div>
     {{end}}
+    <div id="about-location">
+{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
+     themed) so it can follow the dashboard's dark mode like the Overview
+     fleet map does. Rendered only when the device has resolved WiFi-
+     geolocation coordinates AND a browser-facing Maps key is configured
+     (MapsEmbedKey, referrer-restricted). */}}
+{{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
+{{$hasMap := and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
+{{if $hasMap}}
+<div class="card dev-map-card" id="dev-map-card">
+  <div class="dev-map-head cc-ch" style="padding:13px 17px;border-bottom:1px solid var(--border-soft);justify-content:flex-start;">
+    <span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2>
+  </div>
+  <div id="dev-map" class="dev-map"></div>
+  <div class="dev-map-foot">
+    {{$maddr := extraField .Device.LatestExtra "location_address"}}
+    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}{{if .Device.RestaurantName}} · venue: {{.Device.RestaurantName}}{{end}}</span>
+    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
+  </div>
+</div>
+<script>window.DEVICE_MAP = {lat: {{$mlat}}, lng: {{$mlon}}, serial: {{.Device.SerialNumber}}};</script>
+<script src="/static/js/device/map.js?v={{assetVer}}"></script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
+{{end}}
+{{if not $hasMap}}<div class="ddc-card" style="margin-top:12px">
+  <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2></div>
+  <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
+  <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
+</div>{{end}}
+    </div>
   </div>
 </section><!-- /about -->
 
@@ -1511,7 +1516,6 @@ window.DEVICE_VITALS = {
 
 {{if not .IsOwner}}
 <section class="dd-panel dd-activity" data-dd-panel="activity" id="dd-panel-activity" role="tabpanel" aria-labelledby="dd-tab-activity" tabindex="0" hidden>
-  <div class="dd-act-queue">{{template "device-queue" .}}</div>
   {{/* One timeline of commands and page changes (A1, 16 Oct). Renders on first open; the
        partial carries its own live-refresh attributes while a command is unfinished. */}}
   <div hx-get="/devices/{{.Device.SerialNumber}}/timeline" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
@@ -1520,7 +1524,8 @@ window.DEVICE_VITALS = {
 {{/* Moved under the split by split.js and loaded when it is first shown (G3). Its own
      target and select: inherited ones made the card replace the whole page. */}}
 <div id="dd-recent" class="dd-recent" hidden hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML"></div>
-<style>.dd-activity .dd-act-queue{margin-bottom:12px}
+<style>.dtl-sec{padding:6px 14px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#device-timeline #device-queue .dq-bar{padding:4px 14px 2px}#device-timeline #device-queue .dq-list{margin:0 14px 8px}
 .dq-strip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);padding:9px 14px;border:1px dashed var(--border);border-radius:12px}
 .dq-strip .dq-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none}.dq-strip .dq-dot.on{background:var(--ok)}
 .dtl-pills{display:flex;gap:5px;flex-wrap:wrap;padding:0 14px 8px}
@@ -1584,10 +1589,8 @@ window.DEVICE_VITALS = {
 {{/* Network tab (23 Oct 2026): the Wi-Fi card (W1). It was briefly folded into Location;
      the user: "its not good to put location under network". */}}
 <section class="dd-panel" data-dd-panel="network" id="dd-panel-network" role="tabpanel" aria-labelledby="dd-tab-network" tabindex="0" hidden>
-{{/* IP moved here from the device card (user, 26 Oct 2026). */}}
-<div class="ddc-card" id="net-addr" style="margin-bottom:12px">
-  <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-</div>
+{{/* One Network card (device tabs plan, 27 Oct 2026): the connection, IP included, then
+     the saved networks. The IP card that stood above it is gone. */}}
 {{template "dd-wifi-card" .Wifi}}
 </section><!-- /network -->
 

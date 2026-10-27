@@ -63,6 +63,7 @@ type deviceWifiView struct {
 	CanSwitch bool // the client reverts a failed switch (reports wifi_connect)
 	CanManage bool
 	Current   string // "on AIO-Guest · 5 GHz · 433 Mb/s · −58 dBm"
+	Conn      wifiConn
 	Nets      []wifiNetView
 	ScanKnown bool // the device sends its scan, so "in range" means something
 	Op        *wifiOpView
@@ -73,6 +74,46 @@ type deviceWifiView struct {
 	VenueName  string
 	VenueNets  []wifiVenueOpt
 	VenueAllOn bool // the venue has networks, and the device has every one of them
+}
+
+// wifiConn is the Network card's first block (27 Oct 2026, device tabs plan: the IP had a
+// card of its own, and the Wi-Fi card repeated the connection in its header).
+type wifiConn struct {
+	Network, Signal, Link, IP, BSSID string
+}
+
+func wifiConnOf(d *db.Device, current string, fresh bool, rssi int) wifiConn {
+	c := wifiConn{Network: current}
+	if ip := extraString(d.LatestExtra, "ip_address"); ip != "" && ip != "—" {
+		c.IP = ip
+	}
+	if !fresh || current == "" {
+		return c
+	}
+	if rssi < 0 {
+		word := "weak"
+		switch {
+		case rssi >= -60:
+			word = "strong"
+		case rssi >= -72:
+			word = "good"
+		case rssi >= -80:
+			word = "fair"
+		}
+		c.Signal = fmt.Sprintf("%d dBm · %s", rssi, word)
+	}
+	var link []string
+	if band := extraString(d.LatestExtra, "wifi_band"); band != "" && band != "—" {
+		link = append(link, band+" GHz")
+	}
+	if l := extraInt64(d.LatestExtra, "wifi_link_mbps"); l > 0 {
+		link = append(link, fmt.Sprintf("%d Mb/s", l))
+	}
+	c.Link = strings.Join(link, " · ")
+	if b := extraString(d.LatestExtra, "wifi_bssid"); b != "" && b != "—" && b != "02:00:00:00:00:00" {
+		c.BSSID = b
+	}
+	return c
 }
 
 func wifiBars(rssi int) int {
@@ -178,6 +219,7 @@ func (h *Handler) deviceWifiView(ctx context.Context, d *db.Device, canManage bo
 		return a.Signal > b.Signal
 	})
 	v.Current = wifiHeadline(d, current, fresh, rssiNow)
+	v.Conn = wifiConnOf(d, current, fresh, rssiNow)
 	v.VenueNets, v.VenueAllOn = venueWifiOptions(venueNets, saved, best)
 	if op, err := h.db.LatestWifiOp(ctx, d.ID, 30*time.Minute, venueWifiActor); err == nil && op != nil {
 		v.Op = wifiOpOf(op, time.Now())

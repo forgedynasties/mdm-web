@@ -40,4 +40,19 @@ func TestDeviceRecentRenders(t *testing.T) {
 			t.Errorf("%s is missing a row:\n%s", name, out)
 		}
 	}
+	// Activity tab: the queue is the "Now" section of the same card (27 Oct 2026).
+	q := db.DeviceCommand{ID: uuid.New(), Type: "screenshot", Status: "pending", CreatedAt: now}
+	data["Queue"] = []db.DeviceCommand{q}
+	data["Role"] = "admin"
+	var b bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&b, "device-timeline", data); err != nil {
+		t.Fatal(err)
+	}
+	out := b.String()
+	if !strings.Contains(out, `<span class="dq-title">Now</span>`) || !strings.Contains(out, `>Earlier</div>`) || !strings.Contains(out, `data-cmd-id="`+q.ID.String()+`"`) {
+		t.Errorf("activity card misses the queue:\n%s", out)
+	}
+	if strings.Contains(out, "Nothing queued") {
+		t.Error("an empty-queue sentence is back")
+	}
 }
