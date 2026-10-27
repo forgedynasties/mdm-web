@@ -144,6 +144,16 @@ func CapsForDevice(key, class string) Caps {
 	return CapsFor(key)
 }
 
+// MainsOnlyClassList is [mainsOnlyClasses] as a sorted list, for SQL.
+func MainsOnlyClassList() []string {
+	out := make([]string, 0, len(mainsOnlyClasses))
+	for c := range mainsOnlyClasses {
+		out = append(out, c)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // ClassIsBatteryPowered is [mainsOnlyClasses] negated, for call sites (the Overview device
 // wall) that only have a device's class to go on, not its product key. It answers the same
 // question CapsForDevice(key, class).HasBattery would for an unknown/generic key.

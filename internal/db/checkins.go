@@ -165,6 +165,17 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	if err != nil {
 		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
+	// A Standard-client device of a mains-only class has no battery, but Android still
+	// broadcasts one: the HK1 TV boxes send a frozen 56-81 °C, the Rockchip kiosks and the
+	// Sunmi KDS 2.6 °C, the Sunmi POS 37 °C. Shown as the device's temperature it hid
+	// the real SoC reading (cpu_temp_c), so it is not kept. Firmware devices keep theirs.
+	if err = tx.QueryRow(ctx, `
+		UPDATE devices SET latest_extra = latest_extra - 'battery_temp_c'
+		WHERE id = $1 AND agent_kind = 'dpc' AND device_class = ANY($2) AND latest_extra ? 'battery_temp_c'
+		RETURNING latest_extra
+	`, deviceID, prod.MainsOnlyClassList()).Scan(&merged); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
+	}
 
 	// crash_events is a bulky per-crash trace list (hundreds of KB) the client resends
 	// on every check-in; it is already ingested into device_events by IngestDeviceEvents,
