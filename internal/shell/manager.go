@@ -47,6 +47,45 @@ type OTAProgress struct {
 	Phase     string    `json:"phase"`   // downloading, verifying, installing, finalizing
 	Percent   int       `json:"percent"` // 0-100
 	UpdatedAt time.Time `json:"updated_at"`
+	// samples are this phase's (time, percent) advances over the last otaRateWindow, for
+	// Rate and ETA (27 Oct 2026, user: "add eta to ota … use download speed for
+	// downloading and estimate update engine for installing").
+	samples []otaSample
+}
+
+type otaSample struct {
+	at  time.Time
+	pct int
+}
+
+// otaRateWindow is how far back the rate looks: long enough to smooth a bursty
+// download, short enough to follow a speed change.
+const otaRateWindow = 10 * time.Minute
+
+// Rate is the percent per second over the window, ok when the phase has moved at least
+// 2 % over at least 30 s. A device that stops moving lowers it by itself: the window's
+// oldest point stays put while now moves on.
+func (p *OTAProgress) Rate(now time.Time) (float64, bool) {
+	if p == nil || len(p.samples) == 0 {
+		return 0, false
+	}
+	first := p.samples[0]
+	secs := now.Sub(first.at).Seconds()
+	gained := p.Percent - first.pct
+	if secs < 30 || gained < 2 {
+		return 0, false
+	}
+	return float64(gained) / secs, true
+}
+
+// ETA is the time left in this phase at the current rate.
+func (p *OTAProgress) ETA(now time.Time) (time.Duration, bool) {
+	r, ok := p.Rate(now)
+	if !ok || r <= 0 {
+		return 0, false
+	}
+	left := float64(100-p.Percent) / r
+	return time.Duration(left * float64(time.Second)), true
 }
 
 // Manager routes messages from devices to browser connections.
@@ -248,15 +287,30 @@ func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string,
 	// UpdatedAt tracks the last time progress actually advanced (phase or percent
 	// changed), not merely the last report — so a device that keeps checking in but is
 	// wedged at the same percent goes stale and gets flagged "stalled".
-	updatedAt := time.Now()
-	if prev := m.otaState[deviceID]; prev != nil && prev.Phase == phase && prev.Percent == percent {
+	now := time.Now()
+	updatedAt := now
+	prev := m.otaState[deviceID]
+	if prev != nil && prev.Phase == phase && prev.Percent == percent {
 		updatedAt = prev.UpdatedAt
+	}
+	// The rate samples carry on within one phase of one command; a new phase or attempt
+	// starts them again. Points older than the window drop off, keeping at least one.
+	var samples []otaSample
+	if prev != nil && prev.Phase == phase && prev.CommandID == commandID && percent >= prev.Percent {
+		samples = prev.samples
+	}
+	if len(samples) == 0 || samples[len(samples)-1].pct != percent {
+		samples = append(samples, otaSample{at: now, pct: percent})
+	}
+	for len(samples) > 1 && now.Sub(samples[1].at) > otaRateWindow {
+		samples = samples[1:]
 	}
 	m.otaState[deviceID] = &OTAProgress{
 		CommandID: commandID,
 		Phase:     phase,
 		Percent:   percent,
 		UpdatedAt: updatedAt,
+		samples:   samples,
 	}
 	m.otaMu.Unlock()
 	if m.OnOTAProgress != nil {

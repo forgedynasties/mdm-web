@@ -265,7 +265,9 @@ func buildDeployD1(in dp1Inputs) dp1View {
 					bits = append(bits, s)
 				}
 				bits = append(bits, strconv.Itoa(p.Percent)+"%")
-				if t.StartedAt != nil {
+				if p.ETA != "" {
+					bits = append(bits, p.ETA)
+				} else if t.StartedAt != nil {
 					bits = append(bits, dp1Mins(now.Sub(*t.StartedAt)))
 				}
 				r.Detail = strings.Join(bits, " · ")

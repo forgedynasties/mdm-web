@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"mdm/internal/db"
+	"mdm/internal/shell"
 	"mdm/internal/ota"
 	"mdm/internal/product"
 	"mdm/internal/safehttp"
@@ -466,6 +467,7 @@ type otaRowView struct {
 	BytesTotal int64
 	SeenAt     time.Time
 	AdvancedAt time.Time
+	ETA        string // "2.4 MB/s · 6 min left" (otaETAText), "" when not known
 }
 
 // Size renders what the page should say about how far a download has got: real figures
@@ -595,6 +597,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 			// TTL, so a fresh attempt inherited an hours-old "last advanced" and was
 			// called stuck within a minute of starting.
 			started := t.StartedAt
+			var live *shell.OTAProgress // the in-memory progress, for the time left
 			if p, ok := dbProgress[t.DeviceID]; ok && !p.CmdAt.IsZero() {
 				started = &p.CmdAt
 			}
@@ -602,6 +605,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 				// Memory knows when the percent last *advanced* — it deliberately keeps
 				// the old timestamp while a device repeats the same frame.
 				v.Phase, v.Percent, v.AdvancedAt, v.SeenAt = p.Phase, p.Percent, p.UpdatedAt, p.UpdatedAt
+				live = p
 			}
 			if p, ok := dbProgress[t.DeviceID]; ok {
 				if p.ReportAt.After(v.SeenAt) {
@@ -626,6 +630,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 				if started != nil && v.AdvancedAt.Before(*started) {
 					v.AdvancedAt = *started
 				}
+				v.ETA = otaETAText(live, v.BytesTotal, time.Now())
 				otaProgress[t.DeviceID.String()] = v
 				progressByID[t.DeviceID] = v
 				// The row's updated_at only moves at status checkpoints, so on its own it

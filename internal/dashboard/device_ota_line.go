@@ -2,8 +2,10 @@ package dashboard
 
 import (
 	"fmt"
+	"time"
 
 	"mdm/internal/db"
+	"mdm/internal/shell"
 )
 
 // The device page's update line (U2, picked 27 Oct 2026): one line instead of the tall
@@ -27,6 +29,7 @@ type otaLine struct {
 	Failed       bool
 	CanCancel    bool // running: before it is installed
 	AwaitsReboot bool
+	ETA          string // "2.4 MB/s · 6 min left", "about 3 min left", "estimating…"
 }
 
 func otaLineOf(u *db.Update, label string, percent int) otaLine {
@@ -84,4 +87,60 @@ func otaLineOf(u *db.Update, label string, percent int) otaLine {
 		l.Steps = append(l.Steps, s)
 	}
 	return l
+}
+
+// otaETAText words the time left in the phase a device is in (27 Oct 2026): the download
+// at its current speed (the percent's rate over the package size), installing and
+// verifying at the rate update_engine's own percent moves. "" outside a running phase.
+func otaETAText(p *shell.OTAProgress, size int64, now time.Time) string {
+	if p == nil {
+		return ""
+	}
+	switch p.Phase {
+	case "downloading", "installing", "verifying", "finalizing":
+	default:
+		return ""
+	}
+	eta, ok := p.ETA(now)
+	if !ok {
+		return "estimating…"
+	}
+	left := otaLeft(eta)
+	if p.Phase == "downloading" && size > 0 {
+		r, _ := p.Rate(now)
+		if bps := r * float64(size) / 100; bps > 0 {
+			return fmtSpeed(bps) + " · " + left
+		}
+	}
+	return "about " + left
+}
+
+func otaLeft(d time.Duration) string {
+	if d < time.Minute {
+		return "under a minute left"
+	}
+	m := int(d.Round(time.Minute) / time.Minute)
+	switch {
+	case m < 60:
+		return fmt.Sprintf("%d min left", m)
+	}
+	return fmt.Sprintf("%d h %02d min left", m/60, m%60)
+}
+
+func fmtSpeed(bps float64) string {
+	switch {
+	case bps >= 1<<20:
+		return fmt.Sprintf("%.1f MB/s", bps/(1<<20))
+	case bps >= 1<<10:
+		return fmt.Sprintf("%.0f KB/s", bps/(1<<10))
+	}
+	return fmt.Sprintf("%.0f B/s", bps)
+}
+
+// otaPkgSize is the size of the package the device was offered, 0 when not known.
+func otaPkgSize(u *db.Update) int64 {
+	if u != nil && u.OtaPackage != nil {
+		return u.OtaPackage.PayloadSize
+	}
+	return 0
 }

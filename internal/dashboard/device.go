@@ -120,6 +120,7 @@ func (h *Handler) DeviceOtaProgress(w http.ResponseWriter, r *http.Request) {
 		data["OtaClass"] = class
 		data["OtaPercent"] = percent
 		ol := otaLineOf(u, label, percent)
+		ol.ETA = otaETAText(h.shell.GetOTAProgress(device.ID), otaPkgSize(u), time.Now())
 		data["OtaLine"] = &ol
 	}
 	data["Role"] = h.role(r)
@@ -439,6 +440,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			otaUpdate = u
 			otaLabel, otaClass, otaPercent = otaStatusView(u.DeviceStatus, h.shell.GetOTAProgress(device.ID))
 			ol := otaLineOf(u, otaLabel, otaPercent)
+			ol.ETA = otaETAText(h.shell.GetOTAProgress(device.ID), otaPkgSize(u), time.Now())
 			otaLn = &ol
 		}
 	})

@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"testing"
+	"time"
 
 	"mdm/internal/db"
 )
@@ -26,5 +27,17 @@ func TestOtaLineOf(t *testing.T) {
 	}
 	if l := otaLineOf(&db.Update{DeviceStatus: "failed", OtaPackage: u.OtaPackage}, "Failed", 100); !l.Failed || l.Steps != nil || l.CanCancel {
 		t.Errorf("failed = %+v", l)
+	}
+}
+
+func TestOtaLeftAndSpeed(t *testing.T) {
+	if otaLeft(30*time.Second) != "under a minute left" || otaLeft(6*time.Minute) != "6 min left" || otaLeft(80*time.Minute) != "1 h 20 min left" {
+		t.Error("otaLeft")
+	}
+	if fmtSpeed(2.4*(1<<20)) != "2.4 MB/s" || fmtSpeed(300*(1<<10)) != "300 KB/s" {
+		t.Error("fmtSpeed")
+	}
+	if otaETAText(nil, 0, time.Now()) != "" {
+		t.Error("no progress should say nothing")
 	}
 }
