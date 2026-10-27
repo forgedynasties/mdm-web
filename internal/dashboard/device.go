@@ -589,6 +589,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// with its "no pack" stretches hatched, instead of vanishing with the 0%.
 		"BatteryFault":     device.HasBattery() && extractBatteryMissing(device.LatestExtra),
 		"ShowBatteryChart": device.HasBattery() && (deviceReportsBattery(device, chartCheckins) || extractBatteryMissing(device.LatestExtra)),
+		// No reading, no Temp tab: a device with no sensor the client can read (the Sunmi
+		// D2s KDS) showed an empty temperature graph.
+		"ShowTempChart":    deviceReportsTemp(device.LatestExtra),
 		"ChartCharge":       chartCharge,
 		"ChartFocus":        focusParam,
 		"IsOwner":           roleIsCustomer(h.role(r)),
@@ -886,6 +889,13 @@ func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 // deviceReportsBattery reports whether the hardware actually sends battery readings.
 // True when there is no evidence either way (a device that has only just enrolled), so
 // a new T7 keeps its battery UI until its checkins say otherwise.
+// deviceReportsTemp: the device's last report carries a temperature, battery or CPU.
+// A keyframe replaces the whole snapshot, so a device with a sensor always has one.
+func deviceReportsTemp(extra json.RawMessage) bool {
+	_, _, ok := deviceTempC(extra)
+	return ok
+}
+
 func deviceReportsBattery(d *db.Device, recent []db.Checkin) bool {
 	if d.BatteryPct > 0 {
 		return true

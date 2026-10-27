@@ -41,6 +41,7 @@ function mdmBootCharts() {
   // Devices without a battery (kiosks) get no battery series at all — the tab,
   // panel, and unified legend/line are all omitted, so this stays empty.
   const HAS_BATTERY = DV.showBattery;
+  const HAS_TEMP = DV.showTemp !== false;
 
   // Timezone display mode. All times on this page are formatted client-side; by default
   // they render in the viewer's browser timezone. The "Your time / Device time" toggle
@@ -658,10 +659,12 @@ function mdmBootCharts() {
   // The chart tab is driven by context (a ?focus deep-link), not remembered across
   // visits — so a battery unit never reopens on the Temp tab just because it was
   // viewed there once. Defaults to Battery when there's no focus.
-  // Tab set + default depend on whether this device has a battery. Kiosks drop
-  // the battery tab entirely and default to temp.
-  const CHART_TABS = HAS_BATTERY ? ['battery','temp','ram','net','all'] : ['temp','ram','net','all'];
-  let activeTab = HAS_BATTERY ? 'battery' : 'temp';
+  // Tab set + default depend on what this device reports: no battery drops the
+  // Battery tab (kiosks), no temperature reading drops Temp; the first tab is the default.
+  const CHART_TABS = ['battery','temp','ram','net','all'].filter(function (t) {
+    return (t !== 'battery' || HAS_BATTERY) && (t !== 'temp' || HAS_TEMP);
+  });
+  let activeTab = CHART_TABS[0];
 
   function fmtTime(ms) {
     return new Date(ms).toLocaleTimeString([], tzArg({hour: "2-digit", minute: "2-digit"}));
@@ -886,7 +889,7 @@ function mdmBootCharts() {
 
   // One chart at a time, picked with the Battery / Temp / RAM tabs in the card header.
   window.setChartTab = function setChartTab(tab) {
-    if (tab === 'all' || CHART_TABS.indexOf(tab) < 0) tab = HAS_BATTERY ? 'battery' : 'temp';
+    if (tab === 'all' || CHART_TABS.indexOf(tab) < 0) tab = CHART_TABS[0];
     activeTab = tab;
     CHART_TABS.forEach(function (t) {
       var el = document.getElementById('chart-panel-' + t);

@@ -930,8 +930,8 @@
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></span><h2 style="flex:none;">Vitals</h2>
     <div class="vt-tabs" role="tablist" aria-label="Vitals">
       {{if .ShowBatteryChart}}<button type="button" role="tab" class="vt-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery{{if .BatteryFault}}<span class="vt-fault" title="Battery fault: no pack detected" aria-label="fault"></span>{{end}}</button>{{end}}
-      <button type="button" role="tab" class="vt-tab{{if not .ShowBatteryChart}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">Temp</button>
-      <button type="button" role="tab" class="vt-tab" data-chart-tab="ram" onclick="setChartTab('ram')">RAM</button>
+      {{if .ShowTempChart}}<button type="button" role="tab" class="vt-tab{{if not .ShowBatteryChart}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">Temp</button>{{end}}
+      <button type="button" role="tab" class="vt-tab{{if not (or .ShowBatteryChart .ShowTempChart)}} active{{end}}" data-chart-tab="ram" onclick="setChartTab('ram')">RAM</button>
       <button type="button" role="tab" class="vt-tab" data-chart-tab="net" onclick="setChartTab('net')">Network</button>
     </div>
     <div class="gcontrols vt-tools">
@@ -1035,7 +1035,8 @@
   {{end}}
 
   <!-- Temp -->
-  <div id="chart-panel-temp" class="vt-panel">
+  {{/* Kept without a tab when the device has no reading: vitals.js builds every chart. */}}
+  <div id="chart-panel-temp" class="vt-panel"{{if not .ShowTempChart}} style="display:none;"{{end}}>
     <div class="vt-lbl"><i style="background:#e8a13a"></i>Temp</div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="tempChart"></canvas></div>
   </div>
@@ -1161,6 +1162,7 @@ window.DEVICE_VITALS = {
   serial: {{.Device.SerialNumber}},
   tz: {{extraField .Device.LatestExtra "timezone"}},
   showBattery: {{if .ShowBatteryChart}}true{{else}}false{{end}},
+  showTemp: {{if .ShowTempChart}}true{{else}}false{{end}},
   batteryFault: {{if .BatteryFault}}true{{else}}false{{end}},
   hasCharging: {{if .Device.HasCharging}}true{{else}}false{{end}},
   charge: {{if and .ShowBatteryChart .Device.HasCharging}}{{.ChartCharge}} || []{{else}}[]{{end}},
