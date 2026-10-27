@@ -1003,13 +1003,15 @@ function mdmBootCharts() {
 
   function updateCharts() {
     const { pts } = filterWindow(srcBattery());
-    const labels = {3600000: "Last hour", 21600000: "Last 6 hours", 43200000: "Last 12 hours", 86400000: "Last 24 hours", 172800000: "Last 48 hours", 604800000: "Last 7 days", 2592000000: "Last 30 days"};
+    // Short on the button (27 Oct 2026, user: "instead of last 6 hours, change it to 6h");
+    // the menu keeps the long names.
+    const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h", 604800000: "7d", 2592000000: "30d"};
     // The window label renders on the graph (#chart-window-label), not in the control
     // row, so a wide custom/shifted range can't wrap the toolbar. The old #chart-info
     // slot is kept empty to hold the row's layout stable.
     var _wtext = (customMin !== null && customMax !== null)
       ? vtRangeLabel(customMin, customMax)
-      : (labels[currentDuration] || "Last " + Math.round(currentDuration / 3600000) + " hours");
+      : (labels[currentDuration] || Math.round(currentDuration / 3600000) + "h");
     var _wl = document.getElementById("chart-window-label");
     if (_wl) { _wl.textContent = _wtext; _wl.title = _wtext; }
     var _ci = document.getElementById("chart-info");
