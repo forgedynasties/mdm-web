@@ -7,7 +7,8 @@ import (
 )
 
 // The device page's update line (U2, picked 27 Oct 2026): one line instead of the tall
-// bar, with the whole update as steps (download, verify, install, reboot), the package,
+// bar, with the whole update as steps (download, install, verify, reboot: the order the
+// firmware client reports, OtaUpdateManager; "finalizing" counts as verify), the package,
 // a link to the update and the one action that fits the moment (Cancel while it runs,
 // Reboot now once it waits for its reboot).
 
@@ -47,9 +48,9 @@ func otaLineOf(u *db.Update, label string, percent int) otaLine {
 	switch label {
 	case "Downloading", "Queued":
 		cur = 0
-	case "Verifying":
+	case "Installing":
 		cur = 1
-	case "Installing", "Finalizing":
+	case "Verifying", "Finalizing":
 		cur = 2
 	case "Awaiting reboot", "Reboot pending", "Installed":
 		cur = 3
@@ -69,7 +70,7 @@ func otaLineOf(u *db.Update, label string, percent int) otaLine {
 	if l.Failed {
 		return l
 	}
-	for i, n := range []string{"Download", "Verify", "Install", "Reboot"} {
+	for i, n := range []string{"Download", "Install", "Verify", "Reboot"} {
 		s := otaStep{Name: n, State: "todo"}
 		switch {
 		case i < cur:

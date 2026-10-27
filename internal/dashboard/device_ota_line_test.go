@@ -16,6 +16,10 @@ func TestOtaLineOf(t *testing.T) {
 	if l.Steps[0].State != "cur" || l.Steps[0].Pct != 55 || l.Steps[1].State != "todo" {
 		t.Errorf("steps = %+v", l.Steps)
 	}
+	// The client reports installing before verifying (27 Oct 2026: the line had them the other way).
+	if l := otaLineOf(&db.Update{DeviceStatus: "installing", OtaPackage: u.OtaPackage}, "Verifying", 39); l.Steps[1].Name != "Install" || l.Steps[1].State != "done" || l.Steps[2].Name != "Verify" || l.Steps[2].State != "cur" || l.Steps[2].Pct != 39 {
+		t.Errorf("verifying = %+v", l.Steps)
+	}
 	l = otaLineOf(&db.Update{DeviceStatus: "awaiting_reboot", OtaPackage: u.OtaPackage}, "Awaiting reboot", 100)
 	if !l.AwaitsReboot || l.CanCancel || l.Steps[2].State != "done" || l.Steps[3].State != "cur" || l.Steps[3].Pct != 0 {
 		t.Errorf("awaiting = %+v", l)
