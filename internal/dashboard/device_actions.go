@@ -469,6 +469,35 @@ func (h *Handler) DeviceWlcUpdate(w http.ResponseWriter, r *http.Request) {
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
+// APISetDeviceWlc switches wireless charging on a device's pad (POST
+// /api/v1/devices/{serial}/wlc, admin key, {"enabled": bool}): the same as the device page's
+// switch, for scripts (27 Oct 2026: a 15 min on / 15 min off cycle on chosen tablets).
+// Pushed at once to a connected device.
+func (h *Handler) APISetDeviceWlc(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<10)).Decode(&body); err != nil || body.Enabled == nil {
+		writeJSONError(w, http.StatusBadRequest, "body must be {\"enabled\": true or false}")
+		return
+	}
+	ctx := r.Context()
+	dev, err := h.db.GetDevice(ctx, r.PathValue("serial"))
+	if err != nil || dev == nil {
+		writeJSONError(w, http.StatusNotFound, "device not found")
+		return
+	}
+	if err := h.db.SetWlcCharging(ctx, dev.ID, *body.Enabled); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	h.pushKioskConfigToDevices(ctx, []uuid.UUID{dev.ID})
+	_ = h.db.InsertAudit(ctx, "API key", "device.wlc_charging", dev.SerialNumber, boolWord(*body.Enabled))
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"serial": dev.SerialNumber, "enabled": *body.Enabled,
+		"connected": h.hub.IsConnected(dev.ID)})
+}
+
 // APISetDeviceBrightness sets the screen brightness the client holds the device at (POST
 // /api/v1/devices/{serial}/brightness, admin key, {"level": 1-255|null, "locked": bool};
 // null = back to the default). The only way to change it: the dashboard has no control
