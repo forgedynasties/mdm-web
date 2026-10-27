@@ -592,6 +592,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Apps":                apps,
 		"Families":            devFams,
 		"InstalledPackages":   launchableOnly(installedPkgs),
+		"AppList":             h.deviceAppsOf(r.Context(), device, installedPkgs, hostAppView(device.LatestExtra), ""),
 		"ClientPill":          h.clientPillFor(device),
 		"KioskApps":           kioskApps,
 		"LockApp":             lockAppFor(*device, h.db.RoleAppBase(r.Context(), device.Class()), installedPkgs, kioskCfg, h.cfg.KioskAppAllowed),

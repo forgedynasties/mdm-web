@@ -44,6 +44,13 @@ func TestAppsListShowsNuggetAndroidID(t *testing.T) {
 		funcs[m[1]] = func(...any) any { return "" }
 	}
 	funcs["canOperate"] = func(string) bool { return false }
+	funcs["dict"] = func(kv ...any) map[string]any {
+		m := map[string]any{}
+		for i := 0; i+1 < len(kv); i += 2 {
+			m[kv[i].(string)] = kv[i+1]
+		}
+		return m
+	}
 	tmpl, err := template.New("").Funcs(funcs).ParseFiles("../../templates/device.html")
 	if err != nil {
 		t.Fatal(err)
@@ -56,6 +63,10 @@ func TestAppsListShowsNuggetAndroidID(t *testing.T) {
 			{PackageName: "aio.app.kds", AppName: "Kitchen Display", VersionName: "3.2.0"},
 		},
 		"Uninstalling":      map[string]bool{},
+		"AppList": deviceAppsView{Window: "24h", User: []deviceAppRow{
+			{DevicePackage: db.DevicePackage{PackageName: "aio.app.nugget", AppName: "Nugget", VersionName: "17.0.0"}, Mem: "169 MB", CPU: "64.1 %", Screen: "5 h 37"},
+			{DevicePackage: db.DevicePackage{PackageName: "aio.app.kds", AppName: "Kitchen Display", VersionName: "3.2.0"}, Mem: "—", CPU: "—", Screen: "—"},
+		}},
 		"NuggetIDByPackage": nuggetIDByPackage(json.RawMessage(`{"app_android_ids":[{"package":"aio.app.nugget","android_id":"36218dc1d56c00b7"}]}`)),
 	}
 	var b bytes.Buffer

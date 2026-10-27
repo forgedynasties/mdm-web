@@ -649,3 +649,33 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .dd-cue-b svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 @keyframes dd-cue-bob{0%,100%{transform:translateY(-100%)}50%{transform:translateY(calc(-100% + 3px))}}
 @media (prefers-reduced-motion:reduce){.dd-cue.on .dd-cue-b{animation:none}}
+
+/* Apps as one ranked list (device tabs plan A1, 27 Oct 2026): rows, not tiles. The rows
+   keep .app-row/.app-tile so search, the info popup and install/uninstall JS still work. */
+.apl-card{overflow:visible}
+.apl-host{border-top:1px solid var(--border-soft)}
+.apl-host>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px 16px;font-size:13px}
+.apl-host>summary::-webkit-details-marker{display:none}
+.apl-host .apl-more{margin-left:auto;color:var(--accent-text);font-weight:600;font-size:12.5px}
+.apl-host[open] .apl-more::after{content:" ▴"}.apl-host:not([open]) .apl-more::after{content:" ▾"}
+.apl-host>.ha-card{margin:0 12px 12px;box-shadow:none}
+.apl-bar{display:flex;align-items:center;gap:10px;padding:10px 16px 6px;border-top:1px solid var(--border-soft)}
+.apl-bar .app-search{flex:1;padding:0!important;margin:0}
+.apl-win{display:inline-flex;gap:4px;margin-left:auto}
+.apl-pill{font:inherit;font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer}
+.apl-pill.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
+.app-list{display:block;padding:0 0 8px}
+.app-list .apl-head,.app-list .app-tile{display:grid;grid-template-columns:26px minmax(0,1fr) 120px 72px 60px 66px 30px;gap:10px;align-items:center;padding:6px 16px;text-align:left}
+.app-list .apl-head{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding-top:8px;padding-bottom:4px}
+.app-list .app-tile{position:relative;border:0;border-top:1px solid var(--border-soft);border-radius:0;flex-direction:row;cursor:pointer;min-height:0}
+.app-list .app-tile:hover{background:var(--surface-3)}
+.app-list .app-icon,.app-list .app-mono{width:26px;height:26px;border-radius:7px;font-size:12px}
+.app-list .app-tname{font-size:13px;-webkit-line-clamp:unset;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-list .apl-pkg{display:block;font-size:11px;font-weight:400;color:var(--muted);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis}
+.app-list .apl-c{font-size:12.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-list .app-tile>.app-tsub{grid-column:3/-2;text-align:left;justify-content:flex-start}
+.app-list .app-x-form{position:static;opacity:0}
+.app-list .app-tile:hover .app-x-form,.app-list .app-x-form:focus-within{opacity:1}
+.apl-sys>summary{list-style:none;cursor:pointer;padding:9px 16px;font-size:12.5px;font-weight:600;color:var(--text-2);border-top:1px solid var(--border-soft)}
+.apl-sys>summary::-webkit-details-marker{display:none}
+.apl-sys>summary::before{content:"▸ ";color:var(--muted)}.apl-sys[open]>summary::before{content:"▾ "}

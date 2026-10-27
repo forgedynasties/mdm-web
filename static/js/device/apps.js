@@ -48,13 +48,14 @@ function filterInstalledApps(q) {
     // Cleared: restore every tile and the "System apps" divider.
     rows.forEach(function (row) { row.style.display = ''; });
     if (sep) sep.style.display = '';
+    var sysc = document.getElementById('apps-sys'); if (sysc) sysc.open = false;
     if (btn) { if (list) list.classList.add('collapsed'); btn.style.display = ''; }
     if (noMatch) noMatch.style.display = 'none';
     return;
   }
-  // Searching: look across every app, and hide the section divider.
+  // Searching: look across every app, the folded system apps included.
+  var sysd = document.getElementById('apps-sys'); if (sysd) sysd.open = true;
   if (list) list.classList.remove('collapsed');
-  if (sep) sep.style.display = 'none';
   if (btn) btn.style.display = 'none';
   var visible = 0;
   rows.forEach(function (row) {

@@ -1401,19 +1401,26 @@ window.DEVICE_VITALS = {
 
 {{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
-  {{/* The host app leads the Apps tab (T1, 19 Oct; it was its own tab from 16 Oct). */}}
-  {{if .HostApp}}<div class="dd-apps-host">{{template "dd-host-app" .HostApp}}</div>{{end}}
-  {{template "dd-app-usage" .AppUsage}}
-  <div class="card">
+  {{/* One Apps card (device tabs plan A1, 27 Oct 2026): the host app as one line with its
+       detail folded under it, then every other app as a ranked row (device-apps-list).
+       The Top apps card is gone: the list is the ranking. */}}
+  <div class="card apl-card">
     <div class="card-header cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
-      <h2>Installed applications</h2>
+      <h2>Apps</h2>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
 {{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/apps/products?app={{.Device.Class}}">Host apps</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
         Install app</button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
+    {{with .HostApp}}{{if .Count}}
+    <details class="apl-host"><summary>
+      <span class="ha-dot {{.Active.Dot}}"></span><b>{{.Active.Name}}</b><span class="cc-tag {{.Active.EnvTone}}">{{.Active.Env}}</span><span class="mono small">{{.Active.Version}}</span>
+      <span class="muted small">· {{.State}} · {{.Today}} on screen today · {{.Problems}} problem{{if ne .Problems 1}}s{{end}} in 24 h{{if .Others}} · {{len .Others}} more installed{{end}}</span>
+      <span class="apl-more">Details</span></summary>
+      {{template "dd-host-app" .}}
+    </details>{{end}}{{end}}
     {{if canOperate .Role}}
     {{/* Install picker — an app-drawer-style popup: pick a repository app from the grid
          (monogram tiles for now) and it queues an install. */}}
@@ -1845,19 +1852,43 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
 {{end}}
 {{end}}
 
+{{/* One app row in the Apps list (A1). .R is a deviceAppRow, .Root the list's data. */}}
+{{define "dd-app-row"}}{{$p := .R}}{{$r := .Root}}{{$isUn := index $r.Uninstalling $p.PackageName}}
+  <div class="app-row app-tile{{if .Sys}} sys{{end}}{{if $isUn}} app-uninstalling{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}"
+       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="{{if .Sys}}1{{else}}0{{end}}"{{with index $r.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
+       role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
+       title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
+    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
+    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}<small class="apl-pkg">{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
+    <span class="apl-c mono">{{if $p.VersionName}}{{$p.VersionName}}{{else}}—{{end}}</span>
+    {{if not $r.AppList.Limited}}<span class="apl-c">{{$p.Mem}}</span><span class="apl-c">{{$p.CPU}}</span>{{end}}<span class="apl-c">{{$p.Screen}}</span>
+    {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
+    {{if and (not .Sys) (canOperate $r.Role) (not $isUn) (supports $r.Device "uninstall") (not $r.Restricted)}}
+    <div class="app-x-form" onclick="event.stopPropagation()">
+      <button type="button" class="app-x" title="Uninstall {{$p.PackageName}}" aria-label="Uninstall {{$p.PackageName}}" onclick="doUninstall(this.closest('.app-tile'))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+    </div>
+    {{end}}
+  </div>
+{{end}}
+
 {{define "device-apps-list"}}
 <style>.app-tsub.aid{font-family:var(--mono);font-size:9.5px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
-{{/* While installs are in flight, self-poll the drawer every 2s so download/install
+{{/* While installs are in flight, self-poll the list every 2s so download/install
      progress updates live (the /events SSE only fires device-updated on telemetry, not on
      command progress). The poller is re-rendered each refresh and vanishes — stopping the
      polling — once nothing is pending. */}}
-{{if .PendingInstalls}}<div id="apps-install-poller" hidden hx-get="/devices/{{.Device.SerialNumber}}/apps-list" hx-target="#apps-live" hx-swap="innerHTML" hx-trigger="every 2s"></div>{{end}}
-{{if or .InstalledPackages .PendingInstalls}}
-{{if .InstalledPackages}}<div class="app-search" id="apps-search-wrap"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>{{end}}
-{{/* App-drawer grid: monogram tiles (real icons aren't reported). User apps come
-     first, then a divider, then system apps. Each tile keeps .app-row + data-app so
-     the existing search/count JS still works. */}}
-<div class="app-drawer" id="apps-table">
+{{if .PendingInstalls}}<div id="apps-install-poller" hidden hx-get="/devices/{{.Device.SerialNumber}}/apps-list{{with .AppList}}?window={{.Window}}{{end}}" hx-target="#apps-live" hx-swap="innerHTML" hx-trigger="every 2s"></div>{{end}}
+{{$L := .AppList}}
+{{if or $L.User $L.System .PendingInstalls}}
+{{/* One ranked list (A1, 27 Oct 2026): a row per app with its icon, version and what it
+     used in the window. Rows keep .app-row/.app-tile and their data- attributes, so the
+     search, the app-info popup and the optimistic install/uninstall JS work unchanged. */}}
+<div class="apl-bar">
+  <div class="app-search" id="apps-search-wrap"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
+  <span class="apl-win">{{range $L.Windows}}<button type="button" class="apl-pill{{if eq . $L.Window}} on{{end}}" hx-get="/devices/{{$.Device.SerialNumber}}/apps-list?window={{.}}" hx-target="#apps-live" hx-swap="innerHTML">{{.}}</button>{{end}}</span>
+</div>
+<div class="app-list" id="apps-table">
+  <div class="apl-head"><span></span><span>App</span><span>Version</span>{{if not $L.Limited}}<span>Memory</span><span>CPU</span>{{end}}<span>Screen</span><span></span></div>
   {{range .PendingInstalls}}
   <div class="app-row app-tile app-installing" data-app="{{.Name}} {{.ApkURL}}" data-cmd-id="inst:{{.ApkURL}}" title="Installing…">
     <div class="app-mono app-mono-inst"><span class="app-spin"></span></div>
@@ -1873,36 +1904,12 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
     {{end}}
   </div>
   {{end}}
-  {{range $p := .InstalledPackages}}{{if not $p.EffectiveSystem}}
-  {{$isUn := index $.Uninstalling $p.PackageName}}
-  <div class="app-row app-tile{{if $isUn}} app-uninstalling{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}"
-       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"{{with index $.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
-       role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
-       title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
-    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
-    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-    {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{else}}{{with index $.NuggetIDByPackage $p.PackageName}}<div class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</div>{{end}}{{end}}
-    {{if and (canOperate $.Role) (not $isUn) (supports $.Device "uninstall") (not $.Restricted)}}
-    {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
-         server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app
-         shows "Uninstalling…" until the device confirms removal. */}}
-    <div class="app-x-form" onclick="event.stopPropagation()">
-      <button type="button" class="app-x" title="Uninstall {{$p.PackageName}}" aria-label="Uninstall {{$p.PackageName}}" onclick="doUninstall(this.closest('.app-tile'))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
-    </div>
-    {{end}}
-  </div>
-  {{end}}{{end}}
-  {{$hasSys := false}}{{range .InstalledPackages}}{{if .EffectiveSystem}}{{$hasSys = true}}{{end}}{{end}}
-  {{if $hasSys}}<div class="app-drawer-sep" id="apps-sys-sep">System apps</div>{{end}}
-  {{range $p := .InstalledPackages}}{{if $p.EffectiveSystem}}
-  <div class="app-row app-tile sys" data-app="{{$p.AppName}} {{$p.PackageName}}"
-       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="1"
-       role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
-       title="System app — {{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
-    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
-    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-  </div>
-  {{end}}{{end}}
+  {{range $L.User}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" false)}}{{end}}
+  {{if $L.System}}
+  <details class="apl-sys" id="apps-sys"><summary id="apps-sys-sep">{{len $L.System}} system app{{if ne (len $L.System) 1}}s{{end}}</summary>
+  {{range $L.System}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" true)}}{{end}}
+  </details>
+  {{end}}
 </div>
 <div id="apps-no-match" class="muted small" style="display:none;padding:16px 18px;">No apps match your search.</div>
 {{else}}
