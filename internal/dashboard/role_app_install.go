@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"mdm/internal/config"
 	"mdm/internal/db"
 )
 
@@ -18,7 +19,13 @@ import (
 // rather than at its next boot (the user's pick). The host app is the prod package (the
 // base, e.g. aio.app.nugget) unless the device's venue chose a channel (V1: Venue
 // settings › Host app; "uatv2" → aio.app.nugget.uatv2). Another variant doesn't count as
-// having it, and nothing is uninstalled or upgraded.
+// having it, and nothing is uninstalled.
+//
+// Auto-upgrade (27 Oct 2026, user picked "keep the fleet on the newest"): a unit that has
+// its host app on an older version than the library's newest build gets that build too,
+// but only inside the update window (Lineup's fleet window, or the venue's own Updates
+// setting), because replacing the app restarts it, possibly mid-service. A missing app
+// still goes out at once: there is nothing to interrupt. Each product has its own switch.
 //
 // Like client auto-update: present devices only, 20 a minute, never a second install
 // while one is on its way, and an APK sent to a device is not sent again for 6 hours, so
@@ -49,26 +56,29 @@ func hostAppTarget(base, channel string) string {
 	return base + "." + channel
 }
 
-// roleAppInstallBases is role → base package for the roles with auto-install on (Lineup ›
-// Apps switch, on by default).
-func (h *Handler) roleAppInstallBases(ctx context.Context) map[string]string {
+// roleAppInstallBases is role → base package for the roles with auto-install or
+// auto-upgrade on (Lineup › Apps switches, both on by default), and which of the two each
+// role has.
+func (h *Handler) roleAppInstallBases(ctx context.Context) (bases map[string]string, install, upgrade map[string]bool) {
 	apps, err := h.db.ListRoleApps(ctx)
 	if err != nil {
 		log.Printf("[role-app-install] role apps: %v", err)
-		return nil
+		return nil, nil, nil
 	}
-	out := map[string]string{}
+	bases, install, upgrade = map[string]string{}, map[string]bool{}, map[string]bool{}
 	for _, a := range apps {
-		if a.AutoInstall && a.BasePackage != "" {
-			out[a.Role] = a.BasePackage
+		if a.BasePackage != "" && (a.AutoInstall || a.AutoUpgrade) {
+			bases[a.Role] = a.BasePackage
+			install[a.Role], upgrade[a.Role] = a.AutoInstall, a.AutoUpgrade
 		}
 	}
-	return out
+	return bases, install, upgrade
 }
 
 type roleAppInstall struct {
-	Device *db.Device
-	App    *db.App
+	Device  *db.Device
+	App     *db.App
+	Upgrade bool // the device has the app, on an older version
 }
 
 // newestBuilds is the library's newest upload with an APK for each of these packages.
@@ -116,26 +126,51 @@ func deviceTargets(devices []db.Device, bases map[string]string, venueCh map[uui
 	return out
 }
 
-// pickRoleAppInstalls chooses this tick's installs. target is each device's host app
-// package, lib the newest build per package, missing per package the devices known not
-// to have it; skip holds devices with an install on its way or sent this APK recently.
-func pickRoleAppInstalls(devices []db.Device, target map[uuid.UUID]string, lib map[string]*db.App,
-	missing map[string]map[uuid.UUID]bool, skip map[uuid.UUID]bool, seenWithin time.Duration, now time.Time) []roleAppInstall {
+// roleAppPick is what pickRoleAppInstalls decides from. target is each device's host
+// app package, lib the newest build per package, missing per package the devices known
+// not to have it, have each device's installed versions; skip holds devices with an
+// install on its way or sent this APK recently. install says whether a device's product
+// installs a missing app, upgrade whether it may be upgraded now (its product's switch
+// and its update window).
+type roleAppPick struct {
+	target  map[uuid.UUID]string
+	lib     map[string]*db.App
+	missing map[string]map[uuid.UUID]bool
+	have    map[uuid.UUID]map[string]string
+	skip    map[uuid.UUID]bool
+	install func(*db.Device) bool
+	upgrade func(*db.Device) bool
+}
+
+// pickRoleAppInstalls chooses this tick's installs: missing apps first, then upgrades,
+// at most roleAppInstallBatch in all.
+func pickRoleAppInstalls(devices []db.Device, p roleAppPick, seenWithin time.Duration, now time.Time) []roleAppInstall {
 	var out []roleAppInstall
-	for i := range devices {
-		if len(out) >= roleAppInstallBatch {
-			break
+	for pass := 0; pass < 2; pass++ {
+		for i := range devices {
+			if len(out) >= roleAppInstallBatch {
+				return out
+			}
+			d := &devices[i]
+			if d.Hidden || d.Retired() || now.Sub(d.LastSeenAt) > seenWithin || p.skip[d.ID] {
+				continue
+			}
+			pkg := p.target[d.ID]
+			app := p.lib[pkg]
+			if pkg == "" || app == nil || !d.Supports("install_apk") {
+				continue
+			}
+			if pass == 0 {
+				if p.missing[pkg][d.ID] && (p.install == nil || p.install(d)) {
+					out = append(out, roleAppInstall{Device: d, App: app})
+				}
+				continue
+			}
+			cur, has := p.have[d.ID][pkg]
+			if has && cur != "" && versionNewer(app.VersionName, cur) && p.upgrade != nil && p.upgrade(d) {
+				out = append(out, roleAppInstall{Device: d, App: app, Upgrade: true})
+			}
 		}
-		d := &devices[i]
-		if d.Hidden || d.Retired() || now.Sub(d.LastSeenAt) > seenWithin || skip[d.ID] {
-			continue
-		}
-		pkg := target[d.ID]
-		app := lib[pkg]
-		if pkg == "" || app == nil || !missing[pkg][d.ID] || !d.Supports("install_apk") {
-			continue
-		}
-		out = append(out, roleAppInstall{Device: d, App: app})
 	}
 	return out
 }
@@ -143,7 +178,7 @@ func pickRoleAppInstalls(devices []db.Device, target map[uuid.UUID]string, lib m
 // RunRoleAppInstalls sends each online device its host app where it lacks it. Safe to
 // call every minute.
 func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
-	bases := h.roleAppInstallBases(ctx)
+	bases, installOn, upgradeOn := h.roleAppInstallBases(ctx)
 	if len(bases) == 0 {
 		return
 	}
@@ -189,6 +224,15 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 	}
 	missing := map[string]map[uuid.UUID]bool{}
 	var urls []string
+	var baseList []string
+	for _, b := range bases {
+		baseList = append(baseList, b)
+	}
+	have, err := h.db.FamilyVersions(ctx, baseList)
+	if err != nil {
+		log.Printf("[role-app-install] versions: %v", err)
+		return
+	}
 	for pkg, pids := range byPkg {
 		if missing[pkg], err = h.db.DevicesWithoutPackage(ctx, pids, pkg); err != nil {
 			log.Printf("[role-app-install] inventory %s: %v", pkg, err)
@@ -209,11 +253,30 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 	for id := range recent {
 		skip[id] = true
 	}
-	for _, j := range pickRoleAppInstalls(devices, target, lib, missing, skip, seenWithin, now) {
+	// Upgrades restart the app, so they wait for the update window: Lineup's fleet window
+	// and the venue's own Updates setting, as prod firmware does.
+	pol := h.cfg.RoleRollout(config.RolloutFirmware)
+	gate := h.loadVenueGate(ctx)
+	// A device that refused this APK for its signing key never takes it: not offered again.
+	refused, err := h.db.RefusedInstallsOf(ctx, ids, urls)
+	if err != nil {
+		log.Printf("[role-app-install] refused: %v", err)
+		return
+	}
+	pick := roleAppPick{target: target, lib: lib, missing: missing, have: have, skip: skip,
+		install: func(d *db.Device) bool { return installOn[d.Class()] },
+		upgrade: func(d *db.Device) bool {
+			return upgradeOn[d.Class()] && !refused[d.ID] && pol.Active() && gate.allows(d, pol, now)
+		}}
+	for _, j := range pickRoleAppInstalls(devices, pick, seenWithin, now) {
 		if err := h.queueAppInstall(ctx, j.Device, j.App, "role-app-install"); err != nil {
 			log.Printf("[role-app-install] %s on %s: %v", j.App.PackageName, j.Device.SerialNumber, err)
 			continue
 		}
-		log.Printf("[role-app-install] %s %s → %s (host app missing)", j.App.PackageName, j.App.VersionName, j.Device.SerialNumber)
+		why := "host app missing"
+		if j.Upgrade {
+			why = "upgrade from " + have[j.Device.ID][j.App.PackageName]
+		}
+		log.Printf("[role-app-install] %s %s → %s (%s)", j.App.PackageName, j.App.VersionName, j.Device.SerialNumber, why)
 	}
 }

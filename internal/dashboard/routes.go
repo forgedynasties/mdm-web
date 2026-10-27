@@ -374,6 +374,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /products/firmware-mode", h.requireStrictAdmin(h.PipelineFirmwareMode))
 	post("POST /products/role-app", h.requireStrictAdmin(h.PipelineRoleApp))
 	post("POST /products/role-app-auto", h.requireStrictAdmin(h.LineupAppAuto))
+	post("POST /products/role-app-upgrade", h.requireStrictAdmin(h.LineupAppUpgrade))
 	post("POST /products/role-app-retry", h.requireStrictAdmin(h.LineupAppRetry))
 	post("POST /settings/agent-apk/upload", h.requireStrictAdmin(h.SettingsAgentAPKUpload))
 	// Clients: what each device's MDM client is, and the builds hosted for it.

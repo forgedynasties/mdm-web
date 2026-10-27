@@ -597,6 +597,7 @@
       {{end}}
       <div class="bt-acts">
         {{if .Card.Base}}{{if canAdmin $.Role}}<form method="post" action="/products/role-app-auto"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoInstall}}0{{else}}1{{end}}"><button type="submit" class="bt-pill" title="Units without the prod package get the build that goes out">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</button></form>{{else}}<span class="bt-pill">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</span>{{end}}
+        {{if canAdmin $.Role}}<form method="post" action="/products/role-app-upgrade"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoUpgrade}}0{{else}}1{{end}}"><button type="submit" class="bt-pill" title="Units on an older build get the one that goes out, inside the update window (Lineup's fleet window, or the venue's own)">Auto-upgrade {{if .Card.AutoUpgrade}}on{{else}}off{{end}}</button></form>{{else}}<span class="bt-pill">Auto-upgrade {{if .Card.AutoUpgrade}}on{{else}}off{{end}}</span>{{end}}
         {{if .Newer}}<a class="bt-pill" href="/apps/{{.Card.Base}}">Upload {{.Newer}}</a>{{else if not .Build}}<a class="bt-pill" href="/apps/{{.Card.Base}}">Upload a build</a>{{end}}
         {{with .Overrides}}<a class="bt-pill" href="#lua-ab">Venue overrides · {{len .}}</a>{{end}}{{end}}
       </div>
@@ -633,7 +634,8 @@
   </div>
   <div class="bt-row2" id="lua-ab">
     <div class="bt-card"><div class="lua-rh"><h3 class="bt-h3">App &amp; build</h3>
-      {{if .Card.Base}}{{if canAdmin $.Role}}<form method="post" action="/products/role-app-auto"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoInstall}}0{{else}}1{{end}}"><button type="submit" class="lua-auto{{if .Card.AutoInstall}} on{{end}}" title="Units without the prod package get the build below">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</button></form>{{else}}<span class="lua-auto{{if .Card.AutoInstall}} on{{end}}">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</span>{{end}}{{end}}</div>
+      {{if .Card.Base}}{{if canAdmin $.Role}}<form method="post" action="/products/role-app-auto"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoInstall}}0{{else}}1{{end}}"><button type="submit" class="lua-auto{{if .Card.AutoInstall}} on{{end}}" title="Units without the prod package get the build below">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</button></form>{{else}}<span class="lua-auto{{if .Card.AutoInstall}} on{{end}}">Auto-install {{if .Card.AutoInstall}}on{{else}}off{{end}}</span>{{end}}
+      {{if canAdmin $.Role}}<form method="post" action="/products/role-app-upgrade"><input type="hidden" name="role" value="{{.Card.Role}}"><input type="hidden" name="on" value="{{if .Card.AutoUpgrade}}0{{else}}1{{end}}"><button type="submit" class="lua-auto{{if .Card.AutoUpgrade}} on{{end}}" title="Units on an older build get the build below, inside the update window">Auto-upgrade {{if .Card.AutoUpgrade}}on{{else}}off{{end}}</button></form>{{else}}<span class="lua-auto{{if .Card.AutoUpgrade}} on{{end}}">Auto-upgrade {{if .Card.AutoUpgrade}}on{{else}}off{{end}}</span>{{end}}{{end}}</div>
       {{if canAdmin $.Role}}
       <form method="POST" action="/products/role-app" class="lua-kv">
         <input type="hidden" name="role" value="{{.Card.Role}}">

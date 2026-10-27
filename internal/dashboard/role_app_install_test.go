@@ -34,7 +34,7 @@ func TestRoleAppInstallPick(t *testing.T) {
 	}
 	missing := map[string]map[uuid.UUID]bool{"aio.app.nugget": {devs[0].ID: true, devs[2].ID: true, devs[3].ID: true}}
 	skip := map[uuid.UUID]bool{devs[3].ID: true}
-	got := pickRoleAppInstalls(devs, deviceTargets(devs, bases, nil), lib, missing, skip, 3*time.Minute, now)
+	got := pickRoleAppInstalls(devs, roleAppPick{target: deviceTargets(devs, bases, nil), lib: lib, missing: missing, skip: skip}, 3*time.Minute, now)
 	if len(got) != 1 || got[0].Device.SerialNumber != "MISSING" || got[0].App.ApkURL != "u17" {
 		t.Fatalf("picked = %+v", got)
 	}
@@ -46,12 +46,42 @@ func TestRoleAppInstallPick(t *testing.T) {
 		t.Fatalf("targets = %v", target)
 	}
 	lib2 := newestBuilds([]db.App{{PackageName: "aio.app.nugget.uatv2", VersionName: "48.0.0-uatv2", ApkURL: "uat", CreatedAt: now}}, map[string]bool{"aio.app.nugget.uatv2": true})
-	got = pickRoleAppInstalls(devs, target, lib2, map[string]map[uuid.UUID]bool{"aio.app.nugget.uatv2": {devs[0].ID: true}}, nil, 3*time.Minute, now)
+	got = pickRoleAppInstalls(devs, roleAppPick{target: target, lib: lib2, missing: map[string]map[uuid.UUID]bool{"aio.app.nugget.uatv2": {devs[0].ID: true}}}, 3*time.Minute, now)
 	if len(got) != 1 || got[0].App.ApkURL != "uat" {
 		t.Fatalf("uat pick = %+v", got)
 	}
 	if !transientInstall("error: ProtocolException: unexpected end of stream") || !transientInstall("error: IOException: HTTP 503") ||
 		!transientInstall("") || transientInstall("error: INSTALL_FAILED_UPDATE_INCOMPATIBLE") {
 		t.Error("transientInstall")
+	}
+}
+
+// Auto-upgrade (27 Oct 2026): a unit on an older build gets the library's newest, only
+// when its product allows it and its update window is open; missing apps go first.
+func TestRoleAppUpgradePick(t *testing.T) {
+	now := time.Date(2026, 10, 27, 3, 0, 0, 0, time.UTC)
+	bases := map[string]string{"t7": "aio.app.nugget"}
+	lib := map[string]*db.App{"aio.app.nugget": {PackageName: "aio.app.nugget", VersionName: "18.0.0", ApkURL: "u18"}}
+	dev := func(sn string) db.Device {
+		return db.Device{ID: uuid.New(), SerialNumber: sn, Product: "t7", AgentKind: "firmware", LastSeenAt: now}
+	}
+	devs := []db.Device{dev("ON17"), dev("ON18"), dev("NEWER"), dev("MISSING")}
+	have := map[uuid.UUID]map[string]string{
+		devs[0].ID: {"aio.app.nugget": "17.0.0"},
+		devs[1].ID: {"aio.app.nugget": "18.0.0"},
+		devs[2].ID: {"aio.app.nugget": "19.0.0"},
+	}
+	missing := map[string]map[uuid.UUID]bool{"aio.app.nugget": {devs[3].ID: true}}
+	open := true
+	p := roleAppPick{target: deviceTargets(devs, bases, nil), lib: lib, missing: missing, have: have,
+		install: func(*db.Device) bool { return true }, upgrade: func(*db.Device) bool { return open }}
+	got := pickRoleAppInstalls(devs, p, time.Minute, now)
+	if len(got) != 2 || got[0].Device.SerialNumber != "MISSING" || got[0].Upgrade || got[1].Device.SerialNumber != "ON17" || !got[1].Upgrade {
+		t.Fatalf("picked = %+v", got)
+	}
+	// Outside the window (or the switch off): only the missing app goes out.
+	open = false
+	if got := pickRoleAppInstalls(devs, p, time.Minute, now); len(got) != 1 || got[0].Upgrade {
+		t.Fatalf("outside the window = %+v", got)
 	}
 }

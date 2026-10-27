@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS role_apps (
 );
 -- Lineup › Apps (A1, 23 Oct 2026): off stops RunRoleAppInstalls for the role.
 ALTER TABLE role_apps ADD COLUMN IF NOT EXISTS auto_install BOOLEAN NOT NULL DEFAULT true;
+-- Auto-upgrade (27 Oct 2026): units on an older build than the library's newest are moved
+-- to it, inside the update window. On by default (user: "keep the fleet on the newest").
+ALTER TABLE role_apps ADD COLUMN IF NOT EXISTS auto_upgrade BOOLEAN NOT NULL DEFAULT true;
 CREATE TABLE IF NOT EXISTS app_channels (
 	role       TEXT NOT NULL,
 	package    TEXT NOT NULL,
@@ -158,10 +161,11 @@ type RoleApp struct {
 	UpdatedBy   string
 	UpdatedAt   time.Time
 	AutoInstall bool // units missing the prod package get it (RunRoleAppInstalls)
+	AutoUpgrade bool // units on an older build get the library's newest (same job)
 }
 
 func (d *DB) ListRoleApps(ctx context.Context) ([]RoleApp, error) {
-	rows, err := d.pool.Query(ctx, `SELECT role, base_package, updated_by, updated_at, auto_install FROM role_apps ORDER BY role`)
+	rows, err := d.pool.Query(ctx, `SELECT role, base_package, updated_by, updated_at, auto_install, auto_upgrade FROM role_apps ORDER BY role`)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +173,7 @@ func (d *DB) ListRoleApps(ctx context.Context) ([]RoleApp, error) {
 	var out []RoleApp
 	for rows.Next() {
 		var a RoleApp
-		if err := rows.Scan(&a.Role, &a.BasePackage, &a.UpdatedBy, &a.UpdatedAt, &a.AutoInstall); err != nil {
+		if err := rows.Scan(&a.Role, &a.BasePackage, &a.UpdatedBy, &a.UpdatedAt, &a.AutoInstall, &a.AutoUpgrade); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -790,6 +794,49 @@ func (d *DB) SetRoleAppAutoInstall(ctx context.Context, role string, on bool, by
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO role_apps (role, base_package, updated_by, updated_at, auto_install) VALUES ($1, '', $2, now(), $3)
 		ON CONFLICT (role) DO UPDATE SET auto_install = EXCLUDED.auto_install, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+		role, by, on)
+	return err
+}
+
+// RefusedInstallsOf is the devices that refused one of these APKs in the last 30 days
+// because it is signed with another key than the build they run (Android's
+// INSTALL_FAILED_UPDATE_INCOMPATIBLE). Sending it again can never work, so the upgrade
+// job leaves them alone until a different APK is the newest.
+func (d *DB) RefusedInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	if len(ids) == 0 || len(urls) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT ct.target_id
+		FROM commands c
+		JOIN command_targets ct ON ct.command_id = c.id
+		JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = ct.target_id
+		WHERE c.type = 'install_apk'
+		  AND ct.target_id = ANY($1)
+		  AND c.apk_url = ANY($2)
+		  AND c.created_at > now() - interval '30 days'
+		  AND (cr.output ILIKE '%INSTALL_FAILED_UPDATE_INCOMPATIBLE%' OR cr.output ILIKE '%signed with a different key%'
+		       OR cr.output ILIKE '%signatures do not match%')`, ids, urls)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
+// SetRoleAppAutoUpgrade switches upgrading to the library's newest on or off for a role.
+func (d *DB) SetRoleAppAutoUpgrade(ctx context.Context, role string, on bool, by string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO role_apps (role, base_package, updated_by, updated_at, auto_upgrade) VALUES ($1, '', $2, now(), $3)
+		ON CONFLICT (role) DO UPDATE SET auto_upgrade = EXCLUDED.auto_upgrade, updated_by = EXCLUDED.updated_by, updated_at = now()`,
 		role, by, on)
 	return err
 }

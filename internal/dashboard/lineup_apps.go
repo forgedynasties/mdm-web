@@ -29,6 +29,7 @@ type luAppCard struct {
 	OnProd, Total, Running   int
 	Missing                  int // units known to lack the prod package
 	AutoInstall              bool
+	AutoUpgrade              bool // units on an older build move to the newest, in the update window
 	Bar                      []luAppSeg
 	Note, NoteTone           string
 }
@@ -249,12 +250,12 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 	}
 	for _, role := range roles {
 		a, ok := ra[role]
-		auto := !ok || a.AutoInstall
+		auto, upgrade := !ok || a.AutoInstall, !ok || a.AutoUpgrade
 		base := a.BasePackage
 		if base == "" && len(byRole[role]) == 0 {
 			continue
 		}
-		c := luAppCard{Role: role, Label: prod.ClassLabel(role), Base: base, AutoInstall: auto, Total: len(byRole[role])}
+		c := luAppCard{Role: role, Label: prod.ClassLabel(role), Base: base, AutoInstall: auto, AutoUpgrade: upgrade, Total: len(byRole[role])}
 		build := in.Lib[base]
 		if build != nil {
 			c.Build = build.VersionName
@@ -524,6 +525,29 @@ func (h *Handler) lineupAppsNoBuild(ctx context.Context, library []db.App, devic
 		}
 	}
 	return n
+}
+
+// LineupAppUpgrade switches a product's auto-upgrade on or off (admin): units on an
+// older build than the one that goes out get it inside the update window.
+func (h *Handler) LineupAppUpgrade(w http.ResponseWriter, r *http.Request) {
+	role := strings.TrimSpace(r.FormValue("role"))
+	if !prod.IsClass(role) {
+		http.Error(w, "Unknown product", http.StatusBadRequest)
+		return
+	}
+	on := r.FormValue("on") == "1"
+	if err := h.db.SetRoleAppAutoUpgrade(r.Context(), role, on, h.currentUsername(r)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	state := "off"
+	if on {
+		state = "on"
+	}
+	h.audit(r, "release.role_app_auto_upgrade", role, state)
+	msg := "Auto-upgrade " + state + " for " + prod.ClassLabel(role) + "."
+	q := url.Values{"app": {role}, "flash": {msg}, "flash_type": {"success"}}
+	http.Redirect(w, r, "/apps/products?"+q.Encode(), http.StatusSeeOther)
 }
 
 // LineupAppAuto switches a product's prod app auto-install on or off (admin).

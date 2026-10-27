@@ -238,7 +238,7 @@
 <details class="vs-row" name="vn-set" id="vn-updates"{{if eq $.Open "updates"}} open{{end}}>
   <summary><span class="vs-k">Updates</span><span class="vs-v"><span>{{if .Paused}}<b class="vu-paused">Paused</b>{{else}}{{.Summary}}{{end}} <small>· {{.SummarySub}}</small></span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
   <div class="vs-body">
-  <div class="vs-note">When this venue's devices take new prod firmware and MDM client updates by themselves. A deployment someone sends by hand still goes.{{if .FleetPaused}} <b>Paused fleet-wide on Lineup</b>: nothing moves anywhere until that is resumed.{{end}}{{with .By}} Set {{.}}.{{end}}</div>
+  <div class="vs-note">When this venue's devices take new prod firmware, MDM client updates and host app upgrades by themselves. A deployment someone sends by hand still goes.{{if .FleetPaused}} <b>Paused fleet-wide on Lineup</b>: nothing moves anywhere until that is resumed.{{end}}{{with .By}} Set {{.}}.{{end}}</div>
   {{if $can}}
   {{if .Paused}}
   <form class="vn-form" action="/restaurants/{{$r.ID}}/updates" method="POST">
