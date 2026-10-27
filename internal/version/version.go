@@ -32,6 +32,22 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.61.0",
+		Date:    "2026-10-27",
+		Changes: []string{
+			"Sign in with Microsoft: aioapp.com accounts sign in with their work account. A first sign-in creates a Viewer account, and an admin gives it a role.",
+			"The device page is tidier. Every tab is one card where one will do: Apps is one list ranked by what each app uses, with the host app on a line above it and system apps folded; Activity shows what is queued and running at the top of the same timeline; Health is one card with the same to-do list as the Overview; Network and About lost their extra cards. Needs a look says what is wrong and offers the fix. Drag the divider between the graph and the tabs and it stays where you left it; the graph never grows taller than half its width, and Recent on this device fills the space under it. The New view is now everyone's default.",
+			"Updates tell you more. The device's update line shows its steps in order with the download speed and the time left, and a device can be lined up to finish one update before the next one starts (the update page says which it completes first).",
+			"Host apps: each venue can pick a channel per product (prod, UAT, stage…), and a product can keep its devices on the library's newest build by itself, inside the update window. A venue that switches channel gets the new build straight away.",
+			"Save to library: an app installed on a device can be copied into the app library, and the library keeps itself up to date from the devices, for every channel. A build signed with another key is refused and skipped.",
+			"Compliance names the problem (\"Developer options on\", \"Installs from unknown sources allowed\"), and the MDM's own clients no longer count as an unknown source.",
+			"Settings is down to Sign-in, Devices, Data and Display; every other setting lives on the page it is about. The menu has six sections, display preferences are set per person in My profile, and pages use the width of big screens up to 1760 px.",
+			"Enrollment opens on How to enroll, with the onboarding video and its steps. Wi-Fi finds and the AIO backend view are for super admins.",
+			"TV boxes, kiosks, kitchen displays and POS terminals on the Standard client show their real CPU temperature instead of a stuck battery reading.",
+			"A new shield icon for the website, the dashboard app and the device clients. Security hardening across sign-in, access rules and enrollment.",
+		},
+	},
+	{
 		Version: "1.60.0",
 		Date:    "2026-10-23",
 		Changes: []string{
