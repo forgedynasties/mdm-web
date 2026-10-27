@@ -1626,6 +1626,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return ""
 			}
 			switch code {
+			case "UPDATE_ERROR_10":
+				// 031, 26 Oct 2026: the client updated mid-download and the device rebooted
+				// mid-install; every resend after that resumed update_engine's half-done
+				// state at 100% and failed the same way. Fix confirmed on the device.
+				return "Payload hash mismatch. If it fails again on resend, update_engine is resuming an interrupted earlier attempt (logcat: \"Resuming after N/N operations\"): run update_engine_client --reset_status from the device's Shell, then Retry. Otherwise send the full package."
+			case "UPDATE_ERROR_20":
+				return "The incremental does not match what is on the device (source hash mismatch, usually abl on a unit QFIL-flashed since its last full OTA). Send the full package; no wipe needed."
 			case "UPDATE_ERROR_21":
 				return "The package on the device did not read as an update (invalid payload header). Usually a resumed download on top of an older cancelled one — Retry downloads it fresh."
 			case "SLOT_SWITCH_FAILED":

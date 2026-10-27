@@ -103,6 +103,13 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			log.Printf("[client-auto-update] %s: in-flight: %v", slot, err)
 			continue
 		}
+		// Mid-OTA devices get the client after the OTA: the install restarts the agent,
+		// and the agent running the OTA download dies with it (db.InFlightOTAs).
+		otaBusy, err := h.db.InFlightOTAs(ctx, ids)
+		if err != nil {
+			log.Printf("[client-auto-update] %s: in-flight OTAs: %v", slot, err)
+			continue
+		}
 		// A device that refused this build for its signing key never will take it, and one
 		// it keeps failing on is not helped by a fresh copy every two minutes: stop offering
 		// it until a new build is published (the manual Update button still works).
@@ -119,6 +126,9 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			}
 			if _, busy := inFlight[d.ID]; busy {
 				continue
+			}
+			if otaBusy[d.ID] {
+				continue // picked up the tick after the OTA finishes or fails
 			}
 			if _, stop := giveUp[d.ID]; stop {
 				continue

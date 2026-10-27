@@ -1114,6 +1114,49 @@ func (d *DB) AgentUpdateGiveUps(ctx context.Context, deviceIDs []uuid.UUID, sha2
 	return out, rows.Err()
 }
 
+// InFlightOTAs names the devices with a system update running right now, from either
+// path: a deployment (update_devices) or a direct "ota" command (the API, the device
+// page). The client auto-update job leaves these alone: installing a new client
+// restarts the agent, which kills the OTA download it is running, and the new agent
+// does not pick it back up. Seen 26 Oct 2026 on 031: client 1.21.0 landed mid-download,
+// the resends then tripped over update_engine's half-done state (UPDATE_ERROR_10).
+//
+// A command counts for 6 hours: a full package over venue Wi-Fi can take most of an
+// hour, and one the agent abandoned (killed mid-download, never reported again) must
+// not hold the client back for good.
+func (d *DB) InFlightOTAs(ctx context.Context, deviceIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	if len(deviceIDs) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT ud.device_id
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id AND u.status = 'active'
+		WHERE ud.device_id = ANY($1)
+		  AND ud.status IN ('downloading', 'installing', 'verifying', 'finalizing')
+		UNION
+		SELECT cs.device_id
+		FROM commands c
+		JOIN command_status cs ON cs.command_id = c.id
+		WHERE c.type = 'ota'
+		  AND cs.device_id = ANY($1)
+		  AND c.created_at > NOW() - INTERVAL '6 hours'
+		  AND cs.status IN ('delivered', 'downloading', 'installing')`, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
 // ListDeviceActiveAlerts returns the non-resolved alerts for a single device, worst
 // severity first then newest — the alert feed for that device's Alerts tab.
 // InFlightAgentUpdates reports, per device, the state of an agent update that is
