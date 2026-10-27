@@ -280,34 +280,37 @@
 {{/* Host app (V1, 23 Oct 2026): which variant of each product's app lands here; prod
      by default. venue_host_app.go */}}
 {{with .HostApp}}{{if .Total}}
+{{/* Host app per product (H1, picked 27 Oct 2026): a line per product at the venue with its
+     app and a channel menu offering only the channels that product has. */}}
 <details class="vs-row" name="vn-set" id="vn-hostapp"{{if eq $.Open "hostapp"}} open{{end}}>
-  <summary><span class="vs-k">Host app</span><span class="vs-v"><span>{{.Label}}{{if .Channel}} <small>(.{{.Channel}}) · overrides prod</small>{{else}} <small>· default</small>{{end}}</span>{{if and .Missing .NoBuild}}<span class="cc-tag warn">no build</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <summary><span class="vs-k">Host app</span><span class="vs-v"><span>{{.Summary}}{{with .Sub}} <small>· {{.}}</small>{{end}}</span>{{if .NoBuild}}<span class="cc-tag warn">no build</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
   <div class="vs-body">
   <div class="vs-note">Which build of each product's app lands on units here that don't have it, and what Lock locks them to once it is installed. Nothing is uninstalled.</div>
   {{if $can}}
   <form class="vn-form vn-hosta" action="/restaurants/{{$r.ID}}/host-app" method="POST">
-    {{$t := .Total}}{{range .Opts}}
-    <label class="vn-hopt{{if .On}} on{{end}}"><input type="radio" name="channel" value="{{.Key}}"{{if .On}} checked{{end}}>
-      <span><b>{{.Label}}</b>{{if .Key}} <code>.{{.Key}}</code>{{else}} <small>· default</small>{{end}}{{with .NoBuild}}<small class="warn">no build in the library for {{range $i, $p := .}}{{if $i}}, {{end}}{{$p}}{{end}}</small>{{end}}</span>
-      <span class="n">{{.Have}} of {{$t}} have it</span></label>
+    {{range .Products}}
+    <div class="vn-hprod">
+      <label for="vn-ch-{{.Role}}"><b>{{.Label}}</b></label>
+      <select id="vn-ch-{{.Role}}" name="ch_{{.Role}}">{{$p := .}}{{range .Opts}}<option value="{{.Key}}"{{if .On}} selected{{end}}>{{.Label}}{{if .Key}} · .{{.Key}}{{end}} ({{.Have}} of {{$p.Total}}){{if .NoBuild}} · no build{{end}}</option>{{end}}</select>
+      <small{{if and .NoBuild (lt .Have .Total)}} class="warn"{{end}}><code>{{.Target}}</code> · {{if and .NoBuild (lt .Have .Total)}}no build in the library yet{{else}}{{.Have}} of {{.Total}} have it{{end}}</small>
+    </div>
     {{end}}
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
-  {{else}}<div class="vs-note">{{.Label}}{{if .Channel}} (.{{.Channel}}){{end}}.</div>{{end}}
-  {{if and .Missing .NoBuild}}<div class="vs-note" style="color:var(--warn)">{{.Missing}} unit{{if ne .Missing 1}}s{{end}} here get nothing until a build is uploaded: <a href="/apps/products">Host apps</a>.</div>{{end}}
+  {{else}}{{range .Products}}<div class="vs-note"><b>{{.Label}}</b>: {{.ChLabel}}{{if .Channel}} (.{{.Channel}}){{end}}</div>{{end}}{{end}}
+  {{if .NoBuild}}<div class="vs-note" style="color:var(--warn)">{{.NoBuild}} unit{{if ne .NoBuild 1}}s{{end}} here get nothing until a build is uploaded: <a href="/apps/products">Host apps</a>.</div>{{end}}
   </div>
 </details>
 <style>
-  .vn-form.vn-hosta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  .vn-form.vn-hosta .vn-acts { grid-column: 1 / -1; }
-  .vn-hopt { display: flex; align-items: flex-start; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); font-size: 13px; cursor: pointer; }
-  .vn-hopt.on, .vn-hopt:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-  .vn-hopt input { margin-top: 2px; accent-color: var(--accent); }
-  .vn-hopt > span:nth-of-type(1) { flex: 1; min-width: 0; }
-  .vn-hopt small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .vn-hopt small.warn { color: var(--warn); }
-  .vn-hopt code { font-size: 12px; color: var(--text-2); }
-  .vn-hopt .n { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+  .vn-form.vn-hosta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .vn-form.vn-hosta .vn-acts { grid-column: 1 / -1; margin-top: 10px; }
+  .vn-hprod { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); }
+  .vn-hprod:first-child { border-top: 0; }
+  .vn-hprod label { font-size: 13px; }
+  .vn-hprod select { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 220px; }
+  .vn-hprod small { grid-column: 1 / -1; font-size: 11.5px; color: var(--muted); }
+  .vn-hprod small.warn { color: var(--warn); }
+  .vn-hprod code { font-size: 11.5px; color: var(--text-2); }
 </style>
 {{end}}{{end}}
 

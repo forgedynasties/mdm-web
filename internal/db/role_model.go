@@ -37,6 +37,14 @@ CREATE TABLE IF NOT EXISTS role_apps (
 );
 -- Lineup › Apps (A1, 23 Oct 2026): off stops RunRoleAppInstalls for the role.
 ALTER TABLE role_apps ADD COLUMN IF NOT EXISTS auto_install BOOLEAN NOT NULL DEFAULT true;
+-- Host app per product per venue (H1, 27 Oct 2026; user: "venue config for host app should
+-- be per host app"): role → channel suffix, a missing role = prod. The one channel a venue
+-- had for every product becomes that channel for each product with an app, once.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS host_app_channels JSONB NOT NULL DEFAULT '{}';
+UPDATE restaurants r
+   SET host_app_channels = COALESCE((SELECT jsonb_object_agg(a.role, r.host_app_channel) FROM role_apps a WHERE a.base_package <> ''), '{}'),
+       host_app_channel = ''
+ WHERE r.host_app_channel <> '';
 -- Auto-upgrade (27 Oct 2026): units on an older build than the library's newest are moved
 -- to it, inside the update window. On by default (user: "keep the fleet on the newest").
 ALTER TABLE role_apps ADD COLUMN IF NOT EXISTS auto_upgrade BOOLEAN NOT NULL DEFAULT true;

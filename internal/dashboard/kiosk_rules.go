@@ -170,7 +170,7 @@ func (h *Handler) kioskSnapshot(ctx context.Context) ([]db.KioskPolicy, []kioskD
 		}
 		want := ""
 		if k.Dev.RestaurantID != nil {
-			want = hostAppTarget(bases[k.Dev.Class()], venueCh[*k.Dev.RestaurantID])
+			want = hostAppTarget(bases[k.Dev.Class()], venueCh[*k.Dev.RestaurantID][k.Dev.Class()])
 		}
 		k.Package = lockPackageFor(k.Dev, bases[k.Dev.Class()], want, fam[k.Dev.ID], k.State)
 		k.HasApp = k.Package != ""

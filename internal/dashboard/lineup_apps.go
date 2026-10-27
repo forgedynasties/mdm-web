@@ -586,7 +586,7 @@ func (h *Handler) LineupAppRetry(w http.ResponseWriter, r *http.Request) {
 	ch := ""
 	if d.RestaurantID != nil {
 		vc, _ := h.db.VenueHostChannels(ctx)
-		ch = vc[*d.RestaurantID]
+		ch = vc[*d.RestaurantID][role]
 	}
 	pkg := hostAppTarget(h.db.RoleAppBases(ctx)[role], ch)
 	library, _ := h.db.ListApps(ctx)

@@ -41,7 +41,7 @@ func TestRoleAppInstallPick(t *testing.T) {
 	// A venue on the UAT channel: its unit needs .uatv2, from the library's .uatv2 build.
 	venue := uuid.New()
 	devs[0].RestaurantID = &venue
-	target := deviceTargets(devs, bases, map[uuid.UUID]string{venue: "uatv2"})
+	target := deviceTargets(devs, bases, map[uuid.UUID]map[string]string{venue: {"t7": "uatv2"}})
 	if target[devs[0].ID] != "aio.app.nugget.uatv2" || target[devs[1].ID] != "aio.app.nugget" {
 		t.Fatalf("targets = %v", target)
 	}

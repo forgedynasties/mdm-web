@@ -109,7 +109,7 @@ func newestProdBuilds(apps []db.App, bases map[string]string) map[string]*db.App
 
 // deviceTargets is each device's host app package (devices whose product has no app
 // left out).
-func deviceTargets(devices []db.Device, bases map[string]string, venueCh map[uuid.UUID]string) map[uuid.UUID]string {
+func deviceTargets(devices []db.Device, bases map[string]string, venueCh map[uuid.UUID]map[string]string) map[uuid.UUID]string {
 	out := map[uuid.UUID]string{}
 	for i := range devices {
 		d := &devices[i]
@@ -119,7 +119,7 @@ func deviceTargets(devices []db.Device, bases map[string]string, venueCh map[uui
 		}
 		ch := ""
 		if d.RestaurantID != nil {
-			ch = venueCh[*d.RestaurantID]
+			ch = venueCh[*d.RestaurantID][d.Class()]
 		}
 		out[d.ID] = hostAppTarget(base, ch)
 	}

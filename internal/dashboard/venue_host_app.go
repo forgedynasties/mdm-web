@@ -15,11 +15,11 @@ import (
 )
 
 // Host app per venue (V1, picked 23 Oct 2026; user: "setting which variant of host app to
-// land per venue, override, defwault is prod, but allow setting variant in venue"). One
-// channel per venue for every product: '' = prod (aio.app.nugget), "uatv2" = each
-// product's .uatv2 build. RunRoleAppInstalls installs it where it is missing and Lock
-// rules lock to it once installed. The choices are the channels the venue's units and
-// the library already have.
+// land per venue, override, defwault is prod, but allow setting variant in venue"), one
+// channel per product since H1 (27 Oct: "venue config for host app should be per host
+// app"): '' = prod (aio.app.nugget), "uatv2" = that product's .uatv2 build.
+// RunRoleAppInstalls installs it where it is missing and Lock rules lock to it once
+// installed. Each product's choices are the channels its units here and the library have.
 
 var hostChannelRe = regexp.MustCompile(`^[a-z0-9]{1,24}$`)
 
@@ -42,97 +42,144 @@ func hostChannelLabel(ch string) string {
 
 type venueHostOpt struct {
 	Key, Label string
-	Have       int      // units here that have their app in this channel
-	NoBuild    []string // products here with no library build in this channel
+	Have       int  // units of this product here that have its app in this channel
+	NoBuild    bool // no library build of the product's app in this channel
 	On         bool
 }
 
+// venueHostProduct is one product at the venue (H1, 27 Oct 2026): its app and the
+// channel its units here land.
+type venueHostProduct struct {
+	Role, Label, Base string
+	Channel, ChLabel  string // chosen ('' = prod)
+	Target            string // the package that lands: Base or Base.<channel>
+	Total             int    // units of this product here
+	Have              int    // of them, with Target installed
+	NoBuild           bool   // Target has no build in the library
+	Opts              []venueHostOpt
+}
+
 type venueHostAppView struct {
-	Channel, Label string
-	Total          int // units here whose product has an app
-	Opts           []venueHostOpt
-	Missing        int // units without the chosen channel's app
-	NoBuild        []string
+	Products     []venueHostProduct
+	Total        int    // units here whose product has an app
+	Summary, Sub string // "TSAI on UAT", "others prod" | "Prod", "default"
+	NoBuild      int    // units missing their app with no build to send
 }
 
 func (h *Handler) venueHostAppView(ctx context.Context, venueID uuid.UUID, devices []db.Device) venueHostAppView {
+	var v venueHostAppView
 	chans, _ := h.db.VenueHostChannels(ctx)
-	v := venueHostAppView{Channel: chans[venueID]}
-	v.Label = hostChannelLabel(v.Channel)
+	mine := chans[venueID]
 	bases := h.db.RoleAppBases(ctx)
-	var units []*db.Device
-	present := map[string]bool{} // base packages of the products here
+	units := map[string][]*db.Device{} // role → its units here
 	var baseList []string
 	for i := range devices {
 		d := &devices[i]
-		if b := bases[d.Class()]; b != "" && !d.Hidden && !d.Retired() {
-			units = append(units, d)
-			if !present[b] {
-				present[b] = true
+		role := d.Class()
+		if b := bases[role]; b != "" && !d.Hidden && !d.Retired() {
+			if len(units[role]) == 0 {
 				baseList = append(baseList, b)
 			}
+			units[role] = append(units[role], d)
+			v.Total++
 		}
 	}
-	v.Total = len(units)
+	if v.Total == 0 {
+		return v
+	}
 	installed, _ := h.db.FamilyVersions(ctx, baseList)
 	library, _ := h.db.ListApps(ctx)
-	seen := map[string]bool{"": true, v.Channel: true}
-	addSuffix := func(base, pkg string) {
-		if sfx := strings.TrimPrefix(pkg, base+"."); sfx != pkg && hostChannelRe.MatchString(sfx) {
-			seen[sfx] = true
+	var off []string
+	prodN := 0
+	for _, role := range prod.Classes() {
+		us := units[role]
+		if len(us) == 0 {
+			continue
 		}
-	}
-	for _, d := range units {
-		b := bases[d.Class()]
-		for p := range installed[d.ID] {
-			addSuffix(b, p)
+		base := bases[role]
+		p := venueHostProduct{Role: role, Label: prod.ClassLabel(role), Base: base, Channel: mine[role], Total: len(us)}
+		p.ChLabel = hostChannelLabel(p.Channel)
+		// The channels this product has: on its units here or in the library.
+		seen := map[string]bool{"": true, p.Channel: true}
+		addSuffix := func(pkg string) {
+			if sfx := strings.TrimPrefix(pkg, base+"."); sfx != pkg && hostChannelRe.MatchString(sfx) {
+				seen[sfx] = true
+			}
 		}
-	}
-	for _, a := range library {
-		for b := range present {
+		for _, d := range us {
+			for pkg := range installed[d.ID] {
+				addSuffix(pkg)
+			}
+		}
+		for _, a := range library {
 			if a.ApkURL != "" {
-				addSuffix(b, a.PackageName)
+				addSuffix(a.PackageName)
 			}
 		}
-	}
-	want := map[string]bool{}
-	for ch := range seen {
-		for b := range present {
-			want[hostAppTarget(b, ch)] = true
+		want := map[string]bool{}
+		for ch := range seen {
+			want[hostAppTarget(base, ch)] = true
 		}
-	}
-	lib := newestBuilds(library, want)
-	for ch := range seen {
-		o := venueHostOpt{Key: ch, Label: hostChannelLabel(ch), On: ch == v.Channel}
-		for _, d := range units {
-			if _, ok := installed[d.ID][hostAppTarget(bases[d.Class()], ch)]; ok {
-				o.Have++
+		lib := newestBuilds(library, want)
+		for ch := range seen {
+			t := hostAppTarget(base, ch)
+			o := venueHostOpt{Key: ch, Label: hostChannelLabel(ch), On: ch == p.Channel, NoBuild: lib[t] == nil}
+			for _, d := range us {
+				if _, ok := installed[d.ID][t]; ok {
+					o.Have++
+				}
 			}
-		}
-		for _, role := range prod.Classes() {
-			if b := bases[role]; present[b] && lib[hostAppTarget(b, ch)] == nil {
-				o.NoBuild = append(o.NoBuild, prod.ClassLabel(role))
+			if o.On {
+				p.Target, p.Have, p.NoBuild = t, o.Have, o.NoBuild
+				if o.NoBuild {
+					v.NoBuild += p.Total - o.Have
+				}
 			}
+			p.Opts = append(p.Opts, o)
 		}
-		if o.On {
-			v.Missing, v.NoBuild = v.Total-o.Have, o.NoBuild
+		sort.SliceStable(p.Opts, func(i, j int) bool {
+			a, b := p.Opts[i], p.Opts[j]
+			if (a.Key == "") != (b.Key == "") {
+				return a.Key == ""
+			}
+			if a.Have != b.Have {
+				return a.Have > b.Have
+			}
+			return a.Key < b.Key
+		})
+		if p.Channel != "" {
+			off = append(off, shortClassLabel(role)+" on "+p.ChLabel)
+		} else {
+			prodN++
 		}
-		v.Opts = append(v.Opts, o)
+		v.Products = append(v.Products, p)
 	}
-	sort.SliceStable(v.Opts, func(i, j int) bool {
-		a, b := v.Opts[i], v.Opts[j]
-		if (a.Key == "") != (b.Key == "") {
-			return a.Key == ""
-		}
-		if a.Have != b.Have {
-			return a.Have > b.Have
-		}
-		return a.Key < b.Key
-	})
+	switch {
+	case len(off) == 0:
+		v.Summary, v.Sub = "Prod", "default"
+	case prodN == 0:
+		v.Summary = strings.Join(off, ", ")
+	default:
+		v.Summary, v.Sub = strings.Join(off, ", "), "others prod"
+	}
 	return v
 }
 
-// RestaurantHostAppSave is POST /restaurants/{id}/host-app (channel = "" for prod).
+// shortClassLabel is a product's name as a summary line uses it ("TSAI", "Kiosk").
+func shortClassLabel(role string) string {
+	switch role {
+	case prod.ClassT7:
+		return "TSAI"
+	case prod.ClassKiosk:
+		return "Kiosk"
+	case prod.ClassDongle:
+		return "Menu board"
+	}
+	return prod.ClassLabel(role)
+}
+
+// RestaurantHostAppSave is POST /restaurants/{id}/host-app: one channel per product,
+// fields ch_<role> ("" or "prod" for prod).
 func (h *Handler) RestaurantHostAppSave(w http.ResponseWriter, r *http.Request) {
 	if !h.requireFleetAction(w, r, "groups") {
 		return
@@ -142,18 +189,33 @@ func (h *Handler) RestaurantHostAppSave(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
 		return
 	}
-	ch := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(r.FormValue("channel"))), ".")
-	if ch == "prod" {
-		ch = ""
-	}
-	if ch != "" && !hostChannelRe.MatchString(ch) {
-		http.Error(w, "A channel is letters and digits, like uatv2", http.StatusBadRequest)
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad form", http.StatusBadRequest)
 		return
 	}
-	if err := h.db.SetVenueHostChannel(r.Context(), id, ch); err != nil {
+	chans := map[string]string{}
+	var parts []string
+	for key, vals := range r.PostForm {
+		role, ok := strings.CutPrefix(key, "ch_")
+		if !ok || len(vals) == 0 || !prod.IsClass(role) {
+			continue
+		}
+		ch := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(vals[0])), ".")
+		if ch == "prod" {
+			ch = ""
+		}
+		if ch != "" && !hostChannelRe.MatchString(ch) {
+			http.Error(w, "A channel is letters and digits, like uatv2", http.StatusBadRequest)
+			return
+		}
+		chans[role] = ch
+		parts = append(parts, prod.ClassLabel(role)+": "+hostChannelLabel(ch))
+	}
+	sort.Strings(parts)
+	if err := h.db.SetVenueHostChannels(r.Context(), id, chans); err != nil {
 		http.Error(w, "Could not save", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "restaurant.host_app_channel", id.String(), hostChannelLabel(ch))
+	h.audit(r, "restaurant.host_app_channel", id.String(), strings.Join(parts, ", "))
 	http.Redirect(w, r, fmt.Sprintf("/restaurants/%s?open=hostapp#vn-hostapp", id), http.StatusSeeOther)
 }
