@@ -15,6 +15,7 @@ type deviceSecurity struct {
 	USBDebugging   string // "On", "Off" or "—" (never reported)
 	DevOptions     string
 	UnknownSources string
+	UnknownApps    []string // the apps other than the MDM allowed to install apps
 	AdbKnown       bool // the client reports wireless adb at all
 	AdbOn          bool
 	// Wireless adb detail, from the last adb_tcp command the device completed: the client
@@ -63,13 +64,14 @@ func (h *Handler) securityFor(ctx context.Context, d *db.Device) deviceSecurity 
 		_ = json.Unmarshal(d.LatestExtra, &p)
 	}
 	// Unknown sources as compliance reads it: apps other than the MDM itself (26 Oct 2026).
-	if _, on, ok := unknownSourcesOf(d.LatestExtra); ok {
+	unknownApps, on, ok := unknownSourcesOf(d.LatestExtra)
+	if ok {
 		p.UnknownSources = &on
 	} else {
 		p.UnknownSources = nil
 	}
 	s := deviceSecurity{USBDebugging: postureWord(p.AdbEnabled), DevOptions: postureWord(p.DevOptions),
-		UnknownSources: postureWord(p.UnknownSources), AdbKnown: p.AdbTCP != nil,
+		UnknownSources: postureWord(p.UnknownSources), UnknownApps: unknownApps, AdbKnown: p.AdbTCP != nil,
 		AdbOn: p.AdbTCP != nil && *p.AdbTCP, IP: p.IP, CanAdbTCP: d.Supports("adb_tcp")}
 	if s.CanAdbTCP {
 		s.Client = extraString(d.LatestExtra, "agent_version")

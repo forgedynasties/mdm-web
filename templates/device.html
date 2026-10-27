@@ -1176,16 +1176,17 @@ window.DEVICE_VITALS = {
          — which was previously recorded only in the global audit log and could not be
          traced back to a device at all. */}}
     {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
-    {{/* What needs a look on this device (O5), first on the Overview since V1 (23 Oct 2026). */}}
-    {{$sx := .Security}}{{$lowBat := and .ShowBattery (lt .Device.BatteryPct 20)}}
-    {{if or (eq $sx.USBDebugging "On") (eq $sx.DevOptions "On") (eq $sx.UnknownSources "On") $sx.AdbOn $lowBat .ChargerFlapping}}
-    <div class="dd-needs" id="dd-needs"><b>Needs a look</b>
-      {{if $lowBat}}<span class="cc-tag">Battery {{.Device.BatteryPct}}%</span>{{end}}
-      {{if .ChargerFlapping}}<span class="cc-tag">Charger flapping</span>{{end}}
-      {{if eq $sx.USBDebugging "On"}}<span class="cc-tag">USB debugging on</span>{{end}}
-      {{if $sx.AdbOn}}<span class="cc-tag">Wireless adb open</span>{{end}}
-      {{if eq $sx.DevOptions "On"}}<span class="cc-tag">Developer options on</span>{{end}}
-      {{if eq $sx.UnknownSources "On"}}<span class="cc-tag">Unknown sources on</span>{{end}}
+    {{/* What needs a look on this device (O5), first on the Overview since V1 (23 Oct 2026);
+         to-do rows with a fix since N1 (27 Oct). device_needs.go */}}
+    {{with .Needs}}{{$adbOK := and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)}}
+    <div class="dd-needs" id="dd-needs">
+      <div class="dd-nh">{{len .}} thing{{if ne (len .) 1}}s{{end}} to look at</div>
+      {{range .}}
+      <div class="dd-nr"><span class="dd-nd {{.Tone}}" aria-hidden="true"></span><span class="dd-nt">{{.Title}}<small>{{.Why}}</small></span>
+        {{if and (eq .Action "adb") $adbOK}}<button type="button" class="cc-btn sm primary" onclick="window.adbPillOpen && adbPillOpen()">{{.Label}}</button>
+        {{else if eq .Action "health"}}<a class="cc-btn sm" href="?tab=health" onclick="var t=document.getElementById('dd-tab-health');if(t&&window.setDeviceTab){window.setDeviceTab('health',t);return false}">{{.Label}}</a>{{end}}
+      </div>
+      {{end}}
     </div>
     {{end}}
     {{/* M2 (23 Oct 2026): the AIO backend lists this device at another place. */}}
@@ -1669,8 +1670,12 @@ html.dd-fit .dd-split-l .chart-body .chart-wrap--tall>canvas{position:absolute;i
 .vc-up{grid-column:1/-1;font-size:12px;color:var(--muted);margin-top:2px}.vc-up b{color:var(--text);font-weight:650}
 .dd-hwkv{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;margin-top:6px}
 .dd-hwkv .ddc-kv{min-width:0}
-.dd-needs{grid-column:1/-1;align-self:start;display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-radius:14px;background:var(--warn-bg);border:1px solid color-mix(in srgb,var(--warn) 30%,transparent);font-size:12.5px}
-.dd-needs b{color:var(--warn);font-weight:700;margin-right:4px}.dd-needs .cc-tag{background:var(--surface)}
+.dd-needs{grid-column:1/-1;align-self:start;background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden}
+.dd-nh{padding:12px 16px 8px;font-weight:650;font-size:14px}
+.dd-nr{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px}
+.dd-nd{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}.dd-nd.bad{background:var(--danger)}
+.dd-nt{flex:1;min-width:0;font-weight:600}.dd-nt small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.dd-nr .cc-btn{flex:none}
 .dd-fold-card{padding-top:4px;padding-bottom:4px}
 .dd-fold>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 0;font-size:13.5px;font-weight:650;color:var(--text)}
 .dd-fold>summary::-webkit-details-marker{display:none}

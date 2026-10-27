@@ -505,8 +505,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	labSess, _ := h.db.GetLabSession(r.Context(), device.ID)
 	fwModes, _ := h.db.FirmwareModes(r.Context())
+	sec := h.securityFor(r.Context(), device)
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
 		"Title":  device.SerialNumber,
+		"Needs":  deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10),
 		"Device": device,
 		// Lab session (lab.go): the banner, the entry dialog and the lab view link.
 		"Lab":          labSess,
@@ -609,7 +611,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"WlcApplicable":       h.cfg.WlcApplies(device.ProductKey()),
 		"PadState":            padState(device, h.cfg.WlcApplies(device.ProductKey()), kioskCfg.WlcChargingEnabled),
 		"MicGain":             micGainPtr(device.LatestExtra),
-		"Security":            h.securityFor(r.Context(), device),
+		"Security":            sec,
 		"BackendLine":         h.deviceBackendLine(r.Context(), device), // M2: where the AIO backend places it
 		"EnrolledByName":      h.displayName(r, device.EnrolledBy),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
