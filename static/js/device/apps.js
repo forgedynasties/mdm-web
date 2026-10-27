@@ -48,7 +48,6 @@ function filterInstalledApps(q) {
     // Cleared: restore every tile and the "System apps" divider.
     rows.forEach(function (row) { row.style.display = ''; });
     if (sep) sep.style.display = '';
-    var sysc = document.getElementById('apps-sys'); if (sysc) sysc.open = false;
     if (btn) { if (list) list.classList.add('collapsed'); btn.style.display = ''; }
     if (noMatch) noMatch.style.display = 'none';
     return;

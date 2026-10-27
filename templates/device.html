@@ -1562,8 +1562,9 @@ window.DEVICE_VITALS = {
       <span class="m muted small">{{with .Needs}}{{len .}} to look at · {{end}}{{if $hv.Scored}}compliance {{$hv.Passing}} of {{$hv.Scored}} pass{{else}}compliance not checked{{if not .Device.RestaurantID}} (no venue){{end}}{{end}} · {{if $hv.Alerts}}{{$hv.Alerts}} open alert{{if ne $hv.Alerts 1}}s{{end}}{{else}}no alerts{{end}}</span></div>
     {{with .Needs}}{{template "dd-todo-rows" (dict "Items" . "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" true)}}
     {{else}}<div class="dh-none">Nothing to look at.</div>{{end}}
-    <details class="dh-fold"><summary>Compliance checklist <span class="muted">· {{if $hv.Scored}}{{$hv.Passing}} of {{$hv.Scored}} pass{{else}}not checked{{end}}</span></summary>
-      <div hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="toggle once from:closest details" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+    {{/* Open by default (user, 27 Oct 2026); it loads when it first comes into view. */}}
+    <details class="dh-fold" open><summary>Compliance checklist <span class="muted">· {{if $hv.Scored}}{{$hv.Passing}} of {{$hv.Scored}} pass{{else}}not checked{{end}}</span></summary>
+      <div hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="intersect once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
         <div class="muted small" style="padding:18px;text-align:center;">Loading compliance…</div></div></details>
     <details class="dh-fold"><summary>Alert history</summary>
       <div hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="toggle once from:closest details" hx-select="unset" hx-target="this" hx-swap="innerHTML">
@@ -1906,7 +1907,9 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   {{end}}
   {{range $L.User}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" false)}}{{end}}
   {{if $L.System}}
-  <details class="apl-sys" id="apps-sys"><summary id="apps-sys-sep">{{len $L.System}} system app{{if ne (len $L.System) 1}}s{{end}}</summary>
+  {{/* Open by default, with its own column headings (user, 27 Oct 2026). */}}
+  <details class="apl-sys" id="apps-sys" open><summary id="apps-sys-sep">{{len $L.System}} system app{{if ne (len $L.System) 1}}s{{end}}</summary>
+  <div class="apl-head"><span></span><span>App</span><span>Version</span>{{if not $L.Limited}}<span>Memory</span><span>CPU</span>{{end}}<span>Screen</span><span></span></div>
   {{range $L.System}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" true)}}{{end}}
   </details>
   {{end}}

@@ -676,6 +676,6 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .app-list .app-tile>.app-tsub{grid-column:3/-2;text-align:left;justify-content:flex-start}
 .app-list .app-x-form{position:static;opacity:0}
 .app-list .app-tile:hover .app-x-form,.app-list .app-x-form:focus-within{opacity:1}
-.apl-sys>summary{list-style:none;cursor:pointer;padding:9px 16px;font-size:12.5px;font-weight:600;color:var(--text-2);border-top:1px solid var(--border-soft)}
+.apl-sys>summary{list-style:none;cursor:pointer;padding:12px 16px 4px;font-size:12.5px;font-weight:650;color:var(--text);border-top:1px solid var(--border)}
 .apl-sys>summary::-webkit-details-marker{display:none}
 .apl-sys>summary::before{content:"▸ ";color:var(--muted)}.apl-sys[open]>summary::before{content:"▾ "}
