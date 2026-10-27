@@ -323,6 +323,11 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 			LIMIT 1
 		) p ON true
 		WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed' AND rel.status = 'published'
+		  -- Not before the update it waits for (after_update_id) is installed on it.
+		  AND NOT EXISTS (
+			SELECT 1 FROM update_devices pre JOIN updates pu ON pu.id = pre.update_id
+			WHERE pre.update_id = ud.after_update_id AND pre.device_id = ud.device_id
+			  AND pu.status = 'active' AND pre.status <> 'installed')
 		  -- A failed row (update_engine error, failed slot switch, operator cancel) is
 		  -- terminal: re-offering it on the next check-in undid every Cancel and made
 		  -- slot-switch failures loop. Retry on the deployment page resets the row to
@@ -707,10 +712,15 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	rows, err := d.pool.Query(ctx, `
 		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at, d.last_seen_at,
 		       ud.started_at, ud.completed_at, ud.reboot_sent_at,
-		       d.restaurant_id, COALESCE(r.name, ''), ud.source_build_id, ud.force_full
+		       d.restaurant_id, COALESCE(r.name, ''), ud.source_build_id, ud.force_full,
+		       ud.after_update_id, COALESCE(ar.version, ''),
+		       COALESCE(au.status = 'active' AND COALESCE(aud.status, '') <> 'installed', false)
 		FROM update_devices ud
 		JOIN devices d ON d.id = ud.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		LEFT JOIN updates au ON au.id = ud.after_update_id
+		LEFT JOIN releases ar ON ar.id = au.release_id
+		LEFT JOIN update_devices aud ON aud.update_id = ud.after_update_id AND aud.device_id = ud.device_id
 		WHERE ud.update_id = $1
 		ORDER BY d.serial_number
 	`, updateID)
@@ -723,7 +733,7 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	for rows.Next() {
 		var t UpdateTarget
 		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.LastSeenAt, &t.StartedAt, &t.CompletedAt, &t.RebootSentAt,
-			&t.VenueID, &t.Venue, &t.SourceBuildID, &t.ForceFull); err != nil {
+			&t.VenueID, &t.Venue, &t.SourceBuildID, &t.ForceFull, &t.AfterUpdateID, &t.AfterVersion, &t.AfterWaiting); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -940,4 +950,9 @@ func (d *DB) OTAProgressForUpdate(ctx context.Context, updateID int) (map[uuid.U
 	return out, rows.Err()
 }
 
-
+// SetUpdateDeviceAfter makes a device take another update first: its row in updateID is
+// not served until afterID is installed on it (or afterID is no longer active).
+func (d *DB) SetUpdateDeviceAfter(ctx context.Context, updateID int, deviceID uuid.UUID, afterID int) error {
+	_, err := d.pool.Exec(ctx, `UPDATE update_devices SET after_update_id = $3 WHERE update_id = $1 AND device_id = $2`, updateID, deviceID, afterID)
+	return err
+}

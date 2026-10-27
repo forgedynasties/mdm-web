@@ -230,6 +230,13 @@ func buildDeployD1(in dp1Inputs) dp1View {
 			switch {
 			case !active:
 				r.Detail = "not offered: the rollout is " + in.Dep.Status
+			case t.AfterWaiting && t.AfterUpdateID != nil:
+				// It takes another update first (after_update_id), then this one.
+				r.Word = fmt.Sprintf("After update #%d", *t.AfterUpdateID)
+				r.Detail = "completes " + t.AfterVersion + " (update #" + strconv.Itoa(*t.AfterUpdateID) + ") first, then this one"
+				if offline(t.LastSeenAt) {
+					r.Detail += " · offline"
+				}
 			case offline(t.LastSeenAt) && t.StartedAt != nil:
 				// It was offered and went dark mid-update (a dead battery, usually): the sweep
 				// put it back in line, and its next check-in starts the update again.

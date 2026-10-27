@@ -762,6 +762,10 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
 -- an operator retries a failed device, so the guaranteed-applicable full image
 -- is served instead of re-attempting the same failing incremental.
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS force_full BOOLEAN NOT NULL DEFAULT false;
+-- One update after another for a device (27 Oct 2026, user: "make it so that it receives
+-- that ota first when it comes back and this ota after that"): a row with after_update_id
+-- is not served while that update is still active for the device and not installed.
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS after_update_id INTEGER REFERENCES updates(id) ON DELETE SET NULL;
 -- allow_wipe: this deployment may hand a device the release's wipe (factory-reset) full
 -- image when it has no incremental for the device's build. Off unless asked for.
 ALTER TABLE updates ADD COLUMN IF NOT EXISTS allow_wipe BOOLEAN NOT NULL DEFAULT false;

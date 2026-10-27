@@ -515,6 +515,12 @@ type UpdateTarget struct {
 	Venue         string     `json:"venue,omitempty"`
 	SourceBuildID string     `json:"source_build_id,omitempty"` // the build it was on when offered
 	ForceFull     bool       `json:"force_full,omitempty"`      // pinned to the full image
+
+	// AfterUpdateID: the device takes that update first (27 Oct 2026); AfterWaiting
+	// while it is still active for the device and not installed there.
+	AfterUpdateID *int   `json:"after_update_id,omitempty"`
+	AfterVersion  string `json:"after_version,omitempty"`
+	AfterWaiting  bool   `json:"after_waiting,omitempty"`
 }
 
 // GetLastSeenAt lets the dashboard ask a row whether its device is still there.
