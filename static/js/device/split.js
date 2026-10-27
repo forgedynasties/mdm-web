@@ -172,12 +172,26 @@
     if (on && split) split.parentNode.insertBefore(el, split.nextSibling);
     else el.hidden = true;
   }
-  // The divider: the graph pane's share of the width, 30-75 %, kept per browser. The graph
-  // never gets narrower than 520 px nor the tabs than 420 px. Double-click goes back to
-  // 55 %; the arrow keys move it 2 % at a time. The graph re-fits its height as it moves.
+  // The divider: the graph pane's share of the width, 30-75 %, kept per person on the
+  // server (window.DD_SPLIT from the page; POST /profile/device-split). The graph never
+  // gets narrower than 520 px nor the tabs than 420 px. Double-click goes back to 55 %;
+  // the arrow keys move it 2 % at a time. The graph re-fits its height as it moves.
   var SPLIT_KEY = 'mdm.deviceSplit', SPLIT_DEFAULT = 55;
+  function saveSplit(v) {
+    window.DD_SPLIT = v;
+    try {
+      fetch('/profile/device-split', { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'split=' + (v == null ? '' : v) });
+    } catch (e) {}
+  }
   function splitShare() {
-    try { var v = parseFloat(localStorage.getItem(SPLIT_KEY)); if (v >= 30 && v <= 75) return v; } catch (e) {}
+    var v = window.DD_SPLIT;
+    if (v >= 30 && v <= 75) return v;
+    // A position this browser kept before it was per person moves to the account, once.
+    try {
+      var old = parseFloat(localStorage.getItem(SPLIT_KEY));
+      if (old >= 30 && old <= 75) { localStorage.removeItem(SPLIT_KEY); saveSplit(old); return old; }
+    } catch (e) {}
     return SPLIT_DEFAULT;
   }
   function setSplit(split, pct, save) {
@@ -187,7 +201,7 @@
     split.style.gridTemplateColumns = 'minmax(0,' + pct + 'fr) 14px minmax(0,' + (100 - pct) + 'fr)';
     var dv = split.querySelector('.dd-split-dv');
     if (dv) dv.setAttribute('aria-valuenow', Math.round(pct));
-    if (save) { try { localStorage.setItem(SPLIT_KEY, String(Math.round(pct * 10) / 10)); } catch (e) {} }
+    if (save) saveSplit(Math.round(pct * 10) / 10);
     fitLater();
   }
   function divider(split, dv) {
@@ -207,7 +221,7 @@
       }
       dv.addEventListener('pointermove', move); dv.addEventListener('pointerup', up); dv.addEventListener('pointercancel', up);
     });
-    dv.addEventListener('dblclick', function () { try { localStorage.removeItem(SPLIT_KEY); } catch (e) {} setSplit(split, SPLIT_DEFAULT, false); });
+    dv.addEventListener('dblclick', function () { saveSplit(null); setSplit(split, SPLIT_DEFAULT, false); });
     dv.addEventListener('keydown', function (e) {
       var step = e.key === 'ArrowLeft' ? -2 : e.key === 'ArrowRight' ? 2 : 0;
       if (!step) return;

@@ -12,6 +12,9 @@ type DisplayPrefs struct {
 	Sort     *string `json:"sort,omitempty"`
 	Density  *string `json:"density,omitempty"`
 	Use24    *bool   `json:"use24,omitempty"`
+	// DeviceSplit is the device page's divider: the graph pane's share of the width,
+	// 30-75 % (27 Oct 2026, user: "can it remember the divider per user?").
+	DeviceSplit *float64 `json:"device_split,omitempty"`
 }
 
 // UserDisplayPrefs reads a user's preferences (empty when unset or unknown).

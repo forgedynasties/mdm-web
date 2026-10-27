@@ -110,7 +110,8 @@ func (h *Handler) ProfileDisplaySave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not signed in", http.StatusUnauthorized)
 		return
 	}
-	var p db.DisplayPrefs
+	// The form doesn't carry the device page's divider: keep it.
+	p := db.DisplayPrefs{DeviceSplit: h.displayPrefs(r).DeviceSplit}
 	if v := strings.TrimSpace(r.FormValue("page_size")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
 			p.PageSize = &n
@@ -136,4 +137,36 @@ func (h *Handler) ProfileDisplaySave(w http.ResponseWriter, r *http.Request) {
 	}
 	displayPrefsCache.Delete(user)
 	http.Redirect(w, r, flashURL("/profile#display", "Display preferences saved", "success"), http.StatusSeeOther)
+}
+
+// ProfileDeviceSplit is POST /profile/device-split: the device page's divider position
+// for the signed-in person (split = the graph pane's share, 30-75; empty = back to the
+// default). Sent by split.js when a drag or an arrow key ends.
+func (h *Handler) ProfileDeviceSplit(w http.ResponseWriter, r *http.Request) {
+	user := h.currentUsername(r)
+	if user == "" {
+		http.Error(w, "Not signed in", http.StatusUnauthorized)
+		return
+	}
+	p, err := h.db.UserDisplayPrefs(r.Context(), user)
+	if err != nil {
+		http.Error(w, "Could not read", http.StatusInternalServerError)
+		return
+	}
+	p.DeviceSplit = nil
+	if v := strings.TrimSpace(r.FormValue("split")); v != "" {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil || f < 30 || f > 75 {
+			http.Error(w, "split is 30-75", http.StatusBadRequest)
+			return
+		}
+		f = float64(int(f*10+0.5)) / 10
+		p.DeviceSplit = &f
+	}
+	if err := h.db.SetUserDisplayPrefs(r.Context(), user, p); err != nil {
+		http.Error(w, "Could not save", http.StatusInternalServerError)
+		return
+	}
+	displayPrefsCache.Delete(user)
+	w.WriteHeader(http.StatusNoContent)
 }
