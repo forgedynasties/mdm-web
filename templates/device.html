@@ -825,6 +825,13 @@
 .chart-card .vt-head .gcontrols.vt-tools{flex:1 1 auto;justify-content:flex-end;gap:6px;flex-wrap:nowrap;min-width:0}
 .chart-card .vt-head .vt-tools>.vt-range-wrap:first-of-type{min-width:0}
 .vt-range{max-width:100%;min-width:0}
+/* The range button never shrinks below its short label (27 Oct 2026: on a narrow graph pane
+   the tabs squeezed it to a sliver); a long custom range still ends in an ellipsis. */
+.chart-card .vt-head .vt-tools>.vt-range-wrap:first-of-type,.vt-range{min-width:88px}
+.chart-card{container-type:inline-size;container-name:vitals}
+@container vitals (max-width:660px){.chart-card .vt-head h2{display:none}}
+.chart-card .vt-tabs>*{white-space:nowrap}
+@container vitals (max-width:560px){.chart-card .vt-tabs>*{padding-left:8px;padding-right:8px}}
 .vt-range .chart-wlabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .vt-range-wrap{position:relative}
 .vt-range{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:10px;border:1px solid transparent;background:var(--accent-soft);color:var(--accent-text);font:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
