@@ -153,6 +153,11 @@ func roleCanSupport(role string) bool { return roleAtLeast(role, "support") }
 // roleCanOperate: operator powers (device actions, venues, groups, lock rules…).
 func roleCanOperate(role string) bool { return roleAtLeast(role, "operator") }
 
+// roleCanEnroll: may sign in to AIO Enroll and enroll devices with it. Every AIO team role,
+// Viewer included (user, 28 Oct 2026: the onboarding team are viewers); customers can't. The
+// fleet adb key the app can fetch stays with roleCanFetchFleetKey (Operator and up).
+func roleCanEnroll(role string) bool { return !roleIsCustomer(role) && roleAtLeast(role, "viewer") }
+
 // roleCanOTA: may push firmware (create deployments, add targets, retry, cancel, set a
 // model's prod firmware). Admin and super admin only (user, 26 Oct 2026: "ota is for
 // admin and super admin only"); no access rule gives it to anyone else. Release

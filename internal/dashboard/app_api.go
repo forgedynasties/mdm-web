@@ -64,8 +64,8 @@ func (h *Handler) appSession(r *http.Request) (*db.Session, bool) {
 	return s, true
 }
 
-// requireApp guards an app route: valid bearer session, and a role that may operate
-// devices (the same ceiling the dashboard uses for enrolling).
+// requireApp guards an app route: valid bearer session, and a role that may enroll
+// (roleCanEnroll: any AIO team role; the fleet adb key has its own, higher bar).
 func (h *Handler) requireApp(next func(http.ResponseWriter, *http.Request, *db.Session)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.appSession(r)
@@ -73,7 +73,7 @@ func (h *Handler) requireApp(next func(http.ResponseWriter, *http.Request, *db.S
 			appErr(w, http.StatusUnauthorized, "not signed in")
 			return
 		}
-		if !roleCanOperate(s.Role) {
+		if !roleCanEnroll(s.Role) {
 			appErr(w, http.StatusForbidden, "your role cannot enroll devices")
 			return
 		}
@@ -115,7 +115,7 @@ func (h *Handler) AppLogin(w http.ResponseWriter, r *http.Request) {
 		appErr(w, http.StatusForbidden, "verify your email before signing in")
 		return
 	}
-	if !roleCanOperate(u.Role) {
+	if !roleCanEnroll(u.Role) {
 		appErr(w, http.StatusForbidden, "your role cannot enroll devices")
 		return
 	}
