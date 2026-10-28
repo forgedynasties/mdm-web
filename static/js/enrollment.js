@@ -92,9 +92,32 @@
   });
   // Live inbox: any device event may be an enrollment or a first check-in.
   // Re-fetch the inbox fragment (throttled) and patch the counters.
+  // Every device's telemetry fires a refresh, and swapping the rows closed an open site
+  // dropdown and dropped a site picked but not yet sent with Done (28 Oct 2026). So: skip
+  // a fragment that has not changed, hold one while the inbox has focus (an open select
+  // does) until focus leaves it, and carry picked sites across the swap by row id.
+  var lastInbox = null, heldInbox = null;
+  function inboxFocused(box) {
+    var a = document.activeElement;
+    return !!a && a !== document.body && box.contains(a);
+  }
   function applyInbox(html) {
     var box = el('en-inbox'); if (!box) return;
+    if (html === lastInbox) return;
+    lastInbox = html;
+    if (inboxFocused(box)) { heldInbox = html; return; }
+    heldInbox = null;
+    var picked = {};
+    box.querySelectorAll('select.en-sel').forEach(function (s) {
+      var o = s.selectedOptions && s.selectedOptions[0];
+      var row = s.closest('.en-row');
+      if (o && !o.defaultSelected && row && row.id) picked[row.id] = s.value;
+    });
     box.innerHTML = html;
+    Object.keys(picked).forEach(function (id) {
+      var s = document.querySelector('#' + CSS.escape(id) + ' select.en-sel');
+      if (s) s.value = picked[id];
+    });
     if (window.ltInit) ltInit();
     var n = parseInt((box.firstElementChild && box.firstElementChild.dataset.count) || '0', 10) || 0;
     var m = el('en-inbox-m'); if (m) m.textContent = n ? n + ' waiting' : 'nothing waiting';
@@ -111,6 +134,13 @@
     }, 900);
   }
   window.enRefreshInbox = refreshInbox;
+  var inboxBox = el('en-inbox');
+  if (inboxBox) inboxBox.addEventListener('focusout', function () {
+    setTimeout(function () {
+      if (heldInbox == null || inboxFocused(inboxBox)) return;
+      var h = heldInbox; lastInbox = null; applyInbox(h);
+    }, 0);
+  });
   // A successful Done (204 + toast) drops the row at once; the throttled re-fetch
   // then reconciles counters and anything that arrived meanwhile.
   document.body.addEventListener('htmx:afterRequest', function (e) {
