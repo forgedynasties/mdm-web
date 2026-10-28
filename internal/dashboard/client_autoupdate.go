@@ -110,6 +110,14 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			log.Printf("[client-auto-update] %s: in-flight OTAs: %v", slot, err)
 			continue
 		}
+		// The same for an APK install on its way (the role app, a Lineup install): updating
+		// the agent restarts it mid-download and the install is lost until the stall sweep
+		// and its retry, 30 minutes later (db.InFlightInstalls).
+		appBusy, err := h.db.InFlightInstalls(ctx, ids)
+		if err != nil {
+			log.Printf("[client-auto-update] %s: in-flight installs: %v", slot, err)
+			continue
+		}
 		// A device that refused this build for its signing key never will take it, and one
 		// it keeps failing on is not helped by a fresh copy every two minutes: stop offering
 		// it until a new build is published (the manual Update button still works).
@@ -129,6 +137,9 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			}
 			if otaBusy[d.ID] {
 				continue // picked up the tick after the OTA finishes or fails
+			}
+			if appBusy[d.ID] {
+				continue // picked up the tick after the install finishes or fails
 			}
 			if _, stop := giveUp[d.ID]; stop {
 				continue

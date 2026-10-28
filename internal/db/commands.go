@@ -895,6 +895,12 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 				WHERE ct.command_id = c.id AND dg.device_id = $1
 			))
 		)
+		-- A fleet-wide or group command reaches only the devices that are targets while it is
+		-- deliverable (the last hour; GetPendingCommandsForDevice). Older ones belong to this
+		-- device only if it got them: a device enrolled or added to a group later otherwise
+		-- inherited them as "expired" (28 Oct 2026: an April all-fleet screenshot on every
+		-- new device, "expired 194d ago").
+		AND (c.target_type = 'devices' OR cs.command_id IS NOT NULL OR c.created_at > NOW() - INTERVAL '1 hour')
 		-- Boot logo is a config action managed on /boot-logo, not part of the
 		-- device's command history; an authorless shell is the OTA progress probe.
 		AND c.type != 'update_splash'
@@ -937,6 +943,12 @@ func (d *DB) GetDeviceQueue(ctx context.Context, deviceID uuid.UUID) ([]DeviceCo
 				SELECT 1 FROM command_targets ct JOIN device_groups dg ON dg.group_id = ct.target_id
 				WHERE ct.command_id = c.id AND dg.device_id = $1))
 		)
+		-- A fleet-wide or group command reaches only the devices that are targets while it is
+		-- deliverable (the last hour; GetPendingCommandsForDevice). Older ones belong to this
+		-- device only if it got them: a device enrolled or added to a group later otherwise
+		-- inherited them as "expired" (28 Oct 2026: an April all-fleet screenshot on every
+		-- new device, "expired 194d ago").
+		AND (c.target_type = 'devices' OR cs.command_id IS NOT NULL OR c.created_at > NOW() - INTERVAL '1 hour')
 		AND c.type != 'update_splash'
 		AND (
 			COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')

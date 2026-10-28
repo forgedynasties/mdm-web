@@ -628,8 +628,11 @@ func (d *DB) FamilyVersions(ctx context.Context, prefixes []string) (map[uuid.UU
 	return out, rows.Err()
 }
 
-// InFlightInstalls returns the devices that already have an install or uninstall of
-// one of the packages on its way, so a minute job never queues a second one.
+// InFlightInstalls returns the devices that already have an install, an uninstall or an
+// MDM agent update on its way, so a minute job never queues a second one. The agent update
+// counts because it restarts the agent, and an APK download running in the agent dies with
+// it (28 Oct 2026: ADRB0AAMY00180's 104 MB menu board install stopped at 74 % when the
+// Standard client updated itself to 0.13.2).
 func (d *DB) InFlightInstalls(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
 	out := map[uuid.UUID]bool{}
 	if len(ids) == 0 {
@@ -640,7 +643,7 @@ func (d *DB) InFlightInstalls(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		FROM commands c
 		JOIN command_targets ct ON ct.command_id = c.id
 		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = ct.target_id
-		WHERE c.type IN ('install_apk', 'uninstall')
+		WHERE c.type IN ('install_apk', 'uninstall', 'app_update')
 		  AND c.target_type = 'devices'
 		  AND ct.target_id = ANY($1)
 		  AND c.created_at > now() - interval '2 hours'
