@@ -29,6 +29,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /reset-password", h.ResetPasswordPage)
 	post("POST /reset-password", h.ResetPasswordSubmit)
 
+	// The onboarding team's training session (user, 28 Oct 2026: "host this on live mdm
+	// visible to any user", "the link should be /onboarding-demo"). Public; not cached
+	// for a week like /static/, so an edit shows at once.
+	mux.HandleFunc("GET /onboarding-demo", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		http.ServeFile(w, r, "static/onboarding/session.html")
+	})
 	mux.HandleFunc("GET /sneak-peek", h.SneakPeek)
 	mux.HandleFunc("GET /sneak-peek/alerts", h.SneakPeekAlerts)
 	mux.HandleFunc("GET /sneak-peek/fleet", h.SneakPeekFleet)

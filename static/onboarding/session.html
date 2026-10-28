@@ -18,7 +18,7 @@
 html,body{margin:0;height:100%;background:#2a1f1c;font-family:Plex,system-ui,sans-serif;color:var(--on);overflow:hidden}
 button{font:inherit;color:inherit;cursor:pointer}
 #wrap{position:fixed;inset:0;display:grid;place-items:center}
-#deck{position:relative;width:1600px;height:900px;transform-origin:center;flex:none}
+#deck{position:absolute;left:50%;top:50%;width:1600px;height:900px;transform-origin:center;transform:translate(-50%,-50%)}
 .s{position:absolute;inset:0;padding:70px 90px 90px;display:none;flex-direction:column;
   background:radial-gradient(1100px 650px at 25% 15%,#fff 0%,#fbefe9 60%,#f6e3db 100%);overflow:hidden}
 .s.on{display:flex;animation:in .35s ease}
@@ -539,7 +539,9 @@ const slides = $$('.s');
 let cur = 0;
 function fit(){
   const k = Math.min(innerWidth / 1600, innerHeight / 900);
-  $('#deck').style.transform = `scale(${k})`;
+  // Centred by hand: a 1600 px box in a narrower window (zoomed in) no longer centres in
+  // the grid, and the scaled slide sat off to one side, cut off.
+  $('#deck').style.transform = `translate(-50%, -50%) scale(${k})`;
 }
 function show(i){
   cur = Math.max(0, Math.min(slides.length - 1, i));
