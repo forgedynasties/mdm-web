@@ -409,7 +409,7 @@ html.solo,html.solo body{overflow:auto;height:auto;background:var(--bg)}
     <div class="card"><span class="n">1</span><span class="t">~30 s</span><div class="who">NEW DEVICE</div><h3>Get it ready</h3><p class="muted">Turn on, join the office Wi-Fi, <b>skip the Google account</b>.</p></div>
     <div class="card"><span class="n">2</span><span class="t">~40 s</span><div class="who">NEW DEVICE</div><h3>Open the door</h3><p class="muted">Tap Build number 7 times, turn on Wireless debugging, open "Pair with pairing code".</p></div>
     <div class="card"><span class="n">3</span><span class="t">~10 s</span><div class="who">YOUR PHONE</div><h3>Type the code</h3><p class="muted">The app finds the device by itself. Type the 6 digits the device shows.</p></div>
-    <div class="card"><span class="n">4</span><span class="t">~1 min</span><div class="who">NOBODY</div><h3>Wait</h3><p class="muted">The app installs the MDM and checks in. Green tick = done. Leave it alone till then.</p></div>
+    <div class="card"><span class="n">4</span><span class="t">~1 min</span><div class="who">NOBODY</div><h3>Wait</h3><p class="muted">The app installs the MDM and checks in, then turns Developer options off and restarts the device. Green tick = done. Leave it alone till then.</p></div>
   </div>
   <p class="lead" style="margin-top:34px;font-size:24px">No choosing restaurants or device types in the app. That's decided on the MDM afterwards.</p>
 </section>
@@ -491,7 +491,7 @@ html.solo,html.solo body{overflow:auto;height:auto;background:var(--bg)}
   <p class="kick">After the green tick</p>
   <h2>Your part ends here. The MDM takes over.</h2>
   <div class="tl">
-    <div class="you"><div class="dot">✓</div><div class="who">YOU</div><h3>Set up in the app</h3><p>Green tick. The device is on the MDM.</p></div>
+    <div class="you"><div class="dot">✓</div><div class="who">YOU</div><h3>Set up in the app</h3><p>Green tick. The device is on the MDM, Developer options are off and it restarts by itself.</p></div>
     <div><div class="dot">2</div><div class="who">MDM TEAM</div><h3>Pick its restaurant</h3><p>New devices wait in a "needs a venue" list.</p></div>
     <div><div class="dot">3</div><div class="who">MDM TEAM</div><h3>Pick its type</h3><p>POS, kitchen display, menu board…</p></div>
     <div class="auto"><div class="dot">4</div><div class="who">BY ITSELF</div><h3>App installs</h3><p>The restaurant's app arrives on its own. No APKs by hand.</p></div>
@@ -525,7 +525,7 @@ html.solo,html.solo body{overflow:auto;height:auto;background:var(--bg)}
   <div class="cheat">
     <div class="card"><h3>Before</h3><ol><li>New or factory reset</li><li>Office Wi-Fi, same as your phone</li><li>Skip every Google sign-in</li></ol></div>
     <div class="card"><h3>On the device</h3><ol><li>About → Build number × 7</li><li>Developer options → Wireless debugging on</li><li>Pair device with pairing code</li></ol></div>
-    <div class="card"><h3>On your phone</h3><ol><li>AIO Enroll → Set up a device</li><li>Type the 6 digits</li><li>Wait for the green tick</li></ol></div>
+    <div class="card"><h3>On your phone</h3><ol><li>AIO Enroll → Set up a device</li><li>Type the 6 digits</li><li>Wait for the green tick</li><li>Done: it turns Developer options off and restarts by itself</li></ol></div>
   </div>
   <div class="warn" style="background:var(--low);margin-top:26px"><b style="color:var(--p)">Stuck?</b><span>Wake the device · same Wi-Fi · open the pairing box again for a new code · factory reset if it has an account. Still stuck: send the serial to the MDM team.</span></div>
   <p class="lead" style="margin-top:30px;font-size:26px">Questions?</p>
@@ -706,7 +706,8 @@ const WHY = {
   wadb: '<b>Wireless debugging</b> lets a phone on the same Wi-Fi talk to the device, but only with its pairing code.',
   pair: 'The device shows a <b>one-time code</b>. Only the phone that types it gets in.',
   work: 'Your phone used the code to connect, and now installs the AIO MDM and makes it the device\'s manager.',
-  done: 'The device now talks to the MDM over the internet, from any restaurant. Your phone is out of the picture.',
+  closing: 'Set up done, so the MDM turns <b>Developer options off</b> and restarts the device. Nobody can wander into them in the restaurant.',
+  done: 'The device now talks to the MDM over the internet, from any restaurant. Developer options are off and your phone is out of the picture.',
   nofind: 'The phone only sees devices on <b>its own Wi-Fi</b>. A device on the guest network is invisible to it.',
   wifi: 'Changing network turns Wireless debugging <b>off</b>. That\'s Android being careful: switch it on again.',
   acct: 'Android only lets the MDM manage a <b>clean</b> device. A Google account blocks it, and only a factory reset removes it.',
@@ -741,7 +742,9 @@ function hd(title){ return `<div class="hd"><button data-a="back" aria-label="Ba
 function renderTab(){
   const pulse = k => coachKey() === k ? 'pulse' : '';
   let h = `<div class="bar"><span>9:41</span><button class="wf ${pulse('tapwifi')}" data-a="wifi" title="Wi-Fi">${ssid()} ▾</button><span>${S.account ? '<i class="gacc" title="Signed in to Google">G</i>' : ''}🔋</span></div>`;
-  if (S.resetting) {
+  if (S.p === 'work' && S.work === 3) {
+    h += `<div class="mgd" style="background:#111;color:#fff"><div class="spin" style="justify-content:center"><i></i></div><b>Restarting…</b><span style="color:#bbb">Developer options are off now</span></div>`;
+  } else if (S.resetting) {
     h += `<div class="mgd"><div class="spin" style="justify-content:center"><i></i></div><b>Erasing…</b><span>Sped up here. A real reset takes a few minutes.</span></div>`;
   } else if (S.managed) {
     h += `<div class="mgd"><img src="/static/onboarding/mdm-shield.svg" alt=""><b>Connected to AIO</b><span>This device is managed by your organization</span><span style="margin-top:14px;font-size:13px">Its restaurant and app are set on the MDM.</span></div>`;
@@ -826,7 +829,7 @@ function renderPhone(){
       <div class="perr">${esc(S.err)}</div>
       <p style="margin-top:auto;font-size:12.5px">Type what its box shows. Tap the boxes, then type.</p>`;
   } else if (S.p === 'work') {
-    const ph = ['Connecting', 'Installing the AIO app', 'Checking in with the MDM'];
+    const ph = ['Connecting', 'Installing the AIO app', 'Checking in with the MDM', 'Turning off Developer options'];
     h = stepHead(4) + `<h5>Setting up ${NAME}</h5>` +
       ph.map((t, i) => `<div class="phase ${i < S.work ? 'ok' : i === S.work ? 'run' : ''}"><i>${i < S.work ? '✓' : ''}</i>${t}</div>`).join('') +
       `<p style="margin-top:14px">Takes about a minute. Keep both on the Wi-Fi and leave the device alone until it's done.</p>
@@ -864,8 +867,10 @@ function submitCode(){
         // The app connects, then refuses: Android won't make the MDM the manager of a
         // device with an account on it.
         clearInterval(S.timer); S.p = 'fail'; S.fail = 'reset'; S.mistakes++; S.why = 'acct';
-      } else if (S.work > 2) {
-        clearInterval(S.timer); S.p = 'done'; S.managed = true; S.t = 'home'; S.t1 = Date.now(); S.why = 'done';
+      } else if (S.work === 3) {
+        S.why = 'closing'; // the agent turns Developer options off and restarts the device
+      } else if (S.work > 3) {
+        clearInterval(S.timer); S.p = 'done'; S.managed = true; S.t = 'home'; S.dev = false; S.wadb = false; S.t1 = Date.now(); S.why = 'done';
         const best = store.get('aio-sim-best') || {};
         if (!best[scen] || S.t1 - S.t0 < best[scen]) { best[scen] = S.t1 - S.t0; store.set('aio-sim-best', best) }
       }
@@ -911,7 +916,7 @@ const COACH = {
   wadbopen: ['Device', 'Tap the words <b>Wireless debugging</b> to open it.', 'd'],
   pair: ['Device', 'Tap <b>Pair device with pairing code</b>. The phone jumps to the code step.', 'd'],
   type: ['Phone', 'Type the six digits the device shows into the phone.', 'p'],
-  work: ['Nobody', 'Hands off. It installs the MDM and checks in.', 'p'],
+  work: ['Nobody', 'Hands off. It installs the MDM, checks in, then turns Developer options off and restarts the device.', 'p'],
   done: ['Done', 'The device is on the MDM and shows "Connected to AIO". Try another scenario.', 'p'],
   nofind: ['Fix', 'The phone can\'t find it: the device is on <b>Guest-WiFi</b> (top of its screen). Tap <b>Cancel</b> first.', 'd'],
   tapwifi: ['Fix', 'Tap the network name at the top of the device and pick <b>Office-WiFi</b>.', 'd'],
