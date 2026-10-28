@@ -434,7 +434,7 @@ html.solo,html.solo body{overflow:auto;height:auto;background:var(--bg)}
 </section>
 
 <!-- 12 ─────────────────────────────── -->
-<section class="s" data-title="Try it" data-notes="<b>Interactive simulator.</b> Show the QR code first: everyone can play it on their own phone at the same time (mdm.dev.aioapp.com/onboarding-demo/try). Run <b>Normal</b> together once on the big screen, then the three that go wrong: <b>Google account on it</b> (the app refuses and asks for a reset), <b>Guest Wi-Fi</b> (the phone never finds it) and <b>Box closed</b> (the code dies). The black bar always says the next move; the side panel says what just happened, the time and the mistakes. The work step and the reset are sped up.">
+<section class="s" data-title="Try it" data-notes="<b>Interactive simulator.</b> Run <b>Normal</b> together once, then the three that go wrong: <b>Google account on it</b> (the app refuses and asks for a reset), <b>Guest Wi-Fi</b> (the phone never finds it) and <b>Box closed</b> (the code dies). The black bar always says the next move; the side panel says what just happened, the time and the mistakes. The work step and the reset are sped up.">
   <div class="sim">
     <div class="coach"><span class="tag" id="cstep">Try it</span><span id="ctext"></span><span class="sp"><button class="btn ghost" id="simreset">Start over</button></span></div>
     <div class="simsw" role="tablist" aria-label="Screen"><button role="tab" data-side="d" aria-selected="true">The device</button><button role="tab" data-side="p" aria-selected="false">Your phone</button></div>
@@ -444,7 +444,6 @@ html.solo,html.solo body{overflow:auto;height:auto;background:var(--bg)}
       <div class="sc"><div class="sl">Scenario</div><div class="scen" id="scen"></div><p id="scdesc"></p></div>
       <div class="sc"><div class="sl">What just happened</div><p id="why"></p></div>
       <div class="sc stats"><div><b id="stime">0:00</b><small>time</small></div><div><b id="smis">0</b><small>mistakes</small></div><div><b id="sbest">–</b><small>your best</small></div></div>
-      <div class="sc qr"><img src="/static/onboarding/try-qr.png" alt="QR code for the practice run"><div><b>Try it on your phone</b><small>mdm.dev.aioapp.com/onboarding-demo/try</small></div></div>
     </aside>
   </div>
 </section>
