@@ -251,7 +251,7 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
 <div id="wrap"><div id="deck">
 
 <!-- 1 ─────────────────────────────── -->
-<section class="s title-s" data-title="Welcome" data-notes="<b>Open (2 min).</b> Who we are, why we're here. Set the tone: nobody needs to know anything technical today. By the end, everyone will have set up a real device themselves.<br>Ask the room: <i>who has installed the AIO app on a new device before?</i> Their pain is our starting point.">
+<section class="s title-s" data-title="Welcome" data-notes="<b>Open (2 min).</b> Who we are, why we're here. Set the tone: nobody needs to know anything technical today. By the end, everyone will have set one up themselves in the simulator.<br>Ask the room: <i>who has installed the AIO app on a new device before?</i> Their pain is our starting point.">
   <img class="mark" src="/static/onboarding/mdm-shield.svg" alt="">
   <p class="kick">Onboarding team session</p>
   <h1>Setting up devices<br>for the AIO MDM</h1>
@@ -260,14 +260,14 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
 </section>
 
 <!-- 2 ─────────────────────────────── -->
-<section class="s" data-title="Today's plan" data-notes="Walk through the plan quickly. Stress that the biggest block is hands-on: everyone sets up a lab device. Questions are welcome at any point.">
+<section class="s" data-title="Today's plan" data-notes="Walk through the plan quickly. The biggest block is trying it yourself in the simulator. Questions are welcome at any point.">
   <p class="kick">Today's plan</p>
-  <h2>45 minutes, mostly hands-on</h2>
+  <h2>45 minutes, with time to try it yourself</h2>
   <div class="ag">
     <div><i>5 min</i>Why every device joins the MDM<small>the problem we're solving</small></div>
     <div><i>8 min</i>How setting up a device works<small>in plain words, no tech</small></div>
     <div><i>5 min</i>Watch it once<small>the 1-minute video</small></div>
-    <div class="hands"><i>15 min</i>Try it yourself<small>on screen, then on a real device</small></div>
+    <div class="hands"><i>15 min</i>Try it yourself<small>on screen, in the simulator</small></div>
     <div><i>5 min</i>When something goes wrong<small>the five usual fixes</small></div>
     <div><i>7 min</i>Quick quiz and questions<small>then a one-page cheat sheet</small></div>
   </div>
@@ -348,34 +348,6 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
   <div class="verdict" id="verdict"></div>
 </section>
 
-<!-- 7 ─────────────────────────────── -->
-<section class="s" data-title="How it works" data-notes="<b>The adb explanation, without saying adb.</b> Click through the six steps. If anyone asks, the technical name is <i>adb</i> (Android Debug Bridge); <i>wireless debugging</i> is the Wi-Fi version of it. They only need to know: it's a locked door, the pairing code is a one-time key, and only the phone you type the code into gets in.">
-  <p class="kick">How it works, in plain words</p>
-  <h2>A hidden service door, and a one-time key</h2>
-  <div class="door">
-    <div>
-      <div class="dots" id="ddots"></div>
-      <div class="say" id="dsay"></div>
-      <div style="display:flex;gap:12px"><button class="btn ghost" id="dprev">Back</button><button class="btn" id="dnext">Next step</button></div>
-    </div>
-    <svg viewBox="0 0 520 420" id="dsvg" aria-hidden="true">
-      <path class="edge" id="e1" d="M140 300 L260 300" stroke-width="5" fill="none"/>
-      <path class="edge" id="e2" d="M380 300 L430 140" stroke-width="5" fill="none"/>
-      <g transform="translate(80 300)"><rect x="-44" y="-80" width="88" height="160" rx="16" fill="#231917"/><rect x="-36" y="-68" width="72" height="136" rx="9" fill="#FFF8F6"/>
-        <text y="-30" text-anchor="middle" font-size="12" fill="#53433F">AIO Enroll</text>
-        <g id="kcode" opacity="0"><rect x="-28" y="-14" width="56" height="26" rx="6" fill="#FFDAD3"/><text y="5" text-anchor="middle" font-size="14" font-weight="600" fill="#C4432A">482 913</text></g>
-        <text y="100" text-anchor="middle" font-size="15" font-weight="600" fill="#231917">Your phone</text></g>
-      <g transform="translate(320 300)"><rect x="-70" y="-56" width="140" height="104" rx="12" fill="#231917"/><rect x="-62" y="-48" width="124" height="88" rx="6" fill="#fff"/>
-        <g id="door"><rect x="-16" y="-30" width="32" height="52" rx="3" fill="#ECD9D3" stroke="#53433F" stroke-width="2"/><circle cx="8" cy="-3" r="2.5" fill="#53433F"/></g>
-        <g id="dlock"><rect x="-8" y="-6" width="16" height="13" rx="2" fill="#C4432A"/><path d="M-5 -6 v-5 a5 5 0 0110 0 v5" stroke="#C4432A" stroke-width="2.5" fill="none"/></g>
-        <g id="dshield" opacity="0"><path d="M0 -26 l18 7 v14 c0 13-8 20-18 25 c-10-5-18-12-18-25 v-14z" fill="#7a80f6"/><circle cy="-4" r="4" fill="#fff"/></g>
-        <text y="76" text-anchor="middle" font-size="15" font-weight="600" fill="#231917">New device</text></g>
-      <g transform="translate(440 110)" id="cloud" opacity=".25"><circle r="46" fill="#f9674e" opacity=".15"/><path d="M0 -24 l20 8 v16 c0 15-9 23-20 28 c-11-5-20-13-20-28 v-16z" fill="none" stroke="#C4432A" stroke-width="4"/><text y="66" text-anchor="middle" font-size="15" font-weight="600" fill="#231917">AIO MDM</text></g>
-      <g id="wifi" transform="translate(200 210)" opacity=".35"><path d="M-30 0 a42 42 0 0160 0 M-18 12 a25 25 0 0136 0" stroke="#53433F" stroke-width="4" fill="none" stroke-linecap="round"/><circle cy="24" r="4" fill="#53433F"/><text y="-20" text-anchor="middle" font-size="13" fill="#53433F">same office Wi-Fi</text></g>
-    </svg>
-  </div>
-</section>
-
 <!-- 8 ─────────────────────────────── -->
 <section class="s" data-title="Words you'll hear" data-notes="Let people click the cards themselves if this is shown on a shared screen, or click the ones that come up in questions. Nobody needs to memorise these.">
   <p class="kick">Words you'll hear</p>
@@ -416,7 +388,7 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
 </section>
 
 <!-- 12 ─────────────────────────────── -->
-<section class="s" data-title="Try it" data-notes="<b>Interactive simulator.</b> Have a volunteer drive it, or click it yourself while the room tells you what to do. The black bar always says the next move. The work step is sped up here. Reset with the button on the right. Then move to real devices (slide 'Hands-on round').">
+<section class="s" data-title="Try it" data-notes="<b>Interactive simulator.</b> Have a volunteer drive it, or click it yourself while the room tells you what to do. The black bar always says the next move. The work step is sped up here. Reset with the button on the right.">
   <div class="sim">
     <div class="coach"><span class="tag" id="cstep">Try it</span><span id="ctext"></span><span class="sp"><button class="btn ghost" id="simreset">Start over</button></span></div>
     <div class="tab"><span class="lab">THE NEW DEVICE</span><div class="tscr" id="tscr"></div></div>
@@ -492,13 +464,6 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
   <p class="kick">Quick quiz</p>
   <h2>Four questions</h2>
   <div class="quiz" id="quiz"></div>
-</section>
-
-<!-- 18 ─────────────────────────────── -->
-<section class="s" data-title="Hands-on round" data-notes="<b>Hands-on (15 min).</b> Pairs: one reads the steps, the other drives. Swap after the first device. Walk the room. Common snags: Google sign-in done by habit (factory reset), phone on the guest Wi-Fi, pairing box closed before the code was typed (just open it again: new code).<br>Ticks on this checklist are kept in this browser only.">
-  <p class="kick">Hands-on round · before the session</p>
-  <h2>Facilitator checklist</h2>
-  <div class="chk" id="chk"></div>
 </section>
 
 <!-- 19 ─────────────────────────────── -->
@@ -600,35 +565,6 @@ function flow(k){
 $$('[data-flow]').forEach(b => b.onclick = () => flow(b.dataset.flow));
 flow('old');
 
-/* ── service door ─────────────────────── */
-const DOOR = [
-  ['Every Android device has a <b>hidden service door</b>, meant for engineers. Out of the box it is hidden and locked.', 'Its real name is Developer options.', {}],
-  ['Tapping <b>Build number 7 times</b> makes the door appear in Settings.', 'Android says "You are now a developer!". That only means the door is visible.', {door: 1}],
-  ['<b>Wireless debugging</b> opens the door, but only to phones on the <b>same Wi-Fi</b>.', 'That\'s why the device and your phone must be on the office Wi-Fi.', {door: 1, wifi: 1}],
-  ['The <b>pairing code</b> is a one-time key. Only the phone you type it into gets in.', 'A new code appears every time the pairing box opens. Old codes stop working.', {door: 1, wifi: 1, key: 1, e1: 'dash'}],
-  ['Through the door, the app installs the <b>AIO MDM</b> and makes it the device\'s manager.', 'Android calls this "Device Owner". Staff can\'t remove it, which is the point.', {door: 1, wifi: 1, key: 1, e1: 'solid', shield: 1}],
-  ['From then on the device talks to the MDM <b>over the internet, from any restaurant</b>. The door isn\'t needed any more.', 'Your phone is out of the picture. The MDM can close the door later.', {shield: 1, e2: 'solid', cloud: 1}],
-];
-let ds = 0;
-function door(){
-  const [say, small, f] = DOOR[ds];
-  $('#ddots').innerHTML = DOOR.map((_, i) => `<i class="${i <= ds ? 'on' : ''}"></i>`).join('');
-  $('#dsay').innerHTML = `${say}<small>${small}</small>`;
-  $('#door').style.opacity = f.door ? 1 : .15;
-  $('#dlock').style.opacity = f.door && !f.key ? 1 : f.door ? 0 : .5;
-  $('#dshield').style.opacity = f.shield ? 1 : 0;
-  if (f.shield) $('#door').style.opacity = 0;
-  $('#wifi').style.opacity = f.wifi ? 1 : .2;
-  $('#kcode').style.opacity = f.key ? 1 : 0;
-  $('#cloud').style.opacity = f.cloud ? 1 : .25;
-  const edge = (id, m) => { const e = $(id); e.style.stroke = m ? '#C4432A' : '#ECD9D3'; e.style.strokeDasharray = m === 'dash' ? '8 8' : m ? 'none' : '4 10'; };
-  edge('#e1', f.e1); edge('#e2', f.e2);
-  $('#dprev').disabled = ds === 0;
-  $('#dnext').textContent = ds === DOOR.length - 1 ? 'From the start' : 'Next step';
-}
-$('#dnext').onclick = () => { ds = ds === DOOR.length - 1 ? 0 : ds + 1; door() };
-$('#dprev').onclick = () => { if (ds) { ds--; door() } };
-door();
 
 /* ── glossary ─────────────────────────── */
 const GLOSS = [
@@ -686,20 +622,6 @@ $$('#quiz .qz').forEach(card => {
   });
 });
 
-/* ── facilitator checklist ────────────── */
-const CHK = [
-  'AIO Enroll installed on every attendee\'s phone (Android 11 or newer)',
-  'An MDM account for each attendee, and they\'ve signed in to the app',
-  'One lab device per pair, factory reset, still on its first setup screen',
-  'Office Wi-Fi name and password on the whiteboard (not the guest network)',
-  'Check before the session: the app finds a device on that Wi-Fi',
-  'Somebody from the MDM team in the room for venue / type questions',
-  'Afterwards: share the video link and this cheat sheet',
-  'Afterwards: check every lab device shows up on the MDM',
-];
-const done = store.get('aio-session-chk') || {};
-$('#chk').innerHTML = CHK.map((t, i) => `<label><input type="checkbox" data-i="${i}" ${done[i] ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('');
-$$('#chk input').forEach(c => c.onchange = () => { done[c.dataset.i] = c.checked; store.set('aio-session-chk', done) });
 
 /* ── simulator ────────────────────────── */
 const IP = '10.32.1.84', NAME = 'D3 Pro';
