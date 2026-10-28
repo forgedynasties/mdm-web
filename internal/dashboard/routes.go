@@ -39,6 +39,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	}
 	mux.HandleFunc("GET /onboarding-demo", onboarding)
 	mux.HandleFunc("GET /onboarding-demo/try", onboarding)
+	// Open to everyone, signed in or not; a trailing slash lands on the page too.
+	mux.HandleFunc("GET /onboarding-demo/{$}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/onboarding-demo", http.StatusMovedPermanently)
+	})
+	mux.HandleFunc("GET /onboarding-demo/try/{$}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/onboarding-demo/try", http.StatusMovedPermanently)
+	})
 	mux.HandleFunc("GET /sneak-peek", h.SneakPeek)
 	mux.HandleFunc("GET /sneak-peek/alerts", h.SneakPeekAlerts)
 	mux.HandleFunc("GET /sneak-peek/fleet", h.SneakPeekFleet)

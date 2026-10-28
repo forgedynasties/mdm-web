@@ -191,7 +191,9 @@ func LostConfigKeys(c LostConfig, phone string) map[string]any {
 	if pin == "" {
 		pin = DefaultStaffPIN
 	}
-	out["offline_exit"] = map[string]any{"pin": pin}
+	// venue names whose PIN the pad wants (Standard client 0.13.0's U1 screen; the firmware
+	// client reads it from its guest info). Clients that don't know the key ignore it.
+	out["offline_exit"] = map[string]any{"pin": pin, "venue": c.Venue}
 	if c.DPC {
 		return out
 	}

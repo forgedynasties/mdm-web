@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -71,4 +73,20 @@ func packageSource() ([]byte, error) {
 		out = append(append(out, b...), '\n')
 	}
 	return out, nil
+}
+
+// The onboarding session is public: no session needed, and a trailing slash still lands on it.
+func TestOnboardingDemoIsPublic(t *testing.T) {
+	mux := http.NewServeMux()
+	(&Handler{}).RegisterRoutes(mux)
+	for path, want := range map[string]int{
+		"/onboarding-demo/":     http.StatusMovedPermanently,
+		"/onboarding-demo/try/": http.StatusMovedPermanently,
+	} {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+		if rec.Code != want {
+			t.Errorf("%s: %d, want %d", path, rec.Code, want)
+		}
+	}
 }
