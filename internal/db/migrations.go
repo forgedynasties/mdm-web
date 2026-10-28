@@ -1263,6 +1263,10 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS user_tokens_user_id_idx ON user_tokens (user_id);
+-- Invites (U1, 20 Oct 2026) store an 'invite' token, which this check refused, so every
+-- invite created the account and then failed before the email (found 28 Oct 2026).
+ALTER TABLE user_tokens DROP CONSTRAINT IF EXISTS user_tokens_purpose_check;
+ALTER TABLE user_tokens ADD CONSTRAINT user_tokens_purpose_check CHECK (purpose IN ('verify','reset','invite'));
 
 -- "Tester" role renamed to "operator": there's no separate testing workflow left
 -- in MDM, and "operator" is already the term used everywhere else (canOperate,
