@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AIO MDM onboarding session</title>
+<link rel="icon" href="/static/onboarding/mdm-shield.svg">
+<style>
+@font-face{font-family:Plex;src:url(/static/fonts/IBMPlexSans-400-latin.woff2) format("woff2");font-weight:400}
+@font-face{font-family:Plex;src:url(/static/fonts/IBMPlexSans-500-latin.woff2) format("woff2");font-weight:500}
+@font-face{font-family:Plex;src:url(/static/fonts/IBMPlexSans-600-latin.woff2) format("woff2");font-weight:600}
+:root{
+  --p:#C4432A;--pf:#cf4529;--pc:#FFDAD3;--onpc:#3D0700;--bg:#FFF8F6;--on:#231917;--onv:#53433F;
+  --low:#FDEEE9;--c:#F8E5DF;--hi:#ECD9D3;--outline:#D8C2BC;--ok:#1B6C3C;--okc:#B8F1C7;
+  --vi:#7a80f6;--bad:#a8281e;--badc:#ffdad6;--and:#6750a4;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#2a1f1c;font-family:Plex,system-ui,sans-serif;color:var(--on);overflow:hidden}
+button{font:inherit;color:inherit;cursor:pointer}
+#wrap{position:fixed;inset:0;display:grid;place-items:center}
+#deck{position:relative;width:1600px;height:900px;transform-origin:center;flex:none}
+.s{position:absolute;inset:0;padding:70px 90px 90px;display:none;flex-direction:column;
+  background:radial-gradient(1100px 650px at 25% 15%,#fff 0%,#fbefe9 60%,#f6e3db 100%);overflow:hidden}
+.s.on{display:flex;animation:in .35s ease}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.brand{position:absolute;left:90px;bottom:34px;display:flex;align-items:center;gap:10px;font-size:16px;color:var(--onv)}
+.brand img{width:24px;height:24px}
+.kick{font-size:20px;font-weight:600;color:var(--p);letter-spacing:.04em;text-transform:uppercase;margin:0 0 12px}
+h1{font-size:64px;font-weight:600;line-height:1.08;margin:0 0 18px;letter-spacing:-.01em}
+h2{font-size:48px;font-weight:600;line-height:1.12;margin:0 0 26px;letter-spacing:-.01em}
+h3{font-size:26px;font-weight:600;margin:0 0 8px}
+p,li{font-size:24px;line-height:1.45}
+p{margin:0 0 14px}
+.lead{font-size:30px;color:var(--onv);max-width:1150px;line-height:1.4}
+.muted{color:var(--onv)}
+.card{background:#fff;border:1px solid var(--outline);border-radius:22px;padding:24px 28px}
+.grid{display:grid;gap:22px}
+.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+.tag{display:inline-block;font-size:16px;font-weight:600;padding:4px 12px;border-radius:99px;background:var(--pc);color:var(--onpc)}
+.tag.ok{background:var(--okc);color:#00391b}
+.btn{border:0;border-radius:99px;padding:14px 28px;font-size:20px;font-weight:500;background:var(--pf);color:#fff}
+.btn.ghost{background:#fff;color:var(--p);border:1.5px solid var(--outline)}
+.btn:focus-visible,.opt:focus-visible,.sym:focus-visible,.flip:focus-visible{outline:3px solid var(--vi);outline-offset:3px}
+.ico{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;background:var(--pc);color:var(--p);margin-bottom:14px}
+.ico svg{width:30px;height:30px}
+
+/* nav */
+#nav{position:fixed;right:18px;bottom:16px;display:flex;align-items:center;gap:8px;z-index:20;
+  background:rgba(35,25,23,.82);backdrop-filter:blur(8px);padding:6px;border-radius:99px;color:#fff}
+#nav button{background:none;border:0;color:#fff;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:18px}
+#nav button:hover{background:rgba(255,255,255,.14)}
+#nav button.txt{width:auto;padding:0 14px;border-radius:99px;font-size:14px}
+#ctr{font-size:14px;min-width:54px;text-align:center;font-variant-numeric:tabular-nums}
+#bar{position:fixed;left:0;top:0;height:4px;background:var(--pf);z-index:20;transition:width .3s}
+#notes{position:fixed;left:16px;right:16px;bottom:70px;max-height:42vh;overflow:auto;z-index:19;display:none;
+  background:rgba(35,25,23,.94);color:#fbeee9;border-radius:18px;padding:18px 24px;font-size:17px;line-height:1.5}
+#notes.on{display:block}
+#notes b{color:#ffb4a5}
+
+/* title */
+.title-s{justify-content:center}
+.title-s .mark{width:120px;height:120px;margin-bottom:34px}
+.title-s .meta{margin-top:34px;display:flex;gap:16px;font-size:20px;color:var(--onv)}
+
+/* agenda */
+.ag{display:flex;flex-direction:column;gap:12px;max-width:1100px}
+.ag div{display:grid;grid-template-columns:110px 1fr auto;align-items:center;gap:20px;background:#fff;border:1px solid var(--outline);border-radius:18px;padding:16px 24px;font-size:26px}
+.ag i{font-style:normal;font-weight:600;color:var(--p);font-size:22px}
+.ag small{font-size:19px;color:var(--onv)}
+.ag .hands{background:var(--pc);border-color:transparent}
+
+/* why */
+.why{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center;flex:1}
+.why svg{width:100%;height:auto}
+
+/* old vs new */
+.seg{display:inline-flex;background:#fff;border:1px solid var(--outline);border-radius:99px;padding:5px;margin-bottom:26px}
+.seg button{border:0;background:none;border-radius:99px;padding:12px 26px;font-size:20px;font-weight:500;color:var(--onv)}
+.seg button[aria-pressed=true]{background:var(--pf);color:#fff}
+.flow{display:flex;gap:14px;align-items:stretch}
+.flow .st{flex:1;background:#fff;border:1px solid var(--outline);border-radius:20px;padding:20px;font-size:21px;line-height:1.35;position:relative}
+.flow .st b{display:block;font-size:15px;color:var(--onv);font-weight:600;margin-bottom:8px;letter-spacing:.04em}
+.flow .st.bad{background:var(--badc);border-color:transparent}
+.flow .st.good{background:var(--okc);border-color:transparent}
+.flow .st.auto{border-style:dashed;background:transparent}
+.verdict{margin-top:26px;font-size:24px;display:flex;gap:14px;align-items:center}
+
+/* adb door */
+.door{display:grid;grid-template-columns:1fr 640px;gap:40px;flex:1;align-items:center}
+.door svg{width:100%}
+.door .say{font-size:30px;line-height:1.38;min-height:170px}
+.door .say small{display:block;font-size:20px;color:var(--onv);margin-top:12px}
+.dots{display:flex;gap:8px;margin:18px 0 24px}
+.dots i{width:34px;height:6px;border-radius:3px;background:var(--hi)}
+.dots i.on{background:var(--pf)}
+.edge{transition:all .4s}
+
+/* glossary */
+.flip{border:1px solid var(--outline);background:#fff;border-radius:20px;padding:22px 24px;text-align:left;min-height:178px;display:flex;flex-direction:column;justify-content:flex-start}
+.flip h3{font-size:25px;margin-bottom:6px}
+.flip .q{font-size:17px;color:var(--onv);margin-top:auto}
+.flip .a{display:none;font-size:19px;line-height:1.42;color:var(--on)}
+.flip.open{background:var(--low);border-color:var(--p)}
+.flip.open .a{display:block}.flip.open .q{display:none}
+
+/* 4 steps */
+.steps4{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:10px}
+.steps4 .card{position:relative;padding-top:66px}
+.steps4 .n{position:absolute;left:28px;top:22px;width:34px;height:34px;border-radius:50%;background:var(--pf);color:#fff;font-weight:600;display:grid;place-items:center;font-size:18px}
+.steps4 .who{font-size:15px;font-weight:600;color:var(--onv);letter-spacing:.05em;margin-bottom:6px}
+.steps4 p{font-size:21px}
+.steps4 .t{position:absolute;right:24px;top:24px;font-size:16px;color:var(--onv)}
+
+/* video */
+video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:0 20px 50px rgba(60,20,10,.2)}
+
+/* rules */
+.rules{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.rules .card{padding:28px}
+.rules .big{font-size:28px;font-weight:600;margin-bottom:10px;line-height:1.25}
+.rules p{font-size:21px;color:var(--onv)}
+.warn{margin-top:26px;background:var(--badc);border-radius:20px;padding:20px 26px;font-size:22px;display:flex;gap:16px;align-items:flex-start}
+.warn b{color:var(--bad)}
+
+/* simulator */
+.sim{display:grid;grid-template-columns:720px 1fr;gap:34px;flex:1;align-items:start}
+.coach{grid-column:1/-1;display:flex;align-items:center;gap:16px;background:#231917;color:#fff;border-radius:18px;padding:14px 22px;font-size:21px;min-height:60px}
+.coach .tag{background:var(--pf);color:#fff}
+.coach .sp{margin-left:auto;display:flex;gap:10px}
+.coach .btn{padding:8px 18px;font-size:16px}
+.tab{width:720px;height:470px;border-radius:30px;background:#1b1b1d;padding:20px;box-shadow:0 24px 50px rgba(60,20,10,.22);position:relative}
+.tab .lab,.phone .lab{position:absolute;top:-30px;left:6px;font-size:16px;font-weight:600;color:var(--onv);letter-spacing:.04em}
+.tscr{position:relative;width:100%;height:100%;border-radius:10px;overflow:hidden;background:#fff;color:#1d1b20}
+.tscr .bar{height:30px;background:#f3eef4;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:13px;color:#49454f}
+.tscr .hd{display:flex;align-items:center;gap:12px;padding:14px 20px 6px;font-size:26px}
+.tscr .hd button{border:0;background:none;font-size:24px;width:36px;height:36px;border-radius:50%}
+.tscr .hd button:hover{background:#eee}
+.tr{display:flex;align-items:center;justify-content:space-between;margin:0 18px;padding:12px 10px;border-bottom:1px solid #eee5ef;font-size:18px;cursor:pointer;border-radius:10px;width:calc(100% - 36px);background:none;border-left:0;border-right:0;border-top:0;text-align:left}
+.tr:hover{background:#f6f1f8}
+.tr small{display:block;font-size:13px;color:#6b6570;margin-top:2px}
+.tr.ro{cursor:default}.tr.ro:hover{background:none}
+.tr.pulse{animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{background:none}50%{background:#efe4ff}}
+.sw{display:inline-block;width:46px;height:26px;border-radius:13px;background:#cac4d0;position:relative;flex:none;transition:.2s}
+.sw i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{background:var(--and)}.sw.on i{left:23px}
+.tlist{overflow:auto;height:calc(100% - 82px)}
+.ttoast{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);background:#313033;color:#f4eff4;padding:10px 18px;border-radius:10px;font-size:15px;white-space:nowrap;opacity:0;transition:opacity .2s;pointer-events:none}
+.ttoast.on{opacity:1}
+.tdlg{position:absolute;inset:0;background:rgba(0,0,0,.38);display:none;align-items:center;justify-content:center}
+.tdlg.on{display:flex}
+.tdlg .box{background:#f3edf7;border-radius:22px;padding:22px 26px;width:420px;font-size:16px}
+.tdlg h4{margin:0 0 10px;font-size:22px;font-weight:500}
+.tdlg .acts{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+.tdlg .acts button{border:0;background:none;color:var(--and);font-weight:500;font-size:16px;padding:8px 12px;border-radius:99px}
+.tdlg .acts button:hover{background:#e8def8}
+.bigc{font-size:42px;font-weight:600;letter-spacing:.1em;color:var(--and);margin:4px 0 8px}
+.home{background:linear-gradient(160deg,#30475e,#1f2b38);height:100%;display:flex;align-items:center;justify-content:center;gap:40px}
+.home button{border:0;background:none;color:#fff;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:15px}
+.home button i{width:68px;height:68px;border-radius:20px;display:grid;place-items:center;font-style:normal;font-size:30px}
+.mgd{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#fff;text-align:center}
+.mgd img{width:90px}
+.mgd b{font-size:26px;font-weight:500}
+.mgd span{font-size:16px;color:#6b6570}
+
+.phone{width:300px;height:600px;border-radius:44px;background:#1b1b1d;padding:12px;box-shadow:0 24px 50px rgba(60,20,10,.22);position:relative;justify-self:start}
+.pscr{width:100%;height:100%;border-radius:33px;overflow:hidden;background:var(--bg);padding:40px 20px 20px;display:flex;flex-direction:column;font-size:14px;position:relative}
+.pscr .stp{font-size:12px;color:var(--onv)}
+.pscr .prog{height:5px;border-radius:3px;background:var(--pc);margin:7px 0 0;overflow:hidden}
+.pscr .prog i{display:block;height:100%;background:var(--p);transition:width .3s}
+.pscr h5{font-size:21px;font-weight:500;margin:18px 0 12px;line-height:1.22}
+.pscr p{font-size:13.5px;color:var(--onv);line-height:1.45;margin:0 0 8px}
+.pn{display:flex;gap:9px;margin:6px 0;font-size:13.5px;line-height:1.35}
+.pn b{flex:none;width:20px;height:20px;border-radius:50%;background:var(--p);color:#fff;display:grid;place-items:center;font-size:11px}
+.pb{margin-top:auto;height:46px;border-radius:23px;background:var(--pf);color:#fff;border:0;font-size:15px;font-weight:500;width:100%}
+.pb.ghost{background:none;color:var(--p);margin-top:6px}
+.plink{background:none;border:0;color:var(--p);font-size:13px;text-align:left;padding:6px 0;text-decoration:underline}
+.spin{display:flex;gap:10px;align-items:center;font-size:13.5px;color:var(--onv);margin-top:12px}
+.spin i{width:16px;height:16px;border:2.5px solid var(--pc);border-top-color:var(--p);border-radius:50%;animation:rot 1s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.boxes{display:flex;gap:6px;margin:10px 0 6px}
+.boxes span{width:36px;height:46px;border-radius:10px;border:1.5px solid var(--outline);background:#fff;display:grid;place-items:center;font-size:22px;font-weight:600}
+.boxes span.cur{border-color:var(--p);box-shadow:0 0 0 2px var(--pc)}
+.codein{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+.perr{color:var(--bad);font-size:13px;min-height:18px}
+.phase{display:flex;gap:10px;align-items:center;font-size:14.5px;margin:9px 0;color:var(--onv)}
+.phase i{width:20px;height:20px;border-radius:50%;border:2px solid var(--outline);flex:none;display:grid;place-items:center;font-style:normal;font-size:12px;color:#fff}
+.phase.run i{border-color:var(--pc);border-top-color:var(--p);animation:rot 1s linear infinite}
+.phase.ok{color:var(--on)}.phase.ok i{background:var(--ok);border-color:var(--ok)}
+.okbig{width:64px;height:64px;border-radius:50%;background:var(--okc);color:var(--ok);display:grid;place-items:center;font-size:34px;margin:18px 0 0}
+.phead{font-size:22px;font-weight:600;margin:6px 0 4px}
+.ptoday{margin-top:18px;background:var(--low);border-radius:16px;padding:12px 14px;font-size:13px;color:var(--onv)}
+
+/* two at once */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:30px;flex:1}
+.mini{background:#fff;border:1px solid var(--outline);border-radius:22px;padding:22px 26px}
+.mini .ph{background:var(--bg);border-radius:16px;padding:16px;margin-top:14px;font-size:17px;border:1px solid var(--hi)}
+.mini .ph .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--hi)}
+.mini .ph .row:last-child{border:0}
+.mini .ph b{color:var(--p)}
+
+/* troubleshoot */
+.ts{display:grid;grid-template-columns:560px 1fr;gap:30px;flex:1;min-height:0}
+.syms{display:flex;flex-direction:column;gap:9px;overflow:auto}
+.sym{border:1px solid var(--outline);background:#fff;border-radius:16px;padding:13px 18px;text-align:left;font-size:19px}
+.sym[aria-pressed=true]{background:var(--pf);color:#fff;border-color:var(--pf)}
+.ans{background:#fff;border-radius:22px;padding:30px 34px;border:1px solid var(--outline)}
+.ans .says{font-size:17px;color:var(--onv);background:var(--low);border-radius:12px;padding:10px 14px;margin:0 0 18px;font-style:italic}
+.ans ol{margin:0;padding-left:26px}
+.ans li{font-size:22px;margin:8px 0}
+
+/* after */
+.tl{display:flex;gap:0;margin-top:20px;position:relative}
+.tl::before{content:"";position:absolute;left:40px;right:40px;top:30px;height:3px;background:var(--hi)}
+.tl div{flex:1;position:relative;padding:0 14px;text-align:center}
+.tl .dot{width:60px;height:60px;border-radius:50%;margin:0 auto 16px;display:grid;place-items:center;background:#fff;border:3px solid var(--outline);font-weight:600;font-size:20px;position:relative}
+.tl .you .dot{background:var(--pf);color:#fff;border-color:var(--pf)}
+.tl .auto .dot{border-style:dashed}
+.tl h3{font-size:22px}
+.tl p{font-size:18px;color:var(--onv)}
+.tl .who{font-size:14px;font-weight:600;letter-spacing:.05em;color:var(--p);margin-bottom:4px}
+
+/* who */
+.who2{display:grid;grid-template-columns:1fr 1fr;gap:30px}
+.who2 ul{margin:10px 0 0;padding-left:24px}
+.who2 li{font-size:22px;margin:7px 0}
+.who2 .card.us{background:var(--pc);border-color:transparent}
+
+/* quiz */
+.quiz{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.qz h3{font-size:22px;line-height:1.3;margin-bottom:12px}
+.opt{display:block;width:100%;text-align:left;border:1px solid var(--outline);background:#fff;border-radius:12px;padding:10px 14px;font-size:18px;margin:6px 0}
+.opt.right{background:var(--okc);border-color:var(--ok)}
+.opt.wrong{background:var(--badc);border-color:var(--bad)}
+.why2{font-size:16px;color:var(--onv);min-height:22px;margin-top:6px}
+
+/* checklist */
+.chk{display:grid;grid-template-columns:1fr 1fr;gap:12px 30px}
+.chk label{display:flex;gap:14px;align-items:flex-start;font-size:21px;line-height:1.35;background:#fff;border:1px solid var(--outline);border-radius:16px;padding:14px 18px;cursor:pointer}
+.chk input{width:22px;height:22px;accent-color:var(--pf);flex:none;margin-top:3px}
+.chk label:has(input:checked){background:var(--okc);border-color:transparent}
+
+.cheat{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.cheat .card{padding:26px}
+.cheat ol{margin:6px 0 0;padding-left:22px}
+.cheat li{font-size:20px;margin:5px 0}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="wrap"><div id="deck">
+
+<!-- 1 ─────────────────────────────── -->
+<section class="s title-s" data-title="Welcome" data-notes="<b>Open (2 min).</b> Who we are, why we're here. Set the tone: nobody needs to know anything technical today. By the end, everyone will have set up a real device themselves.<br>Ask the room: <i>who has installed the AIO app on a new device before?</i> Their pain is our starting point.">
+  <img class="mark" src="/static/onboarding/mdm-shield.svg" alt="">
+  <p class="kick">Onboarding team session</p>
+  <h1>Setting up devices<br>for the AIO MDM</h1>
+  <p class="lead">What the MDM is, why every device has to join it, and how the AIO Enroll app does it in about two minutes per device.</p>
+  <div class="meta"><span>45 minutes</span><span>·</span><span>Bring your phone</span><span>·</span><span>No technical knowledge needed</span></div>
+</section>
+
+<!-- 2 ─────────────────────────────── -->
+<section class="s" data-title="Today's plan" data-notes="Walk through the plan quickly. Stress that the biggest block is hands-on: everyone sets up a lab device. Questions are welcome at any point.">
+  <p class="kick">Today's plan</p>
+  <h2>45 minutes, mostly hands-on</h2>
+  <div class="ag">
+    <div><i>5 min</i>Why every device joins the MDM<small>the problem we're solving</small></div>
+    <div><i>8 min</i>How setting up a device works<small>in plain words, no tech</small></div>
+    <div><i>5 min</i>Watch it once<small>the 1-minute video</small></div>
+    <div class="hands"><i>15 min</i>Try it yourself<small>on screen, then on a real device</small></div>
+    <div><i>5 min</i>When something goes wrong<small>the five usual fixes</small></div>
+    <div><i>7 min</i>Quick quiz and questions<small>then a one-page cheat sheet</small></div>
+  </div>
+</section>
+
+<!-- 3 ─────────────────────────────── -->
+<section class="s" data-title="Why" data-notes="<b>The core idea.</b> Today, a device leaves the office and it's gone: if a screen freezes in a restaurant, someone has to drive there or talk the staff through it on the phone.<br>The MDM is a control room for every device we ship. The one rule that makes it work: <b>a device must join it before it leaves the office</b>. That's this team's job from now on.">
+  <p class="kick">Why</p>
+  <h2>Once a device leaves the office,<br>we can't reach it. Unless…</h2>
+  <div class="why">
+    <div>
+      <p class="lead" style="font-size:27px">The <b>AIO MDM</b> (Mobile Device Management) is our control room for every device in every restaurant.</p>
+      <p style="font-size:24px">It's how support sees a frozen screen in Las Vegas from the office, and fixes it, without a drive or a phone call.</p>
+      <p style="font-size:24px">It only works for devices that <b>joined it</b>. And the easiest place to join is here, in the office, before they're boxed up.</p>
+    </div>
+    <svg viewBox="0 0 600 420" aria-label="The MDM in the office connected to devices in several restaurants">
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a80f6"/><stop offset="1" stop-color="#f9674e"/></linearGradient></defs>
+      <g stroke="#c4432a" stroke-width="2.5" stroke-dasharray="6 7" fill="none" opacity=".55">
+        <path d="M300 210 L110 80"/><path d="M300 210 L500 70"/><path d="M300 210 L90 340"/><path d="M300 210 L510 340"/>
+      </g>
+      <circle cx="300" cy="210" r="78" fill="url(#sg)"/>
+      <path d="M300 170 l32 12 v26 c0 22-14 36-32 44 c-18-8-32-22-32-44 v-26z" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>
+      <circle cx="300" cy="208" r="7" fill="#fff"/>
+      <text x="300" y="318" text-anchor="middle" font-size="20" font-weight="600" fill="#231917">AIO MDM</text>
+      <g font-size="15" fill="#53433F" text-anchor="middle">
+        <g transform="translate(110 70)"><rect x="-56" y="-38" width="112" height="70" rx="12" fill="#fff" stroke="#D8C2BC"/><text y="-8">🍔 Restaurant</text><text y="14" font-size="13">POS · KDS · menu</text></g>
+        <g transform="translate(500 60)"><rect x="-56" y="-38" width="112" height="70" rx="12" fill="#fff" stroke="#D8C2BC"/><text y="-8">🌮 Restaurant</text><text y="14" font-size="13">kiosks · tablets</text></g>
+        <g transform="translate(90 350)"><rect x="-56" y="-38" width="112" height="70" rx="12" fill="#fff" stroke="#D8C2BC"/><text y="-8">🍕 Restaurant</text><text y="14" font-size="13">menu boards</text></g>
+        <g transform="translate(510 350)"><rect x="-56" y="-38" width="112" height="70" rx="12" fill="#fff" stroke="#D8C2BC"/><text y="-8">🍜 Restaurant</text><text y="14" font-size="13">POS · tablets</text></g>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- 4 ─────────────────────────────── -->
+<section class="s" data-title="What the MDM does" data-notes="Keep this light: the team doesn't run these features, but knowing them explains why joining matters. A good line: <i>every device you set up today is one we never have to drive to.</i>">
+  <p class="kick">What the MDM does</p>
+  <h2>What we can do once a device has joined</h2>
+  <div class="grid g3">
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>See it</h3><p class="muted">Online or not, battery, Wi-Fi, where it is, which app is on screen.</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg></div><h3>Update it</h3><p class="muted">Installs and updates the restaurant's app by itself. No one touches the device.</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg></div><h3>Lock it</h3><p class="muted">Keeps the device on the restaurant's app, so guests and staff can't wander off into Settings.</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></div><h3>Fix it remotely</h3><p class="muted">See its screen, tap on it, restart it, from the office.</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg></div><h3>Get warned</h3><p class="muted">Alerts when a device goes offline in service hours, overheats or keeps crashing.</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6-7-11a7 7 0 0114 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div><h3>Find it</h3><p class="muted">Notices when a device leaves its restaurant, and can lock it if it's lost.</p></div>
+  </div>
+</section>
+
+<!-- 5 ─────────────────────────────── -->
+<section class="s" data-title="Two kinds of devices" data-notes="Important so nobody tries to 'enroll' a T7 or one of our kiosks. Our own hardware runs our own software, and the MDM is already inside it. Everything we <i>buy</i> (Sunmi POS, KDS screens, TV boxes for menu boards, payment terminals, stock tablets) needs the app.">
+  <p class="kick">Which devices</p>
+  <h2>Two kinds of devices</h2>
+  <div class="grid g2" style="gap:30px">
+    <div class="card" style="padding:32px">
+      <span class="tag ok">Nothing to do</span>
+      <h3 style="font-size:32px;margin:16px 0 10px">Our own hardware</h3>
+      <p class="muted">Tableside AI tablets (T7) and our Kiosk 18 / 22 / 27 panels.</p>
+      <p>The MDM is <b>built into</b> their software. Turn them on, connect Wi-Fi, and they join by themselves.</p>
+    </div>
+    <div class="card" style="padding:32px;border:2px solid var(--p)">
+      <span class="tag">Use AIO Enroll</span>
+      <h3 style="font-size:32px;margin:16px 0 10px">Devices we buy</h3>
+      <p class="muted">POS terminals, kitchen displays, menu-board TV boxes, handhelds, payment terminals, ordinary tablets.</p>
+      <p>They come with plain Android, so they don't know the MDM. <b>The AIO Enroll app introduces them.</b> That's what we practise today.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 ─────────────────────────────── -->
+<section class="s" data-title="Old way vs new way" data-notes="Click between the two. The new way is <b>shorter</b> and ends with the device on the MDM. Point out the dashed cards: things that now happen <i>by themselves</i>. The restaurant app is no longer installed by hand at all.">
+  <p class="kick">What changes for you</p>
+  <h2>Today vs from now on</h2>
+  <div><div class="seg" role="group" aria-label="Which flow">
+    <button aria-pressed="true" data-flow="old">Today</button>
+    <button aria-pressed="false" data-flow="new">From now on</button>
+  </div></div>
+  <div class="flow" id="flow"></div>
+  <div class="verdict" id="verdict"></div>
+</section>
+
+<!-- 7 ─────────────────────────────── -->
+<section class="s" data-title="How it works" data-notes="<b>The adb explanation, without saying adb.</b> Click through the six steps. If anyone asks, the technical name is <i>adb</i> (Android Debug Bridge); <i>wireless debugging</i> is the Wi-Fi version of it. They only need to know: it's a locked door, the pairing code is a one-time key, and only the phone you type the code into gets in.">
+  <p class="kick">How it works, in plain words</p>
+  <h2>A hidden service door, and a one-time key</h2>
+  <div class="door">
+    <div>
+      <div class="dots" id="ddots"></div>
+      <div class="say" id="dsay"></div>
+      <div style="display:flex;gap:12px"><button class="btn ghost" id="dprev">Back</button><button class="btn" id="dnext">Next step</button></div>
+    </div>
+    <svg viewBox="0 0 520 420" id="dsvg" aria-hidden="true">
+      <path class="edge" id="e1" d="M140 300 L260 300" stroke-width="5" fill="none"/>
+      <path class="edge" id="e2" d="M380 300 L430 140" stroke-width="5" fill="none"/>
+      <g transform="translate(80 300)"><rect x="-44" y="-80" width="88" height="160" rx="16" fill="#231917"/><rect x="-36" y="-68" width="72" height="136" rx="9" fill="#FFF8F6"/>
+        <text y="-30" text-anchor="middle" font-size="12" fill="#53433F">AIO Enroll</text>
+        <g id="kcode" opacity="0"><rect x="-28" y="-14" width="56" height="26" rx="6" fill="#FFDAD3"/><text y="5" text-anchor="middle" font-size="14" font-weight="600" fill="#C4432A">482 913</text></g>
+        <text y="100" text-anchor="middle" font-size="15" font-weight="600" fill="#231917">Your phone</text></g>
+      <g transform="translate(320 300)"><rect x="-70" y="-56" width="140" height="104" rx="12" fill="#231917"/><rect x="-62" y="-48" width="124" height="88" rx="6" fill="#fff"/>
+        <g id="door"><rect x="-16" y="-30" width="32" height="52" rx="3" fill="#ECD9D3" stroke="#53433F" stroke-width="2"/><circle cx="8" cy="-3" r="2.5" fill="#53433F"/></g>
+        <g id="dlock"><rect x="-8" y="-6" width="16" height="13" rx="2" fill="#C4432A"/><path d="M-5 -6 v-5 a5 5 0 0110 0 v5" stroke="#C4432A" stroke-width="2.5" fill="none"/></g>
+        <g id="dshield" opacity="0"><path d="M0 -26 l18 7 v14 c0 13-8 20-18 25 c-10-5-18-12-18-25 v-14z" fill="#7a80f6"/><circle cy="-4" r="4" fill="#fff"/></g>
+        <text y="76" text-anchor="middle" font-size="15" font-weight="600" fill="#231917">New device</text></g>
+      <g transform="translate(440 110)" id="cloud" opacity=".25"><circle r="46" fill="#f9674e" opacity=".15"/><path d="M0 -24 l20 8 v16 c0 15-9 23-20 28 c-11-5-20-13-20-28 v-16z" fill="none" stroke="#C4432A" stroke-width="4"/><text y="66" text-anchor="middle" font-size="15" font-weight="600" fill="#231917">AIO MDM</text></g>
+      <g id="wifi" transform="translate(200 210)" opacity=".35"><path d="M-30 0 a42 42 0 0160 0 M-18 12 a25 25 0 0136 0" stroke="#53433F" stroke-width="4" fill="none" stroke-linecap="round"/><circle cy="24" r="4" fill="#53433F"/><text y="-20" text-anchor="middle" font-size="13" fill="#53433F">same office Wi-Fi</text></g>
+    </svg>
+  </div>
+</section>
+
+<!-- 8 ─────────────────────────────── -->
+<section class="s" data-title="Words you'll hear" data-notes="Let people click the cards themselves if this is shown on a shared screen, or click the ones that come up in questions. Nobody needs to memorise these.">
+  <p class="kick">Words you'll hear</p>
+  <h2>Eight words, in plain English <span style="font-size:22px;font-weight:400;color:var(--onv)">(click a card)</span></h2>
+  <div class="grid g4" id="gloss"></div>
+</section>
+
+<!-- 9 ─────────────────────────────── -->
+<section class="s" data-title="Four steps" data-notes="The whole job in four steps. Only step 1 and 2 involve touching the new device. Step 3 is reading six digits. Step 4 is waiting. About two minutes per device once you've done it twice.">
+  <p class="kick">The whole job</p>
+  <h2>Four steps, about two minutes</h2>
+  <div class="steps4">
+    <div class="card"><span class="n">1</span><span class="t">~30 s</span><div class="who">NEW DEVICE</div><h3>Get it ready</h3><p class="muted">Turn on, join the office Wi-Fi, <b>skip the Google account</b>.</p></div>
+    <div class="card"><span class="n">2</span><span class="t">~40 s</span><div class="who">NEW DEVICE</div><h3>Open the door</h3><p class="muted">Tap Build number 7 times, turn on Wireless debugging, open "Pair with pairing code".</p></div>
+    <div class="card"><span class="n">3</span><span class="t">~10 s</span><div class="who">YOUR PHONE</div><h3>Type the code</h3><p class="muted">The app finds the device by itself. Type the 6 digits the device shows.</p></div>
+    <div class="card"><span class="n">4</span><span class="t">~1 min</span><div class="who">NOBODY</div><h3>Wait</h3><p class="muted">The app installs the MDM and checks in. Green tick = done. Leave it alone till then.</p></div>
+  </div>
+  <p class="lead" style="margin-top:34px;font-size:24px">No choosing restaurants or device types in the app. That's decided on the MDM afterwards.</p>
+</section>
+
+<!-- 10 ─────────────────────────────── -->
+<section class="s" data-title="Watch it" data-notes="Play the video (about 1 minute, sped-up parts are marked). Pause on the code screen to point out that the code on the device and on the phone match.">
+  <p class="kick">Watch it once</p>
+  <h2 style="margin-bottom:18px">The whole thing in one minute</h2>
+  <video src="/static/video/enroll-guide.mp4#t=6" controls preload="metadata" playsinline></video>
+</section>
+
+<!-- 11 ─────────────────────────────── -->
+<section class="s" data-title="Step 1 rules" data-notes="<b>This slide prevents 80% of problems.</b> The Google-account rule is the one people break: Android's setup pushes you to sign in. If a device has an account, it must be factory reset; there's no way round it. Same for a used device that was managed by someone else.">
+  <p class="kick">Step 1 · the three rules</p>
+  <h2>Get these right and the rest is easy</h2>
+  <div class="rules">
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0115-6.7L21 8M21 3v5h-5M21 12a9 9 0 01-15 6.7L3 16M3 21v-5h5"/></svg></div><div class="big">Fresh out of the box</div><p>Brand new is perfect. Used before? Factory reset it first.</p></div>
+    <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r="1"/></svg></div><div class="big">Same Wi-Fi as your phone</div><p>The phone finds the device over the office Wi-Fi. Different network, no luck.</p></div>
+    <div class="card" style="border:2px solid var(--p)"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0M3 3l18 18"/></svg></div><div class="big">No Google account</div><p>Tap <b>Skip</b> at every sign-in screen during setup. Don't sign in to anything.</p></div>
+  </div>
+  <div class="warn"><b>Why so strict?</b><span>Android only lets the MDM become the device's manager on a clean device: no accounts, no other management app, one user. If any of these are there, the only fix is a factory reset. The app tells you which one.</span></div>
+</section>
+
+<!-- 12 ─────────────────────────────── -->
+<section class="s" data-title="Try it" data-notes="<b>Interactive simulator.</b> Have a volunteer drive it, or click it yourself while the room tells you what to do. The black bar always says the next move. The work step is sped up here. Reset with the button on the right. Then move to real devices (slide 'Hands-on round').">
+  <div class="sim">
+    <div class="coach"><span class="tag" id="cstep">Try it</span><span id="ctext"></span><span class="sp"><button class="btn ghost" id="simreset">Start over</button></span></div>
+    <div class="tab"><span class="lab">THE NEW DEVICE</span><div class="tscr" id="tscr"></div></div>
+    <div class="phone"><span class="lab">YOUR PHONE · AIO ENROLL</span><div class="pscr" id="pscr"></div></div>
+  </div>
+</section>
+
+<!-- 13 ─────────────────────────────── -->
+<section class="s" data-title="Busy days" data-notes="Two situations that come up on busy days. <b>Two at once</b>: the app lists both, and each shows the start of its IP address, which is also on the device's pairing box. <b>Nothing found</b>: some networks block devices from finding each other. Typing the two numbers in by hand gets round that.">
+  <p class="kick">Busy days</p>
+  <h2>Two devices at once, or the app can't see one</h2>
+  <div class="two">
+    <div class="mini">
+      <h3>Two pairing screens open at once</h3>
+      <p class="muted" style="font-size:21px">The app lists both. Match them by the number each one shows: the same number is on the device's pairing box.</p>
+      <div class="ph">
+        <div style="font-size:14px;color:var(--onv);margin-bottom:6px">2 devices are asking to connect</div>
+        <div class="row"><span>D3 Pro · shows <b>10.32.1.84</b></span><span style="color:var(--p)">Type code</span></div>
+        <div class="row"><span>D2s · shows <b>10.32.1.91</b></span><span style="color:var(--p)">Type code</span></div>
+      </div>
+      <p class="muted" style="font-size:19px;margin-top:14px">Easiest habit: finish one device before opening the next one's pairing screen.</p>
+    </div>
+    <div class="mini">
+      <h3>Pairing screen open, but the app shows nothing</h3>
+      <p class="muted" style="font-size:21px">Tap <b>"Pairing screen open, but nothing here? Type it in"</b> and copy two things from the device:</p>
+      <div class="ph">
+        <div class="row"><span>1. IP address &amp; Port <span class="muted">(in the pairing box)</span></span><b>10.32.1.84:41233</b></div>
+        <div class="row"><span>2. Wi-Fi pairing code</span><b>482913</b></div>
+        <div class="row"><span>3. Then the number at the top of<br>the Wireless debugging screen</span><b>10.32.1.84:37215</b></div>
+      </div>
+      <p class="muted" style="font-size:19px;margin-top:14px">A space instead of the colon works too.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 14 ─────────────────────────────── -->
+<section class="s" data-title="When it goes wrong" data-notes="Click each symptom. The quoted text is what the app actually says. Most fixes are either 'same Wi-Fi', 'wake it up', or 'factory reset and skip Google'.">
+  <p class="kick">When it goes wrong</p>
+  <h2>What the app says, and what to do</h2>
+  <div class="ts">
+    <div class="syms" id="syms"></div>
+    <div class="ans" id="ans"></div>
+  </div>
+</section>
+
+<!-- 15 ─────────────────────────────── -->
+<section class="s" data-title="After the app" data-notes="Your part ends at the green tick. Everything after happens on the MDM, by whoever runs it (or by itself). That's why the app no longer asks for a restaurant or a device type.">
+  <p class="kick">After the green tick</p>
+  <h2>Your part ends here. The MDM takes over.</h2>
+  <div class="tl">
+    <div class="you"><div class="dot">✓</div><div class="who">YOU</div><h3>Set up in the app</h3><p>Green tick. The device is on the MDM.</p></div>
+    <div><div class="dot">2</div><div class="who">MDM TEAM</div><h3>Pick its restaurant</h3><p>New devices wait in a "needs a venue" list.</p></div>
+    <div><div class="dot">3</div><div class="who">MDM TEAM</div><h3>Pick its type</h3><p>POS, kitchen display, menu board…</p></div>
+    <div class="auto"><div class="dot">4</div><div class="who">BY ITSELF</div><h3>App installs</h3><p>The restaurant's app arrives on its own. No APKs by hand.</p></div>
+    <div class="auto"><div class="dot">5</div><div class="who">BY ITSELF</div><h3>Locked &amp; watched</h3><p>Locked to the app, alerts on. Ready to ship.</p></div>
+  </div>
+</section>
+
+<!-- 16 ─────────────────────────────── -->
+<section class="s" data-title="Who does what" data-notes="Clear lines of responsibility. If a device needs anything on the 'MDM team' side, ping the MDM channel with the device's serial number (it's on the label and in the app).">
+  <p class="kick">Who does what</p>
+  <h2>Clear lines</h2>
+  <div class="who2">
+    <div class="card us" style="padding:30px"><h3 style="font-size:30px">Onboarding team</h3>
+      <ul><li>Unbox and turn on</li><li>Office Wi-Fi, skip the Google account</li><li>Set it up with AIO Enroll</li><li>Factory reset when the app says so</li><li>Note the serial of anything that won't go</li></ul></div>
+    <div class="card" style="padding:30px"><h3 style="font-size:30px">MDM team</h3>
+      <ul><li>Accounts for the AIO Enroll app</li><li>Restaurant and type for each device</li><li>Which app it runs, lock, updates</li><li>Devices that still fail after a reset</li><li>Anything after it ships</li></ul></div>
+  </div>
+</section>
+
+<!-- 17 ─────────────────────────────── -->
+<section class="s" data-title="Quiz" data-notes="Read each question out, let the room shout an answer, then click it. Explanations appear under each.">
+  <p class="kick">Quick quiz</p>
+  <h2>Four questions</h2>
+  <div class="quiz" id="quiz"></div>
+</section>
+
+<!-- 18 ─────────────────────────────── -->
+<section class="s" data-title="Hands-on round" data-notes="<b>Hands-on (15 min).</b> Pairs: one reads the steps, the other drives. Swap after the first device. Walk the room. Common snags: Google sign-in done by habit (factory reset), phone on the guest Wi-Fi, pairing box closed before the code was typed (just open it again: new code).<br>Ticks on this checklist are kept in this browser only.">
+  <p class="kick">Hands-on round · before the session</p>
+  <h2>Facilitator checklist</h2>
+  <div class="chk" id="chk"></div>
+</section>
+
+<!-- 19 ─────────────────────────────── -->
+<section class="s" data-title="Cheat sheet" data-notes="Leave this up during questions. Share the video link afterwards.">
+  <p class="kick">Cheat sheet</p>
+  <h2>Keep this one</h2>
+  <div class="cheat">
+    <div class="card"><h3>Before</h3><ol><li>New or factory reset</li><li>Office Wi-Fi, same as your phone</li><li>Skip every Google sign-in</li></ol></div>
+    <div class="card"><h3>On the device</h3><ol><li>About → Build number × 7</li><li>Developer options → Wireless debugging on</li><li>Pair device with pairing code</li></ol></div>
+    <div class="card"><h3>On your phone</h3><ol><li>AIO Enroll → Set up a device</li><li>Type the 6 digits</li><li>Wait for the green tick</li></ol></div>
+  </div>
+  <div class="warn" style="background:var(--low);margin-top:26px"><b style="color:var(--p)">Stuck?</b><span>Wake the device · same Wi-Fi · open the pairing box again for a new code · factory reset if it has an account. Still stuck: send the serial to the MDM team.</span></div>
+  <p class="lead" style="margin-top:30px;font-size:26px">Questions?</p>
+</section>
+
+</div></div>
+
+<div id="notes" aria-live="polite"></div>
+<nav id="nav" aria-label="Slides">
+  <button id="prev" aria-label="Previous slide">←</button>
+  <span id="ctr"></span>
+  <button id="next" aria-label="Next slide">→</button>
+  <button class="txt" id="ntog" aria-pressed="false" title="Speaker notes (N)">Notes</button>
+  <button id="fs" aria-label="Full screen (F)" title="Full screen (F)">⛶</button>
+</nav>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)) } catch { return null } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch {} },
+};
+
+/* ── deck ─────────────────────────────── */
+const slides = $$('.s');
+let cur = 0;
+function fit(){
+  const k = Math.min(innerWidth / 1600, innerHeight / 900);
+  $('#deck').style.transform = `scale(${k})`;
+}
+function show(i){
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s, j) => s.classList.toggle('on', j === cur));
+  $('#ctr').textContent = `${cur + 1} / ${slides.length}`;
+  $('#bar').style.width = `${(cur + 1) / slides.length * 100}%`;
+  $('#notes').innerHTML = `<b>${cur + 1}. ${esc(slides[cur].dataset.title || '')}</b><br>` + (slides[cur].dataset.notes || '');
+  if (location.hash !== '#' + (cur + 1)) history.replaceState(null, '', '#' + (cur + 1));
+  $$('video').forEach(v => { if (!slides[cur].contains(v)) v.pause() });
+}
+slides.forEach(s => {
+  const b = document.createElement('div');
+  b.className = 'brand';
+  b.innerHTML = '<img src="/static/onboarding/mdm-shield.svg" alt="">AIO MDM · onboarding';
+  if (!s.classList.contains('title-s')) s.appendChild(b);
+});
+$('#prev').onclick = () => show(cur - 1);
+$('#next').onclick = () => show(cur + 1);
+function toggleNotes(){
+  const on = $('#notes').classList.toggle('on');
+  $('#ntog').setAttribute('aria-pressed', on);
+}
+$('#ntog').onclick = toggleNotes;
+function toggleFs(){ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.() }
+$('#fs').onclick = toggleFs;
+addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea,video')) return;
+  if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); show(cur + 1) }
+  else if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); show(cur - 1) }
+  else if (e.key === 'Home') show(0);
+  else if (e.key === 'End') show(slides.length - 1);
+  else if (e.key === 'n' || e.key === 'N') toggleNotes();
+  else if (e.key === 'f' || e.key === 'F') toggleFs();
+});
+addEventListener('resize', fit);
+addEventListener('hashchange', () => show(parseInt(location.hash.slice(1)) - 1 || 0));
+fit();
+
+/* ── old vs new ───────────────────────── */
+const FLOWS = {
+  old: {
+    steps: [['Unbox, turn on'], ['Join Wi-Fi'], ['Get the APK onto it', 'bad'], ['Allow "unknown sources"', 'bad'], ['Install the app by hand', 'bad'], ['Ship it', 'bad']],
+    verdict: '<span class="tag" style="background:var(--badc);color:var(--bad)">Result</span> The device works, but the MDM has never heard of it. Any problem in the restaurant = a call or a drive.',
+  },
+  new: {
+    steps: [['Unbox, turn on'], ['Join Wi-Fi, skip Google'], ['Wireless debugging on', 'good'], ['Type 6 digits in AIO Enroll', 'good'], ['Restaurant app installs itself', 'auto'], ['Ship it']],
+    verdict: '<span class="tag ok">Result</span> On the MDM from day one: we see it, update it and fix it from the office.',
+  },
+};
+function flow(k){
+  $$('[data-flow]').forEach(b => b.setAttribute('aria-pressed', b.dataset.flow === k));
+  $('#flow').innerHTML = FLOWS[k].steps.map(([t, c], i) =>
+    `<div class="st ${c || ''}"><b>${c === 'auto' ? 'BY ITSELF' : 'STEP ' + (i + 1)}</b>${esc(t)}</div>`).join('');
+  $('#verdict').innerHTML = FLOWS[k].verdict;
+}
+$$('[data-flow]').forEach(b => b.onclick = () => flow(b.dataset.flow));
+flow('old');
+
+/* ── service door ─────────────────────── */
+const DOOR = [
+  ['Every Android device has a <b>hidden service door</b>, meant for engineers. Out of the box it is hidden and locked.', 'Its real name is Developer options.', {}],
+  ['Tapping <b>Build number 7 times</b> makes the door appear in Settings.', 'Android says "You are now a developer!". That only means the door is visible.', {door: 1}],
+  ['<b>Wireless debugging</b> opens the door, but only to phones on the <b>same Wi-Fi</b>.', 'That\'s why the device and your phone must be on the office Wi-Fi.', {door: 1, wifi: 1}],
+  ['The <b>pairing code</b> is a one-time key. Only the phone you type it into gets in.', 'A new code appears every time the pairing box opens. Old codes stop working.', {door: 1, wifi: 1, key: 1, e1: 'dash'}],
+  ['Through the door, the app installs the <b>AIO MDM</b> and makes it the device\'s manager.', 'Android calls this "Device Owner". Staff can\'t remove it, which is the point.', {door: 1, wifi: 1, key: 1, e1: 'solid', shield: 1}],
+  ['From then on the device talks to the MDM <b>over the internet, from any restaurant</b>. The door isn\'t needed any more.', 'Your phone is out of the picture. The MDM can close the door later.', {shield: 1, e2: 'solid', cloud: 1}],
+];
+let ds = 0;
+function door(){
+  const [say, small, f] = DOOR[ds];
+  $('#ddots').innerHTML = DOOR.map((_, i) => `<i class="${i <= ds ? 'on' : ''}"></i>`).join('');
+  $('#dsay').innerHTML = `${say}<small>${small}</small>`;
+  $('#door').style.opacity = f.door ? 1 : .15;
+  $('#dlock').style.opacity = f.door && !f.key ? 1 : f.door ? 0 : .5;
+  $('#dshield').style.opacity = f.shield ? 1 : 0;
+  if (f.shield) $('#door').style.opacity = 0;
+  $('#wifi').style.opacity = f.wifi ? 1 : .2;
+  $('#kcode').style.opacity = f.key ? 1 : 0;
+  $('#cloud').style.opacity = f.cloud ? 1 : .25;
+  const edge = (id, m) => { const e = $(id); e.style.stroke = m ? '#C4432A' : '#ECD9D3'; e.style.strokeDasharray = m === 'dash' ? '8 8' : m ? 'none' : '4 10'; };
+  edge('#e1', f.e1); edge('#e2', f.e2);
+  $('#dprev').disabled = ds === 0;
+  $('#dnext').textContent = ds === DOOR.length - 1 ? 'From the start' : 'Next step';
+}
+$('#dnext').onclick = () => { ds = ds === DOOR.length - 1 ? 0 : ds + 1; door() };
+$('#dprev').onclick = () => { if (ds) { ds--; door() } };
+door();
+
+/* ── glossary ─────────────────────────── */
+const GLOSS = [
+  ['MDM', 'Mobile Device Management: our control room for every device in every restaurant.'],
+  ['Enrol / set up', 'Introducing a device to the MDM, so it joins and stays joined.'],
+  ['Developer options', 'Android\'s hidden service menu. Tap Build number 7 times to show it.'],
+  ['Wireless debugging', 'The switch that opens the service door over Wi-Fi. (Engineers call it adb.)'],
+  ['Pairing code', 'Six digits the device shows. A one-time key for the phone you type it into.'],
+  ['Device Owner', 'Android\'s word for "this device is managed". Only possible on a clean device.'],
+  ['Factory reset', 'Wipes the device back to new. The fix for accounts or old management apps.'],
+  ['Venue', 'A restaurant, on the MDM. Each device is given one after you set it up.'],
+];
+$('#gloss').innerHTML = GLOSS.map(([t, a]) =>
+  `<button class="flip" aria-expanded="false"><h3>${esc(t)}</h3><span class="q">What is it?</span><span class="a">${esc(a)}</span></button>`).join('');
+$$('#gloss .flip').forEach(b => b.onclick = () => b.setAttribute('aria-expanded', b.classList.toggle('open')));
+
+/* ── troubleshooter ───────────────────── */
+const TS = [
+  ['The app never finds the device', null, ['Is the device on the <b>same Wi-Fi</b> as your phone? Check both.', 'Is <b>Wireless debugging</b> still on? It switches off if the device changes network.', 'Open its pairing box: the app jumps to the code step when it sees one.', 'Still nothing: tap <b>"Pairing screen open, but nothing here? Type it in"</b>.']],
+  ['"Wrong code"', 'Wrong code, or the dialog closed. Open it again and read the new code.', ['On the device, tap <b>Pair device with pairing code</b> again.', 'Type the <b>new</b> six digits. Each box gets a fresh code.', 'Keep the box open until the phone says it\'s connected.']],
+  ['"…needs a reset first"', 'A factory reset fixes all of these. Skip the Google account during setup, then come back.', ['The app lists what\'s wrong: an account, another management app, or a second user.', '<b>Factory reset</b> the device (Settings → System → Reset).', 'Run setup again, tapping <b>Skip</b> at every Google sign-in.', 'Open the app again: it carries on by itself once the device is clean.']],
+  ['"The device stopped answering"', 'The device stopped answering. It may have gone to sleep: wake it and try again.', ['Tap the device\'s screen to wake it.', 'Check it\'s still on the office Wi-Fi.', 'Tip: keep its screen on while you set it up.']],
+  ['"The device blocked the install"', 'The device blocked the install. In Developer options turn off "Verify apps over USB" (on Xiaomi turn on "Install via USB"), then try again.', ['Settings → System → <b>Developer options</b>.', 'Turn off <b>Verify apps over USB</b>. On Xiaomi: turn on <b>Install via USB</b>.', 'Tap <b>Start over</b> in the app.']],
+  ['"…can\'t reach the MDM"', 'It installed, but it can\'t reach the MDM. Check the device is on Wi-Fi with internet, then try again.', ['Open a browser on the device: does any website load?', 'If not, the Wi-Fi has no internet. Switch to one that does.', 'Try again in the app.']],
+  ['"…is already set up"', 'It is on the MDM. Nothing to do here.', ['Nothing to fix. This one joined before.', 'Tap <b>Set up another</b>.']],
+];
+$('#syms').innerHTML = TS.map(([s], i) => `<button class="sym" aria-pressed="false" data-i="${i}">${esc(s)}</button>`).join('');
+function ts(i){
+  $$('#syms .sym').forEach(b => b.setAttribute('aria-pressed', +b.dataset.i === i));
+  const [s, says, fix] = TS[i];
+  $('#ans').innerHTML = `<h3 style="font-size:28px;margin-bottom:12px">${esc(s)}</h3>` +
+    (says ? `<p class="says">The app says: “${esc(says)}”</p>` : '') +
+    `<ol>${fix.map(f => `<li>${f}</li>`).join('')}</ol>`;
+}
+$$('#syms .sym').forEach(b => b.onclick = () => ts(+b.dataset.i));
+ts(0);
+
+/* ── quiz ─────────────────────────────── */
+const QUIZ = [
+  ['A used device still has someone\'s Gmail signed in. What first?', ['Sign them out in Settings', 'Factory reset it', 'Just try the app'], 1, 'Signing out isn\'t enough on some devices and leaves traces. A factory reset makes it clean, every time.'],
+  ['Your phone is on the guest Wi-Fi, the device on the office Wi-Fi. Will the app find it?', ['Yes', 'No'], 1, 'The phone looks for devices on its own Wi-Fi. Put both on the same one.'],
+  ['Where do you choose which restaurant the device goes to?', ['In AIO Enroll', 'On the device', 'On the MDM, afterwards'], 2, 'The app has no restaurant step any more. The MDM team picks it after the green tick.'],
+  ['Do you still install the restaurant\'s app by hand?', ['Yes, after enrolling', 'No, it installs itself'], 1, 'Once the device has a type on the MDM, the right app arrives on its own.'],
+];
+$('#quiz').innerHTML = QUIZ.map(([q, opts], i) =>
+  `<div class="card qz" data-q="${i}"><h3>${i + 1}. ${esc(q)}</h3>${opts.map((o, j) => `<button class="opt" data-j="${j}">${esc(o)}</button>`).join('')}<div class="why2"></div></div>`).join('');
+$$('#quiz .qz').forEach(card => {
+  const [, , right, why] = QUIZ[+card.dataset.q];
+  $$('.opt', card).forEach(b => b.onclick = () => {
+    const ok = +b.dataset.j === right;
+    $$('.opt', card).forEach(x => x.classList.remove('right', 'wrong'));
+    b.classList.add(ok ? 'right' : 'wrong');
+    if (!ok) $$('.opt', card)[right].classList.add('right');
+    $('.why2', card).textContent = (ok ? 'Right. ' : 'Not quite. ') + why;
+  });
+});
+
+/* ── facilitator checklist ────────────── */
+const CHK = [
+  'AIO Enroll installed on every attendee\'s phone (Android 11 or newer)',
+  'An MDM account for each attendee, and they\'ve signed in to the app',
+  'One lab device per pair, factory reset, still on its first setup screen',
+  'Office Wi-Fi name and password on the whiteboard (not the guest network)',
+  'Check before the session: the app finds a device on that Wi-Fi',
+  'Somebody from the MDM team in the room for venue / type questions',
+  'Afterwards: share the video link and this cheat sheet',
+  'Afterwards: check every lab device shows up on the MDM',
+];
+const done = store.get('aio-session-chk') || {};
+$('#chk').innerHTML = CHK.map((t, i) => `<label><input type="checkbox" data-i="${i}" ${done[i] ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('');
+$$('#chk input').forEach(c => c.onchange = () => { done[c.dataset.i] = c.checked; store.set('aio-session-chk', done) });
+
+/* ── simulator ────────────────────────── */
+const IP = '10.32.1.84', NAME = 'D3 Pro';
+let S;
+function simReset(){
+  clearInterval(S?.timer);
+  S = {t: 'home', back: [], taps: 0, dev: false, wadb: false, dlg: null, code: '', p: 'home', typed: '', err: '', work: 0, timer: null, toast: '', managed: false};
+  render();
+}
+function newCode(){ return String(Math.floor(100000 + Math.random() * 900000)) }
+function go(screen){ S.back.push(S.t); S.t = screen; render() }
+function toast(m){
+  S.toast = m; render();
+  clearTimeout(toast.h); toast.h = setTimeout(() => { S.toast = ''; render() }, 1600);
+}
+const row = (t, sub, attrs = '', right = '') =>
+  `<button class="tr" ${attrs}><span>${t}${sub ? `<small>${sub}</small>` : ''}</span>${right}</button>`;
+const sw = on => `<span class="sw ${on ? 'on' : ''}"><i></i></span>`;
+function hd(title){ return `<div class="hd"><button data-a="back" aria-label="Back">←</button>${title}</div>` }
+
+function renderTab(){
+  const pulse = k => coachKey() === k ? 'pulse' : '';
+  let h = `<div class="bar"><span>9:41</span><span>Office-WiFi ▾ 🔋</span></div>`;
+  if (S.managed) {
+    h += `<div class="mgd"><img src="/static/onboarding/mdm-shield.svg" alt=""><b>Connected to AIO</b><span>This device is managed by your organization</span><span style="margin-top:14px;font-size:13px">Its restaurant and app are set on the MDM</span></div>`;
+  } else if (S.t === 'home') {
+    h += `<div class="home"><button data-a="settings" class="${pulse('settings')}"><i style="background:#e8eaed;color:#5f6368">⚙</i>Settings</button><button><i style="background:#4285f4;color:#fff">◉</i>Chrome</button><button><i style="background:#34a853;color:#fff">▶</i>Play Store</button></div>`;
+  } else if (S.t === 'settings') {
+    h += hd('Settings') + `<div class="tlist">` +
+      row('Network &amp; internet', 'Wi-Fi: Office-WiFi', 'class="tr ro"') +
+      row('Apps', 'Recent apps, default apps', 'class="tr ro"') +
+      row('System', 'Languages, gestures, time' + (S.dev ? ', developer options' : ''), `data-a="system" class="tr ${pulse('system')}"`) +
+      row('About tablet', NAME, `data-a="about" class="tr ${pulse('about')}"`) + `</div>`;
+  } else if (S.t === 'about') {
+    h += hd('About tablet') + `<div class="tlist">` +
+      row('Device name', NAME, 'class="tr ro"') + row('Model', 'D3 PRO', 'class="tr ro"') +
+      row('Android version', '12', 'class="tr ro"') +
+      row('Build number', 'SP1A.210812.016', `data-a="build" class="tr ${pulse('build')}"`) + `</div>`;
+  } else if (S.t === 'system') {
+    h += hd('System') + `<div class="tlist">` +
+      row('Languages &amp; input', '', 'class="tr ro"') + row('Date &amp; time', '', 'class="tr ro"') +
+      row('Reset options', '', 'class="tr ro"') +
+      (S.dev ? row('Developer options', '', `data-a="dev" class="tr ${pulse('devopt')}"`) : '') + `</div>`;
+  } else if (S.t === 'dev') {
+    h += hd('Developer options') + `<div class="tlist">` +
+      row('Use developer options', '', 'class="tr ro"', sw(true)) +
+      row('USB debugging', 'Debug mode when USB is connected', 'class="tr ro"', sw(false)) +
+      `<div class="tr ${pulse('wadb') || pulse('wadbopen')}" style="cursor:default"><span data-a="wadbopen" style="cursor:pointer;flex:1">Wireless debugging<small>Debug mode when Wi-Fi is connected${S.wadb ? ' · tap here for pairing' : ''}</small></span><span data-a="wadbsw" style="cursor:pointer">${sw(S.wadb)}</span></div>` +
+      row('Verify apps over USB', '', 'class="tr ro"', sw(true)) + `</div>`;
+  } else if (S.t === 'wadb') {
+    h += hd('Wireless debugging') + `<div class="tlist">` +
+      row('Use wireless debugging', '', 'class="tr ro"', sw(true)) +
+      row('Device name', NAME, 'class="tr ro"') +
+      row('IP address &amp; Port', IP + ':37215', 'class="tr ro"') +
+      row('Pair device with QR code', 'Pair new devices using a QR code scanner', 'class="tr ro"') +
+      row('Pair device with pairing code', 'Pair new devices using a six-digit code', `data-a="pair" class="tr ${pulse('pair')}"`) + `</div>`;
+  }
+  if (S.dlg === 'allow') h += `<div class="tdlg on"><div class="box"><h4>Allow wireless debugging on this network?</h4>Network name (SSID)<br><b>Office-WiFi</b><div class="acts"><button data-a="dlgno">Cancel</button><button data-a="allow" class="${pulse('allow')}">Allow</button></div></div></div>`;
+  if (S.dlg === 'pair') h += `<div class="tdlg on"><div class="box"><h4>Pair with device</h4>Wi-Fi pairing code<div class="bigc">${S.code}</div>IP address &amp; Port<br>${IP}:41233<div class="acts"><button data-a="dlgno">Cancel</button></div></div></div>`;
+  h += `<div class="ttoast ${S.toast ? 'on' : ''}">${esc(S.toast)}</div>`;
+  $('#tscr').innerHTML = h;
+}
+
+function stepHead(n){ return `<div class="stp">Step ${n} of 4</div><div class="prog"><i style="width:${n * 25}%"></i></div>` }
+function renderPhone(){
+  let h = '';
+  if (S.p === 'home') {
+    h = `<div style="display:flex;align-items:center;gap:10px"><img src="/static/onboarding/mdm-shield.svg" width="30" alt=""><div class="phead">AIO Enroll</div></div>
+      <h5 style="margin-top:40px">Set up a device</h5><p>About two minutes. Keep the device and this phone on the same Wi-Fi.</p>
+      <div class="ptoday">${S.managed ? '1 set up today' : 'Nothing set up today'}</div>
+      <button class="pb" data-p="start">Set up a device</button>`;
+  } else if (S.p === 'prepare') {
+    h = stepHead(1) + `<h5>Get the device ready</h5>
+      <div class="pn"><b>1</b>Turn it on. If someone has used it before, factory reset it first.</div>
+      <div class="pn"><b>2</b>In its setup, connect it to the same Wi-Fi as this phone.</div>
+      <div class="pn"><b>3</b>Skip the Google account. Don't sign in to anything on it.</div>
+      <p style="margin-top:10px">An account on the device stops it from being set up, so it's quicker to skip it now.</p>
+      <button class="pb" data-p="find">Next</button>`;
+  } else if (S.p === 'find') {
+    h = stepHead(2) + `<h5>Turn on Wireless debugging</h5><p><b>On the device:</b></p>
+      <div class="pn"><b>1</b>Settings → About → tap Build number 7 times.</div>
+      <div class="pn"><b>2</b>Settings → System → Developer options → turn on Wireless debugging.</div>
+      <div class="pn"><b>3</b>Tap Wireless debugging → Pair device with pairing code.</div>
+      <div class="spin"><i></i>Looking for it. This moves on by itself.</div>
+      <button class="plink" style="margin-top:auto">Pairing screen open, but nothing here? Type it in</button>
+      <button class="pb ghost">Can't find it?</button>`;
+  } else if (S.p === 'code') {
+    const boxes = [...Array(6)].map((_, i) => `<span class="${i === S.typed.length ? 'cur' : ''}">${S.typed[i] || ''}</span>`).join('');
+    h = stepHead(3) + `<h5>Type the code</h5>
+      <p>${S.dlg === 'pair' ? `<b>${NAME}</b> · shows ${IP}` : `On ${NAME}: Wireless debugging → Pair device with pairing code.`}</p>
+      <label style="font-size:12px;color:var(--onv);margin-top:6px">Wi-Fi pairing code</label>
+      <div class="boxes" id="boxes">${boxes}</div>
+      <input class="codein" id="codein" inputmode="numeric" maxlength="6" autocomplete="off" value="${S.typed}" aria-label="Pairing code">
+      <div class="perr">${esc(S.err)}</div>
+      <p style="margin-top:auto;font-size:12.5px">Type what its box shows. Click the boxes, then use your keyboard.</p>`;
+  } else if (S.p === 'work') {
+    const ph = ['Connecting', 'Installing the AIO app', 'Checking in with the MDM'];
+    h = stepHead(4) + `<h5>Setting up ${NAME}</h5>` +
+      ph.map((t, i) => `<div class="phase ${i < S.work ? 'ok' : i === S.work ? 'run' : ''}"><i>${i < S.work ? '✓' : ''}</i>${t}</div>`).join('') +
+      `<p style="margin-top:14px">Takes about a minute. Keep both on the Wi-Fi and leave the device alone until it's done.</p>
+      <p style="margin-top:auto;font-size:12px">(Sped up for this demo.)</p>`;
+  } else if (S.p === 'done') {
+    h = `<div class="okbig">✓</div><h5>${NAME} is set up</h5><p>It is online on the MDM. Its type and venue are set there.</p>
+      <button class="plink">Open it on the MDM</button>
+      <button class="pb" data-p="again">Set up another</button><button class="pb ghost" data-p="home">I'm done</button>`;
+  }
+  $('#pscr').innerHTML = h;
+  const ci = $('#codein');
+  if (ci) {
+    $('#boxes').onclick = () => ci.focus();
+    ci.oninput = () => {
+      S.typed = ci.value.replace(/\D/g, '').slice(0, 6); S.err = '';
+      if (S.typed.length === 6) return submitCode();
+      $$('#boxes span').forEach((b, i) => { b.textContent = S.typed[i] || ''; b.classList.toggle('cur', i === S.typed.length) });
+      $('.perr', $('#pscr')).textContent = '';
+    };
+    if (S.dlg === 'pair') { ci.focus(); ci.setSelectionRange(S.typed.length, S.typed.length) }
+  }
+}
+function submitCode(){
+  if (S.dlg === 'pair' && S.typed === S.code) {
+    S.dlg = null; S.p = 'work'; S.work = 0; render();
+    S.timer = setInterval(() => {
+      S.work++;
+      if (S.work > 2) { clearInterval(S.timer); S.p = 'done'; S.managed = true; S.t = 'home' }
+      render();
+    }, 1300);
+  } else {
+    S.typed = ''; S.err = 'Wrong code, or the dialog closed. Open it again and read the new code.';
+    S.dlg = null; render();
+  }
+}
+function coachKey(){
+  if (S.p === 'done') return 'done';
+  if (S.p === 'work') return 'work';
+  if (S.p === 'home') return 'start';
+  if (S.p === 'prepare') return 'next';
+  if (S.dlg === 'allow') return 'allow';
+  if (S.p === 'code' && S.dlg === 'pair') return 'type';
+  if (!S.dev) return S.t === 'home' ? 'settings' : S.t === 'about' ? 'build' : S.t === 'settings' ? 'about' : 'backto';
+  if (!S.wadb) return S.t === 'dev' ? 'wadb' : S.t === 'system' ? 'devopt' : S.t === 'settings' ? 'system' : S.t === 'home' ? 'settings' : 'backto';
+  if (S.t === 'wadb') return 'pair';
+  if (S.t === 'dev') return 'wadbopen';
+  return S.t === 'system' ? 'devopt' : S.t === 'settings' ? 'system' : S.t === 'home' ? 'settings' : 'backto';
+}
+const COACH = {
+  start: ['Phone', 'Tap <b>Set up a device</b>.'],
+  next: ['Phone', 'Read the three checks, then tap <b>Next</b>.'],
+  settings: ['Device', 'Open <b>Settings</b>.'],
+  about: ['Device', 'Tap <b>About tablet</b>.'],
+  build: ['Device', 'Tap <b>Build number</b> 7 times.'],
+  backto: ['Device', 'Go back (←) to Settings.'],
+  system: ['Device', 'Tap <b>System</b>.'],
+  devopt: ['Device', 'Tap <b>Developer options</b>.'],
+  wadb: ['Device', 'Switch on <b>Wireless debugging</b> (the switch on the right).'],
+  allow: ['Device', 'Tap <b>Allow</b>: it\'s the office Wi-Fi.'],
+  wadbopen: ['Device', 'Tap the words <b>Wireless debugging</b> to open it.'],
+  pair: ['Device', 'Tap <b>Pair device with pairing code</b>. The phone jumps to the code step.'],
+  type: ['Phone', 'Type the six digits the device shows into the phone.'],
+  work: ['Nobody', 'Hands off. It installs the MDM and checks in.'],
+  done: ['Done', 'The device is on the MDM and shows "Connected to AIO". Start over to try again.'],
+};
+function render(){
+  if (S.dlg === 'pair' && !['code', 'work', 'done'].includes(S.p)) { S.p = 'code'; S.typed = ''; S.err = '' }
+  renderTab(); renderPhone();
+  const [who, txt] = COACH[coachKey()];
+  $('#cstep').textContent = who; $('#ctext').innerHTML = txt;
+}
+$('#tscr').addEventListener('click', e => {
+  const a = e.target.closest('[data-a]')?.dataset.a;
+  if (!a) return;
+  if (a === 'back') { S.t = S.back.pop() || 'home'; render() }
+  else if (a === 'settings') go('settings');
+  else if (a === 'about') go('about');
+  else if (a === 'system') go('system');
+  else if (a === 'dev') go('dev');
+  else if (a === 'build') {
+    if (S.dev) return toast('No need, you are already a developer.');
+    S.taps++;
+    if (S.taps >= 7) { S.dev = true; toast('You are now a developer!') }
+    else if (S.taps >= 3) toast(`You are now ${7 - S.taps} steps away from being a developer.`);
+    else render();
+  }
+  else if (a === 'wadbsw') { if (S.wadb) { S.wadb = false; render() } else { S.dlg = 'allow'; render() } }
+  else if (a === 'allow') { S.dlg = null; S.wadb = true; render() }
+  else if (a === 'wadbopen') { if (S.wadb) go('wadb'); else toast('Switch it on first.') }
+  else if (a === 'pair') { S.code = newCode(); S.dlg = 'pair'; S.err = ''; render() }
+  else if (a === 'dlgno') { S.dlg = null; render() }
+});
+$('#pscr').addEventListener('click', e => {
+  const a = e.target.closest('[data-p]')?.dataset.p;
+  if (!a) return;
+  if (a === 'start') S.p = 'prepare';
+  else if (a === 'find') S.p = 'find';
+  else if (a === 'home') S.p = 'home';
+  else if (a === 'again') { simReset(); S.p = 'prepare' }
+  render();
+});
+$('#simreset').onclick = simReset;
+simReset();
+
+show(parseInt(location.hash.slice(1)) - 1 || 0);
+</script>
+</body>
+</html>
