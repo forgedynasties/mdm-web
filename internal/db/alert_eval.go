@@ -724,6 +724,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			SELECT d.id, d.serial_number, d.latest_battery_pct
 			FROM devices d
 			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND `+hasBatteryD+`
 			  AND d.latest_battery_pct >= $1`, int(pct))
 		if err != nil {
 			return nil, "warning", err
@@ -818,6 +819,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			SELECT d.id, d.serial_number, d.latest_battery_pct
 			FROM devices d
 			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND `+hasBatteryD+` -- a POS or KDS reports 0% because it has no battery
 			  AND d.latest_battery_pct < $1`, int(pct))
 		if err != nil {
 			return nil, "critical", err
@@ -956,9 +958,9 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				WHERE at > NOW() - ($1 * INTERVAL '1 hour')
 				GROUP BY device_id
 			)
-			SELECT s.device_id, dv.serial_number, s.first_batt, s.last_batt
+			SELECT s.device_id, d.serial_number, s.first_batt, s.last_batt
 			FROM s
-			JOIN devices dv ON dv.id = s.device_id
+			JOIN devices d ON d.id = s.device_id
 			-- "Continuously charging" is now the charging state as the window opened,
 			-- with no event since that left it. A device with no charging event at or
 			-- before the window cannot qualify: the old query treated an unconfirmed
@@ -969,7 +971,8 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				  AND e.at <= NOW() - ($1 * INTERVAL '1 hour')
 				ORDER BY e.at DESC LIMIT 1
 			) a ON true
-			WHERE NOT dv.hidden AND s.n >= 3
+			WHERE NOT d.hidden AND s.n >= 3
+			  AND `+hasBatteryD+`
 			  AND COALESCE(a.to_val, '') = 'true'
 			  AND NOT EXISTS (
 				SELECT 1 FROM device_state_events e
