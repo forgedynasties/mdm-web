@@ -22,6 +22,8 @@ var modelPictures = map[string]modelPicture{
 	"d3_pro": {Img: "/static/img/models/d3_pro.webp"},
 	// KDS: the Sunmi D2s on live.
 	"d2s_kds_stgl": {Img: "/static/img/models/d2s_kds_stgl.webp", Tagline: "Built to handle steam, splashes and a slammed Saturday night."},
+	// POS: the Samsung Galaxy Tab A9+ (SM-X210; shot from alhamdtech.pk, on the user's ask, 29 Oct).
+	"gta9pwifixx": {Img: "/static/img/models/gta9pwifixx.webp"},
 }
 
 // modelPic returns the model's picture, nil when it has none.
