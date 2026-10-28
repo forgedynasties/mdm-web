@@ -171,7 +171,7 @@ func classShort(class string) string {
 	case "pos":
 		return "POS"
 	case "mpos":
-		return "HH"
+		return "MPOS"
 	case "payment":
 		return "PAY"
 	case "tablet":
