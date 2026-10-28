@@ -70,7 +70,7 @@ func ClassLabel(class string) string {
 	case ClassPanel, ClassKiosk:
 		return "Self-order kiosk"
 	case ClassMPOS:
-		return "Handheld"
+		return "MPOS" // was "Handheld" (user, 29 Oct 2026: the role is MPOS)
 	case ClassPOS:
 		return "POS terminal"
 	case ClassDongle:

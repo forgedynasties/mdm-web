@@ -206,7 +206,7 @@ func hostAppName(base string) string {
 	case "aio.app.kds":
 		return "KDS"
 	case "aio.app.mpos":
-		return "Handheld"
+		return "MPOS"
 	}
 	return base
 }
