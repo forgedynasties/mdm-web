@@ -15,6 +15,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	}
 
 	h.registerAppRoutes(mux)
+	h.registerMobileRoutes(mux)
 	mux.HandleFunc("GET /login", h.LoginPage)
 	post("POST /login", h.LoginSubmit)
 	post("POST /logout", h.Logout)

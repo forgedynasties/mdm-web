@@ -84,6 +84,19 @@ func (h *Handler) requireApp(next func(http.ResponseWriter, *http.Request, *db.S
 // AppLogin: POST /api/v1/app/login {"username","password"} → {"token","username","role","expires_at"}.
 // Shares the dashboard's failure limiter (8 per 15 min per IP and per account).
 func (h *Handler) AppLogin(w http.ResponseWriter, r *http.Request) {
+	u, sid, exp, ok := h.passwordLogin(w, r, roleCanEnroll, "your role cannot enroll devices")
+	if !ok {
+		return
+	}
+	appJSON(w, http.StatusOK, map[string]any{
+		"token": sid, "username": u.Username, "role": u.Role, "expires_at": exp,
+	})
+}
+
+// passwordLogin checks a JSON {"username","password"} body and opens a bearer session for
+// a role roleOK accepts; on failure it has answered and returns ok=false. The AIO Enroll
+// apps and the AIO MDM app share it.
+func (h *Handler) passwordLogin(w http.ResponseWriter, r *http.Request, roleOK func(string) bool, deniedMsg string) (u *db.User, sid string, exp time.Time, ok bool) {
 	var body struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -101,43 +114,44 @@ func (h *Handler) AppLogin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	fail := func() {
+	u, err := h.db.GetUserByUsername(r.Context(), body.Username)
+	if err != nil || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)) != nil {
 		h.loginFails.Hit(ip)
 		h.loginFails.Hit(userKey)
 		appErr(w, http.StatusUnauthorized, "invalid credentials")
-	}
-	u, err := h.db.GetUserByUsername(r.Context(), body.Username)
-	if err != nil || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)) != nil {
-		fail()
-		return
+		return nil, "", time.Time{}, false
 	}
 	if u.Email != nil && u.EmailVerifiedAt == nil {
 		appErr(w, http.StatusForbidden, "verify your email before signing in")
-		return
+		return nil, "", time.Time{}, false
 	}
-	if !roleCanEnroll(u.Role) {
-		appErr(w, http.StatusForbidden, "your role cannot enroll devices")
-		return
+	if !roleOK(u.Role) {
+		appErr(w, http.StatusForbidden, deniedMsg)
+		return nil, "", time.Time{}, false
 	}
 	h.loginFails.Reset(ip)
 	h.loginFails.Reset(userKey)
-
-	sid, err := newSessionID()
+	sid, exp, err = h.openBearerSession(r, u)
 	if err != nil {
 		appErr(w, http.StatusInternalServerError, "internal error")
-		return
+		return nil, "", time.Time{}, false
+	}
+	return u, sid, exp, true
+}
+
+// openBearerSession creates a session row for u without setting a cookie: the id is the
+// app's bearer token.
+func (h *Handler) openBearerSession(r *http.Request, u *db.User) (string, time.Time, error) {
+	sid, err := newSessionID()
+	if err != nil {
+		return "", time.Time{}, err
 	}
 	exp := time.Now().Add(time.Duration(h.cfg.SessionTimeout()) * time.Second)
 	uid := u.ID
-	if err := h.db.CreateSession(r.Context(), db.Session{
+	err = h.db.CreateSession(r.Context(), db.Session{
 		ID: sid, UserID: &uid, Username: u.Username, Role: u.Role, ExpiresAt: exp,
-	}); err != nil {
-		appErr(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	appJSON(w, http.StatusOK, map[string]any{
-		"token": sid, "username": u.Username, "role": u.Role, "expires_at": exp,
 	})
+	return sid, exp, err
 }
 
 // AppLogout: POST /api/v1/app/logout — kills the session row.

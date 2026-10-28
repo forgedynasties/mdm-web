@@ -1350,7 +1350,13 @@ var AgentAPKSlots = map[string]string{
 	// 2026). Each server hosts its own flavour (live or stage). No device ever maps to
 	// this slot, so nothing is offered it as an update.
 	enrollAndroidSlot: "aio-enroll-android.apk",
+	// Not an MDM client either: the AIO MDM app for Android (aio-mdm-android, 29 Oct 2026),
+	// the dashboard as a native phone app. Same rules as enroll-android.
+	mdmAndroidSlot: "aio-mdm-android.apk",
 }
+
+// mdmAndroidSlot hosts the AIO MDM app; publish with POST /api/v1/agent-apk?slot=mdm-android.
+const mdmAndroidSlot = "mdm-android"
 
 // enrollAndroidSlot hosts AIO Enroll for Android; publish with
 // POST /api/v1/agent-apk?slot=enroll-android.

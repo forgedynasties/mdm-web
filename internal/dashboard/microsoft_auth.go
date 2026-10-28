@@ -55,6 +55,14 @@ func (h *Handler) MicrosoftLoginStart(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   600,
 	})
+	// The AIO MDM app (?app=1&challenge=…): the callback hands the app a one-time code
+	// instead of a cookie session (msAppHandOff). Any other visit clears a stale one.
+	app := &http.Cookie{Name: msAppCookie, Value: "", Path: "/", MaxAge: -1}
+	if c := r.URL.Query().Get("challenge"); r.URL.Query().Get("app") == "1" && msChallengeRE.MatchString(c) {
+		app = &http.Cookie{Name: msAppCookie, Value: c, Path: "/", HttpOnly: true,
+			Secure: os.Getenv("COOKIE_SECURE") != "false", SameSite: http.SameSiteLaxMode, MaxAge: 600}
+	}
+	http.SetCookie(w, app)
 	q := url.Values{
 		"client_id":     {h.msClientID},
 		"response_type": {"code"},
@@ -74,6 +82,9 @@ func (h *Handler) MicrosoftLoginStart(w http.ResponseWriter, r *http.Request) {
 // confirmation email is sent).
 func (h *Handler) MicrosoftLoginCallback(w http.ResponseWriter, r *http.Request) {
 	fail := func(msg string) {
+		if msAppFail(w, r, msg) {
+			return
+		}
 		h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": msg, "Brand": h.cfg.CustomBrand()})
 	}
 	if !h.MicrosoftLoginEnabled() {
@@ -146,6 +157,10 @@ func (h *Handler) MicrosoftLoginCallback(w http.ResponseWriter, r *http.Request)
 		_ = h.db.SetUserEmailVerified(r.Context(), user.ID)
 	}
 
+	if h.msAppHandOff(w, r, user) {
+		h.audit(r, "user.microsoft_login", user.ID.String(), email+" (AIO MDM app)")
+		return
+	}
 	uid := user.ID
 	if err := h.startSession(w, r, &uid, user.Username, user.Role); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
