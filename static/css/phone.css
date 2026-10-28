@@ -14,6 +14,18 @@
      on, More (every page, by section) and search. */
   .dock-s > .nav-link:not(.dock-core):not(.active):not(.dock-more) { display: none !important; }
 
+  /* ── Header menus (alerts bell, account) ──────────────────────────────────── */
+  /* Pinned to the bell's right edge, the 322 px alerts panel ran off the left of the
+     screen, and its 45 % glass let the page's coral banner through the text. On a phone
+     the menus span the screen under the header, on a solid background. */
+  .nbar-pop {
+    position: fixed !important; top: 68px !important; left: 10px !important; right: 10px !important;
+    width: auto !important; max-height: calc(100dvh - 160px); overflow-y: auto;
+    background: var(--surface) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    border-color: var(--border) !important;
+  }
+  .nbar-al-list { height: auto !important; max-height: calc(100dvh - 220px); }
+
   /* ── Shared Overview-language pieces ─────────────────────────────────────── */
   /* The to-do list's grid column grew to its longest line and pushed each row's button
      off the banner. */
