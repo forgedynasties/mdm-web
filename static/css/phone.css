@@ -1,0 +1,125 @@
+/* Phones (phone audit, 28 Oct 2026; user: "make sure each and every feature is usable on
+   phone screen … make sure nothing on desktop breaks").
+
+   Everything here sits inside max-width:720px, so desktop never sees it. Page styles live
+   in <style> blocks that come after style.css, so these rules carry !important: they are
+   a phone override layer, not the place for desktop design.
+
+   What it does, broadly: multi-column layouts stack, rows of three cards become one
+   column, grid "tables" keep their main columns and move the rest under the row, wide
+   tables scroll sideways inside their card, and tab strips scroll instead of clipping. */
+@media (max-width: 720px) {
+  /* ── Dock ─────────────────────────────────────────────────────────────────── */
+  /* Eleven labelled entries don't fit a phone: it keeps the core four, the page you are
+     on, More (every page, by section) and search. */
+  .dock-s > .nav-link:not(.dock-core):not(.active):not(.dock-more) { display: none !important; }
+
+  /* ── Shared Overview-language pieces ─────────────────────────────────────── */
+  /* The to-do list's grid column grew to its longest line and pushed each row's button
+     off the banner. */
+  .oc-todo { grid-template-columns: minmax(0, 1fr) !important; }
+  .oc-todo li { min-width: 0 !important; }
+  .ov2-ban { padding: 18px 16px 18px !important; }
+  .ov2-ban h2 { font-size: 24px !important; }
+  /* Delta cards: one per row, so numbers and their words have room. */
+  .oc-stats, .vn-stats, .lu1-models { grid-template-columns: minmax(0, 1fr) !important; }
+  .bt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .gu-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .oc-two, .r2-two { grid-template-columns: minmax(0, 1fr) !important; }
+  .ov2-strip { grid-auto-columns: 78% !important; }
+  .oc-tl, .oc-two.solo .oc-tl { grid-template-columns: 96px minmax(0, 1fr) !important; }
+
+  /* ── Two-pane pages stack ─────────────────────────────────────────────────── */
+  .s1-grid, .ro-md, .bt-split, .rc-body, .ov2, .vp1-grid, .k1-grid, .a1-grid, .d1-grid,
+  .jz-grid, .r2-grid, .lu1-grid, .p1-grid, .ac1-grid, .i1-grid, .cov-grid, .pc-grid,
+  .vp1, .ua-grid, .ke-grid, .ovd-mid, .fm-body, .gf-2col, .i1-edit-g, .rf-layout, .rail,
+  .en-guide-b, .skel-2col, .skel-3pane, .cc-hero, .ov3-hero {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .rc-body { padding: 0 10px 12px !important; }
+
+  /* ── Cards and wide content ───────────────────────────────────────────────── */
+  /* A table wider than the phone scrolls inside its card instead of being cut off. */
+  .cc-card, .oc-card, .card { min-width: 0 !important; }
+  /* phone-tables.js wraps a table that is wider than its card in this box. */
+  .ph-tscroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ph-tscroll > table { min-width: 100%; }
+  .ph-tscroll > table.ph-wide { min-width: 600px; }
+  /* Header action rows wrap instead of running off the edge. */
+  .cc-actions, .ddc-actions, .oc-bar, .card-header, .cc-ch, .oc-ch { flex-wrap: wrap !important; }
+  /* Tab strips scroll sideways (they already may; this keeps them from clipping). */
+  .dd-tabs, .en-tabs, .vp1-tabs, .ptabs, .settings-nav, .vt-tabs {
+    overflow-x: auto !important; scrollbar-width: none; -webkit-overflow-scrolling: touch; max-width: 100%;
+  }
+  .dd-tabs::-webkit-scrollbar, .en-tabs::-webkit-scrollbar, .vp1-tabs::-webkit-scrollbar,
+  .ptabs::-webkit-scrollbar, .settings-nav::-webkit-scrollbar { display: none; }
+  .dd-tabs > *, .en-tabs > *, .vp1-tabs > *, .ptabs > *, .settings-nav > * { flex: none !important; }
+  /* A fade on the right edge says the strip scrolls. */
+  .dd-tabs, .en-tabs, .vp1-tabs, .ptabs, .settings-nav {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+
+  /* ── Grid "tables": keep the main columns, move the rest under the row ───── */
+  /* Jobs: icon · job and progress · status, then the actions under it. */
+  /* A job row (Jobs and its history share it): dot · job · status, then who sent it ·
+     when, then its buttons. */
+  .jz-th { grid-template-columns: 30px minmax(0, 1fr) auto !important; padding-left: 12px !important; padding-right: 12px !important; }
+  .jz-th > :nth-child(n+4) { display: none !important; }
+  .htrow { display: grid !important; grid-template-columns: 30px minmax(0, 1fr) auto !important; column-gap: 10px !important; row-gap: 4px !important; padding-left: 12px !important; padding-right: 12px !important; }
+  .htrow > .ht-dotwrap { grid-column: 1 !important; grid-row: 1 / span 2 !important; }
+  .htrow > .ht-body { grid-column: 2 !important; grid-row: 1 !important; min-width: 0 !important; }
+  .htrow > .ht-chip { grid-column: 3 !important; grid-row: 1 !important; }
+  .htrow > .ht-by { grid-column: 2 !important; grid-row: 2 !important; min-width: 0 !important; overflow: hidden !important; text-overflow: ellipsis; white-space: nowrap; }
+  .htrow > .ht-when { grid-column: 3 !important; grid-row: 2 !important; }
+  .htrow > .hact { grid-column: 2 / -1 !important; grid-row: 3 !important; justify-self: end; }
+  /* Compliance checks: check · failing · open, the level and the bar under it. */
+  .k1-th, .k1-tbl summary, details > summary.k1-row { grid-template-columns: minmax(0, 1fr) 56px 16px !important; }
+  .k1-th > :nth-child(2), .k1-th > :nth-child(3), .k1-th > :nth-child(5) { display: none !important; }
+  .cp-dev { grid-template-columns: minmax(0, 1fr) !important; gap: 2px !important; }
+  /* Compliance rules: label above its control. */
+  .cr-row { flex-wrap: wrap !important; }
+  .cr-ov { grid-template-columns: 30px minmax(0, 1fr) !important; }
+  .cr-ov > :nth-child(n+3) { grid-column: 2 / -1 !important; justify-self: start; }
+  /* MDM clients version rows, server rows, app version rows. */
+  .cv-r { grid-template-columns: minmax(0, 1fr) !important; row-gap: 6px !important; }
+  .sv-row { grid-template-columns: minmax(0, 1fr) auto !important; }
+  .sv-row > :nth-child(3) { display: none !important; }
+  .d1-vrow { grid-template-columns: minmax(0, 1fr) 44px 56px !important; }
+  .d1-vrow > :nth-child(2) { display: none !important; }
+  .i1-q { grid-template-columns: auto minmax(0, 1fr) !important; }
+  .i1-q > :nth-child(3) { grid-column: 2 / -1 !important; justify-self: start; }
+
+  /* ── Settings rows: label above value ─────────────────────────────────────── */
+  .vs-row, .s1-sw, .vs-h { flex-wrap: wrap !important; }
+  .vs-row > *, .s1-sw > * { min-width: 0 !important; }
+
+  /* ── Device page ──────────────────────────────────────────────────────────── */
+  /* Apps: icon · name · memory (or screen time on the Standard client) · menu. */
+  .app-list .apl-head, .app-list .app-tile { grid-template-columns: 26px minmax(0, 1fr) 64px 30px !important; gap: 8px !important; padding-left: 12px !important; padding-right: 8px !important; }
+  .app-list .apl-v, .app-list .apl-cpu { display: none !important; }
+  .app-list:not(.apl-lim) .apl-scr { display: none !important; }
+  .app-list .app-tile > .app-tsub { grid-column: 3 / -2 !important; }
+  .apl-bar { flex-wrap: wrap !important; }
+  .ddc-tl, .ddc-tl-link { grid-template-columns: 10px minmax(0, 1fr) auto !important; }
+
+  /* ── Forms ────────────────────────────────────────────────────────────────── */
+  form.rp-new, .lua-kv { grid-template-columns: minmax(0, 1fr) !important; display: grid !important; }
+  .form-input, input[type=text], input[type=search], input[type=email], input[type=password], select, textarea { max-width: 100%; }
+
+  /* ── Round 2 ──────────────────────────────────────────────────────────────── */
+  /* Compliance rules: the check on its own line, then its level and who fixes it. */
+  .cr-card .cr-row { grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; }
+  /* Settings switch rows: the name on top, the value and its switch under it. */
+  .s1-sw { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; row-gap: 4px !important; }
+  .s1-sw > .vs-k { grid-column: 1 / -1 !important; font-weight: 650; }
+  .s1-sw > .vs-v { display: flex !important; gap: 6px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+  /* Remote control: the page scrolls, the screen fits the width, the tools sit under it. */
+  body:has(#rc-console) { overflow: auto !important; }
+  #rc-console { height: auto !important; overflow: visible !important; }
+  .rc-body { display: flex !important; flex-direction: column !important; }
+  .rc-stage { flex-wrap: wrap !important; padding: 10px !important; }
+  .rc-screen canvas { max-width: calc(100vw - 48px) !important; max-height: 72dvh !important; }
+  .rc-stage:has(.rc-remote) .rc-screen canvas { max-width: calc(100vw - 48px) !important; }
+  .rc-rail { overflow: visible !important; }
+}

@@ -1883,8 +1883,8 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}<small class="apl-pkg">{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
-    <span class="apl-c mono">{{if $p.VersionName}}{{$p.VersionName}}{{else}}—{{end}}</span>
-    {{if not $r.AppList.Limited}}<span class="apl-c">{{$p.Mem}}</span><span class="apl-c">{{$p.CPU}}</span>{{end}}<span class="apl-c">{{$p.Screen}}</span>
+    <span class="apl-c mono apl-v">{{if $p.VersionName}}{{$p.VersionName}}{{else}}—{{end}}</span>
+    {{if not $r.AppList.Limited}}<span class="apl-c apl-m">{{$p.Mem}}</span><span class="apl-c apl-cpu">{{$p.CPU}}</span>{{end}}<span class="apl-c apl-scr">{{$p.Screen}}</span>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
     {{if and (not .Sys) (canOperate $r.Role) (not $isUn) (supports $r.Device "uninstall") (not $r.Restricted)}}
     <div class="app-x-form" onclick="event.stopPropagation()">
@@ -1910,8 +1910,8 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   <div class="app-search" id="apps-search-wrap"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
   <span class="apl-win">{{range $L.Windows}}<button type="button" class="apl-pill{{if eq . $L.Window}} on{{end}}" hx-get="/devices/{{$.Device.SerialNumber}}/apps-list?window={{.}}" hx-target="#apps-live" hx-swap="innerHTML">{{.}}</button>{{end}}</span>
 </div>
-<div class="app-list" id="apps-table">
-  <div class="apl-head"><span></span><span>App</span><span>Version</span>{{if not $L.Limited}}<span>Memory</span><span>CPU</span>{{end}}<span>Screen</span><span></span></div>
+<div class="app-list{{if $L.Limited}} apl-lim{{end}}" id="apps-table">
+  <div class="apl-head"><span></span><span>App</span><span class="apl-v">Version</span>{{if not $L.Limited}}<span class="apl-m">Memory</span><span class="apl-cpu">CPU</span>{{end}}<span class="apl-scr">Screen</span><span></span></div>
   {{range .PendingInstalls}}
   <div class="app-row app-tile app-installing" data-app="{{.Name}} {{.ApkURL}}" data-cmd-id="inst:{{.ApkURL}}" title="Installing…">
     <div class="app-mono app-mono-inst"><span class="app-spin"></span></div>
@@ -1931,7 +1931,7 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   {{if $L.System}}
   {{/* Open by default, with its own column headings (user, 27 Oct 2026). */}}
   <details class="apl-sys" id="apps-sys" open><summary id="apps-sys-sep">{{len $L.System}} system app{{if ne (len $L.System) 1}}s{{end}}</summary>
-  <div class="apl-head"><span></span><span>App</span><span>Version</span>{{if not $L.Limited}}<span>Memory</span><span>CPU</span>{{end}}<span>Screen</span><span></span></div>
+  <div class="apl-head"><span></span><span>App</span><span class="apl-v">Version</span>{{if not $L.Limited}}<span class="apl-m">Memory</span><span class="apl-cpu">CPU</span>{{end}}<span class="apl-scr">Screen</span><span></span></div>
   {{range $L.System}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" true)}}{{end}}
   </details>
   {{end}}
