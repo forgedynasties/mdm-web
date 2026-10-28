@@ -21,6 +21,9 @@
   .oc-todo li { min-width: 0 !important; }
   .ov2-ban { padding: 18px 16px 18px !important; }
   .ov2-ban h2 { font-size: 24px !important; }
+  /* Lineup's banner drops the product picture: beside it the text got one word a line. */
+  .lu1-ban.has-pic { grid-template-columns: minmax(0, 1fr) !important; }
+  .lu1-ban img { display: none !important; }
   /* Delta cards: one per row, so numbers and their words have room. */
   .oc-stats, .vn-stats, .lu1-models { grid-template-columns: minmax(0, 1fr) !important; }
   .bt-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
