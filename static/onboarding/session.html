@@ -123,7 +123,53 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
 .warn b{color:var(--bad)}
 
 /* simulator */
-.sim{display:grid;grid-template-columns:720px 1fr;gap:34px;flex:1;align-items:start}
+.sim{display:grid;grid-template-columns:720px 300px minmax(0,1fr);grid-template-areas:"coach coach coach" "tab phone side";column-gap:26px;row-gap:34px;flex:1;align-items:start}
+.sim .coach{grid-area:coach}.sim .tab{grid-area:tab}.sim .phone{grid-area:phone}.simside{grid-area:side}
+.simsw{display:none}
+.simside{display:flex;flex-direction:column;gap:12px;min-width:0}
+.sc{background:#fff;border:1px solid var(--outline);border-radius:18px;padding:13px 16px}
+.sl{font-size:12.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--onv);margin-bottom:8px}
+.scen{display:flex;flex-wrap:wrap;gap:7px}
+.scen button{border:1.5px solid var(--outline);background:#fff;border-radius:99px;padding:6px 12px;font-size:14.5px}
+.scen button[aria-pressed=true]{background:var(--pf);border-color:var(--pf);color:#fff}
+#scdesc{font-size:14px;color:var(--onv);margin:9px 0 0;line-height:1.4}
+#why{font-size:16px;line-height:1.45;margin:0;min-height:69px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);text-align:center;padding:11px 8px}
+.stats b{display:block;font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.stats small{font-size:12px;color:var(--onv)}
+.qr{display:flex;gap:14px;align-items:center}
+.qr img{width:104px;height:104px;image-rendering:pixelated;flex:none}
+.qr b{display:block;font-size:17px;margin-bottom:4px}
+.qr small{font-size:12.5px;color:var(--onv);word-break:break-all}
+.tscr .bar .wf{border:0;background:none;font:inherit;color:inherit;padding:2px 6px;border-radius:6px}
+.tscr .bar .wf.pulse{animation:pulse 1.4s infinite}
+.gacc{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#4285f4;color:#fff;font-style:normal;font-size:10px;font-weight:700;margin-right:6px}
+.wfrow{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:none;padding:12px 8px;border-radius:10px;font-size:17px;text-align:left}
+.wfrow small{font-size:13px;color:#6b6570}.wfrow.on span{font-weight:600}.wfrow:hover{background:#e8def8}
+.wfrow.pulse,.tdlg .acts button.pulse{animation:pulse 1.4s infinite}
+.badbig{width:64px;height:64px;border-radius:50%;background:var(--badc);color:var(--bad);display:grid;place-items:center;font-size:34px;font-weight:700;margin:18px 0 0}
+.pwarn{margin-top:10px;font-size:13px;color:var(--bad);background:var(--badc);border-radius:10px;padding:8px 10px}
+.pres{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:#fff;border:1px solid var(--outline);border-radius:14px;padding:10px 14px;margin:8px 0}
+.pres b{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}.pres span{font-size:13px;color:var(--onv)}
+/* /onboarding-demo/try: the simulator alone, one screen at a time, sized for a phone. */
+html.solo,html.solo body{overflow:auto;height:auto;background:var(--bg)}
+.solo #wrap,.solo #nav,.solo #bar,.solo #notes{display:none}
+#solo{max-width:480px;margin:0 auto;padding:12px 12px 28px}
+.sohd{display:flex;align-items:center;gap:10px;margin:2px 2px 12px}
+.sohd img{width:34px}.sohd b{display:block;font-size:18px}.sohd small{font-size:12.5px;color:var(--onv)}
+.solo .sim{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.solo .coach{position:sticky;top:8px;z-index:5;font-size:15.5px;padding:10px 12px;border-radius:14px;gap:10px;flex-wrap:wrap;min-height:0}
+.solo .coach .btn{padding:6px 12px;font-size:13px}
+.solo .simsw{display:flex;background:#fff;border:1px solid var(--outline);border-radius:99px;padding:3px}
+.solo .simsw button{flex:1;border:0;background:none;border-radius:99px;padding:8px;font-size:14.5px;color:var(--onv)}
+.solo .simsw button[aria-selected=true]{background:var(--pf);color:#fff}
+.solo .tab{width:100%;height:min(560px,62dvh);padding:9px;border-radius:22px}
+.solo .phone{width:100%;height:min(620px,70dvh);padding:8px;border-radius:30px}
+.solo .tab .lab,.solo .phone .lab,.solo .qr{display:none}
+.solo .sim:not(.show-phone) .phone,.solo .sim.show-phone .tab{display:none}
+.solo .tdlg .box{width:auto;max-width:92%}
+.solo .tscr .hd{font-size:22px}.solo .tr{font-size:16px}.solo .home{gap:22px}
+.solo .simside{order:5}
 .coach{grid-column:1/-1;display:flex;align-items:center;gap:16px;background:#231917;color:#fff;border-radius:18px;padding:14px 22px;font-size:21px;min-height:60px}
 .coach .tag{background:var(--pf);color:#fff}
 .coach .sp{margin-left:auto;display:flex;gap:10px}
@@ -388,11 +434,18 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
 </section>
 
 <!-- 12 ─────────────────────────────── -->
-<section class="s" data-title="Try it" data-notes="<b>Interactive simulator.</b> Have a volunteer drive it, or click it yourself while the room tells you what to do. The black bar always says the next move. The work step is sped up here. Reset with the button on the right.">
+<section class="s" data-title="Try it" data-notes="<b>Interactive simulator.</b> Show the QR code first: everyone can play it on their own phone at the same time (mdm.dev.aioapp.com/onboarding-demo/try). Run <b>Normal</b> together once on the big screen, then the three that go wrong: <b>Google account on it</b> (the app refuses and asks for a reset), <b>Guest Wi-Fi</b> (the phone never finds it) and <b>Box closed</b> (the code dies). The black bar always says the next move; the side panel says what just happened, the time and the mistakes. The work step and the reset are sped up.">
   <div class="sim">
     <div class="coach"><span class="tag" id="cstep">Try it</span><span id="ctext"></span><span class="sp"><button class="btn ghost" id="simreset">Start over</button></span></div>
+    <div class="simsw" role="tablist" aria-label="Screen"><button role="tab" data-side="d" aria-selected="true">The device</button><button role="tab" data-side="p" aria-selected="false">Your phone</button></div>
     <div class="tab"><span class="lab">THE NEW DEVICE</span><div class="tscr" id="tscr"></div></div>
     <div class="phone"><span class="lab">YOUR PHONE · AIO ENROLL</span><div class="pscr" id="pscr"></div></div>
+    <aside class="simside">
+      <div class="sc"><div class="sl">Scenario</div><div class="scen" id="scen"></div><p id="scdesc"></p></div>
+      <div class="sc"><div class="sl">What just happened</div><p id="why"></p></div>
+      <div class="sc stats"><div><b id="stime">0:00</b><small>time</small></div><div><b id="smis">0</b><small>mistakes</small></div><div><b id="sbest">–</b><small>your best</small></div></div>
+      <div class="sc qr"><img src="/static/onboarding/try-qr.png" alt="QR code for the practice run"><div><b>Try it on your phone</b><small>mdm.dev.aioapp.com/onboarding-demo/try</small></div></div>
+    </aside>
   </div>
 </section>
 
@@ -487,7 +540,7 @@ video{width:100%;max-height:600px;border-radius:20px;background:#000;box-shadow:
   <span id="ctr"></span>
   <button id="next" aria-label="Next slide">→</button>
   <button class="txt" id="ntog" aria-pressed="false" title="Speaker notes (N)">Notes</button>
-  <button id="fs" aria-label="Full screen (F)" title="Full screen (F)">⛶</button>
+  <button id="fs" aria-label="Full screen (F)" title="Full screen (F)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 </nav>
 
 <script>
@@ -498,6 +551,18 @@ const store = {
   get(k){ try { return JSON.parse(localStorage.getItem(k)) } catch { return null } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)) } catch {} },
 };
+
+// /onboarding-demo/try runs the simulator alone, for everyone's own phone.
+const SOLO = /\/try\/?$/.test(location.pathname);
+if (SOLO) {
+  document.documentElement.classList.add('solo');
+  document.title = 'Practice: set up a device · AIO MDM';
+  const box = document.createElement('main');
+  box.id = 'solo';
+  box.innerHTML = '<header class="sohd"><img src="/static/onboarding/mdm-shield.svg" alt=""><div><b>Practice: set up a device</b><small>Nothing here touches a real device</small></div></header>';
+  box.appendChild(document.querySelector('.sim'));
+  document.body.appendChild(box);
+}
 
 /* ── deck ─────────────────────────────── */
 const slides = $$('.s');
@@ -533,7 +598,7 @@ $('#ntog').onclick = toggleNotes;
 function toggleFs(){ document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.() }
 $('#fs').onclick = toggleFs;
 addEventListener('keydown', e => {
-  if (e.target.closest('input,textarea,video')) return;
+  if (SOLO || e.target.closest('input,textarea,video')) return;
   if (['ArrowRight','PageDown',' '].includes(e.key)) { e.preventDefault(); show(cur + 1) }
   else if (['ArrowLeft','PageUp'].includes(e.key)) { e.preventDefault(); show(cur - 1) }
   else if (e.key === 'Home') show(0);
@@ -624,18 +689,50 @@ $$('#quiz .qz').forEach(card => {
 
 
 /* ── simulator ────────────────────────── */
+// Four scenarios (user, 28 Oct 2026: "do all"): the happy path plus the three ways a
+// real setup goes wrong, each with the app's own words and the fix. The slide's side
+// panel shows the scenario, what just happened, the time and the mistakes; /try runs the
+// same simulator alone, sized for a phone, so the whole room can play at once.
 const IP = '10.32.1.84', NAME = 'D3 Pro';
-let S;
+const SCEN = {
+  normal: ['Normal', 'A fresh device on the office Wi-Fi: how it goes most days.'],
+  account: ['Google account on it', 'Someone signed in to Google during setup. See what the app says, then fix it.'],
+  wifi: ['Guest Wi-Fi', 'The device joined the guest network, not the office one.'],
+  closed: ['Box closed', 'The pairing box closes before the code is typed: the screen went to sleep.'],
+};
+const WHY = {
+  idle: 'Follow the black bar. Each step is explained here as you go.',
+  start: 'AIO Enroll is ready. It finds the device by itself once the device\'s pairing box is open.',
+  dev: 'You unlocked <b>Developer options</b>, Android\'s hidden menu for engineers. Nothing changed on the device yet.',
+  wadb: '<b>Wireless debugging</b> lets a phone on the same Wi-Fi talk to the device, but only with its pairing code.',
+  pair: 'The device shows a <b>one-time code</b>. Only the phone that types it gets in.',
+  work: 'Your phone used the code to connect, and now installs the AIO MDM and makes it the device\'s manager.',
+  done: 'The device now talks to the MDM over the internet, from any restaurant. Your phone is out of the picture.',
+  nofind: 'The phone only sees devices on <b>its own Wi-Fi</b>. A device on the guest network is invisible to it.',
+  wifi: 'Changing network turns Wireless debugging <b>off</b>. That\'s Android being careful: switch it on again.',
+  acct: 'Android only lets the MDM manage a <b>clean</b> device. A Google account blocks it, and only a factory reset removes it.',
+  reset: 'Back to new. In real life a reset takes a few minutes and you run setup again, tapping <b>Skip</b> at Google.',
+  closed: 'Each pairing box has its <b>own</b> code. Once the box closes, that code stops working.',
+};
+const FAILS = {
+  reset: {title: `${NAME} needs a reset first`, list: ['It has a Google account on it.'],
+    msg: 'A factory reset fixes all of these. Skip the Google account during setup, then come back.'},
+};
+let S, scen = 'normal';
 function simReset(){
-  clearInterval(S?.timer);
-  S = {t: 'home', back: [], taps: 0, dev: false, wadb: false, dlg: null, code: '', p: 'home', typed: '', err: '', work: 0, timer: null, toast: '', managed: false};
+  clearInterval(S?.timer); clearTimeout(S?.closeT); clearTimeout(S?.resetT);
+  S = {t: 'home', back: [], taps: 0, dev: false, wadb: false, dlg: null, code: '', p: 'home', typed: '', err: '', work: 0, timer: null, toast: '', managed: false,
+    wifi: scen === 'wifi' ? 'guest' : 'office', account: scen === 'account', closedOnce: false, boxClosed: false, fail: '', wifiMiss: false,
+    resetting: false, mistakes: 0, t0: 0, t1: 0, why: 'idle', side: ''};
   render();
 }
+const ssid = () => S.wifi === 'office' ? 'Office-WiFi' : 'Guest-WiFi';
+const fmt = ms => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` };
 function newCode(){ return String(Math.floor(100000 + Math.random() * 900000)) }
 function go(screen){ S.back.push(S.t); S.t = screen; render() }
 function toast(m){
   S.toast = m; render();
-  clearTimeout(toast.h); toast.h = setTimeout(() => { S.toast = ''; render() }, 1600);
+  clearTimeout(toast.h); toast.h = setTimeout(() => { S.toast = ''; render() }, 2200);
 }
 const row = (t, sub, attrs = '', right = '') =>
   `<button class="tr" ${attrs}><span>${t}${sub ? `<small>${sub}</small>` : ''}</span>${right}</button>`;
@@ -644,16 +741,19 @@ function hd(title){ return `<div class="hd"><button data-a="back" aria-label="Ba
 
 function renderTab(){
   const pulse = k => coachKey() === k ? 'pulse' : '';
-  let h = `<div class="bar"><span>9:41</span><span>Office-WiFi ▾ 🔋</span></div>`;
-  if (S.managed) {
-    h += `<div class="mgd"><img src="/static/onboarding/mdm-shield.svg" alt=""><b>Connected to AIO</b><span>This device is managed by your organization</span><span style="margin-top:14px;font-size:13px">Its restaurant and app are set on the MDM</span></div>`;
+  let h = `<div class="bar"><span>9:41</span><button class="wf ${pulse('tapwifi')}" data-a="wifi" title="Wi-Fi">${ssid()} ▾</button><span>${S.account ? '<i class="gacc" title="Signed in to Google">G</i>' : ''}🔋</span></div>`;
+  if (S.resetting) {
+    h += `<div class="mgd"><div class="spin" style="justify-content:center"><i></i></div><b>Erasing…</b><span>Sped up here. A real reset takes a few minutes.</span></div>`;
+  } else if (S.managed) {
+    h += `<div class="mgd"><img src="/static/onboarding/mdm-shield.svg" alt=""><b>Connected to AIO</b><span>This device is managed by your organization</span><span style="margin-top:14px;font-size:13px">Its restaurant and app are set on the MDM.</span></div>`;
   } else if (S.t === 'home') {
-    h += `<div class="home"><button data-a="settings" class="${pulse('settings')}"><i style="background:#e8eaed;color:#5f6368">⚙</i>Settings</button><button><i style="background:#4285f4;color:#fff">◉</i>Chrome</button><button><i style="background:#34a853;color:#fff">▶</i>Play Store</button></div>`;
+    h += `<div class="home"><button data-a="settings" class="${pulse('settings') || pulse('fsettings')}"><i style="background:#e8eaed;color:#5f6368">⚙</i>Settings</button><button><i style="background:#4285f4;color:#fff">◉</i>Chrome</button><button><i style="background:#34a853;color:#fff">▶</i>Play Store</button></div>`;
   } else if (S.t === 'settings') {
     h += hd('Settings') + `<div class="tlist">` +
-      row('Network &amp; internet', 'Wi-Fi: Office-WiFi', 'class="tr ro"') +
+      (S.account ? row('Google', 'ali.cafe@gmail.com · signed in', 'class="tr ro"') : '') +
+      row('Network &amp; internet', 'Wi-Fi: ' + ssid(), 'class="tr ro"') +
       row('Apps', 'Recent apps, default apps', 'class="tr ro"') +
-      row('System', 'Languages, gestures, time' + (S.dev ? ', developer options' : ''), `data-a="system" class="tr ${pulse('system')}"`) +
+      row('System', 'Languages, gestures, time' + (S.dev ? ', developer options' : ''), `data-a="system" class="tr ${pulse('system') || pulse('fsystem')}"`) +
       row('About tablet', NAME, `data-a="about" class="tr ${pulse('about')}"`) + `</div>`;
   } else if (S.t === 'about') {
     h += hd('About tablet') + `<div class="tlist">` +
@@ -663,13 +763,17 @@ function renderTab(){
   } else if (S.t === 'system') {
     h += hd('System') + `<div class="tlist">` +
       row('Languages &amp; input', '', 'class="tr ro"') + row('Date &amp; time', '', 'class="tr ro"') +
-      row('Reset options', '', 'class="tr ro"') +
+      row('Reset options', S.fail ? 'Erase all data' : '', S.fail ? `data-a="resetopt" class="tr ${pulse('resetopt')}"` : 'class="tr ro"') +
       (S.dev ? row('Developer options', '', `data-a="dev" class="tr ${pulse('devopt')}"`) : '') + `</div>`;
+  } else if (S.t === 'reset') {
+    h += hd('Reset options') + `<div class="tlist">` +
+      row('Reset Wi-Fi, mobile &amp; Bluetooth', '', 'class="tr ro"') +
+      row('Erase all data (factory reset)', 'Wipes the device back to new', `data-a="erase" class="tr ${pulse('erase')}"`) + `</div>`;
   } else if (S.t === 'dev') {
     h += hd('Developer options') + `<div class="tlist">` +
       row('Use developer options', '', 'class="tr ro"', sw(true)) +
       row('USB debugging', 'Debug mode when USB is connected', 'class="tr ro"', sw(false)) +
-      `<div class="tr ${pulse('wadb') || pulse('wadbopen')}" style="cursor:default"><span data-a="wadbopen" style="cursor:pointer;flex:1">Wireless debugging<small>Debug mode when Wi-Fi is connected${S.wadb ? ' · tap here for pairing' : ''}</small></span><span data-a="wadbsw" style="cursor:pointer">${sw(S.wadb)}</span></div>` +
+      `<div class="tr ${pulse('wadb') || pulse('wadbopen')}" style="cursor:default"><span data-a="wadbopen" style="cursor:pointer;flex:1">Wireless debugging<small>Debug mode when Wi-Fi is connected${S.wadb ? ' · tap here for pairing' : ''}</small></span><button data-a="wadbsw" style="border:0;background:none;padding:6px" aria-label="Wireless debugging switch">${sw(S.wadb)}</button></div>` +
       row('Verify apps over USB', '', 'class="tr ro"', sw(true)) + `</div>`;
   } else if (S.t === 'wadb') {
     h += hd('Wireless debugging') + `<div class="tlist">` +
@@ -677,15 +781,19 @@ function renderTab(){
       row('Device name', NAME, 'class="tr ro"') +
       row('IP address &amp; Port', IP + ':37215', 'class="tr ro"') +
       row('Pair device with QR code', 'Pair new devices using a QR code scanner', 'class="tr ro"') +
-      row('Pair device with pairing code', 'Pair new devices using a six-digit code', `data-a="pair" class="tr ${pulse('pair')}"`) + `</div>`;
+      row('Pair device with pairing code', 'Pair new devices using a six-digit code', `data-a="pair" class="tr ${pulse('pair') || pulse('reopen')}"`) + `</div>`;
   }
-  if (S.dlg === 'allow') h += `<div class="tdlg on"><div class="box"><h4>Allow wireless debugging on this network?</h4>Network name (SSID)<br><b>Office-WiFi</b><div class="acts"><button data-a="dlgno">Cancel</button><button data-a="allow" class="${pulse('allow')}">Allow</button></div></div></div>`;
-  if (S.dlg === 'pair') h += `<div class="tdlg on"><div class="box"><h4>Pair with device</h4>Wi-Fi pairing code<div class="bigc">${S.code}</div>IP address &amp; Port<br>${IP}:41233<div class="acts"><button data-a="dlgno">Cancel</button></div></div></div>`;
+  if (S.dlg === 'allow') h += `<div class="tdlg on"><div class="box"><h4>Allow wireless debugging on this network?</h4>Network name (SSID)<br><b>${ssid()}</b><div class="acts"><button data-a="dlgno">Cancel</button><button data-a="allow">Allow</button></div></div></div>`;
+  if (S.dlg === 'pair') h += `<div class="tdlg on"><div class="box"><h4>Pair with device</h4>Wi-Fi pairing code<div class="bigc">${S.code}</div>IP address &amp; Port<br>${IP}:41233<div class="acts"><button data-a="dlgno" class="${pulse('nofind')}">Cancel</button></div></div></div>`;
+  if (S.dlg === 'wifi') h += `<div class="tdlg on"><div class="box"><h4>Wi-Fi</h4>` +
+    ['office', 'guest'].map(w => `<button class="wfrow ${w === S.wifi ? 'on' : ''} ${w === 'office' ? pulse('pickwifi') : ''}" data-a="wf-${w}"><span>${w === 'office' ? 'Office-WiFi' : 'Guest-WiFi'}</span><small>${w === S.wifi ? 'Connected' : 'Saved'}</small></button>`).join('') +
+    `<div class="acts"><button data-a="dlgno">Close</button></div></div></div>`;
   h += `<div class="ttoast ${S.toast ? 'on' : ''}">${esc(S.toast)}</div>`;
   $('#tscr').innerHTML = h;
 }
 
 function stepHead(n){ return `<div class="stp">Step ${n} of 4</div><div class="prog"><i style="width:${n * 25}%"></i></div>` }
+function bestOf(){ return (store.get('aio-sim-best') || {})[scen] }
 function renderPhone(){
   let h = '';
   if (S.p === 'home') {
@@ -706,26 +814,32 @@ function renderPhone(){
       <div class="pn"><b>2</b>Settings → System → Developer options → turn on Wireless debugging.</div>
       <div class="pn"><b>3</b>Tap Wireless debugging → Pair device with pairing code.</div>
       <div class="spin"><i></i>Looking for it. This moves on by itself.</div>
+      ${S.wifiMiss && S.wifi !== 'office' ? '<div class="pwarn">Still nothing. Is the device on the same Wi-Fi as this phone?</div>' : ''}
       <button class="plink" style="margin-top:auto">Pairing screen open, but nothing here? Type it in</button>
       <button class="pb ghost">Can't find it?</button>`;
   } else if (S.p === 'code') {
     const boxes = [...Array(6)].map((_, i) => `<span class="${i === S.typed.length ? 'cur' : ''}">${S.typed[i] || ''}</span>`).join('');
     h = stepHead(3) + `<h5>Type the code</h5>
-      <p>${S.dlg === 'pair' ? `<b>${NAME}</b> · shows ${IP}` : `On ${NAME}: Wireless debugging → Pair device with pairing code.`}</p>
+      <p>${S.dlg === 'pair' ? `<b>${NAME}</b> · shows ${IP}` : S.boxClosed ? `The pairing box on ${NAME} closed. Open it again for a new code.` : `On ${NAME}: Wireless debugging → Pair device with pairing code.`}</p>
       <label style="font-size:12px;color:var(--onv);margin-top:6px">Wi-Fi pairing code</label>
       <div class="boxes" id="boxes">${boxes}</div>
       <input class="codein" id="codein" inputmode="numeric" maxlength="6" autocomplete="off" value="${S.typed}" aria-label="Pairing code">
       <div class="perr">${esc(S.err)}</div>
-      <p style="margin-top:auto;font-size:12.5px">Type what its box shows. Click the boxes, then use your keyboard.</p>`;
+      <p style="margin-top:auto;font-size:12.5px">Type what its box shows. Tap the boxes, then type.</p>`;
   } else if (S.p === 'work') {
     const ph = ['Connecting', 'Installing the AIO app', 'Checking in with the MDM'];
     h = stepHead(4) + `<h5>Setting up ${NAME}</h5>` +
       ph.map((t, i) => `<div class="phase ${i < S.work ? 'ok' : i === S.work ? 'run' : ''}"><i>${i < S.work ? '✓' : ''}</i>${t}</div>`).join('') +
       `<p style="margin-top:14px">Takes about a minute. Keep both on the Wi-Fi and leave the device alone until it's done.</p>
       <p style="margin-top:auto;font-size:12px">(Sped up for this demo.)</p>`;
+  } else if (S.p === 'fail') {
+    const f = FAILS[S.fail];
+    h = `<div class="badbig">!</div><h5>${esc(f.title)}</h5>` + f.list.map(l => `<div class="pn"><b>•</b>${esc(l)}</div>`).join('') +
+      `<p style="margin-top:8px">${esc(f.msg)}</p><button class="pb ghost" style="margin-top:auto" data-p="home">Back</button>`;
   } else if (S.p === 'done') {
+    const best = bestOf();
     h = `<div class="okbig">✓</div><h5>${NAME} is set up</h5><p>It is online on the MDM. Its type and venue are set there.</p>
-      <button class="plink">Open it on the MDM</button>
+      <div class="pres"><b>${fmt(S.t1 - S.t0)}</b><span>${S.mistakes} mistake${S.mistakes === 1 ? '' : 's'}${best ? ` · your best ${fmt(best)}` : ''}</span></div>
       <button class="pb" data-p="again">Set up another</button><button class="pb ghost" data-p="home">I'm done</button>`;
   }
   $('#pscr').innerHTML = h;
@@ -738,92 +852,165 @@ function renderPhone(){
       $$('#boxes span').forEach((b, i) => { b.textContent = S.typed[i] || ''; b.classList.toggle('cur', i === S.typed.length) });
       $('.perr', $('#pscr')).textContent = '';
     };
-    if (S.dlg === 'pair') { ci.focus(); ci.setSelectionRange(S.typed.length, S.typed.length) }
+    if (S.dlg === 'pair') { ci.focus({preventScroll: true}); ci.setSelectionRange(S.typed.length, S.typed.length) }
   }
 }
 function submitCode(){
   if (S.dlg === 'pair' && S.typed === S.code) {
-    S.dlg = null; S.p = 'work'; S.work = 0; render();
+    clearTimeout(S.closeT);
+    S.dlg = null; S.boxClosed = false; S.p = 'work'; S.work = 0; S.why = 'work'; render();
     S.timer = setInterval(() => {
       S.work++;
-      if (S.work > 2) { clearInterval(S.timer); S.p = 'done'; S.managed = true; S.t = 'home' }
+      if (S.work === 1 && S.account) {
+        // The app connects, then refuses: Android won't make the MDM the manager of a
+        // device with an account on it.
+        clearInterval(S.timer); S.p = 'fail'; S.fail = 'reset'; S.mistakes++; S.why = 'acct';
+      } else if (S.work > 2) {
+        clearInterval(S.timer); S.p = 'done'; S.managed = true; S.t = 'home'; S.t1 = Date.now(); S.why = 'done';
+        const best = store.get('aio-sim-best') || {};
+        if (!best[scen] || S.t1 - S.t0 < best[scen]) { best[scen] = S.t1 - S.t0; store.set('aio-sim-best', best) }
+      }
       render();
     }, 1300);
   } else {
     S.typed = ''; S.err = 'Wrong code, or the dialog closed. Open it again and read the new code.';
-    S.dlg = null; render();
+    S.dlg = null; S.mistakes++; render();
   }
 }
 function coachKey(){
   if (S.p === 'done') return 'done';
   if (S.p === 'work') return 'work';
+  if (S.resetting) return 'resetting';
+  if (S.p === 'fail') return S.t === 'reset' ? 'erase' : S.t === 'system' ? 'resetopt' : S.t === 'settings' ? 'fsystem' : S.t === 'home' ? 'fsettings' : 'backto';
   if (S.p === 'home') return 'start';
   if (S.p === 'prepare') return 'next';
-  if (S.dlg === 'allow') return 'allow';
+  if (S.dlg === 'wifi') return 'pickwifi';
+  if (S.dlg === 'allow') return S.wifi === 'office' ? 'allow' : 'allowguest';
   if (S.p === 'code' && S.dlg === 'pair') return 'type';
+  if (S.p === 'find' && S.dlg === 'pair' && S.wifi !== 'office') return 'nofind';
+  if (S.wifi !== 'office' && S.wifiMiss) return 'tapwifi';
+  if (S.p === 'code' && S.boxClosed && !S.dlg && S.t === 'wadb') return 'reopen';
   if (!S.dev) return S.t === 'home' ? 'settings' : S.t === 'about' ? 'build' : S.t === 'settings' ? 'about' : 'backto';
   if (!S.wadb) return S.t === 'dev' ? 'wadb' : S.t === 'system' ? 'devopt' : S.t === 'settings' ? 'system' : S.t === 'home' ? 'settings' : 'backto';
   if (S.t === 'wadb') return 'pair';
   if (S.t === 'dev') return 'wadbopen';
   return S.t === 'system' ? 'devopt' : S.t === 'settings' ? 'system' : S.t === 'home' ? 'settings' : 'backto';
 }
+// [who, what to do, which screen it happens on (d = device, p = phone)]
 const COACH = {
-  start: ['Phone', 'Tap <b>Set up a device</b>.'],
-  next: ['Phone', 'Read the three checks, then tap <b>Next</b>.'],
-  settings: ['Device', 'Open <b>Settings</b>.'],
-  about: ['Device', 'Tap <b>About tablet</b>.'],
-  build: ['Device', 'Tap <b>Build number</b> 7 times.'],
-  backto: ['Device', 'Go back (←) to Settings.'],
-  system: ['Device', 'Tap <b>System</b>.'],
-  devopt: ['Device', 'Tap <b>Developer options</b>.'],
-  wadb: ['Device', 'Switch on <b>Wireless debugging</b> (the switch on the right).'],
-  allow: ['Device', 'Tap <b>Allow</b>: it\'s the office Wi-Fi.'],
-  wadbopen: ['Device', 'Tap the words <b>Wireless debugging</b> to open it.'],
-  pair: ['Device', 'Tap <b>Pair device with pairing code</b>. The phone jumps to the code step.'],
-  type: ['Phone', 'Type the six digits the device shows into the phone.'],
-  work: ['Nobody', 'Hands off. It installs the MDM and checks in.'],
-  done: ['Done', 'The device is on the MDM and shows "Connected to AIO". Start over to try again.'],
+  start: ['Phone', 'Tap <b>Set up a device</b>.', 'p'],
+  next: ['Phone', 'Read the three checks, then tap <b>Next</b>.', 'p'],
+  settings: ['Device', 'Open <b>Settings</b>.', 'd'],
+  about: ['Device', 'Tap <b>About tablet</b>.', 'd'],
+  build: ['Device', 'Tap <b>Build number</b> 7 times.', 'd'],
+  backto: ['Device', 'Go back (←) to Settings.', 'd'],
+  system: ['Device', 'Tap <b>System</b>.', 'd'],
+  devopt: ['Device', 'Tap <b>Developer options</b>.', 'd'],
+  wadb: ['Device', 'Switch on <b>Wireless debugging</b> (the switch on the right).', 'd'],
+  allow: ['Device', 'Tap <b>Allow</b>: it\'s the office Wi-Fi.', 'd'],
+  allowguest: ['Device', 'Read the network name, then tap <b>Allow</b>.', 'd'],
+  wadbopen: ['Device', 'Tap the words <b>Wireless debugging</b> to open it.', 'd'],
+  pair: ['Device', 'Tap <b>Pair device with pairing code</b>. The phone jumps to the code step.', 'd'],
+  type: ['Phone', 'Type the six digits the device shows into the phone.', 'p'],
+  work: ['Nobody', 'Hands off. It installs the MDM and checks in.', 'p'],
+  done: ['Done', 'The device is on the MDM and shows "Connected to AIO". Try another scenario.', 'p'],
+  nofind: ['Fix', 'The phone can\'t find it: the device is on <b>Guest-WiFi</b> (top of its screen). Tap <b>Cancel</b> first.', 'd'],
+  tapwifi: ['Fix', 'Tap the network name at the top of the device and pick <b>Office-WiFi</b>.', 'd'],
+  pickwifi: ['Fix', 'Pick <b>Office-WiFi</b>, the one your phone is on.', 'd'],
+  reopen: ['Fix', 'The box closed, so that code is dead. Tap <b>Pair device with pairing code</b> again and type the <b>new</b> code.', 'd'],
+  fsettings: ['Fix', 'The phone says it needs a reset. On the device, open <b>Settings</b>.', 'd'],
+  fsystem: ['Fix', 'Tap <b>System</b>.', 'd'],
+  resetopt: ['Fix', 'Tap <b>Reset options</b>.', 'd'],
+  erase: ['Fix', 'Tap <b>Erase all data</b>. Afterwards set it up again, skipping Google.', 'd'],
+  resetting: ['Device', 'Erasing. Sped up here: a real reset takes a few minutes.', 'd'],
 };
+function setSide(side){
+  const sim = $('.sim');
+  sim.classList.toggle('show-phone', side === 'p');
+  $$('.simsw button').forEach(b => b.setAttribute('aria-selected', b.dataset.side === side));
+}
+function renderSide(){
+  $$('#scen button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === scen));
+  $('#scdesc').textContent = SCEN[scen][1];
+  $('#why').innerHTML = WHY[S.why] || WHY.idle;
+  $('#stime').textContent = S.t0 ? fmt((S.t1 || Date.now()) - S.t0) : '0:00';
+  $('#smis').textContent = S.mistakes;
+  const best = bestOf(); $('#sbest').textContent = best ? fmt(best) : '–';
+}
 function render(){
-  if (S.dlg === 'pair' && !['code', 'work', 'done'].includes(S.p)) { S.p = 'code'; S.typed = ''; S.err = '' }
-  renderTab(); renderPhone();
-  const [who, txt] = COACH[coachKey()];
+  if (S.dlg === 'pair' && S.wifi === 'office' && !['code', 'work', 'done', 'fail'].includes(S.p)) { S.p = 'code'; S.typed = ''; S.err = '' }
+  const k = coachKey();
+  if (k === 'nofind' && !S.wifiMiss) { S.wifiMiss = true; S.mistakes++; S.why = 'nofind' }
+  renderTab(); renderPhone(); renderSide();
+  const [who, txt, side] = COACH[coachKey()];
   $('#cstep').textContent = who; $('#ctext').innerHTML = txt;
+  // On a phone only one screen fits: follow the coach to whichever one the next move is on.
+  if (side !== S.side) { S.side = side; setSide(side) }
 }
 $('#tscr').addEventListener('click', e => {
   const a = e.target.closest('[data-a]')?.dataset.a;
-  if (!a) return;
+  if (!a || S.resetting) return;
   if (a === 'back') { S.t = S.back.pop() || 'home'; render() }
   else if (a === 'settings') go('settings');
   else if (a === 'about') go('about');
   else if (a === 'system') go('system');
   else if (a === 'dev') go('dev');
+  else if (a === 'resetopt') go('reset');
+  else if (a === 'erase') {
+    S.resetting = true; S.dlg = null; render();
+    S.resetT = setTimeout(() => {
+      Object.assign(S, {resetting: false, t: 'home', back: [], dev: false, taps: 0, wadb: false, account: false, fail: '', p: 'home', why: 'reset'});
+      render();
+    }, 1800);
+  }
   else if (a === 'build') {
     if (S.dev) return toast('No need, you are already a developer.');
     S.taps++;
-    if (S.taps >= 7) { S.dev = true; toast('You are now a developer!') }
+    if (S.taps >= 7) { S.dev = true; S.why = 'dev'; toast('You are now a developer!') }
     else if (S.taps >= 3) toast(`You are now ${7 - S.taps} steps away from being a developer.`);
     else render();
   }
   else if (a === 'wadbsw') { if (S.wadb) { S.wadb = false; render() } else { S.dlg = 'allow'; render() } }
-  else if (a === 'allow') { S.dlg = null; S.wadb = true; render() }
+  else if (a === 'allow') { S.dlg = null; S.wadb = true; S.why = 'wadb'; render() }
   else if (a === 'wadbopen') { if (S.wadb) go('wadb'); else toast('Switch it on first.') }
-  else if (a === 'pair') { S.code = newCode(); S.dlg = 'pair'; S.err = ''; render() }
+  else if (a === 'pair') {
+    S.code = newCode(); S.dlg = 'pair'; S.err = ''; S.boxClosed = false; S.why = 'pair';
+    if (scen === 'closed' && !S.closedOnce && S.wifi === 'office') {
+      S.closedOnce = true; clearTimeout(S.closeT);
+      S.closeT = setTimeout(() => {
+        if (S.dlg !== 'pair' || S.p !== 'code') return;
+        S.dlg = null; S.boxClosed = true; S.why = 'closed';
+        toast('The screen timed out and the pairing box closed.');
+      }, 4000);
+    }
+    render();
+  }
   else if (a === 'dlgno') { S.dlg = null; render() }
+  else if (a === 'wifi') { S.dlg = 'wifi'; render() }
+  else if (a === 'wf-office' || a === 'wf-guest') {
+    const w = a.slice(3), changed = w !== S.wifi;
+    S.wifi = w; S.dlg = null;
+    if (changed && S.wadb) { S.wadb = false; S.why = 'wifi'; toast('Wireless debugging turned off: the network changed.') }
+    else render();
+  }
 });
 $('#pscr').addEventListener('click', e => {
   const a = e.target.closest('[data-p]')?.dataset.p;
   if (!a) return;
-  if (a === 'start') S.p = 'prepare';
+  if (a === 'start') { S.p = 'prepare'; S.why = 'start'; if (!S.t0) S.t0 = Date.now() }
   else if (a === 'find') S.p = 'find';
   else if (a === 'home') S.p = 'home';
-  else if (a === 'again') { simReset(); S.p = 'prepare' }
+  else if (a === 'again') { simReset(); S.p = 'prepare'; S.t0 = Date.now(); S.why = 'start' }
   render();
 });
+$('#scen').innerHTML = Object.entries(SCEN).map(([k, [t]]) => `<button data-s="${k}" aria-pressed="false">${esc(t)}</button>`).join('');
+$$('#scen button').forEach(b => b.onclick = () => { scen = b.dataset.s; simReset() });
+$$('.simsw button').forEach(b => b.onclick = () => setSide(b.dataset.side));
 $('#simreset').onclick = simReset;
+setInterval(() => { if (S.t0 && !S.t1) $('#stime').textContent = fmt(Date.now() - S.t0) }, 500);
 simReset();
 
-show(parseInt(location.hash.slice(1)) - 1 || 0);
+if (!SOLO) show(parseInt(location.hash.slice(1)) - 1 || 0);
 </script>
 </body>
 </html>
