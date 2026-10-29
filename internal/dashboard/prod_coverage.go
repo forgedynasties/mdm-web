@@ -169,8 +169,8 @@ func covHref(base, env, typ string, all bool) string {
 	if typ != "" {
 		q.Set("type", typ)
 	}
-	if all {
-		q.Set("rest", "all")
+	if !all {
+		q.Set("rest", "active")
 	}
 	e := q.Encode()
 	switch {
@@ -313,7 +313,8 @@ func buildProdCoverage(in covInputs) prodCoverageView {
 	} else {
 		v.AllRows += "?rows=all#pc-rest"
 	}
-	v.Pills.Rests = []ovOpt{{"Active", covHref(in.Base, in.Env, in.Type, false), !in.All}, {"All, inactive too", covHref(in.Base, in.Env, in.Type, true), in.All}}
+	// All by default (user, 29 Oct 2026: "show all even not active ones"); ?rest=active narrows.
+	v.Pills.Rests = []ovOpt{{"All, inactive too", covHref(in.Base, in.Env, in.Type, true), in.All}, {"Active only", covHref(in.Base, in.Env, in.Type, false), !in.All}}
 	return v
 }
 
@@ -402,7 +403,7 @@ func (h *Handler) prodCoverageFor(r *http.Request, base string) (prodCoverageVie
 	if !prod.IsClass(typ) {
 		typ = ""
 	}
-	in := covInputs{Base: base, Env: env, Type: typ, All: q.Get("rest") == "all", RowsAll: q.Get("rows") == "all", Now: time.Now()}
+	in := covInputs{Base: base, Env: env, Type: typ, All: q.Get("rest") != "active", RowsAll: q.Get("rows") == "all", Now: time.Now()}
 	var err error
 	if in.Rs, err = h.db.ListBackendRestaurants(ctx); err == nil {
 		if in.Bds, err = h.db.ListBackendDevices(ctx); err == nil {

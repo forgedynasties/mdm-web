@@ -56,7 +56,7 @@ func hubTmpl(t *testing.T, files ...string) *template.Template {
 
 func TestEnrollmentHubRenders(t *testing.T) {
 	now := time.Now()
-	cov := buildProdCoverage(covInputs{Base: "/enrollment?tab=backend", Env: "prod", Now: now,
+	cov := buildProdCoverage(covInputs{Base: "/enrollment?tab=backend", Env: "prod", All: true, Now: now,
 		Rs:  []db.BackendRestaurant{{Env: "prod", Restaurant: aiobackend.Restaurant{ID: 9, Name: "Redwood Grill", RecordStatus: "Active"}}},
 		Bds: []db.BackendDevice{{Env: "prod", Device: aiobackend.Device{ID: 1, RestaurantID: 9, Type: "kds", Serial: "DK1"}}}})
 	pl := &venuesPlacementView{Rows: []placementRow{{R: db.BackendRestaurant{Env: "prod", Restaurant: aiobackend.Restaurant{ID: 1960, Name: "Ole Ole Burrito"}},
