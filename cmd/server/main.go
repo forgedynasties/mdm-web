@@ -708,6 +708,8 @@ func main() {
 		remoteMgr.SetTokenStore(database)
 		apiHandler.SetOwnerProxy(cl.ProxyIfRemote)
 		dash.SetOwnerProxy(cl.ProxyIfRemote)
+		// Settings saved through another copy reach this one (shared data volume).
+		go cfg.Watch(bgCtx, 5*time.Second)
 		cl.Publish()
 		cl.Start(bgCtx)
 	}
