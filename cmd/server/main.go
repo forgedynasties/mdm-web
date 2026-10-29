@@ -688,6 +688,15 @@ func main() {
 	// bgCtx is cancelled on shutdown so the background loops below stop cleanly.
 	bgCtx, bgCancel := context.WithCancel(context.Background())
 
+	// Each periodic job runs once across server copies (scale plan W2b): a tick runs only
+	// in the copy that holds the job's lease in job_leases. This copy's name is unique per
+	// process, so a restarted copy never mistakes an old lease for its own.
+	jobs.Default.Lease = database
+	{
+		host, _ := os.Hostname()
+		jobs.Default.Holder = fmt.Sprintf("%s/%d/%d", host, os.Getpid(), time.Now().UnixNano())
+	}
+
 	// One metrics sample every 10s: request rate, check-in rate, live sockets, pool
 	// pressure and Go's own memory. Cheap (a ReadMemStats and a pool Stat), bounded
 	// (an hour of points in a ring), and never written to Postgres — the database is
@@ -735,22 +744,13 @@ func main() {
 	})
 	// Temporary grants: drop the expired ones every minute (they already stop
 	// applying at their expiry; this keeps the table and the editor tidy).
-	safego("sweep-access-grants", func() {
-		t := time.NewTicker(time.Minute)
-		defer t.Stop()
-		for {
-			select {
-			case <-bgCtx.Done():
-				return
-			case <-t.C:
-				gone, err := database.SweepExpiredAccessGrants(bgCtx)
-				if err != nil {
-					log.Printf("[access] sweep expired grants: %v", err)
-				}
-				for _, g := range gone {
-					_ = database.InsertAudit(bgCtx, "system", "user.access.expired", g.UserID.String(), g.Effect+" "+strings.Join(g.Actions, ",")+" @"+g.ScopeType+" "+g.ScopeName)
-				}
-			}
+	jobs.Default.Every(bgCtx, "sweep-access-grants", time.Minute, time.Minute, func(ctx context.Context) {
+		gone, err := database.SweepExpiredAccessGrants(ctx)
+		if err != nil {
+			log.Printf("[access] sweep expired grants: %v", err)
+		}
+		for _, g := range gone {
+			_ = database.InsertAudit(ctx, "system", "user.access.expired", g.UserID.String(), g.Effect+" "+strings.Join(g.Actions, ",")+" @"+g.ScopeType+" "+g.ScopeName)
 		}
 	})
 
@@ -772,36 +772,12 @@ func main() {
 		}
 	})
 
-	// Periodic housekeeping: daily-stats rollup + retention pruning (hourly).
-	safego("housekeeping-loop", func() {
-		runJob(bgCtx, "housekeeping", 10*time.Minute, dash.RunHousekeeping)
-		t := time.NewTicker(1 * time.Hour)
-		defer t.Stop()
-		for {
-			select {
-			case <-bgCtx.Done():
-				return
-			case <-t.C:
-				runJob(bgCtx, "housekeeping", 10*time.Minute, dash.RunHousekeeping)
-			}
-		}
-	})
+	// Periodic housekeeping: daily-stats rollup + retention pruning (hourly, and at start).
+	jobs.Default.EveryNow(bgCtx, "housekeeping", time.Hour, 10*time.Minute, dash.RunHousekeeping)
 
 	// Legacy OTA discovery config: republish ota_config.json when the rolling reboot
 	// window moves, so otautil never reboots a device the MDM is about to reboot itself.
-	safego("ota-config-loop", func() {
-		runJob(bgCtx, "ota-config-publish", time.Minute, dash.PublishOTAConfig)
-		t := time.NewTicker(1 * time.Hour)
-		defer t.Stop()
-		for {
-			select {
-			case <-bgCtx.Done():
-				return
-			case <-t.C:
-				runJob(bgCtx, "ota-config-publish", time.Minute, dash.PublishOTAConfig)
-			}
-		}
-	})
+	jobs.Default.EveryNow(bgCtx, "ota-config-publish", time.Hour, time.Minute, dash.PublishOTAConfig)
 
 	// The minute jobs (scalability plan W2a, 29 Oct 2026). Until then all of these ran one
 	// after another in one ticker: a slow job delayed the rest, and once the loop passed a

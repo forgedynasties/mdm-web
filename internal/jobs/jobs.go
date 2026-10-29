@@ -29,12 +29,24 @@ type Stat struct {
 	MaxMs     int64     `json:"max_ms"`
 	TotalMs   int64     `json:"total_ms"`
 	Running   bool      `json:"running"`
+	Skipped   int64     `json:"skipped"` // ticks another server copy held the lease for
+}
+
+// Leaser claims a job's tick across server copies (scale plan W2b): a copy runs the tick
+// only if it gets the lease, so with two copies up each job still runs once. db.DB is one.
+type Leaser interface {
+	TryJobLease(ctx context.Context, name, holder string, hold time.Duration) (bool, error)
+	ReleaseJobLease(ctx context.Context, name, holder string, next time.Time) error
 }
 
 // Registry holds the stats. Default is the process-wide one.
 type Registry struct {
 	mu    sync.Mutex
 	stats map[string]*Stat
+	// Lease, when set, is asked before every Every tick; Holder names this copy. Unset
+	// (tests, a single copy with no database), every tick runs.
+	Lease  Leaser
+	Holder string
 }
 
 var Default = &Registry{}
@@ -98,6 +110,16 @@ func (r *Registry) Run(ctx context.Context, name string, timeout time.Duration, 
 // so jobs started together don't all fire in the same second. A run longer than the
 // interval is logged and counted as an overrun (the ticker then skips what it missed).
 func (r *Registry) Every(ctx context.Context, name string, interval, timeout time.Duration, fn func(context.Context)) {
+	r.every(ctx, name, interval, timeout, Offset(name, interval), fn)
+}
+
+// EveryNow is Every with the first run straight away (housekeeping's rollups, the OTA
+// config: things a fresh start should not wait half an hour for).
+func (r *Registry) EveryNow(ctx context.Context, name string, interval, timeout time.Duration, fn func(context.Context)) {
+	r.every(ctx, name, interval, timeout, 0, fn)
+}
+
+func (r *Registry) every(ctx context.Context, name string, interval, timeout, first time.Duration, fn func(context.Context)) {
 	r.mu.Lock()
 	r.stat(name).Interval = interval.String()
 	r.mu.Unlock()
@@ -110,13 +132,16 @@ func (r *Registry) Every(ctx context.Context, name string, interval, timeout tim
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(Offset(name, interval)):
+		case <-time.After(first):
 		}
 		t := time.NewTicker(interval)
 		defer t.Stop()
 		for {
 			start := time.Now()
-			r.Run(ctx, name, timeout, fn)
+			if r.claim(ctx, name, timeout) {
+				r.Run(ctx, name, timeout, fn)
+				r.release(name, start.Add(interval-interval/20))
+			}
 			if took := time.Since(start); took > interval {
 				r.mu.Lock()
 				r.stat(name).Overruns++
@@ -153,4 +178,35 @@ func (r *Registry) Snapshot() map[string]Stat {
 		out[k] = *v
 	}
 	return out
+}
+
+// claim takes the job's lease for this tick (true with no Leaser). A lease error skips the
+// tick rather than risk running it twice; the next tick asks again.
+func (r *Registry) claim(ctx context.Context, name string, hold time.Duration) bool {
+	if r.Lease == nil {
+		return true
+	}
+	ok, err := r.Lease.TryJobLease(ctx, name, r.Holder, hold)
+	if err != nil {
+		log.Printf("[jobs] lease %s: %v (skipping this tick)", name, err)
+	}
+	if !ok {
+		r.mu.Lock()
+		r.stat(name).Skipped++
+		r.mu.Unlock()
+	}
+	return ok
+}
+
+// release shortens this copy's lease to just before the next tick, so any copy may take
+// that one.
+func (r *Registry) release(name string, next time.Time) {
+	if r.Lease == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := r.Lease.ReleaseJobLease(ctx, name, r.Holder, next); err != nil {
+		log.Printf("[jobs] release %s: %v", name, err)
+	}
 }

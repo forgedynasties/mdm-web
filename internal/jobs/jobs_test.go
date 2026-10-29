@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 )
@@ -57,5 +58,55 @@ func TestOffsetStaysInFirstHalf(t *testing.T) {
 	}
 	if Offset("a", time.Minute) != Offset("a", time.Minute) {
 		t.Error("Offset must be stable per name")
+	}
+}
+
+// fakeLeases is one lease table shared by two "copies".
+type fakeLeases struct {
+	mu     sync.Mutex
+	holder map[string]string
+	until  map[string]time.Time
+}
+
+func (f *fakeLeases) TryJobLease(_ context.Context, name, holder string, hold time.Duration) (bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if h, ok := f.holder[name]; ok && h != holder && time.Now().Before(f.until[name]) {
+		return false, nil
+	}
+	f.holder[name], f.until[name] = holder, time.Now().Add(hold)
+	return true, nil
+}
+
+func (f *fakeLeases) ReleaseJobLease(_ context.Context, name, holder string, next time.Time) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.holder[name] == holder {
+		f.until[name] = next
+	}
+	return nil
+}
+
+func TestEveryRunsOnceAcrossCopies(t *testing.T) {
+	leases := &fakeLeases{holder: map[string]string{}, until: map[string]time.Time{}}
+	a := &Registry{Lease: leases, Holder: "a"}
+	b := &Registry{Lease: leases, Holder: "b"}
+	ctx, cancel := context.WithCancel(context.Background())
+	var mu sync.Mutex
+	runs := 0
+	job := func(context.Context) { mu.Lock(); runs++; mu.Unlock(); time.Sleep(5 * time.Millisecond) }
+	a.EveryNow(ctx, "j", 100*time.Millisecond, time.Second, job)
+	b.EveryNow(ctx, "j", 100*time.Millisecond, time.Second, job)
+	time.Sleep(450 * time.Millisecond)
+	cancel()
+	time.Sleep(20 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	// ~5 ticks in 450 ms; two copies without leases would make ~10.
+	if runs < 3 || runs > 6 {
+		t.Errorf("runs = %d across two copies, want one per tick (~5)", runs)
+	}
+	if a.Snapshot()["j"].Skipped+b.Snapshot()["j"].Skipped == 0 {
+		t.Error("one copy should have skipped ticks the other held")
 	}
 }

@@ -2210,6 +2210,14 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_restaurant_id BIGINT;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_linked_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_linked_at TIMESTAMPTZ;
 
+-- Who runs each periodic job this tick, when more than one server copy is up
+-- (scalability plan W2b): a copy runs a tick only if it holds the job's lease.
+CREATE TABLE IF NOT EXISTS job_leases (
+    name   TEXT PRIMARY KEY,
+    holder TEXT NOT NULL,
+    until  TIMESTAMPTZ NOT NULL
+);
+
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access
 -- admins become fleet managers (super ops push firmware only where a rule says so now).
