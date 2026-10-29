@@ -6453,7 +6453,7 @@ tr.role-locked::after,.role-locked.no-lock-glyph::after{content:none}
 /* A skeleton drawn from the page's own remembered shape (layout.html). */
 .skel-shape{position:relative;overflow:hidden;}
 /* A swapped-in page waiting for its own stylesheet. */
-main.css-wait{visibility:hidden;}
+main.css-wait,.css-wait{visibility:hidden;}
 .skel-title{width:210px;height:24px;border-radius:8px;margin:8px 0 22px;}
 .skel-card{border:1px solid var(--border);border-radius:14px;background:var(--surface);}
 

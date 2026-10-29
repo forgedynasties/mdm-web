@@ -254,17 +254,59 @@
       if (t && t.tagName === 'MAIN') mdmScheduleCapture();
     });
 
-    // A page that still brings its own stylesheet into <main> stays hidden until that
-    // stylesheet has loaded (at most 2.5 s), so a boosted swap never shows it unstyled.
-    document.addEventListener('htmx:afterSwap', function () {
-      var main = document.querySelector('main');
-      if (!main) return;
-      var pending = Array.prototype.filter.call(main.querySelectorAll('link[rel="stylesheet"]'), function (l) { return !l.sheet; });
-      if (!pending.length) return;
-      var left = pending.length, done = function () { if (--left <= 0) main.classList.remove('css-wait'); };
-      main.classList.add('css-wait');
+    // ── Nothing on screen without its CSS (29 Oct 2026) ─────────────────────────
+    // Pages keep their <style> blocks and stylesheets inside <main>, but some of what they
+    // style lives outside it: the context island in the top bar is copied from the page's
+    // own template. So when a navigation emptied <main> (the skeleton) or swapped it, the
+    // island's buttons lost their styles until the next page arrived ("buttons lose css
+    // when I click Remote"). The outgoing page's styles are held in <head> until the new
+    // page is in, and anything swapped in that brings a stylesheet stays hidden — the
+    // island with it — until that stylesheet has loaded (at most 2.5 s).
+    function mdmHoldStyles(main) {
+      var held = document.getElementById('mdm-held-css');
+      if (!held) {
+        held = document.createElement('div');
+        held.id = 'mdm-held-css';
+        held.hidden = true;
+        document.head.appendChild(held);
+      }
+      Array.prototype.forEach.call(main.querySelectorAll('style, link[rel="stylesheet"]'), function (el) {
+        held.appendChild(el.cloneNode(true));
+      });
+    }
+    function mdmReleaseStyles() {
+      var held = document.getElementById('mdm-held-css');
+      if (held) held.remove();
+    }
+    // The outgoing page's styles, captured as the swap begins (the skeleton may have
+    // taken them already), kept until the new page has settled.
+    document.addEventListener('htmx:beforeSwap', function (e) {
+      var t = e.detail && e.detail.target, main = document.querySelector('main');
+      if (t && t === main && !document.getElementById('mdm-held-css')) mdmHoldStyles(main);
+    });
+    function mdmWaitForCSS(el, alsoHide) {
+      var pending = Array.prototype.filter.call(el.querySelectorAll('link[rel="stylesheet"]'), function (l) { return !l.sheet; });
+      if (!pending.length) return false;
+      var targets = [el].concat(alsoHide || []);
+      var left = pending.length;
+      var show = function () { targets.forEach(function (t) { t.classList.remove('css-wait'); }); };
+      var done = function () { if (--left <= 0) show(); };
+      targets.forEach(function (t) { t.classList.add('css-wait'); });
       pending.forEach(function (l) { l.addEventListener('load', done, { once: true }); l.addEventListener('error', done, { once: true }); });
-      setTimeout(function () { main.classList.remove('css-wait'); }, 2500);
+      setTimeout(show, 2500);
+      return true;
+    }
+    document.addEventListener('htmx:afterSwap', function (e) {
+      var t = e.detail && e.detail.target, main = document.querySelector('main');
+      if (!t) return;
+      if (t === main || t.tagName === 'MAIN') {
+        var island = document.getElementById('appbar-island');
+        mdmWaitForCSS(main, island ? [island] : []);
+        // The island now holds the new page's controls: the old styles can go.
+        mdmReleaseStyles();
+        return;
+      }
+      if (t.querySelectorAll) mdmWaitForCSS(t);
     });
     var _skelTimer = null, _navWatchdog = null, _navDest = '', _navActive = false;
     function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
@@ -285,6 +327,7 @@
     }
     function mdmNavFail() {
       mdmCancelSkeleton(); mdmClearWatchdog();
+      mdmReleaseStyles();
       if (!_navActive) return;
       _navActive = false;
       if (mdmMainStuck()) window.location.href = _navDest || window.location.href;
@@ -307,6 +350,8 @@
         // The page's own remembered shape when there is one, else the template.
         var shape = mdmShapeSkeleton(path, main);
         var tpl = shape ? null : document.getElementById(mdmSkeletonFor(path));
+        // The island outside <main> still shows this page's controls: keep their styles.
+        mdmHoldStyles(main);
         main.innerHTML = '';
         if (shape) main.appendChild(shape);
         else if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
