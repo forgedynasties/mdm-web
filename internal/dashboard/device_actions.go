@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"mdm/internal/apkmeta"
+	"mdm/internal/db"
+	prod "mdm/internal/product"
 
 	"github.com/google/uuid"
 )
@@ -256,10 +258,6 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "device not found", http.StatusNotFound)
 		return
 	}
-	if device.IsDPC() {
-		h.hxDoneToast(w, r, "/devices/"+serial, "Standard MDM reads its server from its own config, not this property", "error")
-		return
-	}
 	r.ParseForm()
 	target := strings.TrimSpace(r.FormValue("server_url"))
 	u, err := url.Parse(target)
@@ -268,6 +266,10 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target = strings.TrimRight(u.Scheme+"://"+u.Host+u.Path, "/")
+	if device.IsDPC() {
+		h.moveDPCServer(w, r, device, target)
+		return
+	}
 
 	payload, _ := json.Marshal(map[string]string{"cmd": "setprop persist.sys.mdm.url " + target})
 	setCmd, err := h.db.CreateCommandBy(r.Context(), "shell", "", payload, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
@@ -294,6 +296,39 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "device.move_server", serial, target)
 	h.hxDoneToast(w, r, "/devices/"+serial, serial+" is moving to "+target+" · it reboots now and reports there", "success")
+}
+
+// moveDPCServer is the Standard client's move (0.13.4): a normal app cannot be pointed
+// elsewhere by a property, so it gets one move_server command carrying the new server and
+// an enrollment token made there. The device enrolls with that server before it lets go of
+// this one, so a wrong URL or a dead token fails the command and leaves it here.
+func (h *Handler) moveDPCServer(w http.ResponseWriter, r *http.Request, device *db.Device, target string) {
+	serial := device.SerialNumber
+	if !device.CapSet()[prod.CapMoveServer] {
+		h.hxDoneToast(w, r, "/devices/"+serial, "This Standard client can't move itself yet · it needs 0.13.4", "error")
+		return
+	}
+	if !strings.HasPrefix(target, "https://") {
+		h.hxDoneToast(w, r, "/devices/"+serial, "A Standard client moves only to an https:// server", "error")
+		return
+	}
+	token := strings.TrimSpace(r.FormValue("enroll_token"))
+	if token == "" {
+		h.hxDoneToast(w, r, "/devices/"+serial, "Paste an enrollment token from "+target+" (its Enrollment page)", "error")
+		return
+	}
+	payload, _ := json.Marshal(map[string]string{"server_url": target, "enroll_token": token})
+	cmd, err := h.db.CreateCommandBy(r.Context(), "move_server", "", payload, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
+	if err != nil {
+		h.hxDoneToast(w, r, "/devices/"+serial, "Could not queue the move", "error")
+		return
+	}
+	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	if _, err := h.db.SetDeviceCustody(r.Context(), device.ID, peerNameForURL(h.cfg, target), target, time.Time{}, "move"); err != nil {
+		log.Printf("[device] record move custody for %s: %v", serial, err)
+	}
+	h.audit(r, "device.move_server", serial, target)
+	h.hxDoneToast(w, r, "/devices/"+serial, serial+" is moving to "+target+" · it enrolls there, then stops checking in here", "success")
 }
 
 // DeviceNotesUpdate saves freeform operator notes for a device and returns the

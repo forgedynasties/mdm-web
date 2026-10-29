@@ -147,6 +147,11 @@ var commands = []Command{
 	// the only way back is to enrol the device again from scratch.
 	{Type: "unenroll", Cap: CapUnenroll, Roles: rolesAdmin, API: true},
 
+	// Move a Standard-client device to another MDM: it enrolls there with the token in the
+	// payload (minted on that server), then switches. Admin-only like unenroll: this server
+	// stops hearing from it.
+	{Type: "move_server", Cap: CapMoveServer, Roles: rolesAdmin, API: true},
+
 	// Wireless adb on (payload port, default 5555) or off (port 0), switching itself off
 	// after payload hours (default 24; 0 = stays on). It opens adb to the network, so it is
 	// admin-only and the send paths accept exactly one named device — never all or a group.
@@ -196,6 +201,7 @@ var commands = []Command{
 var accessActionsAdminOnly = map[string]string{
 	"wipe":          "wipe",
 	"unenroll":      "unenroll",
+	"move_server":   "move_server",
 	"mic_gain_read": "mic_gain_read",
 	"adb_tcp":       "adb_tcp",
 	"wifi_config":   "wifi_config",

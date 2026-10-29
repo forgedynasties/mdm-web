@@ -32,6 +32,7 @@ var wantCommandRoles = map[string][]string{
 	"logcat":           {"admin"},
 	"wipe":             {"admin"},
 	"unenroll":         {"admin"},
+	"move_server":      {"admin"},
 	"mic_gain_read":    {"admin"},
 	"adb_tcp":          {"admin"},
 	"lost_mode":        {"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"},
