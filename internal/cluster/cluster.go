@@ -20,6 +20,9 @@ import (
 	"encoding/json"
 	"expvar"
 	"log"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -71,7 +74,7 @@ type Cluster struct {
 
 	own chan ownChange
 
-	sent, recv, forwards, dropped, errs atomic.Int64
+	sent, recv, forwards, dropped, errs, proxied atomic.Int64
 }
 
 // New makes this copy's cluster member. id must be unique per process; addr is how other
@@ -337,9 +340,47 @@ func (c *Cluster) Stats() map[string]any {
 	return map[string]any{
 		"instance": c.id, "remote_devices": len(c.Remote()), "local_devices": len(c.hub.LocalIDs()),
 		"sent": c.sent.Load(), "received": c.recv.Load(), "forwarded_pushes": c.forwards.Load(),
-		"owner_changes_dropped": c.dropped.Load(), "errors": c.errs.Load(),
+		"owner_changes_dropped": c.dropped.Load(), "errors": c.errs.Load(), "proxied_sessions": c.proxied.Load(),
 	}
 }
 
 // Publish registers the cluster's stats as /debug/vars "cluster".
 func (c *Cluster) Publish() { expvar.Publish("cluster", expvar.Func(func() any { return c.Stats() })) }
+
+// ── Sessions on another copy ────────────────────────────────────────────────
+
+// ProxiedHeader marks a request one copy passed to another, so it is never passed on again.
+const ProxiedHeader = "X-Mdm-Cluster-Proxied"
+
+// ProxyIfRemote serves r from the copy that holds deviceID's socket, when that is not this
+// one: remote screen, shell and logcat run where the device's frames and output arrive.
+// It reports whether it handled the request. Websocket upgrades and streams pass through
+// (the reverse proxy flushes at once).
+func (c *Cluster) ProxyIfRemote(w http.ResponseWriter, r *http.Request, deviceID uuid.UUID) bool {
+	if r.Header.Get(ProxiedHeader) != "" {
+		return false
+	}
+	if _, here := c.hub.LocalIDs()[deviceID]; here {
+		return false
+	}
+	owner, addr, ok, err := c.db.ClusterOwner(r.Context(), deviceID)
+	if err != nil || !ok || owner == c.id || addr == "" {
+		return false
+	}
+	target, err := url.Parse(addr)
+	if err != nil {
+		log.Printf("[cluster] owner %s has a bad address %q: %v", owner, addr, err)
+		return false
+	}
+	p := httputil.NewSingleHostReverseProxy(target)
+	p.FlushInterval = -1
+	base := p.Director
+	p.Director = func(req *http.Request) {
+		base(req)
+		req.Header.Set(ProxiedHeader, c.id)
+		req.Host = r.Host
+	}
+	c.proxied.Add(1)
+	p.ServeHTTP(w, r)
+	return true
+}

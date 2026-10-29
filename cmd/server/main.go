@@ -703,6 +703,11 @@ func main() {
 	if os.Getenv("CLUSTER") == "1" {
 		cl := cluster.New(database, hub, jobs.Default.Holder, os.Getenv("CLUSTER_ADDR"))
 		hub.SetCluster(cl)
+		// Remote, shell and logcat sessions run on the copy holding the device; remote
+		// tokens move to the database so that copy can redeem them.
+		remoteMgr.SetTokenStore(database)
+		apiHandler.SetOwnerProxy(cl.ProxyIfRemote)
+		dash.SetOwnerProxy(cl.ProxyIfRemote)
 		cl.Publish()
 		cl.Start(bgCtx)
 	}

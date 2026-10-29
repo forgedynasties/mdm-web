@@ -2240,6 +2240,15 @@ CREATE TABLE IF NOT EXISTS cluster_msgs (
     payload BYTEA NOT NULL
 );
 
+-- Remote-control tokens (single use, two minutes) in the database rather than one
+-- process's memory, so whichever server copy holds the device can redeem one another
+-- copy minted (scalability plan W5).
+CREATE TABLE IF NOT EXISTS remote_tokens (
+    token     TEXT PRIMARY KEY,
+    device_id UUID NOT NULL,
+    expires   TIMESTAMPTZ NOT NULL
+);
+
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access
 -- admins become fleet managers (super ops push firmware only where a rule says so now).

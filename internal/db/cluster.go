@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -109,4 +110,17 @@ func (d *DB) ClusterSweep(ctx context.Context) error {
 // for notifications for the life of the process).
 func (d *DB) ListenConn(ctx context.Context) (*pgx.Conn, error) {
 	return pgx.ConnectConfig(ctx, d.pool.Config().ConnConfig.Copy())
+}
+
+// ClusterOwner is the copy holding the device's socket and its private address, if that
+// copy is alive.
+func (d *DB) ClusterOwner(ctx context.Context, deviceID uuid.UUID) (instance, addr string, ok bool, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT o.instance, i.addr FROM device_owners o
+		JOIN cluster_instances i ON i.instance = o.instance
+		WHERE o.device_id = $1 AND i.heartbeat_at > NOW() - $2::interval`, deviceID, ClusterAliveWindow.String()).Scan(&instance, &addr)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", false, nil
+	}
+	return instance, addr, err == nil, err
 }

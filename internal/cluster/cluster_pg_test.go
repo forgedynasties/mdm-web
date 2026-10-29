@@ -119,10 +119,69 @@ func TestTwoCopiesAgainstPostgres(t *testing.T) {
 		t.Fatal("B's waiter never got the pong A received")
 	}
 
+	// A session request for A's device that reaches B is served by A (remote, shell, logcat).
+	served := func(name string, cl *Cluster) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if cl.ProxyIfRemote(w, r, dev) {
+				return
+			}
+			w.Write([]byte("served by " + name))
+		}))
+	}
+	webA, webB := served("A", a), served("B", b)
+	defer webA.Close()
+	defer webB.Close()
+	if err := d.ClusterHeartbeat(ctx, a.id, webA.URL); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := http.Get(webB.URL + "/devices/x/logcat/stream")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := make([]byte, 64)
+	n, _ := resp.Body.Read(body)
+	resp.Body.Close()
+	if got := string(body[:n]); got != "served by A" {
+		t.Fatalf("a request to B for A's device got %q, want it served by A", got)
+	}
+
 	// The device leaves: B stops seeing it once A's write lands.
 	conn.Close()
 	eventually("B sees the device gone", func() bool { b.refresh(); return !hubB.IsConnected(dev) })
 	if hubB.Push(dev, []byte(`{}`)) {
 		t.Error("a push to a device no copy holds must report false")
+	}
+}
+
+// TestRemoteTokensAgainstPostgres: a token is good once, on any copy, until it expires.
+func TestRemoteTokensAgainstPostgres(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := db.New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	dev := uuid.New()
+	if err := d.PutRemoteToken(ctx, "tok-1", dev, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	if id, ok, err := d.TakeRemoteToken(ctx, "tok-1"); err != nil || !ok || id != dev {
+		t.Fatalf("first take: %s %v %v", id, ok, err)
+	}
+	if _, ok, _ := d.TakeRemoteToken(ctx, "tok-1"); ok {
+		t.Fatal("a token must work once")
+	}
+	if err := d.PutRemoteToken(ctx, "tok-2", dev, -time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := d.TakeRemoteToken(ctx, "tok-2"); ok {
+		t.Fatal("an expired token must not work")
 	}
 }

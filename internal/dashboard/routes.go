@@ -75,8 +75,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.deviceRoute("view", h.DeviceDailyStatsJSON)))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireReleaseAdmin(h.deviceRoute("shell", h.DeviceShellPage)))
 	// Interactive shell sessions (shell_session.go).
-	mux.HandleFunc("GET /devices/{serial}/shell/session", h.requireReleaseAdmin(drainable(h.deviceRoute("shell", h.ShellSessionStream))))
-	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.ShellSessionInput)))
+	mux.HandleFunc("GET /devices/{serial}/shell/session", h.requireReleaseAdmin(drainable(h.deviceRoute("shell", h.atOwner(h.ShellSessionStream)))))
+	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.atOwner(h.ShellSessionInput))))
 	// Releases (pipeline.go): what every role runs, and the per-model firmware.
 	mux.HandleFunc("GET /lineup", h.requireAuth(h.Pipeline))
 	mux.HandleFunc("GET /pipeline", h.requireAuth(h.PipelineRedirect))
@@ -143,7 +143,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /apps/classification", http.RedirectHandler("/apps", http.StatusMovedPermanently))
 	mux.Handle("GET /packages", http.RedirectHandler("/apps", http.StatusMovedPermanently))
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.deviceRoute("logcat", h.LogcatLivePage)))
-	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(drainable(h.deviceRoute("logcat", h.LogcatStream))))
+	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(drainable(h.deviceRoute("logcat", h.atOwner(h.LogcatStream)))))
 
 	mux.HandleFunc("GET /groups/new", h.requireAdminOrOperator(h.GroupNew))
 	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrOperator(h.GroupNewDevices))
