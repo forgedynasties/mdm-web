@@ -167,6 +167,9 @@ const (
 	// CapApkPull: uploads an installed app's APK into the app library (pull_apk; DPC agent
 	// 0.11.0 lists it, firmware client 1.21.0 sends the apk_pull_cmd flag; 26 Oct 2026).
 	CapApkPull = "apk_pull"
+	// CapMoveServer: the DPC agent moves itself to another MDM (move_server; 0.13.4,
+	// 29 Oct 2026). The firmware client moves by setprop + reboot instead.
+	CapMoveServer = "move_server"
 )
 
 // FirmwareCapFlags map the extra flags the firmware client sends (it reports no

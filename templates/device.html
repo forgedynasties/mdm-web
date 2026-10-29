@@ -406,7 +406,7 @@
         {{if or $sm.CanAdbTCP .IsDPC}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.adbPillOpen && adbPillOpen()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.05a6 6 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Wireless adb…<span class="rt">{{if $sm.AdbOn}}On{{else if $sm.AdbKnown}}Off{{end}}</span></button>{{end}}
         {{if not .IsDPC}}<div class="cc-msec">Enrollment</div>
         {{if .KeyCred}}{{if .KeyCred.Own}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('key-reset-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></svg>Reset device key…</button>{{end}}{{end}}
-        <button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('move-server-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Move to another server…</button>{{end}}
+        {{end}}{{if or (not .IsDPC) (supports .Device "move_server")}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('move-server-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Move to another server…</button>{{end}}
         <div class="cc-msep"></div>
         {{if .Device.Retired}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/unretire" hx-boost="false"><button type="submit" class="cc-mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Back to the fleet</button></form>
         {{else}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/retire" hx-boost="false" onsubmit="return confirm('Retire {{.Device.SerialNumber}}? It leaves lists, alerts and policy coverage but keeps its history. A later check-in brings it back.')"><button type="submit" class="cc-mi danger"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9M10 13h4"/></svg>Retire</button></form>{{end}}
@@ -1390,17 +1390,24 @@ window.DEVICE_VITALS = {
       </form>
     </dialog>
     {{end}}{{end}}
+    {{end}}
+    {{if or (not .IsDPC) (supports .Device "move_server")}}
     <dialog id="move-server-dlg" class="en-dlg">
       <form method="POST" action="/devices/{{.Device.SerialNumber}}/move-server" hx-boost="false"
-            onsubmit="return confirm('Point {{.Device.SerialNumber}} at ' + this.server_url.value + ' and reboot it now?\n\nIt will report to that server from then on and stop checking in here.')">
+            onsubmit="return confirm({{if .IsDPC}}'Move {{.Device.SerialNumber}} to ' + this.server_url.value + '?\n\nIt enrolls there and stops checking in here.'{{else}}'Point {{.Device.SerialNumber}} at ' + this.server_url.value + ' and reboot it now?\n\nIt will report to that server from then on and stop checking in here.'{{end}})">
         <h4>Move {{.Device.SerialNumber}} to another MDM</h4>
-        <p class="muted small">The device reboots into the new server and stops checking in here. Servers are set in <a href="/settings#devices">Settings</a>.</p>
+        {{if .IsDPC}}<p class="muted small">The device enrolls with the new server, then stops checking in here. It does not reboot. If the server or token is wrong it stays here.</p>
+        {{else}}<p class="muted small">The device reboots into the new server and stops checking in here. Servers are set in <a href="/settings#devices">Settings</a>.</p>{{end}}
         <select name="server_url" class="form-input" required>
           {{range .MDMServers}}<option value="{{.}}">{{.}}{{if eq . $.ThisServer}} (this server){{end}}</option>{{end}}
         </select>
+        {{if .IsDPC}}<label class="small" style="display:block;margin-top:10px">Enrollment token from that server
+          <input name="enroll_token" class="form-input" required autocomplete="off" spellcheck="false" placeholder="enr_…">
+        </label>
+        <p class="muted small">Make one on the new server: Enrollment › How to enroll › enrollment profiles.</p>{{end}}
         <div class="en-dlg-btns">
           <button type="button" class="cc-btn sm" onclick="this.closest('dialog').close()">Cancel</button>
-          <button type="submit" class="cc-btn primary sm">Move &amp; reboot</button>
+          <button type="submit" class="cc-btn primary sm">{{if .IsDPC}}Move{{else}}Move &amp; reboot{{end}}</button>
         </div>
       </form>
     </dialog>

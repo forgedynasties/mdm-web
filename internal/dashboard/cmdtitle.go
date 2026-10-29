@@ -159,6 +159,12 @@ func cmdTitleOf(s cmdShape) (title, hint string) {
 		return "Wipe", "factory reset"
 	case "unenroll":
 		return "Unenroll", "handed back, data kept"
+	case "move_server":
+		var p struct {
+			ServerURL string `json:"server_url"`
+		}
+		_ = json.Unmarshal(s.Payload, &p) // never the token
+		return "Move server", p.ServerURL
 	case "lost_mode":
 		var p struct {
 			On bool `json:"on"`
@@ -206,6 +212,8 @@ func cmdVerbOf(s cmdShape) string {
 		return "wiped"
 	case "unenroll":
 		return "unenrolled"
+	case "move_server":
+		return "moved"
 	case "wifi_config":
 		return "applied"
 	}

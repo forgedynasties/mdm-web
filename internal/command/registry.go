@@ -84,6 +84,8 @@ var specs = map[string]Spec{
 	"reboot":   {AtMostOnce, LaneDevice, 10 * time.Minute, 0, 0, nil, false},
 	"wipe":     {AtMostOnce, LaneDevice, 10 * time.Minute, time.Hour, 1, nil, false},
 	"unenroll": {AtMostOnce, LaneDevice, 10 * time.Minute, time.Hour, 1, nil, false},
+	// One go: the token in it is good once, so a second hand-out could only fail.
+	"move_server": {AtMostOnce, LaneDevice, 10 * time.Minute, time.Hour, 1, nil, false},
 	// Showing (or lifting) the lost screen twice is the same screen: safe to repeat.
 	"lost_mode": {AtLeastOnce, LaneDevice, 10 * time.Minute, time.Hour, 0, nil, false},
 
