@@ -81,8 +81,8 @@ type Hub struct {
 	updateMu        sync.RWMutex
 	updates         map[chan DeviceUpdateEvent]struct{}
 	updThrottleMu   sync.Mutex
-	lastUpdateAt    map[uuid.UUID]time.Time     // per-device last broadcast, to coalesce floods
-	pendingUpdate   map[uuid.UUID]struct{}      // devices with a coalesced update awaiting a trailing flush
+	lastUpdateAt    map[uuid.UUID]time.Time // per-device last broadcast, to coalesce floods
+	pendingUpdate   map[uuid.UUID]struct{}  // devices with a coalesced update awaiting a trailing flush
 	cmdMu           sync.RWMutex
 	cmdUpdates      map[chan CommandUpdateEvent]struct{}
 	logcatMu        sync.RWMutex
@@ -109,6 +109,76 @@ type Hub struct {
 	// (MDM-lite): the time until which a device counts as present after its last
 	// check-in (CheckinPresence in the foreground, BackgroundCheckinPresence otherwise).
 	checkinSeenAt map[uuid.UUID]time.Time
+
+	// cluster links this hub to the other server copies (scalability plan W5); nil
+	// with one copy, and then everything below behaves as it always did.
+	cluster Cluster
+}
+
+// Cluster is how a hub works alongside other server copies sharing one fleet (scale
+// plan W5, internal/cluster). Each device's socket lives in one copy; the others push
+// to it through that copy, see it as connected, and get its dashboard events.
+type Cluster interface {
+	// Owned records that this copy gained (true) or lost the device's socket. Must not block.
+	Owned(deviceID uuid.UUID, connected bool)
+	// Forward sends msg to a device whose socket is in another copy; false if no copy has it.
+	Forward(deviceID uuid.UUID, msg []byte) bool
+	// Remote is the devices connected to the other copies (recent, cached).
+	Remote() map[uuid.UUID]struct{}
+	// Event passes a hub event (kind, id) on to the other copies.
+	Event(kind, id string)
+}
+
+// SetCluster joins the hub to a cluster. Call before devices connect.
+func (h *Hub) SetCluster(c Cluster) { h.cluster = c }
+
+// Event kinds passed between copies; DeliverEvent is the receiving side.
+const (
+	EvDevice      = "device"
+	EvCommand     = "command"
+	EvAlert       = "alert"
+	EvDeployment  = "deployment"
+	EvProblem     = "problem"
+	EvLogcat      = "logcat"
+	EvPresenceOn  = "online"
+	EvPresenceOff = "offline"
+	EvPong        = "pong"
+)
+
+// DeliverForwarded pushes a message another copy forwarded, to a socket in this copy.
+func (h *Hub) DeliverForwarded(deviceID uuid.UUID, msg []byte) bool {
+	return h.pushLocal(deviceID, msg)
+}
+
+// DeliverEvent hands an event from another copy to this copy's subscribers only (it is
+// never passed on again).
+func (h *Hub) DeliverEvent(kind, id string) {
+	u, _ := uuid.Parse(id)
+	switch kind {
+	case EvDevice:
+		h.fanDeviceUpdate(u)
+	case EvCommand:
+		h.fanCommandUpdate(u)
+	case EvAlert:
+		h.fanAlertUpdate()
+	case EvDeployment:
+		h.fanDeploymentUpdate()
+	case EvProblem:
+		h.fanProblemUpdate()
+	case EvLogcat:
+		h.fanLogcatUpdate(u)
+	case EvPresenceOn, EvPresenceOff:
+		h.fanPresence(PresenceEvent{DeviceID: u, Online: kind == EvPresenceOn})
+	case EvPong:
+		h.signalPongLocal(id)
+	}
+}
+
+// share passes an event to the other copies, if there are any.
+func (h *Hub) share(kind string, id uuid.UUID) {
+	if h.cluster != nil {
+		h.cluster.Event(kind, id.String())
+	}
 }
 
 // PresenceGrace is how long a device still shows "Online" after its socket
@@ -162,17 +232,17 @@ type Client struct {
 
 func NewHub() *Hub {
 	return &Hub{
-		clients:        make(map[uuid.UUID]*Client),
-		subscribers:    make(map[chan PresenceEvent]struct{}),
-		updates:        make(map[chan DeviceUpdateEvent]struct{}),
-		lastUpdateAt:   make(map[uuid.UUID]time.Time),
-		pendingUpdate:  make(map[uuid.UUID]struct{}),
-		cmdUpdates:     make(map[chan CommandUpdateEvent]struct{}),
-		logcatUpdates:  make(map[chan LogcatUpdateEvent]struct{}),
-		alertUpdates:   make(map[chan AlertUpdateEvent]struct{}),
-		deployUpdates:  make(map[chan DeploymentUpdateEvent]struct{}),
-		problemUpdates: make(map[chan ProblemUpdateEvent]struct{}),
-		pingWaiters:    make(map[string]chan struct{}),
+		clients:          make(map[uuid.UUID]*Client),
+		subscribers:      make(map[chan PresenceEvent]struct{}),
+		updates:          make(map[chan DeviceUpdateEvent]struct{}),
+		lastUpdateAt:     make(map[uuid.UUID]time.Time),
+		pendingUpdate:    make(map[uuid.UUID]struct{}),
+		cmdUpdates:       make(map[chan CommandUpdateEvent]struct{}),
+		logcatUpdates:    make(map[chan LogcatUpdateEvent]struct{}),
+		alertUpdates:     make(map[chan AlertUpdateEvent]struct{}),
+		deployUpdates:    make(map[chan DeploymentUpdateEvent]struct{}),
+		problemUpdates:   make(map[chan ProblemUpdateEvent]struct{}),
+		pingWaiters:      make(map[string]chan struct{}),
 		lastDisconnectAt: make(map[uuid.UUID]time.Time),
 		checkinSeenAt:    make(map[uuid.UUID]time.Time),
 	}
@@ -195,7 +265,16 @@ func (h *Hub) UnregisterPingWaiter(nonce string) {
 }
 
 // SignalPong is called by the message dispatcher when a pong_response arrives.
+// With other copies up, a pong this copy has no waiter for may be one another copy's
+// Lock button is waiting on: pass it on.
 func (h *Hub) SignalPong(nonce string) {
+	if !h.signalPongLocal(nonce) && h.cluster != nil {
+		h.cluster.Event(EvPong, nonce)
+	}
+}
+
+// signalPongLocal wakes this copy's waiter for nonce, if it has one.
+func (h *Hub) signalPongLocal(nonce string) bool {
 	h.pingMu.Lock()
 	ch, ok := h.pingWaiters[nonce]
 	if ok {
@@ -205,6 +284,7 @@ func (h *Hub) SignalPong(nonce string) {
 	if ok {
 		close(ch)
 	}
+	return ok
 }
 
 // SubscribeCommandUpdates returns a channel that receives command update events.
@@ -228,6 +308,12 @@ func (h *Hub) UnsubscribeCommandUpdates(ch chan CommandUpdateEvent) {
 
 // PublishCommandUpdate notifies subscribers that a command delivery changed.
 func (h *Hub) PublishCommandUpdate(commandID uuid.UUID) {
+	h.fanCommandUpdate(commandID)
+	h.share(EvCommand, commandID)
+}
+
+// fanCommandUpdate delivers the event to this copy's subscribers.
+func (h *Hub) fanCommandUpdate(commandID uuid.UUID) {
 	ev := CommandUpdateEvent{CommandID: commandID}
 	h.cmdMu.RLock()
 	defer h.cmdMu.RUnlock()
@@ -260,6 +346,12 @@ func (h *Hub) UnsubscribeAlertUpdates(ch chan AlertUpdateEvent) {
 
 // PublishAlertUpdate notifies subscribers that an alert's status changed.
 func (h *Hub) PublishAlertUpdate() {
+	h.fanAlertUpdate()
+	h.share(EvAlert, uuid.Nil)
+}
+
+// fanAlertUpdate delivers the event to this copy's subscribers.
+func (h *Hub) fanAlertUpdate() {
 	h.alertMu.RLock()
 	defer h.alertMu.RUnlock()
 	for ch := range h.alertUpdates {
@@ -291,6 +383,12 @@ func (h *Hub) UnsubscribeDeploymentUpdates(ch chan DeploymentUpdateEvent) {
 
 // PublishDeploymentUpdate notifies subscribers that a deployment changed.
 func (h *Hub) PublishDeploymentUpdate() {
+	h.fanDeploymentUpdate()
+	h.share(EvDeployment, uuid.Nil)
+}
+
+// fanDeploymentUpdate delivers the event to this copy's subscribers.
+func (h *Hub) fanDeploymentUpdate() {
 	h.deployMu.RLock()
 	defer h.deployMu.RUnlock()
 	for ch := range h.deployUpdates {
@@ -322,6 +420,12 @@ func (h *Hub) UnsubscribeProblemUpdates(ch chan ProblemUpdateEvent) {
 
 // PublishProblemUpdate notifies subscribers that a release problem changed.
 func (h *Hub) PublishProblemUpdate() {
+	h.fanProblemUpdate()
+	h.share(EvProblem, uuid.Nil)
+}
+
+// fanProblemUpdate delivers the event to this copy's subscribers.
+func (h *Hub) fanProblemUpdate() {
 	h.problemMu.RLock()
 	defer h.problemMu.RUnlock()
 	for ch := range h.problemUpdates {
@@ -353,6 +457,12 @@ func (h *Hub) UnsubscribeLogcatUpdates(ch chan LogcatUpdateEvent) {
 
 // PublishLogcatUpdate notifies subscribers that a logcat result arrived for a device.
 func (h *Hub) PublishLogcatUpdate(deviceID uuid.UUID) {
+	h.fanLogcatUpdate(deviceID)
+	h.share(EvLogcat, deviceID)
+}
+
+// fanLogcatUpdate delivers the event to this copy's subscribers.
+func (h *Hub) fanLogcatUpdate(deviceID uuid.UUID) {
 	ev := LogcatUpdateEvent{DeviceID: deviceID}
 	h.logcatMu.RLock()
 	defer h.logcatMu.RUnlock()
@@ -405,6 +515,16 @@ func (h *Hub) UnsubscribeDeviceUpdates(ch chan DeviceUpdateEvent) {
 }
 
 func (h *Hub) publishPresence(ev PresenceEvent) {
+	h.fanPresence(ev)
+	kind := EvPresenceOff
+	if ev.Online {
+		kind = EvPresenceOn
+	}
+	h.share(kind, ev.DeviceID)
+}
+
+// fanPresence delivers a presence event to this copy's subscribers.
+func (h *Hub) fanPresence(ev PresenceEvent) {
 	h.subMu.RLock()
 	defer h.subMu.RUnlock()
 	for ch := range h.subscribers {
@@ -465,6 +585,12 @@ func (h *Hub) flushDeviceUpdate(deviceID uuid.UUID) {
 }
 
 func (h *Hub) broadcastDeviceUpdate(deviceID uuid.UUID) {
+	h.fanDeviceUpdate(deviceID)
+	h.share(EvDevice, deviceID)
+}
+
+// fanDeviceUpdate delivers a device update to this copy's subscribers.
+func (h *Hub) fanDeviceUpdate(deviceID uuid.UUID) {
 	ev := DeviceUpdateEvent{DeviceID: deviceID}
 	h.updateMu.RLock()
 	defer h.updateMu.RUnlock()
@@ -487,6 +613,9 @@ func (h *Hub) register(c *Client) {
 	delete(h.lastDisconnectAt, c.DeviceID)
 	h.presenceMu.Unlock()
 	log.Printf("[ws] connected: %s", c.DeviceID)
+	if h.cluster != nil {
+		h.cluster.Owned(c.DeviceID, true)
+	}
 	h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: true})
 	// Socket is now in the clients map, so Push works — flush any queued commands. Async
 	// so registration never blocks on DB/delivery work.
@@ -516,12 +645,24 @@ func (h *Hub) Unregister(c *Client) {
 	}
 	log.Printf("[ws] disconnected: %s", c.DeviceID)
 	if removed {
+		if h.cluster != nil {
+			h.cluster.Owned(c.DeviceID, false)
+		}
 		h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: false})
 	}
 }
 
-// Push sends msg to a specific device. Returns true if the device is connected.
+// Push sends msg to a specific device. Returns true if the device is connected — here,
+// or (with other copies up) to another copy, which is handed the message.
 func (h *Hub) Push(deviceID uuid.UUID, msg []byte) bool {
+	if h.pushLocal(deviceID, msg) {
+		return true
+	}
+	return h.cluster != nil && h.cluster.Forward(deviceID, msg)
+}
+
+// pushLocal sends msg to the device's socket in this copy, if it has one.
+func (h *Hub) pushLocal(deviceID uuid.UUID, msg []byte) bool {
 	// Hold RLock across the send. register() closes a client's Send channel under
 	// the write lock on a same-device reconnect; if we released the lock before
 	// sending, a reconnect in that window would close c.Send and this send would
@@ -547,6 +688,9 @@ func (h *Hub) IsConnected(deviceID uuid.UUID) bool {
 	h.mu.RLock()
 	_, ok := h.clients[deviceID]
 	h.mu.RUnlock()
+	if !ok && h.cluster != nil {
+		_, ok = h.cluster.Remote()[deviceID]
+	}
 	return ok
 }
 
@@ -579,8 +723,20 @@ func (h *Hub) MarkCheckinPresence(deviceID uuid.UUID, foreground bool) {
 	h.presenceMu.Unlock()
 }
 
-// ConnectedIDs returns the set of device IDs with active connections.
+// ConnectedIDs returns the set of device IDs with active connections, in this copy and
+// (with other copies up) in the others.
 func (h *Hub) ConnectedIDs() map[uuid.UUID]struct{} {
+	ids := h.LocalIDs()
+	if h.cluster != nil {
+		for id := range h.cluster.Remote() {
+			ids[id] = struct{}{}
+		}
+	}
+	return ids
+}
+
+// LocalIDs is the devices whose socket is in this copy.
+func (h *Hub) LocalIDs() map[uuid.UUID]struct{} {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	ids := make(map[uuid.UUID]struct{}, len(h.clients))
@@ -618,14 +774,19 @@ func (h *Hub) PushToDevices(deviceIDs []uuid.UUID, msg []byte) {
 	}
 }
 
-// Broadcast sends msg to all currently connected devices.
+// Broadcast sends msg to all currently connected devices, the other copies' included.
 func (h *Hub) Broadcast(msg []byte) {
 	h.mu.RLock()
-	defer h.mu.RUnlock()
 	for _, c := range h.clients {
 		select {
 		case c.Send <- msg:
 		default:
+		}
+	}
+	h.mu.RUnlock()
+	if h.cluster != nil {
+		for id := range h.cluster.Remote() {
+			h.cluster.Forward(id, msg)
 		}
 	}
 }
@@ -646,6 +807,9 @@ func (h *Hub) Close(deviceID uuid.UUID) {
 	}
 	h.mu.Unlock()
 	if ok {
+		if h.cluster != nil {
+			h.cluster.Owned(deviceID, false)
+		}
 		h.publishPresence(PresenceEvent{DeviceID: deviceID, Online: false})
 	}
 }
@@ -656,6 +820,9 @@ func (h *Hub) CloseAll() {
 	for id, c := range h.clients {
 		close(c.Send)
 		delete(h.clients, id)
+		if h.cluster != nil {
+			h.cluster.Owned(id, false)
+		}
 	}
 }
 

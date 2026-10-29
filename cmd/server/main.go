@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"mdm/internal/aiobackend"
 	"mdm/internal/api"
+	"mdm/internal/cluster"
 	"mdm/internal/config"
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
@@ -695,6 +696,15 @@ func main() {
 	{
 		host, _ := os.Hostname()
 		jobs.Default.Holder = fmt.Sprintf("%s/%d/%d", host, os.Getpid(), time.Now().UnixNano())
+	}
+	// Several copies sharing the fleet (scale plan W5): CLUSTER=1 joins this copy, under the
+	// same unique name, before any device can connect. CLUSTER_ADDR is how the other copies
+	// reach it on the private network.
+	if os.Getenv("CLUSTER") == "1" {
+		cl := cluster.New(database, hub, jobs.Default.Holder, os.Getenv("CLUSTER_ADDR"))
+		hub.SetCluster(cl)
+		cl.Publish()
+		cl.Start(bgCtx)
 	}
 
 	// One metrics sample every 10s: request rate, check-in rate, live sockets, pool
