@@ -112,6 +112,17 @@ func (h *Handler) downsampleOldCheckins(ctx context.Context) {
 		return // an admin turned it off; keep every row at full resolution
 	}
 	sec := h.cfg.CheckinDownsampleSec()
+	// Partitioned (W3): a whole month at a time, rewritten as a thinned copy that replaces
+	// it, once every day of it is past the age. No row-by-row DELETE.
+	if h.partitioned(ctx, "device_samples") {
+		before, after, done, err := h.db.ThinSamplesMonth(ctx, time.Now().AddDate(0, 0, -days), sec)
+		if err != nil {
+			log.Printf("[housekeeping] thin samples month: %v", err)
+		} else if done {
+			log.Printf("[housekeeping] thinned a month of samples to 1 per %ds: %d → %d rows", sec, before, after)
+		}
+		return
+	}
 	// The check-in downsampling setting, applied to the history that replaced checkins.
 	srows, sdays, err := h.db.DownsampleSamples(ctx, days, sec, downsampleCheckinsDaysPerRun)
 	if err != nil {
@@ -134,6 +145,11 @@ func (h *Handler) legacyStripPct(ctx context.Context) int {
 // (each a no-op when disabled). These are destructive — rows are removed.
 func (h *Handler) applyPrunes(ctx context.Context) {
 	if d := h.cfg.CheckinRetentionDays(); d > 0 {
+		// Partitioned (W3): whole months go first; PruneShaped below then only trims the
+		// month the cut falls in, and the state events.
+		if h.partitioned(ctx, "device_samples") {
+			h.dropOldMonths(ctx, "device_samples", time.Duration(d)*24*time.Hour)
+		}
 		// The check-in retention setting governs the history that replaced checkins.
 		if n, err := h.db.PruneShaped(ctx, d); err != nil {
 			log.Printf("[retention] prune samples/events: %v", err)
@@ -141,7 +157,11 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 			log.Printf("[retention] pruned %d sample/event row(s) older than %dd", n, d)
 		}
 	}
-	// Per-app usage: hourly for 14 days, then daily for 90 (A1).
+	// Per-app usage: hourly for 14 days, then daily for 90 (A1). Partitioned, months past
+	// 90 days hold only daily rows and go whole.
+	if h.partitioned(ctx, "app_usage") {
+		h.dropOldMonths(ctx, "app_usage", 90*24*time.Hour)
+	}
 	if n, err := h.db.RollupAppUsage(ctx, 14*24*time.Hour, 90*24*time.Hour); err != nil {
 		log.Printf("[retention] app usage rollup: %v", err)
 	} else if n > 0 {
@@ -156,7 +176,14 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 	}
 	// The battery log and charge climbs (client 1.10.1) keep 180 days: enough for a
 	// health trend over seasons, without the table growing for ever.
-	if n, err := h.db.PruneBatteryData(ctx, 180*24*time.Hour); err != nil {
+	// Partitioned, months go whole and PruneBatteryData (which deletes by ctid, not
+	// unique across partitions) must not run: PruneBatteryPartitioned trims the rest.
+	prune := h.db.PruneBatteryData
+	if h.partitioned(ctx, "battery_samples") {
+		h.dropOldMonths(ctx, "battery_samples", 180*24*time.Hour)
+		prune = h.db.PruneBatteryPartitioned
+	}
+	if n, err := prune(ctx, 180*24*time.Hour); err != nil {
 		log.Printf("[retention] prune battery data: %v", err)
 	} else if n > 0 {
 		log.Printf("[retention] pruned %d battery row(s) older than 180 days", n)

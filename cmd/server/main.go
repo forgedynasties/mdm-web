@@ -905,6 +905,9 @@ func main() {
 	// the 1st from 09:00 venue time — only while customer compliance reports are
 	// switched on, once per venue per month (compliance_report_send.go).
 	every("compliance-reports", time.Minute, dash.RunComplianceReports)
+	// Telemetry tables by month (W3, PARTITION_TELEMETRY=1): convert, keep months ahead,
+	// drop the old copies. A conversion copies history, so its timeout is long.
+	jobs.Default.Every(bgCtx, "partitions", time.Hour, 2*time.Hour, dash.RunPartitions)
 
 	server := &http.Server{
 		Addr:    ":" + port,
