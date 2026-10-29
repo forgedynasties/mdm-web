@@ -555,7 +555,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /team/{id}/remove", h.requireAuth(h.TeamRemove))
 	post("POST /users/{id}/delete", h.requireAccountAdmin(h.UserDelete))
 	post("POST /users/{id}/verify-email", h.requireStrictAdmin(h.UserVerifyEmail))
-	post("POST /users/merge", h.requireAccountAdmin(h.UserMergeActor))
+	post("POST /users/merge", h.requireStrictAdmin(h.UserMergeActor)) // Unlinked activity: super admin only
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))

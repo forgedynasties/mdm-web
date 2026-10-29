@@ -50,10 +50,15 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	// The old built-in login (actor "admin") has no users row, so its history shows up
 	// as "unlinked" here, to be merged into a person (the existing Merge on this page).
 	summaries, _ := h.db.ActorSummaries(ctx)
-	orphans, _ := h.db.ListOrphanActors(ctx)
+	actor := h.role(r)
+	// Unlinked activity (its card, banner row and Merge) is the super admin's alone (user,
+	// 29 Oct 2026).
+	var orphans []db.OrphanActor
+	if actor == "admin" {
+		orphans, _ = h.db.ListOrphanActors(ctx)
+	}
 	invites, _ := h.db.PendingInvites(ctx)
 	profiles, _ := h.db.ListAccessProfiles(ctx)
-	actor := h.role(r)
 	// People who signed up but can't sign in yet (email not verified). Only the super
 	// admin can vouch for them, so only the super admin sees them singled out.
 	var waiting []db.User
