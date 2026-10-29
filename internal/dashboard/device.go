@@ -519,10 +519,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	labSess, _ := h.db.GetLabSession(r.Context(), device.ID)
 	fwModes, _ := h.db.FirmwareModes(r.Context())
 	sec := h.securityFor(r.Context(), device)
+	devRole := h.deviceRoleOf(r.Context(), device)
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
+		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
 		"Title":  device.SerialNumber,
 		"DeviceSplit": h.displayPrefs(r).DeviceSplit, // the divider, per person
-		"Needs":  deviceTodoOf(deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10), health),
+		"Needs":  deviceTodoOf(append(roleNeeds(devRole, device), deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10)...), health),
 		"Device": device,
 		// Lab session (lab.go): the banner, the entry dialog and the lab view link.
 		"Lab":          labSess,

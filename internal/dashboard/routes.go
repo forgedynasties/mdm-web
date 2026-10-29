@@ -306,6 +306,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /enrollment/profiles/delete-expired", h.requireStrictAdmin(h.EnrollmentProfilesDeleteExpired))
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
+	post("POST /devices/{serial}/role", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetRole)))
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))

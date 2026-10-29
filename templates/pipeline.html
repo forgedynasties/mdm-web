@@ -374,7 +374,7 @@
   .lu1-m .k { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lu1-m .row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; align-items: center; }
   .lu1-pt { font-size: 11px; font-weight: 650; padding: 2px 8px; border-radius: 99px; background: var(--surface2); color: var(--text-2); white-space: nowrap; }
-  .lu1-pt.ok { background: var(--ok-bg); color: var(--ok); } .lu1-pt.info { background: var(--info-bg); color: var(--info); } .lu1-pt.zero { color: var(--text-faint); }
+  .lu1-pt.ok { background: var(--ok-bg); color: var(--ok); } .lu1-pt.info { background: var(--info-bg); color: var(--info); } .lu1-pt.zero { color: var(--text-faint); } .lu1-pt.warn { background: var(--warn-bg); color: var(--warn); }
   .lu1-mode { font-size: 11.5px; padding: 3px 8px; }
   .lu1-fw { margin-bottom: 8px; }
   .lu1-fw .oc-tl { grid-template-columns: 200px minmax(0, 1fr); column-gap: 14px; }
@@ -427,7 +427,7 @@
 
 {{/* ── Lineup L1: models as picture cards (21 Oct 2026); same controls as the table had ── */}}
 {{define "lu1-models"}}
-      <div class="ov2-sec" id="hardware"><h2>Models <span>{{len .HWModels}} · a device's role is its model's role</span></h2>
+      <div class="ov2-sec" id="hardware"><h2>Models <span>{{len .HWModels}} · a device's role is its model's role, picked per device when the model has several</span></h2>
         {{if canAdmin $.Role}}
         <span class="lu-pop-wrap">
           <button type="button" class="cc-btn xs" onclick="luAddToggle(event)" aria-haspopup="dialog" aria-expanded="false">+ Add model</button>
@@ -436,10 +436,10 @@
               <input type="hidden" name="role" value="{{.RoleKey}}"><input type="hidden" name="back" value="{{.RoleKey}}">
               <div class="lu-pop-t">Attach a model to {{.RoleLabel}}</div>
               {{if .Candidates}}<div class="lu-pop-list">
-                {{range .Candidates}}<label class="lu-opt"><input type="radio" name="model" value="{{.Key}}"><span><b>{{.Display}}</b> <span class="mono">{{.Key}}</span></span><small>{{if .Role}}in {{classLabel .Role}}{{else}}not attached{{end}} · {{.Devices}}</small></label>{{end}}
+                {{range .Candidates}}<label class="lu-opt"><input type="radio" name="model" value="{{.Key}}"><span><b>{{.Display}}</b> <span class="mono">{{.Key}}</span></span><small>{{if .Roles}}also in {{range $i, $r := .Roles}}{{if $i}}, {{end}}{{classLabel $r}}{{end}}{{else}}not attached{{end}} · {{.Devices}}</small></label>{{end}}
               </div>{{end}}
               <input type="text" name="model_key" class="lu-key" placeholder="or type a model key, e.g. rk3566_box" autocomplete="off" spellcheck="false">
-              <div class="pl-faint">Its devices take this role now and at every later enrollment.</div>
+              <div class="pl-faint">A model with no role: its devices take this one. A model already in another role keeps it, and each of its devices is asked which it is.</div>
               <button type="submit" class="cc-btn sm primary">Attach</button>
             </form>
           </div>
@@ -468,7 +468,9 @@
               {{else if .CanFw}}<span class="lu1-pt {{if eq .FwMode "prod"}}ok{{else if eq .FwMode "lab"}}info{{end}}">Firmware: {{if eq .FwMode "prod"}}Prod{{else if eq .FwMode "lab"}}Lab only{{else}}Off{{end}}</span>
               {{else}}<span class="lu1-pt">Maker's firmware</span>{{end}}
               {{if .Firmware}}<span class="lu1-pt">Firmware MDM {{.Firmware}}</span>{{end}}{{if .DPC}}<span class="lu1-pt">Standard MDM {{.DPC}}</span>{{end}}{{if .Lite}}<span class="lu1-pt">MDM Lite {{.Lite}}</span>{{end}}
-              <span class="lu1-pt{{if not .Devices}} zero{{end}}">{{.Devices}} device{{if ne .Devices 1}}s{{end}}</span>
+              <span class="lu1-pt{{if not .Devices}} zero{{end}}">{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Also}} here{{end}}</span>
+              {{range .Also}}<a class="lu1-pt info" href="/lineup?role={{.Role}}#model-{{$m.Key}}">Also {{classLabel .Role}} · {{.N}}</a>{{end}}
+              {{if .NoRole}}<a class="lu1-pt warn" href="/devices?product={{$m.Key}}" title="Devices of this model nobody has picked a role for yet: their app and lock wait">{{.NoRole}} need{{if eq .NoRole 1}}s{{end}} a role</a>{{end}}
               {{if .Devices}}<a class="lu1-pt" href="/apps/usage?model={{.Key}}" title="What each app costs on {{.Display}}">Resource use →</a>{{end}}
             </span>
             {{if and (not .Known) (canAdmin $.Role)}}
@@ -479,9 +481,9 @@
                   <button type="submit" class="cc-btn xs primary">Save</button>{{if .Name}}<button type="submit" name="reset" value="1" class="cc-btn xs">Reset</button>{{end}}
                 </form>
               </details>
-              <form method="POST" action="/products/attach" hx-boost="false" onsubmit="return confirm('Detach {{.Display}} from this role? Its devices lose the role.')">
-                <input type="hidden" name="model" value="{{.Key}}"><input type="hidden" name="role" value=""><input type="hidden" name="back" value="{{$.RoleKey}}">
-                <button type="submit" class="lu-x" title="Detach from this role">Detach</button>
+              <form method="POST" action="/products/attach" hx-boost="false" onsubmit="return confirm('Detach {{.Display}} from {{$.RoleLabel}}? Its devices here lose the role.')">
+                <input type="hidden" name="model" value="{{.Key}}"><input type="hidden" name="detach" value="{{$.RoleKey}}"><input type="hidden" name="back" value="{{$.RoleKey}}">
+                <button type="submit" class="lu-x" title="Detach from {{$.RoleLabel}}">Detach{{if .Also}} from {{$.RoleLabel}}{{end}}</button>
               </form>
             </div>
             {{end}}
@@ -509,7 +511,7 @@
         </form>
       </details>
       {{if .Class}}<form method="POST" action="/products/attach" hx-boost="false" onsubmit="return confirm('Detach {{$m.Display}} from this role? Its devices lose the role.')">
-        <input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="role" value=""><input type="hidden" name="back" value="{{.Class}}">
+        <input type="hidden" name="model" value="{{$m.Key}}"><input type="hidden" name="detach" value="{{.Class}}"><input type="hidden" name="back" value="{{.Class}}">
         <button type="submit" class="lu-x" title="Detach from this role">Detach</button>
       </form>{{end}}
     </div>

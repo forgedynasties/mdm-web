@@ -17,11 +17,13 @@ import (
 // these with its open alerts and failing compliance checks, so the two never disagree.
 
 type deviceNeed struct {
-	Tone   string // bad | warn
+	Tone   string // bad | warn | info
 	Title  string
 	Why    string
-	Action string // "adb" opens the wireless adb dialog, "health" the Health tab, "" none
+	Action string // "adb" opens the wireless adb dialog, "health" the Health tab, "role" posts a Choice, "" none
 	Label  string // the button's words
+	// Choices: one button per role for a model that can be several (device_role.go).
+	Choices []roleChoice
 }
 
 func deviceNeedsOf(sec deviceSecurity, d *db.Device, showBattery, flapping bool) []deviceNeed {
@@ -59,7 +61,8 @@ var postureChecks = map[string]string{
 	"unknown_sources_off": "Installs from unknown sources allowed",
 }
 
-// deviceTodoOf is the device's one to-do list, worst first: critical alerts, wireless adb,
+// deviceTodoOf is the device's one to-do list, worst first: critical alerts, its role
+// (a model that can be several, waiting for a pick), wireless adb,
 // other alerts, the rest of the posture, failing compliance checks a posture row doesn't
 // already say, then battery and charger.
 func deviceTodoOf(needs []deviceNeed, health deviceHealth) []deviceNeed {
@@ -89,9 +92,11 @@ func deviceTodoOf(needs []deviceNeed, health deviceHealth) []deviceNeed {
 			checks = append(checks, deviceNeed{Tone: "warn", Title: it.Title, Why: why, Action: "health", Label: "Details"})
 		}
 	}
-	var adb, posture, power []deviceNeed
+	var adb, roles, posture, power []deviceNeed
 	for _, n := range needs {
 		switch {
+		case n.Action == "role":
+			roles = append(roles, n)
 		case n.Action == "adb":
 			adb = append(adb, n)
 		case n.Action == "":
@@ -100,7 +105,8 @@ func deviceTodoOf(needs []deviceNeed, health deviceHealth) []deviceNeed {
 			posture = append(posture, n)
 		}
 	}
-	out := append(critical, adb...)
+	out := append(critical, roles...)
+	out = append(out, adb...)
 	out = append(out, alerts...)
 	out = append(out, posture...)
 	out = append(out, checks...)

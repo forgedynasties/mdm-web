@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -197,25 +198,35 @@ type EnrollResult struct {
 // the device's existing site/onboarded state unless the profile overrides them.
 func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, serial, product, keyHash string) (EnrollResult, error) {
 	var res EnrollResult
-	// The class comes from the model alone (the class it is attached to on the Hardware
-	// page); nobody picks one at enrollment. A model not attached yet leaves it empty and
+	// The class comes from the model (the role it is attached to on Lineup). A model with
+	// several roles takes the one picked in AIO Enroll (device_role_requests), else none
+	// until someone picks on the device page. A model not attached yet leaves it empty and
 	// the first check-in fills a guess from the model it reports.
-	var class string
+	var roles []string
 	if product != "" {
-		class, _ = d.ProductRole(ctx, product)
+		roles, _ = d.ProductRoles(ctx, product)
+	}
+	var class, source string
+	if len(roles) == 1 {
+		class = roles[0]
 	}
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return res, err
 	}
 	defer tx.Rollback(ctx)
+	if req, err := takeRoleRequest(ctx, tx, serial); err != nil {
+		return res, err
+	} else if len(roles) > 1 && slices.Contains(roles, req) {
+		class, source = req, "enroll"
+	}
 
 	var onboardedAt *time.Time
 	err = tx.QueryRow(ctx, `
 		INSERT INTO devices (serial_number, product, device_key_hash, enrolled_via,
-		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at, enrolled_by)
+		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at, enrolled_by, class_source)
 		VALUES ($1, $2, $3, $4, 'dpc', 'enrolled', NOW(), $5, $6,
-		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END, $7)
+		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END, $7, $8)
 		ON CONFLICT (serial_number) DO UPDATE
 		SET device_key_hash   = EXCLUDED.device_key_hash,
 		    key_rotated_at    = CASE WHEN devices.device_key_hash IS NOT NULL THEN NOW() ELSE devices.key_rotated_at END,
@@ -226,11 +237,12 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		    hidden            = false,
 		    product           = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END,
 		    device_class      = CASE WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.device_class ELSE devices.device_class END,
+		    class_source      = CASE WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.class_source ELSE devices.class_source END,
 		    restaurant_id     = COALESCE(EXCLUDED.restaurant_id, devices.restaurant_id),
 		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at),
 		    enrolled_by       = CASE WHEN EXCLUDED.enrolled_by <> '' THEN EXCLUDED.enrolled_by ELSE devices.enrolled_by END
 		RETURNING id, (xmax <> 0), onboarded_at`,
-		serial, product, keyHash, profile.ID, class, profile.RestaurantID, profile.CreatedBy).
+		serial, product, keyHash, profile.ID, class, profile.RestaurantID, profile.CreatedBy, source).
 		Scan(&res.DeviceID, &res.ReEnrolled, &onboardedAt)
 	if err != nil {
 		return res, err

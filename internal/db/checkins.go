@@ -53,15 +53,25 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			guessedClass = prod.ClassForModel(product, ident.Manufacturer, ident.Model)
 		}
 	}
-	// The class a model is attached to on the Hardware page is the device's class, always:
-	// it replaces whatever the device had, where the guess above only fills an empty one.
-	var modelClass string
+	// The role a model is attached to on Lineup is the device's class, always: it replaces
+	// whatever the device had, where the guess above only fills an empty one. A model with
+	// several roles never guesses: each device keeps its own while it is one of them, and
+	// has none until someone picks (its role app and lock wait for that).
+	modelRoles := []string{}
 	if product != "" {
-		modelClass, _ = d.ProductRole(ctx, product)
+		if r, _ := d.ProductRoles(ctx, product); r != nil {
+			modelRoles = r
+		}
+	}
+	var modelClass string
+	if len(modelRoles) == 1 {
+		modelClass = modelRoles[0]
 	}
 	insertClass := guessedClass
 	if modelClass != "" {
 		insertClass = modelClass
+	} else if len(modelRoles) > 1 {
+		insertClass = ""
 	}
 
 	tx, err := d.pool.Begin(ctx)
@@ -132,12 +142,17 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Only overwrite product when the device actually reported one; an empty
 			    -- value (delta frame / legacy client) keeps whatever was last learned.
 			    product            = COALESCE(NULLIF(EXCLUDED.product, ''), devices.product),
-			    -- The class follows the model: the class its model is attached to on the
-			    -- Hardware page ($7) when it has one, else a guess from the model it reports
-			    -- that only ever fills an EMPTY class.
+			    -- The class follows the model: its one role on Lineup ($7) when it has one;
+			    -- with several ($8) the device's own while it is one of them, else none;
+			    -- else a guess from the model it reports that only ever fills an EMPTY class.
 			    device_class       = CASE WHEN $7 <> '' THEN $7
+			                              WHEN cardinality($8::text[]) > 1 THEN
+			                                   CASE WHEN devices.device_class = ANY($8::text[]) THEN devices.device_class ELSE '' END
 			                              WHEN devices.device_class = '' THEN EXCLUDED.device_class
 			                              ELSE devices.device_class END,
+			    class_source       = CASE WHEN $7 <> '' THEN ''
+			                              WHEN cardinality($8::text[]) > 1 AND NOT (devices.device_class = ANY($8::text[])) THEN ''
+			                              ELSE devices.class_source END,
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
 			    -- (delta / legacy client) leaves what was learned.
@@ -161,7 +176,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    custody_source     = '',
 			    custody_set_at     = NULL
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra, NOW()
-	`, extraExpr), serial, buildID, batteryPct, extra, product, insertClass, modelClass).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged, &at)
+	`, extraExpr), serial, buildID, batteryPct, extra, product, insertClass, modelClass, modelRoles).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged, &at)
 	if err != nil {
 		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
@@ -574,7 +589,6 @@ const checkinVolatileKeys = `ARRAY['uptime_seconds','wifi_rssi','ram_usage_mb','
 // SetCheckinSampleSec sets the coalescing window used by UpsertCheckin (0 = off).
 func (d *DB) SetCheckinSampleSec(sec int) { d.checkinSampleSec.Store(int32(sec)) }
 
-
 // DeviceSample is one row of the numeric series. Pointers where the device may not
 // report the field at all: nil means "not measured", which no reader should draw as a
 // zero.
@@ -698,14 +712,6 @@ func (d *DB) GetStateTimeline(ctx context.Context, deviceID uuid.UUID, keys []st
 	}
 	return out, rows.Err()
 }
-
-
-
-
-
-
-
-
 
 // TouchLastSeen stamps a device's last_seen_at without recording a check-in. It is
 // called when a WebSocket drops so "Last seen" reflects the moment the device was

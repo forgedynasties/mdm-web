@@ -92,19 +92,40 @@ func (h *Handler) ProductAttach(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role := strings.TrimSpace(r.FormValue("role"))
-	if role != "" && !product.IsClass(role) {
+	detach := strings.TrimSpace(r.FormValue("detach"))
+	if (role != "" && !product.IsClass(role)) || (detach != "" && !product.IsClass(detach)) {
 		h.hxDoneToast(w, r, dest, "Unknown class", "error")
 		return
 	}
-	n, err := h.db.SetProductRole(r.Context(), key, role, h.currentUsername(r))
+	// A model can serve several roles (29 Oct 2026): attaching adds a role and keeps the
+	// others; Detach takes away one role (detach=<role>); role="" with no detach drops all.
+	var n int64
+	var err error
+	by := h.currentUsername(r)
+	switch {
+	case detach != "":
+		n, err = h.db.DetachProductRole(r.Context(), key, detach, by)
+	case role == "":
+		n, err = h.db.SetProductRole(r.Context(), key, "", by)
+	default:
+		n, err = h.db.AttachProductRole(r.Context(), key, role, by)
+	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "product.role", key, role)
+	roles, _ := h.db.ProductRoles(r.Context(), key)
+	h.audit(r, "product.role", key, strings.Join(roles, ","))
 	plural := map[bool]string{true: "", false: "s"}[n == 1]
-	msg := fmt.Sprintf("%s detached · %d device%s lost its class", productLabel(key), n, plural)
-	if role != "" {
+	var msg string
+	switch {
+	case detach != "" && len(roles) > 0:
+		msg = fmt.Sprintf("%s detached from %s · %d device%s changed role", productLabel(key), product.ClassLabel(detach), n, plural)
+	case role == "" || len(roles) == 0:
+		msg = fmt.Sprintf("%s detached · %d device%s lost its class", productLabel(key), n, plural)
+	case len(roles) > 1:
+		msg = fmt.Sprintf("%s is also a %s now · its devices keep their role, a new one is asked which", productLabel(key), product.ClassLabel(role))
+	default:
 		msg = fmt.Sprintf("%s attached to %s · %d device%s updated", productLabel(key), product.ClassLabel(role), n, plural)
 	}
 	h.hxDoneToast(w, r, dest, msg, "success")
@@ -139,7 +160,7 @@ func (h *Handler) ProductRename(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToast(w, r, "/lineup", msg, "success")
 }
 
-// ProductSetRole sets a stock model's default role and applies it to the model's devices.
+// ProductSetRole makes role a stock model's only role and applies it to the model's devices.
 func (h *Handler) ProductSetRole(w http.ResponseWriter, r *http.Request) {
 	key := product.Normalize(r.PathValue("key"))
 	if key == "" || product.IsKnown(key) {

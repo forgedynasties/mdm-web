@@ -406,6 +406,8 @@ func (h *Handler) registerAppRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/app/classify", h.requireApp(h.AppClassify))
 	mux.HandleFunc("POST /api/v1/app/enroll-token", h.requireApp(h.AppEnrollToken))
 	mux.HandleFunc("GET /api/v1/app/restaurants", h.requireApp(h.AppRestaurants))
+	mux.HandleFunc("GET /api/v1/app/model-roles", h.requireApp(h.AppModelRoles))
+	mux.HandleFunc("POST /api/v1/app/device-role", h.requireApp(h.AppDeviceRole))
 	mux.HandleFunc("GET /api/v1/app/agent", h.requireApp(h.AppAgent))
 	mux.HandleFunc("GET /api/v1/app/adb-key", h.requireApp(h.AppAdbKey))
 	mux.HandleFunc("POST /api/v1/app/adb-key-seen", h.requireApp(h.AppAdbKeySeen))

@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"slices"
 	"sort"
 
 	"mdm/internal/db"
@@ -16,10 +17,22 @@ import (
 // hwModel is one hardware model on the Lineup page.
 type hwModel struct {
 	Key, Display, Reported, Name, Role string
-	Known, CanFw                       bool // Known: our own board, built in to its role
-	Devices, Firmware, DPC, Lite       int
-	FwMode                             string // prod | lab | off
-	Runs                               int    // production runs linked to the model
+	// Roles: every role the model is attached to (a model can serve several, 29 Oct
+	// 2026). In a role's pane Role is that role, Devices counts its devices in it, Also
+	// lists the model's other roles and NoRole its devices still waiting for a pick.
+	Roles                        []string
+	Also                         []roleCount
+	NoRole                       int
+	Known, CanFw                 bool // Known: our own board, built in to its role
+	Devices, Firmware, DPC, Lite int
+	FwMode                       string // prod | lab | off
+	Runs                         int    // production runs linked to the model
+}
+
+// roleCount is one of a model's other roles and how many of its devices are in it.
+type roleCount struct {
+	Role string
+	N    int
 }
 
 // hwData is every model, grouped by the role it is attached to.
@@ -64,6 +77,7 @@ func (h *Handler) lineupHardware(ctx context.Context, productions []db.Productio
 			runs[p.Model]++
 		}
 	}
+	counts, _ := h.db.ProductClassCounts(ctx)
 	modes, _ := h.db.FirmwareModes(ctx)
 	order := map[string]int{}
 	for i, cp := range product.All() {
@@ -80,16 +94,36 @@ func (h *Handler) lineupHardware(ctx context.Context, productions []db.Productio
 			m.Role, m.CanFw = cp.Class, true
 		}
 		m.Display = productLabel(p.Key)
+		if m.Known {
+			m.Roles = []string{m.Role}
+		} else {
+			m.Roles = p.Roles
+		}
 		if !m.Known {
 			out.Stock = append(out.Stock, m)
 		}
-		if !product.IsClass(m.Role) {
+		if len(m.Roles) == 0 || !product.IsClass(m.Roles[0]) {
 			out.None = append(out.None, m)
 			out.NoneDevices += m.Devices
 			continue
 		}
-		out.ByRole[m.Role] = append(out.ByRole[m.Role], m)
-		out.Devices[m.Role] += m.Devices
+		if len(m.Roles) == 1 {
+			out.ByRole[m.Role] = append(out.ByRole[m.Role], m)
+			out.Devices[m.Role] += m.Devices
+			continue
+		}
+		// Several roles: the card shows in each role's pane with that role's devices.
+		for _, role := range m.Roles {
+			rm := m
+			rm.Role, rm.Devices, rm.NoRole, rm.Also = role, counts[p.Key][role], counts[p.Key][""], nil
+			for _, o := range m.Roles {
+				if o != role {
+					rm.Also = append(rm.Also, roleCount{o, counts[p.Key][o]})
+				}
+			}
+			out.ByRole[role] = append(out.ByRole[role], rm)
+			out.Devices[role] += rm.Devices
+		}
 	}
 	// Built-in boards first in catalog order, then attached models by device count.
 	for role, ms := range out.ByRole {
@@ -108,11 +142,11 @@ func (h *Handler) lineupHardware(ctx context.Context, productions []db.Productio
 }
 
 // hwCandidates are the models that can be attached to role: every stock model not
-// already in it.
+// already in it (attaching adds the role; the model keeps its others).
 func (d hwData) hwCandidates(role string) []hwModel {
 	var out []hwModel
 	for _, m := range d.Stock {
-		if m.Role != role {
+		if !slices.Contains(m.Roles, role) {
 			out = append(out, m)
 		}
 	}
