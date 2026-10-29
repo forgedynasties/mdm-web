@@ -471,10 +471,13 @@ func TestRoleConstraintCoversEveryRole(t *testing.T) {
 	if len(all) == 0 {
 		t.Fatal("no users_role_check in the migrations")
 	}
-	last := all[len(all)-1][1]
-	for _, r := range roleOrder {
-		if !strings.Contains(last, "'"+r+"'") {
-			t.Errorf("the last users_role_check (%s) does not allow %q", last, r)
+	// Every step, not just the last: they all re-run at each start, so an earlier list
+	// missing a role in use stops the server (30 Oct 2026, field/engineer on stage).
+	for i, m := range all {
+		for _, r := range roleOrder {
+			if !strings.Contains(m[1], "'"+r+"'") {
+				t.Errorf("users_role_check #%d (%s) does not allow %q", i+1, m[1], r)
+			}
 		}
 	}
 }

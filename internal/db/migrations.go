@@ -711,7 +711,7 @@ CREATE TABLE IF NOT EXISTS version_order (
 -- statements (e.g. 'dev' below). A narrower list here fails validation against a row a
 -- later statement legitimately allows, crashing the migration. Keep this the full set.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('field','engineer','viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
 
 -- Test cases: a reusable library plus per-release cases. base=true cases are checked on
 -- every release; base=false cases belong to one release (release_id set). active=false
@@ -750,7 +750,7 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS skip_base_tests BOOLEAN NOT NULL D
 -- 'dev' role: full operational access (releases, OTA, devices, …) but NOT settings
 -- or user management; it is also the only role allowed to sign off a release.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('field','engineer','viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
 
 -- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
@@ -1252,7 +1252,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS device_view TEXT NOT NULL DEFAULT '';
 -- the table by this point, including 'operator' rows that persist from the
 -- tester->operator rename further down. Omitting it here breaks every redeploy.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('field','engineer','viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
 
 CREATE TABLE IF NOT EXISTS user_tokens (
     token      TEXT PRIMARY KEY,
@@ -1276,13 +1276,13 @@ ALTER TABLE user_tokens ADD CONSTRAINT user_tokens_purpose_check CHECK (purpose 
 -- UPDATE is converting rows — the currently-active constraint at this point in
 -- the script is (viewer,tester), which would reject the UPDATE outright.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('field','engineer','viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
 UPDATE users SET role = 'operator' WHERE role = 'tester';
 -- Role ladder: admin (super admin) → dev → user_manager → operator → viewer.
 -- Admins and devs may be real accounts too (e.g. Microsoft sign-in), not only
 -- the env login. This is the effective constraint; keep it last.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('field','engineer','viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
 
 -- First/last name, settable at sign-up and editable by an admin afterward so the
 -- dashboard and audit trail can show a real name instead of a bare email address.
@@ -1545,14 +1545,14 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_by TEXT NOT NULL DEFAULT '
 -- account created under that name doesn't block the migration.
 UPDATE users SET role = 'super_op' WHERE role = 'ota_admin';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('field','engineer','viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','dev','admin','owner','staff'));
 
 -- 2026-10-07: the 'dev' role is retired. Its release / shell / sign-off rights are
 -- the super admin's now; the accounts that held it become super ops (operator + OTA
 -- + remote + access rules). Remap before the constraint drops the value.
 UPDATE users SET role = 'super_op' WHERE role = 'dev';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('field','engineer','viewer','support','operator','fleet_manager','fleet_admin','tester','user_manager','super_op','admin','owner','staff'));
 
 -- The one adb key pair the firmware trusts (2026-10-07, for the AIO Enroll Android app).
 -- One row; the private key is sealed with FLEET_ADB_KEY_SECRET before it gets here. The
