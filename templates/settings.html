@@ -186,7 +186,7 @@
     <div class="form-group">
       <label for="set-downsample-days">Thin check-in history older than (days)</label>
       <input type="number" name="checkin_downsample_days" id="set-downsample-days" value="{{if .CheckinDownsampleDays}}{{.CheckinDownsampleDays}}{{end}}" min="0" step="1" placeholder="Off — keep every row" class="form-input">
-      <div class="muted small">Older history is thinned to one row per device per interval below, rather than deleted: the period stays readable — when a device was powered, charging or on a pad — at a fraction of the rows. Daily stats are computed already and are not affected. Default 60 days.</div>
+      <div class="muted small">Older history is thinned to one row per device per interval below, rather than deleted: the period stays readable — when a device was powered, charging or on a pad — at a fraction of the rows. Daily stats are computed already and are not affected. Default 14 days; past 6 months it is thinned again to one row every 30 minutes and then kept.</div>
     </div>
     <div class="form-group">
       <label for="set-downsample-sec">Keep one thinned row every (seconds)</label>

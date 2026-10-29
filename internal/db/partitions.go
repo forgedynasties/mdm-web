@@ -196,8 +196,13 @@ func (d *DB) ThinSamplesMonth(ctx context.Context, olderThan time.Time, bucketSe
 		name := partName("device_samples", m)
 		var note string
 		_ = d.pool.QueryRow(ctx, `SELECT COALESCE(obj_description(to_regclass($1), 'pg_class'), '')`, "public."+name).Scan(&note)
+		// "thinned to 300s" can be thinned again to a coarser bucket (the 6-month tier);
+		// never finer, and an empty month never.
 		if strings.HasPrefix(note, "thinned") {
-			continue
+			var was int
+			if _, err := fmt.Sscanf(note, "thinned to %ds", &was); err != nil || was >= bucketSec {
+				continue
+			}
 		}
 		var empty bool
 		if err := d.pool.QueryRow(ctx, fmt.Sprintf(`SELECT NOT EXISTS (SELECT 1 FROM %s)`, name)).Scan(&empty); err != nil {

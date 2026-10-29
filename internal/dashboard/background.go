@@ -98,6 +98,13 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	// believed were in device_samples.
 }
 
+// The second thinning tier: months older than 6 months go from a point every 5 minutes to
+// one every 30, and are then kept for good (user, 29 Oct 2026). Partitioned tables only.
+const (
+	coarseThinDays = 180
+	coarseThinSec  = 1800
+)
+
 // downsampleCheckinsDaysPerRun is how much history one housekeeping pass thins. Three
 // days an hour works a long backlog off in a day or so without ever being the heaviest
 // thing on the box, and once caught up there is only ever one new day to do.
@@ -115,11 +122,17 @@ func (h *Handler) downsampleOldCheckins(ctx context.Context) {
 	// Partitioned (W3): a whole month at a time, rewritten as a thinned copy that replaces
 	// it, once every day of it is past the age. No row-by-row DELETE.
 	if h.partitioned(ctx, "device_samples") {
-		before, after, done, err := h.db.ThinSamplesMonth(ctx, time.Now().AddDate(0, 0, -days), sec)
-		if err != nil {
-			log.Printf("[housekeeping] thin samples month: %v", err)
-		} else if done {
-			log.Printf("[housekeeping] thinned a month of samples to 1 per %ds: %d → %d rows", sec, before, after)
+		thin := func(days, sec int) {
+			before, after, done, err := h.db.ThinSamplesMonth(ctx, time.Now().AddDate(0, 0, -days), sec)
+			if err != nil {
+				log.Printf("[housekeeping] thin samples month: %v", err)
+			} else if done {
+				log.Printf("[housekeeping] thinned a month of samples to 1 per %ds: %d → %d rows", sec, before, after)
+			}
+		}
+		thin(days, sec)
+		if coarseThinSec > sec { // an admin's own coarser setting makes the second tier moot
+			thin(coarseThinDays, coarseThinSec)
 		}
 		return
 	}

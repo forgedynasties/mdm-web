@@ -892,11 +892,12 @@ func (c *Config) CheckinSampleSec() int {
 	return c.CheckinSampleSecVal
 }
 
-// Defaults for thinning old history. 60 days of full-resolution check-ins covers every
-// chart and export the dashboard offers; past that a point every 5 minutes still shows
-// when a device was on, charging or on a pad, which is all anyone reads that far back.
+// Defaults for thinning old history (user, 29 Oct 2026: "keep thinned forever, full keep 2
+// weeks. before 6 months we can make more thinned"): full detail for 14 days, then a point
+// every 5 minutes, which still shows when a device was on, charging or on a pad; past 6
+// months coarser still (coarseThinDays in dashboard). Nothing is deleted by default.
 const (
-	DefaultCheckinDownsampleDays = 60
+	DefaultCheckinDownsampleDays = 14
 	DefaultCheckinDownsampleSec  = 300
 )
 

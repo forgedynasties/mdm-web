@@ -134,6 +134,16 @@ func TestPartitionsAgainstPostgres(t *testing.T) {
 	if n := count(`SELECT COUNT(*) FROM pg_constraint WHERE conrelid = to_regclass($1) AND contype = 'p'`, partName("device_samples", old)); n != 1 {
 		t.Error("the thinned month should have its primary key back")
 	}
+	// The 6-month tier: a month at 5 minutes thins again to 30, once; never back to finer.
+	before, after, done, err = d.ThinSamplesMonth(ctx, now.AddDate(0, 0, -60), 1800)
+	if err != nil || !done || before != 2*24*12 || after != 2*24*2 {
+		t.Errorf("coarse thin: %d → %d done=%v err=%v, want %d → %d", before, after, done, err, 2*24*12, 2*24*2)
+	}
+	for _, sec := range []int{1800, 300} {
+		if _, _, again, err := d.ThinSamplesMonth(ctx, now.AddDate(0, 0, -60), sec); err != nil || again {
+			t.Errorf("a month at 1800s must not be thinned to %ds: again=%v err=%v", sec, again, err)
+		}
+	}
 
 	// Retention: whole months older than the cut go; the 1970 row in default too.
 	n, err := d.DropMonthsBefore(ctx, PartSpec{"battery_samples", "t"}, now.Add(-180*24*time.Hour))

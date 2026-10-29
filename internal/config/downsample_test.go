@@ -60,7 +60,8 @@ func TestDefaultDownsampleIsFiveMinutes(t *testing.T) {
 	if DefaultCheckinDownsampleSec != 300 {
 		t.Errorf("default bucket is %ds, expected 300 (5 minutes)", DefaultCheckinDownsampleSec)
 	}
-	if DefaultCheckinDownsampleDays != 60 {
-		t.Errorf("default age is %dd, expected 60", DefaultCheckinDownsampleDays)
+	// 14 days of full detail: the user's choice on 29 Oct 2026 (was 60).
+	if DefaultCheckinDownsampleDays != 14 {
+		t.Errorf("default age is %dd, expected 14", DefaultCheckinDownsampleDays)
 	}
 }
