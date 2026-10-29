@@ -24,6 +24,7 @@ import (
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
+	"mdm/internal/jobs"
 	"mdm/internal/logstream"
 	"mdm/internal/metrics"
 	"mdm/internal/middleware"
@@ -332,6 +333,8 @@ func main() {
 	expvar.Publish("db_pool", expvar.Func(func() any { return database.PoolStats() }))
 	expvar.Publish("ws_connected_devices", expvar.Func(func() any { return len(hub.ConnectedIDs()) }))
 	expvar.Publish("goroutines", expvar.Func(func() any { return runtime.NumGoroutine() }))
+	// Every periodic job: runs, last/max duration, timeouts, panics, overruns (jobs.Run).
+	expvar.Publish("jobs", expvar.Func(func() any { return jobs.Default.Snapshot() }))
 	// Devices that are reporting and cannot be commanded: checking in, but holding no
 	// WebSocket for over commandChannelGrace. One number for the failure that hid behind
 	// a healthy-looking fleet for a day — if it is not ~0, control is being lost somewhere.
@@ -800,100 +803,108 @@ func main() {
 		}
 	})
 
-	// Minute dispatcher: scheduled reboots + recent-tier alerts + scheduled recipes.
-	safego("minute-loop", func() {
-		t := time.NewTicker(1 * time.Minute)
-		defer t.Stop()
-		for {
-			select {
-			case <-bgCtx.Done():
-				return
-			case <-t.C:
-				runJob(bgCtx, "scheduled-reboots", time.Minute, apiHandler.ProcessDueScheduledReboots)
-				// Re-issue reboots that were sent but never applied, so an installed-but-
-				// unrebooted device can't keep its deployment 'active' forever.
-				runJob(bgCtx, "redrive-stuck-reboots", time.Minute, apiHandler.RedriveStuckReboots)
-				// Fail install-shaped deliveries (install_apk, app_update) whose
-				// download/install stalled (device lost connectivity mid-install, terminal
-				// ack lost) so they don't sit "in flight" forever — install commands are
-				// exempt from the short TTL, and an un-expirable one does not just sit
-				// there: it blocks every later command for that device. FW-2026-000020
-				runJob(bgCtx, "expire-stalled-installs", time.Minute, apiHandler.ExpireStalledInstalls)
-				// Same, for OTA: a download that stops acking leaves the deployment active
-				// and blocks the reboot that would clear it (RebootBlockedFor).
-				runJob(bgCtx, "expire-stalled-otas", time.Minute, apiHandler.ExpireStalledOTAs)
-				// A shell line that hangs on the device must not hold its queue: fail it
-				// once it is past its deadline (counted from when the device got it).
-				runJob(bgCtx, "fail-overdue-shell", time.Minute, apiHandler.FailOverdueShellCommands)
-				// Re-push commands (any type) wedged at 'delivered' on a half-open socket to
-				// devices that are connected now, so an action can't silently never run.
-				runJob(bgCtx, "redrive-stuck-deliveries", time.Minute, apiHandler.RedriveStuckDeliveries)
-				// Safety net for the WS-connect flush itself failing (e.g. a transient DB
-				// error mid-recovery/restart): re-attempt delivery for every currently
-				// connected device. A command with nothing pending is a cheap no-op query,
-				// so this is safe to run every tick rather than only on the connect event
-				// that may have failed. Closes the gap RedriveStuckDeliveries can't: that
-				// job only re-drives commands that reached 'delivered' at least once — a
-				// flush that errored before ever pushing leaves no command_status row at
-				// all, so it never entered that job's set.
-				runJob(bgCtx, "redrive-unflushed", time.Minute, func(ctx context.Context) {
-					for id := range hub.ConnectedIDs() {
-						apiHandler.FlushPendingCommands(ctx, id)
-					}
-				})
-				// NOTE: expire-overdue-commands is intentionally NOT scheduled — the per-device
-				// queue does not expire for now (a queued command runs whenever the device next
-				// comes online). The ExpireOverdueCommands handler is kept for when per-type
-				// expiry is layered back on.
-				// Prove we can still command the fleet, rather than inferring it from a
-				// socket: a daily no-op per device whose terminal ack stamps
-				// last_round_trip_ok_at (opt-in, config command_canary), and an alert for
-				// devices that are reporting with nothing we sent ever completing.
-				runJob(bgCtx, "command-canary", time.Minute, apiHandler.RunCommandCanary)
-				runJob(bgCtx, "control-stale-alerts", time.Minute, apiHandler.RunControlStaleAlerts)
-				// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
-				runJob(bgCtx, "recent-alerts", time.Minute, dash.RunRecentAlerts)
-				// Fire any scheduled recipes whose cron time has arrived.
-				runJob(bgCtx, "scheduled-recipes", time.Minute, dash.ProcessDueScheduledRecipes)
-				// Keep each client slot on the build this server hosts, for the slots
-				// where that was switched on. A device that was away collects it the
-				// first minute it is seen again — see client_autoupdate.go.
-				runJob(bgCtx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
-				// Install the product's prod app (Lineup → role → App) on online devices
-				// that lack it, at a venue or not — see dashboard/role_app_install.go.
-				runJob(bgCtx, "role-app-install", time.Minute, dash.RunRoleAppInstalls)
-				runJob(bgCtx, "apk-auto-pull", 5*time.Minute, dash.RunAPKAutoPull)
-				runJob(bgCtx, "backend-sync", 5*time.Minute, dash.RunBackendSync)
-				// Record when each device goes online and offline, for the network graph's
-				// online strip (dashboard/presence_record.go).
-				runJob(bgCtx, "presence", time.Minute, dash.RunPresenceRecord)
-				// Give every device at a venue the venue's Wi-Fi networks, and have them
-				// forget removed ones (venue_wifi.go).
-				runJob(bgCtx, "venue-wifi", time.Minute, dash.RunVenueWifi)
-				// Hold every device at its brightness: Tableside AI at 122, locked, unless
-				// one has its own level; re-sends the config to devices that drifted
-				// (dashboard/brightness_relock.go).
-				runJob(bgCtx, "brightness-relock", 10*time.Minute, dash.RunBrightnessRelock)
-				// Place the Wi-Fi scans lost or departed devices kept while out of reach
-				// (lost-device reporting, C) — see dashboard/lost_reporting.go.
-				runJob(bgCtx, "lost-trail", time.Minute, dash.RunLostTrail)
-				// Score every device against the compliance baseline and overrides; only
-				// changed results are written, each change kept as an event (compliance.go).
-				runJob(bgCtx, "compliance", time.Minute, dash.RunCompliance)
-				// The monthly device-security report to each venue's contact and owners, on
-				// the 1st from 09:00 venue time — only while customer compliance reports are
-				// switched on, once per venue per month (compliance_report_send.go).
-				runJob(bgCtx, "compliance-reports", time.Minute, dash.RunComplianceReports)
-				// The role model (static/device-role-model-plan.html): close lab sessions
-				// whose time is up, then keep each device on its role's app build. Both
-				// act only where a lab session or a prod build exists.
-				runJob(bgCtx, "lab-expiry", time.Minute, dash.RunLabExpiry)
-				runJob(bgCtx, "role-firmware", time.Minute, dash.RunRoleFirmware)
-				runJob(bgCtx, "lock-rules", time.Minute, dash.RunLockRules)
-				runJob(bgCtx, "role-alerts", time.Minute, dash.RunRoleAlerts)
+	// The minute jobs (scalability plan W2a, 29 Oct 2026). Until then all of these ran one
+	// after another in one ticker: a slow job delayed the rest, and once the loop passed a
+	// minute the ticker dropped ticks for every job. Now each runs on its own ticker
+	// (jobs.Every: staggered start, overruns logged and counted in /debug/vars "jobs").
+	// Jobs that must keep their order, or that act on the same devices and check each
+	// other's work, stay together in one group and run in sequence as before.
+	every := func(name string, interval time.Duration, fn func(context.Context)) {
+		jobs.Default.Every(bgCtx, name, interval, interval+5*time.Minute, fn)
+	}
+	// Command lifecycle, in order: due reboots, re-drives, stall sweeps, shell deadlines.
+	every("commands", time.Minute, func(ctx context.Context) {
+		runJob(ctx, "scheduled-reboots", time.Minute, apiHandler.ProcessDueScheduledReboots)
+		// Re-issue reboots that were sent but never applied, so an installed-but-
+		// unrebooted device can't keep its deployment 'active' forever.
+		runJob(ctx, "redrive-stuck-reboots", time.Minute, apiHandler.RedriveStuckReboots)
+		// Fail install-shaped deliveries (install_apk, app_update) whose
+		// download/install stalled (device lost connectivity mid-install, terminal
+		// ack lost) so they don't sit "in flight" forever — install commands are
+		// exempt from the short TTL, and an un-expirable one does not just sit
+		// there: it blocks every later command for that device. FW-2026-000020
+		runJob(ctx, "expire-stalled-installs", time.Minute, apiHandler.ExpireStalledInstalls)
+		// Same, for OTA: a download that stops acking leaves the deployment active
+		// and blocks the reboot that would clear it (RebootBlockedFor).
+		runJob(ctx, "expire-stalled-otas", time.Minute, apiHandler.ExpireStalledOTAs)
+		// A shell line that hangs on the device must not hold its queue: fail it
+		// once it is past its deadline (counted from when the device got it).
+		runJob(ctx, "fail-overdue-shell", time.Minute, apiHandler.FailOverdueShellCommands)
+		// Re-push commands (any type) wedged at 'delivered' on a half-open socket to
+		// devices that are connected now, so an action can't silently never run.
+		runJob(ctx, "redrive-stuck-deliveries", time.Minute, apiHandler.RedriveStuckDeliveries)
+		// Safety net for the WS-connect flush itself failing (e.g. a transient DB
+		// error mid-recovery/restart): re-attempt delivery for every currently
+		// connected device. A command with nothing pending is a cheap no-op query,
+		// so this is safe to run every tick rather than only on the connect event
+		// that may have failed. Closes the gap RedriveStuckDeliveries can't: that
+		// job only re-drives commands that reached 'delivered' at least once — a
+		// flush that errored before ever pushing leaves no command_status row at
+		// all, so it never entered that job's set.
+		runJob(ctx, "redrive-unflushed", time.Minute, func(ctx context.Context) {
+			for id := range hub.ConnectedIDs() {
+				apiHandler.FlushPendingCommands(ctx, id)
 			}
-		}
+		})
 	})
+	// NOTE: expire-overdue-commands is intentionally NOT scheduled — the per-device
+	// queue does not expire for now (a queued command runs whenever the device next
+	// comes online). The ExpireOverdueCommands handler is kept for when per-type
+	// expiry is layered back on.
+	// Prove we can still command the fleet, rather than inferring it from a
+	// socket: a daily no-op per device whose terminal ack stamps
+	// last_round_trip_ok_at (opt-in, config command_canary), and an alert for
+	// devices that are reporting with nothing we sent ever completing.
+	every("canary", time.Minute, func(ctx context.Context) {
+		runJob(ctx, "command-canary", time.Minute, apiHandler.RunCommandCanary)
+		runJob(ctx, "control-stale-alerts", time.Minute, apiHandler.RunControlStaleAlerts)
+	})
+	// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
+	every("recent-alerts", time.Minute, dash.RunRecentAlerts)
+	// Fire any scheduled recipes whose cron time has arrived.
+	every("scheduled-recipes", time.Minute, dash.ProcessDueScheduledRecipes)
+	// What goes onto devices, in order, because these act on the same devices and check
+	// each other's work: the client update waits for an app install or an OTA in flight
+	// and the role app install for a client update (db.InFlightInstalls); run side by
+	// side, two of them could each see the device idle in the same second.
+	every("rollouts", time.Minute, func(ctx context.Context) {
+		// Keep each client slot on the build this server hosts, for the slots
+		// where that was switched on. A device that was away collects it the
+		// first minute it is seen again — see client_autoupdate.go.
+		runJob(ctx, "client-auto-update", time.Minute, dash.RunClientAutoUpdate)
+		// Install the product's prod app (Lineup → role → App) on online devices
+		// that lack it, at a venue or not — see dashboard/role_app_install.go.
+		runJob(ctx, "role-app-install", time.Minute, dash.RunRoleAppInstalls)
+		// The role model (static/device-role-model-plan.html): close lab sessions
+		// whose time is up, then keep each device on its role's app build. Both
+		// act only where a lab session or a prod build exists.
+		runJob(ctx, "lab-expiry", time.Minute, dash.RunLabExpiry)
+		runJob(ctx, "role-firmware", time.Minute, dash.RunRoleFirmware)
+		runJob(ctx, "lock-rules", time.Minute, dash.RunLockRules)
+		runJob(ctx, "role-alerts", time.Minute, dash.RunRoleAlerts)
+	})
+	jobs.Default.Every(bgCtx, "apk-auto-pull", time.Minute, 5*time.Minute, dash.RunAPKAutoPull)
+	jobs.Default.Every(bgCtx, "backend-sync", time.Minute, 5*time.Minute, dash.RunBackendSync)
+	// Record when each device goes online and offline, for the network graph's
+	// online strip (dashboard/presence_record.go).
+	every("presence", time.Minute, dash.RunPresenceRecord)
+	// Give every device at a venue the venue's Wi-Fi networks, and have them
+	// forget removed ones (venue_wifi.go).
+	every("venue-wifi", time.Minute, dash.RunVenueWifi)
+	// Hold every device at its brightness: Tableside AI at 122, locked, unless
+	// one has its own level; re-sends the config to devices that drifted
+	// (dashboard/brightness_relock.go).
+	jobs.Default.Every(bgCtx, "brightness-relock", time.Minute, 10*time.Minute, dash.RunBrightnessRelock)
+	// Place the Wi-Fi scans lost or departed devices kept while out of reach
+	// (lost-device reporting, C) — see dashboard/lost_reporting.go.
+	every("lost-trail", time.Minute, dash.RunLostTrail)
+	// Score every device against the compliance baseline and overrides; only
+	// changed results are written, each change kept as an event (compliance.go).
+	every("compliance", time.Minute, dash.RunCompliance)
+	// The monthly device-security report to each venue's contact and owners, on
+	// the 1st from 09:00 venue time — only while customer compliance reports are
+	// switched on, once per venue per month (compliance_report_send.go).
+	every("compliance-reports", time.Minute, dash.RunComplianceReports)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -1015,9 +1026,9 @@ func safego(name string, fn func()) {
 // runJob runs a periodic-job function with a timeout and panic recovery, so a hung
 // query or a panic in one tick can neither wedge the ticker loop forever nor crash
 // the process.
+//
+// Every run is recorded in jobs.Default (runs, durations, timeouts, panics), which
+// /debug/vars publishes as "jobs".
 func runJob(ctx context.Context, name string, timeout time.Duration, fn func(context.Context)) {
-	defer recoverLog("job " + name)
-	jctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	fn(jctx)
+	jobs.Default.Run(ctx, name, timeout, fn)
 }
