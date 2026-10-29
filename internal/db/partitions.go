@@ -353,7 +353,11 @@ func (d *DB) MigrateToPartitioned(ctx context.Context, s PartSpec) (bool, error)
 		return false, err
 	}
 	defer tx.Rollback(ctx)
-	since := monthStart(time.Now()).AddDate(0, -1, 0)
+	// Only what can have changed since the copy began needs copying again under the lock:
+	// rows written since, and the Standard client's offline backfill, which carries device
+	// timestamps up to 7 days old. Two whole months (the first cut) held live's writers
+	// for the length of most of the table.
+	since := start.Add(-8 * 24 * time.Hour)
 	stmts := []string{
 		`SET LOCAL lock_timeout = '30s'`,
 		fmt.Sprintf(`LOCK TABLE %s IN SHARE ROW EXCLUSIVE MODE`, s.Table),
