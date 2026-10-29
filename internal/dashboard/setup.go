@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -186,9 +187,21 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(app)
 }
 
-// AppAPK 302-redirects to a fresh presigned S3 download URL for the app's object, so
-// the bucket stays private and the stored apk_url never expires. Open: the device's
-// package installer fetches it by plain URL with no dashboard session.
+// apkDirectS3 sends devices straight to S3 for library APKs (scalability plan W4, 29 Oct
+// 2026): a 302 to a presigned GET instead of copying the bytes through this process, so a
+// rollout costs the server no bandwidth and a server restart cuts no download. Off unless
+// APK_DIRECT_S3=1, until a real install has been timed both ways on stage: the disk cache
+// below exists because streaming from S3 once ran at ~0.2 MB/s. Both clients follow the
+// redirect; the firmware client's Range/If-Range resume keeps working because the install
+// payload's ETag is read by a HEAD on this URL, which follows the redirect to S3's own.
+var apkDirectS3 = os.Getenv("APK_DIRECT_S3") == "1"
+
+// apkPresignTTL outlives the firmware client's 15-minute download budget with room to spare.
+const apkPresignTTL = 6 * time.Hour
+
+// AppAPK serves a library APK: from the local disk cache (Range-aware), else streamed
+// from S3, or with APK_DIRECT_S3 a 302 to a presigned S3 URL. Open: the device's package
+// installer fetches it by plain URL with no dashboard session.
 func (h *Handler) AppAPK(w http.ResponseWriter, r *http.Request) {
 	if h.apk == nil {
 		http.Error(w, "not configured", http.StatusServiceUnavailable)
@@ -203,6 +216,15 @@ func (h *Handler) AppAPK(w http.ResponseWriter, r *http.Request) {
 	if err != nil || app.S3Key == "" {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
+	}
+	if apkDirectS3 {
+		if u, err := h.apk.PresignGet(r.Context(), app.S3Key, apkPresignTTL); err == nil {
+			w.Header().Set("Cache-Control", "no-store") // a presigned URL is per request
+			http.Redirect(w, r, u, http.StatusFound)
+			return
+		} else {
+			log.Printf("apk presign %s: %v (serving it here)", app.S3Key, err)
+		}
 	}
 	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+app.PackageName+".apk\"")
