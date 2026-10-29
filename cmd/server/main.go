@@ -837,7 +837,19 @@ func main() {
 		// flush that errored before ever pushing leaves no command_status row at
 		// all, so it never entered that job's set.
 		runJob(ctx, "redrive-unflushed", time.Minute, func(ctx context.Context) {
-			for id := range hub.ConnectedIDs() {
+			// One query picks the connected devices that can have anything to deliver;
+			// only those get the full per-device flush (was every connected device).
+			connected := hub.ConnectedIDs()
+			ids := make([]uuid.UUID, 0, len(connected))
+			for id := range connected {
+				ids = append(ids, id)
+			}
+			live, err := database.DevicesWithLiveCommands(ctx, ids)
+			if err != nil {
+				log.Printf("[redrive-unflushed] %v", err)
+				return
+			}
+			for _, id := range live {
 				apiHandler.FlushPendingCommands(ctx, id)
 			}
 		})

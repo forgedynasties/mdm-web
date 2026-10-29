@@ -1216,3 +1216,52 @@ func (d *DB) InFlightAgentUpdates(ctx context.Context, deviceIDs []uuid.UUID) (m
 	}
 	return out, rows.Err()
 }
+
+// DevicesWithLiveCommands narrows ids to the devices that may have something to deliver:
+// targeted (directly, by group or fleet-wide) by a command from the last hour, or with one
+// downloading/installing, that has not reached a final state on that device. A superset of
+// what GetPendingCommandsForDevice returns for them, in one query, so the minute re-flush
+// of every connected device asks the full question only where there can be an answer: it
+// was one query per connected device a minute (1.2 s at 500 devices, scale plan W2b).
+func (d *DB) DevicesWithLiveCommands(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		WITH recent AS MATERIALIZED (
+			SELECT id, target_type FROM commands WHERE created_at > NOW() - INTERVAL '1 hour'
+		), cand AS (
+			SELECT ct.target_id AS dev, r.id FROM recent r
+			JOIN command_targets ct ON ct.command_id = r.id
+			WHERE r.target_type = 'devices' AND ct.target_id = ANY($1)
+			UNION ALL
+			SELECT dg.device_id, r.id FROM recent r
+			JOIN command_targets ct ON ct.command_id = r.id
+			JOIN device_groups dg ON dg.group_id = ct.target_id
+			WHERE r.target_type = 'groups' AND dg.device_id = ANY($1)
+			UNION ALL
+			SELECT u.dev, r.id FROM recent r CROSS JOIN unnest($1::uuid[]) AS u(dev)
+			WHERE r.target_type = 'all'
+			UNION ALL
+			SELECT device_id, command_id FROM command_status
+			WHERE device_id = ANY($1) AND status IN ('downloading', 'installing')
+		)
+		SELECT DISTINCT c.dev FROM cand c
+		WHERE NOT EXISTS (
+			SELECT 1 FROM command_status cs
+			WHERE cs.command_id = c.id AND cs.device_id = c.dev
+			  AND cs.status IN ('installed', 'failed', 'completed', 'cancelled', 'expired'))`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}

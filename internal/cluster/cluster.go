@@ -55,7 +55,22 @@ type msg struct {
 	Ref   int64  `json:"r,omitempty"` // pushref: cluster_msgs id
 	Event string `json:"e,omitempty"` // ev: ws.Ev*
 	ID    string `json:"i,omitempty"` // ev
+	Evs   []ev   `json:"v,omitempty"` // evs: several events in one notification
 }
+
+// ev is one hub event inside an "evs" batch.
+type ev struct {
+	E string `json:"e"`
+	I string `json:"i"`
+}
+
+const (
+	// eventFlush is how long events gather before going out as one notification: a fleet
+	// dropping at once (a deploy) was one NOTIFY per device, which took the whole pool.
+	eventFlush = 50 * time.Millisecond
+	// eventsPerNotify keeps a batch under notifyMax (an event is ~60 bytes of JSON).
+	eventsPerNotify = 90
+)
 
 type ownChange struct {
 	id        uuid.UUID
@@ -73,6 +88,7 @@ type Cluster struct {
 	addMu  sync.Mutex                             // serializes copy-on-write additions
 
 	own chan ownChange
+	evs chan ev
 
 	sent, recv, forwards, dropped, errs, proxied atomic.Int64
 }
@@ -80,7 +96,7 @@ type Cluster struct {
 // New makes this copy's cluster member. id must be unique per process; addr is how other
 // copies reach it on the private network (for the session proxy to come).
 func New(d *db.DB, hub *ws.Hub, id, addr string) *Cluster {
-	c := &Cluster{db: d, hub: hub, id: id, addr: addr, own: make(chan ownChange, 20000)}
+	c := &Cluster{db: d, hub: hub, id: id, addr: addr, own: make(chan ownChange, 20000), evs: make(chan ev, 50000)}
 	empty := map[uuid.UUID]struct{}{}
 	c.remote.Store(&empty)
 	return c
@@ -105,6 +121,7 @@ func (c *Cluster) Start(ctx context.Context) {
 		}
 	})
 	go c.writeOwners(ctx)
+	go c.sendEvents(ctx)
 	go c.listen(ctx)
 	go func() {
 		<-ctx.Done()
@@ -170,9 +187,45 @@ func (c *Cluster) Forward(id uuid.UUID, frame []byte) bool {
 	return true
 }
 
-// Event passes a hub event to the other copies.
+// Event passes a hub event to the other copies, in the next batch. Never blocks: a full
+// queue drops the event (a dashboard refresh, at worst, comes late).
 func (c *Cluster) Event(kind, id string) {
-	c.send(msg{From: c.id, Kind: "ev", Event: kind, ID: id})
+	select {
+	case c.evs <- ev{E: kind, I: id}:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// sendEvents gathers events for eventFlush and sends them in as few notifications as fit.
+func (c *Cluster) sendEvents(ctx context.Context) {
+	for {
+		var first ev
+		select {
+		case <-ctx.Done():
+			return
+		case first = <-c.evs:
+		}
+		batch := []ev{first}
+		timer := time.NewTimer(eventFlush)
+	gather:
+		for {
+			select {
+			case e := <-c.evs:
+				batch = append(batch, e)
+			case <-timer.C:
+				break gather
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			}
+		}
+		for len(batch) > 0 {
+			n := min(len(batch), eventsPerNotify)
+			c.send(msg{From: c.id, Kind: "evs", Evs: batch[:n]})
+			batch = batch[n:]
+		}
+	}
 }
 
 func (c *Cluster) send(m msg) bool {
@@ -328,11 +381,20 @@ func (c *Cluster) handle(ctx context.Context, m msg) {
 		}
 		c.hub.DeliverForwarded(id, frame) // not here (it just moved): the check-in re-delivers
 	case "ev":
-		if id, err := uuid.Parse(m.ID); err == nil && (m.Event == ws.EvPresenceOn || m.Event == ws.EvPresenceOff) {
-			c.noteRemote(id, m.Event == ws.EvPresenceOn)
+		c.deliver(m.Event, m.ID)
+	case "evs":
+		for _, e := range m.Evs {
+			c.deliver(e.E, e.I)
 		}
-		c.hub.DeliverEvent(m.Event, m.ID)
 	}
+}
+
+// deliver hands one event from another copy to this copy's hub (and notes presence).
+func (c *Cluster) deliver(kind, id string) {
+	if u, err := uuid.Parse(id); err == nil && (kind == ws.EvPresenceOn || kind == ws.EvPresenceOff) {
+		c.noteRemote(u, kind == ws.EvPresenceOn)
+	}
+	c.hub.DeliverEvent(kind, id)
 }
 
 // Stats is the cluster's picture for /debug/vars.
@@ -340,7 +402,7 @@ func (c *Cluster) Stats() map[string]any {
 	return map[string]any{
 		"instance": c.id, "remote_devices": len(c.Remote()), "local_devices": len(c.hub.LocalIDs()),
 		"sent": c.sent.Load(), "received": c.recv.Load(), "forwarded_pushes": c.forwards.Load(),
-		"owner_changes_dropped": c.dropped.Load(), "errors": c.errs.Load(), "proxied_sessions": c.proxied.Load(),
+		"dropped": c.dropped.Load(), "errors": c.errs.Load(), "proxied_sessions": c.proxied.Load(),
 	}
 }
 
