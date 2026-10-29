@@ -41,7 +41,7 @@ func TestCommandCatalogueIsCoherent(t *testing.T) {
 
 func knownRole(role string) bool {
 	switch role {
-	case "admin", "fleet_admin", "fleet_manager", "operator", "support", "viewer", "owner", "staff":
+	case "admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "viewer", "owner", "staff":
 		return true
 	}
 	return false
@@ -127,7 +127,7 @@ func TestAPICommandTypes(t *testing.T) {
 // by an access action that does not exist. All are admin-only, so nothing changes;
 // the moment a reachable command joins them, this test says so.
 func TestAdminOnlyResidueIsExactlyTheExpectedSet(t *testing.T) {
-	want := map[string]bool{"wipe": true, "mic_gain_read": true, "adb_tcp": true, "unenroll": true, "wifi_config": true, "move_server": true}
+	want := map[string]bool{"wipe": true, "mic_gain_read": true, "adb_tcp": true, "unenroll": true, "move_server": true}
 	got := AdminOnlyCommandTypes()
 	if len(got) != len(want) {
 		t.Fatalf("AdminOnlyCommandTypes() = %v, want %v", got, want)

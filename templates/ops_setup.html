@@ -1,0 +1,78 @@
+{{define "ops_setup.html"}}
+{{template "header" .}}
+{{/* The Ops lead's home (roles replan, picked 30 Oct 2026): the Overview's layout about setup
+     visits: what needs them, the numbers, open visits as venue cards; the rail rings how
+     much of what is setting up is ready. role_homes.go */}}
+<template id="page-island">
+  <span class="isl-dot {{if .Todos}}warn{{else}}ok{{end}}"></span>
+  <span class="isl-t">Setup</span>
+  <span class="isl-s"><b>{{len .Visits}}</b> open visit{{if ne (len .Visits) 1}}s{{end}} · {{.SettingUp}} setting up{{if .NoVisit}} · <span class="w">{{.NoVisit}} without a visit</span>{{end}}</span>
+  <span class="isl-acts"><a class="cc-btn" href="/restaurants">Venues</a></span>
+</template>
+
+<div class="ov2">
+  <div class="ov2-main">
+    {{if .Todos}}
+    <div class="ov2-ban is-bad">
+      <div class="ov2-ban-k">Setup · {{len .Visits}} open visit{{if ne (len .Visits) 1}}s{{end}}</div>
+      <h2>{{len .Todos}} thing{{if ne (len .Todos) 1}}s{{end}} need{{if eq (len .Todos) 1}}s{{end}} you</h2>
+      <ol class="oc-todo">
+        {{range $i, $t := .Todos}}{{if lt $i 3}}<li><span class="t">{{.Title}}<small>{{.Sub}}</small></span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}{{end}}
+      </ol>
+      {{if gt (len .Todos) 3}}<a class="oc-more" href="#setup-visits">{{sub (len .Todos) 3}} more <i aria-hidden="true">→</i></a>{{end}}
+    </div>
+    {{else}}
+    <div class="ov2-ban is-calm">
+      <div class="ov2-ban-k">Setup</div>
+      <h2>Nothing waiting on you</h2>
+      <ol class="oc-todo"></ol>
+      <a class="oc-more" href="/restaurants">Open a visit from a venue's settings <i aria-hidden="true">→</i></a>
+    </div>
+    {{end}}
+
+    <div class="oc-stats">
+      <div class="oc-st"><div class="oc-sth"><a href="#setup-visits">Visits</a></div>
+        <a class="oc-stm" href="#setup-visits"><span><span class="oc-tri flat"></span><b>{{len .Visits}}</b><small>open now</small></span><span><span class="oc-tri flat"></span><b>{{.Week}}</b><small>handed over · 7 d</small></span></a></div>
+      <div class="oc-st"><div class="oc-sth"><a href="/devices?state=setting_up">Setting up</a></div>
+        <a class="oc-stm" href="/devices?state=setting_up"><span><span class="oc-tri flat"></span><b>{{.SettingUp}}</b><small>devices</small></span><span><span class="oc-tri {{if .NoVisit}}bad{{else}}flat{{end}}"></span><b>{{.NoVisit}}</b><small>without a visit</small></span></a></div>
+      <div class="oc-st"><div class="oc-sth"><a href="#setup-visits">Field</a></div>
+        <a class="oc-stm" href="#setup-visits"><span><span class="oc-tri flat"></span><b>{{.People}}</b><small>people on visits</small></span><span><span class="oc-tri flat"></span><b>{{.EndsThisWeek}}</b><small>visits end this week</small></span></a></div>
+    </div>
+
+    <div class="ov2-sec" id="setup-visits"><h2>Open visits <span>{{len .Visits}}</span></h2><span class="ov2-nav"><a href="/restaurants">All venues</a></span></div>
+    {{if .Visits}}
+    <div class="ov2-strip">
+      {{range .Visits}}{{$a := index $.Agg .RestaurantID}}
+      <a class="ov2-v s-warn" href="/restaurants/{{.RestaurantID}}?open=visits#vn-visits">
+        <span class="cov">{{venueIcon .RestaurantID .Restaurant "md"}}</span>
+        <span class="bd">
+          <span class="ov2-st s-warn">Until {{.EndsAt.Format "Mon 2 Jan"}}</span>
+          <b>{{.Restaurant}}</b>
+          <small>{{if .Purpose}}{{.Purpose}} · {{end}}{{joinStrings .People ", "}}</small>
+          {{if $a}}<small>{{$a.Total}} setting up · {{$a.Ready}} ready</small>{{else}}<small>nothing setting up yet</small>{{end}}
+        </span>
+      </a>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="muted small" style="padding:6px 2px">No visits open. Open one from a venue's settings: Venue settings › Setup visits.</div>
+    {{end}}
+  </div>
+
+  <aside class="ov2-rail" aria-label="How much of the setup is ready">
+    <a class="ov2-ring {{if lt .Pct 50}}s-warn{{end}}" href="/devices?state=setting_up">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"></circle><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 60 60)"></circle></svg>
+      <span><b>{{.Ready}}/{{.SettingUp}}</b><small>ready</small></span>
+    </a>
+    <div class="ov2-hi"><b>Setup</b> <small>{{.SettingUp}} setting up · {{.Week}} handed over this week</small></div>
+    <div class="ov2-rh"><h2>Ending soon <span>{{len .Visits}}</span></h2></div>
+    <ul class="ov2-att">
+      {{range .Visits}}
+      <li><span class="ovd-dot warn"></span><span class="t"><a href="/restaurants/{{.RestaurantID}}?open=visits#vn-visits">{{.Restaurant}}</a><small>{{joinStrings .People ", "}} · until {{.EndsAt.Format "Mon 2 Jan"}}</small></span><a class="cc-btn sm" href="/restaurants/{{.RestaurantID}}?open=visits#vn-visits">Open</a></li>
+      {{end}}
+    </ul>
+  </aside>
+</div>
+
+{{template "footer" .}}
+{{end}}

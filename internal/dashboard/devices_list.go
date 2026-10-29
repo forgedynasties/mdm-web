@@ -104,6 +104,7 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 		AgentKind:           r.URL.Query().Get("kind"),
 		Class:               r.URL.Query().Get("class"),
 		Onboarding:          r.URL.Query().Get("onboarding"),
+		State:               r.URL.Query().Get("state"),
 		EnrolledBy:          r.URL.Query().Get("enrolled_by"),
 		Lifecycle:           r.URL.Query().Get("lifecycle"),
 		Hygiene:             r.URL.Query().Get("hygiene"),

@@ -59,8 +59,8 @@ func s1Duration(secs int) string {
 func s1Holders(action string) string {
 	out := []string{"Super admins"}
 	for _, d := range roleDefs {
-		if d.Key != "admin" && sensitiveByDefault(d.Key, action) {
-			out = append(out, d.Label+"s")
+		if d.Key != "admin" && !d.Legacy && sensitiveByDefault(d.Key, action) {
+			out = append(out, d.Plural)
 		}
 	}
 	return joinAnd(out) + ", plus anyone a rule names"

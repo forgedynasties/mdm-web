@@ -29,6 +29,12 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
 	data["CurrentUser"] = h.currentDisplayName(r)
+	if sess, ok := h.currentSession(r); ok && sess.Role == "admin" {
+		data["SuperAdmin"] = true
+		if as := viewingAs(r); as != "" {
+			data["ViewingAs"] = roleLabel(as)
+		}
+	}
 	// Pages that list devices draw them as the user chose (table or cards).
 	if p := r.URL.Path; strings.HasPrefix(p, "/devices") || strings.HasPrefix(p, "/restaurants/") || strings.HasPrefix(p, "/groups/") || strings.HasPrefix(p, "/productions/") {
 		if _, set := data["FleetView"]; !set {
@@ -292,6 +298,21 @@ func trimTrace(trace string) string {
 func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 	if !h.isLoggedIn(r) {
 		h.Landing(w, r)
+		return
+	}
+	// Each role signs in to its own home (roles replan, 30 Oct 2026).
+	switch h.role(r) {
+	case "field":
+		http.Redirect(w, r, "/my-visits", http.StatusFound)
+		return
+	case "fleet_manager":
+		http.Redirect(w, r, "/visits", http.StatusFound)
+		return
+	case "viewer":
+		http.Redirect(w, r, "/restaurants", http.StatusFound)
+		return
+	case "engineer":
+		http.Redirect(w, r, "/devices?state=lab", http.StatusFound)
 		return
 	}
 	h.requireAuth(h.Overview)(w, r)

@@ -52,6 +52,13 @@ func (a *access) venueInScope(id uuid.UUID) bool {
 	if !a.hidesDevices() {
 		return true
 	}
+	// The Ops lead runs every venue, empty ones included; Field the venues of their visits.
+	if a.role == "fleet_manager" && a.pol.Base != "deny" {
+		return true
+	}
+	if a.role == "field" && a.onVisitAt(id) {
+		return true
+	}
 	if rests, _ := a.visibleCollections(); rests[id] > 0 {
 		return true
 	}

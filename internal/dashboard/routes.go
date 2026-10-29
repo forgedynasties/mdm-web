@@ -64,7 +64,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/app-usage", h.requireAuth(h.deviceRoute("view", h.DeviceAppUsage)))
 	// Wi-Fi card (W1): the card, polled while a change runs; changes are admin only.
 	mux.HandleFunc("GET /devices/{serial}/wifi", h.requireAuth(h.deviceRoute("view", h.DeviceWifi)))
-	post("POST /devices/{serial}/wifi", h.requireAdmin(h.deviceRoute("view", h.DeviceWifiSave)))
+	post("POST /devices/{serial}/wifi", h.requireOperatorOrAdmin(h.deviceRoute("kiosk", h.DeviceWifiSave)))
 	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(drainable(h.deviceRoute("view", h.DeviceEvents))))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.deviceRoute("view", h.DeviceOnlineStatus)))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(drainable(h.deviceRoute("view", h.DevicePresenceStream))))
@@ -307,6 +307,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
 	post("POST /devices/{serial}/role", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetRole)))
+	post("POST /devices/{serial}/handover", h.requireAuth(h.deviceRoute("view", h.DeviceHandOverPost)))
+	mux.HandleFunc("GET /my-visits", h.requireAuth(h.MyVisits))
+	mux.HandleFunc("GET /view-as", h.requireAuth(h.ViewAs))
+	mux.HandleFunc("GET /visits", h.requireAuth(h.SetupHome))
+	post("POST /restaurants/{id}/visits", h.requireAuth(h.RestaurantVisitOpen))
+	post("POST /restaurants/{id}/visits/{vid}", h.requireAuth(h.RestaurantVisitChange))
+	post("POST /restaurants/{id}/handover", h.requireAuth(h.RestaurantHandOverReady))
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))

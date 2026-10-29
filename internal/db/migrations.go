@@ -2258,6 +2258,6 @@ UPDATE sessions SET role = 'fleet_manager' WHERE role IN ('super_op', 'user_mana
 -- The effective role constraint: exactly the roles in roleDefs (dashboard/roles.go).
 -- Keep it last; TestRoleConstraintCoversEveryRole checks it.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','fleet_manager','fleet_admin','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','field','engineer','fleet_manager','fleet_admin','admin','owner','staff'));
 
 `

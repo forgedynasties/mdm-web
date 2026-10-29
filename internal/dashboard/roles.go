@@ -57,24 +57,38 @@ type roleDef struct {
 	Customer            bool   // venue-walled customer account
 	Desc                string // one line for the role pickers
 	Ceiling             string // what the role can ever do, for the access editor
+	Plural string // "Ops leads", "Support agents": for lists of holders
+	// Legacy: a role from before the 30 Oct 2026 replan. It still works for accounts
+	// that hold it, but nobody can be given it any more.
+	Legacy bool
 }
 
+// Roles replan (decided 30 Oct 2026): each role says what someone can do AND which
+// devices they see, by the device's state (db/setup_visits.go): Lab (no venue), Setting
+// up, In service. Stored keys stay where a role kept its job, so no account needs a
+// migration for the label to change: fleet_manager is the Ops lead, operator is Support,
+// viewer is Sales. engineer and field are new. fleet_admin ("Admin") and support are
+// legacy: their holders move to a new role by hand.
 var roleDefs = []roleDef{
-	{Key: "admin", Label: "Super admin", Article: "a super admin", Level: 5,
-		Desc: "Everything", Ceiling: "Super admin. Nothing to configure."},
-	{Key: "fleet_admin", Label: "Admin", Article: "an admin", Level: 4,
-		Desc: "Fleet manager + firmware pushes", Ceiling: "An admin can do everything a fleet manager can, and push firmware updates. Rules say where."},
-	{Key: "fleet_manager", Label: "Fleet manager", Article: "a fleet manager", Level: 3,
-		Desc: "Operator + remote control, app library, people", Ceiling: "A fleet manager can do everything an operator can, use remote control, manage the app library and the people below them. Firmware pushes need a rule that names them. Rules say where."},
-	{Key: "operator", Label: "Operator", Article: "an operator", Level: 2,
-		Desc: "Support + installs, logs, venues, lock rules", Ceiling: "An operator can act on devices: commands, lock, notes, alerts, venues and groups, and remote control when a rule names it. Rules say where."},
-	{Key: "support", Label: "Support", Article: "a support agent", Level: 1,
-		Desc: "Viewer + screenshots, reboot, lock, lost mode, alerts", Ceiling: "Support can take screenshots, reboot, lock and unlock, use lost mode, handle alerts and write notes. Rules say where."},
-	{Key: "viewer", Label: "Viewer", Article: "a viewer", Level: 0,
-		Desc: "Sees everything, read-only", Ceiling: "A viewer only looks. Rules say which devices they see."},
-	{Key: "owner", Label: "Owner", Article: "an owner", Level: 2, Customer: true,
+	{Key: "admin", Label: "Super admin", Article: "a super admin", Plural: "Super admins", Level: 5,
+		Desc: "Everything, firmware included", Ceiling: "Super admin. Nothing to configure."},
+	{Key: "fleet_admin", Label: "Admin (old)", Article: "an admin", Plural: "Admins (old)", Level: 4, Legacy: true,
+		Desc: "Old role: everything but settings, firmware pushes", Ceiling: "An old role from before 30 Oct 2026. Move this person to a new role."},
+	{Key: "fleet_manager", Label: "Ops lead", Article: "an ops lead", Plural: "Ops leads", Level: 3,
+		Desc: "Venues and setup visits; devices setting up and in service", Ceiling: "An ops lead sets venues up, opens setup visits, and acts on devices setting up and in service."},
+	{Key: "engineer", Label: "Engineer", Article: "an engineer", Plural: "Engineers", Level: 2,
+		Desc: "Lab devices; restaurant devices: look, logs, screenshots", Ceiling: "An engineer does everything on lab devices. On restaurant devices they look, collect logs and take screenshots."},
+	{Key: "operator", Label: "Support", Article: "a support agent", Plural: "Support agents", Level: 2,
+		Desc: "Devices in service: commands, remote control, installs", Ceiling: "Support acts on every device in service: commands, lock, remote control, installs."},
+	{Key: "field", Label: "Field", Article: "a field person", Plural: "Field people", Level: 2,
+		Desc: "Only the venue of an open setup visit", Ceiling: "Field acts on the devices of venues where they are on an open setup visit, and hands them over."},
+	{Key: "support", Label: "Support (old)", Article: "a support agent", Plural: "Support (old)", Level: 1, Legacy: true,
+		Desc: "Old role: screenshots, reboot, lock", Ceiling: "An old role from before 30 Oct 2026. Move this person to a new role."},
+	{Key: "viewer", Label: "Sales", Article: "a sales person", Plural: "Sales people", Level: 0,
+		Desc: "Every restaurant, read-only", Ceiling: "Sales see every device in service, read-only."},
+	{Key: "owner", Label: "Owner", Article: "an owner", Plural: "Owners", Level: 2, Customer: true,
 		Desc: "Their venues: reboot, lock, lost mode, alerts", Ceiling: "An owner sees only their venues, and can reboot, lock and unlock, use lost mode and handle alerts there."},
-	{Key: "staff", Label: "Staff", Article: "a staff member", Level: 1, Customer: true,
+	{Key: "staff", Label: "Staff", Article: "a staff member", Plural: "Staff", Level: 1, Customer: true,
 		Desc: "Their venue: reboot, find a tablet", Ceiling: "Staff see only their venue, and can reboot and find a missing tablet there."},
 }
 
@@ -131,6 +145,14 @@ func roleArticle(role string) string {
 
 func roleDesc(role string) string { return roleByKey[role].Desc }
 
+// rolePlural is the role's plural for lists ("Ops leads"); its label plus s when unset.
+func rolePlural(role string) string {
+	if d, ok := roleByKey[role]; ok && d.Plural != "" {
+		return d.Plural
+	}
+	return roleLabel(role) + "s"
+}
+
 // rolePill is the colour of a role's pill in people lists.
 func rolePill(role string) string {
 	switch role {
@@ -138,8 +160,10 @@ func rolePill(role string) string {
 		return "danger"
 	case "fleet_admin", "fleet_manager":
 		return "warn"
-	case "operator", "support":
+	case "operator", "support", "engineer":
 		return "info"
+	case "field":
+		return "ok"
 	case "owner":
 		return "accent"
 	}
@@ -171,16 +195,17 @@ func roleIsOperatorLike(role string) bool {
 	return l >= roleByKey["operator"].Level && l < roleByKey["admin"].Level
 }
 
-// roleManagesUsers: who reaches Users, Activity and access control. Fleet manager up;
-// like everyone they manage only accounts below their own level.
-func roleManagesUsers(role string) bool { return roleAtLeast(role, "fleet_manager") }
+// roleManagesUsers: who reaches Users, Activity and access control. The super admin only
+// (roles replan, 30 Oct 2026: "Invite people: super admin"). Owners invite their own staff
+// through /team, which does not ask this.
+func roleManagesUsers(role string) bool { return role == "admin" }
 
 // roleCreatesUsers: may create, delete or merge accounts. Same people as above.
 func roleCreatesUsers(role string) bool { return roleManagesUsers(role) }
 
 // roleCanAppLibrary: the app library (browse, upload, register). Fleet manager up;
 // removing an APK stays with the super admin.
-func roleCanAppLibrary(role string) bool { return roleAtLeast(role, "fleet_manager") }
+func roleCanAppLibrary(role string) bool { return role == "engineer" || roleAtLeast(role, "fleet_manager") }
 
 // rank orders any role for "who may manage whom": customers sit below the whole AIO
 // team, so a fleet manager (3) manages owners and staff and nobody on a customer
@@ -204,6 +229,9 @@ func assignableRoles(actorRole string) []string {
 	}
 	var out []string
 	for _, r := range roleOrder {
+		if roleByKey[r].Legacy {
+			continue
+		}
 		if rank(r) < rank(actorRole) || actorRole == "admin" {
 			out = append(out, r)
 		}

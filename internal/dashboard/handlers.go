@@ -928,6 +928,10 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.
 		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },
+		"classOf":            classOf,
+		"dockShows":          dockShows,
+		"viewAsRoles":        func() []string { return []string{"fleet_manager", "operator", "engineer", "field", "viewer"} },
+		"joinStrings":        strings.Join,
 		// canAct gates only the Actions dock link. Every authenticated role may
 		// open the Actions page — viewers see it read-only (the builder, recipes,
 		// resend and delete controls are all separately gated by canOperate /

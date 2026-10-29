@@ -117,9 +117,46 @@ func (h *Handler) isLoggedIn(r *http.Request) bool {
 
 func (h *Handler) role(r *http.Request) string {
 	if s, ok := h.currentSession(r); ok {
+		if s.Role == "admin" {
+			if as := viewingAs(r); as != "" {
+				return as
+			}
+		}
 		return s.Role
 	}
 	return ""
+}
+
+// viewAsCookie holds the role a super admin is viewing the dashboard as (View as…,
+// roles replan 30 Oct 2026). Only a super admin's session honours it, and it can only
+// narrow: pages render and scope as that role, while the super-admin-only routes still
+// check the session itself.
+const viewAsCookie = "mdm_view_as"
+
+func viewingAs(r *http.Request) string {
+	c, err := r.Cookie(viewAsCookie)
+	if err != nil || c.Value == "admin" || !roleKnown(c.Value) || roleByKey[c.Value].Legacy {
+		return ""
+	}
+	return c.Value
+}
+
+// ViewAs: GET /view-as?role=<key> starts viewing as that role; role "" stops.
+func (h *Handler) ViewAs(w http.ResponseWriter, r *http.Request) {
+	s, ok := h.currentSession(r)
+	if !ok || s.Role != "admin" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	role := r.URL.Query().Get("role")
+	if role == "" || role == "admin" || !roleKnown(role) || roleByKey[role].Legacy {
+		http.SetCookie(w, &http.Cookie{Name: viewAsCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode})
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: viewAsCookie, Value: role, Path: "/", MaxAge: 4 * 3600, HttpOnly: true, Secure: r.TLS != nil, SameSite: http.SameSiteLaxMode})
+	h.audit(r, "view_as", role, "")
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func (h *Handler) currentUsername(r *http.Request) string {

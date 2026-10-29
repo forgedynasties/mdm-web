@@ -595,6 +595,7 @@ type DeviceFilter struct {
 	AgentKind           string    // "firmware" | "dpc" (DPC agent) | "mdm-lite" | "" (no filter)
 	Class               string    // device class; firmware devices match on their product default. "" = no filter
 	Onboarding          string    // "pending" (in the inbox), "done", or "" (no filter)
+	State               string    // "lab" | "setting_up" | "in_service" (setup_visits.go), or "" (no filter)
 	EnrolledBy          string    // username that enrolled the device via AIO Enroll, or "" (no filter)
 	Lifecycle           string    // "retired" (retired/wiped only), "all", or "" (active only)
 	Hygiene             string    // a clean-up job from the Overview (see hygieneWhere), or ""

@@ -21,7 +21,7 @@ import (
 func ac1Sample(now time.Time) ac1Inputs {
 	venue := uuid.New()
 	d1, d2, d3 := uuid.New(), uuid.New(), uuid.New()
-	scopes := map[uuid.UUID]db.DeviceScope{d1: {RestaurantID: &venue}, d2: {RestaurantID: &venue}, d3: {}}
+	scopes := map[uuid.UUID]db.DeviceScope{d1: {RestaurantID: &venue, InService: true}, d2: {RestaurantID: &venue, InService: true}, d3: {RestaurantID: &venue, InService: true}}
 	person := func(name, role string, pol db.AccessPolicy) ac1Person {
 		u := db.User{ID: uuid.New(), Username: strings.ToLower(name), FirstName: name, Role: role}
 		a := &access{role: role, pol: pol, scopes: scopes}
@@ -54,16 +54,19 @@ func TestAccessAC1Builder(t *testing.T) {
 	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
 	v := buildAccessAC1(ac1Sample(now))
 
-	names := []string{}
-	for _, r := range v.Rows {
-		names = append(names, r.User.FirstName)
+	// Roles replan (30 Oct 2026): Support holds remote control by default, so the
+	// operator's remote rule is no longer an extra; it still ends this week.
+	row := func(name string) ac1Row {
+		for _, r := range v.Rows {
+			if r.User.FirstName == name {
+				return r
+			}
+		}
+		t.Fatalf("no row for %s", name)
+		return ac1Row{}
 	}
-	// Extras first, then the limited ones, then by role.
-	if strings.Join(names, ",") != "Shahrukh,Muhammad,Sana,Ali" {
-		t.Errorf("order = %v", names)
-	}
-	op, vw, st, ad := v.Rows[0], v.Rows[1], v.Rows[2], v.Rows[3]
-	if c := ac1CellOf(op, "remote"); c.State != "all" || !c.Extra {
+	op, vw, st, ad := row("Shahrukh"), row("Muhammad"), row("Sana"), row("Ali")
+	if c := ac1CellOf(op, "remote"); c.State != "all" || c.Extra {
 		t.Errorf("operator remote = %+v", c)
 	}
 	if c := ac1CellOf(op, "shell"); c.State != "above" {
@@ -78,7 +81,7 @@ func TestAccessAC1Builder(t *testing.T) {
 	if c := ac1CellOf(vw, "reboot"); c.State != "above" {
 		t.Errorf("viewer reboot = %+v", c)
 	}
-	if vw.Sees != "1 device" || vw.Whole || !op.Ending || !op.Sensitive {
+	if vw.Sees != "1 device" || vw.Whole || !op.Ending {
 		t.Errorf("rows = %+v / %+v", vw, op)
 	}
 	if !st.NoVenue || st.Devices != 0 {
@@ -93,14 +96,12 @@ func TestAccessAC1Builder(t *testing.T) {
 	}
 
 	b := v.Banner
-	// A lone remote-control rule is a setup the two questions can't show, too.
-	if b.Headline != "4 things to look at" || len(b.Todos) != 3 || b.More != 1 ||
-		b.Todos[0].Title != "1 person has remote control or firmware beyond their role" ||
-		b.Todos[1].Title != "1 person's access ends this week" ||
-		b.Todos[2].Title != "1 setup the two questions can't show" {
+	if b.Headline != "3 things to look at" || len(b.Todos) != 3 ||
+		b.Todos[0].Title != "1 person's access ends this week" ||
+		b.Todos[1].Title != "1 setup the two questions can't show" {
 		t.Errorf("banner = %+v", b)
 	}
-	if v.Cards[0].A.Value != "2" || v.Cards[1].A.Value != "2" || v.Cards[2].A.Value != "1" || v.Cards[2].A.Tone != "bad" {
+	if v.Cards[0].A.Value != "2" || v.Cards[1].A.Value != "2" || v.Cards[2].A.Value != "0" {
 		t.Errorf("cards = %+v", v.Cards)
 	}
 	if v.Rail.Pct != 50 || len(v.Rail.Profiles) != 1 || v.Rail.Profiles[0].Users != 1 || v.Rail.Profiles[0].Desc != "See device" {
@@ -134,11 +135,16 @@ func TestAccessAC1Renders(t *testing.T) {
 		t.Fatalf("users_access.html failed to render: %v", err)
 	}
 	out := buf.String()
-	op := v.Rows[0].User.ID.String()
+	var op string
+	for _, r := range v.Rows {
+		if r.User.FirstName == "Shahrukh" {
+			op = r.User.ID.String()
+		}
+	}
 	for _, want := range []string{
-		`<h2>4 things to look at</h2>`, `id="ac1-matrix" data-show="extras"`, `>Remote</th>`, `>Shell</th>`,
+		`<h2>3 things to look at</h2>`, `id="ac1-matrix" data-show="extras"`, `>Remote</th>`, `>Shell</th>`,
 		`action="/users/` + op + `/role"`, `name="redirect" value="/users/access"`, `onchange="ac1Role(this)"`,
-		`class="ac1-d all extra"`, `class="ac1-dash"`, `data-flags=" extras ending odd"`, `data-flags=" novenue"`,
+		`class="ac1-dash"`, `data-flags=" ending odd"`, `data-flags=" novenue"`,
 		`<tr class="ac1-edr" hidden data-for="` + op + `">`, `class="ac1-data"`, `"choices":`,
 		`<span><b>50%</b><small>whole fleet</small></span>`, `Look only`, `onsubmit="return ac1Who(this)"`,
 		`data-ac1-set="role" data-val="staff"`, `href="/users/access/profiles"`, `/static/js/users/access_ac1.js`,

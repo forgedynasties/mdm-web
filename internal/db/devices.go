@@ -116,6 +116,9 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	// as well — otherwise picking "Tableside AI" leaves the pills counting the whole
 	// fleet. Same predicate ListDevices uses, including the product-default fallback
 	// for firmware devices that store no class.
+	if w := stateWhere(f.State); w != "" {
+		wheres = append(wheres, w)
+	}
 	if f.Class != "" {
 		wheres = append(wheres, fmt.Sprintf("(d.device_class = $%d OR (d.device_class = '' AND d.product = ANY($%d)))", argN, argN+1))
 		args = append(args, f.Class, productKeysForClass(f.Class))
@@ -314,6 +317,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		w, a := agentKindWhere(f.AgentKind, &argN)
 		wheres = append(wheres, w)
 		args = append(args, a...)
+	}
+	if w := stateWhere(f.State); w != "" {
+		wheres = append(wheres, w)
 	}
 	if f.Class != "" {
 		// Firmware devices rarely store a class; match the product default too.
@@ -1305,4 +1311,17 @@ func (d *DB) GetDeviceIDsByRestaurantIDs(ctx context.Context, restaurantIDs []uu
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// stateWhere is the SQL for a device-state filter (DeviceFilter.State), "" for none.
+func stateWhere(state string) string {
+	switch state {
+	case StateLab:
+		return "d.restaurant_id IS NULL"
+	case StateSettingUp:
+		return "d.restaurant_id IS NOT NULL AND d.handed_over_at IS NULL"
+	case StateInService:
+		return "d.restaurant_id IS NOT NULL AND d.handed_over_at IS NOT NULL"
+	}
+	return ""
 }

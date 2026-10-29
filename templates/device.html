@@ -1195,6 +1195,29 @@ window.DEVICE_VITALS = {
          — which was previously recorded only in the global audit log and could not be
          traced back to a device at all. */}}
     {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
+    {{/* Roles replan (30 Oct 2026): a device setting up shows its checklist and Hand over;
+         an engineer at a venue's device only looks (device_handover.go, access.go). */}}
+    {{with .HandOver}}{{if eq .State "setting_up"}}
+    <div class="dd-needs dd-setup" id="dd-setup">
+      <div class="dd-nh">Setting up at {{.VenueName}}{{with .VisitEnds}} <span class="cc-tag warn">your visit ends {{.Format "Mon 2 Jan"}}</span>{{end}}</div>
+      <div class="dd-nr"><span class="dd-nd {{if .Ready}}ok{{end}}" aria-hidden="true"></span>
+        <span class="dd-nt">{{if .Ready}}Ready to hand over{{else}}Not ready yet{{end}}<small>{{range .Checks}}<span class="cc-tag {{if .OK}}ok{{end}}" style="margin-right:4px">{{if .OK}}✓{{else}}·{{end}} {{.Label}}</span>{{end}}{{range .Checks}}{{if not .OK}} {{.Fix}}.{{end}}{{end}}</small></span>
+        {{if .CanHand}}<form method="POST" action="/devices/{{$.Device.SerialNumber}}/handover" hx-boost="false" style="margin:0"><button type="submit" class="cc-btn sm{{if .Ready}} primary{{end}}"{{if not .Ready}} disabled title="Finish the checklist first"{{end}}>Hand over</button></form>{{end}}
+      </div>
+    </div>
+    {{end}}{{end}}
+    {{if .EngineerLook}}
+    <div class="dd-needs" id="dd-look">
+      <div class="dd-nh">At a venue: engineers look here</div>
+      <div class="dd-nr"><span class="dd-nd info" aria-hidden="true"></span>
+        <span class="dd-nt">Read-only<small>Restaurant devices are for Support and Field. You can take a screenshot or collect its logs.</small></span>
+        <span class="dd-nbtns">
+          {{if supports .Device "screenshot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0"><input type="hidden" name="type" value="screenshot"><button type="submit" class="cc-btn sm">Screenshot</button></form>{{end}}
+          {{if supports .Device "collect_logs"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0"><input type="hidden" name="type" value="collect_logs"><button type="submit" class="cc-btn sm">Collect logs</button></form>{{end}}
+        </span>
+      </div>
+    </div>
+    {{end}}
     {{/* What needs a look on this device (O5), first on the Overview since V1 (23 Oct 2026);
          to-do rows with a fix since N1 (27 Oct). device_needs.go */}}
     {{with .Needs}}
@@ -1735,7 +1758,7 @@ html.dd-fit .dd-split-l .chart-body .chart-wrap--tall>canvas{position:absolute;i
 .dd-needs{grid-column:1/-1;align-self:start;background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden}
 .dd-nh{padding:12px 16px 8px;font-weight:650;font-size:14px}
 .dd-nr{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px}
-.dd-nd{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}.dd-nd.bad{background:var(--danger)}.dd-nd.info{background:var(--info)}
+.dd-nd{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}.dd-nd.bad{background:var(--danger)}.dd-nd.info{background:var(--info)}.dd-nd.ok{background:var(--ok)}
 .dd-nbtns{display:flex;gap:6px;flex-wrap:wrap;flex:none}.dd-nbtns form{margin:0}
 .dd-nt{flex:1;min-width:0;font-weight:600}.dd-nt small{display:block;color:var(--muted);font-size:12px;font-weight:400}
 .dd-nr .cc-btn{flex:none}

@@ -263,8 +263,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Access policy: a device the user may not view is hidden (404) when their
 	// policy hides out-of-scope devices, else shown read-only; a device they may
 	// view but not act on renders with the viewer's action set.
+	engineerLook := false
 	if acc := h.access(r); !acc.unrestricted() {
-		if !acc.canDevice("view", device.ID) {
+		if acc.engineerLookOnly(device.ID) {
+			// An engineer at a venue's device: read-only, plus Screenshot and Collect logs.
+			role, engineerLook = "viewer", true
+		} else if !acc.canDevice("view", device.ID) {
 			if acc.hidesDevices() {
 				http.NotFound(w, r)
 				return
@@ -522,6 +526,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	devRole := h.deviceRoleOf(r.Context(), device)
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
 		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
+		"EngineerLook": engineerLook,
+		"HandOver":     h.deviceHandOverView(r, device, kioskCfg != nil && kioskCfg.KioskEnabled),
 		"Title":  device.SerialNumber,
 		"DeviceSplit": h.displayPrefs(r).DeviceSplit, // the divider, per person
 		"Needs":  deviceTodoOf(append(roleNeeds(devRole, device), deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10)...), health),
@@ -544,7 +550,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// Resource use (A1): the Apps tab's ranking, 24 h by default.
 		"AppUsage": h.appUsageView(r.Context(), device, "24h", "", false),
 		// Wi-Fi card (W1) on the Overview.
-		"Wifi": h.deviceWifiView(r.Context(), device, h.role(r) == "admin"),
+		"Wifi": h.deviceWifiView(r.Context(), device, h.canEditWifi(r, device)),
 		// Charge-climb wear against the fleet and its own first weeks (battery_wear.go);
 		// nil where there is nothing to read it from (no battery, the Standard client).
 		"BatteryWear": h.batteryWearFor(r.Context(), device),

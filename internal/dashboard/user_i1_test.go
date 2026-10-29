@@ -78,7 +78,7 @@ func TestUserI1Todos(t *testing.T) {
 	if b.Todos[0].Post != "/users/"+in.User.ID.String()+"/verify-email" || b.Todos[0].Action != "Verify" {
 		t.Errorf("verify todo = %+v", b.Todos[0])
 	}
-	if !strings.HasPrefix(b.Todos[1].Title, "Hasn't done anything in 30 days") || b.Todos[2].Title != "A rule gives more than a viewer gets" {
+	if !strings.HasPrefix(b.Todos[1].Title, "Hasn't done anything in 30 days") || b.Todos[2].Title != "A rule gives more than a sales person gets" {
 		t.Errorf("todos = %+v", b.Todos)
 	}
 	if c := v.Cards[2]; c.B.Value != "23 Oct" || c.B.Label != "first one ends" {

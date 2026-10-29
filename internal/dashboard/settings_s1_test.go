@@ -26,7 +26,7 @@ func TestSettingsS1Builder(t *testing.T) {
 	if len(v.SignedIn) != 2 || v.SignedIn[0].Name != "Ali H." || v.SignedIn[0].Seen != "now" || v.SignedIn[1].Name != "ghost" || v.SignedIn[1].Seen != "20m ago" {
 		t.Errorf("signed in = %+v", v.SignedIn)
 	}
-	if v.RemoteRoles != "Super admins, Admins and Fleet managers, plus anyone a rule names" || v.ShellRoles != "Super admins, plus anyone a rule names" {
+	if v.RemoteRoles != "Super admins, Ops leads, Engineers, Support agents and Field people, plus anyone a rule names" || v.ShellRoles != "Super admins, plus anyone a rule names" {
 		t.Errorf("holders = %q / %q", v.RemoteRoles, v.ShellRoles)
 	}
 	for secs, want := range map[int]string{1800: "30 minutes", 3600: "1 hour", 604800: "7 days", 1000: "1000 seconds"} {

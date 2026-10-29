@@ -22,7 +22,7 @@ import (
 // to, Edit password and Forget, plus Add network. All of it is a wifi_config command;
 // "connect" is reversible on the device: it must reach the server on the new network
 // within 90 s or it goes back to the one it was on and says why (client 1.18.0 / 0.7.0).
-// Admin only, like the venue's Wi-Fi.
+// Who may change it: canEditWifi (roles replan, 30 Oct 2026).
 
 type wifiNetView struct {
 	SSID, Security string
@@ -371,7 +371,7 @@ func (h *Handler) DeviceWifi(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "device not found", http.StatusNotFound)
 		return
 	}
-	h.renderWifiCard(w, r, h.deviceWifiView(r.Context(), d, h.role(r) == "admin"))
+	h.renderWifiCard(w, r, h.deviceWifiView(r.Context(), d, h.canEditWifi(r, d)))
 }
 
 func (h *Handler) renderWifiCard(w http.ResponseWriter, r *http.Request, v deviceWifiView) {
@@ -382,7 +382,8 @@ func (h *Handler) renderWifiCard(w http.ResponseWriter, r *http.Request, v devic
 }
 
 // DeviceWifiSave is POST /devices/{serial}/wifi: action = add (also Edit password) |
-// remove | connect, with ssid, security, password, hidden. Admin only.
+// remove | connect, with ssid, security, password, hidden. Super admin, Ops lead, Support,
+// Field, and engineers on lab devices (canEditWifi; roles replan, 30 Oct 2026).
 func (h *Handler) DeviceWifiSave(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	d, err := h.db.GetDevice(ctx, r.PathValue("serial"))
@@ -392,6 +393,13 @@ func (h *Handler) DeviceWifiSave(w http.ResponseWriter, r *http.Request) {
 	}
 	r.ParseForm()
 	action := r.FormValue("action")
+	switch action {
+	case "add", "remove", "connect", "venue_add":
+	default:
+		// export and anything else stay with the admin API.
+		http.Error(w, "Unknown Wi-Fi action", http.StatusBadRequest)
+		return
+	}
 	payload := map[string]any{"action": action, "ssid": r.FormValue("ssid")}
 	if action == "add" {
 		payload["security"], payload["password"], payload["hidden"] = r.FormValue("security"), r.FormValue("password"), r.FormValue("hidden") == "on"
@@ -468,4 +476,19 @@ func (h *Handler) venueNetworkFor(ctx context.Context, d *db.Device, id string) 
 		}
 	}
 	return none, "That network is no longer saved for this venue."
+}
+
+// canEditWifi: may this viewer change the device's Wi-Fi? Super admin always; otherwise an
+// operator-level role whose access allows lock settings ("kiosk") on this device, which
+// the device-state rules narrow (Support: in service; Field: their visit; Engineer: lab).
+func (h *Handler) canEditWifi(r *http.Request, d *db.Device) bool {
+	role := h.role(r)
+	if role == "admin" {
+		return true
+	}
+	switch role {
+	case "fleet_manager", "operator", "engineer", "field":
+		return h.access(r).canDevice("kiosk", d.ID)
+	}
+	return false
 }

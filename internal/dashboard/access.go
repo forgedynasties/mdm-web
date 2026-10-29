@@ -93,7 +93,7 @@ func roleCeiling(role string) map[string]bool {
 		return set("view", "screenshot", "reboot", "kiosk", "lost_mode", "alerts")
 	case "staff":
 		return set("view", "reboot", "lost_mode", "alerts")
-	case "operator", "fleet_manager", "fleet_admin":
+	case "operator", "fleet_manager", "fleet_admin", "engineer", "field":
 	default:
 		return map[string]bool{} // unknown role: nothing
 	}
@@ -114,7 +114,10 @@ func roleCeiling(role string) map[string]bool {
 // needs an allow rule that names it; OTA below the admin is not grantable at all.
 func sensitiveByDefault(role, action string) bool {
 	return (action == "ota" && role == "fleet_admin") ||
-		(action == "remote" && (role == "fleet_admin" || role == "fleet_manager"))
+		// Roles replan (30 Oct 2026): Support, Engineer (on lab devices) and Field (on
+		// their visit's venue) have remote control without a rule; where is decided by
+		// the device's state (stateDecision).
+		(action == "remote" && (role == "fleet_admin" || role == "fleet_manager" || role == "operator" || role == "engineer" || role == "field"))
 }
 
 // grantRedundant reports an allow rule that gives nothing the role does not already
@@ -161,8 +164,11 @@ type access struct {
 	scopes   map[uuid.UUID]db.DeviceScope
 	scopeErr error
 	once     sync.Once
-	visOnce  sync.Once
-	vis      []uuid.UUID
+	// Field: the venues of their open setup visits, loaded on first use.
+	visitOnce   sync.Once
+	visitVenues map[uuid.UUID]bool
+	visOnce     sync.Once
+	vis         []uuid.UUID
 }
 
 // policyCache avoids a users lookup on every request; entries live 20s so a
@@ -320,6 +326,9 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	if c := roleCeiling(a.role); !c[action] {
 		return decision{false, roleLabel(a.role) + " accounts never get " + lowerFirst(act.Label), nil}
 	}
+	if d, ok := a.stateDecision(action, dev); !ok {
+		return d
+	}
 	if roleIsCustomer(a.role) {
 		return a.decideCustomer(action, dev)
 	}
@@ -390,7 +399,7 @@ func (a *access) hidesDevices() bool {
 	if a.unrestricted() {
 		return false
 	}
-	if roleIsCustomer(a.role) {
+	if roleIsCustomer(a.role) || stateScoped(a.role) {
 		return true
 	}
 	return a.hasViewRestriction()
@@ -875,4 +884,98 @@ func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []d
 		}
 	}
 	return out
+}
+
+// ── Device states (roles replan, decided 30 Oct 2026) ───────────────────────
+//
+// Which devices a role sees follows the device's state (db.DeviceState): Lab (no venue),
+// Setting up (placed, not handed over), In service (handed over).
+//
+//   super admin, Admin (old)   everything
+//   Engineer                   everything; acts on Lab only, elsewhere looks, takes
+//                              screenshots and collects logs
+//   Ops lead                   Setting up and In service
+//   Support, Support (old), Sales   In service
+//   Field                      the venues of their open setup visits, any state
+//   Owner                      their venues: In service, and Setting up read-only
+//   Staff                      their venue: In service
+
+// stateScoped reports whether the role sees only some states (lists are filtered).
+func stateScoped(role string) bool {
+	switch role {
+	case "fleet_manager", "operator", "support", "viewer", "field", "owner", "staff":
+		return true
+	}
+	return false
+}
+
+// engineerLookActions are what an engineer may do on a device at a venue.
+var engineerLookActions = map[string]bool{"view": true, "screenshot": true, "query": true}
+
+// stateDecision applies the device-state rule; ok=false means denied (d says why).
+// Fleet-level questions (dev nil) are left to the rest of decide, except for Field, who
+// holds no fleet-wide action.
+func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
+	if dev == nil {
+		if a.role == "field" {
+			return decision{false, "Field acts only on their setup visits' devices", nil}, false
+		}
+		if a.role == "engineer" && action != "alerts" {
+			return decision{false, "Engineers act on lab devices, not on venues or deployments", nil}, false
+		}
+		return decision{}, true
+	}
+	switch a.role {
+	case "admin", "fleet_admin":
+		return decision{}, true
+	}
+	a.loadScopes()
+	sc := a.scopes[*dev] // unknown (enrolled after the load): no venue, Lab
+	st := sc.State()
+	no := func(why string) (decision, bool) { return decision{false, why, nil}, false }
+	switch a.role {
+	case "engineer":
+		if st != db.StateLab && !engineerLookActions[action] {
+			return no("At a venue, engineers look, take screenshots and collect logs")
+		}
+	case "fleet_manager":
+		if st == db.StateLab {
+			return no("Lab devices are for engineers")
+		}
+	case "operator", "support", "viewer", "staff":
+		if st != db.StateInService {
+			return no("Only devices in service")
+		}
+	case "owner":
+		if st == db.StateLab || (st == db.StateSettingUp && action != "view") {
+			return no("Being set up: read-only until it is handed over")
+		}
+	case "field":
+		if sc.RestaurantID == nil || !a.onVisitAt(*sc.RestaurantID) {
+			return no("Not at a venue of one of your open setup visits")
+		}
+	}
+	return decision{}, true
+}
+
+// onVisitAt reports whether the user is on an open setup visit at the venue.
+func (a *access) onVisitAt(venue uuid.UUID) bool {
+	a.visitOnce.Do(func() {
+		v, err := a.h.db.VisitVenuesFor(a.ctx, a.username)
+		if err != nil {
+			v = map[uuid.UUID]bool{} // fail closed
+		}
+		a.visitVenues = v
+	})
+	return a.visitVenues[venue]
+}
+
+// engineerLookOnly reports whether this viewer, an engineer, may only look at the device
+// (it is at a venue): the device page renders read-only with Screenshot and Collect logs.
+func (a *access) engineerLookOnly(dev uuid.UUID) bool {
+	if a.role != "engineer" {
+		return false
+	}
+	a.loadScopes()
+	return a.scopes[dev].State() != db.StateLab
 }

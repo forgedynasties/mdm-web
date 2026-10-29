@@ -1,0 +1,71 @@
+{{define "my_visits.html"}}
+{{template "header" .}}
+{{/* Field's home (roles replan, F2 picked 30 Oct 2026): Fleet's layout, the open setup
+     visits in the left list, one table of their venues' devices with each one's checklist
+     and Hand over. role_homes.go */}}
+<template id="page-island">
+  <span class="isl-dot {{if .SettingUp}}warn{{else}}ok{{end}}"></span>
+  <span class="isl-t">My visits</span>
+  <span class="isl-s"><b>{{len .Visits}}</b> open{{if .SettingUp}} · {{.SettingUp}} setting up{{if .ReadyN}} · <span class="w">{{.ReadyN}} ready to hand over</span>{{end}}{{end}}</span>
+</template>
+<style>
+.mv-head{display:flex;align-items:baseline;gap:10px;margin:2px 0 14px;flex-wrap:wrap}
+.mv-head h1{font-size:20px;font-weight:650;margin:0}
+.mv-empty{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;text-align:center;color:var(--text-2)}
+.mv-empty b{display:block;font-size:16px;color:var(--text);margin-bottom:6px}
+.mv-ck{display:inline-flex;gap:4px;flex-wrap:wrap}
+.mv-act{text-align:right;white-space:nowrap}
+.mv-act form{display:inline;margin:0}
+.fleet-rail-item .sub{display:block;font-size:11px;color:var(--muted);font-weight:500}
+</style>
+
+<div class="fleet-md">
+  <aside class="fleet-rail" aria-label="My visits">
+    <div class="fleet-rail-cap">My visits</div>
+    <a class="fleet-rail-item{{if not .Sel}} on{{end}}" href="/my-visits"><span class="dot {{if .SettingUp}}warn{{else}}ok{{end}}"></span><span class="nm">All my devices</span><span class="ct">{{len .Rows}}</span></a>
+    {{range .Visits}}
+    <a class="fleet-rail-item{{if eq $.Sel .ID.String}} on{{end}}" href="/my-visits?visit={{.ID}}"><span class="dot warn"></span><span class="nm">{{.Restaurant}}<span class="sub">{{if .Purpose}}{{.Purpose}} · {{end}}until {{.EndsAt.Format "Mon 2 Jan"}}</span></span></a>
+    {{end}}
+  </aside>
+
+  <div style="min-width:0">
+    <div class="mv-head"><h1 class="cc-h1">{{if .Sel}}{{range .Visits}}{{if eq $.Sel .ID.String}}{{.Restaurant}}{{end}}{{end}}{{else}}All my devices{{end}}</h1>
+      <span class="muted">{{len .Rows}} device{{if ne (len .Rows) 1}}s{{end}}{{if .SettingUp}} · {{.SettingUp}} setting up{{end}}</span></div>
+    {{if not .Visits}}
+    <div class="mv-empty"><b>No open visits</b>An Ops lead opens a setup visit at a venue and puts you on it. Its devices show here until the visit ends.</div>
+    {{else if not .Rows}}
+    <div class="mv-empty"><b>No devices here yet</b>Enrol them with AIO Enroll: a device placed at the venue shows up here, setting up.</div>
+    {{else}}
+    <div class="ft-wrap">
+    <table class="ft">
+      <thead><tr>
+        <th class="ft-dev" scope="col">Device</th>
+        <th class="ft-type" scope="col">Type</th>
+        <th class="ft-venue" scope="col">Venue</th>
+        <th scope="col" style="width:120px">State</th>
+        <th scope="col" style="width:210px">Checklist</th>
+        <th class="ft-num ft-seen" scope="col">Last seen</th>
+        <th scope="col" style="width:120px"><span class="sr-only">Hand over</span></th>
+      </tr></thead>
+      <tbody>
+      {{range .Rows}}
+      <tr class="ft-row">
+        <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
+          <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" hx-boost="false">{{.Device.SerialNumber}}</a></div></td>
+        <td class="ft-type"><span class="ft-ell">{{classOf .Device}}</span></td>
+        <td class="ft-venue"><span class="ft-vn"><span class="ft-ell">{{.Device.RestaurantName}}</span></span></td>
+        <td>{{if eq .State "setting_up"}}<span class="cc-tag warn">setting up</span>{{else}}<span class="cc-tag">in service</span>{{end}}</td>
+        <td>{{if .Checks}}<span class="mv-ck">{{range .Checks}}<span class="cc-tag {{if .OK}}ok{{end}}" title="{{.Fix}}">{{if .OK}}✓{{else}}·{{end}} {{.Label}}</span>{{end}}</span>{{else}}<span class="muted small">—</span>{{end}}</td>
+        <td class="ft-num ft-seen"><span class="dl-synced">{{timeSince .Device.LastSeenAt}}</span></td>
+        <td class="mv-act">{{if and .CanHand (eq .State "setting_up")}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/handover" hx-boost="false"><input type="hidden" name="back" value="/my-visits{{if $.Sel}}?visit={{$.Sel}}{{end}}"><button type="submit" class="cc-btn sm{{if .Ready}} primary{{end}}"{{if not .Ready}} disabled title="Finish the checklist first"{{end}}>Hand over</button></form>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+{{template "footer" .}}
+{{end}}

@@ -74,11 +74,16 @@ var (
 	rolesAdmin = []string{"admin"}
 	// rolesOperator: the everyday action set, operator and up. Where it is allowed is
 	// the access policy's business, not this table's.
-	rolesOperator = []string{"admin", "fleet_admin", "fleet_manager", "operator"}
+	// Engineer and Field (roles replan, 30 Oct 2026) hold it too; the device's state
+	// decides where (dashboard access.stateDecision).
+	rolesOperator = []string{"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"}
 	// rolesSupport: the safe actions Support holds, plus owners at their own venues.
-	rolesSupport = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner"}
+	rolesSupport = []string{"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner"}
 	// rolesFloor: what restaurant staff may also do — reboot, find a tablet.
-	rolesFloor = []string{"admin", "fleet_admin", "fleet_manager", "operator", "support", "owner", "staff"}
+	rolesFloor = []string{"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner", "staff"}
+	// rolesWifi: Wi-Fi changes on a device — super admin, Ops lead, Support, Field, and
+	// engineers on lab devices (roles replan: "Wi-Fi, apps, remote control").
+	rolesWifi = []string{"admin", "fleet_manager", "operator", "engineer", "field"}
 	// rolesAppLibrary: who manages the app library (roleCanAppLibrary), fleet manager up.
 	rolesAppLibrary = []string{"admin", "fleet_admin", "fleet_manager"}
 	// rolesOTA: firmware pushes — admin and super admin only (26 Oct 2026).
@@ -166,7 +171,7 @@ var commands = []Command{
 	// Add or forget a Wi-Fi network. Admin-only: a wrong network pushed to a venue can take
 	// every device there off the air, and the payload carries the network's password,
 	// which never reaches the commands table (see SplitCommandSecret).
-	{Type: "wifi_config", Cap: CapWifiConfig, Roles: rolesAdmin, API: true},
+	{Type: "wifi_config", Cap: CapWifiConfig, Roles: rolesWifi, API: true, Access: "kiosk"},
 
 	// ── T7 hardware ─────────────────────────────────────────────────────────
 	// Mic capture gain (codec TX_DEC). Reading the mixer is admin-only: the field
@@ -204,7 +209,6 @@ var accessActionsAdminOnly = map[string]string{
 	"move_server":   "move_server",
 	"mic_gain_read": "mic_gain_read",
 	"adb_tcp":       "adb_tcp",
-	"wifi_config":   "wifi_config",
 }
 
 // AdminOnlyCommandTypes is the set in accessActionsAdminOnly, exported so the

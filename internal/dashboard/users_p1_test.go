@@ -57,7 +57,7 @@ func TestUsersP1Builder(t *testing.T) {
 		b.Todos[2].Title != "3 accounts haven't done anything in 30 days" {
 		t.Errorf("todos = %+v", b.Todos)
 	}
-	if !strings.HasPrefix(b.Todos[2].Sub, "All viewers, last active 11 Sep–20 Sep or never") {
+	if !strings.HasPrefix(b.Todos[2].Sub, "All sales people, last active 11 Sep–20 Sep or never") {
 		t.Errorf("quiet sub = %q", b.Todos[2].Sub)
 	}
 	if b.Line != "" {
@@ -78,7 +78,7 @@ func TestUsersP1Builder(t *testing.T) {
 	if r.Pct != 44 || r.Active != 4 || len(r.Bars) != 8 || !r.Bars[7].Cur || r.Bars[7].Pct != 100 {
 		t.Errorf("rail = %+v", r)
 	}
-	want := []string{"Super admin", "Operator", "Viewer", "Owner · customer"}
+	want := []string{"Super admin", "Support", "Sales", "Owner · customer"}
 	if len(r.Roles) != len(want) {
 		t.Fatalf("roles = %+v", r.Roles)
 	}

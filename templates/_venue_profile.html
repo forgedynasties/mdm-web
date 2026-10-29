@@ -277,6 +277,51 @@
   </div>
 </details>
 
+{{/* Setup visits (roles replan, 30 Oct 2026): Field people on this venue until a date, and
+     the devices setting up here with their checklist and Hand over. venue_visits.go */}}
+{{with .Visits}}{{if or .CanManage .CanHand .Open .SettingUp}}
+<details class="vs-row" name="vn-set" id="vn-visits"{{if eq $.Open "visits"}} open{{end}}>
+  <summary><span class="vs-k">Setup visits</span><span class="vs-v"><span>{{.Summary}}{{if .SettingUp}} <small>· {{len .SettingUp}} setting up{{if .Ready}}, {{.Ready}} ready{{end}}</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">A visit lets its Field people work on this venue's devices until its end date. A device placed here is <b>setting up</b> until someone hands it over; then Support, Sales and the owner's staff see it.</div>
+  {{range .Open}}{{$v := .}}
+  <div class="vn-visit">
+    <div><b>{{if .Purpose}}{{.Purpose}}{{else}}Setup visit{{end}}</b> <span class="cc-tag warn">until {{.EndsAt.Format "Mon 2 Jan"}}</span>
+      <div class="muted small">{{range $i, $p := .People}}{{if $i}}, {{end}}{{$p}}{{end}} · opened by {{.OpenedBy}}</div></div>
+    {{if $.Visits.CanManage}}
+    <form class="vn-form" action="/restaurants/{{$r.ID}}/visits/{{.ID}}" method="POST" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;border-top:0;padding:8px 0 0">
+      <input type="date" name="ends" value="{{.EndsAt.Format "2006-01-02"}}" class="form-input" style="width:auto">
+      <button type="submit" name="action" value="extend" class="cc-btn sm">Change end</button>
+      <button type="submit" name="action" value="close" class="cc-btn sm" onclick="return confirm('Close this visit? Its Field people stop seeing this venue.')">Close</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+  {{if .SettingUp}}
+  <div class="vn-setup">
+    <div class="muted small" style="margin:8px 0 4px">Setting up here</div>
+    {{range .SettingUp}}
+    <div class="vn-su"><a href="/devices/{{.Device.SerialNumber}}" class="mono">{{.Device.SerialNumber}}</a> <span class="muted small">{{classOf .Device}}</span>
+      <span>{{range .Checks}}<span class="cc-tag {{if .OK}}ok{{end}}" style="margin-left:4px">{{if .OK}}✓{{else}}·{{end}} {{.Label}}</span>{{end}}</span></div>
+    {{end}}
+    {{if and .CanHand .Ready}}<form action="/restaurants/{{$r.ID}}/handover" method="POST" style="margin-top:8px"><button type="submit" class="cc-btn sm primary">Hand over {{.Ready}} ready device{{if ne .Ready 1}}s{{end}}</button></form>{{end}}
+  </div>
+  {{end}}
+  {{if .CanManage}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/visits" method="POST" style="margin-top:12px;grid-template-columns:1fr;gap:8px">
+    <div class="small"><b>Open a visit</b></div>
+    <input type="text" name="purpose" class="form-input" placeholder="What it's for, e.g. 2 new KDS" maxlength="120">
+    <label class="small">Until <input type="date" name="ends" value="{{.DefaultEnd}}" class="form-input" style="width:auto"></label>
+    {{if .Field}}<div class="small" style="display:flex;gap:10px;flex-wrap:wrap">{{range .Field}}<label><input type="checkbox" name="people" value="{{.}}"> {{.}}</label>{{end}}</div>
+    {{else}}<div class="muted small">No Field accounts yet: a super admin invites them on Users.</div>{{end}}
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary"{{if not .Field}} disabled{{end}}>Open visit</button></div>
+  </form>
+  {{end}}
+  {{with .Past}}<div class="muted small" style="margin-top:10px">Past: {{range $i, $p := .}}{{if $i}} · {{end}}{{if .Purpose}}{{.Purpose}}{{else}}visit{{end}} {{.OpenedAt.Format "2 Jan"}}{{end}}</div>{{end}}
+  </div>
+</details>
+{{end}}{{end}}
+
 {{/* Host app (V1, 23 Oct 2026): which variant of each product's app lands here; prod
      by default. venue_host_app.go */}}
 {{with .HostApp}}{{if .Total}}
@@ -303,6 +348,10 @@
 </details>
 <style>
   .vn-form.vn-hosta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .vn-visit { padding: 10px 14px; border-top: 1px solid var(--border-soft); }
+  .vn-setup { padding: 4px 14px 10px; }
+  .vn-su { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 4px 0; font-size: 13px; }
+  #vn-visits .vs-body > .muted { padding: 0 14px; }
   .vn-form.vn-hosta .vn-acts { grid-column: 1 / -1; margin-top: 10px; }
   .vn-hprod { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); }
   .vn-hprod:first-child { border-top: 0; }

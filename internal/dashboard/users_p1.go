@@ -265,7 +265,7 @@ func p1QuietSub(rows []userRow) string {
 	sort.SliceStable(order, func(i, j int) bool { return by[order[i]] > by[order[j]] })
 	var who string
 	if len(order) == 1 {
-		who = "All " + strings.ToLower(roleLabel(order[0])) + "s"
+		who = "All " + strings.ToLower(rolePlural(order[0]))
 		if len(rows) == 1 {
 			who = rows[0].DisplayName() + ", " + strings.ToLower(roleLabel(order[0]))
 		}
