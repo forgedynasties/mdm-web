@@ -193,10 +193,13 @@ services:
         target: /etc/nginx/nginx.conf
       - source: proxy_conf
         target: /etc/nginx/conf.d/default.conf
+    # Each device socket costs nginx ~20 KB (two connections and their buffers). 64m ran
+    # out at ~1,476 sockets in the 29 Oct stage load test: the kernel killed the workers
+    # and every device dropped at once. 256m holds ~12,000 connections.
     deploy:
       resources:
         limits:
-          memory: 64m
+          memory: 256m
 
 configs:
   # nginx's own top-level config: the image's, with room for the fleet. Its default of
