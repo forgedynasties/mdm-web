@@ -65,6 +65,9 @@ const (
 )
 
 type Handler struct {
+	// ownerProxy serves a device's remote session from the server copy holding its
+	// socket (cluster.ProxyIfRemote); nil with one copy.
+	ownerProxy func(http.ResponseWriter, *http.Request, uuid.UUID) bool
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
@@ -273,7 +276,8 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	// being live over WS, so the fleet's "Last seen" tracks real WS liveness instead
 	// of the last change-gated check-in (which can lag 5-8 min on an idle-but-online
 	// device). r.Context() is already cancelled here, so use a fresh context.
-	if err := h.db.TouchLastSeen(context.Background(), device.ID, time.Now()); err != nil {
+	// Batched (db.QueueLastSeen): a whole fleet dropping at once must not take the pool.
+	if err := h.db.QueueLastSeen(context.Background(), device.ID, time.Now()); err != nil {
 		log.Printf("[ws] touch last_seen failed for %s: %v", serial, err)
 	}
 }
@@ -380,11 +384,23 @@ func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// SetOwnerProxy lets remote sessions run on the copy that holds the device (W5).
+func (h *Handler) SetOwnerProxy(fn func(http.ResponseWriter, *http.Request, uuid.UUID) bool) {
+	h.ownerProxy = fn
+}
+
 // ConnectRemote upgrades the dashboard HTTP connection to a WebSocket for
 // remote control of the specified device. It starts a capture session, relays
 // binary frames from the device to the dashboard, and relays input events back.
 func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[remote] ConnectRemote called from %s", r.RemoteAddr)
+	// Another copy holds the device's socket: the session runs there, and that copy
+	// redeems the token (they live in the database), so pass the request on first.
+	if h.ownerProxy != nil {
+		if d, err := h.db.GetDevice(r.Context(), strings.TrimSpace(r.PathValue("serial"))); err == nil && d != nil && h.ownerProxy(w, r, d.ID) {
+			return
+		}
+	}
 	// Auth is a single-use token minted by the (session-authenticated) dashboard,
 	// not the admin API key — the key must never reach the browser / WS URL. It is
 	// bound to the minting client's IP, so a leaked token can't be replayed elsewhere.

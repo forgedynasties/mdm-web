@@ -244,6 +244,9 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 }
 
 type Handler struct {
+	// ownerProxy serves a device's shell and logcat streams from the server copy holding
+	// its socket (cluster.ProxyIfRemote, W5); nil with one copy.
+	ownerProxy func(http.ResponseWriter, *http.Request, uuid.UUID) bool
 	ingestStats func() ingest.Pipeline // the check-in pipeline, for the Server page (SetIngestStats)
 	onKeyReset  func(serial string)    // tells the device API a key was reset (SetKeyResetHook)
 	scout       *scout.Service         // scout enrolment (SetScout); nil until wired in main
@@ -1966,4 +1969,22 @@ func (h *Handler) baseURL(r *http.Request) string {
 		scheme = "https"
 	}
 	return scheme + "://" + r.Host
+}
+
+// SetOwnerProxy lets shell and logcat sessions run on the copy that holds the device (W5).
+func (h *Handler) SetOwnerProxy(fn func(http.ResponseWriter, *http.Request, uuid.UUID) bool) {
+	h.ownerProxy = fn
+}
+
+// atOwner passes a device route ({serial}) to the server copy holding the device's
+// socket, when that is another copy: its shell sessions and logcat output live there.
+func (h *Handler) atOwner(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h.ownerProxy != nil {
+			if d, err := h.db.GetDevice(r.Context(), r.PathValue("serial")); err == nil && d != nil && h.ownerProxy(w, r, d.ID) {
+				return
+			}
+		}
+		next(w, r)
+	}
 }

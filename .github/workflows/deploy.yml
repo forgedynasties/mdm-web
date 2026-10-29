@@ -292,7 +292,29 @@ jobs:
           #
           # --no-build is the other safety net: if the image were somehow missing, compose
           # would otherwise fall back to compiling here, which is the whole problem.
-          docker compose up -d --no-build --force-recreate server
+          # Two copies (scale plan W6, on the scale branch): replace server2 and wait until
+          # it is healthy, then server, so one copy is serving throughout and devices only
+          # reconnect to it. One copy (no server2 in the compose file): as before.
+          wait_healthy() {
+            c=\$(docker compose ps -q "\$1")
+            for i in \$(seq 1 45); do
+              s=\$(docker inspect -f '{{.State.Health.Status}}' "\$c" 2>/dev/null || echo starting)
+              [ "\$s" = "healthy" ] && return 0
+              sleep 2
+            done
+            echo "ERROR: \$1 is not healthy (\$s)"
+            docker logs --tail 40 "\$c" 2>&1 || true
+            return 1
+          }
+          two=no
+          docker compose config --services | grep -qx server2 && two=yes
+          if [ "\$two" = yes ]; then
+            docker compose up -d --no-build --force-recreate --no-deps server2
+            wait_healthy server2 || exit 1
+            docker compose up -d --no-build --force-recreate --no-deps server
+          else
+            docker compose up -d --no-build --force-recreate server
+          fi
 
           # The proxy owns the host port, so it is brought up separately from the
           # recreate above — that is what lets it stay serving the deploying page while
@@ -309,7 +331,17 @@ jobs:
           # first deploy the old server must release the host port before nginx can
           # bind it. The cost is that a change to this config protects the NEXT deploy,
           # not the one shipping it.
-          docker compose up -d --no-build --force-recreate proxy
+          # With two copies the proxy is the one thing every device socket passes through:
+          # recreating it drops them all, which the rolling replace above avoids. So it is
+          # recreated only when its config changed (the configs: section of the file).
+          cfg_now=\$(sed -n '/^configs:/,/^volumes:/p' docker-compose.yml | md5sum)
+          cfg_was=\$(sed -n '/^configs:/,/^volumes:/p' docker-compose.yml.bak 2>/dev/null | md5sum)
+          if [ "\$two" = yes ] && [ "\$cfg_now" = "\$cfg_was" ]; then
+            echo "proxy config unchanged: proxy kept running"
+            docker compose up -d --no-build --no-deps proxy
+          else
+            docker compose up -d --no-build --force-recreate proxy
+          fi
 
           # Wait for the container to report healthy rather than declaring success the
           # moment it starts.
@@ -329,6 +361,11 @@ jobs:
           if [ "\$running" != "$IMAGE" ]; then
             echo "ERROR: expected $IMAGE but the container is running \$running"
             exit 1
+          fi
+          if [ "\$two" = yes ]; then
+            running2=\$(docker inspect -f '{{.Config.Image}}' "\$(docker compose ps -q server2)")
+            echo "server2 image: \$running2"
+            [ "\$running2" = "$IMAGE" ] || { echo "ERROR: server2 is running \$running2"; exit 1; }
           fi
           echo "image digest:  \$(docker inspect -f '{{index .RepoDigests 0}}' "\$(docker inspect -f '{{.Image}}' "\$cid")" 2>/dev/null || echo n/a)"
           echo "started at:    \$(docker inspect -f '{{.State.StartedAt}}' "\$cid")"

@@ -35,7 +35,7 @@ import (
 // nothing until one is uploaded.
 
 const (
-	roleAppInstallBatch     = 20
+	roleAppInstallBatch     = 20 // the floor; a tick takes a share of the online fleet (rollout_rate.go)
 	roleAppInstallRetry     = 6 * time.Hour
 	roleAppInstallRetrySoon = 15 * time.Minute
 )
@@ -141,15 +141,20 @@ type roleAppPick struct {
 	recent  map[uuid.UUID]map[string]bool // APKs each device was sent lately: not again
 	install func(*db.Device) bool
 	upgrade func(*db.Device) bool
+	batch   int // at most this many this tick; 0 = roleAppInstallBatch
 }
 
 // pickRoleAppInstalls chooses this tick's installs: missing apps first, then upgrades,
-// at most roleAppInstallBatch in all.
+// at most p.batch (roleAppInstallBatch when unset) in all.
 func pickRoleAppInstalls(devices []db.Device, p roleAppPick, seenWithin time.Duration, now time.Time) []roleAppInstall {
 	var out []roleAppInstall
+	batch := p.batch
+	if batch <= 0 {
+		batch = roleAppInstallBatch
+	}
 	for pass := 0; pass < 2; pass++ {
 		for i := range devices {
-			if len(out) >= roleAppInstallBatch {
+			if len(out) >= batch {
 				return out
 			}
 			d := &devices[i]
@@ -264,6 +269,7 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 		return
 	}
 	pick := roleAppPick{target: target, lib: lib, missing: missing, have: have, skip: skip, recent: recent,
+		batch:   h.appRolloutBatch(),
 		install: func(d *db.Device) bool { return installOn[d.Class()] },
 		upgrade: func(d *db.Device) bool {
 			return upgradeOn[d.Class()] && !refused[d.ID] && pol.Active() && gate.allows(d, pol, now)

@@ -28,7 +28,6 @@ import (
 // Devices are added to one standing deployment per model and release, so the rollout
 // shows up on Updates like any other and its progress is tracked the same way.
 
-const roleFirmwareBatch = 10
 
 // firmwareLine is the major.minor a build belongs to ("v2.1.030" → "2.1"), "" when the
 // build id does not start with two numbers.
@@ -131,8 +130,8 @@ func (h *Handler) RunRoleFirmware(ctx context.Context) {
 		if len(eligible) == 0 {
 			continue
 		}
-		if len(eligible) > roleFirmwareBatch {
-			eligible = eligible[:roleFirmwareBatch]
+		if b := h.otaRolloutBatch(); len(eligible) > b {
+			eligible = eligible[:b]
 		}
 		depID, err := h.standingDeployment(ctx, ch, rel.ID)
 		if err != nil {

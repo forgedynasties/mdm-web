@@ -2210,6 +2210,45 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_restaurant_id BIGINT;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_linked_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS backend_linked_at TIMESTAMPTZ;
 
+-- Who runs each periodic job this tick, when more than one server copy is up
+-- (scalability plan W2b): a copy runs a tick only if it holds the job's lease.
+CREATE TABLE IF NOT EXISTS job_leases (
+    name   TEXT PRIMARY KEY,
+    holder TEXT NOT NULL,
+    until  TIMESTAMPTZ NOT NULL
+);
+
+-- Several server copies sharing one fleet (scalability plan W5). Each copy heartbeats
+-- in cluster_instances; device_owners says which copy holds each device's socket (rows
+-- of a copy that stopped heartbeating are ignored); cluster_msgs carries the rare push
+-- too big for a NOTIFY payload.
+CREATE TABLE IF NOT EXISTS cluster_instances (
+    instance     TEXT PRIMARY KEY,
+    addr         TEXT NOT NULL DEFAULT '',
+    started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS device_owners (
+    device_id UUID PRIMARY KEY,
+    instance  TEXT NOT NULL,
+    at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_device_owners_instance ON device_owners(instance);
+CREATE TABLE IF NOT EXISTS cluster_msgs (
+    id      BIGSERIAL PRIMARY KEY,
+    at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    payload BYTEA NOT NULL
+);
+
+-- Remote-control tokens (single use, two minutes) in the database rather than one
+-- process's memory, so whichever server copy holds the device can redeem one another
+-- copy minted (scalability plan W5).
+CREATE TABLE IF NOT EXISTS remote_tokens (
+    token     TEXT PRIMARY KEY,
+    device_id UUID NOT NULL,
+    expires   TIMESTAMPTZ NOT NULL
+);
+
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access
 -- admins become fleet managers (super ops push firmware only where a rule says so now).

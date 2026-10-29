@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -55,7 +56,18 @@ type Manager struct {
 
 	tokenMu sync.Mutex
 	tokens  map[string]remoteToken
+	store   TokenStore // nil: tokens stay in tokens above
 }
+
+// TokenStore keeps remote-control tokens where every server copy can redeem them
+// (db.DB). Without one they live in this process's memory, as with a single copy.
+type TokenStore interface {
+	PutRemoteToken(ctx context.Context, token string, deviceID uuid.UUID, ttl time.Duration) error
+	TakeRemoteToken(ctx context.Context, token string) (uuid.UUID, bool, error)
+}
+
+// SetTokenStore moves tokens into store (scalability plan W5: several copies).
+func (m *Manager) SetTokenStore(store TokenStore) { m.store = store }
 
 func New(hub *ws.Hub) *Manager {
 	return &Manager{
@@ -73,6 +85,15 @@ func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
 		return ""
 	}
 	tok := hex.EncodeToString(buf)
+	if m.store != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := m.store.PutRemoteToken(ctx, tok, deviceID, ttl); err != nil {
+			log.Printf("[remote] store token: %v", err)
+			return ""
+		}
+		return tok
+	}
 	now := time.Now()
 	m.tokenMu.Lock()
 	m.tokens[tok] = remoteToken{deviceID: deviceID, expires: now.Add(ttl)}
@@ -92,6 +113,15 @@ func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
 func (m *Manager) RedeemToken(tok string) (uuid.UUID, bool) {
 	if tok == "" {
 		return uuid.Nil, false
+	}
+	if m.store != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		id, ok, err := m.store.TakeRemoteToken(ctx, tok)
+		if err != nil {
+			log.Printf("[remote] redeem token: %v", err)
+		}
+		return id, ok
 	}
 	m.tokenMu.Lock()
 	defer m.tokenMu.Unlock()

@@ -29,9 +29,6 @@ import (
 // (what is waiting, what is stuck) meaningless; the job runs every minute, so a device
 // coming back is served within a minute of being seen.
 const (
-	// autoUpdateBatch caps one tick per slot, so a fleet rolls over a few minutes
-	// rather than enqueueing hundreds of installs in one second.
-	autoUpdateBatch = 20
 	// autoUpdateSeenFactor × the check-in interval is "present enough to be worth
 	// queuing for" — the same multiple the fleet list calls offline at.
 	autoUpdateSeenFactor = 3
@@ -127,9 +124,11 @@ func (h *Handler) RunClientAutoUpdate(ctx context.Context) {
 			continue
 		}
 		payload := agentUpdatePayload(build.Package, build.Version, build.SHA256Hex)
+		// Per slot per tick: a share of the online fleet, at least 20 (rollout_rate.go).
+		batch := h.appRolloutBatch()
 		sent := 0
 		for _, d := range cand {
-			if sent >= autoUpdateBatch {
+			if sent >= batch {
 				break
 			}
 			if _, busy := inFlight[d.ID]; busy {

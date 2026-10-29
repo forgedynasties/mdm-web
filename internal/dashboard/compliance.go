@@ -638,7 +638,6 @@ func (h *Handler) RunCompliance(ctx context.Context) {
 
 const (
 	compFixActor = "compliance" // db.SystemActorLabel: "Compliance auto-fix"
-	compFixBatch = 20           // per tick
 	compFixAgain = 6 * time.Hour
 )
 
@@ -683,8 +682,9 @@ func (h *Handler) compAutoFix(ctx context.Context, s *compSnapshot, rules compRu
 	}
 	payload, _ := json.Marshal(map[string]int{"port": 0, "hours": 0})
 	sent := 0
+	batch := h.appRolloutBatch() // per tick: a share of the online fleet, at least 20
 	for _, id := range cand {
-		if sent >= compFixBatch {
+		if sent >= batch {
 			break
 		}
 		if l, ok := last[id]; ok {

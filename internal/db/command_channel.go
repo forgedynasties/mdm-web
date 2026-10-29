@@ -213,6 +213,14 @@ func (d *DB) StaleControlDevices(ctx context.Context, staleAfter, seenWithin tim
 		  AND d.custody_server = ''
 		  AND d.last_seen_at > NOW() - $2::interval
 		  AND (d.last_round_trip_ok_at IS NULL OR d.last_round_trip_ok_at < NOW() - $1::interval)
+		  -- An open alert is refreshed (summary, last seen) at most every 15 minutes. The
+		  -- caller writes one alert per row, so after a mass enrolment this list was every
+		  -- new device, every minute: 2,000 fake devices made the job take 10 s a tick
+		  -- (stage load test, 29 Oct 2026).
+		  AND NOT EXISTS (
+			SELECT 1 FROM alerts a
+			WHERE a.type = 'control_stale' AND a.device_id = d.id AND a.status <> 'resolved'
+			  AND a.last_seen_at > NOW() - INTERVAL '15 minutes')
 		ORDER BY d.last_round_trip_ok_at ASC NULLS FIRST`, staleAfter, seenWithin)
 	if err != nil {
 		return nil, err
