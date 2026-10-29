@@ -276,7 +276,8 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	// being live over WS, so the fleet's "Last seen" tracks real WS liveness instead
 	// of the last change-gated check-in (which can lag 5-8 min on an idle-but-online
 	// device). r.Context() is already cancelled here, so use a fresh context.
-	if err := h.db.TouchLastSeen(context.Background(), device.ID, time.Now()); err != nil {
+	// Batched (db.QueueLastSeen): a whole fleet dropping at once must not take the pool.
+	if err := h.db.QueueLastSeen(context.Background(), device.ID, time.Now()); err != nil {
 		log.Printf("[ws] touch last_seen failed for %s: %v", serial, err)
 	}
 }

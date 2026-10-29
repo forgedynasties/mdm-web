@@ -693,6 +693,8 @@ func main() {
 	// in the copy that holds the job's lease in job_leases. This copy's name is unique per
 	// process, so a restarted copy never mistakes an old lease for its own.
 	jobs.Default.Lease = database
+	// Disconnect stamps go out in one write every 250 ms (db/last_seen_batch.go).
+	database.StartLastSeenBatcher(bgCtx)
 	{
 		host, _ := os.Hostname()
 		jobs.Default.Holder = fmt.Sprintf("%s/%d/%d", host, os.Getpid(), time.Now().UnixNano())

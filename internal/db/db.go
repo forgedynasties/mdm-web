@@ -15,6 +15,9 @@ import (
 type DB struct {
 	pool *pgxpool.Pool
 
+	// lastSeen batches disconnect stamps (last_seen_batch.go).
+	lastSeen lastSeenBatch
+
 	// checkinSampleSec is the coalescing window for UpsertCheckin (see there). Set
 	// from config at startup and whenever the setting is saved.
 	checkinSampleSec atomic.Int32
