@@ -70,6 +70,9 @@ func (h *Handler) MyVisits(w http.ResponseWriter, r *http.Request) {
 			if d.Hidden {
 				continue
 			}
+			// The venue's device list doesn't carry the venue; it is the visit's.
+			venue := v.RestaurantID
+			d.RestaurantID, d.RestaurantName = &venue, v.Restaurant
 			row := visitDeviceRow{Device: *d, Visit: v.Restaurant, Online: h.hub.IsConnectedForDisplay(d.ID)}
 			row.State = db.DeviceState(d.RestaurantID, scopes[d.ID].InService)
 			if row.State == db.StateSettingUp {
