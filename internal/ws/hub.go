@@ -228,6 +228,10 @@ type Client struct {
 	conn     *websocket.Conn
 	Send     chan []byte
 	hub      *Hub
+	// restart is set by CloseAll before Send is closed: the close frame then says 1012
+	// (service restart), and clients that know it spread their reconnect over ~30 s
+	// instead of every device coming back in the same second.
+	restart bool
 }
 
 func NewHub() *Hub {
@@ -818,6 +822,7 @@ func (h *Hub) CloseAll() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for id, c := range h.clients {
+		c.restart = true // read by WritePump after the close below, so no race
 		close(c.Send)
 		delete(h.clients, id)
 		if h.cluster != nil {
@@ -871,7 +876,11 @@ func (c *Client) WritePump() {
 				// the client as 1005 ("no status"), which is reserved — OkHttp refuses
 				// to echo it, reports a failure instead, and the agent reconnects a
 				// second later, forever.
-				c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				code, why := websocket.CloseNormalClosure, ""
+				if c.restart {
+					code, why = websocket.CloseServiceRestart, "restart"
+				}
+				c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(code, why))
 				return
 			}
 			if err := c.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
