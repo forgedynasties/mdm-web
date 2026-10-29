@@ -200,7 +200,7 @@ func (h *Handler) RestaurantHandOverReady(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
-	devices, err := h.db.ListRestaurantDevices(r.Context(), id)
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 2000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
