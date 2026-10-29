@@ -807,18 +807,25 @@ func (d *device) wsLoop(ctx context.Context) {
 			continue
 		}
 		attempt = -1 // a connect resets the backoff (the loop's ++ makes it 0)
-		d.serve(ctx, conn)
+		restart := d.serve(ctx, conn)
 		if ctx.Err() != nil {
 			return
 		}
-		if !sleepCtx(ctx, d.backoffDelay(0)) {
+		wait := d.backoffDelay(0)
+		if restart { // 1012: spread over 30 s, as firmware 1.22.2 / Standard 0.13.5 do
+			wait = time.Duration(d.randInt64N(int64(restartSpread) + 1))
+		}
+		if !sleepCtx(ctx, wait) {
 			return
 		}
 	}
 }
 
-// serve runs one socket until it drops.
-func (d *device) serve(ctx context.Context, conn *websocket.Conn) {
+// restartSpread is how long a server restart's reconnects are spread over (close 1012).
+const restartSpread = 30 * time.Second
+
+// serve runs one socket until it drops, and says whether the server closed it with 1012.
+func (d *device) serve(ctx context.Context, conn *websocket.Conn) (restart bool) {
 	st := d.g.st
 	d.wmu.Lock()
 	d.conn = conn
@@ -878,6 +885,7 @@ func (d *device) serve(ctx context.Context, conn *websocket.Conn) {
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
+			restart = websocket.IsCloseError(err, websocket.CloseServiceRestart)
 			break
 		}
 		alive()
@@ -896,6 +904,7 @@ func (d *device) serve(ctx context.Context, conn *websocket.Conn) {
 	} else {
 		st.connected.Add(-1) // the run is ending, not an outage
 	}
+	return restart
 }
 
 func (d *device) closeConn() {
