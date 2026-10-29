@@ -119,6 +119,13 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	if w := stateWhere(f.State); w != "" {
 		wheres = append(wheres, w)
 	}
+	// Someone who sees part of the fleet counts their part (roles replan: Support sees
+	// devices in service only, so "N of M online" is over those).
+	if f.OnlyIDs != nil {
+		wheres = append(wheres, fmt.Sprintf("d.id = ANY($%d)", argN))
+		args = append(args, f.OnlyIDs)
+		argN++
+	}
 	if f.Class != "" {
 		wheres = append(wheres, fmt.Sprintf("(d.device_class = $%d OR (d.device_class = '' AND d.product = ANY($%d)))", argN, argN+1))
 		args = append(args, f.Class, productKeysForClass(f.Class))

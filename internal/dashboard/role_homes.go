@@ -200,9 +200,9 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 // dockSets is each curated role's dock (roles replan: "each role gets its own home, the
 // dock holds only its pages"). Roles not listed keep the full dock as it was.
 var dockSets = map[string]map[string]bool{
-	"fleet_manager": {"setup": true, "overview": true, "venues": true, "fleet": true, "more": true, "search": true},
-	"operator":      {"overview": true, "venues": true, "fleet": true, "more": true, "search": true},
-	"support":       {"overview": true, "venues": true, "fleet": true, "more": true, "search": true},
+	"fleet_manager": {"setup": true, "today": true, "venues": true, "fleet": true, "more": true, "search": true},
+	"operator":      {"today": true, "venues": true, "fleet": true, "more": true, "search": true},
+	"support":       {"today": true, "venues": true, "fleet": true, "more": true, "search": true},
 	"engineer":      {"fleet": true, "apps": true, "releases": true, "search": true},
 	"field":         {"myvisits": true},
 	"viewer":        {"venues": true},
@@ -212,7 +212,7 @@ var dockSets = map[string]map[string]bool{
 func dockShows(role, key string) bool {
 	set, curated := dockSets[role]
 	if !curated {
-		return key != "myvisits" && key != "setup" || role == "admin" && key == "setup"
+		return key != "myvisits" && key != "setup" && key != "today" || role == "admin" && key == "setup"
 	}
 	return set[key]
 }

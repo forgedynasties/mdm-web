@@ -49,7 +49,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	data["Version"] = version.Current()
 	// First-run walkthrough: only on full page loads (the tour lives in the
 	// non-boosted chrome), once per user.
-	if role != "" && r.Header.Get("HX-Boosted") != "true" && r.Header.Get("HX-Request") != "true" {
+	if _, curated := dockSets[role]; role != "" && !curated && r.Header.Get("HX-Boosted") != "true" && r.Header.Get("HX-Request") != "true" {
+		// The tour walks the full dock; a curated role's dock doesn't have its stops.
 		data["ShowTour"] = h.showTour(r)
 	}
 	data["AssetVer"] = h.assetVer
@@ -307,6 +308,11 @@ func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 		return
 	case "fleet_manager":
 		http.Redirect(w, r, "/visits", http.StatusFound)
+		return
+	case "operator", "support":
+		// Today: the problems with devices in service (the Alerts page, scoped to what
+		// Support sees). The Overview is fleet-wide totals.
+		http.Redirect(w, r, "/alerts", http.StatusFound)
 		return
 	case "viewer":
 		http.Redirect(w, r, "/restaurants", http.StatusFound)
