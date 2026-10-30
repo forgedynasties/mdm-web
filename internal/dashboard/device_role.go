@@ -23,16 +23,34 @@ import (
 // and the Device card keeps a picker (D1). The AIO backend's device type is only a
 // suggestion a person confirms (B1).
 
+// Per serial (30 Oct 2026; user: "allow engineers to change the class of each device, we can
+// allow this for devices other than firmware devices, but per serial not per model"): a
+// Standard-client device's Role picker offers every class, and the pick is pinned to that
+// serial (class_source "pin", db.PinDeviceClass) so its model's role no longer moves it;
+// "Back to the model's role" unpins. Firmware devices keep their product's class.
+
 // deviceRole is what the device page knows about a device's role.
 type deviceRole struct {
-	Roles   []string // the model's roles, when it has several (nil otherwise)
-	Source  string   // devices.class_source: "" model, "set", "enroll", "backend"
-	Backend string   // the class the AIO backend's device type means, "" none
-	Where   string   // the backend restaurant it is listed at
+	Roles     []string // the model's roles, when it has several (nil otherwise)
+	Source    string   // devices.class_source: "" model, "set", "enroll", "backend", "pin"
+	Backend   string   // the class the AIO backend's device type means, "" none
+	Where     string   // the backend restaurant it is listed at
+	PerSerial bool     // a Standard-client device: any class, pinned to its serial
 }
 
 // Picker reports whether the Device card offers a role picker.
-func (r deviceRole) Picker() bool { return len(r.Roles) > 1 }
+func (r deviceRole) Picker() bool { return r.PerSerial || len(r.Roles) > 1 }
+
+// Choices are the picker's classes: every class per serial, else the model's roles.
+func (r deviceRole) Choices() []string {
+	if r.PerSerial {
+		return product.Classes()
+	}
+	return r.Roles
+}
+
+// Pinned reports whether the class was set for this serial.
+func (r deviceRole) Pinned() bool { return r.Source == "pin" }
 
 // SourceText is how the Device card says where the role came from.
 func (r deviceRole) SourceText() string {
@@ -43,12 +61,18 @@ func (r deviceRole) SourceText() string {
 		return "picked in AIO Enroll"
 	case "backend":
 		return "from the AIO backend"
+	case "pin":
+		return "set for this device"
 	}
 	return "from the model"
 }
 
 func (h *Handler) deviceRoleOf(ctx context.Context, d *db.Device) deviceRole {
 	var out deviceRole
+	if d.AgentKind != product.KindFirmware {
+		out.PerSerial = true
+		out.Source, _ = h.db.DeviceClassSource(ctx, d.SerialNumber)
+	}
 	if d.Product == "" || product.IsKnown(d.Product) {
 		return out
 	}
@@ -75,7 +99,7 @@ func (h *Handler) deviceRoleOf(ctx context.Context, d *db.Device) deviceRole {
 // roleNeeds are the device's role rows for Needs a look: the question while it has no
 // role, and the backend's suggestion when it says otherwise.
 func roleNeeds(dr deviceRole, d *db.Device) []deviceNeed {
-	if !dr.Picker() {
+	if len(dr.Roles) < 2 || dr.Pinned() {
 		return nil
 	}
 	labels := make([]string, len(dr.Roles))
@@ -117,9 +141,10 @@ type roleChoice struct {
 	Primary    bool
 }
 
-// DeviceSetRole: POST /devices/{serial}/role {class}. Only for a model with several roles,
-// and only to one of them; the role app and lock follow on their own (RunRoleAppInstalls
-// next minute, the lock with the next config).
+// DeviceSetRole: POST /devices/{serial}/role {class}. A Standard-client device takes any
+// class, pinned to its serial ("model" unpins it); a firmware device only one of its
+// several-role model's roles. The role app and lock follow on their own
+// (RunRoleAppInstalls next minute, the lock with the next config).
 func (h *Handler) DeviceSetRole(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	back := "/devices/" + serial
@@ -127,6 +152,36 @@ func (h *Handler) DeviceSetRole(w http.ResponseWriter, r *http.Request) {
 	d, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil || d == nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	// An engineer only looks at a venue's devices (stateDecision); the route's own check
+	// lets a "notes" action through, so the venue is checked here.
+	if s, ok := h.currentSession(r); ok && s.Role == "engineer" && d.RestaurantID != nil {
+		h.hxDoneToast(w, r, back, "Read-only at a venue", "error")
+		return
+	}
+	if d.AgentKind != product.KindFirmware {
+		if class == "model" {
+			if err := h.db.UnpinDeviceClass(r.Context(), serial); err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+			h.audit(r, "device.role", serial, d.DeviceClass+" → the model's role")
+			h.hub.PublishDeviceUpdate(d.ID)
+			h.hxDoneToast(w, r, back, "Back to its model's role", "success")
+			return
+		}
+		if !product.IsClass(class) {
+			h.hxDoneToast(w, r, back, "Unknown role", "error")
+			return
+		}
+		if err := h.db.PinDeviceClass(r.Context(), serial, class); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "device.role", serial, d.DeviceClass+" → "+class+" (this device)")
+		h.hub.PublishDeviceUpdate(d.ID)
+		h.hxDoneToast(w, r, back, "Now a "+product.ClassLabel(class)+" · its app and lock follow", "success")
 		return
 	}
 	if d.DeviceClass == class {

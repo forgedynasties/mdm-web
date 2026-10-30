@@ -209,7 +209,7 @@ func (d *DB) setProductRoles(ctx context.Context, key string, roles []string, by
 		return 0, err
 	}
 	if single != "" {
-		tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2, class_source = '' WHERE product = $1 AND device_class <> $2`, key, single)
+		tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2, class_source = '' WHERE product = $1 AND device_class <> $2 AND class_source <> 'pin'`, key, single)
 		if err != nil {
 			return 0, err
 		}
@@ -218,7 +218,7 @@ func (d *DB) setProductRoles(ctx context.Context, key string, roles []string, by
 	// No role: its devices lose the class it gave them; the next check-in fills a guess
 	// from the model they report, if there is one. Several: only a class the model no
 	// longer has is cleared.
-	tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = '', class_source = '' WHERE product = $1 AND device_class <> '' AND NOT (device_class = ANY($2))`, key, roles)
+	tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = '', class_source = '' WHERE product = $1 AND device_class <> '' AND NOT (device_class = ANY($2)) AND class_source <> 'pin'`, key, roles)
 	if err != nil {
 		return 0, err
 	}
@@ -240,6 +240,34 @@ func (d *DB) SetDeviceClass(ctx context.Context, serial, class, source string) e
 		return ErrRoleNotAllowed
 	}
 	return nil
+}
+
+// PinDeviceClass sets one Standard-client device's class by its serial, any class
+// (class_source "pin"; user, 30 Oct 2026: "allow engineers to change the class of each
+// device … per serial not per model"). Check-ins, Lineup changes to its model and
+// enrolment leave it (AIO Enroll's own pick aside) until UnpinDeviceClass. Firmware
+// devices are refused: their class is their product's.
+func (d *DB) PinDeviceClass(ctx context.Context, serial, class string) error {
+	tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2, class_source = 'pin'
+		WHERE serial_number = $1 AND agent_kind <> 'firmware'`, serial, class)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrRoleNotAllowed
+	}
+	return nil
+}
+
+// UnpinDeviceClass hands a pinned device back to its model: the model's one role, else
+// its own class while it is one of the model's roles, else none.
+func (d *DB) UnpinDeviceClass(ctx context.Context, serial string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices d SET class_source = '',
+		device_class = COALESCE((SELECT CASE WHEN pn.role <> '' THEN pn.role
+		                                     WHEN d.device_class = ANY(pn.roles) THEN d.device_class ELSE '' END
+		                         FROM product_names pn WHERE pn.product = d.product), d.device_class)
+		WHERE d.serial_number = $1 AND d.class_source = 'pin'`, serial)
+	return err
 }
 
 // DeviceClassSource is where the device's class came from ("" its model).

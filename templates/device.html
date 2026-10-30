@@ -1342,12 +1342,14 @@ window.DEVICE_VITALS = {
     <div class="ddc-kv"><span class="k">Server</span><span class="v mono small">{{.ThisServer}}</span></div>
 
     {{/* The role follows the model (Lineup); a model with several roles (29 Oct 2026) has a
-         picker here, limited to its roles. */}}
+         picker here, limited to its roles. A Standard-client device (30 Oct 2026) can take
+         any class, set for its serial only. */}}
     {{if and .DevRole.Picker (canOperate .Role)}}
     <div class="ddc-kv"><span class="k">Role</span><span class="v"><form method="POST" action="/devices/{{.Device.SerialNumber}}/role" hx-boost="false" style="display:inline;margin:0">
       <select name="class" class="en-sel" aria-label="Role" onchange="if(confirm('Make {{.Device.SerialNumber}} a '+this.options[this.selectedIndex].text+'? Its role app and lock rules follow.'))this.form.requestSubmit();else this.value='{{.Device.DeviceClass}}'">
         {{if not .Device.DeviceClass}}<option value="" selected disabled>Pick a role…</option>{{end}}
-        {{range .DevRole.Roles}}<option value="{{.}}"{{if eq . $.Device.DeviceClass}} selected{{end}}>{{classLabel .}}</option>{{end}}
+        {{range .DevRole.Choices}}<option value="{{.}}"{{if eq . $.Device.DeviceClass}} selected{{end}}>{{classLabel .}}</option>{{end}}
+        {{if .DevRole.Pinned}}<option value="model">Back to the model's role</option>{{end}}
       </select></form> <span class="muted small">{{if .Device.DeviceClass}}· {{.DevRole.SourceText}}{{else}}· app and lock wait for a pick{{end}}</span></span></div>
     {{else}}
     <div class="ddc-kv"><span class="k">Role</span><span class="v">{{if .Device.Class}}{{.Device.ClassLabel}}{{else}}<span class="muted">none</span>{{end}} <span class="muted small">· {{if .DevRole.Picker}}{{.DevRole.SourceText}}{{else}}from the model{{end}}{{if canAdmin .Role}} · <a href="/lineup?role={{if .Device.Class}}{{.Device.Class}}{{else}}none{{end}}#model-{{.Device.Product}}" class="link-detail">Lineup</a>{{end}}</span></span></div>

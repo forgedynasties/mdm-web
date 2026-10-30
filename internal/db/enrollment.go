@@ -236,8 +236,11 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		    enrolled_at       = CASE WHEN devices.enrollment_status IN ('retired', 'wiped', 'unenrolled') THEN NOW() ELSE devices.enrolled_at END,
 		    hidden            = false,
 		    product           = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END,
-		    device_class      = CASE WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.device_class ELSE devices.device_class END,
-		    class_source      = CASE WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.class_source ELSE devices.class_source END,
+		    -- A class pinned to this serial stays, unless AIO Enroll was asked for one.
+		    device_class      = CASE WHEN devices.class_source = 'pin' AND EXCLUDED.class_source <> 'enroll' THEN devices.device_class
+		                             WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.device_class ELSE devices.device_class END,
+		    class_source      = CASE WHEN devices.class_source = 'pin' AND EXCLUDED.class_source <> 'enroll' THEN 'pin'
+		                             WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.class_source ELSE devices.class_source END,
 		    restaurant_id     = COALESCE(EXCLUDED.restaurant_id, devices.restaurant_id),
 		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at),
 		    enrolled_by       = CASE WHEN EXCLUDED.enrolled_by <> '' THEN EXCLUDED.enrolled_by ELSE devices.enrolled_by END

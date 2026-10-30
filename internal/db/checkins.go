@@ -145,12 +145,15 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- The class follows the model: its one role on Lineup ($7) when it has one;
 			    -- with several ($8) the device's own while it is one of them, else none;
 			    -- else a guess from the model it reports that only ever fills an EMPTY class.
-			    device_class       = CASE WHEN $7 <> '' THEN $7
+			    -- A class pinned to this serial (class_source 'pin') beats all of them.
+			    device_class       = CASE WHEN devices.class_source = 'pin' THEN devices.device_class
+			                              WHEN $7 <> '' THEN $7
 			                              WHEN cardinality($8::text[]) > 1 THEN
 			                                   CASE WHEN devices.device_class = ANY($8::text[]) THEN devices.device_class ELSE '' END
 			                              WHEN devices.device_class = '' THEN EXCLUDED.device_class
 			                              ELSE devices.device_class END,
-			    class_source       = CASE WHEN $7 <> '' THEN ''
+			    class_source       = CASE WHEN devices.class_source = 'pin' THEN 'pin'
+			                              WHEN $7 <> '' THEN ''
 			                              WHEN cardinality($8::text[]) > 1 AND NOT (devices.device_class = ANY($8::text[])) THEN ''
 			                              ELSE devices.class_source END,
 			    -- Agent facts persist from the frame that carries them: a DPC agent
