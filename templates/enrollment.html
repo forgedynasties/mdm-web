@@ -47,17 +47,17 @@
 .en-sight.solo{background:color-mix(in srgb,var(--accent) 7%,transparent)}
 .en-quiet{padding:12px 16px;color:var(--muted);font-size:12.5px;line-height:1.55}
 /* inbox rows */
-.en-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft)}
-.en-row:first-child{border-top:none}
-.en-row .id{min-width:0}
-.en-row .id .sn{font-family:var(--mono);font-size:13.5px;font-weight:650;color:var(--text);text-decoration:none}
-.en-row .id .sn:hover{color:var(--accent-text)}
-.en-row .id .sub{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.en-row form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+div.en-row{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 17px;border-top:1px solid var(--border-soft)}
+div.en-row:first-child{border-top:none}
+div.en-row .id{min-width:0}
+div.en-row .id .sn{font-family:var(--mono);font-size:13.5px;font-weight:650;color:var(--text);text-decoration:none}
+div.en-row .id .sn:hover{color:var(--accent-text)}
+div.en-row .id .sub{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+div.en-row form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .en-sel{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);min-width:150px}
 .en-sel.short{min-width:110px}
-.en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
-@media(max-width:860px){.en-row{grid-template-columns:1fr;gap:8px}.en-row form{justify-content:flex-start}}
+div.en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
+@media(max-width:860px){div.en-row{grid-template-columns:1fr;gap:8px}div.en-row form{justify-content:flex-start}}
 /* profile cards */
 .en-recent{width:100%;border-collapse:collapse;font-size:13px}.en-recent th{text-align:left;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);padding:8px 17px;border-bottom:1px solid var(--border-soft)}.en-recent td{padding:9px 17px;border-bottom:1px solid var(--border-soft);vertical-align:middle;white-space:nowrap}.en-recent tr:last-child td{border-bottom:0}.en-recent .ubub{vertical-align:middle;margin-right:4px}.en-empty{padding:18px 17px;color:var(--muted);font-size:13px}
 .en-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;padding:14px 17px}
@@ -110,13 +110,13 @@
 .en-form .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
 .en-form .foot{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 /* E1 (30 Oct 2026): Fleet's layout. Rail items are buttons that switch the pane. */
-.en-rail .fleet-rail-item{width:100%;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;display:flex;align-items:center}
+.en-rail .fleet-rail-item{width:100%;border:1px solid transparent;background:none;font:inherit;font-size:13px;color:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:9px;padding:8px 9px;min-height:40px;margin:0}
 .en-rail .fleet-rail-item.on{background:var(--accent-soft);color:var(--accent-text);border:1px solid var(--accent-edge)}
 .en-rail-cap{margin-top:10px}
 .en-acts{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .en-acts .cc-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .en-card{margin-bottom:14px;overflow:hidden}
-.en-card .ft-wrap{position:relative}
+.en-card .ft-wrap{position:relative;overflow-x:auto}
 .en-ft td{vertical-align:middle}
 .en-ft .ft-cb input,.en-ft th.ft-cb input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
 .en-m{color:var(--text-2)}
@@ -134,12 +134,12 @@
 .en-pname b{display:block;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
 .en-pname small{display:block;font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
 .en-off td{color:var(--muted)}.en-off .en-pname b{color:var(--text-2)}
-.en-qr-row td{padding:0!important;border:0!important}
+.en-qr-row{display:none}.en-qr-row:has(.en-qr.open){display:table-row}.en-qr-row td{padding:0!important;border:0!important}
 .en-qr-row .en-qr.open{padding:10px 18px 14px}
 .en-go{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);color:var(--text-2);background:var(--surface)}
 .en-go svg{width:14px;height:14px}
 .en-card .lt-more{margin:0 17px 14px}
-@media(max-width:720px){.en-card .ft{min-width:760px}.en-acts{margin-left:0}}
+@media(max-width:720px){.en-card .ft{min-width:760px}.en-wrap .fleet-pane-head{flex-wrap:wrap}.en-acts{margin-left:0;width:100%}.en-acts .cc-btn{flex:1 1 auto;justify-content:center}.en-wrap .fleet-bar{flex-wrap:wrap}}
 </style>
 
 {{$canOp := canAdminOrOperator .Role}}
