@@ -18,8 +18,8 @@
   @media (max-width:720px){.cl-card .ft-wrap{overflow-x:auto;position:relative}.cl-card .cl-ft{min-width:640px}}
 </style>
 <template id="page-island">
-  <span class="isl-t">App library</span>
-  <span class="isl-s"><b>{{len .Families}}</b> app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} APK{{if ne (len .Apps) 1}}s{{end}}</span>
+  <span class="isl-t">Apps</span>
+  <span class="isl-s"><b>{{len .A1.Rows}}</b> app{{if ne (len .A1.Rows) 1}}s{{end}}{{if .A1.RoleN}} · {{.A1.RoleN}} role app{{if ne .A1.RoleN 1}}s{{end}}{{end}}</span>
   {{if canAppLibrary .Role}}<span class="isl-acts"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></span>{{end}}
 </template>
 {{$a := .A1}}{{$lib := canAppLibrary .Role}}
