@@ -825,6 +825,12 @@
   .pl-split .fleet-rail-item { min-height: 40px; border: 1px solid transparent; }
   .pl-split .fleet-rail-item.on { border-color: var(--accent-edge); }
   .lu1-card .ft-wrap { position: relative; }
+  /* Factory runs: a run's name is never cut (user, 30 Oct 2026). Columns size to their
+     content; a narrow pane scrolls the table sideways instead. */
+  .lu1-card .ft-wrap:has(> .lu1-runs) { overflow-x: auto; }
+  table.ft.lu1-runs { table-layout: auto; }
+  table.ft.lu1-runs th, table.ft.lu1-runs td { width: auto !important; }
+  table.ft.lu1-runs td:first-child { overflow: visible; text-overflow: clip; white-space: nowrap; }
   .lu1-sec { display: flex; align-items: baseline; gap: 10px; padding: 14px 18px 6px; flex-wrap: wrap; }
   .lu1-sec h2 { font-size: 15px; font-weight: 650; margin: 0; }
   .lu1-sec .muted { font-size: 12px; }
