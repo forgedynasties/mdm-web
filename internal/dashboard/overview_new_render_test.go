@@ -119,10 +119,6 @@ func TestOverviewNewRenders(t *testing.T) {
 		`Most failed: Wireless adb off`,
 		`id="ovd-intro"`, // the first-visit intro
 		`class="ov2-rail"`,
-		`<td class="num">86</td>`, // clean-up table
-		`48% of the fleet, none in a restaurant.`,
-		`href="/devices?hygiene=placed-silent"`,
-		`4 are not a release: A15-v1.62-user, old-key, clean-build, …<`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)

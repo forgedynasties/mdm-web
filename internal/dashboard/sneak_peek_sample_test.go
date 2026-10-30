@@ -118,7 +118,7 @@ func TestSneakPeekOverviewRenders(t *testing.T) {
 		`href="/sneak-peek?type=kds"`, `to look at today`, `class="oc-todo"`,
 		`<span class="lb">TSAI</span>`, `<span class="lb">Menu</span>`, `<span class="lb">KDS</span>`,
 		`Firmware MDM 1.13.10`, `>Stability</a>`,
-		`Needs attention`, `Clean up <span>`, `class="ov2-rail"`,
+		`Needs attention`, `class="ov2-rail"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("sneak peek Overview is missing %q", want)

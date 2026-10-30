@@ -182,15 +182,18 @@ func TestAppsA1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h1 class="cc-h1">Apps</h1>`, `<h2>4 things to look at</h2>`, `onclick="libAddOpen()">Add apps</button>`,
-		`>Key Attestation: 46 devices on another version`, `class="a1-r"`, `data-href="/apps/aio.app.nugget"`,
-		`<span class="a1-ver none">not in library</span>`, `>Add APK</button>`, `class="a1-role"`, `stagev2 26`,
+		`<h1 class="cc-h1">Apps</h1>`, `onclick="libAddOpen()">Add apps</button>`,
+		`class="a1-r"`, `data-href="/apps/aio.app.nugget"`,
+		`<span class="a1-ver none">not in library</span>`, `>Add APK</button>`, `class="a1-role"`, `<span>stagev2</span>`,
 		`data-a1-set="show" data-val="look"`, `id="lib-card"`, `id="lib-add-modal"`, `id="lib-apk-file"`,
 		`/apps/families`, `>no APK</span>`, `installs sent per day`, `1 more package on devices, not in the library`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("apps page is missing %q", want)
 		}
+	}
+	if strings.Contains(out, `class="ov2-ban`) {
+		t.Error("the Apps banner is back (removed 30 Oct 2026)")
 	}
 	if strings.Contains(out, `lf-modal`) {
 		t.Error("the family dialogs are back on the list (their tools live on the app page)")

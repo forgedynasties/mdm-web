@@ -71,19 +71,6 @@
         <div class="cc-menu" hidden>{{range .Measures}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
     </div>
 
-    {{with .Banner}}
-    <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}} p1-ban">
-      <div class="ov2-ban-k">{{.Kicker}}</div>
-      <h2>{{.Headline}}</h2>
-      {{if .Todos}}
-      <ol class="oc-todo">
-        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
-      </ol>
-      {{if .More}}<a class="oc-more" href="#p1-apps">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
-      {{else}}<p>{{.Calm}}</p>{{end}}
-    </div>
-    {{end}}
-
     {{if not .Empty}}
     <div class="oc-stats">
       {{range .Cards}}

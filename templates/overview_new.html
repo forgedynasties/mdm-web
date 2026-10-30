@@ -370,19 +370,7 @@
       </div>
       {{end}}
 
-      {{if .Hygiene}}
-      <div class="ov2-sec"><h2>Clean up <span>{{len .Hygiene}} job{{if ne (len .Hygiene) 1}}s{{end}}</span></h2><span class="ov2-nav"><a href="/devices">Devices</a></span></div>
-      <div class="cc-card">
-        <table class="ov2-t">
-          <thead><tr><th>Job</th><th class="num">Devices</th><th>Where</th><th></th></tr></thead>
-          <tbody>
-          {{range .Hygiene}}
-          <tr><td>{{.What}}</td><td class="num">{{.Count}}</td><td class="mut">{{.Note}}</td><td class="act"><a class="cc-btn sm" href="{{.Href}}">{{.Link}}</a></td></tr>
-          {{end}}
-          </tbody>
-        </table>
-      </div>
-      {{end}}
+
     </div>
 
     <aside class="ov2-rail" aria-label="Fleet health and what needs attention">
