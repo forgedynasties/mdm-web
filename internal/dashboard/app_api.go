@@ -253,6 +253,12 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 			appErr(w, http.StatusForbidden, "that venue is outside your access")
 			return
 		}
+		// Engineers enrol Lab devices: placing a device at a venue is for the people who
+		// set venues up (devices at a venue are read-only for engineers).
+		if s.Role == "engineer" {
+			appErr(w, http.StatusForbidden, "engineers enrol lab devices: leave the venue empty")
+			return
+		}
 		name = appEnrollProfilePrefix + site.Name + " · " + s.Username
 	}
 	sameSite := func(p db.EnrollmentProfile) bool {

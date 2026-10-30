@@ -42,7 +42,10 @@
   function mdmLockReason(el) {
     var need = el.getAttribute('data-role-need') || 'operator';
     var label = {support: 'Support', operator: 'Operator', fleet_manager: 'Fleet manager', fleet_admin: 'Admin', admin: 'Super admin'}[need] || need;
-    return el.getAttribute('data-lock-msg') ||
+    // A page region can say why for every locked control in it (data-lock-msg on an
+    // ancestor), e.g. a device an engineer may only look at.
+    var hold = el.closest('[data-lock-msg]');
+    return (hold && hold.getAttribute('data-lock-msg')) ||
       (/rule/.test(need)
         ? 'Needs a ' + need + ' — ask a fleet manager to add one for you.'
         : 'Needs the ' + label + ' role — ask a fleet manager to raise your access.');

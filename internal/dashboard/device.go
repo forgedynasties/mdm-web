@@ -790,7 +790,7 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 		// "no reading yet" chip, so the battery flipped from "100% ⚡" to "—" a moment
 		// after the page opened.
 		"ShowBattery":         device.HasBattery() && deviceReportsBattery(device, nil),
-		"Role":                h.role(r), // the mic-gain chip is admin-only
+		"Role":                h.pageRole(r), // the mic-gain chip is admin-only
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ChargerFlapRate":     flapRate,
 		"ChargerFlapping":     flapRate > 10,
@@ -820,7 +820,7 @@ func (h *Handler) DeviceInspectorPanel(w http.ResponseWriter, r *http.Request) {
 		"Release":             release,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
-		"Role":                h.role(r),
+		"Role":                h.pageRole(r),
 	})
 }
 
@@ -879,7 +879,7 @@ func (h *Handler) DeviceQueuePartial(w http.ResponseWriter, r *http.Request) {
 		"Device": device,
 		"Queue":  queue,
 		"Online": h.hub.IsConnectedForDisplay(device.ID),
-		"Role":   h.role(r),
+		"Role":   h.pageRole(r),
 	})
 }
 

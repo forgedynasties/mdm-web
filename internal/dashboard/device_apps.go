@@ -169,7 +169,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	follows := h.deviceFollowsView(r.Context(), device)
 	h.tmpl.ExecuteTemplate(w, "device-apps-list", map[string]any{
 		"Device": device,
-		"Role":   h.role(r),
+		"Role":   h.pageRole(r),
 		"AppList": h.deviceAppsOf(r.Context(), device, installedPkgs, hostAppView(device.LatestExtra), r.URL.Query().Get("window")),
 		// Display only drawer apps; the pending-install reconciliation below still
 		// checks against the FULL list so a non-launchable install isn't re-shown.

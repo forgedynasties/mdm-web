@@ -260,7 +260,7 @@
   else document.addEventListener('htmx:afterSettle',show,{once:true});
   setTimeout(show,6000);
 })();</script>
-<div class="device-detail cc-wrap dd-cc">
+<div class="device-detail cc-wrap dd-cc"{{if .EngineerLook}} data-lock-msg="Read-only at a venue · engineers can screenshot and collect logs"{{end}}>
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero ddc-hero--ribbon">

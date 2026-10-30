@@ -178,6 +178,9 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// Per-user access policy: drop the devices this operator may not send this
 	// command to. Nothing left → refuse; some dropped → proceed and say so.
+	if h.refuseEngineerVenue(w, r, policyActionForCommand(cmdType), targetIDs) {
+		return
+	}
 	if acc := h.access(r); !acc.unrestricted() {
 		kept, dropped := acc.filterDevices(policyActionForCommand(cmdType), targetIDs)
 		if len(kept) == 0 && len(targetIDs) > 0 {

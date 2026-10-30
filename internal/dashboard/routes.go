@@ -11,6 +11,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Use it for every POST so cross-site requests can't drive an authenticated
 	// browser session; GET routes stay on mux.HandleFunc directly.
 	post := func(pattern string, handler http.HandlerFunc) {
+		if engineerNeverWrites(pattern) {
+			handler = h.notEngineer(handler)
+		}
 		mux.HandleFunc(pattern, h.enforceSameOrigin(handler))
 	}
 

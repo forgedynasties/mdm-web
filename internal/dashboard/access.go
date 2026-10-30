@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -544,11 +545,16 @@ func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, 
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return nil, "", false
 		}
+		if h.refuseEngineerVenue(w, r, action, devIDs) {
+			return nil, "", false
+		}
 		kept, dropped := acc.filterDevices(action, devIDs)
 		// Membership is read again at delivery, so a group target from someone whose
 		// rules hide devices would reach devices added to the group later, outside their
 		// scope (security audit, 26 Oct 2026): store what they may reach now instead.
-		if dropped == 0 && !acc.hidesDevices() {
+		// An engineer's group send is stored as the devices it reaches now too: a device
+		// placed at a venue later must not get it.
+		if dropped == 0 && !acc.hidesDevices() && acc.role != "engineer" {
 			return ids, targetType, true
 		}
 		if dropped == 0 {
@@ -561,6 +567,9 @@ func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, 
 		}
 		log.Printf("[access] %s: %s on group narrowed to %d of %d device(s)", acc.username, action, len(kept), len(devIDs))
 		return kept, "devices", true
+	}
+	if h.refuseEngineerVenue(w, r, action, ids) {
+		return nil, "", false
 	}
 	kept, dropped := acc.filterDevices(action, ids)
 	if len(kept) == 0 && len(ids) > 0 {
@@ -968,6 +977,89 @@ func (a *access) onVisitAt(venue uuid.UUID) bool {
 		a.visitVenues = v
 	})
 	return a.visitVenues[venue]
+}
+
+// atVenue reports whether the device is placed at a venue (setting up or in service),
+// i.e. not Lab. An unknown device (enrolled after the scopes were loaded) is Lab.
+func (a *access) atVenue(dev uuid.UUID) bool {
+	a.loadScopes()
+	return a.scopes[dev].State() != db.StateLab
+}
+
+// engineerVenueCount is how many of ids an engineer may not act on with action: the ones
+// at a venue, where engineers only look, screenshot and collect logs ("deployed devices
+// should be read only", user, 30 Oct 2026). 0 for every other role and the look actions.
+func (a *access) engineerVenueCount(action string, ids []uuid.UUID) int {
+	if a.role != "engineer" || engineerLookActions[action] {
+		return 0
+	}
+	n := 0
+	for _, id := range ids {
+		if a.atVenue(id) {
+			n++
+		}
+	}
+	return n
+}
+
+// engineerVenueMsg says why an engineer's request was refused.
+func engineerVenueMsg(n int) string {
+	return fmt.Sprintf("Engineers act on lab devices only: %d of these device%s %s at a venue, read-only for engineers (screenshots and logs are fine).",
+		n, plural(n), map[bool]string{true: "is", false: "are"}[n == 1])
+}
+
+// refuseEngineerVenue answers 403 when an engineer's request reaches any device at a
+// venue, so a bulk send is refused as a whole instead of quietly skipping devices.
+func (h *Handler) refuseEngineerVenue(w http.ResponseWriter, r *http.Request, action string, ids []uuid.UUID) bool {
+	n := h.access(r).engineerVenueCount(action, ids)
+	if n == 0 {
+		return false
+	}
+	h.denied(r, action, nil, decision{Reason: fmt.Sprintf("%d device(s) at a venue", n)})
+	http.Error(w, engineerVenueMsg(n), http.StatusForbidden)
+	return true
+}
+
+// engineerNeverWrites lists the write routes an engineer is refused outright: venues
+// (settings, lock, Wi-Fi, PIN, hours, devices, visits, hand over…), lock rules, moving
+// devices into venues and clearing the jobs' needs-attention list. Their devices are at
+// venues, which are read-only for engineers; Lab devices have no venue to edit.
+func engineerNeverWrites(pattern string) bool {
+	_, path, _ := strings.Cut(pattern, " ")
+	for _, p := range []string{"/restaurants", "/lock/", "/kiosk/", "/manage/", "/devices/bulk-restaurant", "/commands/clear-attention"} {
+		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// notEngineer refuses engineers (see engineerNeverWrites).
+func (h *Handler) notEngineer(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h.role(r) == "engineer" {
+			h.denied(r, "groups", nil, decision{Reason: "venue write: " + r.URL.Path})
+			http.Error(w, "Devices at a venue are read-only for engineers: venues and lock rules are changed by an Ops lead or Support.", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// keepActableAlerts is keepVisibleAlerts for acting (acknowledge, resolve, snooze,
+// assign): an engineer handles only alerts about Lab devices.
+func (a *access) keepActableAlerts(alerts []db.Alert) []db.Alert {
+	alerts = a.keepVisibleAlerts(alerts)
+	if a.role != "engineer" {
+		return alerts
+	}
+	out := alerts[:0:0]
+	for _, x := range alerts {
+		if x.DeviceID != nil && !a.atVenue(*x.DeviceID) {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // engineerLookOnly reports whether this viewer, an engineer, may only look at the device

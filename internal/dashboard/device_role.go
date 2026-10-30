@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"mdm/internal/db"
 	"mdm/internal/product"
 )
@@ -191,7 +193,9 @@ func (h *Handler) AppDeviceRole(w http.ResponseWriter, r *http.Request, s *db.Se
 	}
 	d, err := h.db.GetDevice(r.Context(), body.Serial)
 	if err == nil && d != nil && d.EnrollmentStatus == db.EnrollEnrolled {
-		if !h.accessFor(r.Context(), s.Role, s.Username).visible(d.ID) {
+		// An engineer only looks at a venue's devices (stateDecision), so a device already
+		// placed at a venue keeps its role.
+		if acc := h.accessFor(r.Context(), s.Role, s.Username); !acc.visible(d.ID) || acc.engineerVenueCount("notes", []uuid.UUID{d.ID}) > 0 {
 			appErr(w, http.StatusForbidden, "that device is outside your access")
 			return
 		}

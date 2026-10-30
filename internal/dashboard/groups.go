@@ -224,11 +224,42 @@ func cleanSerialToken(s string) string {
 	return strings.TrimRight(strings.TrimSpace(s), " \t,;:.\"'`)]}")
 }
 
+// requireGroupWrite guards a change to a group (create, rename, delete, members). Most
+// roles need the fleet "groups" action. An engineer, who holds no fleet action, may change
+// a group only when every device involved (the group's members and the serials named) is
+// Lab: devices at a venue are read-only for engineers (user, 30 Oct 2026).
+func (h *Handler) requireGroupWrite(w http.ResponseWriter, r *http.Request, group *uuid.UUID, serials []string) bool {
+	if h.role(r) != "engineer" {
+		return h.requireFleetAction(w, r, "groups")
+	}
+	ctx := r.Context()
+	var ids []uuid.UUID
+	if group != nil {
+		members, err := h.db.GetDeviceIDsByGroupIDs(ctx, []uuid.UUID{*group})
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return false
+		}
+		ids = append(ids, members...)
+	}
+	if len(serials) > 0 {
+		known, err := h.db.SerialIDs(ctx, serials)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return false
+		}
+		for _, id := range known {
+			ids = append(ids, id)
+		}
+	}
+	return !h.refuseEngineerVenue(w, r, "groups", ids)
+}
+
 func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "groups") {
+	r.ParseForm()
+	if !h.requireGroupWrite(w, r, nil, parseSerialsField(r.Form["serials"])) {
 		return
 	}
-	r.ParseForm()
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		http.Redirect(w, r, "/groups", http.StatusFound)
@@ -252,12 +283,12 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "groups") {
-		return
-	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	if !h.requireGroupWrite(w, r, &id, nil) {
 		return
 	}
 	g, err := h.db.GetGroup(r.Context(), id)
@@ -293,12 +324,12 @@ func localRedirect(w http.ResponseWriter, r *http.Request, fallback string) {
 
 // GroupUpdate renames a group. A group has only a name, so this doubles as its full "edit".
 func (h *Handler) GroupUpdate(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "groups") {
-		return
-	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	if !h.requireGroupWrite(w, r, &id, nil) {
 		return
 	}
 	r.ParseForm()
@@ -316,9 +347,6 @@ func (h *Handler) GroupUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "groups") {
-		return
-	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -331,6 +359,9 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 		serials = append(serials, s)
 	}
 	serials = append(serials, parseSerialsField(r.Form["serials"])...)
+	if !h.requireGroupWrite(w, r, &id, serials) {
+		return
+	}
 	asked := len(serials)
 	// Only devices the user can see: moving a device changes whose rules cover it.
 	serials = h.keepVisibleSerials(r, serials)
@@ -430,15 +461,15 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "groups") {
-		return
-	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
 	serial := r.PathValue("serial")
+	if !h.requireGroupWrite(w, r, &id, []string{serial}) {
+		return
+	}
 	if len(h.keepVisibleSerials(r, []string{serial})) == 0 {
 		http.NotFound(w, r)
 		return
@@ -457,9 +488,6 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 // members list can drop a multi-selection at once instead of one device at a time
 // (FW-2026-000024). Serials arrive in the multi-valued "serials" field.
 func (h *Handler) GroupBulkRemoveDevice(w http.ResponseWriter, r *http.Request) {
-	if !h.requireFleetAction(w, r, "groups") {
-		return
-	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -467,6 +495,9 @@ func (h *Handler) GroupBulkRemoveDevice(w http.ResponseWriter, r *http.Request) 
 	}
 	r.ParseForm()
 	parsed := parseSerialsField(r.Form["serials"])
+	if !h.requireGroupWrite(w, r, &id, parsed) {
+		return
+	}
 	asked := len(parsed)
 	serials := h.keepVisibleSerials(r, parsed)
 	if len(serials) == 0 {

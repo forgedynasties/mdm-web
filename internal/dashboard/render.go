@@ -24,7 +24,10 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data = map[string]any{}
 	}
 	role := h.role(r)
-	data["Role"] = role
+	// Role is what the page's controls are drawn for, NavRole what the chrome (dock,
+	// menus, island chrome) is: they differ only on a device an engineer may only look at.
+	data["NavRole"] = role
+	data["Role"] = h.pageRole(r)
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
@@ -385,4 +388,29 @@ func writeJSONError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// pageRole is the role a page's controls are drawn for. On a device's pages
+// (/devices/{serial}/…) an engineer looking at a device at a venue gets the viewer's:
+// read-only there apart from Screenshot and Collect logs, which the device page's
+// EngineerLook strip offers (user, 30 Oct 2026: "for Engineer, deployed devices should be
+// read only"). The server refuses the writes on its own (access.stateDecision); this only
+// keeps the page from offering them.
+func (h *Handler) pageRole(r *http.Request) string {
+	role := h.role(r)
+	if role != "engineer" || !strings.HasPrefix(r.URL.Path, "/devices/") {
+		return role
+	}
+	serial := r.PathValue("serial")
+	if serial == "" {
+		return role
+	}
+	dev, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil || dev == nil {
+		return role
+	}
+	if h.access(r).engineerLookOnly(dev.ID) {
+		return "viewer"
+	}
+	return role
 }
