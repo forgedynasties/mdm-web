@@ -3,7 +3,6 @@ package dashboard
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"sort"
@@ -11,8 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 
 	"mdm/internal/config"
 	"mdm/internal/db"
@@ -257,10 +254,33 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		m["Flash"] = r.URL.Query().Get("flash")
 		return m
 	}
-	// Setup: models attached to no role, then the production runs.
+	// LU1 (30 Oct 2026): the rail lists every product with a dot for what needs a look,
+	// and All products is a row per product, so each product's lineup is worked out here.
+	luRoles := func() ([]luRow, map[string]luRoleData) {
+		var rows []luRow
+		data := map[string]luRoleData{}
+		canEdit := h.canFleetFirmware(r)
+		for _, pr := range roles {
+			if len(hw.ByRole[pr.Key]) == 0 && hw.Devices[pr.Key] == 0 {
+				continue
+			}
+			d := h.lineupRoleData(ctx, r, pr.Key, pr.Label, devices, st, hw, canEdit)
+			data[pr.Key] = d
+			row := luRowOf(pr.Key, pr.Label, hw, d)
+			row.On = pr.Key == sel
+			rows = append(rows, row)
+		}
+		return rows, data
+	}
+	// Setup: models attached to no role (view=setup), or the factory runs (view=runs).
 	if tab == "setup" {
-		h.render(w, r, "pipeline.html", common(map[string]any{"View": "setup", "None": hw.None, "ClassKeys": prod.Classes(),
-			"Productions": productions, "Models": h.modelOptions(ctx)}))
+		rows, _ := luRoles()
+		v := "setup"
+		if view == "runs" {
+			v = "runs"
+		}
+		h.render(w, r, "pipeline.html", common(map[string]any{"View": v, "None": hw.None, "ClassKeys": prod.Classes(),
+			"Productions": productions, "Models": h.modelOptions(ctx), "LURows": rows}))
 		return
 	}
 	// Apps (A1, 23 Oct 2026): a card per product's app, then the chosen one's units.
@@ -297,14 +317,11 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 		h.render(w, r, "pipeline.html", data)
 		return
 	}
+	rows, data := luRoles()
 	if sel == "" {
-		sel = prod.ClassT7
-		for _, pr := range roles {
-			if pr.HasApp {
-				sel = pr.Key
-				break
-			}
-		}
+		h.render(w, r, "pipeline.html", common(map[string]any{"View": "all", "LURows": rows,
+			"RoleLabel": "All products"}))
+		return
 	}
 	var selLabel string
 	for i := range roles {
@@ -313,105 +330,32 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			selLabel = roles[i].Label
 		}
 	}
-	if selLabel == "" {
+	d, ok := data[sel]
+	if selLabel == "" || !ok {
 		http.Redirect(w, r, "/lineup", http.StatusSeeOther)
 		return
 	}
-
-	base := st.Apps[sel]
-
-	names := map[string]string{}
-	for _, a := range library {
-		if a.PackageName != "" && names[a.PackageName] == "" {
-			names[a.PackageName] = a.Name
-		}
-	}
-
-	models := h.pipelineModels(ctx, sel, devices, st)
-
-	// The MDM clients this role's devices run, counted over this role only. The policy
-	// that keeps devices on the hosted build is per client, so it shows the same on every
-	// role that uses the client.
-	var roleDevs []db.Device
-	for i := range devices {
-		if !devices[i].Hidden && !devices[i].Retired() && devices[i].Class() == sel {
-			roleDevs = append(roleDevs, devices[i])
-		}
-	}
-	roleViews, _ := h.clientSlotSummaries(r, roleDevs)
-	var roleClients []*ClientSlotView
-	for _, slot := range clientSlotOrder {
-		v := roleViews[slot]
-		if v.Devices == 0 {
-			continue
-		}
-		var behind []string
-		for i := range roleDevs {
-			d := &roleDevs[i]
-			real := agentSlotFor(d)
-			if clientDisplaySlot(real) != slot {
-				continue
-			}
-			_, code := clientVersionOf(d)
-			if real != slot {
-				if h.foldedStanding(d, real, code) == "behind" {
-					behind = append(behind, d.SerialNumber)
-				}
-				continue
-			}
-			if v.Hosted && code > 0 && versionComparable(d, v.Build.Package) && code < v.Build.VersionCode {
-				behind = append(behind, d.SerialNumber)
-			}
-		}
-		v.BehindSerials = strings.Join(behind, ",")
-		roleClients = append(roleClients, v)
-	}
-
-	// L1 (21 Oct 2026): banner, cards, timeline and rail for the role.
-	app := h.lineupApp(ctx, sel, devices)
-	hasApp := map[uuid.UUID]bool{}
-	if app.Base != "" {
-		if fv, err := h.db.FamilyVersions(ctx, []string{app.Base}); err == nil {
-			for id, pkgs := range fv {
-				if len(pkgs) > 0 {
-					hasApp[id] = true
-				}
+	autoInstall := true
+	if ras, err := h.db.ListRoleApps(ctx); err == nil {
+		for _, a := range ras {
+			if a.Role == sel {
+				autoInstall = a.AutoInstall
 			}
 		}
 	}
-	full, deployed := lineupFullOn(devices, sel, models, roleViews, app.Base, hasApp,
-		func(d *db.Device) bool { _, in := st.Labs[d.ID]; return in })
-	moves, err := h.db.RoleMovesDaily(ctx, sel, 7)
-	if err != nil {
-		log.Printf("[lineup] moves: %v", err)
-	}
-	fwHistory, err := h.db.FirmwareProdHistory(ctx)
-	if err != nil {
-		log.Printf("[lineup] firmware history: %v", err)
-	}
-	strips := lineupClientStrips(roleClients)
-	pane := buildLineupPane(luInputs{
-		RoleKey: sel, RoleLabel: selLabel, Models: models, HW: hw.ByRole[sel], App: app,
-		Clients: roleClients, Full: full, Deployed: deployed, Moves: moves, History: fwHistory,
-		Pic: rolePic(sel, hw.ByRole[sel]), CanEdit: h.canFleetFirmware(r), Now: time.Now(),
-	})
-
 	h.render(w, r, "pipeline.html", common(map[string]any{
-		"LU":           pane,
-		"ClientStrips": strips,
-		"HWModels":     hw.ByRole[sel],
-		"RolePic":      rolePic(sel, hw.ByRole[sel]),
-		"HWDevices":    hw.Devices[sel],
-		"Candidates":   hw.hwCandidates(sel),
-		"AppChoices":   appChoicesFrom(library),
-		"RoleKey":      sel,
-		"RoleLabel":    selLabel,
-		"BasePackage":  base,
-		"BaseName":     names[base],
-		"Models":       models,
-		"RoleClients":  roleClients,
-		"App":          app,
-		"FwRollout":    h.cfg.RoleRollout(config.RolloutFirmware),
+		"View":        "product",
+		"LURows":      rows,
+		"LUP":         luProductOf(sel, d, autoInstall),
+		"HWModels":    hw.ByRole[sel],
+		"HWDevices":   hw.Devices[sel],
+		"Candidates":  hw.hwCandidates(sel),
+		"RoleKey":     sel,
+		"RoleLabel":   selLabel,
+		"Models":      d.Models,
+		"RoleClients": d.Clients,
+		"App":         d.App,
+		"FwRollout":   h.cfg.RoleRollout(config.RolloutFirmware),
 	}))
 }
 

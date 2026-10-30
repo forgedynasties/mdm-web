@@ -244,7 +244,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Productions is owned by the test team: admin/dev/operator can list, view,
 	// create and export (requireAdminOrOperator). Deletion stays admin/dev-only.
 	// Factory runs live on Lineup › Setup (23 Oct 2026); the list page redirects there.
-	mux.Handle("GET /productions", http.RedirectHandler("/lineup?view=setup#runs", http.StatusMovedPermanently))
+	mux.Handle("GET /productions", http.RedirectHandler("/lineup?view=runs", http.StatusMovedPermanently))
 	mux.HandleFunc("GET /productions/new", h.requireAdminOrOperator(h.ProductionNew))
 	post("POST /productions", h.requireAdminOrOperator(h.ProductionCreate))
 	mux.HandleFunc("GET /productions/preview-serial", h.requireAdminOrOperator(h.ProductionPreviewSerial))

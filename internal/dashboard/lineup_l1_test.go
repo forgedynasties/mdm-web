@@ -34,7 +34,7 @@ func luSample(now time.Time) luInputs {
 		HW:      []hwModel{{Key: "t7", Display: "AIO T7", Known: true, CanFw: true, Devices: 160, Firmware: 154, FwMode: "prod", Runs: 4}},
 		App:     lineupApp{Base: "aio.app.nugget", Name: "Nugget", On: 144, Total: 160, Builds: []lineupBuild{{Env: "Prod", EnvTone: "ok", Devices: 120, Pct: 83}, {Env: "UAT", EnvTone: "info", Devices: 24, Pct: 17}}},
 		Clients: []*ClientSlotView{cl}, Full: 125, Deployed: 160,
-		Moves:   []db.RoleMoveDay{{Day: now.AddDate(0, 0, -1), Firmware: 9, Client: 3}, {Day: now, Firmware: 4}},
+		Moves: []db.RoleMoveDay{{Day: now.AddDate(0, 0, -1), Firmware: 9, Client: 3}, {Day: now, Firmware: 4}},
 		History: map[string][]db.FirmwareProdChange{"t7": {
 			{Model: "t7", Version: "v2.1.030", By: "tariq.jamil@aioapp.com", At: now.AddDate(0, 0, -20)},
 			{Model: "t7", Version: "v2.1.034", By: "tariq.jamil@aioapp.com", At: now.AddDate(0, 0, -2)},
@@ -171,13 +171,17 @@ func TestLineupRolePaneRenders(t *testing.T) {
 
 	now := time.Now()
 	in := luSample(now)
+	// LU1 (30 Oct 2026): Fleet's layout. A product is plain sections; All products a table.
+	hw := hwData{ByRole: map[string][]hwModel{"t7": in.HW}, Devices: map[string]int{"t7": 160}}
+	rd := luRoleData{Models: in.Models, Clients: in.Clients, App: in.App, Pane: buildLineupPane(in)}
+	row := luRowOf("t7", "Tableside AI", hw, rd)
+	row.On = true
 	data := map[string]any{
 		"Role": "admin", "CanEdit": true, "CanFirmware": true, "RoleKey": "t7", "RoleLabel": "Tableside AI", "HWDevices": 160,
-		"Roles":   []pipeRole{{Key: "t7", Label: "Tableside AI", Status: "160 devices · 1 model", Tone: "ok", On: true}, {Key: "kds", Label: "Kitchen display", Status: "4 devices · 1 model", Tone: "ok"}},
-		"Clients": []pipeClient{{Slot: "dpc", Label: "Standard client", Status: "all on 0.4.0", Tone: "ok"}},
-		"NoneCount": 2, "RunCount": 4, "Tab": "products", "BehindTotal": 23,
-		"ClientStrips": lineupClientStrips(in.Clients),
-		"LU": buildLineupPane(in), "HWModels": in.HW, "Models": in.Models, "App": in.App,
+		"NoneCount": 2, "RunCount": 4, "Tab": "products", "View": "product", "BehindTotal": 23,
+		"LURows": []luRow{row}, "LUP": luProductOf("t7", rd, true),
+		"Clients":  []pipeClient{{Slot: "dpc", Label: "Standard client", Status: "all on 0.4.0", Tone: "ok"}},
+		"HWModels": in.HW, "Models": in.Models, "App": in.App,
 		"FwRollout": config.ClientAutoUpdate{WindowStart: "02:00", WindowEnd: "05:00"},
 	}
 	var buf bytes.Buffer
@@ -186,31 +190,37 @@ func TestLineupRolePaneRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`class="lu1-chip on"`, `<span class="ic tone-ok">T7</span>`,
-		// Lineup has Products and Setup; MDM clients and Host apps are pages (S1, 23 Oct).
-		`aria-current="page">Products</a>`, `Setup <i>2</i>`,
-		`<b>Firmware MDM 1.13.10</b><small>131 of 160 on it · 23 behind · Auto-update off for every product</small>`,
-		`href="/clients?client=firmware-qcom">Manage in MDM clients →</a>`,
-		`3 things to decide`, `Tableside AI · AIO T7 · 160 devices`,
-		`action="/pipeline/firmware"`, `name="release_id" value="35"`, `>Promote to prod</button>`,
-		`href="/clients?client=firmware-qcom">Open client</a>`,
-		`82%</b><small>on prod v2.1.034</small>`, `▲ 13 this week`, `App · Nugget`,
-		`class="lu1-m" id="model-t7"`, `Firmware: Prod`, `Firmware MDM 154`, `160 devices`,
-		`id="fw-t7"`, `class="oc-tb run"`, `131 / 160`, `class="oc-tb warn"`, `href="/releases/35"`,
-		`78%</b><small>fully on lineup</small>`, `125 of 160 deployed devices`, `Needs a look <span>3</span>`,
-		`16 without Nugget`, `When devices move`, `02:00–05:00 in each device's timezone`,
-		`href="/lineup/apps?app=t7">App, auto-install and units →</a>`,
+		`<aside class="fleet-rail" aria-label="Lineup">`, `href="/lineup?role=t7" aria-current="page"><span class="dot warn"></span><span class="nm">Tableside AI</span><span class="ct">160</span>`,
+		`href="/lineup?view=setup"`, `Models without a role</span><span class="ct">2</span>`, `Factory runs</span><span class="ct">4</span>`,
+		`<span class="t">Tableside AI</span><span class="c">160 devices · 1 model</span>`,
+		`<h2>Needs a look</h2>`, `v2.1.035 is newer than prod v2.1.034`, `>Promote to prod</button>`, `16 without Nugget`,
+		`id="model-t7"`, `<option value="prod" selected>Prod</option>`, `Firmware MDM <b>154</b>`,
+		`id="fw-t7"`, `<span class="mono">v2.1.034</span><small class="lu1-sub">since `, `· tariq.jamil</small>`,
+		`22 deployed on another firmware line`, `name="release_id" value="35"`, `>Promote</button>`,
+		`When devices move`, `02:00–05:00 in each device's timezone`,
+		`href="/clients?client=firmware-qcom"><b>Firmware MDM</b>`, `6 not reporting a version`,
+		`<b>Nugget</b> <small class="mono muted">aio.app.nugget</small>`, `href="/lineup/apps?app=t7">App and units →</a>`,
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("Lineup role pane is missing %q", want)
+			t.Errorf("Lineup product is missing %q", want)
 		}
 	}
-	if strings.Contains(out, `class="pl-side"`) {
-		t.Error("the side list is back")
-	}
-	for _, gone := range []string{`Production runs</b>`, `Standard client</b>`, `Keep devices on it`, `Switch on</button>`} {
+	for _, gone := range []string{`class="lu1-chip`, `class="ov2-ban`, `class="oc-tl"`, `fully on lineup`, `class="lu1-m"`, `class="oc-stats"`} {
 		if strings.Contains(out, gone) {
-			t.Errorf("Products tab still shows %q (clients and setup have their own tabs)", gone)
+			t.Errorf("Lineup product still shows %q", gone)
+		}
+	}
+	// All products: a row per product.
+	data["View"], data["LURows"] = "all", []luRow{luRowOf("t7", "Tableside AI", hw, rd)}
+	buf.Reset()
+	if err := tmpl.ExecuteTemplate(&buf, "pipeline.html", data); err != nil {
+		t.Fatalf("All products failed to render: %v", err)
+	}
+	out = buf.String()
+	for _, want := range []string{`<span class="t">All products</span>`, `data-href="/lineup?role=t7"`, `<span class="mono">v2.1.034</span><small>prod · 131 of 160 deployed on it</small>`,
+		`Firmware MDM 1.13.10`, `>Nugget</span>`, `to look at</span>`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("All products is missing %q", want)
 		}
 	}
 
@@ -253,9 +263,21 @@ func TestLineupRolePaneRenders(t *testing.T) {
 		t.Fatalf("setup tab failed to render: %v", err)
 	}
 	out = buf.String()
-	for _, want := range []string{`aria-current="page">Setup`, `Not attached</h2>`, `rk3566_box`, `Factory runs</h2>`, `Lineup · Setup`} {
+	for _, want := range []string{`<span class="t">Models without a role</span>`, `rk3566_box`, `Lineup · Models without a role`, `<option value="">Attach to…</option>`} {
 		if !strings.Contains(out, want) {
-			t.Errorf("setup tab is missing %q", want)
+			t.Errorf("setup pane is missing %q", want)
+		}
+	}
+	// Factory runs: their own pane (view=runs).
+	data["View"] = "runs"
+	buf.Reset()
+	if err := tmpl.ExecuteTemplate(&buf, "pipeline.html", data); err != nil {
+		t.Fatalf("runs pane failed to render: %v", err)
+	}
+	out = buf.String()
+	for _, want := range []string{`<span class="t">Factory runs</span>`, `href="/productions/new"`, `Lineup · Factory runs`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("runs pane is missing %q", want)
 		}
 	}
 }
