@@ -145,7 +145,9 @@ func sneakPeekAuth(r *http.Request) *http.Request {
 // directly (not via h.render, so nothing touches the DB or writes an audit row).
 func (h *Handler) sneakPeekChrome(data map[string]any, active string, openAlerts int) {
 	data["Role"] = "viewer"
-	data["NavRole"] = "viewer" // the layout reads the chrome role (render.go sets it for real pages)
+	// The chrome (dock, menus) is drawn for a full team role: a Viewer's dock is curated down
+	// to Venues since the roles replan, which left the preview with one dock entry.
+	data["NavRole"] = "fleet_admin"
 	data["Boosted"] = false
 	data["CurrentUser"] = "Guest preview"
 	if userBubbleFn != nil {
