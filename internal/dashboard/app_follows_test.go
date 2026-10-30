@@ -188,4 +188,14 @@ func TestFollowsRender(t *testing.T) {
 	if !strings.Contains(buf.String(), `<span class="dd-fchip ok" title="Up to date">follows qa</span>`) {
 		t.Errorf("row chip missing: %s", buf.String())
 	}
+	buf.Reset()
+	row["R"] = struct {
+		PackageName, AppName, VersionName, Icon, Mem, CPU, Screen string
+	}{PackageName: "com.android.chrome", AppName: "Chrome"}
+	if err := tm.ExecuteTemplate(&buf, "dd-app-row", row); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "dd-fchip") {
+		t.Error("an app nobody follows has no chip")
+	}
 }

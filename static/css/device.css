@@ -707,7 +707,7 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 #install-form.inst-two>.app-search,#install-form.inst-two>.install-drawer,#install-form.inst-two>#install-no-match{grid-column:1}
 #install-form.inst-two>.inst-pane{grid-column:2;grid-row:1/span 3;border-left:1px solid var(--border);padding:12px 18px;max-height:62vh;overflow:auto}
 #install-form.inst-two>.install-modal-foot{grid-column:1/-1}
-.modal-box:has(#install-form.inst-two){max-width:1000px;width:min(1000px,calc(100vw - 32px))}
+@media(min-width:721px){.modal-box:has(#install-form.inst-two){max-width:1000px;width:min(1000px,calc(100vw - 32px))}}
 .inst-ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
 .inst-ph .app-icon,.inst-ph .app-mono{width:34px;height:34px;border-radius:9px;flex:none}
 .inst-ph .mono{word-break:break-all}
