@@ -199,37 +199,9 @@
      active before the click. */}}
 {{define "coll-tools-block"}}
 {{if canAdminOrOperator .Role}}
-{{if .ActiveGroup}}
-<span class="coll-tools coll-menu-wrap">
-  <button type="button" class="ct-btn" title="Group options" aria-label="Group options" aria-haspopup="true" aria-expanded="false" onclick="collMenuToggle(event)"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
-  <div class="nbar-pop coll-menu" hidden>
-    <a class="nbar-mi" href="/groups/{{.ActiveGroup}}"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><span class="nbar-mi-label">Open group</span></a>
-    <button type="button" class="nbar-mi" onclick="collMenuClose();collRenameOpen()"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Rename</span></button>
-    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDevicesModal('/groups/{{.ActiveGroup}}/devices-modal','Devices — {{.SelectedCollection}}')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></button>
-  </div>
-</span>
-<form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
-  <input type="hidden" name="redirect" value="/devices?group={{.ActiveGroup}}">
-  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Group name" required>
-  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
-  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
-</form>
-{{else if .ActiveRestaurant}}
-<span class="coll-tools coll-menu-wrap">
-  <button type="button" class="ct-btn" title="Venue options" aria-label="Venue options" aria-haspopup="true" aria-expanded="false" onclick="collMenuToggle(event)"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
-  <div class="nbar-pop coll-menu" hidden>
-    {{if canOpenPage .Role "restaurants"}}<a class="nbar-mi" href="/restaurants/{{.ActiveRestaurant}}"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><span class="nbar-mi-label">Open venue</span></a>{{end}}
-    <button type="button" class="nbar-mi" onclick="collMenuClose();collRenameOpen()"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Rename</span></button>
-    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDevicesModal('/restaurants/{{.ActiveRestaurant}}/devices-modal','Devices — {{.SelectedCollection}}')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></button>
-  </div>
-</span>
-<form action="/restaurants/{{.ActiveRestaurant}}/rename" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
-  <input type="hidden" name="redirect" value="/devices?restaurant={{.ActiveRestaurant}}">
-  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Venue name" required>
-  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
-  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
-</form>
-{{else if and .FilterBuild .ActiveReleaseID}}
+{{/* No ⋯ menu for a venue or group (30 Oct 2026): the heading it sat by is gone; rename and
+     the rest live on the Venues and Groups pages. */}}
+{{if and .FilterBuild .ActiveReleaseID}}
 <span class="coll-tools">
   <a class="ct-btn" href="/releases/{{.ActiveReleaseID}}" title="Manage release" aria-label="Manage release"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
 </span>
