@@ -412,15 +412,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Clients: what each device's MDM client is, and the builds hosted for it.
 	// MDM clients and Host apps: pages of their own since 23 Oct 2026 (were Lineup tabs).
 	mux.HandleFunc("GET /clients", h.requireAuth(h.clientsEntry))
-	// Host apps is the Apps hub's "By product" tab (P1, 23 Oct 2026).
-	mux.HandleFunc("GET /apps/products", h.requireAuth(h.Pipeline))
-	mux.HandleFunc("GET /host-apps", func(w http.ResponseWriter, r *http.Request) {
-		to := "/apps/products"
-		if r.URL.RawQuery != "" {
-			to += "?" + r.URL.RawQuery
-		}
-		http.Redirect(w, r, to, http.StatusMovedPermanently)
-	})
+	// Host apps (each product's app, auto-install, its units) lives under Lineup since the
+	// Apps hub's "By product" tab went (user, 30 Oct 2026: "get rid of the tab"); the Apps
+	// list's rail has By product. The old addresses land on /apps.
+	mux.HandleFunc("GET /lineup/apps", h.requireAuth(h.Pipeline))
+	for _, old := range []string{"GET /apps/products", "GET /host-apps"} {
+		mux.HandleFunc(old, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/apps", http.StatusMovedPermanently)
+		})
+	}
 	// Prod coverage (C1, 23 Oct 2026): how much of the AIO backend is in the MDM.
 	mux.HandleFunc("GET /coverage", h.requireStrictAdmin(h.ProdCoveragePage))
 	// The server's own vitals. Operator-and-up: it exposes no device data, but it does
@@ -474,7 +474,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.
-	mux.HandleFunc("GET /apps", h.requireAppLibrary(h.AppLibraryPage))
+	mux.HandleFunc("GET /apps", h.requireTeam(h.AppLibraryPage))
 	// Resource use per model (R1): fleet-wide, so viewers with a device limit go to Fleet.
 	mux.HandleFunc("GET /apps/usage", h.requireAuth(h.fleetWide(h.ModelUsagePage)))
 	// The store's "Install on…" chooser: fleet-resolved scopes with real counts. Read-only;
@@ -482,7 +482,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /apps/install-targets", h.requireAppLibrary(h.AppInstallTargets))
 	// One app: every version in service and every device that has it. The page a store is
 	// actually about — see app_detail.go.
-	mux.HandleFunc("GET /apps/{pkg}", h.requireAppLibrary(h.AppDetailPage))
+	mux.HandleFunc("GET /apps/{pkg}", h.requireTeam(h.AppDetailPage))
 	post("POST /apps/upload-url", h.requireAppLibrary(h.AppUploadURL))
 	post("POST /apps/register", h.requireAppLibrary(h.AppRegister))
 	post("POST /apps/families", h.requireAppLibrary(h.AppFamilyCreate))

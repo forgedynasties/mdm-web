@@ -87,7 +87,7 @@ func luAppHref(role, state, venue string) string {
 	if venue != "" {
 		q.Set("venue", venue)
 	}
-	return "/apps/products?" + q.Encode()
+	return "/lineup/apps?" + q.Encode()
 }
 
 type luAppOpt struct{ Key, Label string }
@@ -547,7 +547,7 @@ func (h *Handler) LineupAppUpgrade(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "release.role_app_auto_upgrade", role, state)
 	msg := "Auto-upgrade " + state + " for " + prod.ClassLabel(role) + "."
 	q := url.Values{"app": {role}, "flash": {msg}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/apps/products?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, "/lineup/apps?"+q.Encode(), http.StatusSeeOther)
 }
 
 // LineupAppAuto switches a product's prod app auto-install on or off (admin).
@@ -569,7 +569,7 @@ func (h *Handler) LineupAppAuto(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "release.role_app_auto_install", role, state)
 	msg := "Auto-install " + state + " for " + prod.ClassLabel(role) + "."
 	q := url.Values{"app": {role}, "flash": {msg}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/apps/products?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, "/lineup/apps?"+q.Encode(), http.StatusSeeOther)
 }
 
 // LineupAppRetry sends a unit its product's prod app now, without waiting for the retry
@@ -601,7 +601,7 @@ func (h *Handler) LineupAppRetry(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.role_app_retry", serial, build.PackageName+" "+build.VersionName)
 	q := url.Values{"app": {role}, "flash": {"Sent " + hostAppName(build.PackageName) + " " + build.VersionName + " to " + serial + "."}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/apps/products?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, "/lineup/apps?"+q.Encode(), http.StatusSeeOther)
 }
 
 // HasParts is Has as one chip per installed build (".uatv2 927.0.0"), for the bento

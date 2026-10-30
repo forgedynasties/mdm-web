@@ -25,6 +25,8 @@
           (!st.prod || (' ' + (r.dataset.classes || '') + ' ').indexOf(' ' + st.prod + ' ') >= 0) &&
           (!q || (r.dataset.text || '').toLowerCase().indexOf(q) >= 0);
         for (var k in st.chips) if (ok && st.chips[k] && !has(r, k)) ok = false;
+        // A row for one view only (Apps: a product's channel rows) stays out of the others.
+        if (r.dataset.onlyView && r.dataset.onlyView !== st.view) ok = false;
         r.hidden = !ok;
         if (ok) shown++;
       });

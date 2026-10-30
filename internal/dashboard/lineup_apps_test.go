@@ -117,10 +117,10 @@ func TestLineupAppsRenders(t *testing.T) {
 		t.Fatalf("render: %v", err)
 	}
 	out := buf.String()
-	for _, w := range []string{`<h1 class="cc-h1">Apps</h1>`, `href="/apps/products" class="on" aria-current="page">By product</a>`, `1 with no build in the library`, `class="bt-card bt-hero"`, `aria-current="true">Tableside AI</a>`, `<h3>Tableside AI · 17.0.0</h3>`,
+	for _, w := range []string{`<h1 class="cc-h1">Host apps</h1>`, `<a class="lu-back" href="/lineup">← Lineup</a>`, `1 with no build in the library`, `class="bt-card bt-hero"`, `aria-current="true">Tableside AI</a>`, `<h3>Tableside AI · 17.0.0</h3>`,
 		`<h3>On prod, by product</h3>`, `<h3>Units</h3>`, `<b>16%</b>`, `action="/products/role-app-retry"`,
 		`Downloading 41%`, `Auto-install on`, `1 unit already run 18.0.0`, `href="/apps/aio.app.nugget">Upload 18.0.0</a>`,
-		`once 1 finish`, `State: <b>All</b>`, `href="/apps/products?app=t7&amp;state=failed"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
+		`once 1 finish`, `State: <b>All</b>`, `href="/lineup/apps?app=t7&amp;state=failed"`, `<option value="aio.app.nugget" selected>Nugget</option>`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("missing %q", w)
 		}

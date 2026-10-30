@@ -6,9 +6,6 @@
   .ap-ic{width:30px;height:30px;border-radius:8px;flex:none;object-fit:contain;background:var(--surface-3)}
   .ap-ic.sm{width:20px;height:20px;border-radius:6px}
   .ap-ic.ini{display:inline-grid;place-items:center;font-weight:750;font-size:13px;color:var(--text-2);text-transform:uppercase}
-  .ap-chs{display:flex;flex-wrap:wrap;gap:4px}
-  .ap-ch{font-size:11px;font-weight:650;padding:1px 8px;border-radius:99px;background:var(--surface-3);color:var(--text-2);white-space:nowrap}
-  .ap-ch.prod{background:var(--ok-bg);color:var(--ok)}
   .ap-ver{font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
   .ap-hact{margin-left:auto}
   .a1-sugg{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
@@ -56,7 +53,7 @@
       {{end}}
       {{if $a.Products}}
       <div class="fleet-rail-cap" style="margin-top:10px"><span>By product</span></div>
-      {{range $a.Products}}<button type="button" class="fleet-rail-item" data-clf="p-{{.Role}}" aria-pressed="false">{{if .Icon}}<img class="ap-ic sm" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="dot ok"></span>{{end}}<span class="nm">{{.Label}}</span><span class="ct">{{.Devices}}</span></button>{{end}}
+      {{range $a.Products}}<button type="button" class="fleet-rail-item" data-clf="pc-{{.Role}}" aria-pressed="false">{{if .Icon}}<img class="ap-ic sm" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="dot ok"></span>{{end}}<span class="nm">{{.Label}}</span><span class="ct">{{.Devices}}</span></button>{{end}}
       {{end}}
     </aside>
     <div class="fleet-roster">
@@ -77,7 +74,7 @@
         <div class="ft-wrap"><table class="ft cl-ft">
           <thead><tr>
             <th scope="col">App</th>
-            <th scope="col" style="width:300px">Channels</th>
+            <th scope="col" style="width:140px">Channels</th>
             <th scope="col" style="width:160px">Library</th>
             <th scope="col" class="ft-num" style="width:90px">Devices</th>
             <th scope="col" class="ft-act" style="width:46px"><span class="sr-only">Open</span></th>
@@ -86,11 +83,21 @@
           {{range $a.Rows}}
           <tr class="ft-row" data-href="{{.Href}}" data-flags="{{if .Role}}role p-{{.Role}}{{else}}other{{end}}" data-text="{{.Search}}" data-s-name="{{.Name}}" data-s-devices="{{.Devices}}">
             <td><a class="cl-nm" href="{{.Href}}">{{if .Icon}}<img class="ap-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="ap-ic ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="cl-t"><b>{{.Name}}</b><small>{{if .RoleLabel}}{{.RoleLabel}} · {{end}}{{.Package}}</small></span></a></td>
-            <td>{{if .Chans}}<span class="ap-chs">{{range .Chans}}<span class="ap-ch{{if eq . "prod"}} prod{{end}}">{{.}}</span>{{end}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td><span class="muted">{{if .Chans}}{{len .Chans}} channels{{else}}—{{end}}</span></td>
             <td>{{if .InLibrary}}<span class="ap-ver">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{else}}<span class="cc-tag warn">not in library</span>{{if $lib}} <button type="button" class="cc-btn xs" onclick="event.stopPropagation();libAddOpen()">Add APK</button>{{end}}{{end}}</td>
             <td class="ft-num"><b>{{.Devices}}</b></td>
             <td class="ft-act"><a class="cl-go" href="{{.Href}}" title="Open {{.Name}}" aria-label="Open {{.Name}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
           </tr>
+          {{if .Role}}{{$r := .}}{{range .ChanRows}}
+          {{/* A product picked in the rail lists its app's channels, one row each (user, 30 Oct). */}}
+          <tr class="ft-row" hidden data-href="/apps/{{.Package}}" data-only-view="pc-{{$r.Role}}" data-flags="pc-{{$r.Role}}" data-text="{{$r.Name}} {{.Label}} {{.Package}} {{.Newest}}" data-s-name="{{$r.Name}} {{.Label}}" data-s-devices="{{.Devices}}">
+            <td><a class="cl-nm" href="/apps/{{.Package}}">{{if $r.Icon}}<img class="ap-ic" src="{{iconSrc $r.Icon}}" alt="">{{else}}<span class="ap-ic ini">{{if $r.Name}}{{slice $r.Name 0 1}}{{end}}</span>{{end}}<span class="cl-t"><b>{{$r.Name}} · {{.Label}}</b><small class="mono">{{.Package}}</small></span></a></td>
+            <td><span class="muted">{{.Label}}</span></td>
+            <td>{{if .Newest}}<span class="ap-ver">{{.Newest}}</span>{{else}}<span class="cc-tag warn">not in library</span>{{end}}</td>
+            <td class="ft-num"><b>{{.Devices}}</b></td>
+            <td class="ft-act"><a class="cl-go" href="/apps/{{.Package}}" title="Open {{$r.Name}} · {{.Label}}" aria-label="Open {{$r.Name}} · {{.Label}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
+          </tr>
+          {{end}}{{end}}
           {{end}}
           </tbody>
         </table></div>

@@ -215,7 +215,7 @@ func hostAppsBentoOf(cards []luAppCard, pane *luAppsPane) hostAppsBento {
 			continue
 		}
 		pct := c.OnProd * 100 / c.Total
-		b.Bars = append(b.Bars, bentoBar{Label: c.Label, N: pct, Height: max(10, pct), On: c.On, Href: "/apps/products?app=" + c.Role})
+		b.Bars = append(b.Bars, bentoBar{Label: c.Label, N: pct, Height: max(10, pct), On: c.On, Href: "/lineup/apps?app=" + c.Role})
 	}
 	return b
 }

@@ -185,14 +185,14 @@ func TestAppsA1Renders(t *testing.T) {
 		// L1 (30 Oct 2026): Fleet's layout, one row per app, channels as plain pills.
 		`<h1 class="cc-h1">Apps</h1>`, `onclick="libAddOpen()">Add apps</button>`, `data-cl data-one="app"`,
 		`data-clf="role"`, `data-clf="other"`, `>By product</span>`, `data-href="/apps/aio.app.nugget"`, `data-flags="role p-`,
-		`<span class="ap-ch prod">prod</span>`, `>stagev2</span>`, `<span class="cc-tag warn">not in library</span>`, `>Add APK</button>`,
+		`>stagev2</span>`, `data-only-view="pc-`, `data-clf="pc-`, ` channels</span>`, `<span class="cc-tag warn">not in library</span>`, `>Add APK</button>`,
 		`data-cls="name"`, `id="lib-card"`, `id="lib-add-modal"`, `id="lib-apk-file"`, `/apps/families`, `/static/js/coll_list.js`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("apps page is missing %q", want)
 		}
 	}
-	for _, gone := range []string{`class="ov2-ban`, `class="oc-stats"`, `class="ov2-rail"`, `lf-modal`, `Install on`} {
+	for _, gone := range []string{`class="ov2-ban`, `class="oc-stats"`, `class="ov2-rail"`, `lf-modal`, `Install on`, `class="ap-ch`, `>By product</a>`} {
 		if strings.Contains(out, gone) {
 			t.Errorf("L1 is simple: %s is back on /apps", gone)
 		}

@@ -58,13 +58,20 @@ type a1Row struct {
 	OnLibPct   int // bar widths, of Devices
 	OtherPct   int
 	UnknownPct int
-	Channels   []a1Chan // variants with devices, biggest first (shown when more than one variant)
-	Chans      []string // L1: every channel label, prod first, then by devices
+	Channels   []a1Chan    // variants with devices, biggest first (shown when more than one variant)
+	Chans      []string    // L1: every channel label, prod first, then by devices
+	ChanRows   []a1ChanRow // L1: the same channels as rows, for a product's view
 	MoreChans  int
 	Note       string // what the row's numbers say, in words
 	Single     string // the one package when the family has one variant (Install on… in place)
 	Look       bool   // something on this row needs a look
 	Search     string
+}
+
+// a1ChanRow is one channel package of an app, listed when its product is picked.
+type a1ChanRow struct {
+	Label, Package, Newest string
+	Devices                int
 }
 
 // a1Product is one rail entry under By product: a role app's rows.
@@ -189,6 +196,18 @@ func buildAppsA1(in a1Inputs) appsA1 {
 		for _, vr := range f.Variants {
 			chanDevs[vr.Label] = cov.Of(vr.Package).Devices
 			r.Chans = append(r.Chans, vr.Label)
+		}
+		for _, vr := range f.Variants {
+			r.ChanRows = append(r.ChanRows, a1ChanRow{Label: vr.Label, Package: vr.Package, Newest: libNewest(in.Apps, vr.Package), Devices: chanDevs[vr.Label]})
+		}
+		{
+			prodLabel := f.Prod().Label
+			sort.SliceStable(r.ChanRows, func(a, b int) bool {
+				if (r.ChanRows[a].Label == prodLabel) != (r.ChanRows[b].Label == prodLabel) {
+					return r.ChanRows[a].Label == prodLabel
+				}
+				return r.ChanRows[a].Devices > r.ChanRows[b].Devices
+			})
 		}
 		if len(f.Variants) > 1 {
 			prodLabel := f.Prod().Label
@@ -374,7 +393,7 @@ func buildAppsA1(in a1Inputs) appsA1 {
 	if n := len(missing); n > 0 {
 		todos = append(todos, a1Todo{
 			Title:  dp1Plural(n, "role app has", "role apps have") + " no APK here",
-			Sub:    joinAnd(missing) + ": set on Host apps, no APK in the library",
+			Sub:    joinAnd(missing) + ": set on Lineup › Host apps, no APK in the library",
 			Action: "Add apps", AddApps: true})
 	}
 	sort.SliceStable(otherIssues, func(a, b int) bool { return otherIssues[a].devices > otherIssues[b].devices })

@@ -343,7 +343,7 @@
     <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
   </form>
   {{else}}{{range .Products}}<div class="vs-note"><b>{{.Label}}</b>: {{.ChLabel}}{{if .Channel}} (.{{.Channel}}){{end}}</div>{{end}}{{end}}
-  {{if .NoBuild}}<div class="vs-note" style="color:var(--warn)">{{.NoBuild}} unit{{if ne .NoBuild 1}}s{{end}} here get nothing until a build is uploaded: <a href="/apps/products">Host apps</a>.</div>{{end}}
+  {{if .NoBuild}}<div class="vs-note" style="color:var(--warn)">{{.NoBuild}} unit{{if ne .NoBuild 1}}s{{end}} here get nothing until a build is uploaded: <a href="/lineup/apps">Host apps</a>.</div>{{end}}
   </div>
 </details>
 <style>

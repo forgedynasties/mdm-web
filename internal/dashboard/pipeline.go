@@ -30,13 +30,13 @@ import (
 
 // pipeRole is one row of the side list.
 type pipeRole struct {
-	Key, Label    string
-	Devices       int
-	Deployed      int
-	Status        string
-	Tone          string // ok | warn | bad | muted
-	On            bool   // the selected role
-	HasApp        bool
+	Key, Label string
+	Devices    int
+	Deployed   int
+	Status     string
+	Tone       string // ok | warn | bad | muted
+	On         bool   // the selected role
+	HasApp     bool
 }
 
 // pipeClient is one MDM client in the side list.
@@ -68,14 +68,14 @@ type pipeInbox struct {
 
 // pipeModel is one hardware model's firmware lane.
 type pipeModel struct {
-	Key, Label, Maker string
-	Mode              string
-	Firmware, Std     int
-	Channel           *db.FirmwareChannel
-	Releases          []db.Release
-	Newer             []db.Release
+	Key, Label, Maker            string
+	Mode                         string
+	Firmware, Std                int
+	Channel                      *db.FirmwareChannel
+	Releases                     []db.Release
+	Newer                        []db.Release
 	On, Behind, OtherLine, Total int
-	Line              string
+	Line                         string
 }
 
 var (
@@ -120,7 +120,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			q.Del("view")
 			to := "/clients"
 			if v == "apps" {
-				to = "/apps/products"
+				to = "/lineup/apps"
 			}
 			if enc := q.Encode(); enc != "" {
 				to += "?" + enc
@@ -220,7 +220,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	// ?client= opens the MDM clients tab, ?role=none and ?view=runs open Setup.
 	tab := "products"
 	switch {
-	case r.URL.Path == "/apps/products":
+	case r.URL.Path == "/lineup/apps":
 		tab = "apps"
 	case r.URL.Path == "/clients":
 		tab = "clients"
@@ -240,9 +240,7 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 			m["Title"] = "Lineup"
 		}
 		m["Tab"] = tab
-		if tab == "apps" {
-			m["AppsTab"] = "products" // the Apps hub's By product tab (P1)
-		}
+
 		m["BehindTotal"] = behindTotal
 		m["Roles"] = roles
 		m["Clients"] = clients
@@ -399,21 +397,21 @@ func (h *Handler) Pipeline(w http.ResponseWriter, r *http.Request) {
 	})
 
 	h.render(w, r, "pipeline.html", common(map[string]any{
-		"LU":          pane,
+		"LU":           pane,
 		"ClientStrips": strips,
-		"HWModels":    hw.ByRole[sel],
-		"RolePic":     rolePic(sel, hw.ByRole[sel]),
-		"HWDevices":   hw.Devices[sel],
-		"Candidates":  hw.hwCandidates(sel),
-		"AppChoices":  appChoicesFrom(library),
-		"RoleKey":     sel,
-		"RoleLabel":   selLabel,
-		"BasePackage": base,
-		"BaseName":    names[base],
-		"Models":      models,
-		"RoleClients": roleClients,
-		"App":         app,
-		"FwRollout":   h.cfg.RoleRollout(config.RolloutFirmware),
+		"HWModels":     hw.ByRole[sel],
+		"RolePic":      rolePic(sel, hw.ByRole[sel]),
+		"HWDevices":    hw.Devices[sel],
+		"Candidates":   hw.hwCandidates(sel),
+		"AppChoices":   appChoicesFrom(library),
+		"RoleKey":      sel,
+		"RoleLabel":    selLabel,
+		"BasePackage":  base,
+		"BaseName":     names[base],
+		"Models":       models,
+		"RoleClients":  roleClients,
+		"App":          app,
+		"FwRollout":    h.cfg.RoleRollout(config.RolloutFirmware),
 	}))
 }
 
@@ -535,9 +533,9 @@ func (h *Handler) PipelineRoleApp(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.role_app", role, base)
 	// One message, as a toast: the page's own banner only knows its short codes.
-	// The App picker lives on the Host apps page (A1).
+	// The App picker lives on the Host apps page (/lineup/apps since 30 Oct 2026).
 	q := url.Values{"app": {role}, "flash": {msg}, "flash_type": {"success"}}
-	http.Redirect(w, r, "/apps/products?"+q.Encode(), http.StatusSeeOther)
+	http.Redirect(w, r, "/lineup/apps?"+q.Encode(), http.StatusSeeOther)
 }
 
 // PipelineFirmware sets a model's prod firmware release.

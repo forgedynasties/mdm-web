@@ -112,6 +112,23 @@ func (h *Handler) requireSupport(next http.HandlerFunc) http.HandlerFunc {
 // requireOTA guards firmware pushes: admin and up, plus fleet managers, whose
 // targets the access policy then limits to devices a rule names for OTA.
 
+// requireTeam lets in anyone on the AIO team (no customers): the Apps list and app pages,
+// which everyone on the team reads since By product went (30 Oct 2026); what a role may
+// change there is gated in the page and on each POST route.
+func (h *Handler) requireTeam(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, ok := h.currentSession(r); !ok {
+			redirectLogin(w, r)
+			return
+		}
+		if roleIsCustomer(h.role(r)) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
 // requireAppLibrary guards the app library page and its upload endpoints.
 func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

@@ -199,7 +199,7 @@ func TestLineupRolePaneRenders(t *testing.T) {
 		`id="fw-t7"`, `class="oc-tb run"`, `131 / 160`, `class="oc-tb warn"`, `href="/releases/35"`,
 		`78%</b><small>fully on lineup</small>`, `125 of 160 deployed devices`, `Needs a look <span>3</span>`,
 		`16 without Nugget`, `When devices move`, `02:00–05:00 in each device's timezone`,
-		`href="/apps/products?app=t7">Set on Host apps →</a>`,
+		`href="/lineup/apps?app=t7">App, auto-install and units →</a>`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Lineup role pane is missing %q", want)
