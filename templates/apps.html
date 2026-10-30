@@ -90,7 +90,7 @@
           </tr>
           {{if .Role}}{{$r := .}}{{range .ChanRows}}
           {{/* A product picked in the rail lists its app's channels, one row each (user, 30 Oct). */}}
-          <tr class="ft-row" hidden data-href="/apps/{{.Package}}" data-only-view="pc-{{$r.Role}}" data-flags="pc-{{$r.Role}}" data-text="{{$r.Name}} {{.Label}} {{.Package}} {{.Newest}}" data-s-name="{{$r.Name}} {{.Label}}" data-s-devices="{{.Devices}}">
+          <tr class="ft-row" hidden data-href="/apps/{{.Package}}" data-view-only="pc-{{$r.Role}}" data-flags="pc-{{$r.Role}}" data-text="{{$r.Name}} {{.Label}} {{.Package}} {{.Newest}}" data-s-name="{{$r.Name}} {{.Label}}" data-s-devices="{{.Devices}}">
             <td><a class="cl-nm" href="/apps/{{.Package}}">{{if $r.Icon}}<img class="ap-ic" src="{{iconSrc $r.Icon}}" alt="">{{else}}<span class="ap-ic ini">{{if $r.Name}}{{slice $r.Name 0 1}}{{end}}</span>{{end}}<span class="cl-t"><b>{{$r.Name}} · {{.Label}}</b><small class="mono">{{.Package}}</small></span></a></td>
             <td><span class="muted">{{.Label}}</span></td>
             <td>{{if .Newest}}<span class="ap-ver">{{.Newest}}</span>{{else}}<span class="cc-tag warn">not in library</span>{{end}}</td>
