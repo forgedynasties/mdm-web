@@ -6,20 +6,26 @@
     if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, function () { fallback(); }); } else fallback();
     function fallback() { var t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} t.remove(); done(); }
   };
-  // Tabs. The open one rides in ?tab= (replaceState, no history spam); a tab the URL
-  // names that does not exist falls back to the page's default for its current state.
+  // The left list (E1, 30 Oct 2026; was a tab strip): each [data-en-tab] button opens its
+  // pane, the open one rides in ?tab= (replaceState, no history spam), and the pane's
+  // data-title/data-sub fill the line above the list. A ?tab= that does not exist falls
+  // back to the page's default for its current state.
   (function () {
-    var strip = document.querySelector('.en-tabs'); if (!strip) return;
-    var tabs = [].slice.call(strip.querySelectorAll('[data-tab]')), panes = [].slice.call(document.querySelectorAll('.en-tabpane'));
+    var rail = document.querySelector('.en-rail'); if (!rail) return;
+    var btns = [].slice.call(document.querySelectorAll('[data-en-tab]')), panes = [].slice.call(document.querySelectorAll('.en-tabpane'));
     function show(t, push) {
-      tabs.forEach(function (b) { var on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
-      panes.forEach(function (p) { p.classList.toggle('on', p.dataset.tab === t); });
+      btns.forEach(function (b) { var on = b.dataset.enTab === t; b.classList.toggle('on', on); if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+      var pane = null;
+      panes.forEach(function (p) { var on = p.dataset.tab === t; p.classList.toggle('on', on); if (on) pane = p; });
+      var ti = el('en-pane-t'), c = el('en-pane-c');
+      if (pane && ti) ti.textContent = pane.dataset.title || '';
+      if (pane && c) c.textContent = pane.dataset.sub || '';
       if (push) { try { var u = new URL(location.href); u.searchParams.set('tab', t); history.replaceState(null, '', u); } catch (e) {} }
     }
     var want = new URLSearchParams(location.search).get('tab');
-    var fallback = strip.dataset.default || (tabs[0] && tabs[0].dataset.tab);
-    show(tabs.some(function (b) { return b.dataset.tab === want; }) ? want : fallback, false);
-    tabs.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.tab, true); }); });
+    var fallback = rail.dataset.default || 'inbox';
+    show(panes.some(function (p) { return p.dataset.tab === want; }) ? want : fallback, false);
+    btns.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.enTab, true); window.scrollTo(0, 0); }); });
     // One ⋯ menu open at a time; a click anywhere else closes it.
     document.addEventListener('click', function (e) {
       document.querySelectorAll('details.en-kebab[open]').forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute('open'); });
@@ -107,7 +113,8 @@
     lastInbox = html;
     if (inboxFocused(box)) { heldInbox = html; return; }
     heldInbox = null;
-    var picked = {};
+    var picked = {}, ticked = {};
+    box.querySelectorAll('.en-dpick:checked').forEach(function (c) { ticked[c.value] = true; });
     box.querySelectorAll('select.en-sel').forEach(function (s) {
       var o = s.selectedOptions && s.selectedOptions[0];
       var row = s.closest('.en-row');
@@ -118,9 +125,13 @@
       var s = document.querySelector('#' + CSS.escape(id) + ' select.en-sel');
       if (s) s.value = picked[id];
     });
+    box.querySelectorAll('.en-dpick').forEach(function (c) { if (ticked[c.value]) c.checked = true; });
+    syncAssign();
     if (window.ltInit) ltInit();
     var n = parseInt((box.firstElementChild && box.firstElementChild.dataset.count) || '0', 10) || 0;
-    var m = el('en-inbox-m'); if (m) m.textContent = n ? n + ' waiting' : 'nothing waiting';
+    var card = el('en-inbox-card'); if (card) card.dataset.sub = n ? n + ' device' + (n === 1 ? '' : 's') + ' waiting' : 'nothing waiting';
+    if (card && card.classList.contains('on')) { var pc = el('en-pane-c'); if (pc) pc.textContent = card.dataset.sub; }
+    var ct = document.querySelector('[data-en-tab="inbox"] .ct'); if (ct) ct.textContent = n;
     var k = el('en-kpi-inbox'); if (k) { k.textContent = n; k.classList.toggle('warn', n > 0); }
     var h = el('en-h1'); if (h) h.innerHTML = n ? '<span class="hl warn">' + n + '</span> new device' + (n === 1 ? '' : 's') + ' to onboard' : 'Every device is <span class="hl ok">placed</span>';
     if (window.htmx) htmx.process(box);
@@ -154,4 +165,63 @@
     var es = window.mdmStream('/events/devices');
     es.addEventListener('device-update', refreshInbox);
   }
+
+  // Needs a venue: tick devices, pick a venue in the bar, Assign. Each goes through the
+  // same /devices/{serial}/onboard as its own row's Assign, one after another.
+  function dpicks() { return [].slice.call(document.querySelectorAll('#en-inbox .en-dpick')); }
+  function syncAssign() {
+    var bar = el('en-assign'); if (!bar) return;
+    var n = dpicks().filter(function (c) { return c.checked; }).length;
+    bar.hidden = n === 0;
+    var t = el('en-assign-n'); if (t) t.textContent = n + ' selected';
+    var all = el('en-inbox-all'); if (all) { var shown = dpicks().filter(function (c) { var r = c.closest('tr'); return r && !r.classList.contains('lt-out') && !r.classList.contains('lt-hid'); }); all.checked = shown.length > 0 && shown.every(function (c) { return c.checked; }); }
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t) return;
+    if (t.id === 'en-inbox-all') {
+      dpicks().forEach(function (c) { var r = c.closest('tr'); if (r && !r.classList.contains('lt-out') && !r.classList.contains('lt-hid')) c.checked = t.checked; });
+      syncAssign(); return;
+    }
+    if (t.classList && t.classList.contains('en-dpick')) syncAssign();
+  });
+  var clr = el('en-assign-clear');
+  if (clr) clr.addEventListener('click', function () { dpicks().forEach(function (c) { c.checked = false; }); syncAssign(); });
+  var go = el('en-assign-go');
+  if (go) go.addEventListener('click', function () {
+    var site = el('en-assign-site'), rid = site && site.value;
+    var serials = dpicks().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+    if (!serials.length) return;
+    if (!rid) { if (window.showToast) showToast('Pick a venue first', 'info'); if (site) site.focus(); return; }
+    go.disabled = true;
+    var ok = 0, bad = 0;
+    (function next(i) {
+      if (i >= serials.length) {
+        go.disabled = false;
+        if (window.showToast) showToast(ok + ' device' + (ok === 1 ? '' : 's') + ' assigned' + (bad ? ' · ' + bad + ' failed' : ''), bad ? 'error' : 'success');
+        syncAssign(); refreshInbox(); return;
+      }
+      var body = new URLSearchParams(); body.append('restaurant_id', rid); body.append('from', '/enrollment');
+      fetch('/devices/' + encodeURIComponent(serials[i]) + '/onboard', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' } })
+        .then(function (r) {
+          if (r.ok) { ok++; var row = el('dev-' + serials[i]); if (row) row.remove(); } else bad++;
+        }).catch(function () { bad++; }).then(function () { next(i + 1); });
+    })(0);
+  });
+  // Sort (Needs a venue): newest or oldest first, by the enrolment time on each row.
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.en-sort'); if (!b) return;
+    var box = document.querySelector(b.dataset.sort || '#en-inbox'); if (!box) return;
+    var asc = b.dataset.dir !== 'asc'; b.dataset.dir = asc ? 'asc' : 'desc';
+    var cur = b.querySelector('.sort-cur'); if (cur) cur.textContent = asc ? '· Oldest ↑' : '· Newest ↓';
+    var tb = box.querySelector('tbody'); if (!tb) return;
+    var rows = [].slice.call(tb.querySelectorAll('tr[data-ts]'));
+    rows.sort(function (x, y) { var a = +x.dataset.ts || 0, z = +y.dataset.ts || 0; return asc ? a - z : z - a; });
+    rows.forEach(function (r) { tb.appendChild(r); });
+    var root = b.closest('.lt'); if (root && root.__ltApply) root.__ltApply();
+  });
+  // Enrolled › This week: the chip filters on data-f-week, set here from each row's time.
+  (function () {
+    var weekAgo = Date.now() / 1000 - 7 * 86400;
+    document.querySelectorAll('#en-recent tr[data-ts]').forEach(function (r) { r.setAttribute('data-f-week', (+r.dataset.ts || 0) >= weekAgo ? '1' : '0'); });
+  })();
 })();

@@ -109,24 +109,76 @@
 .en-form input,.en-form select{width:100%;font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
 .en-form .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
 .en-form .foot{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+/* E1 (30 Oct 2026): Fleet's layout. Rail items are buttons that switch the pane. */
+.en-rail .fleet-rail-item{width:100%;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;display:flex;align-items:center}
+.en-rail .fleet-rail-item.on{background:var(--accent-soft);color:var(--accent-text);border:1px solid var(--accent-edge)}
+.en-rail-cap{margin-top:10px}
+.en-acts{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.en-acts .cc-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.en-card{margin-bottom:14px;overflow:hidden}
+.en-card .ft-wrap{position:relative}
+.en-ft td{vertical-align:middle}
+.en-ft .ft-cb input,.en-ft th.ft-cb input{width:15px;height:15px;margin:0;accent-color:var(--accent)}
+.en-m{color:var(--text-2)}
+.en-sub{display:block;font-size:11px;color:var(--text-faint)}
+.en-onboard{display:flex;gap:6px;align-items:center;margin:0}
+.en-onboard .en-sel{min-width:0;flex:1;max-width:180px}
+.en-assign{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:8px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:12px;font-size:12.5px}
+.en-assign[hidden]{display:none}
+.en-pbulk{border-color:var(--border);background:var(--surface)}
+.en-pbulk .cc-btn.danger{color:var(--danger)}
+.en-count{font-size:12px;color:var(--muted);margin-left:4px}
+.en-all{margin-left:auto;font-size:12px;font-weight:650;color:var(--accent-text);text-decoration:none}
+.en-none{padding:16px;text-align:center;color:var(--muted);font-size:12.5px}
+.en-n{font-size:10.5px;font-weight:700;background:var(--surface-3);border-radius:99px;padding:1px 7px;margin-left:4px}
+.en-pname b{display:block;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+.en-pname small{display:block;font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+.en-off td{color:var(--muted)}.en-off .en-pname b{color:var(--text-2)}
+.en-qr-row td{padding:0!important;border:0!important}
+.en-qr-row .en-qr.open{padding:10px 18px 14px}
+.en-go{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);color:var(--text-2);background:var(--surface)}
+.en-go svg{width:14px;height:14px}
+.en-card .lt-more{margin:0 17px 14px}
+@media(max-width:720px){.en-card .ft{min-width:760px}.en-acts{margin-left:0}}
 </style>
 
 {{$canOp := canAdminOrOperator .Role}}
 {{$inboxN := .Stats.Inbox}}
-<div class="cc-wrap">
-  <div class="cc-top">
-    <div>
-      <div class="cc-eyebrow">Fleet</div>
-      <h1 class="cc-h1">Enroll</h1>
-    <div class="cc-status" id="en-h1">{{if gt $inboxN 0}}<span class="hl warn">{{$inboxN}}</span> new device{{if ne $inboxN 1}}s{{end}} to onboard{{else}}Every device is <span class="hl ok">placed</span>{{end}}</div>
-      {{/* The KPI tiles are gone: every number on them was already on this page
-           (the inbox count twice over), so the ones worth keeping live here, each
-           still a link to the fleet filter it names. */}}
-      <div class="cc-sub"><a href="/devices?kind=firmware"><b>{{.Stats.Firmware}}</b> Firmware MDM</a> · <a href="/devices?kind=dpc"><b>{{.Stats.DPC}}</b> Standard MDM</a>{{if gt .Stats.Enrolled7d 0}} · <b>{{.Stats.Enrolled7d}}</b> enrolled this week{{end}} · <b>{{.Stats.ActiveProfs}}</b> active profile{{if ne .Stats.ActiveProfs 1}}s{{end}}{{if gt .Stats.Retired 0}} · <a href="/devices?lifecycle=retired">{{.Stats.Retired}} retired</a>{{end}}</div>
-    </div>
-    <div class="cc-actions">
+{{/* Found on Wi-Fi and From the AIO backend are super admin only (user, 26 Oct 2026). */}}
+{{$super := eq .Role "admin"}}
+{{/* E1 "Fleet twin" (picked 30 Oct 2026): Fleet's layout. The tabs are the left list (Needs a
+     venue, Enrolled, Profiles; the super admin's Found on Wi-Fi and From the AIO backend),
+     the picked one fills the right as a Fleet-style table. The four number cards are gone
+     (their numbers are the counts in the list). How to enroll is a header button, not a list
+     entry (user: "how to enroll does not belong in the left rail"). ?tab= still names the
+     pane: inbox, recent, profiles, found, backend, how. */}}
+<template id="page-island">
+  <span class="isl-dot {{if gt $inboxN 0}}warn{{else}}on{{end}}"></span>
+  <span class="isl-t">Enrollment</span>
+  <span class="isl-s"><b>{{$inboxN}}</b> need{{if eq $inboxN 1}}s{{end}} a venue · {{add .Stats.Firmware .Stats.DPC}} in the MDM{{if gt .Stats.Enrolled7d 0}} · {{.Stats.Enrolled7d}} this week{{end}}</span>
+</template>
+<div class="fl-wrap en-wrap">
+  <h1 class="cc-h1 sr-only">Enrollment</h1>
+  <div class="fleet-md">
+  <aside class="fleet-rail en-rail" aria-label="Enrollment" data-default="{{if gt $inboxN 0}}inbox{{else if and $super (gt .SightingsReady 0)}}found{{else}}profiles{{end}}">
+    <div class="fleet-rail-cap">Enrollment</div>
+    <button type="button" class="fleet-rail-item" data-en-tab="inbox"><span class="dot {{if gt $inboxN 0}}warn{{else}}ok{{end}}"></span><span class="nm">Needs a venue</span><span class="ct">{{$inboxN}}</span></button>
+    <button type="button" class="fleet-rail-item" data-en-tab="recent"><span class="dot ok"></span><span class="nm">Enrolled</span><span class="ct">{{len .Enrollments}}</span></button>
+    <button type="button" class="fleet-rail-item" data-en-tab="profiles"><span class="dot ok"></span><span class="nm">Profiles</span><span class="ct">{{len .Profiles}}</span></button>
+    {{if $super}}
+    <div class="fleet-rail-cap en-rail-cap">Super admin</div>
+    <button type="button" class="fleet-rail-item" data-en-tab="found"><span class="dot {{if gt .SightingsReady 0}}warn{{else}}muted{{end}}"></span><span class="nm">Found on Wi-Fi</span><span class="ct">{{.SightingsReady}}</span></button>
+    {{if .Cov}}<button type="button" class="fleet-rail-item" data-en-tab="backend" title="AIO {{.Cov.EnvLabel}} devices not in the MDM yet"><span class="dot {{if .CovWork}}warn{{else}}muted{{end}}"></span><span class="nm">From the AIO backend</span><span class="ct">{{.CovWork}}</span></button>{{end}}
+    {{end}}
+  </aside>
+
+  <div class="fleet-roster">
+    <div class="fleet-pane-head">
+      <span class="t" id="en-pane-t">Enrollment</span><span class="c" id="en-pane-c"></span>
+      <span class="en-acts">
+        <button type="button" class="cc-btn" data-en-tab="how"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>How to enroll</button>
       {{/* AIO Enroll for Android (19 Oct): this server hosts the phone app (slot
-           enroll-android); the header button opens its QR and download, on every tab. */}}
+           enroll-android); the header button opens its QR and download. */}}
       {{with .EnrollAndroid}}{{if .Hosted}}
       <details class="en-app">
         <summary class="cc-btn"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Get the Android app</summary>
@@ -149,112 +201,91 @@
       })();
       </script>
       {{end}}{{end}}
-    {{if $canOp}}
-      <button type="button" class="cc-btn primary" onclick="enOpenModal()" data-coach="enroll-new-profile" data-coach-title="Start with a profile" data-coach-text="A profile is a scannable QR that says what a batch of devices is and where it goes. Scout and app enrolments mint their own; this one is for QR and adb."><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</button>
-    {{end}}
+      {{if $canOp}}<button type="button" class="cc-btn primary" onclick="enOpenModal()" data-coach="enroll-new-profile" data-coach-title="Start with a profile" data-coach-text="A profile is a scannable QR that says what a batch of devices is and where it goes. Scout and app enrolments mint their own; this one is for QR and adb."><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</button>{{end}}
+      </span>
     </div>
-  </div>
 
-  {{/* The funnel (E1, 23 Oct 2026): listed in the AIO backend → found on Wi-Fi → in the
-       MDM → placed at a venue, each linking to its tab. */}}
-  {{/* Found on Wi-Fi and From the AIO backend are super admin only (user, 26 Oct 2026),
-       wherever they show: funnel cards, tabs, panes. */}}
-  {{$super := eq .Role "admin"}}
-  <div class="en-fun">
-    {{if $super}}{{with .Cov}}<a class="en-fc" href="?tab=backend"><span class="k">In the AIO backend</span><b>{{.C.Total}}</b><small>{{.EnvLabel}} devices · {{.C.InMDM}} in the MDM ({{.C.Pct}}%)</small></a>{{end}}
-    <a class="en-fc" href="?tab=found"><span class="k">Found on Wi-Fi</span><b>{{.SightingsReady}}</b><small>ready to enrol</small></a>{{end}}
-    <a class="en-fc" href="?tab=recent"><span class="k">In the MDM</span><b>{{add .Stats.Firmware .Stats.DPC}}</b><small>{{if gt .Stats.Enrolled7d 0}}▲ {{.Stats.Enrolled7d}} this week{{else}}none new this week{{end}}</small></a>
-    <a class="en-fc{{if gt .Stats.Inbox 0}} warn{{end}}" href="?tab=inbox"><span class="k">Needs a venue</span><b>{{.Stats.Inbox}}</b><small>{{if gt .Stats.Inbox 0}}assign them below{{else}}every device is placed{{end}}</small></a>
-  </div>
-  <style>
-  .en-fun{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:4px 0 14px}
-  .en-fc{display:block;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 14px;text-decoration:none;color:var(--text)}
-  .en-fc:hover{border-color:var(--rule-2,var(--border))}
-  .en-fc .k{display:block;font-size:10.5px;letter-spacing:.12em;font-weight:700;color:var(--muted);text-transform:uppercase}
-  .en-fc b{display:block;font-family:var(--font-display);font-size:26px;font-weight:600;margin:3px 0 1px}
-  .en-fc small{font-size:12px;color:var(--text-2)}
-  .en-fc.warn b{color:var(--warn)}
-  </style>
-  {{/* The tab strip. Default: the inbox when something waits, else the scout finds if
-       any are ready, else profiles — whatever has work, or setup when nothing does. */}}
-  <div class="en-tabs" role="tablist" aria-label="Enrollment" data-default="{{if gt $inboxN 0}}inbox{{else if and $super (gt .SightingsReady 0)}}found{{else}}profiles{{end}}">
-    <button type="button" role="tab" data-tab="inbox">Needs assignment{{if gt $inboxN 0}}<span class="n w">{{$inboxN}}</span>{{end}}</button>
-    {{if $super}}<button type="button" role="tab" data-tab="found">Found on Wi-Fi{{if gt .SightingsReady 0}}<span class="n w">{{.SightingsReady}}</span>{{end}}</button>
-    {{if .Cov}}<button type="button" role="tab" data-tab="backend">From the AIO backend<span class="n{{if .CovWork}} w{{end}}" title="AIO {{.Cov.EnvLabel}} devices not in the MDM yet">{{.CovWork}}</span></button>{{end}}{{end}}
-    <button type="button" role="tab" data-tab="profiles">Profiles<span class="n">{{len .Profiles}}</span></button>
-    <button type="button" role="tab" data-tab="recent">Enrollments<span class="n">{{len .Enrollments}}</span></button>
-    <button type="button" role="tab" data-tab="how">How to enroll</button>
-  </div>
-
-  {{if $super}}<section class="en-tabpane" data-tab="found" role="tabpanel">
+  {{if $super}}<section class="en-tabpane" data-tab="found" role="tabpanel" data-title="Found on Wi-Fi" data-sub="{{if .Sightings}}{{.SightingsReady}} ready to enrol{{else}}nothing nearby{{end}}">
   {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
   <div class="cc-card" id="en-scout-card">
-    <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h2>Found on a venue's Wi-Fi</h2><span class="m">{{if .Sightings}}{{.SightingsReady}} ready{{else}}nothing nearby{{end}}</span></div>
     {{template "enroll-scout" .}}
   </div>
-
   </section>{{end}}
 
-  <section class="en-tabpane" data-tab="inbox" role="tabpanel">
-  {{/* ── Inbox ─────────────────────────────────────────────────────────── */}}
-  {{/* Capped at 8: the inbox is a working list, and the shared list JS turns the
-     .lt-more below it into "Show all N waiting". 25 meant every row rendered inline
-     on any realistic fleet, which buried the cards under it. */}}
-  <div class="cc-card lt" id="en-inbox-card" data-lt-n="12">
-    <div class="cc-ch"><span class="ic{{if gt $inboxN 0}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3H10l-2-3H2"/><path d="M5.5 5 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-7A2 2 0 0 0 16.7 4H7.3a2 2 0 0 0-1.8 1z"/></svg></span><h2>Needs assignment</h2><span class="m" id="en-inbox-m">{{if gt $inboxN 0}}{{$inboxN}} waiting{{else}}nothing waiting{{end}}</span><button type="button" class="cc-btn sm" data-copy-serials="#en-inbox" title="Copy the serials waiting for assignment, one per line"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button><a class="r" href="/devices?onboarding=pending">All →</a></div>
-    <div class="lt-bar">
-      <input class="lt-q" type="search" placeholder="Search serial, model, venue…" aria-label="Search inbox" autocomplete="off">
-      <div class="lt-chips">
-        <button type="button" class="lt-chip" data-f="kind" data-v="firmware">Firmware client</button>
-        <button type="button" class="lt-chip" data-f="kind" data-v="dpc">Standard client</button>
-        <button type="button" class="lt-chip" data-f="type" data-v="needed">Model has no class</button>
-      </div>
-      <span class="lt-count"></span>
+  {{/* ── Needs a venue (the inbox): Fleet's table, a venue picker per row, or tick
+       several and assign them from the bar (each one goes through /onboard). ── */}}
+  <section class="en-tabpane lt" data-tab="inbox" role="tabpanel" id="en-inbox-card" data-lt-n="12" data-title="Needs a venue" data-sub="{{if gt $inboxN 0}}{{$inboxN}} device{{if ne $inboxN 1}}s{{end}} waiting{{else}}nothing waiting{{end}}">
+    <div class="fleet-bar">
+      <div class="fleet-search">{{template "en-search-ic"}}<input class="lt-q" type="search" placeholder="Search serial, model, venue…" aria-label="Search the waiting devices" autocomplete="off"></div>
+      <button type="button" class="fleet-fbtn" data-copy-serials="#en-inbox" title="Copy the serials waiting for a venue, one per line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
+      <button type="button" class="fleet-fbtn en-sort" data-sort="#en-inbox">{{template "en-sort-ic"}}Sort<span class="sort-cur">· Newest ↓</span></button>
     </div>
-    <div class="lt-none lt-out">No waiting device matches.</div>
-    <div id="en-inbox">{{template "enroll-inbox" .}}</div>
-  </div>
-
+    <div class="fl-fchips">
+      <span class="fl-quick">
+        <button type="button" class="fq lt-chip" data-f="kind" data-v="dpc">Standard client</button>
+        <button type="button" class="fq lt-chip" data-f="kind" data-v="firmware">Firmware client</button>
+        <button type="button" class="fq lt-chip" data-f="type" data-v="needed">Model has no class</button>
+      </span>
+      <span class="lt-count en-count"></span>
+      <a class="en-all" href="/devices?onboarding=pending">All in Fleet →</a>
+    </div>
+    {{if $canOp}}
+    <div class="en-assign" id="en-assign" hidden>
+      <b id="en-assign-n">0 selected</b>
+      <select class="en-sel" id="en-assign-site" aria-label="Venue for the selected devices"><option value="">Venue…</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+      <button type="button" class="cc-btn sm primary" id="en-assign-go">Assign to venue</button>
+      <button type="button" class="cc-btn sm" id="en-assign-clear">Clear</button>
+    </div>
+    {{end}}
+    <div class="lt-none lt-out en-none">No waiting device matches.</div>
+    <div class="card en-card" id="en-inbox">{{template "enroll-inbox" .}}</div>
   </section>
 
-  {{/* From the AIO backend (E1, 23 Oct 2026): Prod coverage as a tab, the same view
-       /coverage shows. prod_coverage.go */}}
-  {{if and $super .Cov}}<section class="en-tabpane" data-tab="backend" role="tabpanel">
+  {{/* From the AIO backend (E1, 23 Oct 2026): Prod coverage, the same view /coverage
+       shows. prod_coverage.go */}}
+  {{if and $super .Cov}}<section class="en-tabpane" data-tab="backend" role="tabpanel" data-title="From the AIO backend" data-sub="AIO {{.Cov.EnvLabel}} devices not in the MDM yet">
   {{template "cov-style"}}
   {{template "venues-backend-place" (dict "Placements" .Placements "Role" .Role)}}
   {{template "cov-body" (dict "Cov" .Cov "Role" .Role)}}
   </section>{{end}}
-  <section class="en-tabpane" data-tab="profiles" role="tabpanel">
-  {{/* ── Profiles ── a list, not cards (demo P3) ─────────────────────────── */}}
-  <div class="cc-card lt" id="en-profiles" data-lt-n="10">
-    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM18 14h3M14 18v3"/></svg></span><h2>Enrollment profiles</h2><span class="m">{{len .Profiles}} profile{{if ne (len .Profiles) 1}}s{{end}} · {{.Stats.ActiveProfs}} active</span>{{if $canOp}}{{if gt .ExpiredProfiles 0}}<form method="POST" action="/enrollment/profiles/delete-expired" hx-boost="false" style="margin-left:auto" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Delete {{.ExpiredProfiles}} expired profile{{if ne .ExpiredProfiles 1}}s{{end}}? Devices they enrolled keep working."><button type="submit" class="cc-btn sm">Delete expired <span class="n">{{.ExpiredProfiles}}</span></button></form>{{end}}<button type="button" class="cc-btn sm" onclick="enOpenModal()"{{if gt .ExpiredProfiles 0}} style="margin-left:6px"{{else}} style="margin-left:auto"{{end}}>New profile</button>{{end}}</div>
+
+  {{/* ── Profiles: one line each; ⋯ holds QR / Copy token / Edit / Revoke. ── */}}
+  <section class="en-tabpane lt" data-tab="profiles" role="tabpanel" id="en-profiles" data-lt-n="10" data-title="Profiles" data-sub="{{len .Profiles}} · {{.Stats.ActiveProfs}} active">
     {{if .Profiles}}
-    <div class="lt-bar">
-      <input class="lt-q" type="search" placeholder="Search name, type, site…" aria-label="Search profiles" autocomplete="off">
-      <span class="lt-count"></span>
+    <div class="fleet-bar">
+      <div class="fleet-search">{{template "en-search-ic"}}<input class="lt-q" type="search" placeholder="Search name, venue, group…" aria-label="Search profiles" autocomplete="off"></div>
+      {{if $canOp}}{{if gt .ExpiredProfiles 0}}<form method="POST" action="/enrollment/profiles/delete-expired" hx-boost="false" style="margin:0" onsubmit="return confirm(this.getAttribute('data-confirm'))" data-confirm="Delete {{.ExpiredProfiles}} expired profile{{if ne .ExpiredProfiles 1}}s{{end}}? Devices they enrolled keep working."><button type="submit" class="fleet-fbtn">Delete expired <span class="en-n">{{.ExpiredProfiles}}</span></button></form>{{end}}{{end}}
     </div>
-    <div class="lt-none lt-out">No profile matches.</div>
+    <div class="fl-fchips">
+      <span class="fl-quick">
+        <button type="button" class="fq lt-chip" data-f="state" data-v="active">Active</button>
+        <button type="button" class="fq lt-chip" data-f="state" data-v="off">Expired or revoked</button>
+      </span>
+      <span class="lt-count en-count"></span>
+    </div>
     {{if $canOp}}
-    {{/* Selection toolbar: ticks in the rows below feed this form (the checkboxes carry
-         form="en-prof-bulk", so the list itself stays plain markup). Buttons wake up
-         when something is ticked; Delete asks first. */}}
-    <form id="en-prof-bulk" method="POST" action="/enrollment/profiles/bulk" hx-boost="false" class="en-bulk" onsubmit="return enBulkConfirm(this)">
-      <label class="en-bulk-all"><input type="checkbox" id="en-prof-all" aria-label="Select all profiles"> <span class="en-bulk-n" id="en-prof-n">none selected</span></label>
-      <span class="sp"></span>
+    {{/* Selection: ticks in the rows feed this form (the checkboxes carry form="en-prof-bulk");
+         the buttons wake up when something is ticked; Delete asks first. */}}
+    <form id="en-prof-bulk" method="POST" action="/enrollment/profiles/bulk" hx-boost="false" class="en-assign en-pbulk" onsubmit="return enBulkConfirm(this)">
+      <b class="en-bulk-n" id="en-prof-n">none selected</b>
       <button type="submit" name="action" value="revoke" class="cc-btn sm" disabled>Revoke</button>
       <button type="submit" name="action" value="activate" class="cc-btn sm" disabled>Reactivate</button>
       <button type="submit" name="action" value="delete" class="cc-btn sm danger" disabled>Delete</button>
     </form>
     {{end}}
-    <div>
+    <div class="lt-none lt-out en-none">No profile matches.</div>
+    <div class="card en-card"><div class="ft-wrap"><table class="ft en-ft">
+      <thead><tr>{{if $canOp}}<th class="ft-cb"><input type="checkbox" id="en-prof-all" aria-label="Select all profiles"></th>{{end}}<th>Profile</th><th style="width:200px">Where devices go</th><th style="width:110px">Enrolled</th><th class="ft-num" style="width:96px">Last used</th><th style="width:180px">State</th><th class="ft-act" style="width:52px"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
       {{range .Profiles}}
-      <div class="en-prow lt-row{{if not .Active}} off{{end}}" id="prof-{{.ID}}" data-lt-text="{{.Name}} {{.ClassLabel}} {{.RestaurantName}} {{.GroupName}}">
-        {{if $canOp}}<input type="checkbox" class="en-pick" name="ids" value="{{.ID}}" form="en-prof-bulk" aria-label="Select {{.Name}}">{{end}}
-        <div class="pr-main">
-          <b title="{{.Name}}">{{.Name}}</b>
-          <div class="pr-facts">{{if .RestaurantName}}{{.RestaurantName}}{{else}}no site, goes to the inbox{{end}}{{if .GroupName}} · {{.GroupName}}{{end}} · <b>{{.EnrollCount}}</b>{{if .MaxEnrolls}}/{{.MaxEnrolls}}{{end}} enrolled{{if .LastEnrolledAt}} · last {{timeSince .LastEnrolledAt}}{{end}}{{if .ExpiresAt}} · {{if .Expired}}expired{{else}}expires{{end}} {{timeUntil .ExpiresAt}}{{end}}{{if .Notes}} · {{.Notes}}{{end}}</div>
-        </div>
-        {{if .Revoked}}<span class="cc-tag bad">revoked</span>{{else if .Expired}}<span class="cc-tag warn">expired</span>{{else if .Exhausted}}<span class="cc-tag warn">limit reached</span>{{else}}<span class="cc-tag ok">active</span>{{end}}
+      <tr class="ft-row lt-row{{if not .Active}} en-off{{end}}" id="prof-{{.ID}}" data-f-state="{{if .Active}}active{{else}}off{{end}}" data-lt-text="{{.Name}} {{.ClassLabel}} {{.RestaurantName}} {{.GroupName}} {{.Notes}}">
+        {{if $canOp}}<td class="ft-cb"><input type="checkbox" class="en-pick" name="ids" value="{{.ID}}" form="en-prof-bulk" aria-label="Select {{.Name}}"></td>{{end}}
+        <td class="en-pname"><b title="{{.Name}}">{{.Name}}</b>{{if .Notes}}<small title="{{.Notes}}">{{.Notes}}</small>{{end}}</td>
+        <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">the inbox</span>{{end}}{{if .GroupName}}<small class="en-sub">+ {{.GroupName}}</small>{{end}}</td>
+        <td><b>{{.EnrollCount}}</b>{{if .MaxEnrolls}}/{{.MaxEnrolls}}{{end}}</td>
+        <td class="ft-num"><span class="dl-synced">{{if .LastEnrolledAt}}{{timeSince .LastEnrolledAt}}{{else}}—{{end}}</span></td>
+        <td>{{if .Revoked}}<span class="cc-tag bad">revoked</span>{{else if .Expired}}<span class="cc-tag warn">expired</span>{{else if .Exhausted}}<span class="cc-tag warn">limit reached</span>{{else}}<span class="cc-tag ok">active</span>{{end}}{{if and .ExpiresAt (not .Expired) (not .Revoked)}} <small class="muted">expires {{timeUntil .ExpiresAt}}</small>{{end}}</td>
+        <td class="ft-act">
         <details class="en-kebab">
           <summary aria-label="Actions for {{.Name}}" title="Actions">⋯</summary>
           <div class="menu">
@@ -272,56 +303,62 @@
             {{end}}
           </div>
         </details>
+        </td>
+      </tr>
+      <tr class="en-qr-row"><td colspan="{{if $canOp}}7{{else}}6{{end}}">
         <div class="en-qr" id="en-qr-{{.ID}}">
           <img loading="lazy" data-src="/enrollment/profiles/{{.ID}}/qr.png" alt="Provisioning QR for {{.Name}}">
           <div class="t"><b>Factory-reset provisioning:</b> on the new device's welcome screen tap anywhere 6 times, scan this code, and the agent installs as Device Owner pointed at this server{{if .RestaurantName}}, placed at <b>{{.RestaurantName}}</b>{{end}}.<br><br><b>Manual:</b> paste the token into the agent's credential field — <span class="cc-mono" title="{{.Token}}">{{.Token}}</span>{{if not $.HasAgentAPK}}<br><br><span class="cc-tag warn">QR cold-provisioning off</span> Set <span class="cc-mono">AGENT_APK_URL</span> and <span class="cc-mono">AGENT_APK_CHECKSUM</span> in the server env so the setup wizard can download the agent. Until then use the manual or adb path.{{end}}</div>
         </div>
-      </div>
+      </td></tr>
       {{end}}
-    </div>
+      </tbody>
+    </table></div>
     <div class="lt-more lt-out" data-what="profiles"><button type="button" class="app-more lt-more-t"></button></div>
+    </div>
     {{else}}
-    <div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span><div><b>No profiles yet</b>A profile is a scannable QR that says what a batch of devices is and where it goes.{{if $canOp}} <a href="#" onclick="enOpenModal();return false">Create one</a>.{{end}}</div></div>
+    <div class="card en-card"><div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span><div><b>No profiles yet</b>A profile is a scannable QR that says what a batch of devices is and where it goes.{{if $canOp}} <a href="#" onclick="enOpenModal();return false">Create one</a>.{{end}}</div></div></div>
     {{end}}
-  </div>
   </section>
 
-  <section class="en-tabpane" data-tab="recent" role="tabpanel">
-  {{/* ── Recent enrollments: who enrolled what (devices.enrolled_by, from AIO Enroll).
-       Devices enrolled before the app recorded it show as "not recorded". ── */}}
-  <div class="cc-card lt" id="en-recent" data-lt-n="15">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><h2>Enrollments</h2><span class="m">standard-client devices · last 30 days · {{len .Enrollments}}</span></div>
+  {{/* ── Enrolled: who enrolled what (devices.enrolled_by, from AIO Enroll). Devices
+       enrolled before the app recorded it show as "not recorded". ── */}}
+  <section class="en-tabpane lt" data-tab="recent" role="tabpanel" id="en-recent" data-lt-n="15" data-title="Enrolled" data-sub="{{len .Enrollments}} in the last 30 days · standard-client devices">
     {{if .Enrollments}}
-    <div class="lt-bar">
-      <input class="lt-q" type="search" placeholder="Search serial, person, venue…" aria-label="Search enrollments" autocomplete="off">
-      <div class="lt-chips">
-        <button type="button" class="lt-chip" data-f="path" data-v="app">AIO Enroll</button>
-        <button type="button" class="lt-chip" data-f="path" data-v="other">adb script / QR</button>
-      </div>
-      <span class="lt-count"></span>
+    <div class="fleet-bar">
+      <div class="fleet-search">{{template "en-search-ic"}}<input class="lt-q" type="search" placeholder="Search serial, person, venue…" aria-label="Search enrollments" autocomplete="off"></div>
     </div>
-    <div class="lt-none lt-out">No enrollment matches.</div>
-    <div style="overflow:auto"><table class="en-recent">
-      <tr><th>When</th><th>By</th><th>Device</th><th>Class</th><th>Venue</th><th>Path</th></tr>
+    <div class="fl-fchips">
+      <span class="fl-quick">
+        <button type="button" class="fq lt-chip" data-f="path" data-v="app">AIO Enroll</button>
+        <button type="button" class="fq lt-chip" data-f="path" data-v="other">adb script / QR</button>
+        <button type="button" class="fq lt-chip" data-f="week" data-v="1">This week</button>
+      </span>
+      <span class="lt-count en-count"></span>
+    </div>
+    <div class="lt-none lt-out en-none">No enrollment matches.</div>
+    <div class="card en-card"><div class="ft-wrap"><table class="ft en-ft">
+      <thead><tr><th style="width:96px">When</th><th style="width:210px">By</th><th class="ft-dev">Device</th><th style="width:150px">Type</th><th>Venue</th><th style="width:130px">Path</th><th class="ft-act" style="width:46px"><span class="sr-only">Open</span></th></tr></thead>
+      <tbody>
       {{range .Enrollments}}
-      <tr class="lt-row" data-f-path="{{if .EnrolledBy}}app{{else}}other{{end}}" data-lt-text="{{.Serial}} {{if .EnrolledBy}}{{(userBubble .EnrolledBy).Name}} {{.EnrolledBy}}{{end}} {{.RestaurantName}} {{classLabel .DeviceClass}}">
-        <td class="small" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</td>
+      <tr class="ft-row lt-row" data-ts="{{.EnrolledAt.Unix}}" data-f-path="{{if .EnrolledBy}}app{{else}}other{{end}}" data-lt-text="{{.Serial}} {{if .EnrolledBy}}{{(userBubble .EnrolledBy).Name}} {{.EnrolledBy}}{{end}} {{.RestaurantName}} {{classLabel .DeviceClass}}">
+        <td><span class="dl-synced" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</span></td>
         <td>{{if .EnrolledBy}}{{template "ubub" (userBubble .EnrolledBy)}} {{if userURL .EnrolledBy}}<a href="{{userURL .EnrolledBy}}" class="link-detail">{{(userBubble .EnrolledBy).Name}}</a>{{else}}{{(userBubble .EnrolledBy).Name}}{{end}}{{else}}<span class="muted" title="Enrolled before AIO Enroll recorded this, or moved by hand.">not recorded</span>{{end}}</td>
-        <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
+        <td class="ft-dev"><div class="ft-l1"><a class="ft-sn link-detail" href="/devices/{{.Serial}}" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></a></div></td>
         <td>{{classLabel .DeviceClass}}</td>
         <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">—</span>{{end}}</td>
         <td>{{if .EnrolledBy}}<span class="cc-tag accent">AIO Enroll</span>{{else}}<span class="muted small">adb script / QR</span>{{end}}</td>
+        <td class="ft-act"><a class="en-go" href="/devices/{{.Serial}}" aria-label="Open {{.Serial}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
       </tr>
       {{end}}
-      <tr class="lt-more lt-out" data-what="enrollments"><td colspan="6"><button type="button" class="app-more lt-more-t"></button></td></tr>
+      </tbody>
     </table></div>
-    {{else}}<div class="en-empty">No enrollments in the last 30 days.</div>{{end}}
-  </div>
-
-
+    <div class="lt-more lt-out" data-what="enrollments"><button type="button" class="app-more lt-more-t"></button></div>
+    </div>
+    {{else}}<div class="card en-card"><div class="en-empty">No enrollments in the last 30 days.</div></div>{{end}}
   </section>
 
-  <section class="en-tabpane" data-tab="how" role="tabpanel">
+  <section class="en-tabpane" data-tab="how" role="tabpanel" data-title="How to enroll" data-sub="four paths, one fleet">
   {{template "enroll-guide" .}}
   <div style="height:16px"></div>
   {{with .St}}{{template "st-getting-started" .}}{{end}}
@@ -367,6 +404,8 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     <div style="height:16px"></div>
   {{template "enroll-provisioning" .Prov}}
   </section>
+  </div>{{/* .fleet-roster */}}
+  </div>{{/* .fleet-md */}}
 </div>
 
 {{/* ── Profile create / edit modal ───────────────────────────────────────── */}}
@@ -466,37 +505,37 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 <div data-count="{{len .Inbox}}">
 {{if .Inbox}}
 {{$canOp := canAdminOrOperator .Role}}
+<div class="ft-wrap"><table class="ft en-ft">
+  <thead><tr>{{if $canOp}}<th class="ft-cb"><input type="checkbox" id="en-inbox-all" aria-label="Select every waiting device shown"></th>{{end}}<th class="ft-dev">Device</th><th style="width:160px">Type</th><th>Model</th><th style="width:120px">Client</th><th class="ft-num" style="width:96px">Enrolled</th>{{if $canOp}}<th style="width:280px">Venue</th>{{end}}</tr></thead>
+  <tbody>
 {{range .Inbox}}
 {{$m := extraField .LatestExtra "model"}}{{$manu := extraField .LatestExtra "manufacturer"}}
-<div class="en-row lt-row" id="dev-{{.SerialNumber}}" data-f-kind="{{.AgentKind}}" data-f-type="{{if and .IsDPC (eq .Class "")}}needed{{else}}set{{end}}" data-lt-text="{{.SerialNumber}} {{$manu}} {{$m}} {{.ProductLabel}} {{.RestaurantName}} {{.KindLabel}}">
-  <div class="id">
-    <a class="sn" href="/devices/{{.SerialNumber}}">{{.SerialNumber}}</a>
-    <div class="sub">
-      <span class="cc-tag">{{.KindLabel}}</span>
-      <span>{{if and .IsDPC (ne $m "") (ne $m "—")}}{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$m}}{{else}}{{.ProductLabel}}{{end}}</span>
-      <span>· {{if .IsDPC}}enrolled{{else}}first seen{{end}} {{timeSince .EnrolledAt}}</span>
-      {{if .RestaurantName}}<span>· {{.RestaurantName}}</span>{{end}}
-      {{/* The class follows the model (Hardware page); a model nobody has attached to a
-           class yet leaves the device with none. */}}
-      {{if .Class}}<span>· {{.ClassLabel}}</span>{{else if canAdmin $.Role}}<a class="cc-tag warn" href="/lineup?role=none#model-{{.Product}}" title="Attach this model to a role on the Lineup page">model has no class</a>{{else}}<span class="cc-tag warn">model has no class</span>{{end}}
-    </div>
-  </div>
-  <div></div>
-  {{if $canOp}}
+<tr class="ft-row en-row lt-row" id="dev-{{.SerialNumber}}" data-serial="{{.SerialNumber}}" data-ts="{{.EnrolledAt.Unix}}" data-f-kind="{{.AgentKind}}" data-f-type="{{if and .IsDPC (eq .Class "")}}needed{{else}}set{{end}}" data-lt-text="{{.SerialNumber}} {{$manu}} {{$m}} {{.ProductLabel}} {{.RestaurantName}} {{.KindLabel}}">
+  {{if $canOp}}<td class="ft-cb"><input type="checkbox" class="en-dpick" value="{{.SerialNumber}}" aria-label="Select {{.SerialNumber}}"></td>{{end}}
+  <td class="ft-dev"><div class="ft-l1"><a class="ft-sn link-detail" href="/devices/{{.SerialNumber}}" data-full="1" hx-boost="false"><span class="pre">{{serialHead .SerialNumber}}</span><span class="tail">{{serialTail .SerialNumber}}</span></a></div></td>
+  {{/* The class follows the model (Lineup); a model nobody has attached to a class yet
+       leaves the device with none. */}}
+  <td>{{if .Class}}{{.ClassLabel}}{{else if canAdmin $.Role}}<a class="cc-tag warn" href="/lineup?role=none#model-{{.Product}}" title="Attach this model to a role on the Lineup page">model has no class</a>{{else}}<span class="cc-tag warn">model has no class</span>{{end}}</td>
+  <td class="en-m">{{if and .IsDPC (ne $m "") (ne $m "—")}}{{if and (ne $manu "") (ne $manu "—")}}{{$manu}} {{end}}{{$m}}{{else}}{{.ProductLabel}}{{end}}{{if .RestaurantName}}<small class="en-sub">at {{.RestaurantName}}</small>{{end}}</td>
+  <td>{{.KindLabel}}</td>
+  <td class="ft-num"><span class="dl-synced" title="{{if .IsDPC}}enrolled{{else}}first seen{{end}}">{{timeSince .EnrolledAt}}</span></td>
+  {{if $canOp}}<td>
   <form method="POST" action="/devices/{{.SerialNumber}}/onboard" hx-post="/devices/{{.SerialNumber}}/onboard" hx-swap="none" class="en-onboard">
     <input type="hidden" name="from" value="/enrollment">
-    <select class="en-sel" name="restaurant_id" aria-label="Site">
-      <option value="">Site…</option>
+    <select class="en-sel" name="restaurant_id" aria-label="Venue for {{.SerialNumber}}">
+      <option value="">Venue…</option>
       {{$rid := ""}}{{with .RestaurantID}}{{$rid = .String}}{{end}}{{range $.Restaurants}}<option value="{{.ID}}"{{if eq .ID.String $rid}} selected{{end}}>{{.Name}}</option>{{end}}
     </select>
-    <button type="submit" class="cc-btn sm">Done</button>
+    <button type="submit" class="cc-btn sm">Assign</button>
   </form>
-  {{else}}<div></div>{{end}}
-</div>
+  </td>{{end}}
+</tr>
 {{end}}
+  </tbody>
+</table></div>
 <div class="lt-more lt-out" data-what="waiting"><button type="button" class="app-more lt-more-t"></button></div>
 {{else}}
-<div class="cc-empty lt-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Nothing waiting</b>A device that enrolls, or checks in for the first time, appears here until it has a site.</div></div>
+<div class="cc-empty lt-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span><div><b>Nothing waiting</b>A device that enrolls, or checks in for the first time, appears here until it has a venue.</div></div>
 {{end}}
 </div>
 {{end}}
@@ -637,3 +676,6 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
   })();
   </script>
 {{end}}
+
+{{define "en-search-ic"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>{{end}}
+{{define "en-sort-ic"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"></path></svg>{{end}}

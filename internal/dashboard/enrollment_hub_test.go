@@ -67,8 +67,11 @@ func TestEnrollmentHubRenders(t *testing.T) {
 		"Prov": map[string]any{"AgentAPKHosted": true, "AgentAPKHostedInfo": map[string]any{"URL": "https://mdm/agent.apk", "Name": "dpc.apk", "Size": 1, "At": now, "SHA": "x"},
 			"FleetAdbKey": map[string]any{"SecretSet": true}},
 		"Restaurants": []db.Restaurant{{ID: uuid.New(), Name: "Huanchaco"}},
-		"Profiles": []db.EnrollmentProfile{}, "Enrollments": []db.Enrollment{}, "Unenrollments": []db.Unenrollment{},
-		"Inbox": []db.Device{}, "Sightings": []sightingGroup{}, "Groups": []db.Group{},
+		"Profiles": []db.EnrollmentProfile{{ID: uuid.New(), Name: "AIO Enroll app · binyamin", Token: "enr_x", EnrollCount: 30}},
+		"Enrollments": []db.Enrollment{{Serial: "DP02254J10876", DeviceClass: "pos", EnrolledAt: now}},
+		"Unenrollments": []db.Unenrollment{},
+		"Inbox": []db.Device{{ID: uuid.New(), SerialNumber: "AK270AABU00026", AgentKind: "dpc", EnrolledAt: now}},
+		"Sightings": []sightingGroup{}, "Groups": []db.Group{},
 		"SightingsReady": 2, "ExpiredProfiles": 0, "Enrolling": false, "ScoutOn": true, "FleetKeySet": true,
 	}
 	var buf bytes.Buffer
@@ -77,12 +80,18 @@ func TestEnrollmentHubRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`class="en-fun"`, `<b>220</b>`, `▲ 6 this week`, `<span class="k">In the AIO backend</span><b>1</b>`,
-		`data-tab="backend">From the AIO backend`, `<section class="en-tabpane" data-tab="backend"`,
+		// E1 (30 Oct 2026): Fleet's layout, the tabs as the left list, tables on the right.
+		`class="fleet-rail en-rail"`, `data-en-tab="inbox"><span class="dot warn"></span><span class="nm">Needs a venue</span><span class="ct">3</span>`,
+		`<b>3</b> need a venue · 220 in the MDM · 6 this week`,
+		`data-en-tab="backend"`, `<section class="en-tabpane" data-tab="backend"`, `data-en-tab="found"`,
 		`In the AIO backend, not here yet`, `Ole Ole Burrito`, `Redwood Grill`, `href="/enrollment?tab=backend&amp;type=pos"`,
 		`Standard MDM for QR provisioning`, `id="fleet-adb-key"`,
-		`data-tab="how">How to enroll</button>`, `/static/video/enroll-guide.mp4`, `data-t="43.6"`,
-		`data-tab="found">Found on Wi-Fi`,
+		`class="cc-btn" data-en-tab="how">`, `/static/video/enroll-guide.mp4`, `data-t="43.6"`,
+		// Needs a venue as a table: tick boxes, the assign bar, a venue picker per row.
+		`id="en-assign"`, `id="en-inbox-all"`, `class="ft-row en-row lt-row" id="dev-AK270AABU00026"`, `class="en-dpick" value="AK270AABU00026"`,
+		`action="/devices/AK270AABU00026/onboard"`, `>Assign</button>`, `data-f="type" data-v="needed">Model has no class`,
+		// Enrolled and Profiles as tables.
+		`data-f="week" data-v="1">This week`, `id="prof-`, `data-f-state="active"`, `id="en-prof-all"`, `action="/enrollment/profiles/bulk"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Enrollment hub is missing %q", want)
@@ -91,13 +100,17 @@ func TestEnrollmentHubRenders(t *testing.T) {
 	if strings.Contains(out, "Unenrollments") || strings.Contains(out, "How devices get here") {
 		t.Error("Enrollment hub still shows unenrollments or the old tab name")
 	}
+	// No number cards any more, and How to enroll is a header button, not a list entry.
+	if strings.Contains(out, `class="en-fun"`) || strings.Contains(out, `class="fleet-rail-item" data-en-tab="how"`) {
+		t.Error("the funnel cards or a How to enroll rail entry are back")
+	}
 	// Found on Wi-Fi and From the AIO backend are super admin only (26 Oct 2026).
 	data["Role"] = "fleet_admin"
 	buf.Reset()
 	if err := hubTmpl(t, "enrollment.html", "coverage.html", "restaurants.html", "layout.html", "_settings_cards.html").ExecuteTemplate(&buf, "enrollment.html", data); err != nil {
 		t.Fatalf("enrollment.html as fleet_admin: %v", err)
 	}
-	for _, gone := range []string{`data-tab="found"`, `data-tab="backend"`, `href="?tab=found"`, `href="?tab=backend"`} {
+	for _, gone := range []string{`data-tab="found"`, `data-tab="backend"`, `data-en-tab="found"`, `data-en-tab="backend"`} {
 		if strings.Contains(buf.String(), gone) {
 			t.Errorf("a non-super-admin sees %q", gone)
 		}
