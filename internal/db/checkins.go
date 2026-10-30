@@ -292,7 +292,7 @@ var stateKeys = []string{
 // reading of one. host_app_fg is whether the host app's variant in use is in the
 // foreground (extra.host_app, firmware client 1.11.0+): host_app itself is a large,
 // stripped key, so its one state bit is recorded as a transition here, which is what
-// lets the host_app_away alert measure "away for N minutes" the way wlc_continuous
+// let the (since removed, 30 Oct 2026) host_app_away alert measure "away for N minutes" the way wlc_continuous
 // measures a pad state. Absent when the report has no host app with variants.
 func withDerivedState(m map[string]json.RawMessage) {
 	raw, ok := m["host_app"]

@@ -202,7 +202,7 @@ func humanizeAlert(a db.Alert) humanAlert {
 		}
 		s = fmt.Sprintf("%s reported %s %s recently%s.", place, b(fmt.Sprintf("%d", n)), word, crashTail(str("summary")))
 		h.PackageName = extractPackageName(str("summary"))
-	case "host_app_away":
+	case "host_app_away": // removed 30 Oct 2026; kept so past alerts in history still read
 		h.Headline = "The app is not on screen"
 		s = fmt.Sprintf("%s has had its app off the screen for %s during service, with the screen on — guests may be looking at something else.",
 			place, b(minsAgo(num("away_min"))))

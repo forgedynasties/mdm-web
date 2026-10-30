@@ -2249,6 +2249,12 @@ CREATE TABLE IF NOT EXISTS remote_tokens (
     expires   TIMESTAMPTZ NOT NULL
 );
 
+-- Host app not on screen removed (user, 30 Oct 2026: "remove the app not on screen alert
+-- completely"): its rule goes and any open alert of it is resolved.
+DELETE FROM alert_rules WHERE type = 'host_app_away';
+UPDATE alerts SET status = 'resolved', resolved_at = COALESCE(resolved_at, NOW()), updated_at = NOW()
+  WHERE type = 'host_app_away' AND status <> 'resolved';
+
 -- Role ladder (20 Oct): viewer → support → operator → fleet_manager → fleet_admin
 -- ("Admin") → admin (super admin), and customers owner / staff. Super ops and access
 -- admins become fleet managers (super ops push firmware only where a rule says so now).

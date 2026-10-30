@@ -96,8 +96,6 @@ var defaultAlertRules = []struct {
 	{"wifi_unstable", "Frequent Wi-Fi disconnects", `{"disconnects":3}`, "always", true},
 	{"device_crash", "Device crash / ANR", `{"window_min":15}`, "always", true},
 	{"slow_charge_night", "Slow overnight charging", `{"max_gain_pct":15,"window_hours":2,"below_pct":80}`, "overnight", true},
-	// 17 Oct: the host app gone from the screen during service (firmware client 1.11.0+).
-	{"host_app_away", "Host app not on screen", `{"minutes":5}`, "service", true},
 	// Off by default (15 Oct): compliance alerts wait for a few weeks of results.
 	{"compliance_failed", "Fails a required compliance check", `{"minutes":30}`, "always", false},
 	// A device in lost mode reporting in. Every device, assigned to a venue or not.

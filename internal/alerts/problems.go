@@ -84,8 +84,6 @@ func CauseOf(types []string) Cause {
 		return Cause{"app", "Stuck behind prod", "Its role's prod build keeps failing to install, so it is running an older build than every other device in its role."}
 	case has["kiosk_exited"]:
 		return Cause{"kiosk", "Unlocked on the device", "Someone used the staff PIN on the tablet. It stays unlocked until staff tap Back to guest mode or it is re-locked here."}
-	case has["host_app_away"]:
-		return Cause{"app", "App not on screen", "The app it is there to run has been off the screen during service while the screen is on."}
 	case has["compliance_failed"]:
 		return Cause{"compliance", "Out of compliance", "It has failed a required compliance check for a while. The device page's Compliance tab names it."}
 	case has["identity_conflict"]:
