@@ -122,6 +122,11 @@ func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid restaurant", http.StatusBadRequest)
 		return
 	}
+	// Only into a venue this person may act on, as the single-device onboard checks.
+	if !h.access(r).venueInScope(rid) {
+		http.Error(w, "That venue is outside your access.", http.StatusForbidden)
+		return
+	}
 	if err := h.db.AssignDevicesToRestaurant(r.Context(), serials, rid); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
