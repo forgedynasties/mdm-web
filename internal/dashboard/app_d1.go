@@ -5,6 +5,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/google/uuid"
 
 	"mdm/internal/db"
 )
@@ -54,6 +57,19 @@ type d1Channel struct {
 
 type d1Device struct {
 	Serial, Version, Venue string
+	LastSeen               *time.Time
+	Online                 bool
+}
+
+// d1Row is one line of P1's Versions table: a version the library holds, devices run, or both.
+type d1Row struct {
+	Version   string // "" = devices that report no version
+	Added     string // library upload date, "" when the library lacks it
+	ApkURL    string
+	ID        string // library app id (delete)
+	Newest    bool
+	InLibrary bool
+	Devices   int
 }
 
 type appD1 struct {
@@ -74,6 +90,7 @@ type appD1 struct {
 
 	Versions    []d1Version
 	LibVersions []d1LibVersion
+	VRows       []d1Row // P1: library versions and versions on devices in one list
 	Channels    []d1Channel
 	Rows        []d1Device
 	VerOpts     []string // version pill values, as shown
@@ -110,6 +127,7 @@ type d1Inputs struct {
 	Siblings   map[string]map[string]bool // other channel package → serials that run it
 	SiblingCov map[string]pkgCoverage
 	Devices    []db.DeviceAppRow
+	Online     map[uuid.UUID]bool
 	Missing    []string // serials without this package (unknown-version rule already applied)
 	OtherCount int
 	CanSend    bool
@@ -176,10 +194,32 @@ func buildAppD1(in d1Inputs) appD1 {
 		v.Versions = append(v.Versions, row)
 	}
 
+	// P1: one Versions list. Library versions newest first (with what runs them), then
+	// versions only devices have, biggest first, "no version" last.
+	onDev := map[string]int{}
+	for _, vr := range v.Versions {
+		onDev[vr.Version] = vr.Devices
+	}
+	seen := map[string]bool{}
+	for _, lv := range v.LibVersions {
+		v.VRows = append(v.VRows, d1Row{Version: lv.Version, Added: lv.AddedShort, ApkURL: lv.ApkURL, ID: lv.ID, Newest: lv.Latest, InLibrary: true, Devices: onDev[lv.Version]})
+		seen[lv.Version] = true
+	}
+	for _, vr := range v.Versions {
+		if !seen[vr.Version] && vr.Version != "" {
+			v.VRows = append(v.VRows, d1Row{Version: vr.Version, Devices: vr.Devices})
+		}
+	}
+	for _, vr := range v.Versions {
+		if vr.Version == "" {
+			v.VRows = append(v.VRows, d1Row{Devices: vr.Devices})
+		}
+	}
+
 	// Devices, with the pills' values.
 	vers, venues := map[string]bool{}, map[string]bool{}
 	for _, d := range in.Devices {
-		v.Rows = append(v.Rows, d1Device{Serial: d.Serial, Version: d.Version, Venue: d.Venue})
+		v.Rows = append(v.Rows, d1Device{Serial: d.Serial, Version: d.Version, Venue: d.Venue, LastSeen: d.LastSeen, Online: in.Online[d.DeviceID]})
 		vers[d.Version] = true
 		if d.Venue != "" {
 			venues[d.Venue] = true

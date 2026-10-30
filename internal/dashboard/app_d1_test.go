@@ -121,10 +121,12 @@ func TestAppD1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h1 class="cc-h1">Nugget</h1>`, `<h2>1 thing to look at</h2>`, `>Reconcile 1 on another version</button>`,
-		`hx-get="/apps/install-targets?pkg=aio.app.nugget" hx-target="#d1-targets"`, `<nav class="d1-tabs" aria-label="Channels">`, `href="/apps/aio.app.nugget.stagev2"><b>stagev2</b>`, `class="d1-tab on" href="/apps/aio.app.nugget" aria-current="page"><b>prod</b><small>17.0.0</small>`, `prod in the library <span>1</span>`, `prod on devices <span>14</span>`,
+		// P1 (30 Oct 2026): ← Apps, the app's name, its channels in the rail, Versions and Devices.
+		`<a class="p1-back" href="/apps">← Apps</a>`, `<h1 class="cc-h1">Nugget</h1>`, `aria-label="Channels"`,
+		`href="/apps/aio.app.nugget.stagev2"><span class="dot`, `class="fleet-rail-item on" href="/apps/aio.app.nugget" aria-current="page"`, `<small class="p1-rv">17.0.0</small>`,
+		`<h2>Versions <span>`, `<h2>Devices <span>14</span>`, `<span class="cc-tag ok">newest</span>`, `<span class="cc-tag warn">not in library</span>`,
 		`action="/setup/apps/`, `>APK</a>`, `data-d1-set="ver" data-val="16.9.0"`, `data-d1-set="venue" data-val="Huanchaco Peruvian"`,
-		`class="d1-r" data-ver="17.0.0"`, `id="lib-add-modal"`, `id="lib-card"`, `name="next" value="/apps/aio.app.nugget"`,
+		`class="ft-row d1-r" data-ver="17.0.0"`, `id="lib-add-modal"`, `id="lib-card"`, `name="next" value="/apps/aio.app.nugget"`, `aria-label="Family tools"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("app page is missing %q", want)
@@ -134,6 +136,11 @@ func TestAppD1Renders(t *testing.T) {
 	// 30 Oct 2026: "remove this from everywhere on apps").
 	if strings.Contains(out, ">Install on ") || strings.Contains(out, "already run another") {
 		t.Error("the Install on N devices button or its channel warning is back")
+	}
+	for _, gone := range []string{`aa-art`, `class="ov2-ban`, `class="ov2-rail"`, `class="oc-stats"`, `hx-get="/apps/install-targets`} {
+		if strings.Contains(out, gone) {
+			t.Errorf("P1 is simple: %s is back on the app page", gone)
+		}
 	}
 	if p := os.Getenv("D1_RENDER_OUT"); p != "" {
 		os.WriteFile(p, buf.Bytes(), 0o644)

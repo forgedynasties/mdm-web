@@ -182,26 +182,20 @@ func TestAppsA1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h1 class="cc-h1">Apps</h1>`, `onclick="libAddOpen()">Add apps</button>`,
-		`class="a1-r"`, `data-href="/apps/aio.app.nugget"`,
-		`<span class="a1-ver none">not in library</span>`, `>Add APK</button>`, `class="a1-role"`, `<span>stagev2</span>`,
-		`data-a1-set="show" data-val="look"`, `id="lib-card"`, `id="lib-add-modal"`, `id="lib-apk-file"`,
-		`/apps/families`, `>no APK</span>`, `installs sent per day`, `1 more package on devices, not in the library`,
+		// L1 (30 Oct 2026): Fleet's layout, one row per app, channels as plain pills.
+		`<h1 class="cc-h1">Apps</h1>`, `onclick="libAddOpen()">Add apps</button>`, `data-cl data-one="app"`,
+		`data-clf="role"`, `data-clf="other"`, `>By product</span>`, `data-href="/apps/aio.app.nugget"`, `data-flags="role p-`,
+		`<span class="ap-ch prod">prod</span>`, `>stagev2</span>`, `<span class="cc-tag warn">not in library</span>`, `>Add APK</button>`,
+		`data-cls="name"`, `id="lib-card"`, `id="lib-add-modal"`, `id="lib-apk-file"`, `/apps/families`, `/static/js/coll_list.js`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("apps page is missing %q", want)
 		}
 	}
-	if strings.Contains(out, `class="ov2-ban`) {
-		t.Error("the Apps banner is back (removed 30 Oct 2026)")
-	}
-	if strings.Contains(out, `lf-modal`) {
-		t.Error("the family dialogs are back on the list (their tools live on the app page)")
-	}
-	// Role apps only by default (user, 26 Oct 2026), a "Show all apps" box, and no
-	// variant-grouping choice any more.
-	if !strings.Contains(out, `id="a1-all"`) || !strings.Contains(out, `<tr class="a1-r" hidden`) {
-		t.Error("apps.html must hide non-role apps behind a Show all apps checkbox")
+	for _, gone := range []string{`class="ov2-ban`, `class="oc-stats"`, `class="ov2-rail"`, `lf-modal`, `Install on`} {
+		if strings.Contains(out, gone) {
+			t.Errorf("L1 is simple: %s is back on /apps", gone)
+		}
 	}
 	// The box is the super admin's only (30 Oct 2026); for anyone else the handler keeps
 	// the role apps' rows alone.

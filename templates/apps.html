@@ -1,187 +1,109 @@
 {{define "apps.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
 <style>
-  /* Apps list A1 (picked 21 Oct 2026): the Overview's banner, cards, one app table and a
-     rail. A row opens its app's dialog (versions, Install on…, family tools), shared with
-     the Settings tile grid ("app-library-modals" in settings.html). Builder: apps_a1.go. */
   .a1-wrap{padding-bottom:96px}
-  .a1-ban .oc-todo{max-width:none}
-  .a1-ban .oc-todo li{min-width:0}
-  .a1-ch-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-  .a1-q{display:flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:99px;padding:6px 12px;background:var(--surface);min-width:200px}
-  .a1-q:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-  .a1-q input,.a1-q input[type=search]{border:0;background:none;outline:none;box-shadow:none;padding:0;height:auto;min-height:0;border-radius:0;font:inherit;font-size:12.5px;color:var(--text);width:100%}
-  .a1-q svg{width:14px;height:14px;color:var(--muted);flex:none}
-  .a1-all{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-2);cursor:pointer;white-space:nowrap}
-  #a1-apps .oc-ch h2{white-space:nowrap}
-  .a1-nm b a{color:inherit;text-decoration:none;overflow:hidden;text-overflow:ellipsis}
-  .a1-nm b a:hover{text-decoration:underline}
-  .a1-t{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
-  .a1-t th{text-align:left;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border-soft)}
-  .a1-t th:nth-child(1){width:auto}.a1-t th:nth-child(2){width:110px}.a1-t th:nth-child(3){width:30%}.a1-t th:nth-child(4){width:150px}.a1-t th:nth-child(5){width:118px}
-  .a1-t td{padding:10px;border-top:1px solid var(--border-soft);vertical-align:middle}
-  .a1-t tbody tr:first-child td{border-top:0}
-  .a1-r{cursor:pointer}
-  .a1-r:hover td{background:var(--hover)}
-  .a1-r[hidden],.a1-slot[hidden]{display:none}
-  .a1-id{display:flex;align-items:center;gap:11px;min-width:0}
-  .a1-ic{width:34px;height:34px;border-radius:10px;flex:none;object-fit:contain;background:var(--surface-3)}
-  .a1-ini{width:34px;height:34px;border-radius:10px;flex:none;display:grid;place-items:center;font-weight:750;font-size:14px;color:var(--text-2);background:var(--surface-3);text-transform:uppercase}
-  .a1-nm{min-width:0}
-  .a1-nm b{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .a1-nm small{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .a1-role{font-family:var(--font);font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text);flex:none}
-  .a1-ver{font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .a1-ver.none{font-family:var(--font);color:var(--danger);font-weight:600}
-  .a1-cov{min-width:0}
-  .a1-bar{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--surface2)}
-  .a1-bar i{display:block;height:100%}
-  .a1-bar .ok{background:var(--ok)}.a1-bar .ot{background:var(--warn)}.a1-bar .un{background:var(--text-faint);opacity:.45}
-  .a1-cov small{display:block;font-size:11.5px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .a1-cov small b{color:var(--text);font-weight:700}
-  .a1-chs{display:flex;gap:4px;flex-wrap:wrap}
-  .a1-chs span{font-size:10.5px;font-weight:650;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
-  .a1-chs .m{background:none;color:var(--muted)}
-  .a1-act{text-align:right;white-space:nowrap}
-  .a1-slot td{background:var(--surface-2,var(--surface2));padding:4px 14px 12px}
-  .a1-none{padding:18px;text-align:center;color:var(--muted);font-size:12.5px}
-  .a1-sugg{display:flex;flex-direction:column;gap:8px;margin:0 0 10px}
+  .ap-ic{width:30px;height:30px;border-radius:8px;flex:none;object-fit:contain;background:var(--surface-3)}
+  .ap-ic.sm{width:20px;height:20px;border-radius:6px}
+  .ap-ic.ini{display:inline-grid;place-items:center;font-weight:750;font-size:13px;color:var(--text-2);text-transform:uppercase}
+  .ap-chs{display:flex;flex-wrap:wrap;gap:4px}
+  .ap-ch{font-size:11px;font-weight:650;padding:1px 8px;border-radius:99px;background:var(--surface-3);color:var(--text-2);white-space:nowrap}
+  .ap-ch.prod{background:var(--ok-bg);color:var(--ok)}
+  .ap-ver{font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .ap-hact{margin-left:auto}
+  .a1-sugg{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
   .a1-sugg form{display:flex;align-items:center;gap:12px;padding:9px 13px;border-radius:12px;background:var(--accent-soft);font-size:12.5px;margin:0}
   .a1-sugg form span{flex:1;min-width:0}
-  .a1-roles{list-style:none;margin:-4px 0 0;padding:0}
-  .a1-roles li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
-  .a1-roles li:first-child{border-top:0}
-  .a1-roles .t{flex:1;min-width:0}
-  .a1-roles .t b{display:block;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .a1-roles .t small{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .a1-roles .v{font-family:var(--mono);font-size:11.5px;white-space:nowrap}
-  .a1-roles .v.no{font-family:var(--font);color:var(--danger);font-weight:650}
-  .a1-drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:18px 14px;border:1.5px dashed var(--border);border-radius:16px;text-align:center;cursor:pointer;color:var(--muted);font-size:12px;line-height:1.45}
-  .a1-drop:hover,.a1-drop:focus-visible{border-color:var(--accent);outline:none}
-  .a1-drop svg{width:24px;height:24px;color:var(--accent-text)}
-  .a1-drop b{color:var(--text);font-size:13px}
-  .a1-cap{margin-top:-6px}
+  .cl-page .fleet-rail-item .ap-ic.sm{margin-right:2px}
+  @media (max-width:720px){.cl-card .ft-wrap{overflow-x:auto;position:relative}.cl-card .cl-ft{min-width:640px}}
 </style>
 <template id="page-island">
   <span class="isl-t">App library</span>
   <span class="isl-s"><b>{{len .Families}}</b> app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} APK{{if ne (len .Apps) 1}}s{{end}}</span>
   {{if canAppLibrary .Role}}<span class="isl-acts"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></span>{{end}}
 </template>
-{{$a := .A1}}
-<div class="a1-wrap">
+{{$a := .A1}}{{$lib := canAppLibrary .Role}}
+{{/* L1 (picked 30 Oct 2026, user: "a really simple UI … a list inspired from the fleet page
+     list"): Fleet's layout. Rail = saved views (all, role apps, other apps) and each product;
+     search + sort; one row per app (variants folded into its channels). Filtering and
+     sorting in the page: coll_list.js. Only super admins get non-role apps (setup.go). */}}
+<div class="cl-page a1-wrap">
   <div class="cc-top">
-    <div>
-      <div class="cc-eyebrow">Software</div>
-      <h1 class="cc-h1">Apps</h1>
-      <div class="cc-status">{{len .Families}} app{{if ne (len .Families) 1}}s{{end}} · {{len .Apps}} APK{{if ne (len .Apps) 1}}s{{end}}{{if .Coverage}} · on {{.Coverage.Totals.Devices}} devices{{end}}</div>
-    </div>
-    {{if canAppLibrary .Role}}<div class="cc-actions isl-dup"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></div>{{end}}
+    <div><h1 class="cc-h1">Apps</h1></div>
+    {{if $lib}}<div class="cc-actions isl-dup"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></div>{{end}}
   </div>
   {{template "apps-hub-tabs" .}}
-
-  <div class="ov2">
-  <div class="ov2-main">
-    <div class="oc-stats">
-      {{range $a.Cards}}
-      <div class="oc-st">
-        <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
-        <a class="oc-stm" href="{{.Href}}">
-          {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
-          {{with .B}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
-        </a>
-        {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/></svg>{{else}}<div style="height:16px"></div>{{end}}
-      </div>
+  {{if and .Suggestions $lib}}
+  <div class="a1-sugg">
+    {{range .Suggestions}}{{$sg := .}}
+    <form action="/apps/families" method="POST">
+      <input type="hidden" name="next" value="/apps"><input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="base_package" value="{{.BasePackage}}">
+      {{range .Packages}}<input type="hidden" name="packages" value="{{.}}">{{end}}
+      <span><b>{{.Name}}</b> looks like one app in {{len .Packages}} variants: {{range $i, $p := .Packages}}{{if $i}}, {{end}}<span class="mono">{{index $sg.Variants $p}}</span>{{end}}</span>
+      <button type="submit" class="cc-btn sm primary">Merge into one</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+  <div data-cl data-one="app" data-many="apps">
+  <div class="fleet-md dv-rise-1">
+    <aside class="fleet-rail" aria-label="App views">
+      <div class="fleet-rail-cap"><span>Apps</span></div>
+      <button type="button" class="fleet-rail-item on" data-clf="" data-title="All apps" aria-pressed="true"><span class="dot ok"></span><span class="nm">All apps</span><span class="ct">{{len $a.Rows}}</span></button>
+      {{if .CanShowAll}}
+      <button type="button" class="fleet-rail-item" data-clf="role" aria-pressed="false"><span class="dot ok"></span><span class="nm">Role apps</span><span class="ct">{{$a.RoleN}}</span></button>
+      <button type="button" class="fleet-rail-item" data-clf="other" aria-pressed="false"><span class="dot muted"></span><span class="nm">Other apps</span><span class="ct">{{$a.OtherN}}</span></button>
       {{end}}
-    </div>
-
-    <section class="oc-card" id="a1-apps">
-      <div class="oc-ch"><h2>Apps <span>most installed first</span></h2>
-        <div class="a1-ch-r">
-          <label class="a1-q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="a1-q" type="search" placeholder="Search apps, packages, versions" autocomplete="off" aria-label="Search apps"></label>
-          {{if .CanShowAll}}<label class="a1-all"><input type="checkbox" id="a1-all"{{if .ShowAllApps}} checked{{end}}> Show all apps</label>{{end}}
-          <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-a1-pill="show">Show: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-            <div class="cc-menu" hidden>
-              <button type="button" class="cc-mi active" data-a1-set="show" data-val="">All</button>
-              <button type="button" class="cc-mi" data-a1-set="show" data-val="look">Needs a look</button>
-              <button type="button" class="cc-mi" data-a1-set="show" data-val="none">On no device</button>
-            </div></div>
-          <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-a1-pill="chan">Channels: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-            <div class="cc-menu" hidden>
-              <button type="button" class="cc-mi active" data-a1-set="chan" data-val="">Any</button>
-              <button type="button" class="cc-mi" data-a1-set="chan" data-val="many">Several channels</button>
-              <button type="button" class="cc-mi" data-a1-set="chan" data-val="one">One package</button>
-            </div></div>
+      {{if $a.Products}}
+      <div class="fleet-rail-cap" style="margin-top:10px"><span>By product</span></div>
+      {{range $a.Products}}<button type="button" class="fleet-rail-item" data-clf="p-{{.Role}}" aria-pressed="false">{{if .Icon}}<img class="ap-ic sm" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="dot ok"></span>{{end}}<span class="nm">{{.Label}}</span><span class="ct">{{.Devices}}</span></button>{{end}}
+      {{end}}
+    </aside>
+    <div class="fleet-roster">
+      <div class="fleet-pane-head"><span class="t" data-cl-title>All apps</span><span class="c" data-cl-count>{{len $a.Rows}} app{{if ne (len $a.Rows) 1}}s{{end}}</span>{{if $lib}}<span class="ap-hact"><button type="button" class="cc-btn primary sm" onclick="libAddOpen()">Add APK</button></span>{{end}}</div>
+      <div class="fleet-bar">
+        <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search apps, packages, versions…" aria-label="Search apps"></div>
+        <div class="fleet-fwrap">
+          <button type="button" class="fleet-fbtn" data-cl-sortbtn aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"/></svg>Sort<span class="sort-cur" data-cl-sortcur>· Devices ↓</span></button>
+          <div class="cc-menu cl-sortmenu" role="menu" data-cl-sortmenu hidden>
+            <div class="cc-msec">Sort by</div>
+            <button type="button" class="cc-mi active" role="menuitemradio" aria-checked="true" data-cls="devices" data-dir="desc">Devices ↓</button>
+            <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="name" data-dir="asc">Name</button>
+          </div>
         </div>
       </div>
-      {{if and .Suggestions (canAppLibrary .Role)}}
-      <div class="a1-sugg">
-        {{range .Suggestions}}{{$sg := .}}
-        <form action="/apps/families" method="POST">
-          <input type="hidden" name="next" value="/apps"><input type="hidden" name="name" value="{{.Name}}"><input type="hidden" name="base_package" value="{{.BasePackage}}">
-          {{range .Packages}}<input type="hidden" name="packages" value="{{.}}">{{end}}
-          <span><b>{{.Name}}</b> looks like one app in {{len .Packages}} variants: {{range $i, $p := .Packages}}{{if $i}}, {{end}}<span class="mono">{{index $sg.Variants $p}}</span>{{end}}</span>
-          <button type="submit" class="cc-btn sm primary">Merge into one</button>
-        </form>
+      <div class="card cl-card lib-card" id="lib-card">
+        {{if $a.Rows}}
+        <div class="ft-wrap"><table class="ft cl-ft">
+          <thead><tr>
+            <th scope="col">App</th>
+            <th scope="col" style="width:300px">Channels</th>
+            <th scope="col" style="width:160px">Library</th>
+            <th scope="col" class="ft-num" style="width:90px">Devices</th>
+            <th scope="col" class="ft-act" style="width:46px"><span class="sr-only">Open</span></th>
+          </tr></thead>
+          <tbody>
+          {{range $a.Rows}}
+          <tr class="ft-row" data-href="{{.Href}}" data-flags="{{if .Role}}role p-{{.Role}}{{else}}other{{end}}" data-text="{{.Search}}" data-s-name="{{.Name}}" data-s-devices="{{.Devices}}">
+            <td><a class="cl-nm" href="{{.Href}}">{{if .Icon}}<img class="ap-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="ap-ic ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="cl-t"><b>{{.Name}}</b><small>{{if .RoleLabel}}{{.RoleLabel}} · {{end}}{{.Package}}</small></span></a></td>
+            <td>{{if .Chans}}<span class="ap-chs">{{range .Chans}}<span class="ap-ch{{if eq . "prod"}} prod{{end}}">{{.}}</span>{{end}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td>{{if .InLibrary}}<span class="ap-ver">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{else}}<span class="cc-tag warn">not in library</span>{{if $lib}} <button type="button" class="cc-btn xs" onclick="event.stopPropagation();libAddOpen()">Add APK</button>{{end}}{{end}}</td>
+            <td class="ft-num"><b>{{.Devices}}</b></td>
+            <td class="ft-act"><a class="cl-go" href="{{.Href}}" title="Open {{.Name}}" aria-label="Open {{.Name}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table></div>
+        <div class="cl-none" data-cl-none hidden>No app matches.</div>
+        {{else}}
+        <div class="cl-none">No apps yet: drop an APK here or use Add APK.</div>
         {{end}}
       </div>
-      {{end}}
-      {{if $a.Rows}}
-      <table class="a1-t">
-        <thead><tr><th>App</th><th>Library</th><th>On devices</th><th>Channels</th><th></th></tr></thead>
-        <tbody>
-        {{range $i, $r := $a.Rows}}
-        <tr class="a1-r"{{if and (not .Role) (not $.ShowAllApps)}} hidden{{end}} data-search="{{.Search}}" data-look="{{if .Look}}1{{end}}" data-role="{{if .Role}}1{{end}}" data-none="{{if eq .Devices 0}}1{{end}}" data-chan="{{if .Single}}one{{else if .InLibrary}}many{{end}}" data-href="{{.Href}}">
-          <td><div class="a1-id">{{if .Icon}}<img class="a1-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="a1-ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="a1-nm"><b title="{{.Name}}"><a href="{{.Href}}">{{.Name}}</a>{{if .Role}}<span class="a1-role" title="The {{.RoleLabel}} app (Host apps)">role app</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></span></div></td>
-          <td>{{if .InLibrary}}<span class="a1-ver" title="The library's newest">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{else}}<span class="a1-ver none">not in library</span>{{end}}</td>
-          <td><div class="a1-cov" title="{{.Devices}} device{{if ne .Devices 1}}s{{end}} · {{.OnLib}} on the library version · {{.Other}} on another · {{.Unknown}} report no version">{{if gt .Devices 0}}<div class="a1-bar" aria-hidden="true">{{if .OnLib}}<i class="ok" style="width:{{.OnLibPct}}%"></i>{{end}}{{if .Other}}<i class="ot" style="width:{{.OtherPct}}%"></i>{{end}}{{if .Unknown}}<i class="un" style="width:{{.UnknownPct}}%"></i>{{end}}</div><small><b>{{.Devices}}</b> · {{.Note}}</small>{{else}}<small>{{.Note}}</small>{{end}}</div></td>
-          <td>{{if .Channels}}<div class="a1-chs">{{range .Channels}}<span>{{.Label}}</span>{{end}}{{if .MoreChans}}<span class="m">+{{.MoreChans}}</span>{{end}}</div>{{else}}<span class="muted">—</span>{{end}}</td>
-          <td class="a1-act">
-            {{if not .InLibrary}}{{if canAppLibrary $.Role}}<button type="button" class="cc-btn xs" onclick="event.stopPropagation();libAddOpen()">Add APK</button>{{end}}
-            {{end}}
-          </td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
-      <div class="a1-none" hidden>No app matches.</div>
-      {{else}}
-      <div class="a1-none">No apps yet: upload an APK, then install it on devices.</div>
-      {{end}}
-      <div class="oc-foot"><span><i style="background:var(--ok)"></i>On the library version</span><span><i style="background:var(--warn)"></i>Another version</span><span><i style="background:var(--text-faint);opacity:.45"></i>No version reported</span>{{if $a.Hidden}}<span>· {{$a.Hidden}} more package{{if ne $a.Hidden 1}}s{{end}} on devices, not in the library</span>{{end}}{{if .Coverage}}<span class="tot">Total: <b>{{$a.Rail.OnLib}}</b> of {{$a.Rail.Known}} installs on the library version</span>{{end}}</div>
-    </section>
+    </div>
   </div>
-
-  {{with $a.Rail}}
-  <aside class="ov2-rail" id="a1-rail" aria-label="The library against the fleet">
-    <div class="ov2-ring{{if .Tone}} s-{{.Tone}}{{end}}" title="{{.OnLib}} of {{.Known}} installs that report a version run the library's">
-      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
-      <span><b>{{.Pct}}</b><small>on library version</small></span>
-    </div>
-    <div class="ov2-hi"><b>{{.OnLib}} of {{.Known}} installs</b><small>that report a version{{if .Unknown}} · {{.Unknown}} report none{{end}}</small></div>
-    {{if .Bars}}
-    <div class="ov2-bars" role="img" aria-label="Installs sent per day, last 7 days">
-      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
-    </div>
-    <div class="ov2-hi a1-cap"><small>installs sent per day</small></div>
-    {{end}}
-    {{if .Roles}}
-    <div class="ov2-rh"><h2>Role apps{{if .RolesMissing}} <span>{{.RolesMissing}} missing</span>{{end}}</h2><a href="/apps/products">Host apps</a></div>
-    <ul class="a1-roles">
-      {{range .Roles}}<li><span class="ovd-dot {{if .Missing}}danger{{else}}ok{{end}}"></span><span class="t"><b>{{.Label}}</b><small title="{{.Package}}">{{.Package}}</small></span>{{if .Missing}}<span class="v no">no APK</span>{{else}}<span class="v">{{if .Version}}{{.Version}}{{else}}in library{{end}}</span>{{end}}</li>{{end}}
-    </ul>
-    {{end}}
-    {{if canAppLibrary $.Role}}
-    <div class="a1-drop lib-card" id="lib-card" role="button" tabindex="0" onclick="libAddOpen()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libAddOpen();}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-      <b>Drop APKs here</b>or use Add apps. Each is read in your browser, then uploaded straight to storage.
-    </div>
-    {{end}}
-  </aside>
-  {{end}}
   </div>
 </div>
 {{template "app-library-add" .}}
-<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
-<script src="/static/js/apps.js?v={{assetVer}}"></script>
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}

@@ -5,6 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/uuid"
+
 	prod "mdm/internal/product"
 )
 
@@ -48,6 +50,10 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	acc := h.access(r)
+	in.Online = map[uuid.UUID]bool{}
+	for id := range h.hub.ConnectedIDsForDisplay() {
+		in.Online[id] = true
+	}
 	if rows, err := h.db.DevicesWithPackage(ctx, pkg); err == nil {
 		for _, d := range rows {
 			if acc.visible(d.DeviceID) {

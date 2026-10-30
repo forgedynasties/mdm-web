@@ -1,236 +1,142 @@
-{{define "app-art"}}<span class="aa-art aa-art-{{.Art}}">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}<span class="aa-ini">{{.Initial}}</span>{{end}}</span>{{end}}
-
 {{define "app_detail.html"}}
 {{template "header" .}}
 {{$a := .App}}{{$next := printf "/apps/%s" $a.Package}}
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
 <style>
-  /* App page D1 (picked 21 Oct 2026): banner, cards, versions in service and the device
-     table, with a library rail (versions, channels, family tools, drop zone). app_d1.go. */
-  .aa-art{position:relative;display:grid;place-items:center;border-radius:16px;overflow:hidden;flex:none;width:56px;height:56px;box-shadow:0 4px 12px rgba(20,22,40,.12)}
-  .aa-art img{width:62%;height:62%;object-fit:contain;filter:drop-shadow(0 2px 5px rgba(20,22,40,.22))}
-  .aa-ini{font-weight:800;color:rgba(255,255,255,.95);font-size:22px}
-  .aa-art-0{background:linear-gradient(145deg,#8f94f8,#f9674e)}
-  .aa-art-1{background:linear-gradient(145deg,#34c98a,#1f8f66)}
-  .aa-art-2{background:linear-gradient(145deg,#f2a15c,#e8822e)}
-  .aa-art-3{background:linear-gradient(145deg,#5f95f7,#3b6fd4)}
-  .aa-art-4{background:linear-gradient(145deg,#ab74ee,#7c4bd0)}
-  .aa-art-5{background:linear-gradient(145deg,#f5789f,#e0486f)}
-  .d1-top{display:flex;align-items:center;gap:14px}
-  .d1-up{color:inherit;text-decoration:none}.d1-up:hover{text-decoration:underline}
-  .d1-top .cc-status .mono{font-size:12px}
-  .d1-cta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-  .d1-hint{font-size:11.5px;color:var(--muted);text-align:right;margin:6px 0 0;max-width:420px;margin-left:auto;line-height:1.45}
-  .d1-hint.warn{color:var(--warn)}
-  #d1-targets:empty{display:none}
-  #d1-targets{margin:0 0 14px}
-  .d1-ban .oc-todo{max-width:none}
-  .d1-vrow{display:grid;grid-template-columns:minmax(120px,190px) 1fr 44px 56px;align-items:center;gap:10px;font-size:12.5px;padding:5px 0}
-  .d1-vrow .l{font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .d1-vrow .l.un{font-family:var(--font);color:var(--warn);font-weight:650}
-  .d1-vrow .tr{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden}
-  .d1-vrow .tr i{display:block;height:100%;background:var(--warn)}
-  .d1-vrow .tr i.ok{background:var(--ok)}.d1-vrow .tr i.un{background:var(--text-faint);opacity:.45}
-  .d1-vrow .n{font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
-  .d1-vrow .tag{font-size:10px;font-weight:750;border-radius:99px;padding:1px 7px;background:var(--ok-bg);color:var(--ok);justify-self:start}
-  .d1-t{width:100%;border-collapse:collapse;font-size:12.5px}
-  .d1-t th{text-align:left;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border-soft)}
-  .d1-t td{padding:8px 10px;border-top:1px solid var(--border-soft)}
-  .d1-t tbody tr:first-child td{border-top:0}
-  .d1-t tr[hidden]{display:none}
-  .d1-t .sn{font-family:var(--mono);font-weight:650;color:var(--text);text-decoration:none}
-  .d1-t .sn:hover{text-decoration:underline}
-  .d1-t .vn{font-family:var(--mono);font-size:12px}
-  .d1-t .vn.un{font-family:var(--font);color:var(--warn)}
-  .d1-t .ok{color:var(--ok);font-weight:650}
-  .d1-scroll{max-height:560px;overflow:auto}
-  .d1-none{padding:16px;text-align:center;color:var(--muted);font-size:12.5px}
-  .d1-list{list-style:none;margin:-4px 0 0;padding:0}
-  .d1-list li{display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:12.5px;min-width:0}
-  .d1-list li:first-child{border-top:0}
-  .d1-list .t{flex:1;min-width:0}
-  .d1-list .t b{display:block;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .d1-list .t b.mono{font-family:var(--mono);font-size:12px}
-  .d1-list .t small{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .d1-list .t a{color:inherit;text-decoration:none}.d1-list .t a:hover{text-decoration:underline}
-  .d1-list .cur{font-size:10px;font-weight:750;padding:1px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text);margin-left:4px}
-  .d1-list .n{font-weight:700;font-variant-numeric:tabular-nums;font-size:12.5px}
-  .d1-list .tag{font-size:10px;font-weight:750;border-radius:99px;padding:1px 7px;background:var(--ok-bg);color:var(--ok)}
-  .d1-list form{margin:0}
-  .d1-list .x{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
-  .d1-list .x:hover{background:var(--danger);color:#fff;border-color:transparent}
-  .d1-list .apk{font-size:12px;font-weight:650;color:var(--accent-text);text-decoration:none}
+  /* App page P1 (picked 30 Oct 2026): Fleet's layout. ← Apps and the app's name; its
+     channels in the rail; the picked channel's Versions (library + devices in one list)
+     and Devices. Family tools in ⋯. Builder: app_d1.go. */
+  .p1-wrap{padding-bottom:96px}
+  .p1-head{display:flex;align-items:center;gap:14px;margin:0 0 16px;flex-wrap:wrap}
+  .p1-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:650;color:var(--text-2);text-decoration:none;padding:6px 11px;border-radius:9px;border:1px solid var(--border);background:var(--surface)}
+  .p1-back:hover{color:var(--text);border-color:var(--rule-2,var(--border))}
+  .p1-title{display:flex;align-items:center;gap:12px;min-width:0}
+  .p1-title h1{font-size:22px;font-weight:700;margin:0;line-height:1.15}
+  .p1-title small{display:block;font-size:12px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+  .p1-ic{width:40px;height:40px;border-radius:11px;flex:none;object-fit:contain;background:var(--surface-3)}
+  .p1-ic.ini{display:inline-grid;place-items:center;font-weight:750;font-size:17px;color:var(--text-2);text-transform:uppercase}
+  .p1-acts{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .p1-acts .cl-more .cc-menu{min-width:300px;padding:12px}
+  .p1-rv{display:block;font-family:var(--mono);font-size:10.5px;font-weight:500;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cl-page .fleet-rail-item .nm{display:flex;flex-direction:column;min-width:0}
+  .p1-card{margin-bottom:14px}
+  .p1-sec{display:flex;align-items:center;gap:10px;padding:14px 18px 6px;flex-wrap:wrap}
+  .p1-sec h2{font-size:15px;font-weight:650;margin:0}.p1-sec h2 span{color:var(--muted);font-weight:500}
+  .p1-sec .oc-f{margin-left:auto}
+  .p1-sec .oc-f+.oc-f{margin-left:0}
+  .p1-ver{font-family:var(--mono);font-size:12px}
+  .p1-apk{font-weight:700;color:var(--accent-text);text-decoration:none}
+  .p1-x{margin:0;display:inline}
+  .p1-x button{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:13px;cursor:pointer}
+  .p1-x button:hover{background:var(--danger);color:#fff;border-color:transparent}
   .d1-tools{display:flex;flex-direction:column;gap:8px}
   .d1-tools form{display:flex;align-items:center;gap:6px;margin:0;flex-wrap:wrap}
   .d1-tools .form-input{font-size:12px;padding:5px 8px;flex:1;min-width:0}
   .d1-tools .note{font-size:11.5px;color:var(--muted);line-height:1.45}
-  .d1-drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 14px;border:1.5px dashed var(--border);border-radius:16px;text-align:center;cursor:pointer;color:var(--muted);font-size:12px;line-height:1.45}
-  .d1-drop:hover,.d1-drop:focus-visible{border-color:var(--accent);outline:none}
-  .d1-drop svg{width:22px;height:22px;color:var(--accent-text)}
-  .d1-drop b{color:var(--text);font-size:13px}
-  .d1-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
-  .d1-tab{display:flex;flex-direction:column;gap:1px;padding:7px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);text-decoration:none;min-width:0}
-  .d1-tab b{font-size:13px;font-weight:700}
-  .d1-tab small{font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap}
-  .d1-tab:hover{border-color:var(--accent-edge)}
-  .d1-tab.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
-  .d1-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:14px;align-items:start}
-  .d1-two .oc-card{margin:0}
-  .d1-pad{padding:0 18px 10px;margin:0}
-  .d1-vrow .tag.old{background:var(--warn-bg);color:var(--warn)}
-  .d1-vrow .tag.warn{background:var(--danger-bg);color:var(--danger)}
-  @media (max-width:1024px){.d1-two{grid-template-columns:minmax(0,1fr)}}
+  .d1-r[hidden]{display:none}
+  .d1-none{padding:16px 18px;color:var(--muted);font-size:12.5px}
+  @media (max-width:720px){.p1-card .ft-wrap{overflow-x:auto;position:relative}.p1-card .ft{min-width:560px}.p1-acts{margin-left:0}}
 </style>
 <template id="page-island">
   <span class="isl-t">{{$a.Name}}</span>
   <span class="isl-s mono">{{$a.Package}}</span>
 </template>
-<div class="cc-top">
-  <div class="d1-top">
-    {{template "app-art" $a}}
-    <div>
-      <div class="cc-eyebrow">Software · <a href="/apps" class="d1-up">Apps</a>{{if $a.FamilyName}} · {{$a.FamilyName}}{{if gt (len $a.Channels) 1}} · {{$a.Variant}}{{end}}{{end}}</div>
-      <h1 class="cc-h1">{{$a.Name}}</h1>
-      <div class="cc-status"><span class="mono">{{$a.Package}}</span> · {{if $a.InLibrary}}library holds <b>{{if $a.LibVersion}}{{$a.LibVersion}}{{else}}an unversioned build{{end}}</b>{{else}}<b style="color:var(--danger)">not in the library</b>{{end}} · on {{$a.Devices}} of {{$a.Fleet}} devices</div>
-      {{range .ProductOf}}<div class="cc-sub">The {{.Label}} app{{if .Variant}} (its .{{.Variant}} build){{end}} · <a href="/apps/products?app={{.Role}}">See it by product →</a></div>{{end}}
+{{$multi := gt (len $a.Channels) 1}}{{$lib := canAppLibrary .Role}}
+<div class="cl-page p1-wrap">
+  <div class="p1-head">
+    <a class="p1-back" href="/apps">← Apps</a>
+    <div class="p1-title">{{if $a.Icon}}<img class="p1-ic" src="{{iconSrc $a.Icon}}" alt="">{{else}}<span class="p1-ic ini">{{$a.Initial}}</span>{{end}}
+      <div><h1 class="cc-h1">{{if $a.FamilyName}}{{$a.FamilyName}}{{else}}{{$a.Name}}{{end}}</h1><small><span class="mono">{{$a.Package}}</span>{{range .ProductOf}} · the {{.Label}} app{{end}}</small></div>
+    </div>
+    <div class="p1-acts">
+      {{if $lib}}<button type="button" class="cc-btn sm" onclick="libAddOpen()">Add a version</button>{{end}}
+      {{if and $lib $a.InLibrary $a.Family}}{{$fam := $a.Family}}
+      <details class="cl-more"><summary title="Family tools" aria-label="Family tools"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary>
+        <div class="cc-menu" role="menu"><div class="cc-msec">Family</div>
+        <div class="d1-tools">
+          {{if and $fam.Grouped $fam.FamilyID}}
+          <form action="/apps/families/{{$fam.FamilyID}}/rename" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="text" name="name" value="{{$fam.Name}}" class="form-input" aria-label="Family name"><button type="submit" class="cc-btn sm">Rename family</button></form>
+          <form action="/apps/package/assign" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="package" value="{{$a.Package}}"><input type="hidden" name="family_id" value="{{$fam.FamilyID}}"><input type="text" name="variant" value="{{$a.Variant}}" class="form-input" aria-label="Channel name"><button type="submit" class="cc-btn sm">Rename channel</button><button type="submit" class="cc-btn sm" name="detach" value="1" title="Make this package its own app">Detach</button></form>
+          <form action="/apps/families/{{$fam.FamilyID}}/ungroup" method="POST" onsubmit="return confirm('Split {{$fam.Name}} into separate apps?')"><input type="hidden" name="next" value="/apps"><button type="submit" class="cc-btn sm">Ungroup the family</button></form>
+          {{else if $fam.Grouped}}
+          <form action="/apps/families" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="base_package" value="{{$fam.BasePackage}}">{{range $fam.Variants}}<input type="hidden" name="packages" value="{{.Package}}">{{end}}<input type="text" name="name" value="{{$fam.Name}}" class="form-input" aria-label="Family name"><button type="submit" class="cc-btn sm">Keep as a family</button></form>
+          <div class="note">Grouped automatically. Keeping it lets you rename channels and pin the grouping.</div>
+          {{else}}
+          <form action="/apps/package/assign" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="package" value="{{$a.Package}}">
+            <select name="family_id" class="form-input" aria-label="Add to a family"><option value="">Add to a family…</option>{{range $.Families}}{{if and .FamilyID (ne .ID $fam.ID)}}<option value="{{.FamilyID}}">{{.Name}}</option>{{end}}{{end}}</select>
+            <input type="text" name="variant" class="form-input" style="max-width:90px" placeholder="channel"><button type="submit" class="cc-btn sm">Add</button></form>
+          <form action="/apps/families" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="base_package" value="{{$a.Package}}"><input type="hidden" name="packages" value="{{$a.Package}}"><input type="text" name="name" value="{{$a.Name}}" class="form-input" aria-label="Family name"><button type="submit" class="cc-btn sm">Make it a family</button></form>
+          {{end}}
+        </div></div>
+      </details>
+      {{end}}
     </div>
   </div>
-  {{if $a.CanSend}}
-  <div>
-    <div class="d1-cta">
-      {{if gt $a.OtherCount 0}}<button type="button" class="cc-btn" hx-get="/apps/install-targets?pkg={{$a.Package}}" hx-target="#d1-targets" hx-swap="innerHTML">Reconcile {{$a.OtherCount}} on another version</button>{{end}}
-    </div>
-    {{if gt $a.Unknown 0}}<p class="d1-hint">{{$a.Unknown}} device{{if ne $a.Unknown 1}}s{{end}} report no version and are left out of both: an install there could be a downgrade.</p>{{end}}
-  </div>
-  {{end}}
-</div>
 
-<div id="d1-targets"></div>
-
-{{/* N3 (picked 30 Oct 2026): a tab per channel with its newest library version; the page
-     below is the picked channel's: its library versions and what its devices run. */}}
-{{if gt (len $a.Channels) 1}}
-<nav class="d1-tabs" aria-label="Channels">{{range $a.Channels}}<a class="d1-tab{{if .Current}} on{{end}}" href="/apps/{{.Package}}"{{if .Current}} aria-current="page"{{end}}><b>{{.Label}}</b><small>{{if .Newest}}{{.Newest}}{{else}}not in library{{end}}</small></a>{{end}}</nav>
-{{end}}
-
-<div class="ov2">
-<div class="ov2-main">
-  {{with $a.Banner}}
-  <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}} d1-ban">
-    <div class="ov2-ban-k">{{.Kicker}}</div>
-    <h2>{{.Headline}}</h2>
-    {{if .Todos}}
-    <ol class="oc-todo">
-      {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .AddApps}}{{if canAppLibrary $.Role}}<button type="button" onclick="libAddOpen()">{{.Action}}</button>{{end}}{{else if .HxGet}}<button type="button" hx-get="{{.HxGet}}" hx-target="#d1-targets" hx-swap="innerHTML">{{.Action}}</button>{{else}}<a href="{{.Href}}"{{if .Ver}} data-d1-ver="{{.Ver}}"{{end}}>{{.Action}}</a>{{end}}</li>{{end}}
-    </ol>
-    {{else}}<p>{{.Calm}}</p>{{end}}
-  </div>
-  {{end}}
-
-  <div class="oc-stats">
-    {{range $a.Cards}}
-    <div class="oc-st">
-      <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
-      <a class="oc-stm" href="{{.Href}}">
-        {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
-        {{with .B}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
-      </a>
-      <div style="height:16px"></div>
-    </div>
+  <div class="{{if $multi}}fleet-md {{end}}dv-rise-1 lib-card" id="lib-card">
+    {{if $multi}}
+    <aside class="fleet-rail" aria-label="Channels">
+      <div class="fleet-rail-cap"><span>Channels</span></div>
+      {{range $a.Channels}}<a class="fleet-rail-item{{if .Current}} on{{end}}" href="/apps/{{.Package}}"{{if .Current}} aria-current="page"{{end}}><span class="dot {{if .Devices}}ok{{else}}muted{{end}}"></span><span class="nm">{{.Label}}<small class="p1-rv">{{if .Newest}}{{.Newest}}{{else}}not in library{{end}}</small></span><span class="ct">{{.Devices}}</span></a>{{end}}
+    </aside>
     {{end}}
-  </div>
+    <div class="fleet-roster">
+      <div class="fleet-pane-head"><span class="t">{{if and $multi $a.Variant}}{{$a.Variant}}{{else}}{{$a.Name}}{{end}}</span><span class="c">{{if $a.LibVersion}}newest {{$a.LibVersion}} · {{else if not $a.InLibrary}}not in the library · {{end}}on {{$a.Devices}} device{{if ne $a.Devices 1}}s{{end}}</span></div>
 
-  <div class="d1-two">
-  <section class="oc-card" id="d1-lib">
-    <div class="oc-ch"><h2>{{if $a.Variant}}{{$a.Variant}}{{else}}{{$a.Name}}{{end}} in the library <span>{{len $a.LibVersions}}</span></h2></div>
-    {{if $a.LibVersions}}<ul class="d1-list d1-pad">
-      {{range $a.LibVersions}}<li><span class="t"><b class="mono">{{if .Version}}{{.Version}}{{else}}unversioned{{end}}{{if .Latest}} <span class="tag">newest</span>{{end}}</b><small>added {{.Added}}</small></span><a class="apk" href="{{.ApkURL}}" target="_blank" rel="noopener">APK</a>{{if canAdmin $.Role}}<form action="/setup/apps/{{.ID}}/delete" method="POST" onsubmit="return libDelete(this, event);"><button type="submit" class="x" title="Delete this version" aria-label="Delete {{.Version}}">&times;</button></form>{{end}}</li>{{end}}
-    </ul>{{else}}<div class="d1-none">The library holds no build of this channel.</div>{{end}}
-  </section>
-  <section class="oc-card" id="d1-versions">
-    {{/* "No version" is its own row and never folded into a total. */}}
-    <div class="oc-ch"><h2>{{if $a.Variant}}{{$a.Variant}}{{else}}{{$a.Name}}{{end}} on devices <span>{{$a.Devices}}</span></h2></div>
-    {{range $a.Versions}}
-    <div class="d1-vrow">
-      <span class="l{{if eq .Version ""}} un{{end}}">{{if eq .Version ""}}no version reported{{else}}{{.Version}}{{end}}</span>
-      <span class="tr"><i class="{{if .Latest}}ok{{else if eq .Version ""}}un{{end}}" style="width:{{.Pct}}%"></i></span>
-      <span class="n">{{.Devices}}</span>
-      {{if .Latest}}<span class="tag">newest</span>{{else if .Held}}<span class="tag old">older</span>{{else if .Version}}<span class="tag warn">not in library</span>{{else}}<span></span>{{end}}
-    </div>
-    {{else}}<div class="d1-none">On no device.</div>
-    {{end}}
-  </section>
-  </div>
-
-  <section class="oc-card" id="d1-devices">
-    <div class="oc-ch"><h2>Devices <span>{{len $a.Rows}}</span></h2>
-      {{if $a.Rows}}
-      <div class="oc-bar" style="margin:0" role="group" aria-label="Filter the devices">
-        {{if gt (len $a.VerOpts) 1}}<div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-d1-pill="ver">Version: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu oc-scroll" hidden>
-            <button type="button" class="cc-mi active" data-d1-set="ver" data-val="">All</button>
-            {{range $a.VerOpts}}<button type="button" class="cc-mi" data-d1-set="ver" data-val="{{.}}">{{if eq . "none"}}No version{{else}}{{.}}{{end}}</button>{{end}}
-          </div></div>{{end}}
-        {{if gt (len $a.Venues) 1}}<div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-d1-pill="venue">Venue: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu oc-scroll" hidden>
-            <button type="button" class="cc-mi active" data-d1-set="venue" data-val="">All</button>
-            {{range $a.Venues}}<button type="button" class="cc-mi" data-d1-set="venue" data-val="{{.}}">{{.}}</button>{{end}}
-          </div></div>{{end}}
+      <div class="card p1-card" id="d1-versions">
+        <div class="p1-sec"><h2>Versions <span>{{len $a.VRows}}</span></h2></div>
+        {{if $a.VRows}}
+        <div class="ft-wrap"><table class="ft">
+          <thead><tr><th scope="col">Version</th><th scope="col" style="width:260px">Library</th><th scope="col" class="ft-num" style="width:90px">Devices</th><th scope="col" class="ft-act" style="width:46px"><span class="sr-only">Delete</span></th></tr></thead>
+          <tbody>
+          {{range $a.VRows}}
+          <tr class="ft-row">
+            <td>{{if .Version}}<span class="p1-ver">{{.Version}}</span>{{if .Newest}} <span class="cc-tag ok">newest</span>{{end}}{{else}}<span class="muted">no version reported</span>{{end}}</td>
+            <td>{{if .InLibrary}}added {{.Added}} · <a class="p1-apk" href="{{.ApkURL}}" target="_blank" rel="noopener">APK</a>{{else if .Version}}<span class="cc-tag warn">not in library</span>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td class="ft-num">{{if .Devices}}<b>{{.Devices}}</b>{{else}}<span class="muted">0</span>{{end}}</td>
+            <td class="ft-act">{{if and .InLibrary (canAdmin $.Role)}}<form class="p1-x" action="/setup/apps/{{.ID}}/delete" method="POST" onsubmit="return libDelete(this, event);"><button type="submit" title="Delete this version" aria-label="Delete {{.Version}}">&times;</button></form>{{end}}</td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table></div>
+        {{else}}<div class="d1-none">The library holds no build of it and no device runs it.</div>{{end}}
       </div>
-      {{end}}
+
+      <div class="card p1-card" id="d1-devices">
+        <div class="p1-sec"><h2>Devices <span>{{len $a.Rows}}</span></h2>
+          {{if $a.Rows}}
+          {{if gt (len $a.VerOpts) 1}}<div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-d1-pill="ver">Version: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+            <div class="cc-menu oc-scroll" hidden>
+              <button type="button" class="cc-mi active" data-d1-set="ver" data-val="">All</button>
+              {{range $a.VerOpts}}<button type="button" class="cc-mi" data-d1-set="ver" data-val="{{.}}">{{if eq . "none"}}No version{{else}}{{.}}{{end}}</button>{{end}}
+            </div></div>{{end}}
+          {{if gt (len $a.Venues) 1}}<div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-d1-pill="venue">Venue: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+            <div class="cc-menu oc-scroll" hidden>
+              <button type="button" class="cc-mi active" data-d1-set="venue" data-val="">All</button>
+              {{range $a.Venues}}<button type="button" class="cc-mi" data-d1-set="venue" data-val="{{.}}">{{.}}</button>{{end}}
+            </div></div>{{end}}
+          {{end}}
+        </div>
+        {{if $a.Rows}}
+        <div class="ft-wrap"><table class="ft">
+          <thead><tr><th scope="col" class="ft-dev">Device</th><th scope="col" style="width:180px">Version</th><th scope="col">Venue</th><th scope="col" class="ft-num ft-seen" style="width:96px">Last seen</th><th scope="col" class="ft-act" style="width:46px"><span class="sr-only">Open</span></th></tr></thead>
+          <tbody>
+          {{range $a.Rows}}
+          <tr class="ft-row d1-r" data-ver="{{if eq .Version ""}}none{{else}}{{.Version}}{{end}}" data-venue="{{.Venue}}">
+            <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span><a href="/devices/{{.Serial}}" class="ft-sn link-detail" data-full="1"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></a></div></td>
+            <td>{{if eq .Version ""}}<span class="muted">no version reported</span>{{else}}<span class="p1-ver">{{.Version}}</span>{{end}}</td>
+            <td>{{if .Venue}}{{.Venue}}{{else}}<span class="muted">—</span>{{end}}</td>
+            <td class="ft-num ft-seen"><span class="dl-synced">{{if .Online}}now{{else if .LastSeen}}{{timeSince .LastSeen}}{{else}}—{{end}}</span></td>
+            <td class="ft-act"><a class="cl-go" href="/devices/{{.Serial}}" title="Open {{.Serial}}" aria-label="Open {{.Serial}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table></div>
+        <div class="d1-none" hidden>No device matches.</div>
+        {{else}}<div class="d1-none">No device reports this package.</div>{{end}}
+      </div>
     </div>
-    {{if $a.Rows}}
-    <div class="d1-scroll">
-    <table class="d1-t">
-      <thead><tr><th>Device</th><th>Version</th><th>Venue</th></tr></thead>
-      <tbody>
-      {{range $a.Rows}}
-      <tr class="d1-r" data-ver="{{if eq .Version ""}}none{{else}}{{.Version}}{{end}}" data-venue="{{.Venue}}">
-        <td><a href="/devices/{{.Serial}}" class="sn">{{.Serial}}</a></td>
-        <td>{{if eq .Version ""}}<span class="vn un">no version reported</span>{{else}}<span class="vn{{if eq .Version $a.LibVersion}} ok{{end}}">{{.Version}}</span>{{end}}</td>
-        <td>{{if .Venue}}{{.Venue}}{{else}}<span class="muted">—</span>{{end}}</td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-    </div>
-    <div class="d1-none" hidden>No device matches.</div>
-    {{else}}<div class="d1-none">No device reports this package.</div>{{end}}
-  </section>
-</div>
-
-<aside class="ov2-rail" id="d1-rail" aria-label="The library for this app">
-  <div class="ov2-ring{{if $a.Ring.Tone}} s-{{$a.Ring.Tone}}{{end}}" title="{{$a.OnLatest}} of {{$a.Known}} installs that report a version run the library's">
-    <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{$a.Ring.Offset}}" transform="rotate(-90 60 60)"/></svg>
-    <span><b>{{$a.Ring.Pct}}</b><small>on library version</small></span>
   </div>
-  <div class="ov2-hi"><b>{{$a.OnLatest}} of {{$a.Known}} devices</b><small>that report a version{{if $a.Unknown}} · {{$a.Unknown}} report none{{end}}</small></div>
-
-  {{if and (canAppLibrary .Role) $a.InLibrary $a.Family}}{{$fam := $a.Family}}
-  <div class="ov2-rh"><h2>Family</h2></div>
-  <div class="d1-tools">
-    {{if and $fam.Grouped $fam.FamilyID}}
-    <form action="/apps/families/{{$fam.FamilyID}}/rename" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="text" name="name" value="{{$fam.Name}}" class="form-input" aria-label="Family name"><button type="submit" class="cc-btn sm">Rename family</button></form>
-    <form action="/apps/package/assign" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="package" value="{{$a.Package}}"><input type="hidden" name="family_id" value="{{$fam.FamilyID}}"><input type="text" name="variant" value="{{$a.Variant}}" class="form-input" aria-label="This channel's label"><button type="submit" class="cc-btn sm">Rename channel</button><button type="submit" class="cc-btn sm" name="detach" value="1" title="Make this package its own app">Detach</button></form>
-    <form action="/apps/families/{{$fam.FamilyID}}/ungroup" method="POST" onsubmit="return confirm('Split {{$fam.Name}} into separate apps?')"><input type="hidden" name="next" value="/apps"><button type="submit" class="cc-btn sm">Ungroup the family</button></form>
-    {{else if $fam.Grouped}}
-    <form action="/apps/families" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="base_package" value="{{$fam.BasePackage}}">{{range $fam.Variants}}<input type="hidden" name="packages" value="{{.Package}}">{{end}}<input type="text" name="name" value="{{$fam.Name}}" class="form-input" aria-label="Family name"><button type="submit" class="cc-btn sm">Keep as a family</button></form>
-    <div class="note">Grouped automatically. Keeping it lets you rename channels and pin the grouping.</div>
-    {{else}}
-    <form action="/apps/package/assign" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="package" value="{{$a.Package}}">
-      <select name="family_id" class="form-input" aria-label="Add to a family"><option value="">Add to a family…</option>{{range $.Families}}{{if and .FamilyID (ne .ID $fam.ID)}}<option value="{{.FamilyID}}">{{.Name}}</option>{{end}}{{end}}</select>
-      <input type="text" name="variant" class="form-input" style="max-width:90px" placeholder="channel"><button type="submit" class="cc-btn sm">Add</button></form>
-    <form action="/apps/families" method="POST"><input type="hidden" name="next" value="{{$next}}"><input type="hidden" name="base_package" value="{{$a.Package}}"><input type="hidden" name="packages" value="{{$a.Package}}"><input type="text" name="name" value="{{$a.Name}}" class="form-input" aria-label="New family name"><button type="submit" class="cc-btn sm">Start a family</button></form>
-    {{end}}
-  </div>
-  {{end}}
-
-  {{if canAppLibrary .Role}}
-  <div class="d1-drop lib-card" id="lib-card" role="button" tabindex="0" onclick="libAddOpen()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libAddOpen();}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
-    <b>Drop a new version here</b>or use Add apps: the library keeps every version.
-  </div>
-  {{end}}
-</aside>
 </div>
 {{template "app-library-add" .}}
 <script src="/static/js/oc-menus.js?v={{assetVer}}"></script>

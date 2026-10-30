@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -89,11 +90,12 @@ type DeviceAppRow struct {
 	Serial   string
 	Version  string
 	Venue    string
+	LastSeen *time.Time
 }
 
 func (d *DB) DevicesWithPackage(ctx context.Context, pkg string) ([]DeviceAppRow, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.id, d.serial_number, COALESCE(dp.version_name, ''), COALESCE(r.name, '')
+		SELECT d.id, d.serial_number, COALESCE(dp.version_name, ''), COALESCE(r.name, ''), d.last_seen_at
 		FROM device_packages dp
 		JOIN devices d ON d.id = dp.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -107,7 +109,7 @@ func (d *DB) DevicesWithPackage(ctx context.Context, pkg string) ([]DeviceAppRow
 	var out []DeviceAppRow
 	for rows.Next() {
 		var x DeviceAppRow
-		if err := rows.Scan(&x.DeviceID, &x.Serial, &x.Version, &x.Venue); err != nil {
+		if err := rows.Scan(&x.DeviceID, &x.Serial, &x.Version, &x.Venue, &x.LastSeen); err != nil {
 			return nil, err
 		}
 		out = append(out, x)

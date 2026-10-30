@@ -59,11 +59,18 @@ type a1Row struct {
 	OtherPct   int
 	UnknownPct int
 	Channels   []a1Chan // variants with devices, biggest first (shown when more than one variant)
+	Chans      []string // L1: every channel label, prod first, then by devices
 	MoreChans  int
 	Note       string // what the row's numbers say, in words
 	Single     string // the one package when the family has one variant (Install on… in place)
 	Look       bool   // something on this row needs a look
 	Search     string
+}
+
+// a1Product is one rail entry under By product: a role app's rows.
+type a1Product struct {
+	Role, Label, Icon string
+	Devices           int
 }
 
 type a1RoleApp struct {
@@ -93,8 +100,11 @@ type appsA1 struct {
 	Banner a1Banner
 	Cards  []ovStat
 	Rows   []a1Row
-	Rail   a1Rail
-	Hidden int // packages seen on devices, not in the library and not a role app
+	// L1 (30 Oct 2026): the rail's By product list and its view counts.
+	Products      []a1Product
+	RoleN, OtherN int
+	Rail          a1Rail
+	Hidden        int // packages seen on devices, not in the library and not a role app
 }
 
 type a1Inputs struct {
@@ -175,6 +185,22 @@ func buildAppsA1(in a1Inputs) appsA1 {
 			r.Single = f.Variants[0].Package
 		}
 		famOther, famOtherUnknown := 0, 0
+		chanDevs := map[string]int{}
+		for _, vr := range f.Variants {
+			chanDevs[vr.Label] = cov.Of(vr.Package).Devices
+			r.Chans = append(r.Chans, vr.Label)
+		}
+		if len(f.Variants) > 1 {
+			prodLabel := f.Prod().Label
+			sort.SliceStable(r.Chans, func(a, b int) bool {
+				if (r.Chans[a] == prodLabel) != (r.Chans[b] == prodLabel) {
+					return r.Chans[a] == prodLabel
+				}
+				return chanDevs[r.Chans[a]] > chanDevs[r.Chans[b]]
+			})
+		} else {
+			r.Chans = nil
+		}
 		for _, vr := range f.Variants {
 			c := cov.Of(vr.Package)
 			r.Devices += c.Devices
@@ -323,7 +349,19 @@ func buildAppsA1(in a1Inputs) appsA1 {
 		for _, c := range r.Channels {
 			r.Search += " " + strings.ToLower(c.Label)
 		}
+		for _, c := range r.Chans {
+			r.Search += " " + strings.ToLower(c)
+		}
 	}
+	for _, r := range v.Rows {
+		if r.Role != "" {
+			v.RoleN++
+			v.Products = append(v.Products, a1Product{Role: r.Role, Label: r.RoleLabel, Icon: r.Icon, Devices: r.Devices})
+		} else {
+			v.OtherN++
+		}
+	}
+	sort.SliceStable(v.Products, func(a, b int) bool { return v.Products[a].Devices > v.Products[b].Devices })
 	sort.SliceStable(v.Rows, func(a, b int) bool {
 		if v.Rows[a].Devices != v.Rows[b].Devices {
 			return v.Rows[a].Devices > v.Rows[b].Devices
