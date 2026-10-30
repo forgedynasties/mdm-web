@@ -17,7 +17,7 @@ The server exposes one `http.ServeMux` (`cmd/server/main.go`) carrying four coex
 |---|---|---|---|
 | Device API | `/api/v1/checkin`, `/commands/{id}/ack`, `/logcat`, `/ota/status`, `/ws` | `X-API-Key: <DEVICE_API_KEY>` | Used by fleet devices |
 | Admin REST API | `/api/v1/devices`, `/groups`, `/productions`, `/commands` | `X-API-Key: <ADMIN_API_KEY>` | Machine-to-machine admin |
-| Testing team API | `/api/v1/testdata/…` (GET only) | `X-API-Key: <QA_API_KEY>` | Read-only; see §3b |
+| Testing team API | `/api/v1/testdata/…` | `X-API-Key: <QA_API_KEY>` | Reads + Lab device controls; see §3b |
 | Remote-control WS | `/api/v1/remote/{serial}` | **Single-use token in query string** (no API key) | Screen mirror / input |
 | HTMX dashboard | `/`, `/login`, `/devices`, `/settings`, … | Cookie session + RBAC | See `AUTH_MODEL.md` |
 | Unauthenticated | `/health`, `/static/…`, `/splash-img/…` | none | See §6 |
@@ -283,17 +283,20 @@ Response `201`: `{ "command": {…}, "skipped": ["serial", …] }`. If every tar
 
 ---
 
-## 3b. Testing team API (`X-API-Key: <QA_API_KEY>`, read-only)
+## 3b. Testing team API (`X-API-Key: <QA_API_KEY>`)
 
-A separate key for the testing team's own tools. It reaches the `GET /api/v1/testdata/…`
-routes and nothing else, so a leaked key can read data but cannot command a device.
+A separate key for the testing team's own tools. It reaches the `/api/v1/testdata/…` routes
+and nothing else: reads, plus three fixed controls (open / close the role app, screen on /
+off) on Lab devices. It cannot reboot, wipe, unlock, install or run a shell.
 Unset `QA_API_KEY` and the routes do not exist (404). It is set on **live**
 (`https://mdm.dev.aioapp.com`), not on stage. CORS is open (`*`), so a static page can call it
 from a browser.
 
-**Scope:** firmware devices (T7, Kiosk) only. A serial outside that scope answers 404, like an
-unknown one. Lists take `?group=<name>` and/or `?restaurant=<name>` (exact name, any case;
-404 when there is no such name).
+**Scope:** firmware devices (T7, Kiosk) in the **Lab** only, i.e. at no venue (since 30 Oct
+2026); a device deployed at a restaurant is never listed or controlled. A serial outside that
+scope answers 404, like an unknown one. Lists take `?group=<name>` (exact name, any case; 404
+when there is no such name). `?restaurant=` still parses but matches nothing, and `filters`
+returns `"restaurants": []`.
 
 | Method | Path | What |
 |---|---|---|
@@ -305,6 +308,21 @@ unknown one. Lists take `?group=<name>` and/or `?restaurant=<name>` (exact name,
 | GET | `/api/v1/testdata/devices/{serial}/battery/climbs` | Its charge climbs, newest first. `?limit=` (default 50, max 500) |
 | GET | `/api/v1/testdata/host-app` | Devices that report a host app: state now and on-screen share over the window (default 24 h, at most 7 days) |
 | GET | `/api/v1/testdata/devices/{serial}/host-app` | When that device's host app was on screen and when not: spans, totals and the raw transitions |
+| POST | `/api/v1/testdata/devices/{serial}/app/open` | `{"package":"aio.app.nugget"}`: open the app (its launcher activity) |
+| POST | `/api/v1/testdata/devices/{serial}/app/close` | `{"package":"aio.app.nugget"}`: force-stop the app |
+| POST | `/api/v1/testdata/devices/{serial}/screen` | `{"state":"on"\|"off"}`: wake the screen / put it to sleep |
+| GET | `/api/v1/testdata/commands/{id}` | Status of a command one of the three above sent |
+
+**Controls.** `open` and `close` take only the device's **role app** (Lineup › role › App, e.g.
+`aio.app.nugget` on a T7) or one of its channels (`aio.app.nugget.uatv2`, …); any other package
+is 403 with `role_app` in the answer. An offline device is 409 (`last_seen_at` included), not
+queued. The reply is 202 `{command_id, status, done, output, action, …}`; add `?wait=true` to
+hold the request up to 20 s and get the finished result (200) instead. `status` runs
+`queued → sent → running → completed | failed | expired` (expired: not run within 5 min);
+`done` is true once it can't change, and `output` is the device's one-line answer
+(`opened aio.app.nugget`, `not installed: …`, `screen off`). Each control is in the audit log
+as `testdata.control` by `qa-api`. A locked device (Lock) keeps other apps from opening over its
+locked app.
 
 `/devices` row: `serial_number, device_class, restaurant_name, groups[], last_seen_at, battery_pct,
 battery_temp_c, charging, wlc_state, charging_pad, ram_used_pct, storage_free_pct,

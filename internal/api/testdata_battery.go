@@ -171,15 +171,20 @@ func (h *Handler) GetTestDataDeviceBatteryClimbs(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, out)
 }
 
-// qaFirmwareDevice resolves {serial} for a testdata route: firmware devices only, and a
-// device outside that scope is "not found" rather than a different answer.
+// qaFirmwareDevice resolves {serial} for a testdata route: firmware devices in the lab
+// only, and a device outside that scope is "not found" rather than a different answer.
 func (h *Handler) qaFirmwareDevice(w http.ResponseWriter, r *http.Request) (*db.Device, bool) {
 	dev, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
-	if err != nil || dev.AgentKind != product.KindFirmware {
+	if err != nil || !qaInScope(dev) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
 		return nil, false
 	}
 	return dev, true
+}
+
+// qaInScope is the testdata API's device scope: firmware client, at no venue (Lab).
+func qaInScope(d *db.Device) bool {
+	return d.AgentKind == product.KindFirmware && d.RestaurantID == nil
 }
 
 func qaBatteryWindow(r *http.Request) (time.Time, time.Time, error) {

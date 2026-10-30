@@ -29,6 +29,41 @@ func (d *DB) RenameGroup(ctx context.Context, id uuid.UUID, name string) error {
 // every list and picker drops them; the super admin's pages ask ListAllGroups.
 const hiddenGroupsSchema = `ALTER TABLE groups ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT false;`
 
+// groupWatchSchema: serials waiting to join a group when they first reach the MDM (user,
+// 30 Oct 2026: department groups from the office device sheet, "skip serial numbers not
+// present … but keep watching for serial numbers to come live"). A device whose serial
+// (or android-<id>) is listed joins the named group — created then if missing — and its
+// rows are dropped, so taking it out of the group later sticks. Rows are added by hand.
+const groupWatchSchema = `
+CREATE TABLE IF NOT EXISTS group_serial_watch (
+	serial     TEXT NOT NULL,
+	group_name TEXT NOT NULL,
+	note       TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+	PRIMARY KEY (serial, group_name)
+);
+CREATE OR REPLACE FUNCTION devices_group_watch() RETURNS trigger AS $$
+DECLARE w RECORD; gid UUID;
+BEGIN
+  FOR w IN DELETE FROM group_serial_watch
+            WHERE upper(serial) = upper(NEW.serial_number)
+               OR 'android-' || lower(serial) = lower(NEW.serial_number)
+            RETURNING group_name
+  LOOP
+    INSERT INTO groups (name) VALUES (w.group_name) ON CONFLICT (name) DO NOTHING;
+    SELECT id INTO gid FROM groups WHERE name = w.group_name;
+    INSERT INTO device_groups (device_id, group_id) VALUES (NEW.id, gid) ON CONFLICT DO NOTHING;
+  END LOOP;
+  RETURN NULL;
+END $$ LANGUAGE plpgsql;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'devices_group_watch') THEN
+    CREATE TRIGGER devices_group_watch AFTER INSERT OR UPDATE OF serial_number ON devices
+      FOR EACH ROW EXECUTE FUNCTION devices_group_watch();
+  END IF;
+END $$;
+`
+
 // ListGroups lists the groups that are not hidden.
 func (d *DB) ListGroups(ctx context.Context) ([]Group, error) { return d.listGroups(ctx, false) }
 

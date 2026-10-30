@@ -95,8 +95,8 @@ func main() {
 	if sessionSecret == deviceAPIKey || sessionSecret == adminAPIKey {
 		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
 	}
-	// QA_API_KEY (optional): a separate, read-only key for the testing team's own
-	// dashboard — GET /api/v1/testdata/* only, never the admin-key surface.
+	// QA_API_KEY (optional): a separate key for the testing team's own dashboard —
+	// /api/v1/testdata/* only (reads + Lab device controls), never the admin-key surface.
 	// Unset disables the route entirely rather than falling back to the admin key.
 	qaAPIKey := strings.TrimSpace(getEnv("QA_API_KEY", ""))
 	if qaAPIKey != "" && (len(qaAPIKey) < 32 || qaAPIKey == deviceAPIKey || qaAPIKey == adminAPIKey || qaAPIKey == sessionSecret || qaAPIKey == deviceEnrollKey) {
@@ -509,8 +509,9 @@ func main() {
 	// counters. Scrape as JSON; not exposed to devices or the public.
 	mux.Handle("GET /debug/vars", adminAuth(expvar.Handler()))
 
-	// Testing team's own read-only key — GET /api/v1/testdata/* only, so a leaked
-	// key can't reach anything the admin key can (reboot, wipe, kiosk unlock, ...).
+	// Testing team's own key — /api/v1/testdata/* only: reads, plus fixed controls (open or
+	// close the role app, screen on/off) on Lab devices, so a leaked key can't reach
+	// anything the admin key can (reboot, wipe, kiosk unlock, shell, ...).
 	// CORS is wide open (*) rather than an allowlist: the dashboard calling this is a
 	// static page that can be hosted/moved anywhere, and the route is already gated by
 	// its own key, so an origin check adds no real protection here.
@@ -519,8 +520,8 @@ func main() {
 		qaCORS := func(h http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
-				w.Header().Set("Access-Control-Allow-Headers", "X-API-Key")
-				w.Header().Set("Access-Control-Allow-Methods", "GET")
+				w.Header().Set("Access-Control-Allow-Headers", "X-API-Key, Content-Type")
+				w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
 				if r.Method == http.MethodOptions {
 					w.WriteHeader(http.StatusNoContent)
 					return
@@ -546,6 +547,16 @@ func main() {
 		mux.Handle("OPTIONS /api/v1/testdata/host-app", qaCORS(http.NotFoundHandler()))
 		mux.Handle("GET /api/v1/testdata/devices/{serial}/host-app", qaCORS(qaAuth(http.HandlerFunc(apiHandler.GetTestDataDeviceHostApp))))
 		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/host-app", qaCORS(http.NotFoundHandler()))
+		// Device control (30 Oct 2026): open / close the role app, screen on / off, and the
+		// status of a command those sent. Lab firmware devices only (qaFirmwareDevice).
+		mux.Handle("POST /api/v1/testdata/devices/{serial}/app/open", qaCORS(qaAuth(http.HandlerFunc(apiHandler.TestDataAppOpen))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/app/open", qaCORS(http.NotFoundHandler()))
+		mux.Handle("POST /api/v1/testdata/devices/{serial}/app/close", qaCORS(qaAuth(http.HandlerFunc(apiHandler.TestDataAppClose))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/app/close", qaCORS(http.NotFoundHandler()))
+		mux.Handle("POST /api/v1/testdata/devices/{serial}/screen", qaCORS(qaAuth(http.HandlerFunc(apiHandler.TestDataScreen))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/screen", qaCORS(http.NotFoundHandler()))
+		mux.Handle("GET /api/v1/testdata/commands/{id}", qaCORS(qaAuth(http.HandlerFunc(apiHandler.TestDataCommand))))
+		mux.Handle("OPTIONS /api/v1/testdata/commands/{id}", qaCORS(http.NotFoundHandler()))
 	}
 
 	// WebSocket — device connects here for server-push command delivery
