@@ -37,7 +37,7 @@ func (d *DB) ListAllGroups(ctx context.Context) ([]Group, error) { return d.list
 
 func (d *DB) listGroups(ctx context.Context, withHidden bool) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
+		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false) AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
 		LEFT JOIN devices dv ON dv.id = dg.device_id
@@ -70,7 +70,7 @@ func (d *DB) SetGroupHidden(ctx context.Context, id uuid.UUID, hidden bool) erro
 func (d *DB) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
 	var g Group
 	err := d.pool.QueryRow(ctx, `
-		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
+		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false) AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
 		LEFT JOIN devices dv ON dv.id = dg.device_id

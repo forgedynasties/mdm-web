@@ -502,6 +502,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, connected []uuid.UUID) ([]Group
 				COUNT(*) FILTER (WHERE d.restaurant_id IS NOT NULL) AS deployed_count
 			FROM device_groups dg
 			JOIN devices d ON d.id = dg.device_id AND NOT d.hidden
+			                AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') -- as the list counts them
 			GROUP BY dg.group_id
 		),
 		al AS (

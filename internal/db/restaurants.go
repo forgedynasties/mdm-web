@@ -708,6 +708,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 				COUNT(*) AS deployed_count  -- every device in a restaurant is deployed
 			FROM devices d
 			WHERE NOT d.hidden AND d.restaurant_id IS NOT NULL
+			  AND d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') -- as the list counts them
 			GROUP BY d.restaurant_id
 		),
 		al AS (
