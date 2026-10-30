@@ -67,6 +67,18 @@
   .d1-drop:hover,.d1-drop:focus-visible{border-color:var(--accent);outline:none}
   .d1-drop svg{width:22px;height:22px;color:var(--accent-text)}
   .d1-drop b{color:var(--text);font-size:13px}
+  .d1-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+  .d1-tab{display:flex;flex-direction:column;gap:1px;padding:7px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text);text-decoration:none;min-width:0}
+  .d1-tab b{font-size:13px;font-weight:700}
+  .d1-tab small{font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap}
+  .d1-tab:hover{border-color:var(--accent-edge)}
+  .d1-tab.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
+  .d1-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:14px;align-items:start}
+  .d1-two .oc-card{margin:0}
+  .d1-pad{padding:0 18px 10px;margin:0}
+  .d1-vrow .tag.old{background:var(--warn-bg);color:var(--warn)}
+  .d1-vrow .tag.warn{background:var(--danger-bg);color:var(--danger)}
+  @media (max-width:1024px){.d1-two{grid-template-columns:minmax(0,1fr)}}
 </style>
 <template id="page-island">
   <span class="isl-t">{{$a.Name}}</span>
@@ -93,6 +105,12 @@
 </div>
 
 <div id="d1-targets"></div>
+
+{{/* N3 (picked 30 Oct 2026): a tab per channel with its newest library version; the page
+     below is the picked channel's: its library versions and what its devices run. */}}
+{{if gt (len $a.Channels) 1}}
+<nav class="d1-tabs" aria-label="Channels">{{range $a.Channels}}<a class="d1-tab{{if .Current}} on{{end}}" href="/apps/{{.Package}}"{{if .Current}} aria-current="page"{{end}}><b>{{.Label}}</b><small>{{if .Newest}}{{.Newest}}{{else}}not in library{{end}}</small></a>{{end}}</nav>
+{{end}}
 
 <div class="ov2">
 <div class="ov2-main">
@@ -121,21 +139,27 @@
     {{end}}
   </div>
 
-  {{if $a.Versions}}
-  <section class="oc-card" id="d1-versions" style="margin-bottom:14px">
-    {{/* The honest replacement for screenshots: we store none, and this is what you came
-         to look at anyway. "No version" is its own row and never folded into a total. */}}
-    <div class="oc-ch"><h2>Versions in service <span>{{len $a.Versions}}</span></h2></div>
+  <div class="d1-two">
+  <section class="oc-card" id="d1-lib">
+    <div class="oc-ch"><h2>{{if $a.Variant}}{{$a.Variant}}{{else}}{{$a.Name}}{{end}} in the library <span>{{len $a.LibVersions}}</span></h2></div>
+    {{if $a.LibVersions}}<ul class="d1-list d1-pad">
+      {{range $a.LibVersions}}<li><span class="t"><b class="mono">{{if .Version}}{{.Version}}{{else}}unversioned{{end}}{{if .Latest}} <span class="tag">newest</span>{{end}}</b><small>added {{.Added}}</small></span><a class="apk" href="{{.ApkURL}}" target="_blank" rel="noopener">APK</a>{{if canAdmin $.Role}}<form action="/setup/apps/{{.ID}}/delete" method="POST" onsubmit="return libDelete(this, event);"><button type="submit" class="x" title="Delete this version" aria-label="Delete {{.Version}}">&times;</button></form>{{end}}</li>{{end}}
+    </ul>{{else}}<div class="d1-none">The library holds no build of this channel.</div>{{end}}
+  </section>
+  <section class="oc-card" id="d1-versions">
+    {{/* "No version" is its own row and never folded into a total. */}}
+    <div class="oc-ch"><h2>{{if $a.Variant}}{{$a.Variant}}{{else}}{{$a.Name}}{{end}} on devices <span>{{$a.Devices}}</span></h2></div>
     {{range $a.Versions}}
     <div class="d1-vrow">
       <span class="l{{if eq .Version ""}} un{{end}}">{{if eq .Version ""}}no version reported{{else}}{{.Version}}{{end}}</span>
       <span class="tr"><i class="{{if .Latest}}ok{{else if eq .Version ""}}un{{end}}" style="width:{{.Pct}}%"></i></span>
       <span class="n">{{.Devices}}</span>
-      {{if .Latest}}<span class="tag">library</span>{{else}}<span></span>{{end}}
+      {{if .Latest}}<span class="tag">newest</span>{{else if .Held}}<span class="tag old">older</span>{{else if .Version}}<span class="tag warn">not in library</span>{{else}}<span></span>{{end}}
     </div>
+    {{else}}<div class="d1-none">On no device.</div>
     {{end}}
   </section>
-  {{end}}
+  </div>
 
   <section class="oc-card" id="d1-devices">
     <div class="oc-ch"><h2>Devices <span>{{len $a.Rows}}</span></h2>
@@ -180,20 +204,6 @@
     <span><b>{{$a.Ring.Pct}}</b><small>on library version</small></span>
   </div>
   <div class="ov2-hi"><b>{{$a.OnLatest}} of {{$a.Known}} devices</b><small>that report a version{{if $a.Unknown}} · {{$a.Unknown}} report none{{end}}</small></div>
-
-  {{if $a.LibVersions}}
-  <div class="ov2-rh"><h2>Library versions</h2></div>
-  <ul class="d1-list">
-    {{range $a.LibVersions}}<li><span class="t"><b class="mono">{{if .Version}}{{.Version}}{{else}}unversioned{{end}}{{if .Latest}} <span class="tag">newest</span>{{end}}</b><small>added {{.Added}}</small></span><a class="apk" href="{{.ApkURL}}" target="_blank" rel="noopener">APK</a>{{if canAdmin $.Role}}<form action="/setup/apps/{{.ID}}/delete" method="POST" onsubmit="return libDelete(this, event);"><button type="submit" class="x" title="Delete this version" aria-label="Delete {{.Version}}">&times;</button></form>{{end}}</li>{{end}}
-  </ul>
-  {{end}}
-
-  {{if gt (len $a.Channels) 1}}
-  <div class="ov2-rh" id="d1-channels"><h2>Channels</h2></div>
-  <ul class="d1-list">
-    {{range $a.Channels}}<li><span class="t"><b>{{if .Current}}{{.Label}}<span class="cur">this page</span>{{else}}<a href="/apps/{{.Package}}">{{.Label}}</a>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></span><span class="n" title="devices">{{.Devices}}</span></li>{{end}}
-  </ul>
-  {{end}}
 
   {{if and (canAppLibrary .Role) $a.InLibrary $a.Family}}{{$fam := $a.Family}}
   <div class="ov2-rh"><h2>Family</h2></div>

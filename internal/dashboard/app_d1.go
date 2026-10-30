@@ -32,6 +32,7 @@ type d1Version struct {
 	Devices int
 	Pct     int
 	Latest  bool
+	Held    bool // the library holds this version (older than the newest when !Latest)
 }
 
 type d1LibVersion struct {
@@ -45,6 +46,7 @@ type d1LibVersion struct {
 
 type d1Channel struct {
 	Label, Package string
+	Newest         string // the library's newest version of this channel (its tab)
 	Devices        int
 	Current        bool
 	InLibrary      bool
@@ -163,17 +165,21 @@ func buildAppD1(in d1Inputs) appD1 {
 		for _, vr := range v.Family.Variants {
 			ch := d1Channel{Label: vr.Label, Package: vr.Package, InLibrary: true, Current: vr.Package == in.Package}
 			if ch.Current {
-				ch.Devices = c.Devices
+				ch.Devices, ch.Newest = c.Devices, c.LibLatest
 			} else {
-				ch.Devices = in.SiblingCov[vr.Package].Devices
+				ch.Devices, ch.Newest = in.SiblingCov[vr.Package].Devices, in.SiblingCov[vr.Package].LibLatest
 			}
 			v.Channels = append(v.Channels, ch)
 		}
 	}
 
 	// Versions in service, biggest share first; "no version" stays its own row.
+	held := map[string]bool{}
+	for _, lv := range v.LibVersions {
+		held[lv.Version] = true
+	}
 	for _, vc := range c.Versions {
-		row := d1Version{Version: vc.Version, Devices: vc.Devices, Latest: vc.Latest}
+		row := d1Version{Version: vc.Version, Devices: vc.Devices, Latest: vc.Latest, Held: vc.Version != "" && held[vc.Version]}
 		if c.Devices > 0 {
 			row.Pct = vc.Devices * 100 / c.Devices
 		}

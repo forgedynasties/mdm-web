@@ -156,8 +156,10 @@
   <span class="isl-t">Alerts</span>
   <span class="isl-s"><b>{{.ActiveCount}}</b> problem{{if ne .ActiveCount 1}}s{{end}}{{if gt .NeedsCount 0}} · <span class="d">{{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} action</span>{{end}}{{if gt .WatchCount 0}} · <span class="w">{{.WatchCount}} worth watching</span>{{end}}</span>
   {{if and .ActiveCount (canOperate .Role)}}<span class="isl-acts">
+    {{if ne .Role "engineer"}}
     <form action="/alerts/ack-all" method="POST" onsubmit="return confirm('Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.')"><button type="submit" class="cc-btn">Acknowledge all</button></form>
     <form action="/alerts/resolve-all" method="POST" onsubmit="return confirm('Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.')"><button type="submit" class="cc-btn">Resolve all</button></form>
+    {{end}}
   </span>{{end}}
 </template>
   {{$needsColor := "ok"}}{{if gt .NeedsCount 0}}{{$needsColor = "danger"}}{{else if gt .ActiveCount 0}}{{$needsColor = "warn"}}{{end}}
@@ -172,12 +174,12 @@
            it re-appearing as new, where Clear all deletes the rows and the evaluator
            re-creates anything still true within the minute. */}}
       <form action="/alerts/ack-all" method="POST" hx-confirm="Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.">
-        <button type="submit" class="cc-btn{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} title="Requires the Support role" data-role-need="support"{{end}}><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge all</button>
+        <button type="submit" class="cc-btn{{if or (not (canSupport .Role)) (eq .Role "engineer")}} role-locked{{end}}"{{if eq .Role "engineer"}} title="Engineers acknowledge lab devices' alerts one by one: devices at a venue are read-only" data-role-need="support"{{else if not (canSupport .Role)}} title="Requires the Support role" data-role-need="support"{{end}}><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge all</button>
       </form>
       {{/* Resolve closes the alerts out and keeps the rows as history; anything whose
            condition still holds simply fires again, which is the honest outcome. */}}
       <form action="/alerts/resolve-all" method="POST" hx-confirm="Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.">
-        <button type="submit" class="cc-btn{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} title="Requires the Support role" data-role-need="support"{{end}}><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve all</button>
+        <button type="submit" class="cc-btn{{if or (not (canSupport .Role)) (eq .Role "engineer")}} role-locked{{end}}"{{if eq .Role "engineer"}} title="Engineers resolve lab devices' alerts one by one: devices at a venue are read-only" data-role-need="support"{{else if not (canSupport .Role)}} title="Requires the Support role" data-role-need="support"{{end}}><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve all</button>
       </form>
       {{end}}
     </div>
