@@ -99,7 +99,7 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "groups.html", map[string]any{
 		"Title":  "Groups",
 		"Groups": groups,
-		"Health": health,
+		"G1":     buildGroupsG1(groups, health),
 	})
 }
 
@@ -260,10 +260,21 @@ func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
 		return
 	}
+	g, err := h.db.GetGroup(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+	// The Groups list asks for the group's name before it deletes (G1, 30 Oct 2026).
+	if want := strings.TrimSpace(r.FormValue("confirm_name")); want != "" && want != g.Name {
+		http.Error(w, "The name typed doesn't match the group's name.", http.StatusBadRequest)
+		return
+	}
 	if err := h.db.DeleteGroup(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.audit(r, "group.delete", id.String(), fmt.Sprintf("%s · %d devices", g.Name, g.DeviceCount))
 	// A deleted group can't scope the roster any more, so fall back to all devices.
 	localRedirect(w, r, "/devices")
 }

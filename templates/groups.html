@@ -1,102 +1,122 @@
 {{define "groups.html"}}
 {{template "header" .}}
-
-<style>
-/* ── Groups — command-center header + KPI strip + heatmap tiles ── */
-.fl-page{max-width:1280px;margin:0 auto}
-.fleet-tabs{margin-bottom:16px}
-.fl-kpis{margin-bottom:16px}
-.fl-sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
-.fl-site{position:relative;display:block;padding:13px 14px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);text-decoration:none;color:inherit;overflow:hidden;transition:transform var(--dur-fast),border-color var(--dur);min-height:40px}
-.fl-site .fl-site-hit{position:absolute;inset:0;z-index:1}
-.fl-site::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ok)}
-.fl-site.warn::before{background:var(--warn)}.fl-site.danger::before{background:var(--danger)}.fl-site.empty::before{background:var(--text-faint)}
-.fl-site.ok{background:linear-gradient(180deg,var(--ok-bg),var(--surface) 70%)}
-.fl-site.warn{background:linear-gradient(180deg,var(--warn-bg),var(--surface) 70%);border-color:var(--warn-edge)}
-.fl-site.danger{background:linear-gradient(180deg,var(--danger-bg),var(--surface) 70%);border-color:var(--danger-edge)}
-.fl-site:hover{transform:translateY(-1px);border-color:var(--rule-2);color:inherit}
-.fl-site .n{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px;padding-right:26px}
-.fl-site .row{display:flex;align-items:baseline;justify-content:space-between;margin-top:7px;padding-left:4px}
-.fl-site .s{font-size:24px;font-weight:750;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ok)}
-.fl-site.warn .s{color:var(--warn)}.fl-site.danger .s{color:var(--danger)}.fl-site.empty .s{color:var(--text-faint)}
-.fl-site .s small{font-size:10px;font-weight:700;color:var(--text-faint);margin-left:2px;letter-spacing:.03em}
-.fl-site .dv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.fl-site .cr{font-size:11px;color:var(--muted);margin-top:3px;padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fl-site .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-left:4px;min-height:16px}
-.fl-del{position:absolute;top:8px;right:8px;z-index:2;width:24px;height:24px;border-radius:7px;border:1px solid transparent;background:var(--surface);color:var(--text-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;line-height:1;opacity:0;transition:opacity var(--dur)}
-.fl-site:hover .fl-del,.fl-del:focus-visible{opacity:1}
-.fl-del:hover{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-edge)}
-@media(max-width:480px){.fl-sites{grid-template-columns:1fr 1fr}.fl-kpis{grid-template-columns:repeat(2,1fr)}}
-</style>
-
-
-<div class="fl-page">
-{{$total := len .Groups}}
-{{$needLook := 0}}{{$offlineSum := 0}}{{$critSum := 0}}{{$devSum := 0}}
-{{range .Groups}}{{$h := index $.Health .ID}}
-  {{if and (gt $h.DeviceCount 0) (lt $h.Score 80)}}{{$needLook = add $needLook 1}}{{end}}
-  {{$offlineSum = add $offlineSum $h.OfflineCount}}
-  {{$critSum = add $critSum $h.OpenCritical}}
-  {{$devSum = add $devSum .DeviceCount}}
-{{end}}
-
+{{/* Groups G1 "Fleet's twin" (picked 30 Oct 2026): Fleet's rail of saved views, search +
+     sort, quick chips and one table row per group (groups_g1.go, coll-list.css,
+     coll_list.js). Delete is in the row's ⋯ menu and asks for the group's name. */}}
+{{$p := .G1}}{{$total := len $p.Rows}}{{$can := canAdminOrOperator .Role}}
+<template id="page-island">
+  <span class="isl-dot {{if $p.Look}}warn{{else if $total}}on{{end}}"></span>
+  <span class="isl-t">Groups</span>
+  <span class="isl-s">{{if $total}}<b>{{$total}}</b> group{{if ne $total 1}}s{{end}}{{if $p.Look}} · <span class="w">{{$p.Look}} need{{if eq $p.Look 1}}s{{end}} a look</span>{{end}} · {{$p.Devices}} device{{if ne $p.Devices 1}}s{{end}}{{if $p.OfflineDevices}} · {{$p.OfflineDevices}} offline{{end}}{{else}}No groups yet{{end}}</span>
+  <span class="isl-acts">{{if $can}}<a class="cc-btn primary" href="/groups/new">New group</a>{{end}}</span>
+</template>
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
+<div class="cl-page">
 <div class="cc-top">
-  <div>
-    <div class="cc-eyebrow">Fleet</div>
-    <h1 class="cc-h1">Groups</h1>
-    <div class="cc-status">{{if gt $needLook 0}}<span class="hl {{if ge $needLook 3}}danger{{else}}warn{{end}}">{{$needLook}} of {{$total}}</span> group{{if ne $total 1}}s{{end}} need{{if eq $needLook 1}}s{{end}} a look{{else}}<span class="hl ok">All {{$total}}</span> group{{if ne $total 1}}s{{end}} are healthy{{end}}</div>
-    <div class="cc-sub">{{$total}} device cohort{{if ne $total 1}}s{{end}} · <b>{{$devSum}}</b> device{{if ne $devSum 1}}s{{end}} tagged{{if gt $offlineSum 0}} · <b>{{$offlineSum}}</b> offline{{end}}{{if gt $critSum 0}} · <b>{{$critSum}}</b> critical alert{{if ne $critSum 1}}s{{end}}{{end}}</div>
-  </div>
-  {{if and .Groups (canAdminOrOperator .Role)}}
-  <div class="cc-actions">
-    <a href="/groups/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New group</a>
-  </div>
-  {{end}}
+  <div><h1 class="cc-h1">Groups</h1></div>
+  {{if and $total $can}}<div class="cc-actions isl-dup"><a href="/groups/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New group</a></div>{{end}}
 </div>
 
-{{if .Groups}}
-<div class="cc-kpis fl-kpis">
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg>Groups</span><div class="v">{{$total}}</div><div class="d">{{$devSum}} device{{if ne $devSum 1}}s{{end}}</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><div class="v{{if gt $offlineSum 0}} warn{{end}}">{{$offlineSum}}</div><div class="d">devices</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Critical</span><div class="v{{if gt $critSum 0}} bad{{end}}">{{$critSum}}</div><div class="d">open alerts</div></div>
-  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Need a look</span><div class="v{{if gt $needLook 0}} warn{{end}}">{{$needLook}}</div><div class="d">score under 80</div></div>
-</div>
-{{end}}
-
-{{if not .Groups}}
+{{if not $total}}
 <div class="cc-card">
   <div class="cc-empty tall">
     <span class="i mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>
     <div><b>No groups yet</b>Create a group to target actions and exports faster.</div>
-    <a href="/groups/new" class="cc-btn primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" style="margin-top:6px"{{if not (canAdminOrOperator .Role)}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create group</a>
+    <a href="/groups/new" class="cc-btn primary{{if not $can}} role-locked{{end}}" style="margin-top:6px"{{if not $can}} title="Requires the operator role" data-role-need="operator"{{end}}><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create group</a>
   </div>
 </div>
 {{else}}
-<div class="fl-sites dv-rise-1">
-  {{range .Groups}}
-  {{$h := index $.Health .ID}}
-  {{$cls := "empty"}}{{if gt $h.DeviceCount 0}}{{if ge $h.Score 80}}{{$cls = "ok"}}{{else if ge $h.Score 50}}{{$cls = "warn"}}{{else}}{{$cls = "danger"}}{{end}}{{end}}
-  <div class="fl-site {{$cls}}" title="{{.Name}} · score {{if gt $h.DeviceCount 0}}{{$h.Score}}{{else}}n/a{{end}}">
-    <a class="fl-site-hit" href="/groups/{{.ID}}" aria-label="Open {{.Name}}"></a>
-    <div class="n">{{.Name}}</div>
-    <div class="row"><span class="s">{{if gt $h.DeviceCount 0}}{{$h.Score}}<small>/100</small>{{template "score-why" (whyScore $h)}}{{else}}—{{end}}</span><span class="dv">{{.DeviceCount}} dev{{if ne .DeviceCount 1}}s{{end}}</span></div>
-    <div class="cr">created {{localTime .CreatedAt}}</div>
-    <div class="tags">
-      {{if gt $h.OfflineCount 0}}<span class="cc-tag warn">{{$h.OfflineCount}} offline</span>{{end}}
-      {{if gt $h.OpenCritical 0}}<span class="cc-tag bad">{{$h.OpenCritical}} critical</span>{{end}}
-      {{if gt $h.OpenWarning 0}}<span class="cc-tag warn">{{$h.OpenWarning}} warning{{if ne $h.OpenWarning 1}}s{{end}}</span>{{end}}
-      {{if gt $h.DeployedCount 0}}<span class="cc-tag">{{$h.DeployedCount}} deployed</span>{{end}}
-      {{if and (eq $h.OfflineCount 0) (eq $h.OpenCritical 0) (eq $h.OpenWarning 0) (gt $h.DeviceCount 0)}}<span class="cc-tag ok">all clear</span>{{end}}
+<div data-cl data-one="group" data-many="groups">
+<div class="fleet-md dv-rise-1">
+  <aside class="fleet-rail" aria-label="Group views">
+    <div class="fleet-rail-cap"><span>Groups</span>{{if $can}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
+    <button type="button" class="fleet-rail-item on" data-clf="" data-title="All groups" aria-pressed="true"><span class="dot ok"></span><span class="nm">All groups</span><span class="ct">{{$total}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="look" aria-pressed="false"><span class="dot warn"></span><span class="nm">Need a look</span><span class="ct">{{$p.Look}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="crit" aria-pressed="false"><span class="dot bad"></span><span class="nm">Critical alerts</span><span class="ct">{{$p.Critical}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="offline" aria-pressed="false"><span class="dot warn"></span><span class="nm">Offline devices</span><span class="ct">{{$p.Offline}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="empty" aria-pressed="false"><span class="dot muted"></span><span class="nm">Empty</span><span class="ct">{{$p.Empty}}</span></button>
+  </aside>
+  <div class="fleet-roster">
+    <div class="fleet-pane-head"><span class="t" data-cl-title>All groups</span><span class="c" data-cl-count data-extra=" · {{$p.Devices}} device{{if ne $p.Devices 1}}s{{end}}">{{$total}} groups · {{$p.Devices}} devices</span></div>
+    <div class="fleet-bar">
+      <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search groups…" aria-label="Search groups" autocomplete="off"></div>
+      {{template "cl-sort" "Health ↑"}}
+        <button type="button" class="cc-mi active" role="menuitemradio" aria-checked="true" data-cls="health" data-dir="asc">Health ↑</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="health" data-dir="desc">Health ↓</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="name" data-dir="asc">Name</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="devices" data-dir="desc">Devices</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="created" data-dir="desc">Newest</button>
+      </div></div>
     </div>
-    {{if canAdminOrOperator $.Role}}
-    <form action="/groups/{{.ID}}/delete" method="POST" class="fl-del"
-          hx-confirm="Delete group {{.Name}}?">
-      <button type="submit" title="Delete group" aria-label="Delete {{.Name}}" style="all:unset;display:flex;width:100%;height:100%;align-items:center;justify-content:center;cursor:pointer">×</button>
-    </form>
-    {{end}}
+    <div class="fl-fchips" role="group" aria-label="Quick filters">
+      <button type="button" class="fq" data-clc="look" aria-pressed="false">Need a look <span class="n">{{$p.Look}}</span></button>
+      <button type="button" class="fq" data-clc="crit" aria-pressed="false">Critical alerts <span class="n">{{$p.Critical}}</span></button>
+      <button type="button" class="fq" data-clc="offline" aria-pressed="false">Offline devices <span class="n">{{$p.Offline}}</span></button>
+      <button type="button" class="fq" data-clc="venue" aria-pressed="false">At venues <span class="n">{{$p.AtVenue}}</span></button>
+      <button type="button" class="fq" data-clc="empty" aria-pressed="false">Empty <span class="n">{{$p.Empty}}</span></button>
+      <button type="button" class="fq-clear" data-cl-clear hidden>Clear</button>
+    </div>
+    <div class="card cl-card dv-rise-2"><div class="ft-wrap"><table class="ft cl-ft">
+      <thead><tr>
+        <th scope="col">Group</th>
+        <th scope="col" class="ft-num" style="width:84px">Health</th>
+        <th scope="col" style="width:112px">Online</th>
+        <th scope="col" style="width:240px">Problems</th>
+        <th scope="col" class="ft-num" style="width:86px">At venues</th>
+        <th scope="col" class="ft-num" style="width:92px">Created</th>
+        <th scope="col" class="ft-act" style="width:{{if $can}}84{{else}}46{{end}}px"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody>
+      {{range $p.Rows}}{{$g := .G}}
+      <tr class="ft-row" data-href="/groups/{{$g.ID}}" data-flags="{{.Flags}}" data-text="{{$g.Name}}"
+          data-s-name="{{$g.Name}}" data-s-health="{{if .HasH}}{{.H.Score}}{{else}}999{{end}}" data-s-devices="{{.Devices}}" data-s-created="{{$g.CreatedAt.Unix}}">
+        <td><a class="cl-nm" href="/groups/{{$g.ID}}">{{venueIcon $g.ID $g.Name "sm"}}<span class="cl-t"><b>{{$g.Name}}</b><small>{{.Devices}} device{{if ne .Devices 1}}s{{end}}</small></span></a></td>
+        <td class="ft-num"><span class="cl-sc {{.Class}}"{{if .Why}} title="{{range $i, $w := .Why}}{{if $i}} · {{end}}{{$w}}{{end}}"{{end}}>{{if .HasH}}{{.H.Score}}{{else}}—{{end}}</span></td>
+        <td>{{if .Devices}}<span class="cl-on ft-pw {{if ge .OnPct 80}}battery-ok{{else if ge .OnPct 40}}battery-mid{{else}}battery-low{{end}}"><span class="ft-bar"><i style="width:{{if lt .OnPct 4}}4{{else}}{{.OnPct}}{{end}}%"></i></span><b>{{.Online}}</b><small>/{{.Devices}}</small></span>{{else}}<span class="muted small">no devices</span>{{end}}</td>
+        <td><span class="cl-tags">
+          {{if .Critical}}<span class="cc-tag bad">{{.Critical}} critical</span>{{end}}
+          {{if .Offline}}<span class="cc-tag warn">{{.Offline}} offline</span>{{end}}
+          {{if .Warning}}<span class="cc-tag warn">{{.Warning}} warning{{if ne .Warning 1}}s{{end}}</span>{{end}}
+          {{if not .Devices}}<span class="cc-tag">empty</span>{{else if and (not .Critical) (not .Offline) (not .Warning)}}<span class="cc-tag ok">all clear</span>{{end}}
+        </span></td>
+        <td class="ft-num">{{if .Deployed}}{{.Deployed}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="ft-num"><span class="dl-synced" title="{{localTime $g.CreatedAt}}">{{$g.CreatedAt.Format "2 Jan 2006"}}</span></td>
+        <td class="ft-act">{{if $can}}<details class="cl-more"><summary title="More" aria-label="More for {{$g.Name}}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary>
+          <div class="cc-menu" role="menu">
+            <a class="cc-mi" role="menuitem" href="/groups/{{$g.ID}}">Open</a>
+            <a class="cc-mi" role="menuitem" href="/devices?group={{$g.ID}}">Show in Fleet</a>
+            <button type="button" class="cc-mi" role="menuitem" data-cl-dlg="cl-rename" data-name="{{$g.Name}}" data-action="/groups/{{$g.ID}}">Rename…</button>
+            <div class="cc-msep"></div>
+            <button type="button" class="cc-mi danger" role="menuitem" data-cl-dlg="cl-delete" data-name="{{$g.Name}}" data-action="/groups/{{$g.ID}}/delete">Delete group…</button>
+          </div></details>{{end}}<a class="cl-go" href="/groups/{{$g.ID}}" title="Open {{$g.Name}}" aria-label="Open {{$g.Name}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    <div class="cl-none" data-cl-none hidden>No group matches these filters.</div></div>
   </div>
-  {{end}}
 </div>
+</div>
+{{if $can}}
+<dialog class="cl-dlg" id="cl-delete" data-confirm="1" aria-labelledby="cl-delete-h">
+  <form method="POST" action="">
+    <input type="hidden" name="redirect" value="/groups">
+    <h2 id="cl-delete-h">Delete group <span data-cl-name></span>?</h2>
+    <p>The group goes; its devices stay where they are. Type the group's name to confirm.</p>
+    <input type="text" name="confirm_name" autocomplete="off" aria-label="Group name" required>
+    <div class="acts"><button type="button" class="cc-btn" data-cl-cancel>Cancel</button><button type="submit" class="cc-btn danger" data-cl-go disabled>Delete group</button></div>
+  </form>
+</dialog>
+<dialog class="cl-dlg" id="cl-rename" data-prefill="1" aria-labelledby="cl-rename-h">
+  <form method="POST" action="">
+    <input type="hidden" name="redirect" value="/groups">
+    <h2 id="cl-rename-h">Rename <span data-cl-name></span></h2>
+    <input type="text" name="name" autocomplete="off" aria-label="New name" required maxlength="120">
+    <div class="acts"><button type="button" class="cc-btn" data-cl-cancel>Cancel</button><button type="submit" class="cc-btn primary">Rename</button></div>
+  </form>
+</dialog>
+{{end}}
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 {{end}}
 </div>
 

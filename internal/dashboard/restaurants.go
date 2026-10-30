@@ -132,12 +132,24 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 		"Venues":  rows,
 		"Summary": sum,
 	}
-	// V1 (21 Oct 2026): cards and a rail; ?view=compact keeps the table.
-	if r.URL.Query().Get("view") == "compact" {
-		data["Compact"] = true
-	} else {
-		data["V1"] = buildVenuesV1(rows, h.venueExtras(r.Context(), devices), time.Now())
+	// V1 "Fleet's twin" (30 Oct 2026): the table by default; Cards (the 21 Oct grid) is a
+	// per-person view kept in a cookie, like Fleet's Table / Cards. ?view=compact (the old
+	// table) lands on the new one.
+	view := r.URL.Query().Get("view")
+	switch view {
+	case "compact":
+		http.Redirect(w, r, "/restaurants?view=table", http.StatusFound)
+		return
+	case "table", "cards":
+		http.SetCookie(w, &http.Cookie{Name: "mdm_venues_view", Value: view, Path: "/", MaxAge: 365 * 86400, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"})
+	default:
+		view = "table"
+		if c, err := r.Cookie("mdm_venues_view"); err == nil && c.Value == "cards" {
+			view = "cards"
+		}
 	}
+	data["View"] = view
+	data["V1"] = buildVenuesV1(rows, h.venueExtras(r.Context(), devices), time.Now())
 	// M2: backend restaurants that list the MDM's devices but have no venue. Super admin
 	// only since 26 Oct 2026, like Enrollment › From the AIO backend it links to.
 	if h.role(r) == "admin" {
@@ -157,7 +169,8 @@ func (h *Handler) venueExtras(ctx context.Context, devices []db.Device) map[stri
 	own, _ := h.db.ListRestaurantServiceWindows(ctx)
 	pins, _ := h.db.RestaurantStaffPINs(ctx)
 	for _, rest := range rests {
-		e := vcExtra{TZ: rest.Timezone, Classes: map[string]int{}}
+		e := vcExtra{TZ: rest.Timezone, Classes: map[string]int{}, TZ2: tzCity(rest.Timezone)}
+		e.Place, e.State = venuePlace(rest.Address)
 		if wnd, ok := own[rest.ID]; ok {
 			e.Window = &wnd
 		} else if fleetErr == nil {

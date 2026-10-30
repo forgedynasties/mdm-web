@@ -36,13 +36,11 @@
     {{if canAdminOrOperator .Role}}<a href="/restaurants/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create venue</a>{{end}}
   </div>
 </div>
-{{else if .Compact}}
-<div class="vc1-cswitch">{{template "vc1-viewsw" "compact"}}</div>
-{{template "coll-table" (dict "Rows" .Venues "Sum" .Summary "Kind" "restaurants")}}
+{{else if eq .View "table"}}{{template "venues-table" .}}
 {{else}}{{with .V1}}
-{{/* V1 (picked 21 Oct 2026): the Overview's venue cards as a grid, worst first, with
-     filter pills, and a rail: average health, venues open by hour from each venue's
-     service hours, and what needs a look. Compact (?view=compact) is the table above. */}}
+{{/* Cards (the 21 Oct grid, kept as a per-person view since V1 on 30 Oct): the Overview's
+     venue cards, worst first, with filter pills, and a rail: average health, venues open
+     by hour from each venue's service hours, and what needs a look. */}}
 <style>
 .vc1-bar{justify-content:flex-start}
 .vc1-q{flex:1;min-width:200px;max-width:320px;font:inherit;font-size:12.5px;padding:7px 14px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
@@ -147,11 +145,101 @@
 {{template "footer" .}}
 {{end}}
 
-{{/* Cards / Compact switch on the Venues list (V1); the argument is the current view. */}}
-{{define "vc1-viewsw"}}<span class="fl-viewsw" role="group" aria-label="View">
-  <a href="/restaurants" class="{{if eq . "cards"}}on{{end}}" title="Cards"{{if eq . "cards"}} aria-current="page"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
-  <a href="/restaurants?view=compact" class="{{if eq . "compact"}}on{{end}}" title="Compact"{{if eq . "compact"}} aria-current="page"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></a>
+{{/* Table / Cards switch on the Venues list, like Fleet's; the argument is the current view. */}}
+{{define "vc1-viewsw"}}<span class="fl-viewsw" role="group" aria-label="Show venues as">
+  <a href="/restaurants?view=table" class="{{if eq . "table"}}on{{end}}" title="Table: one line per venue" aria-label="Table"{{if eq . "table"}} aria-current="true"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></a>
+  <a href="/restaurants?view=cards" class="{{if eq . "cards"}}on{{end}}" title="Cards" aria-label="Cards"{{if eq . "cards"}} aria-current="true"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></a>
 </span>{{end}}
+
+{{/* Venues V1 "Fleet's twin" (picked 30 Oct 2026): Fleet's rail, product tabs, search +
+     sort, quick chips and one table row per venue. coll-list.css, coll_list.js. */}}
+{{define "venues-table"}}{{$v := .V1}}{{$s := .Summary}}
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
+<div class="cl-page" data-cl data-one="venue" data-many="venues">
+<div class="fleet-md dv-rise-1">
+  <aside class="fleet-rail" aria-label="Venue views">
+    <div class="fleet-rail-cap"><span>Venues</span></div>
+    <button type="button" class="fleet-rail-item on" data-clf="" data-title="All venues" aria-pressed="true"><span class="dot ok"></span><span class="nm">All venues</span><span class="ct">{{len $v.Cards}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="look" aria-pressed="false"><span class="dot warn"></span><span class="nm">Need a look</span><span class="ct">{{$v.Look}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="offline" aria-pressed="false"><span class="dot warn"></span><span class="nm">Offline devices</span><span class="ct">{{$v.Offline}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="open" aria-pressed="false"><span class="dot ok"></span><span class="nm">Open now</span><span class="ct">{{$v.Open}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="empty" aria-pressed="false"><span class="dot muted"></span><span class="nm">No devices</span><span class="ct">{{$v.Empty}}</span></button>
+    {{if $v.States}}<div class="fleet-rail-cap"><span>By state</span></div>
+    {{range $v.States}}<button type="button" class="fleet-rail-item" data-clf="st-{{.Code}}" aria-pressed="false"><span class="dot ok"></span><span class="nm">{{.Name}}</span><span class="ct">{{.Venues}}</span></button>{{end}}{{end}}
+  </aside>
+  <div class="fleet-roster">
+    <div class="fleet-pane-head"><span class="t" data-cl-title>All venues</span><span class="c" data-cl-count data-extra=" · {{$s.Devices}} device{{if ne $s.Devices 1}}s{{end}}">{{len $v.Cards}} venues · {{$s.Devices}} devices</span>{{template "vc1-viewsw" "table"}}</div>
+    {{if $v.Types}}<div class="ptabs" role="tablist" aria-label="Product">
+      <button type="button" class="ptab on" role="tab" aria-selected="true" data-clp="">All products</button>
+      {{range $v.Types}}<button type="button" class="ptab" role="tab" aria-selected="false" data-clp="{{.Key}}" title="Venues with a {{.Label}}"><span class="ptab-ic dl-ic {{.Key}}"><svg><use href="#dk-{{.Key}}"></use></svg></span>{{.Label}} <span class="n">{{.Venues}}</span></button>{{end}}
+    </div>{{end}}
+    <div class="fleet-bar">
+      <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search venue, address or city…" aria-label="Search venues" autocomplete="off"></div>
+      {{template "cl-sort" "Health ↑"}}
+        <button type="button" class="cc-mi active" role="menuitemradio" aria-checked="true" data-cls="health" data-dir="asc">Health ↑</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="health" data-dir="desc">Health ↓</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="name" data-dir="asc">Name</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="devices" data-dir="desc">Devices</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="last" data-dir="desc">Last check-in</button>
+      </div></div>
+    </div>
+    <div class="fl-fchips" role="group" aria-label="Quick filters">
+      <button type="button" class="fq" data-clc="look" aria-pressed="false">Need a look <span class="n">{{$v.Look}}</span></button>
+      <button type="button" class="fq" data-clc="offline" aria-pressed="false">Offline devices <span class="n">{{$v.Offline}}</span></button>
+      <button type="button" class="fq" data-clc="open" aria-pressed="false">Open now <span class="n">{{$v.Open}}</span></button>
+      <button type="button" class="fq" data-clc="hot" aria-pressed="false">Running hot <span class="n">{{$v.Hot}}</span></button>
+      <button type="button" class="fq" data-clc="pin" aria-pressed="false">Default staff PIN <span class="n">{{$v.PIN}}</span></button>
+      <button type="button" class="fq" data-clc="empty" aria-pressed="false">Empty <span class="n">{{$v.Empty}}</span></button>
+      <button type="button" class="fq-clear" data-cl-clear hidden>Clear</button>
+    </div>
+    <div class="card cl-card dv-rise-2"><div class="ft-wrap"><table class="ft cl-ft">
+      <thead><tr>
+        <th scope="col">Venue</th>
+        <th scope="col" class="ft-num" style="width:72px">Health</th>
+        <th scope="col" style="width:112px">Online</th>
+        <th scope="col" style="width:168px">Products</th>
+        <th scope="col" style="width:72px">Now</th>
+        <th scope="col" style="width:196px">Problems</th>
+        <th scope="col" class="ft-num" style="width:100px">Last check-in</th>
+        <th scope="col" class="ft-act" style="width:46px"><span class="sr-only">Open</span></th>
+      </tr></thead>
+      <tbody>
+      {{range $v.Cards}}
+      <tr class="ft-row" data-href="{{.Href}}" data-flags="{{.Flags}}" data-classes="{{.Classes}}" data-text="{{.Text}}"
+          data-s-name="{{.Name}}" data-s-health="{{if and .Devices .HasH}}{{.H.Score}}{{else}}999{{end}}" data-s-devices="{{.Devices}}" data-s-last="{{if not .Last.IsZero}}{{.Last.Unix}}{{else}}0{{end}}">
+        <td><a class="cl-nm" href="{{.Href}}">{{venueIcon .ID .Name "sm"}}<span class="cl-t"><b>{{.Name}}</b><small>{{if .Place}}{{.Place}}{{else if .Devices}}{{.Sub}}{{else}}{{.Sub}}{{end}}{{if and .Place .TZ2}} · {{.TZ2}}{{end}}</small></span></a></td>
+        <td class="ft-num"><span class="cl-sc {{.Class}}">{{if and .Devices .HasH}}{{.H.Score}}{{else}}—{{end}}</span></td>
+        <td>{{if .Devices}}<span class="cl-on ft-pw {{if ge .OnPct 80}}battery-ok{{else if ge .OnPct 40}}battery-mid{{else}}battery-low{{end}}"><span class="ft-bar"><i style="width:{{if lt .OnPct 4}}4{{else}}{{.OnPct}}{{end}}%"></i></span><b>{{.Online}}</b><small>/{{.Devices}}</small></span>{{else}}<span class="muted small">no devices</span>{{end}}</td>
+        <td>{{if .Products}}<span class="cl-prs">{{range .Products}}<span class="cl-pr" title="{{.N}} {{.Label}}"><span class="ptab-ic dl-ic {{.Key}}"><svg><use href="#dk-{{.Key}}"></use></svg></span>{{.N}}</span>{{end}}</span>{{else}}<span class="muted small">—</span>{{end}}</td>
+        <td>{{if .HasHours}}<span class="cl-now{{if .Open}} on{{end}}">{{if .Open}}Open{{else}}Closed{{end}}</span>{{else}}<span class="muted small">—</span>{{end}}</td>
+        <td><span class="cl-tags">
+          {{if .HasH}}{{if gt .H.OpenCritical 0}}<span class="cc-tag bad">{{.H.OpenCritical}} critical</span>{{end}}{{end}}
+          {{if .Offline}}<span class="cc-tag warn">{{.Offline}} offline</span>{{end}}
+          {{if .HasH}}{{if gt .H.OpenWarning 0}}<span class="cc-tag warn">{{.H.OpenWarning}} warning{{if ne .H.OpenWarning 1}}s{{end}}</span>{{end}}{{end}}
+          {{if .HotNow}}<span class="cc-tag bad">{{.HotNow}} running hot</span>{{end}}
+          {{if not .Devices}}<span class="cc-tag">empty</span>{{else if and (not .Offline) (not .HotNow) (or (not .HasH) (and (eq .H.OpenCritical 0) (eq .H.OpenWarning 0)))}}<span class="cc-tag ok">all clear</span>{{end}}
+        </span></td>
+        <td class="ft-num"><span class="dl-synced">{{if .Last.IsZero}}—{{else}}{{timeSince .Last}}{{end}}</span></td>
+        <td class="ft-act"><a class="cl-go" href="{{.Href}}" title="Open {{.Name}}" aria-label="Open {{.Name}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    <div class="cl-none" data-cl-none hidden>No venue matches these filters.</div></div>
+    {{with $.Placements}}<a class="vbp-line" href="/coverage"><b>{{len .Rows}} restaurant{{if ne (len .Rows) 1}}s{{end}} in the AIO backend</b> list {{.Devices}} of your devices and have no venue here <span>Open →</span></a>
+    <style>.vbp-line{display:flex;gap:6px;align-items:baseline;margin-top:14px;padding:12px 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);font-size:13px;color:var(--text-2);text-decoration:none}.vbp-line b{color:var(--text)}.vbp-line span{margin-left:auto;color:var(--accent-text);font-weight:600}</style>{{end}}
+  </div>
+</div>
+</div>
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
+{{end}}
+
+{{/* Fleet's Sort button and the top of its menu, for the Venues and Groups lists; the
+     caller adds the cc-mi items (data-cls, data-dir) and closes both divs. */}}
+{{define "cl-sort"}}<div class="fleet-fwrap">
+  <button type="button" class="fleet-fbtn" data-cl-sortbtn aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"/></svg>Sort<span class="sort-cur" data-cl-sortcur>· {{.}}</span></button>
+  <div class="cc-menu cl-sortmenu" role="menu" data-cl-sortmenu hidden>
+    <div class="cc-msec">Sort by</div>{{end}}
 
 {{/* The collection table (venues-demos.html, L1): one row per venue, group or release,
      shared by Venues and Fleet's Restaurants, Groups and Releases views (15 Oct).

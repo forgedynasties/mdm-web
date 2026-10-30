@@ -11,10 +11,10 @@ import (
 	"mdm/internal/product"
 )
 
-// Venues list V1 (picked 21 Oct 2026, from the venues demos): the Overview's venue cards
-// as a grid, worst first, with filter pills (health, open now, device type, search) and
-// a rail — average health, venues open by hour (from each venue's service hours) and
-// what needs a look. "Compact" (?view=compact) keeps the one-row-per-venue table.
+// Venues list (V1 "Fleet's twin", picked 30 Oct 2026): Fleet's layout, a rail of saved
+// views (need a look, offline, open now, empty, by state), product tabs, search + sort,
+// quick chips and one table row per venue. The earlier card grid (21 Oct) stays as the
+// per-person Cards view (cookie mdm_venues_view); its rail is built here too.
 
 // vcExtra is what the cards need beyond the shared venue row.
 type vcExtra struct {
@@ -23,6 +23,9 @@ type vcExtra struct {
 	DefaultPIN bool            // staff PIN never changed from db.DefaultStaffPIN
 	HotNow   int               // devices online now at or over 45 °C
 	Classes  map[string]int    // device type → devices
+	Place    string            // "Benicia, CA" from the address, else ""
+	State    string            // two-letter state code from the address, else ""
+	TZ2      string            // the timezone's city, "Los Angeles"
 }
 
 type vcCard struct {
@@ -32,6 +35,21 @@ type vcCard struct {
 	HotNow         int
 	Classes        string // space-separated class keys, for the Type pill
 	Rank           int
+	Place, State   string
+	TZ2            string
+	Products       []vcProd // device types with counts, in product order
+	OnPct          int      // online share, for the bar
+	Flags          string   // space-separated filter keys for the table's rail and chips
+}
+
+type vcProd struct {
+	Key, Label string
+	N          int
+}
+
+type vcState struct {
+	Code, Name string
+	Venues     int
 }
 
 type vcHour struct {
@@ -72,6 +90,10 @@ type vcPage struct {
 	Healthy int
 	Empty   int
 	Open    int
+	Offline int // venues with an offline device
+	Hot     int // venues with a device running hot
+	PIN     int // venues on the default staff PIN
+	States  []vcState
 }
 
 const vcLookRows = 6
@@ -100,6 +122,41 @@ func buildVenuesV1(rows []venueRow, ex map[string]vcExtra, now time.Time) vcPage
 		}
 		sort.Strings(keys)
 		c.Classes = strings.Join(keys, " ")
+		c.Place, c.State, c.TZ2 = e.Place, e.State, e.TZ2
+		for _, k := range product.Classes() {
+			if n := e.Classes[k]; n > 0 {
+				c.Products = append(c.Products, vcProd{k, product.ClassLabel(k), n})
+			}
+		}
+		if r.Devices > 0 {
+			c.OnPct = r.Online * 100 / r.Devices
+		}
+		var flags []string
+		if r.Devices > 0 && r.NeedsLook {
+			flags = append(flags, "look")
+		}
+		if r.Offline > 0 {
+			flags = append(flags, "offline")
+			p.Offline++
+		}
+		if c.Open {
+			flags = append(flags, "open")
+		}
+		if c.HotNow > 0 {
+			flags = append(flags, "hot")
+			p.Hot++
+		}
+		if c.DefaultPIN {
+			flags = append(flags, "pin")
+			p.PIN++
+		}
+		if r.Devices == 0 {
+			flags = append(flags, "empty")
+		}
+		if c.State != "" {
+			flags = append(flags, "st-"+c.State)
+		}
+		c.Flags = strings.Join(flags, " ")
 		if r.Devices > 0 && r.HasH {
 			scoreSum += r.H.Score
 			scored++
@@ -134,6 +191,21 @@ func buildVenuesV1(rows []venueRow, ex map[string]vcExtra, now time.Time) vcPage
 		}
 	}
 	sort.SliceStable(p.Types, func(i, j int) bool { return p.Types[i].Venues > p.Types[j].Venues })
+	states := map[string]int{}
+	for _, c := range p.Cards {
+		if c.State != "" {
+			states[c.State]++
+		}
+	}
+	for code, n := range states {
+		p.States = append(p.States, vcState{code, usStateName(code), n})
+	}
+	sort.Slice(p.States, func(i, j int) bool {
+		if p.States[i].Venues != p.States[j].Venues {
+			return p.States[i].Venues > p.States[j].Venues
+		}
+		return p.States[i].Name < p.States[j].Name
+	})
 
 	r := &p.Rail
 	r.Venues, r.OpenNow, r.NeedLook = len(rows), p.Open, p.Look
@@ -232,3 +304,53 @@ func buildVenuesV1(rows []venueRow, ex map[string]vcExtra, now time.Time) vcPage
 // vcHotNow: a device at or over 45 °C that is online now. An offline device's
 // temperature is its last reading, however old (user, 21 Oct).
 func vcHotNow(online bool, temp float64, ok bool) bool { return online && ok && temp >= 45 }
+
+// venuePlace reads "City, ST" and the state code out of a free-text US address:
+// "1321 Blossom Hill Rd, San Jose, CA 95118" → "San Jose, CA", "CA". When the city shares
+// a part with the street ("609 1st St Brentwood, CA 94513") the street's last word is the
+// city. Anything it can't read gives "", "".
+func venuePlace(addr string) (string, string) {
+	parts := strings.Split(addr, ",")
+	for i := 1; i < len(parts); i++ {
+		f := strings.Fields(parts[i])
+		if len(f) == 0 || len(f[0]) != 2 || strings.ToUpper(f[0]) != f[0] || usStateName(f[0]) == f[0] {
+			continue
+		}
+		city := strings.TrimSpace(parts[i-1])
+		if city != "" && city[0] >= '0' && city[0] <= '9' {
+			w := strings.Fields(city)
+			city = w[len(w)-1]
+		}
+		if city == "" {
+			return "", f[0]
+		}
+		return city + ", " + f[0], f[0]
+	}
+	return "", ""
+}
+
+// tzCity: "America/Los_Angeles" → "Los Angeles".
+func tzCity(tz string) string {
+	if i := strings.LastIndex(tz, "/"); i >= 0 {
+		tz = tz[i+1:]
+	}
+	return strings.ReplaceAll(tz, "_", " ")
+}
+
+var usStates = map[string]string{"AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+	"CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "DC": "District of Columbia", "FL": "Florida", "GA": "Georgia",
+	"HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas", "KY": "Kentucky",
+	"LA": "Louisiana", "ME": "Maine", "MD": "Maryland", "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota",
+	"MS": "Mississippi", "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire",
+	"NJ": "New Jersey", "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+	"OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+	"SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont", "VA": "Virginia",
+	"WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming"}
+
+// usStateName is the state's name, or the code itself when it isn't one.
+func usStateName(code string) string {
+	if n, ok := usStates[code]; ok {
+		return n
+	}
+	return code
+}

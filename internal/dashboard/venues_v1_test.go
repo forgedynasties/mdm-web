@@ -128,8 +128,9 @@ func TestVenuesListRenders(t *testing.T) {
 		return template.Must(tm.ParseFiles("../../templates/restaurants.html"))
 	}
 	rows, ex := vcSample()
+	ex[rows[3].ID] = func(e vcExtra) vcExtra { e.Place, e.State, e.TZ2 = "Sunnyvale, CA", "CA", "New York"; return e }(ex[rows[3].ID])
 	sum := venueSummary{Devices: 32, Offline: 10, Critical: 1, NeedLook: 2, WithOffline: 2, Empty: 1}
-	data := map[string]any{"Role": "admin", "Venues": rows, "Summary": sum,
+	data := map[string]any{"Role": "admin", "Venues": rows, "Summary": sum, "View": "cards",
 		"V1": buildVenuesV1(rows, ex, time.Date(2026, 10, 21, 18, 0, 0, 0, time.UTC))}
 	var buf bytes.Buffer
 	if err := parse().ExecuteTemplate(&buf, "restaurants.html", data); err != nil {
@@ -141,23 +142,50 @@ func TestVenuesListRenders(t *testing.T) {
 		`data-val="t7" data-label="Tableside AI"`, `class="ov2-v s-danger"`, `At risk · 42`, `data-health="look"`, `data-open="1"`,
 		`data-types="kds t7"`, `1 running hot`, `default staff PIN`, `<span class="vc1-open on">Open now</span>`,
 		`average health`, `4 of 4 open now`, `2 need a look`, `Needs a look <span>4</span>`, `?open=lock`,
-		`href="/restaurants?view=compact"`, `/static/js/oc-menus.js`, `/static/js/venues_v1.js`,
+		`href="/restaurants?view=table"`, `/static/js/oc-menus.js`, `/static/js/venues_v1.js`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("cards view is missing %q", want)
 		}
 	}
-	if strings.Contains(out, `id="vn-tbl"`) {
-		t.Error("the table should only render in the compact view")
+	if strings.Contains(out, `data-cl `) {
+		t.Error("the table should only render in the table view")
 	}
 
-	delete(data, "V1")
-	data["Compact"] = true
+	data["View"] = "table"
 	buf.Reset()
 	if err := parse().ExecuteTemplate(&buf, "restaurants.html", data); err != nil {
-		t.Fatalf("compact view: %v", err)
+		t.Fatalf("table view: %v", err)
 	}
-	if out := buf.String(); !strings.Contains(out, `id="vn-tbl"`) || !strings.Contains(out, `aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16`) {
-		t.Error("compact view should be the table with its switch on Compact")
+	out = buf.String()
+	for _, want := range []string{
+		`data-cl data-one="venue"`, `data-clf="look"`, `data-clf="st-CA"`, `>California<`, `data-clp="t7"`, `data-clc="pin"`,
+		`data-cls="health" data-dir="asc"`, `class="ft cl-ft"`, `data-flags="look offline open hot st-CA"`, `Sunnyvale, CA · New York`,
+		`<span class="cl-now on">Open</span>`, `class="cc-tag bad">1 running hot`, `href="/restaurants?view=cards"`, `/static/js/coll_list.js`,
+		`/static/css/coll-list.css`, `<use href="#dk-kds">`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("table view is missing %q", want)
+		}
+	}
+	if strings.Contains(out, `id="vc1-grid"`) {
+		t.Error("the card grid should only render in the cards view")
+	}
+}
+
+func TestVenuePlace(t *testing.T) {
+	for _, c := range [][3]string{
+		{"1321 Blossom Hill Rd, San Jose, CA 95118", "San Jose, CA", "CA"},
+		{"609 1st St Brentwood, CA 94513", "Brentwood, CA", "CA"},
+		{"2680 W Business 77, San Benito, TX 78586, USA", "San Benito, TX", "TX"},
+		{"3726 Planet Hollywood Way, The Las Vegas Strip, NV", "The Las Vegas Strip, NV", "NV"},
+		{"Main Street", "", ""}, {"", "", ""},
+	} {
+		if p, st := venuePlace(c[0]); p != c[1] || st != c[2] {
+			t.Errorf("venuePlace(%q) = %q, %q", c[0], p, st)
+		}
+	}
+	if tzCity("America/Los_Angeles") != "Los Angeles" || tzCity("") != "" {
+		t.Error("tzCity")
 	}
 }

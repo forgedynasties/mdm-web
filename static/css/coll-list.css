@@ -1,0 +1,96 @@
+/* Venues and Groups lists in Fleet's language (V1 / G1 "Fleet's twin", picked 30 Oct 2026):
+   rail of saved views, product tabs, search + sort, quick chips, table.ft. The tab, chip
+   and menu rules are copies of Fleet's (templates/devices.html keeps its own), so Fleet
+   is untouched. Filtering and sorting: static/js/coll_list.js. */
+.cl-page{max-width:1280px;margin:0 auto}
+.cl-page .fleet-rail{border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding-top:10px}
+.cl-page .fleet-rail-item{min-height:40px}
+.cl-page .fleet-rail-item.on{border:1px solid var(--accent-edge)}
+.cl-page button.fleet-rail-item{width:100%;gap:9px;padding:8px 9px;border:1px solid transparent;background:none;font:inherit;font-size:13px;color:var(--text-2);cursor:pointer;text-align:left;box-sizing:border-box}
+.cl-page button.fleet-rail-item.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.cl-page button.fleet-rail-item:hover:not(.on){background:var(--hover)}
+.cl-page .fleet-rail-item .dot.muted{background:var(--text-faint)}
+.cl-page .fleet-rail-item .dot.bad{background:var(--danger)}
+.cl-page .fleet-pane-head .t{white-space:nowrap}
+.cl-page .fleet-pane-head .c{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* product tabs */
+.cl-page .ptabs{display:flex;gap:4px;margin:0 0 12px;overflow-x:auto;scrollbar-width:none;padding-bottom:12px;border-bottom:1px solid var(--border-soft)}
+.cl-page .ptab{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 10px;border-radius:99px;font:inherit;font-size:13px;font-weight:500;color:var(--text-2);background:none;border:1px solid transparent;cursor:pointer;white-space:nowrap}
+.cl-page .ptab:first-child{padding-left:13px}
+.cl-page .ptab:hover{background:var(--surface2);color:var(--text)}
+.cl-page .ptab.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.cl-page .ptab .n{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+.cl-page .ptab.on .n{color:var(--accent-text)}
+.cl-page .ptab-ic{width:20px;height:20px;border-radius:6px;flex:none}
+.cl-page .ptab-ic svg{width:12px;height:12px}
+/* sort menu */
+.cl-page .sort-cur{font-weight:500;color:var(--text);white-space:nowrap}
+.cl-page .cl-sortmenu{position:absolute;top:calc(100% + 6px);right:0;z-index:60;width:220px}
+.cl-page .cl-sortmenu .cc-mi{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer}
+/* quick chips */
+.cl-page .fl-fchips{position:relative;z-index:39;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px}
+.cl-page .fq{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:var(--surface);font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.cl-page .fq:hover{border-color:var(--rule-2,var(--border));color:var(--text)}
+.cl-page .fq.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+.cl-page .fq .n{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--text-faint)}
+.cl-page .fq.on .n{color:inherit}
+.cl-page .fq-clear{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--accent-text);cursor:pointer;padding:0 4px}
+/* the table */
+.cl-card{overflow:visible}
+.cl-ft td{vertical-align:middle}
+.cl-ft tr.ft-row{cursor:pointer}
+.cl-ft tr.ft-row:hover>td{background:var(--hover)}
+.cl-ft tr[hidden]{display:none}
+.cl-nm{display:flex;align-items:center;gap:10px;min-width:0;color:inherit;text-decoration:none}
+.cl-nm:hover{color:inherit}
+.cl-t{display:flex;flex-direction:column;min-width:0}
+.cl-t b{font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl-t small{font-size:11px;color:var(--text-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl-sc{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ok)}
+.cl-sc.warn{color:var(--warn)}.cl-sc.danger,.cl-sc.bad{color:var(--danger)}.cl-sc.empty{color:var(--text-faint);font-weight:500}
+.cl-on{display:inline-flex;align-items:center;gap:7px;font-variant-numeric:tabular-nums}
+.cl-on .ft-bar{width:30px}
+.cl-on b{font-weight:650}.cl-on small{color:var(--text-faint);font-weight:500;font-size:11.5px}
+.cl-tags{display:flex;gap:4px;flex-wrap:wrap}
+.cl-prs{display:flex;gap:8px;flex-wrap:wrap}
+.cl-pr{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:650;color:var(--text-2);font-variant-numeric:tabular-nums}
+.cl-pr .ptab-ic{width:18px;height:18px;border-radius:5px}
+.cl-pr .ptab-ic svg{width:11px;height:11px}
+.cl-now{font-size:12px;color:var(--text-2)}
+.cl-now.on{color:var(--ok);font-weight:650}
+.cl-go{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;border:1px solid var(--border);color:var(--text-2);background:var(--surface)}
+.cl-go:hover{color:var(--accent-text);border-color:var(--accent-edge)}
+.cl-go svg{width:14px;height:14px}
+.cl-none{padding:22px 18px;font-size:12.5px;color:var(--text-faint)}
+.cl-tile{width:30px;height:30px;border-radius:8px}
+/* the group row's ⋯ menu */
+.cl-more{position:relative;display:inline-block}
+.cl-more>summary{list-style:none;display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;color:var(--text-2);cursor:pointer}
+.cl-more>summary::-webkit-details-marker{display:none}
+.cl-more>summary:hover,.cl-more[open]>summary{background:var(--surface-3)}
+.cl-more>summary svg{width:15px;height:15px}
+.cl-more .cc-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:70;min-width:190px}
+.cl-more .cc-mi{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer;color:inherit;text-decoration:none}
+.cl-more .cc-mi.danger{color:var(--danger)}
+.cl-dlg{border:1px solid var(--border);border-radius:16px;padding:0;background:var(--surface);color:var(--text);width:min(420px,calc(100vw - 32px));box-shadow:var(--shadow-lg)}
+.cl-dlg::backdrop{background:rgba(0,0,0,.35)}
+.cl-dlg form{display:flex;flex-direction:column;gap:10px;padding:18px}
+.cl-dlg h2{margin:0;font-size:16px}
+.cl-dlg p{margin:0;font-size:13px;color:var(--text-2)}
+.cl-dlg input[type=text]{font:inherit;font-size:13px;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--bg);color:var(--text)}
+.cl-dlg .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
+.cl-dlg .cc-btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+.cl-dlg .cc-btn.danger[disabled]{opacity:.45;cursor:not-allowed}
+@media(max-width:900px){
+  .cl-page .fleet-md{grid-template-columns:1fr}
+  .cl-page .fleet-rail{position:static;max-height:none;margin-bottom:14px}
+}
+@media(max-width:720px){
+  .cl-page .fleet-rail{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:8px!important;scrollbar-width:none}
+  .cl-page .fleet-rail .fleet-rail-cap{display:none}
+  .cl-page button.fleet-rail-item{width:auto;flex:none;min-height:34px;padding:6px 10px;white-space:nowrap}
+  .cl-page .fleet-rail-item .nm{overflow:visible}
+  .cl-card .ft-wrap{overflow-x:auto;position:relative}
+  .cl-card .cl-ft{min-width:760px}
+  .cl-page .fleet-search{min-width:0}
+}
