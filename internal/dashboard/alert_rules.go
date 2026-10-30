@@ -137,6 +137,8 @@ func alertTypeCatalog() []alertTypeGroup {
 	add("Security", "hardware_serial_changed", "Hardware serial mismatch")
 	add("Security", "key_recovered", "Key reset automatically")
 	add("Kiosk", "kiosk_exited", "Unlocked on the device")
+	add("Connection", "no_command_channel", "Reporting, but commands are delayed")
+	add("Connection", "control_stale", "Not answering commands")
 	groups := make([]alertTypeGroup, 0, len(order))
 	for _, c := range order {
 		groups = append(groups, alertTypeGroup{c, byCat[c]})
@@ -154,7 +156,12 @@ func alertTypeLabel(t string) string {
 			}
 		}
 	}
-	return t
+	// A type with no label still reads as words, never as a code ("no_command_channel").
+	if t == "" {
+		return t
+	}
+	w := strings.ReplaceAll(t, "_", " ")
+	return strings.ToUpper(w[:1]) + w[1:]
 }
 
 // alertCategory returns the catalog category (Thermal, Storage, …) for an alert

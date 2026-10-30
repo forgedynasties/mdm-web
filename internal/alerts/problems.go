@@ -77,7 +77,7 @@ func CauseOf(types []string) Cause {
 	case has["control_stale"]:
 		return Cause{"transport", "No proven control", "It is checking in, but nothing we have sent it has completed — including the daily probe. Treat it as unmanageable until a command comes back, whatever the badge says."}
 	case has["no_command_channel"]:
-		return Cause{"transport", "Reporting but unreachable", "It is checking in and its readings are current, but it holds no WebSocket — so commands sent to it do not run. The dashboard shows it Offline although it is plainly alive. It usually clears itself; if it does not, the client's socket thread is gone and only a reboot brings it back."}
+		return Cause{"transport", "Reporting, but not taking commands", "It still sends its readings, but its live connection to the MDM is gone, so commands reach it late or not at all. It usually reconnects by itself; if it doesn't, restarting the device brings it back."}
 	case has["role_unlocked"]:
 		return Cause{"kiosk", "Unlocked for too long", "It was taken out of its role's lock on site hours ago and nobody has locked it again or answered the exit."}
 	case has["role_app_stuck"]:

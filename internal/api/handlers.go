@@ -1016,9 +1016,9 @@ func (h *Handler) noteCommandChannel(ctx context.Context, deviceID uuid.UUID, se
 	// device silently does nothing, which is as bad as the device being gone.
 	fallback := readsHTTPCommands(extra)
 	severity := "warning"
-	summary := fmt.Sprintf("No WebSocket for %s while still checking in. Commands are riding its HTTP check-in, so it is reachable but delayed — its socket is not reconnecting.", roughDuration(gone))
+	summary := fmt.Sprintf("Still sends its readings but has had no live connection for %s. Commands still reach it, a few minutes late, when it next checks in.", roughDuration(gone))
 	if !fallback {
-		summary = fmt.Sprintf("No WebSocket for %s while still checking in. This client takes commands over the socket only, so nothing sent to this device will run — it reports fine and cannot be controlled.", roughDuration(gone))
+		summary = fmt.Sprintf("Still sends its readings but has had no live connection for %s. It only takes commands over that connection, so nothing sent to it will run until it reconnects; a restart usually brings it back.", roughDuration(gone))
 		if gone >= commandChannelCritical {
 			severity = "critical"
 		}

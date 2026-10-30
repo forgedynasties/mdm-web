@@ -253,6 +253,22 @@ func humanizeAlert(a db.Alert) humanAlert {
 	case "self_locked":
 		h.IconKey, h.Headline = "offline", "Locked itself after leaving"
 		s = fmt.Sprintf("%s lost its venue's Wi-Fi off its charger and locked itself to the lost screen. It unlocks itself when it is back.", place)
+	case "no_command_channel":
+		// Plain words (user, 30 Oct 2026: "it should be in normal english").
+		h.IconKey, h.Headline = "offline", "Reporting, but commands are delayed"
+		gone := "a while"
+		if m := num("minutes"); m > 0 {
+			gone = b(minsAgo(m))
+		}
+		if v, ok := d["http_commands"].(bool); ok && !v {
+			h.Headline = "Reporting, but not taking commands"
+			s = fmt.Sprintf("%s still sends its readings but has had no live connection for %s. This client only takes commands over that connection, so anything sent to it won't run until it reconnects. A restart of the device usually brings it back.", place, gone)
+		} else {
+			s = fmt.Sprintf("%s still sends its readings but has had no live connection for %s. Commands still reach it, a few minutes late, when it next checks in. It usually reconnects by itself.", place, gone)
+		}
+	case "control_stale":
+		h.IconKey, h.Headline = "offline", "Not answering commands"
+		s = place + " keeps checking in, but nothing sent to it has finished lately, not even the daily test. Treat it as out of reach until a command comes back."
 	case "role_app_stuck":
 		h.Headline = "Stuck behind its prod build"
 		s = place + ": " + html.EscapeString(a.Summary)
