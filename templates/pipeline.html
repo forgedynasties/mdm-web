@@ -675,10 +675,10 @@
 
     {{if $p.Needs}}
     <div class="card lu1-card"><div class="lu1-sec"><h2>Needs a look</h2><span class="muted">{{len $p.Needs}}</span></div>
-      <div class="ft-wrap"><table class="ft"><tbody>
+      <div class="ft-wrap"><table class="ft"><colgroup><col><col style="width:180px"></colgroup><tbody>
       {{range $p.Needs}}
       <tr class="ft-row"><td><span class="lu1-need"><span class="lu1-dot {{.Tone}}"></span><span><b>{{.Title}}</b>{{with .Sub}}<small>{{.}}</small>{{end}}</span></span></td>
-        <td class="lu1-acts" style="width:170px">{{if .Promote}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm({{.Confirm}})"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{.Model}}"><input type="hidden" name="release_id" value="{{.ReleaseID}}"><button class="cc-btn sm primary" type="submit">{{.Action}}</button></form>{{else if .Href}}<a class="cc-btn sm" href="{{.Href}}">{{.Action}}</a>{{end}}</td></tr>
+        <td class="lu1-acts">{{if .Promote}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm({{.Confirm}})"><input type="hidden" name="role" value="{{$.RoleKey}}"><input type="hidden" name="model" value="{{.Model}}"><input type="hidden" name="release_id" value="{{.ReleaseID}}"><button class="cc-btn sm primary" type="submit">{{.Action}}</button></form>{{else if .Href}}<a class="cc-btn sm" href="{{.Href}}">{{.Action}}</a>{{end}}</td></tr>
       {{end}}
       </tbody></table></div>
     </div>
@@ -756,7 +756,7 @@
         {{range $p.Fw}}{{$m := .M}}
         <tr class="ft-row" id="fw-{{$m.Key}}">
           <td><b>{{$m.Label}}</b>{{if eq $m.Mode "lab"}} <span class="cc-tag info">lab only</span>{{end}}{{if $m.OtherLine}}<small class="lu1-sub warn">{{$m.OtherLine}} deployed on another firmware line: prod only moves the v{{$m.Line}} line</small>{{end}}</td>
-          <td>{{if $m.Channel}}<span class="mono">{{$m.Channel.Version}}</span><small class="lu1-sub">{{.Since}}</small>{{else if eq $m.Mode "lab"}}<span class="muted">lab devices take any published build</span>{{else}}<span class="muted">none set</span>{{end}}</td>
+          <td>{{if $m.Channel}}<span class="mono">{{$m.Channel.Version}}</span><small class="lu1-sub">{{.Since}}</small>{{else if eq $m.Mode "lab"}}<span class="muted">none: lab only</span>{{else}}<span class="muted">none set</span>{{end}}</td>
           <td>{{if $m.Channel}}{{if .Deployed.Of}}{{template "lu-bar" .Deployed}}{{else}}<span class="muted">no deployed devices</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="ft-num">{{if $m.Channel}}{{$m.Behind}}{{else}}—{{end}}</td>
           <td><span class="lu1-builds">
@@ -862,7 +862,8 @@
   .lu1-more form { margin: 0; }
   .lu1-ren { display: flex; gap: 6px; padding: 6px 10px; }
   .lu1-ren input { flex: 1; min-width: 0; font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
-  .lu1-win { border-top: 1px solid var(--border-soft); padding: 12px 18px; font-size: 12.5px; }
+  .lu1-card .lu1-win { border: 0; border-top: 1px solid var(--border-soft); border-radius: 0; padding: 12px 18px; font-size: 12.5px; }
+  .lu1-card .lu1-win b { display: inline; font-size: 12.5px; }
   .lu1-win summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; color: var(--text-2); }
   .lu1-win summary::-webkit-details-marker { display: none; }
   .lu1-win summary em { color: var(--warn); font-style: normal; font-weight: 650; }
