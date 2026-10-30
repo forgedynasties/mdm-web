@@ -97,7 +97,8 @@
   document.addEventListener('htmx:afterSettle', boot);
 
   // Delete / rename dialogs on the Groups list: the delete button stays off until the
-  // group's name is typed exactly.
+  // group's name is typed exactly. Their forms are not boosted: htmx reads a boosted
+  // form's action once, before this sets it.
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-cl-dlg]');
     if (!b) return;

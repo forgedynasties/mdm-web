@@ -99,7 +99,7 @@
 </div>
 {{if $can}}
 <dialog class="cl-dlg" id="cl-delete" data-confirm="1" aria-labelledby="cl-delete-h">
-  <form method="POST" action="">
+  <form method="POST" action="" hx-boost="false">
     <input type="hidden" name="redirect" value="/groups">
     <h2 id="cl-delete-h">Delete group <span data-cl-name></span>?</h2>
     <p>The group goes; its devices stay where they are. Type the group's name to confirm.</p>
@@ -108,7 +108,7 @@
   </form>
 </dialog>
 <dialog class="cl-dlg" id="cl-rename" data-prefill="1" aria-labelledby="cl-rename-h">
-  <form method="POST" action="">
+  <form method="POST" action="" hx-boost="false">
     <input type="hidden" name="redirect" value="/groups">
     <h2 id="cl-rename-h">Rename <span data-cl-name></span></h2>
     <input type="text" name="name" autocomplete="off" aria-label="New name" required maxlength="120">
