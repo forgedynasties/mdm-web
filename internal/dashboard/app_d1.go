@@ -122,18 +122,7 @@ func buildAppD1(in d1Inputs) appD1 {
 		Other: c.Known - c.OnLatest, InLibrary: c.InLibrary, LibVersion: c.LibLatest, CanSend: in.CanSend}
 
 	// Library side: this package's versions, newest first, and its name and icon.
-	var mine []db.App
-	for _, a := range in.Apps {
-		if a.PackageName == in.Package {
-			mine = append(mine, a)
-		}
-	}
-	sort.SliceStable(mine, func(i, j int) bool {
-		if mine[i].VersionName != "" && mine[j].VersionName != "" && mine[i].VersionName != mine[j].VersionName {
-			return versionNewer(mine[i].VersionName, mine[j].VersionName)
-		}
-		return mine[i].CreatedAt.After(mine[j].CreatedAt)
-	})
+	mine := libVersionsOf(in.Apps, in.Package)
 	for i, a := range mine {
 		if i == 0 {
 			if a.Name != "" {
@@ -142,7 +131,7 @@ func buildAppD1(in d1Inputs) appD1 {
 			v.Icon, v.ApkURL = a.Icon, a.ApkURL
 		}
 		v.LibVersions = append(v.LibVersions, d1LibVersion{ID: a.ID.String(), Version: a.VersionName,
-			Added: a.CreatedAt.Format("2 Jan 2006"), AddedShort: a.CreatedAt.Format("2 Jan"), ApkURL: a.ApkURL, Latest: a.VersionName != "" && a.VersionName == c.LibLatest})
+			Added: a.CreatedAt.Format("2 Jan 2006"), AddedShort: a.CreatedAt.Format("2 Jan"), ApkURL: a.ApkURL, Latest: a.VersionName != "" && a.VersionName == c.LibLatest || c.LibLatest == "" && i == 0})
 	}
 	if v.Name == "" {
 		v.Name = in.Package
@@ -164,10 +153,11 @@ func buildAppD1(in d1Inputs) appD1 {
 		v.FamilyName = v.Family.Name
 		for _, vr := range v.Family.Variants {
 			ch := d1Channel{Label: vr.Label, Package: vr.Package, InLibrary: true, Current: vr.Package == in.Package}
+			ch.Newest = libNewest(in.Apps, vr.Package) // coverage knows only packages on devices
 			if ch.Current {
-				ch.Devices, ch.Newest = c.Devices, c.LibLatest
+				ch.Devices = c.Devices
 			} else {
-				ch.Devices, ch.Newest = in.SiblingCov[vr.Package].Devices, in.SiblingCov[vr.Package].LibLatest
+				ch.Devices = in.SiblingCov[vr.Package].Devices
 			}
 			v.Channels = append(v.Channels, ch)
 		}
@@ -330,4 +320,32 @@ func buildAppD1(in d1Inputs) appD1 {
 		v.Ring.Tone = "danger"
 	}
 	return v
+}
+
+// libVersionsOf is the library's uploads of pkg, newest first.
+func libVersionsOf(apps []db.App, pkg string) []db.App {
+	var mine []db.App
+	for _, a := range apps {
+		if a.PackageName == pkg {
+			mine = append(mine, a)
+		}
+	}
+	sort.SliceStable(mine, func(i, j int) bool {
+		if mine[i].VersionName != "" && mine[j].VersionName != "" && mine[i].VersionName != mine[j].VersionName {
+			return versionNewer(mine[i].VersionName, mine[j].VersionName)
+		}
+		return mine[i].CreatedAt.After(mine[j].CreatedAt)
+	})
+	return mine
+}
+
+// libNewest is the library's newest version of pkg ("" when it holds none).
+func libNewest(apps []db.App, pkg string) string {
+	if m := libVersionsOf(apps, pkg); len(m) > 0 {
+		if m[0].VersionName != "" {
+			return m[0].VersionName
+		}
+		return "unversioned"
+	}
+	return ""
 }

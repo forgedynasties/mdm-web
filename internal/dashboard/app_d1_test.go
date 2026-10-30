@@ -139,3 +139,23 @@ func TestAppD1Renders(t *testing.T) {
 		os.WriteFile(p, buf.Bytes(), 0o644)
 	}
 }
+
+// A channel no device runs still shows its library build on its tab (30 Oct 2026: qa and
+// poss read "not in library" because only installed packages had coverage).
+func TestLibNewest(t *testing.T) {
+	now := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
+	apps := []db.App{
+		{PackageName: "aio.app.nugget.qa", VersionName: "55.0.0-qa", CreatedAt: now.AddDate(0, -1, 0)},
+		{PackageName: "aio.app.nugget.qa", VersionName: "56.0.0-qa", CreatedAt: now},
+		{PackageName: "aio.app.nugget.poss", CreatedAt: now},
+	}
+	if got := libNewest(apps, "aio.app.nugget.qa"); got != "56.0.0-qa" {
+		t.Errorf("qa newest = %q", got)
+	}
+	if got := libNewest(apps, "aio.app.nugget.poss"); got != "unversioned" {
+		t.Errorf("poss newest = %q", got)
+	}
+	if got := libNewest(apps, "aio.app.nugget.uatv2"); got != "" {
+		t.Errorf("a package the library lacks = %q", got)
+	}
+}
