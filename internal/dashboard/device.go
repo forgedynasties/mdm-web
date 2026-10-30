@@ -7,6 +7,7 @@ import (
 	_ "image/jpeg"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -527,6 +528,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
 	devFams, _, _ := h.libraryData(r.Context())
+	// Our products first in Install app (demo C, 30 Oct 2026), the other apps after them.
+	sort.SliceStable(devFams, func(i, j int) bool {
+		return strings.HasPrefix(devFams[i].BasePackage, "aio.app.") && !strings.HasPrefix(devFams[j].BasePackage, "aio.app.")
+	})
 	follows := h.deviceFollowsView(r.Context(), device)
 	// The lock rule covering this device, and whether it was overridden by hand.
 	kioskRule := h.kioskRuleFor(r.Context(), *device)

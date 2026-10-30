@@ -726,6 +726,8 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .inst-drop:hover,.dd-drop:hover{border-color:var(--accent-edge);background:var(--accent-soft)}
 .apk-over{outline:2px dashed var(--accent);outline-offset:-6px}
 .dd-follows{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 16px 0;padding:8px 10px;border-radius:12px;background:var(--surface-3)}
+.dd-fnone{font-size:12px;color:var(--muted)}
+.install-drawer .inst-sep{grid-column:1/-1;flex-basis:100%;width:100%;padding:12px 4px 4px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border-soft);margin-top:6px}
 .dd-fk{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:2px}
 .dd-fpill{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 5px;border-radius:99px;background:var(--surface);border:1px solid var(--border);font-size:12px;font-weight:600}
 .dd-fpill .app-icon{width:20px;height:20px;border-radius:6px}

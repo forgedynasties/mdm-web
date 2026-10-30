@@ -173,8 +173,10 @@ func TestFollowsRender(t *testing.T) {
 	if err := tm.ExecuteTemplate(&buf, "dd-follows", map[string]any{"Device": d, "Role": "engineer"}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(buf.String(), "dd-follows") {
-		t.Error("no strip for a device that follows nothing")
+	// Demo C (30 Oct 2026): the strip is always there for someone who may install, so a
+	// device that follows nothing still offers "+ Follow an app".
+	if out := buf.String(); !strings.Contains(out, "nothing yet") || !strings.Contains(out, "+ Follow an app") {
+		t.Errorf("empty strip: %s", out)
 	}
 	buf.Reset()
 	row := map[string]any{"R": struct {

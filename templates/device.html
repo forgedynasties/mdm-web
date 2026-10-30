@@ -1497,7 +1497,9 @@ window.DEVICE_VITALS = {
           <span class="install-hidden"></span>
           <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
           <div class="app-drawer install-drawer" id="install-drawer">
+            {{$other := false}}
             {{range .Families}}{{$prod := .Prod}}
+            {{if and (not $other) (not (hasPrefix .BasePackage "aio.app."))}}{{$other = true}}<div class="inst-sep">Other apps</div>{{end}}
             {{/* One tile per app family. data-opts lists every variant × version
                  (prod, newest first); the chooser under a selected tile picks which
                  APK goes into the hidden apk_url input. */}}
@@ -1944,10 +1946,11 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
      × stops following. Then the drop zone: an APK dropped here goes into the library and
      installs on this device. app_follows.go */}}
 {{define "dd-follows"}}
-{{if .Follows}}<div class="dd-follows" aria-label="Follows">
+{{if or .Follows (and (canOperate .Role) (supports .Device "install_apk"))}}<div class="dd-follows" aria-label="Follows">
   <span class="dd-fk">Follows</span>
+  {{if not .Follows}}<span class="dd-fnone">nothing yet · pick an app and a channel to keep this device on its newest build</span>{{end}}
   {{range .Follows}}<span class="dd-fpill" title="{{.Package}} · {{.Title}}">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}{{.Name}} <b>{{.Channel}}</b><i class="dd-fdot {{.State}}"></i>{{if ge .Pct 0}}<small>{{.Pct}} %</small>{{end}}{{if canOperate $.Role}}<button type="button" class="dd-fx" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='{"action":"unfollow","package":"{{.Package}}"}' hx-swap="none" hx-confirm="Stop following {{.Package}}? The app stays installed." aria-label="Stop following {{.Package}}" title="Stop following">&times;</button>{{end}}</span>{{end}}
-  {{if canOperate .Role}}<button type="button" class="dd-fedit" onclick="installModalOpen()">Edit</button>{{end}}
+  {{if canOperate .Role}}<button type="button" class="dd-fedit" onclick="installModalOpen()">{{if .Follows}}Edit{{else}}+ Follow an app{{end}}</button>{{end}}
 </div>{{end}}
 {{if and (canAppLibrary .Role) (supports .Device "install_apk")}}<label class="dd-drop" data-apk-drop><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span><b>Drop an APK here</b> to install it on this device · it goes into the library as a test build</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
 {{end}}
