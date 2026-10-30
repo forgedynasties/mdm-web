@@ -91,6 +91,28 @@ window.installModalOpen = function () {
 window.installModalClose = function () {
   var m = document.getElementById('install-modal'); if (m) m.classList.remove('modal-open');
 };
+// Follow apps (F2, 30 Oct 2026): the role apps, a channel and Follow / Stop per row.
+window.followModalOpen = function () { var m = document.getElementById('follow-modal'); if (m) m.classList.add('modal-open'); };
+window.followModalClose = function () { var m = document.getElementById('follow-modal'); if (m) m.classList.remove('modal-open'); };
+window.followPick = function (sel) {
+  var o = sel.options[sel.selectedIndex], td = sel.closest('tr').querySelector('.fl-new');
+  if (td && o) td.textContent = o.getAttribute('data-newest') || '';
+};
+window.followSelected = function (btn) {
+  var tr = btn && btn.closest && btn.closest('tr'), sel = tr && tr.querySelector('.fl-sel');
+  return sel ? sel.value : '';
+};
+window.followRowDone = function (btn, followed) {
+  var tr = btn.closest('tr'), sel = tr.querySelector('.fl-sel'), act = tr.querySelector('.fl-act');
+  if (followed) {
+    var label = sel.options[sel.selectedIndex].textContent;
+    sel.disabled = true;
+    act.innerHTML = '<span class="fl-on"><i></i>following ' + label + '</span><span class="muted small">installing</span>';
+  } else {
+    sel.disabled = false;
+    act.innerHTML = '<span class="muted small">stopped · reopen to follow again</span>';
+  }
+};
 window.installModalBackdrop = function (e) { if (e.target.id === 'install-modal') window.installModalClose(); };
 // App-info popup — populated from the clicked tile's data attributes + its icon.
 window.appInfoOpen = function (el) {

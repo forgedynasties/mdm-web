@@ -639,6 +639,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstallChannels":     installChannelsByFamily(devFams),
 		"Follows":             follows,
 		"FollowSet":           followSet(follows),
+		"FollowRows":          h.followRows(r.Context(), devFams, follows),
 		"InstalledPackages":   launchableOnly(installedPkgs),
 		"AppList":             h.deviceAppsOf(r.Context(), device, installedPkgs, hostAppView(device.LatestExtra), ""),
 		"ClientPill":          h.clientPillFor(device),

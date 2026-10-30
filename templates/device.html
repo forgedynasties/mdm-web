@@ -1473,6 +1473,31 @@ window.DEVICE_VITALS = {
     {{if canOperate .Role}}
     {{/* Install picker — an app-drawer-style popup: pick a repository app from the grid
          (monogram tiles for now) and it queues an install. */}}
+    {{/* Follow apps (F2, picked 30 Oct 2026): one list of the role apps, a channel and
+         Follow / Stop per row. app_follows.go followRows. */}}
+    <div class="modal-backdrop" id="follow-modal" onclick="if(event.target===this)followModalClose()">
+      <div class="modal-box modal-wide fl-box" role="dialog" aria-modal="true" aria-label="Follow apps">
+        <div class="install-modal-head"><span class="modal-title">Follow apps</span>
+          <span class="install-head-actions"><button type="button" class="modal-close" onclick="followModalClose()" aria-label="Close">&times;</button></span></div>
+        {{if .FollowRows}}
+        <div class="ft-wrap fl-wrap2"><table class="ft fl-t"><thead><tr><th>App</th><th style="width:130px">Channel</th><th style="width:170px">Newest</th><th style="width:190px"><span class="sr-only">Follow</span></th></tr></thead><tbody>
+        {{range .FollowRows}}{{$r := .}}
+        <tr class="ft-row" data-fl-row>
+          <td><span class="fl-nm">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}<span><b>{{.Name}}</b><small>{{.Product}}</small></span></span></td>
+          <td><select class="fl-sel" aria-label="Channel for {{.Name}}" onchange="followPick(this)"{{if .Following}} disabled{{end}}>{{range .Channels}}<option value="{{.Package}}" data-newest="{{.Newest}}"{{if eq .Package $r.Following}} selected{{end}}>{{.Label}}</option>{{end}}</select></td>
+          <td class="mono small fl-new">{{range $i, $c := .Channels}}{{if or (eq $c.Package $r.Following) (and (not $r.Following) (eq $i 0))}}{{$c.Newest}}{{end}}{{end}}</td>
+          <td class="fl-act">{{if .Following}}<span class="fl-on"><i></i>following {{.FollowingLabel}}</span><button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='{"action":"unfollow","package":"{{.Following}}"}' hx-swap="none" hx-on::after-request="if(event.detail.successful)followRowDone(this,false)">Stop</button>{{else}}<button type="button" class="cc-btn sm primary" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='js:{"action":"follow","package":followSelected(this)}' hx-swap="none" hx-on::after-request="if(event.detail.successful)followRowDone(this,true)">Follow</button>{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody></table></div>
+        {{else}}<div class="device-action-note" style="padding:18px">No role app has a build in the library yet.</div>{{end}}
+        <div class="install-modal-foot">
+          {{if canAppLibrary .Role}}<label class="inst-drop" data-apk-drop title="An APK you drop goes into the library and installs on this device"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span>or <b>drop an APK</b> here</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
+          <span class="muted small" style="margin-left:auto">A followed app installs its channel's newest build, and every newer one by itself.</span>
+          <button type="button" class="cc-btn" onclick="followModalClose()">Done</button>
+        </div>
+      </div>
+    </div>
     <div class="modal-backdrop" id="install-modal" onclick="installModalBackdrop(event)">
       <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Install app">
         <div class="install-modal-head">
@@ -1950,7 +1975,7 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   <span class="dd-fk">Follows</span>
   {{if not .Follows}}<span class="dd-fnone">nothing yet · pick an app and a channel to keep this device on its newest build</span>{{end}}
   {{range .Follows}}<span class="dd-fpill" title="{{.Package}} · {{.Title}}">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}{{.Name}} <b>{{.Channel}}</b><i class="dd-fdot {{.State}}"></i>{{if ge .Pct 0}}<small>{{.Pct}} %</small>{{end}}{{if canOperate $.Role}}<button type="button" class="dd-fx" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='{"action":"unfollow","package":"{{.Package}}"}' hx-swap="none" hx-confirm="Stop following {{.Package}}? The app stays installed." aria-label="Stop following {{.Package}}" title="Stop following">&times;</button>{{end}}</span>{{end}}
-  {{if canOperate .Role}}<button type="button" class="dd-fedit" onclick="installModalOpen()">{{if .Follows}}Edit{{else}}+ Follow an app{{end}}</button>{{end}}
+  {{if canOperate .Role}}<button type="button" class="dd-fedit" onclick="followModalOpen()">{{if .Follows}}Edit{{else}}+ Follow an app{{end}}</button>{{end}}
 </div>{{end}}
 {{if and (canAppLibrary .Role) (supports .Device "install_apk")}}<label class="dd-drop" data-apk-drop><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span><b>Drop an APK here</b> to install it on this device · it goes into the library as a test build</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
 {{end}}

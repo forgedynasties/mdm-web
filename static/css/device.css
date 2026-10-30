@@ -726,6 +726,12 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .inst-drop:hover,.dd-drop:hover{border-color:var(--accent-edge);background:var(--accent-soft)}
 .apk-over{outline:2px dashed var(--accent);outline-offset:-6px}
 .dd-follows{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 16px 0;padding:8px 10px;border-radius:12px;background:var(--surface-3)}
+.fl-box{max-width:760px}
+.fl-wrap2{padding:0 18px;max-height:62vh;overflow:auto}
+.fl-nm{display:flex;align-items:center;gap:10px}.fl-nm .app-icon{width:30px;height:30px;border-radius:8px}.fl-nm span{display:flex;flex-direction:column}.fl-nm small{font-size:11px;color:var(--muted)}
+.fl-sel{font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.fl-act{text-align:right;white-space:nowrap}.fl-act .cc-btn{margin-left:6px}
+.fl-on{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--ok)}.fl-on i{width:7px;height:7px;border-radius:50%;background:var(--ok)}
 .dd-fnone{font-size:12px;color:var(--muted)}
 .install-drawer .inst-sep{grid-column:1/-1;flex-basis:100%;width:100%;padding:12px 4px 4px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border-soft);margin-top:6px}
 .dd-fk{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:2px}

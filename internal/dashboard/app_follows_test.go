@@ -164,7 +164,7 @@ func TestFollowsRender(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{`class="dd-follows"`, `KIOSK <b>qa</b><i class="dd-fdot ok">`, `<small>42 %</small>`,
-		`hx-post="/devices/R95Y603F27X/follows"`, `"action":"unfollow"`, `onclick="installModalOpen()"`, `data-apk-drop`} {
+		`hx-post="/devices/R95Y603F27X/follows"`, `"action":"unfollow"`, `onclick="followModalOpen()"`, `data-apk-drop`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("follows strip is missing %q in %s", want, out)
 		}

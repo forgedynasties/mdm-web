@@ -14,6 +14,7 @@ import (
 
 	"mdm/internal/apkmeta"
 	"mdm/internal/db"
+	"mdm/internal/product"
 )
 
 // QA builds: follows (option C, picked 30 Oct 2026). QA tablets got their app builds from
@@ -463,6 +464,66 @@ func installChannelsByFamily(fams []LibFamily) map[string]string {
 	out := map[string]string{}
 	for _, f := range fams {
 		out[f.ID] = installChannelsJSON(f)
+	}
+	return out
+}
+
+// followRow is one role app in the Follow apps list (F2, picked 30 Oct 2026): its channels
+// with their newest library builds, and the one this device follows ("" if none).
+type followRow struct {
+	Name, Product, Icon string
+	Channels            []followChan
+	Following           string // the followed channel package
+	FollowingLabel      string
+}
+
+type followChan struct{ Label, Package, Newest string }
+
+// followRows lists the role apps (Lineup's apps, not every library app) for the Follow apps
+// dialog, in the library's channel order (prod first).
+func (h *Handler) followRows(ctx context.Context, fams []LibFamily, follows []followView) []followRow {
+	ras, err := h.db.ListRoleApps(ctx)
+	if err != nil {
+		return nil
+	}
+	followed := map[string]bool{}
+	for _, f := range follows {
+		followed[f.Package] = true
+	}
+	seen := map[string]bool{}
+	var out []followRow
+	for _, ra := range ras {
+		if ra.BasePackage == "" || seen[ra.BasePackage] {
+			continue
+		}
+		seen[ra.BasePackage] = true
+		for _, f := range fams {
+			if f.BasePackage != ra.BasePackage && f.Prod().Package != ra.BasePackage {
+				continue
+			}
+			r := followRow{Name: f.Name, Product: product.ClassLabel(ra.Role), Icon: f.Icon}
+			for _, v := range f.Variants {
+				c := followChan{Label: v.Label, Package: v.Package}
+				for _, ver := range v.Versions {
+					if ver.App.ApkURL != "" {
+						c.Newest = ver.App.VersionName
+						break
+					}
+				}
+				if c.Newest == "" {
+					continue
+				}
+				r.Channels = append(r.Channels, c)
+				if followed[v.Package] {
+					r.Following, r.FollowingLabel = v.Package, v.Label
+				}
+			}
+			sort.SliceStable(r.Channels, func(i, j int) bool { return r.Channels[i].Label == "prod" && r.Channels[j].Label != "prod" })
+			if len(r.Channels) > 0 {
+				out = append(out, r)
+			}
+			break
+		}
 	}
 	return out
 }
