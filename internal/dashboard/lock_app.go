@@ -201,6 +201,14 @@ func (h *Handler) DeviceLockHost(w http.ResponseWriter, r *http.Request) {
 	pkg := cfg.KioskPackage
 	if on {
 		pkg = strings.TrimSpace(r.FormValue("package"))
+		// No package (the right-click menu's Lock): the one build installed. With several
+		// the person picks on the device page, as its Lock button asks.
+		if pkg == "" && len(la.Variants) == 1 {
+			pkg = la.Variants[0].Package
+		} else if pkg == "" && len(la.Variants) > 1 {
+			writeJSONError(w, http.StatusConflict, "Several builds of "+la.Name+" are installed: pick one on the device page.")
+			return
+		}
 		ok := false
 		for _, v := range la.Variants {
 			ok = ok || v.Package == pkg

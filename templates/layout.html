@@ -461,6 +461,10 @@
   })();
   </script>
   <script src="/static/js/layout/chrome.js?v={{assetVer}}"></script>
+  {{/* Right-click menus (R1, 30 Oct 2026): one panel for every page, outside <main> so a
+       boosted swap keeps it; data-ctx-caps is what this viewer may do from it. */}}
+  <div id="ctx-menu" class="cc-menu ctx-menu" role="menu" aria-label="Actions" hidden data-ctx-caps="{{ctxCaps .NavRole}}"></div>
+  <script src="/static/js/layout/context-menu.js?v={{assetVer}}" defer></script>
 
   {{/* Per-page navigation skeletons. Inert <template>s (rendered once, live
        outside <main> so they survive boosted swaps); the beforeRequest handler

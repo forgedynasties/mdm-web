@@ -48,7 +48,7 @@
        product key; T7s report no model and keep their catalog label. */}}
   {{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
   {{$online := index $.Online .ID}}
-  <tr class="ft-row {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
+  <tr class="ft-row {{rowClasses .}}" data-ctx="device" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-type="{{.ClassLabel}}"{{if .RestaurantID}} data-atv="1"{{end}}{{if .KioskEnabled}} data-locked="1"{{end}} data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
     {{if $.Selectable}}<td class="ft-cb"><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}"></td>{{end}}
     <td class="ft-dev">
       <div class="ft-l1">
@@ -99,7 +99,7 @@
      Nugget app sends serials, so they are one line. venue_backend.go */}}
 {{define "ft-unenrolled"}}
 {{range .U.Rows}}
-  <tr class="ft-row ft-un" data-class="{{.Class}}" data-serial="{{.Serial}}">
+  <tr class="ft-row ft-un" data-class="{{.Class}}" data-serial="{{.Serial}}" data-ctx="none">
     {{if $.Selectable}}<td class="ft-cb"></td>{{end}}
     <td class="ft-dev"><div class="ft-l1"><span class="dl-status un" role="img" aria-label="Unenrolled" title="Unenrolled"><i></i></span><span class="ft-sn"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></span></div></td>
     <td class="ft-type"><span class="ft-ell">{{.Label}}</span></td>
@@ -124,7 +124,7 @@
 <div class="dl-list dl-serial-list">
   {{range .Devices}}
   {{$kind := deviceIcon .}}
-  <div class="dl-card dl-sc {{rowClasses .}}" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
+  <div class="dl-card dl-sc {{rowClasses .}}" data-ctx="device" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-type="{{.ClassLabel}}"{{if .RestaurantID}} data-atv="1"{{end}}{{if .KioskEnabled}} data-locked="1"{{end}} data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
     {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
     {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
@@ -164,7 +164,7 @@
   </div>
   {{end}}
   {{with .Unenrolled}}{{range .Rows}}
-  <div class="dl-card dl-sc ft-un" data-class="{{.Class}}" data-serial="{{.Serial}}">
+  <div class="dl-card dl-sc ft-un" data-class="{{.Class}}" data-serial="{{.Serial}}" data-ctx="none">
     <span class="dl-cb-spacer" aria-hidden="true"></span>
     <div class="dl-sc-id"><div class="dl-sc-l1"><span class="dl-status un" role="img" aria-label="Unenrolled"><i></i></span><span class="dl-sc-sn"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></span><span class="ft-unchip">Unenrolled</span></div>
       <div class="dl-sc-l2"><span>{{.Label}}</span><span class="sep">·</span><span>in the AIO backend · {{if .Onboarded}}onboarded{{else}}not onboarded{{end}}</span></div></div>
@@ -511,7 +511,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a>{{if eq .Role "engineer"}}<span class="rail-ro" title="Read only: devices at restaurants can be looked at, screenshotted and have their logs collected, nothing else"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>Read only</span>{{else}}<a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a>{{end}}</div>
     <div class="fleet-rail-list" data-sec="restaurants">
     {{range .RailRestaurants}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="venue" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "restaurants"}} data-page="/restaurants/{{.GroupID}}"{{end}}>
       <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="vicon-dot">{{venueIcon .GroupID .Name "sm"}}<span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span></span><span class="nm">{{.Name}}</span></a>
       {{if canOpenPage $.Role "restaurants"}}<a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>{{end}}
       <span class="ct">{{.DeviceCount}}</span>
@@ -525,7 +525,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a><a href="/groups/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New group{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
     <div class="fleet-rail-list" data-sec="groups">
     {{range .RailGroups}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}">
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="group" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "groups"}} data-page="/groups/{{.GroupID}}"{{end}}>
       <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>

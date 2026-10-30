@@ -273,7 +273,7 @@
         </tr></thead>
         <tbody>
         {{range .Rows}}
-        <tr class="ft-row" data-href="/users/{{.ID}}/profile" data-role="{{.Role}}" data-act="{{.Activity}}" data-rank="{{.Rank}}" data-name="{{.DisplayName}}" data-seen="{{if .LastAt}}{{timeISO (deref .LastAt)}}{{end}}" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}{{range .Venues}} {{.Name}}{{end}}">
+        <tr class="ft-row" data-href="/users/{{.ID}}/profile" data-ctx="user" data-name="{{.DisplayName}}" data-email="{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}" data-page="/users/{{.ID}}/profile" data-role="{{.Role}}" data-act="{{.Activity}}" data-rank="{{.Rank}}" data-name="{{.DisplayName}}" data-seen="{{if .LastAt}}{{timeISO (deref .LastAt)}}{{end}}" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}{{range .Venues}} {{.Name}}{{end}}">
           <td><a class="up-who js-dest" href="/users/{{.ID}}/profile" style="color:inherit;text-decoration:none">{{template "ubub" (userBubble .Username)}}<span class="t"><b>{{.DisplayName}}</b><small>{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}</small></span></a></td>
           <td><span class="cc-pill {{rolePill .Role}}">{{roleLabel .Role}}</span></td>
           {{if eq $.Tab "team"}}

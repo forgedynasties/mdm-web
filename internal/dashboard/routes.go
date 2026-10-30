@@ -190,6 +190,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
 	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrOperator(h.RestaurantNew))
 	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrOperator(h.RestaurantNewDevices))
+	mux.HandleFunc("GET /ctx/targets", h.requireAdminOrOperator(h.CtxTargets))
 	post("POST /clients/auto-update", h.requireAdmin(h.ClientAutoUpdateSet))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
 	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))

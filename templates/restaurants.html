@@ -204,7 +204,7 @@
       </tr></thead>
       <tbody>
       {{range $v.Cards}}
-      <tr class="ft-row" data-href="{{.Href}}" data-flags="{{.Flags}}" data-classes="{{.Classes}}" data-text="{{.Text}}"
+      <tr class="ft-row" data-href="{{.Href}}" data-ctx="venue" data-id="{{.ID}}" data-name="{{.Name}}" data-page="{{.Href}}" data-flags="{{.Flags}}" data-classes="{{.Classes}}" data-text="{{.Text}}"
           data-s-name="{{.Name}}" data-s-health="{{if and .Devices .HasH}}{{.H.Score}}{{else}}999{{end}}" data-s-devices="{{.Devices}}" data-s-last="{{if not .Last.IsZero}}{{.Last.Unix}}{{else}}0{{end}}">
         <td><a class="cl-nm" href="{{.Href}}">{{venueIcon .ID .Name "sm"}}<span class="cl-t"><b>{{.Name}}</b><small>{{if .Place}}{{.Place}}{{else if .Devices}}{{.Sub}}{{else}}{{.Sub}}{{end}}{{if and .Place .TZ2}} · {{.TZ2}}{{end}}</small></span></a></td>
         <td class="ft-num"><span class="cl-sc {{.Class}}">{{if and .Devices .HasH}}{{.H.Score}}{{else}}—{{end}}</span></td>

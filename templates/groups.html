@@ -68,7 +68,7 @@
       </tr></thead>
       <tbody>
       {{range $p.Rows}}{{$g := .G}}
-      <tr class="ft-row" data-href="/groups/{{$g.ID}}" data-flags="{{.Flags}}" data-text="{{$g.Name}}"
+      <tr class="ft-row" data-href="/groups/{{$g.ID}}" data-ctx="group" data-id="{{$g.ID}}" data-name="{{$g.Name}}" data-page="/groups/{{$g.ID}}"{{if $g.Hidden}} data-hidden="1"{{end}} data-flags="{{.Flags}}" data-text="{{$g.Name}}"
           data-s-name="{{$g.Name}}" data-s-health="{{if .HasH}}{{.H.Score}}{{else}}999{{end}}" data-s-devices="{{.Devices}}" data-s-created="{{$g.CreatedAt.Unix}}">
         <td><a class="cl-nm" href="/groups/{{$g.ID}}">{{venueIcon $g.ID $g.Name "sm"}}<span class="cl-t"><b>{{$g.Name}}{{if $g.Hidden}} <span class="cc-tag" title="Hidden: only super admins see it, and only here">hidden</span>{{end}}</b><small>{{.Devices}} device{{if ne .Devices 1}}s{{end}}</small></span></a></td>
         <td class="ft-num"><span class="cl-sc {{.Class}}"{{if .Why}} title="{{range $i, $w := .Why}}{{if $i}} · {{end}}{{$w}}{{end}}"{{end}}>{{if .HasH}}{{.H.Score}}{{else}}—{{end}}</span></td>
