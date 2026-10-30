@@ -1480,7 +1480,7 @@ window.DEVICE_VITALS = {
         <div class="install-modal-head"><span class="modal-title">Follow apps</span>
           <span class="install-head-actions"><button type="button" class="modal-close" onclick="followModalClose()" aria-label="Close">&times;</button></span></div>
         {{if .FollowRows}}
-        <div class="ft-wrap fl-wrap2"><table class="ft fl-t"><thead><tr><th>App</th><th style="width:130px">Channel</th><th style="width:170px">Newest</th><th style="width:190px"><span class="sr-only">Follow</span></th></tr></thead><tbody>
+        <div class="ft-wrap fl-wrap2"><table class="ft fl-t"><thead><tr><th>App</th><th style="width:120px">Channel</th><th style="width:150px">Newest</th><th style="width:170px"><span class="sr-only">Follow</span></th></tr></thead><tbody>
         {{range .FollowRows}}{{$r := .}}
         <tr class="ft-row" data-fl-row>
           <td><span class="fl-nm">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}<span><b>{{.Name}}</b><small>{{.Product}}</small></span></span></td>

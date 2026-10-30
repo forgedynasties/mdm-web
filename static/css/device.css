@@ -726,7 +726,8 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .inst-drop:hover,.dd-drop:hover{border-color:var(--accent-edge);background:var(--accent-soft)}
 .apk-over{outline:2px dashed var(--accent);outline-offset:-6px}
 .dd-follows{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 16px 0;padding:8px 10px;border-radius:12px;background:var(--surface-3)}
-.fl-box{max-width:760px}
+.fl-box{max-width:820px!important;width:calc(100vw - 32px)}
+.fl-t td:first-child{min-width:200px}
 .fl-wrap2{padding:0 18px;max-height:62vh;overflow:auto}
 .fl-nm{display:flex;align-items:center;gap:10px}.fl-nm .app-icon{width:30px;height:30px;border-radius:8px}.fl-nm span{display:flex;flex-direction:column}.fl-nm small{font-size:11px;color:var(--muted)}
 .fl-sel{font:inherit;font-size:12.5px;padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
