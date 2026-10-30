@@ -204,6 +204,13 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 		return
 	}
 	target := deviceTargets(devices, bases, venueCh)
+	// A device that follows channel builds (app_follows.go: a QA tablet) chose its apps
+	// itself: no prod app is pushed onto it.
+	if follows, err := h.db.AllFollows(ctx); err == nil {
+		for id := range follows {
+			delete(target, id)
+		}
+	}
 	want := map[string]bool{}
 	for _, p := range target {
 		want[p] = true

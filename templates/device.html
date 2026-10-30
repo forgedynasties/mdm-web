@@ -1502,7 +1502,7 @@ window.DEVICE_VITALS = {
                  (prod, newest first); the chooser under a selected tile picks which
                  APK goes into the hidden apk_url input. */}}
             <div class="install-tile-wrap">
-            <button type="button" class="app-row app-tile install-tile{{if or .Grouped (gt .Versions 1)}} is-family{{end}}{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" title="{{.Name}}{{if $prod.Latest.VersionName}} v{{$prod.Latest.VersionName}}{{end}}" onclick="installToggle(this)">
+            <button type="button" class="app-row app-tile install-tile{{if or .Grouped (gt .Versions 1)}} is-family{{end}}{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" data-channels="{{index $.InstallChannels .ID}}" title="{{.Name}}{{if $prod.Latest.VersionName}} v{{$prod.Latest.VersionName}}{{end}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{$prod.Latest.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
               <span class="app-tname">{{.Name}}</span>{{if $prod.Latest.VersionName}}<span class="app-tver">v{{$prod.Latest.VersionName}}{{if .Grouped}} · {{$prod.Label}}{{end}}</span>{{end}}{{if or .Grouped (gt .Versions 1)}}<span class="app-tmeta">{{if .Grouped}}{{len .Variants}} variant{{if ne (len .Variants) 1}}s{{end}} · {{end}}{{.Versions}} version{{if ne .Versions 1}}s{{end}}</span>{{end}}
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
@@ -1516,7 +1516,11 @@ window.DEVICE_VITALS = {
             {{end}}
           </div>
           <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
+          {{/* QA builds (C, 30 Oct 2026): the picked app's channel, build and "keep it on the
+               newest" — filled by installPane() in apps.js from the tile's data-channels. */}}
+          <div class="inst-pane" id="inst-pane" hidden></div>
           <div class="install-modal-foot">
+            {{if canAppLibrary .Role}}<label class="inst-drop" data-apk-drop title="An APK you drop goes into the library and installs on this device"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span>or <b>drop an APK</b> here</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
             <span class="muted small" id="install-count">Select one or more apps</span>
             <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>Install</button>
           </div>
@@ -1923,7 +1927,7 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
-    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}<small class="apl-pkg">{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
+    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}{{if $r.FollowSet}}{{with index $r.FollowSet $p.PackageName}} <span class="dd-fchip {{.State}}" title="{{.Title}}">follows {{.Channel}}</span>{{end}}{{end}}<small class="apl-pkg">{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
     <span class="apl-c mono apl-v">{{if $p.VersionName}}{{$p.VersionName}}{{else}}—{{end}}</span>
     {{if not $r.AppList.Limited}}<span class="apl-c apl-m">{{$p.Mem}}</span><span class="apl-c apl-cpu">{{$p.CPU}}</span>{{end}}<span class="apl-c apl-scr">{{$p.Screen}}</span>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
@@ -1935,6 +1939,19 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   </div>
 {{end}}
 
+{{/* QA builds (C, 30 Oct 2026): what this device follows, one pill each with its channel
+     and a dot (green up to date, amber installing, grey waiting); Edit opens Install app,
+     × stops following. Then the drop zone: an APK dropped here goes into the library and
+     installs on this device. app_follows.go */}}
+{{define "dd-follows"}}
+{{if .Follows}}<div class="dd-follows" aria-label="Follows">
+  <span class="dd-fk">Follows</span>
+  {{range .Follows}}<span class="dd-fpill" title="{{.Package}} · {{.Title}}">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}{{.Name}} <b>{{.Channel}}</b><i class="dd-fdot {{.State}}"></i>{{if ge .Pct 0}}<small>{{.Pct}} %</small>{{end}}{{if canOperate $.Role}}<button type="button" class="dd-fx" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='{"action":"unfollow","package":"{{.Package}}"}' hx-swap="none" hx-confirm="Stop following {{.Package}}? The app stays installed." aria-label="Stop following {{.Package}}" title="Stop following">&times;</button>{{end}}</span>{{end}}
+  {{if canOperate .Role}}<button type="button" class="dd-fedit" onclick="installModalOpen()">Edit</button>{{end}}
+</div>{{end}}
+{{if and (canAppLibrary .Role) (supports .Device "install_apk")}}<label class="dd-drop" data-apk-drop><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span><b>Drop an APK here</b> to install it on this device · it goes into the library as a test build</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
+{{end}}
+
 {{define "device-apps-list"}}
 <style>.app-tsub.aid{font-family:var(--mono);font-size:9.5px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
 {{/* While installs are in flight, self-poll the list every 2s so download/install
@@ -1943,6 +1960,7 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
      polling — once nothing is pending. */}}
 {{if .PendingInstalls}}<div id="apps-install-poller" hidden hx-get="/devices/{{.Device.SerialNumber}}/apps-list{{with .AppList}}?window={{.Window}}{{end}}" hx-target="#apps-live" hx-swap="innerHTML" hx-trigger="every 2s"></div>{{end}}
 {{$L := .AppList}}
+{{template "dd-follows" .}}
 {{if or $L.User $L.System .PendingInstalls}}
 {{/* One ranked list (A1, 27 Oct 2026): a row per app with its icon, version and what it
      used in the window. Rows keep .app-row/.app-tile and their data- attributes, so the

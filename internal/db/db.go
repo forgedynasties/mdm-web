@@ -178,6 +178,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, setupVisitsSchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, appFollowsSchema); err != nil {
+		return err
+	}
 	if err := seedRoleApps(ctx, tx); err != nil {
 		return err
 	}

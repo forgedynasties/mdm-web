@@ -882,6 +882,11 @@ func main() {
 		// Install the product's prod app (Lineup → role → App) on online devices
 		// that lack it, at a venue or not — see dashboard/role_app_install.go.
 		runJob(ctx, "role-app-install", time.Minute, dash.RunRoleAppInstalls)
+		// Devices that follow channel builds (QA): the library's newest of each, and a
+		// Lab device that refused a build for its signing key gets the app replaced —
+		// see dashboard/app_follows.go.
+		runJob(ctx, "app-follow", time.Minute, dash.RunAppFollows)
+		runJob(ctx, "key-clash", time.Minute, dash.RunKeyClashRetries)
 		// The role model (static/device-role-model-plan.html): close lab sessions
 		// whose time is up, then keep each device on its role's app build. Both
 		// act only where a lab session or a prod build exists.

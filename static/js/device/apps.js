@@ -73,6 +73,13 @@ window.installModalOpen = function () {
   var form = document.getElementById('install-form');
   if (form) {
     form.querySelectorAll('.install-tile.on').forEach(function (t) { t.classList.remove('on'); });
+    // Each open starts from the prod build of every tile (the channel pane changes them).
+    form.querySelectorAll('.install-tile').forEach(function (t) {
+      if (t.dataset.url0 === undefined) { t.dataset.url0 = t.getAttribute('data-url') || ''; t.dataset.pkg0 = t.getAttribute('data-pkg') || ''; var tv = t.querySelector('.app-tver'); t.dataset.ver0 = tv ? tv.textContent : ''; }
+      else { t.setAttribute('data-url', t.dataset.url0); t.setAttribute('data-pkg', t.dataset.pkg0); var tv2 = t.querySelector('.app-tver'); if (tv2) tv2.textContent = t.dataset.ver0; }
+      t.removeAttribute('data-follow');
+    });
+    var pane = document.getElementById('inst-pane'); if (pane) { pane.hidden = true; pane.dataset.tile = ''; form.classList.remove('inst-two'); }
     var holder = form.querySelector('.install-hidden'); if (holder) holder.innerHTML = '';
     var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
     if (c) c.textContent = 'Select one or more apps';
@@ -260,7 +267,9 @@ window.installToggle = function (btn) {
   var holder = form.querySelector('.install-hidden');
   var on = btn.classList.toggle('on');
   var pick = btn.parentElement && btn.parentElement.querySelector('.install-pick');
-  if (pick) { pick.hidden = !on; if (on) { pick.value = url; } }
+  // The New view picks channel and build in the side pane (installPane), not the select.
+  var pane = document.getElementById('inst-pane');
+  if (pick && !pane) { pick.hidden = !on; if (on) { pick.value = url; } }
   var existing = holder.querySelector('input[data-url="' + (window.CSS && CSS.escape ? CSS.escape(url) : url) + '"]');
   if (on && !existing) {
     var i = document.createElement('input');
@@ -273,12 +282,20 @@ window.installToggle = function (btn) {
   var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
   if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Select one or more apps';
   if (s) { s.disabled = n === 0; s.textContent = n ? ('Install (' + n + ')') : 'Install'; }
+  if (pane) {
+    if (on) installPane(btn);
+    else if (pane.dataset.tile === btn.getAttribute('data-family')) {
+      var other = form.querySelector('.install-tile.on'); if (other) installPane(other); else { pane.hidden = true; pane.dataset.tile = ''; form.classList.remove('inst-two'); }
+    }
+    installLabel();
+  }
 };
 // Optimistic install: the instant Install is clicked, drop an "installing" tile into the
 // drawer for each selected app (cloning its icon) so feedback is immediate — the server
 // round-trip then refreshes the drawer with the real pending/progress state.
 window.installOptimistic = function () {
   var form = document.getElementById('install-form'); if (!form) return;
+  installFollows(form);
   var table = document.getElementById('apps-table'); if (!table) return;
   form.querySelectorAll('.install-tile.on').forEach(function (t) {
     var name = (t.getAttribute('data-app') || '').trim();
@@ -389,3 +406,118 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   var t = e.target;
   if (t && t.id === 'apps-live' && window.__uninstallPending) { e.preventDefault(); }
 });
+
+// ── QA builds (C, 30 Oct 2026): channel, build and "keep it on the newest" ──────────
+// A picked tile's channels come from its data-channels (app_follows.go installChannelsJSON):
+// [{label, pkg, vers, urls}], newest first. The choice lives on the tile (data-url,
+// data-pkg, data-follow) and in its hidden apk_url input, so Install works as before.
+function instEsc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function instChannels(btn) { try { return JSON.parse(btn.getAttribute('data-channels') || '[]') || []; } catch (e) { return []; } }
+function instSet(btn, url, pkg) {
+  var form = document.getElementById('install-form'), holder = form && form.querySelector('.install-hidden'); if (!holder) return;
+  var old = btn.getAttribute('data-url'), esc = window.CSS && CSS.escape ? CSS.escape(old) : old;
+  var inp = holder.querySelector('input[data-url="' + esc + '"]');
+  btn.setAttribute('data-url', url); btn.setAttribute('data-pkg', pkg);
+  if (inp) { inp.value = url; inp.setAttribute('data-url', url); }
+}
+window.installPane = function (btn) {
+  var pane = document.getElementById('inst-pane'), form = document.getElementById('install-form'); if (!pane || !form) return;
+  var chs = instChannels(btn); if (!chs.length) { pane.hidden = true; form.classList.remove('inst-two'); return; }
+  var pkg = btn.getAttribute('data-pkg'), ch = chs.filter(function (c) { return c.pkg === pkg; })[0] || chs[0];
+  var url = btn.getAttribute('data-url'), vi = Math.max(0, ch.urls.indexOf(url));
+  if (btn.getAttribute('data-follow') === null) btn.setAttribute('data-follow', ch.label === 'prod' ? '0' : '1');
+  var follow = btn.getAttribute('data-follow') === '1';
+  var icon = btn.querySelector('.app-icon, .app-mono'), name = btn.getAttribute('data-app') || '';
+  var h = '<div class="inst-ph">' + (icon ? icon.outerHTML : '') + '<b>' + instEsc(name) + '</b><span class="mono small muted">' + instEsc(ch.pkg) + '</span></div>';
+  h += '<div class="inst-lbl">Channel</div><div class="inst-chs" role="radiogroup" aria-label="Channel">';
+  chs.forEach(function (c, i) { h += '<button type="button" class="inst-c' + (c === ch ? ' on' : '') + '" role="radio" aria-checked="' + (c === ch) + '" data-i="' + i + '">' + instEsc(c.label) + '<small>' + instEsc(c.vers[0] || '') + '</small></button>'; });
+  h += '</div><div class="inst-lbl">Build</div><div class="inst-bld">';
+  ch.vers.forEach(function (v, i) { if (i > 5) return; h += '<label><input type="radio" name="inst-b" value="' + i + '"' + (i === vi ? ' checked' : '') + '> <b class="mono">' + instEsc(v || 'unversioned') + '</b>' + (i === 0 ? ' <span class="muted small">newest</span>' : '') + '</label>'; });
+  h += '</div><label class="inst-keep"><input type="checkbox"' + (follow ? ' checked' : '') + '> <span><b>Keep this device on the newest ' + instEsc(ch.label) + ' build</b><small>every newer ' + instEsc(name) + ' ' + instEsc(ch.label) + ' build in the library installs here by itself</small></span></label>';
+  pane.innerHTML = h; pane.hidden = false; pane.dataset.tile = btn.getAttribute('data-family'); form.classList.add('inst-two');
+  pane.querySelectorAll('.inst-c').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var c = chs[+b.dataset.i]; instSet(btn, c.urls[0], c.pkg);
+      btn.setAttribute('data-follow', c.label === 'prod' ? '0' : '1');
+      var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = 'v' + (c.vers[0] || '') + ' · ' + c.label;
+      installPane(btn); installLabel();
+    });
+  });
+  pane.querySelectorAll('input[name="inst-b"]').forEach(function (r) {
+    r.addEventListener('change', function () { instSet(btn, ch.urls[+r.value], ch.pkg); var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = 'v' + (ch.vers[+r.value] || '') + ' · ' + ch.label; });
+  });
+  var kc = pane.querySelector('.inst-keep input');
+  if (kc) kc.addEventListener('change', function () { btn.setAttribute('data-follow', kc.checked ? '1' : '0'); installLabel(); });
+};
+window.installLabel = function () {
+  var form = document.getElementById('install-form'), s = document.getElementById('install-submit'); if (!form || !s) return;
+  var on = form.querySelectorAll('.install-tile.on'), f = 0;
+  on.forEach(function (t) { if (t.getAttribute('data-follow') === '1') f++; });
+  if (on.length) s.textContent = (f ? 'Install and follow' : 'Install') + (on.length > 1 ? ' (' + on.length + ')' : '');
+};
+// Follow what was ticked, before the install goes out (the follow job then sees the
+// install in flight and waits for it).
+window.installFollows = function (form) {
+  var serial = (form.querySelector('[name="target_serials"]') || {}).value; if (!serial) return;
+  form.querySelectorAll('.install-tile.on').forEach(function (t) {
+    if (t.getAttribute('data-follow') !== '1' || !t.getAttribute('data-pkg')) return;
+    var body = new URLSearchParams(); body.append('action', 'follow'); body.append('package', t.getAttribute('data-pkg'));
+    fetch('/devices/' + encodeURIComponent(serial) + '/follows', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' } }).catch(function () {});
+    t.removeAttribute('data-follow');
+  });
+  var pane = document.getElementById('inst-pane'); if (pane) { pane.hidden = true; pane.dataset.tile = ''; form.classList.remove('inst-two'); }
+};
+// Drop an APK on the Apps card or the dialog: into the library (as uploadApk does), then
+// installed on this device. Engineers may add channel builds; a prod build is refused
+// with the server's reason.
+window.dropApkInstall = function (file) {
+  if (!file) return;
+  if (!/\.apk$/i.test(file.name)) { if (window.showToast) showToast('That is not an .apk file', 'error'); return; }
+  var serial = decodeURIComponent((location.pathname.split('/')[2] || ''));
+  var toast = function (t, typ) { if (window.showToast) showToast(t, typ || 'info'); };
+  var meta = { pkg: '', name: '', icon: '' };
+  toast('Uploading ' + file.name + ' (' + mdmFmtBytes(file.size) + ')…');
+  window.installModalClose && installModalClose();
+  mdmEnsureParser()
+    .then(function () { return new AppInfoParser(file).parse(); })
+    .then(function (info) {
+      meta.pkg = info.package || '';
+      var lbl = (info.application && info.application.label) || info.label || meta.pkg;
+      if (Array.isArray(lbl)) lbl = lbl[0];
+      meta.name = String(lbl || meta.pkg);
+      return mdmIconPng(info.icon).then(function (png) { meta.icon = png; });
+    })
+    .catch(function () {})
+    .then(function () { return fetch('/apps/upload-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ filename: file.name }) }); })
+    .then(function (r) { if (!r.ok) throw new Error('could not get an upload URL'); return r.json(); })
+    .then(function (d) { return mdmS3Put(d.url, file).then(function () { return d.key; }); })
+    .then(function (key) {
+      return fetch('/apps/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ key: key, package: meta.pkg, name: meta.name, icon: meta.icon }) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'could not add it to the library'); return j; }); });
+    })
+    .then(function (app) {
+      var body = new URLSearchParams();
+      body.append('type', 'install_apk'); body.append('target_type', 'devices'); body.append('target_serials', serial); body.append('apk_url', app.apk_url);
+      return fetch('/commands', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' } })
+        .then(function (r) { if (!r.ok && r.status !== 204) throw new Error('could not queue the install'); return app; });
+    })
+    .then(function (app) {
+      toast('Installing ' + (app.name || app.package_name) + (app.version_name ? ' ' + app.version_name : '') + ' on this device', 'success');
+      if (window.htmx) htmx.trigger(document.body, 'device-updated');
+    })
+    .catch(function (err) { toast(err.message, 'error'); });
+};
+(function () {
+  function zone(e) { return e.target && e.target.closest && e.target.closest('#dd-panel-apps .apl-card, #install-modal .modal-box'); }
+  function hasFile(e) { var t = e.dataTransfer && e.dataTransfer.types; return t && Array.prototype.indexOf.call(t, 'Files') !== -1; }
+  document.addEventListener('dragover', function (e) {
+    var z = zone(e); if (!z || !hasFile(e) || !document.querySelector('[data-apk-drop]')) return;
+    e.preventDefault(); z.classList.add('apk-over');
+  });
+  document.addEventListener('dragleave', function (e) { var z = zone(e); if (z && !z.contains(e.relatedTarget)) z.classList.remove('apk-over'); });
+  document.addEventListener('drop', function (e) {
+    var z = zone(e); if (!z || !hasFile(e) || !document.querySelector('[data-apk-drop]')) return;
+    e.preventDefault(); z.classList.remove('apk-over');
+    var f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) dropApkInstall(f);
+  });
+})();

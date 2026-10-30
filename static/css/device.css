@@ -699,3 +699,46 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .ota-ln form{margin:0}
 @media (max-width:1100px){.ota-st:not(.cur){font-size:0;gap:0}}
 .ota-eta{font-size:12px;color:var(--text-2);white-space:nowrap}
+
+/* QA builds (C, 30 Oct 2026): the Install dialog's channel pane, the Apps card's Follows
+   strip and drop zone, and the "follows <channel>" chip on an app's row. app_follows.go */
+#install-form.inst-two{display:grid;grid-template-columns:minmax(0,1fr) 330px;column-gap:0}
+#install-form.inst-two>.install-hidden{display:none}
+#install-form.inst-two>.app-search,#install-form.inst-two>.install-drawer,#install-form.inst-two>#install-no-match{grid-column:1}
+#install-form.inst-two>.inst-pane{grid-column:2;grid-row:1/span 3;border-left:1px solid var(--border);padding:12px 18px;max-height:62vh;overflow:auto}
+#install-form.inst-two>.install-modal-foot{grid-column:1/-1}
+.modal-box:has(#install-form.inst-two){max-width:1000px;width:min(1000px,calc(100vw - 32px))}
+.inst-ph{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.inst-ph .app-icon,.inst-ph .app-mono{width:34px;height:34px;border-radius:9px;flex:none}
+.inst-ph .mono{word-break:break-all}
+.inst-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.inst-chs{display:flex;flex-wrap:wrap;gap:6px}
+.inst-c{display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:6px 11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font:inherit;font-size:12.5px;font-weight:650;color:var(--text);cursor:pointer}
+.inst-c small{font-size:10.5px;font-weight:500;color:var(--muted);font-family:var(--mono)}
+.inst-c.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-text)}
+.inst-bld{display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.inst-keep{display:flex;gap:10px;align-items:flex-start;margin-top:16px;padding:10px 12px;border-radius:12px;background:var(--ok-bg);font-size:12.5px;cursor:pointer}
+.inst-keep span{display:flex;flex-direction:column}.inst-keep small{color:var(--text-2);font-size:11.5px}
+.inst-drop,.dd-drop{display:flex;align-items:center;gap:9px;border:1.5px dashed var(--border);border-radius:12px;font-size:12.5px;color:var(--text-2);cursor:pointer}
+.inst-drop{padding:7px 12px;margin-right:auto}
+.dd-drop{margin:10px 16px 2px;padding:10px 14px}
+.inst-drop svg,.dd-drop svg{width:17px;height:17px;flex:none;color:var(--accent-text)}
+.inst-drop:hover,.dd-drop:hover{border-color:var(--accent-edge);background:var(--accent-soft)}
+.apk-over{outline:2px dashed var(--accent);outline-offset:-6px}
+.dd-follows{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 16px 0;padding:8px 10px;border-radius:12px;background:var(--surface-3)}
+.dd-fk{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.dd-fpill{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 5px;border-radius:99px;background:var(--surface);border:1px solid var(--border);font-size:12px;font-weight:600}
+.dd-fpill .app-icon{width:20px;height:20px;border-radius:6px}
+.dd-fpill small{color:var(--muted);font-variant-numeric:tabular-nums}
+.dd-fdot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--text-faint)}
+.dd-fdot.ok{background:var(--ok)}.dd-fdot.run{background:var(--warn)}
+.dd-fx{border:0;background:none;color:var(--muted);font-size:15px;line-height:1;padding:0 3px;cursor:pointer;border-radius:50%}
+.dd-fx:hover{color:var(--danger);background:var(--surface-3)}
+.dd-fedit{margin-left:auto;border:0;background:none;font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);cursor:pointer}
+.dd-fchip{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--surface-3);color:var(--text-2);margin-left:6px;vertical-align:1px;white-space:nowrap}
+.dd-fchip.ok{background:var(--ok-bg);color:var(--ok)}.dd-fchip.run{background:var(--warn-bg);color:var(--warn)}
+@media(max-width:720px){
+  #install-form.inst-two{grid-template-columns:1fr}
+  #install-form.inst-two>.inst-pane{grid-column:1;grid-row:auto;border-left:0;border-top:1px solid var(--border);max-height:none}
+  .install-modal-foot{flex-wrap:wrap}.inst-drop{flex-basis:100%}
+}

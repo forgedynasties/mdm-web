@@ -166,6 +166,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	commands, _ := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
 	apps, _ := h.db.ListApps(r.Context())
 	apkPkg, _ := h.db.GetApkPackageMap(r.Context(), nil)
+	follows := h.deviceFollowsView(r.Context(), device)
 	h.tmpl.ExecuteTemplate(w, "device-apps-list", map[string]any{
 		"Device": device,
 		"Role":   h.role(r),
@@ -176,5 +177,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 		"NuggetIDByPackage": nuggetIDByPackage(device.LatestExtra),
 		"PendingInstalls":   pendingInstallRows(commands, apps, installedPkgs, apkPkg),
 		"Uninstalling":      pendingUninstallPkgs(commands),
+		"Follows":           follows,
+		"FollowSet":         followSet(follows),
 	})
 }

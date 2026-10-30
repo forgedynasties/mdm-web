@@ -142,6 +142,12 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pkg, version, name, icon := req.Package, req.Version, req.Name, req.Icon
+	// Who may add a prod build (QA builds, 30 Oct 2026): someone limited to channel builds
+	// gets the package read from the APK itself, not taken from the browser's word.
+	role := h.role(r)
+	if !roleAtLeast(role, "fleet_manager") {
+		pkg = ""
+	}
 	if pkg == "" {
 		// Fallback: no client metadata — parse the object server-side (slower).
 		meta, err := h.apk.Parse(r.Context(), req.Key)
@@ -151,6 +157,10 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pkg, version, name, icon = meta.Package, meta.VersionName, meta.Label, meta.IconPNGB64
+	}
+	if !mayUploadPackage(role, pkg, h.prodPackages(r.Context())) {
+		writeJSONError(w, http.StatusForbidden, prodUploadRefusal(pkg))
+		return
 	}
 	if len(icon) > 128*1024 { // safety cap; a 96px PNG is far smaller
 		icon = ""

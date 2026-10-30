@@ -35,6 +35,18 @@ func (h *Handler) AppDetailPage(w http.ResponseWriter, r *http.Request) {
 
 	in := d1Inputs{Package: pkg, Cov: cov.Of(pkg), Fleet: cov.Totals.Devices, Apps: apps, Families: fams,
 		Siblings: map[string]map[string]bool{}, SiblingCov: map[string]pkgCoverage{}}
+	// Coverage only knows packages some device runs: a library build nothing runs yet
+	// (aio.app.kiosk.qa on 30 Oct) still is in the library.
+	if !in.Cov.InLibrary {
+		for _, a := range apps {
+			if a.PackageName == pkg {
+				in.Cov.InLibrary, in.Cov.Package = true, pkg
+				if a.VersionName != "" && (in.Cov.LibLatest == "" || versionNewer(a.VersionName, in.Cov.LibLatest)) {
+					in.Cov.LibLatest = a.VersionName
+				}
+			}
+		}
+	}
 	acc := h.access(r)
 	if rows, err := h.db.DevicesWithPackage(ctx, pkg); err == nil {
 		for _, d := range rows {

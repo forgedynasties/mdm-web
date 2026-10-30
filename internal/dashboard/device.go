@@ -514,6 +514,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
 	devFams, _, _ := h.libraryData(r.Context())
+	follows := h.deviceFollowsView(r.Context(), device)
 	// The lock rule covering this device, and whether it was overridden by hand.
 	kioskRule := h.kioskRuleFor(r.Context(), *device)
 	_, kioskOverride := h.db.KioskRuleMark(r.Context(), device.ID)
@@ -617,6 +618,9 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ExtraColumns":        h.cfg.Columns(),
 		"Apps":                apps,
 		"Families":            devFams,
+		"InstallChannels":     installChannelsByFamily(devFams),
+		"Follows":             follows,
+		"FollowSet":           followSet(follows),
 		"InstalledPackages":   launchableOnly(installedPkgs),
 		"AppList":             h.deviceAppsOf(r.Context(), device, installedPkgs, hostAppView(device.LatestExtra), ""),
 		"ClientPill":          h.clientPillFor(device),
