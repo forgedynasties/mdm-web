@@ -184,6 +184,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/{id}/resolve", h.requireSupport(h.AlertResolve))
 	post("POST /groups/{id}", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupUpdate)))
 	post("POST /groups/{id}/delete", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupDelete)))
+	post("POST /groups/{id}/hidden", h.requireStrictAdmin(h.GroupHiddenSet))
 	post("POST /groups/{id}/devices", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupAddDevice)))
 
 	// Restaurants (venue object). Static sub-paths registered before /{id}.

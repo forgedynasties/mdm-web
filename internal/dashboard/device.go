@@ -405,6 +405,15 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 	run(func() {
 		dg, _ := h.db.ListDeviceGroups(ctx, device.ID)
+		if role != "admin" { // hidden groups: the super admin's only
+			kept := dg[:0:0]
+			for _, g := range dg {
+				if !g.Hidden {
+					kept = append(kept, g)
+				}
+			}
+			dg = kept
+		}
 		deviceGroups = dg
 		// Groups the device is NOT yet in — for the placement "+ group" picker.
 		// Populated for the same roles the picker button renders for and the add
@@ -416,7 +425,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			for _, g := range dg {
 				inGroup[g.ID] = true
 			}
-			if allGroups, err := h.db.ListGroups(ctx); err == nil {
+			listGroups := h.db.ListGroups // hidden groups: the super admin's only
+			if role == "admin" {
+				listGroups = h.db.ListAllGroups
+			}
+			if allGroups, err := listGroups(ctx); err == nil {
 				for _, g := range allGroups {
 					if !inGroup[g.ID] {
 						addableGroups = append(addableGroups, g)

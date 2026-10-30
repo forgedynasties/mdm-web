@@ -396,6 +396,7 @@ type Group struct {
 	Name        string    `json:"name"`
 	DeviceCount int       `json:"device_count"`
 	CreatedAt   time.Time `json:"created_at"`
+	Hidden      bool      `json:"hidden"` // super admin only, never in the Fleet rail
 }
 
 type OTAPackage struct {

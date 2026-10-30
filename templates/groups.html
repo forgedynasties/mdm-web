@@ -70,7 +70,7 @@
       {{range $p.Rows}}{{$g := .G}}
       <tr class="ft-row" data-href="/groups/{{$g.ID}}" data-flags="{{.Flags}}" data-text="{{$g.Name}}"
           data-s-name="{{$g.Name}}" data-s-health="{{if .HasH}}{{.H.Score}}{{else}}999{{end}}" data-s-devices="{{.Devices}}" data-s-created="{{$g.CreatedAt.Unix}}">
-        <td><a class="cl-nm" href="/groups/{{$g.ID}}">{{venueIcon $g.ID $g.Name "sm"}}<span class="cl-t"><b>{{$g.Name}}</b><small>{{.Devices}} device{{if ne .Devices 1}}s{{end}}</small></span></a></td>
+        <td><a class="cl-nm" href="/groups/{{$g.ID}}">{{venueIcon $g.ID $g.Name "sm"}}<span class="cl-t"><b>{{$g.Name}}{{if $g.Hidden}} <span class="cc-tag" title="Hidden: only super admins see it, and only here">hidden</span>{{end}}</b><small>{{.Devices}} device{{if ne .Devices 1}}s{{end}}</small></span></a></td>
         <td class="ft-num"><span class="cl-sc {{.Class}}"{{if .Why}} title="{{range $i, $w := .Why}}{{if $i}} · {{end}}{{$w}}{{end}}"{{end}}>{{if .HasH}}{{.H.Score}}{{else}}—{{end}}</span></td>
         <td>{{if .Devices}}<span class="cl-on ft-pw {{if ge .OnPct 80}}battery-ok{{else if ge .OnPct 40}}battery-mid{{else}}battery-low{{end}}"><span class="ft-bar"><i style="width:{{if lt .OnPct 4}}4{{else}}{{.OnPct}}{{end}}%"></i></span><span><b>{{.Online}}</b><small>/{{.Devices}}</small></span></span>{{else}}<span class="muted small">no devices</span>{{end}}</td>
         <td><span class="cl-tags">
@@ -86,6 +86,7 @@
             <a class="cc-mi" role="menuitem" href="/groups/{{$g.ID}}">Open</a>
             <a class="cc-mi" role="menuitem" href="/devices?group={{$g.ID}}">Show in Fleet</a>
             <button type="button" class="cc-mi" role="menuitem" data-cl-dlg="cl-rename" data-name="{{$g.Name}}" data-action="/groups/{{$g.ID}}">Rename…</button>
+            {{if eq $.Role "admin"}}<form method="POST" action="/groups/{{$g.ID}}/hidden" hx-boost="false" style="margin:0"><input type="hidden" name="hidden" value="{{if $g.Hidden}}0{{else}}1{{end}}"><button type="submit" class="cc-mi" role="menuitem" title="{{if $g.Hidden}}Everyone who may see it gets it back in lists and the Fleet rail{{else}}Only super admins will see it, on this page; it leaves the Fleet rail and every list{{end}}">{{if $g.Hidden}}Show group{{else}}Hide group{{end}}</button></form>{{end}}
             <div class="cc-msep"></div>
             <button type="button" class="cc-mi danger" role="menuitem" data-cl-dlg="cl-delete" data-name="{{$g.Name}}" data-action="/groups/{{$g.ID}}/delete">Delete group…</button>
           </div></details>{{end}}<a class="cl-go" href="/groups/{{$g.ID}}" title="Open {{$g.Name}}" aria-label="Open {{$g.Name}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>

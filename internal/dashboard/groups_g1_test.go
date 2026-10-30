@@ -18,7 +18,7 @@ func TestGroupsG1(t *testing.T) {
 	a, b, c := uuid.New(), uuid.New(), uuid.New()
 	groups := []db.Group{
 		{ID: a, Name: "Test Lab units", DeviceCount: 24, CreatedAt: time.Date(2026, 9, 2, 0, 0, 0, 0, time.UTC)},
-		{ID: b, Name: "SJ Ch B1", CreatedAt: time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC)},
+		{ID: b, Name: "SJ Ch B1", CreatedAt: time.Date(2026, 10, 8, 0, 0, 0, 0, time.UTC), Hidden: true},
 		{ID: c, Name: "SJ 3.0", DeviceCount: 20, CreatedAt: time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)},
 	}
 	health := map[uuid.UUID]db.GroupHealth{
@@ -62,6 +62,8 @@ func TestGroupsG1(t *testing.T) {
 		`data-flags="look crit offline venue"`, `class="cc-tag bad">2 critical`, `data-cl-dlg="cl-delete" data-name="SJ 3.0"`,
 		`id="cl-delete" data-confirm="1"`, `name="confirm_name"`, `name="redirect" value="/groups"`, `data-cls="created"`,
 		`16 Sep 2026`, `/static/js/coll_list.js`,
+		// Hidden groups (30 Oct 2026): tagged for the super admin, with Show / Hide in ⋯.
+		`title="Hidden: only super admins see it, and only here">hidden</span>`, `>Show group</button>`, `>Hide group</button>`, `action="/groups/` + b.String() + `/hidden"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("groups page is missing %q", want)

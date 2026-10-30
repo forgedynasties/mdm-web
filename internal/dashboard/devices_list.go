@@ -298,6 +298,19 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 
 	wg.Wait()
 	close(errCh)
+	// Hidden groups (super admin only) never sit in the rail, for anyone (30 Oct 2026).
+	// groups comes from ListGroups, which leaves them out already.
+	shown := make(map[uuid.UUID]bool, len(groups))
+	for _, g := range groups {
+		shown[g.ID] = true
+	}
+	keptRail := railGroups[:0:0]
+	for _, g := range railGroups {
+		if shown[g.GroupID] {
+			keptRail = append(keptRail, g)
+		}
+	}
+	railGroups = keptRail
 	for err := range errCh {
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)

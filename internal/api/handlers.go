@@ -2269,7 +2269,7 @@ func (h *Handler) qaDeviceFilter(w http.ResponseWriter, r *http.Request) (db.Dev
 	}
 
 	if name := strings.TrimSpace(r.URL.Query().Get("group")); name != "" {
-		groupList, err := h.db.ListGroups(r.Context())
+		groupList, err := h.db.ListAllGroups(r.Context())
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 			return filter, false
@@ -2315,7 +2315,7 @@ func (h *Handler) qaDeviceFilter(w http.ResponseWriter, r *http.Request) (db.Dev
 // can pass to ListTestDataDevices, without needing the admin key just to populate a
 // picker. Names only — device counts, IDs, timestamps are an admin-key concern.
 func (h *Handler) ListTestDataFilters(w http.ResponseWriter, r *http.Request) {
-	groups, err := h.db.ListGroups(r.Context())
+	groups, err := h.db.ListAllGroups(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -2451,7 +2451,7 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListGroups(w http.ResponseWriter, r *http.Request) {
-	groups, err := h.db.ListGroups(r.Context())
+	groups, err := h.db.ListAllGroups(r.Context())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

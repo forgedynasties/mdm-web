@@ -24,15 +24,27 @@ func (d *DB) RenameGroup(ctx context.Context, id uuid.UUID, name string) error {
 	return err
 }
 
-func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
+// hiddenGroupsSchema: a group can be hidden (user, 30 Oct 2026: "hide groups so only super
+// admins can see them, and not in the side rail"). ListGroups leaves hidden groups out, so
+// every list and picker drops them; the super admin's pages ask ListAllGroups.
+const hiddenGroupsSchema = `ALTER TABLE groups ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT false;`
+
+// ListGroups lists the groups that are not hidden.
+func (d *DB) ListGroups(ctx context.Context) ([]Group, error) { return d.listGroups(ctx, false) }
+
+// ListAllGroups lists every group, hidden ones included (Hidden set).
+func (d *DB) ListAllGroups(ctx context.Context) ([]Group, error) { return d.listGroups(ctx, true) }
+
+func (d *DB) listGroups(ctx context.Context, withHidden bool) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
+		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
 		LEFT JOIN devices dv ON dv.id = dg.device_id
-		GROUP BY g.id, g.name, g.created_at
+		WHERE $1 OR NOT g.hidden
+		GROUP BY g.id, g.name, g.created_at, g.hidden
 		ORDER BY g.name
-	`)
+	`, withHidden)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +53,7 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	var groups []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.Hidden, &g.DeviceCount); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)
@@ -49,16 +61,22 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	return groups, rows.Err()
 }
 
+// SetGroupHidden hides or shows a group.
+func (d *DB) SetGroupHidden(ctx context.Context, id uuid.UUID, hidden bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE groups SET hidden = $2 WHERE id = $1`, id, hidden)
+	return err
+}
+
 func (d *DB) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
 	var g Group
 	err := d.pool.QueryRow(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
+		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false)) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
 		LEFT JOIN devices dv ON dv.id = dg.device_id
 		WHERE g.id = $1
-		GROUP BY g.id, g.name, g.created_at
-	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount)
+		GROUP BY g.id, g.name, g.created_at, g.hidden
+	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.Hidden, &g.DeviceCount)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +153,7 @@ func (d *DB) RemoveDevicesFromGroup(ctx context.Context, serials []string, group
 // detail page's placement block).
 func (d *DB) ListDeviceGroups(ctx context.Context, deviceID uuid.UUID) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT g.id, g.name, g.created_at
+		SELECT g.id, g.name, g.created_at, g.hidden
 		FROM groups g JOIN device_groups dg ON dg.group_id = g.id
 		WHERE dg.device_id = $1
 		ORDER BY g.name`, deviceID)
@@ -146,7 +164,7 @@ func (d *DB) ListDeviceGroups(ctx context.Context, deviceID uuid.UUID) ([]Group,
 	var out []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.Hidden); err != nil {
 			return nil, err
 		}
 		out = append(out, g)

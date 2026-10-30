@@ -84,7 +84,12 @@ func (h *Handler) GroupNewDevices(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 	// Groups is its own page again, beside Venues: the venues section's "Groups" link
 	// landed on the fleet page instead (user, 13 Oct).
-	groups, err := h.db.ListGroups(r.Context())
+	// Hidden groups are the super admin's alone (30 Oct 2026).
+	list := h.db.ListGroups
+	if h.role(r) == "admin" {
+		list = h.db.ListAllGroups
+	}
+	groups, err := list(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -121,7 +126,7 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g, err := h.db.GetGroup(r.Context(), id)
-	if err != nil {
+	if err != nil || g.Hidden && h.role(r) != "admin" {
 		http.Error(w, "Group not found", http.StatusNotFound)
 		return
 	}
@@ -608,4 +613,30 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	detail += ", cmd=" + cmd.ID.String()
 	h.audit(r, "command.send", cmdType, detail)
 	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
+}
+
+// GroupHiddenSet: POST /groups/{id}/hidden {hidden: 1|0}. Super admin only: a hidden group
+// leaves every list, picker and the Fleet rail; the super admin still finds it on Groups.
+func (h *Handler) GroupHiddenSet(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	g, err := h.db.GetGroup(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+	hide := r.FormValue("hidden") == "1"
+	if err := h.db.SetGroupHidden(r.Context(), id, hide); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	action, word := "group.show", "shown again"
+	if hide {
+		action, word = "group.hide", "hidden: only super admins see it, on Groups"
+	}
+	h.audit(r, action, id.String(), g.Name)
+	h.hxDoneToast(w, r, "/groups", g.Name+" is "+word, "success")
 }

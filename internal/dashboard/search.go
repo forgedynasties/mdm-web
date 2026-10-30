@@ -29,7 +29,11 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 	// Groups and venues go through the same filter as their list pages: a user with a
 	// visibility limit sees only those holding one of their devices — the rest 404 for
 	// them, so their names must not turn up here either.
-	if gs, err := h.db.ListGroups(r.Context()); err == nil {
+	listGroups := h.db.ListGroups // hidden groups: the super admin's only
+	if h.role(r) == "admin" {
+		listGroups = h.db.ListAllGroups
+	}
+	if gs, err := listGroups(r.Context()); err == nil {
 		for _, g := range h.visibleGroupList(r, gs) {
 			out = append(out, entry{g.Name, fmt.Sprintf("%d device%s", g.DeviceCount, plural(g.DeviceCount)), "/groups/" + g.ID.String(), "Group"})
 		}
