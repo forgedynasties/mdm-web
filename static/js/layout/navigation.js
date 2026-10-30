@@ -289,9 +289,9 @@
       if (!pending.length) return false;
       var targets = [el].concat(alsoHide || []);
       var left = pending.length;
-      var show = function () { targets.forEach(function (t) { t.classList.remove('css-wait'); }); };
+      var show = function () { targets.forEach(function (t) { t._mdmCssWait = false; t.classList.remove('css-wait'); }); };
       var done = function () { if (--left <= 0) show(); };
-      targets.forEach(function (t) { t.classList.add('css-wait'); });
+      targets.forEach(function (t) { t._mdmCssWait = true; t.classList.add('css-wait'); });
       pending.forEach(function (l) { l.addEventListener('load', done, { once: true }); l.addEventListener('error', done, { once: true }); });
       setTimeout(show, 2500);
       return true;
@@ -307,6 +307,14 @@
         return;
       }
       if (t.querySelectorAll) mdmWaitForCSS(t);
+    });
+    // htmx's settle step puts the swapped-in element's own attributes back (class="container"
+    // on <main>), which dropped css-wait while the stylesheet was still loading: Lab → Apps
+    // showed the list unstyled for ~0.4 s (30 Oct 2026). Put it back until the sheet is in.
+    document.addEventListener('htmx:afterSettle', function () {
+      [document.querySelector('main'), document.getElementById('appbar-island')].forEach(function (t) {
+        if (t && t._mdmCssWait) t.classList.add('css-wait');
+      });
     });
     var _skelTimer = null, _navWatchdog = null, _navDest = '', _navActive = false;
     function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
