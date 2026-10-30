@@ -605,8 +605,8 @@
         <td><a class="lu1-nm" href="/lineup?role={{.Key}}"><span class="lu1-tile">{{classShort .Key}}</span><span class="lu1-t"><b>{{.Label}}</b><small>{{.Models}} model{{if ne .Models 1}}s{{end}}</small></span></a></td>
         <td class="ft-num"><b>{{.Devices}}</b></td>
         <td>{{if .FwBuild}}<span class="lu1-c"><span class="mono">{{.FwBuild}}</span><small>prod · {{.Fw.On}} of {{.Fw.Of}} deployed on it</small></span>{{else}}<span class="muted">{{.FwNote}}</span>{{end}}</td>
-        <td>{{if .HasClient}}<span class="lu1-c"><span class="mono">{{.ClientLabel}} {{.ClientVersion}}</span>{{template "lu-bar" .Client}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
-        <td>{{if .HasApp}}<span class="lu1-c"><span>{{.AppName}}</span>{{template "lu-bar" .App}}</span>{{else}}<span class="muted">no app</span>{{end}}</td>
+        <td>{{if .HasClient}}<span class="lu1-c"><span class="mono">{{.ClientLabel}} {{.ClientVersion}}</span>{{if .Client.Of}}{{template "lu-bar" .Client}}{{end}}</span>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{if .HasApp}}<span class="lu1-c"><span>{{.AppName}}</span>{{if .App.Of}}{{template "lu-bar" .App}}{{else}}<small>no devices yet</small>{{end}}</span>{{else}}<span class="muted">no app</span>{{end}}</td>
         <td>{{if .Todo}}<span class="cc-tag warn">{{.Todo}} to look at</span>{{else}}<span class="cc-tag ok">on its lineup</span>{{end}}</td>
         <td class="ft-act"><a class="lu1-go" href="/lineup?role={{.Key}}" aria-label="Open {{.Label}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
       </tr>
