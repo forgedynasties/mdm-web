@@ -114,12 +114,6 @@
   </div>
 
   <aside class="ov2-rail" aria-label="{{.ModelLabel}} resource use">
-    {{with .Ring}}
-    <div class="ov2-ring{{if .Tone}} s-{{.Tone}}{{end}}" title="{{.Title}}">
-      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
-      <span><b>{{.Pct}}</b><small>{{.Label}}</small></span>
-    </div>
-    {{end}}
     <div class="ov2-hi"><b>{{.HiTitle}}</b><small>{{.HiSub}}</small>{{with .HiDelta}}<small class="{{$.P.HiTone}}">{{.}}</small>{{end}}</div>
     {{if .Bars}}
     <div class="ov2-bars" role="img" aria-label="{{.BarsCap}}, last 7 days">
