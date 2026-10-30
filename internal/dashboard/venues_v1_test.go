@@ -142,7 +142,7 @@ func TestVenuesListRenders(t *testing.T) {
 		`data-val="t7" data-label="Tableside AI"`, `class="ov2-v s-danger"`, `At risk · 42`, `data-health="look"`, `data-open="1"`,
 		`data-types="kds t7"`, `1 running hot`, `default staff PIN`, `<span class="vc1-open on">Open now</span>`,
 		`average health`, `4 of 4 open now`, `2 need a look`, `Needs a look <span>4</span>`, `?open=lock`,
-		`href="/restaurants?view=table"`, `/static/js/oc-menus.js`, `/static/js/venues_v1.js`,
+		`/static/js/oc-menus.js`, `/static/js/venues_v1.js`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("cards view is missing %q", want)
@@ -161,7 +161,7 @@ func TestVenuesListRenders(t *testing.T) {
 	for _, want := range []string{
 		`data-cl data-one="venue"`, `data-clf="look"`, `data-clf="st-CA"`, `>California<`, `data-clp="t7"`, `data-clc="pin"`,
 		`data-cls="health" data-dir="asc"`, `class="ft cl-ft"`, `data-flags="look offline open hot st-CA"`, `Sunnyvale, CA · New York`,
-		`<span class="cl-now on">Open</span>`, `class="cc-tag bad">1 running hot`, `href="/restaurants?view=cards"`, `/static/js/coll_list.js`,
+		`<span class="cl-now on">Open</span>`, `class="cc-tag bad">1 running hot`, `/static/js/coll_list.js`,
 		`/static/css/coll-list.css`, `<use href="#dk-kds">`,
 	} {
 		if !strings.Contains(out, want) {

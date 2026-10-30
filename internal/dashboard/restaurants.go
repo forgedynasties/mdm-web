@@ -135,19 +135,12 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 	// V1 "Fleet's twin" (30 Oct 2026): the table by default; Cards (the 21 Oct grid) is a
 	// per-person view kept in a cookie, like Fleet's Table / Cards. ?view=compact (the old
 	// table) lands on the new one.
-	view := r.URL.Query().Get("view")
-	switch view {
-	case "compact":
-		http.Redirect(w, r, "/restaurants?view=table", http.StatusFound)
+	// The table is the only view (user, 30 Oct 2026); ?view=compact|cards land on it.
+	if v := r.URL.Query().Get("view"); v == "compact" || v == "cards" {
+		http.Redirect(w, r, "/restaurants", http.StatusFound)
 		return
-	case "table", "cards":
-		http.SetCookie(w, &http.Cookie{Name: "mdm_venues_view", Value: view, Path: "/", MaxAge: 365 * 86400, HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"})
-	default:
-		view = "table"
-		if c, err := r.Cookie("mdm_venues_view"); err == nil && c.Value == "cards" {
-			view = "cards"
-		}
 	}
+	view := "table"
 	data["View"] = view
 	data["V1"] = buildVenuesV1(rows, h.venueExtras(r.Context(), devices), time.Now())
 	// M2: backend restaurants that list the MDM's devices but have no venue. Super admin

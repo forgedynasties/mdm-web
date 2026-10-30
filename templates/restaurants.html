@@ -85,7 +85,6 @@
         </div></div>
       {{end}}
       <span class="vc1-n" id="vc1-n">{{len .Cards}} venue{{if ne (len .Cards) 1}}s{{end}}</span>
-      {{template "vc1-viewsw" "cards"}}
     </div>
     <div class="vc1-grid" id="vc1-grid">
       {{range .Cards}}
@@ -168,7 +167,7 @@
     {{range $v.States}}<button type="button" class="fleet-rail-item" data-clf="st-{{.Code}}" aria-pressed="false"><span class="dot ok"></span><span class="nm">{{.Name}}</span><span class="ct">{{.Venues}}</span></button>{{end}}{{end}}
   </aside>
   <div class="fleet-roster">
-    <div class="fleet-pane-head"><span class="t" data-cl-title>All venues</span><span class="c" data-cl-count data-extra=" · {{$s.Devices}} device{{if ne $s.Devices 1}}s{{end}}">{{len $v.Cards}} venues · {{$s.Devices}} devices</span>{{template "vc1-viewsw" "table"}}</div>
+    <div class="fleet-pane-head"><span class="t" data-cl-title>All venues</span><span class="c" data-cl-count data-extra=" · {{$s.Devices}} device{{if ne $s.Devices 1}}s{{end}}">{{len $v.Cards}} venues · {{$s.Devices}} devices</span></div>
     {{if $v.Types}}<div class="ptabs" role="tablist" aria-label="Product">
       <button type="button" class="ptab on" role="tab" aria-selected="true" data-clp="">All products</button>
       {{range $v.Types}}<button type="button" class="ptab" role="tab" aria-selected="false" data-clp="{{.Key}}" title="Venues with a {{.Label}}"><span class="ptab-ic dl-ic {{.Key}}"><svg><use href="#dk-{{.Key}}"></use></svg></span>{{.Label}} <span class="n">{{.Venues}}</span></button>{{end}}

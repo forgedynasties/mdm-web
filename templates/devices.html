@@ -278,8 +278,8 @@
 
 {{define "roster-meta-oob"}}
 <div id="fl-headline" hx-swap-oob="true">{{template "fleet-headline" .}}</div>
-<span class="t" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
-<span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
+<span class="t sr-only" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
+<span class="c sr-only" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 <span id="coll-tools-wrap" hx-swap-oob="true">{{template "coll-tools-block" .}}</span>
 <div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product" hx-swap-oob="true">{{template "fleet-product-tabs" .}}</div>
 
@@ -621,8 +621,8 @@ a.fleet-rail-item{min-height:40px}
   {{else}}
     {{/* ───────── Device roster (default) ───────── */}}
     <div class="fleet-pane-head">
-      <span class="t" id="roster-title">{{.SelectedCollection}}</span>
-      <span class="c" id="roster-count">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
+      <span class="t sr-only" id="roster-title">{{.SelectedCollection}}</span>
+      <span class="c sr-only" id="roster-count">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 
       {{/* ── Collection toolbar: manage the group/restaurant/release scoping the
            roster right here, without opening its separate detail page. Wrapped in
@@ -632,12 +632,7 @@ a.fleet-rail-item{min-height:40px}
            the previous (or no) collection's controls. ── */}}
       <span id="coll-tools-wrap">{{template "coll-tools-block" .}}</span>
       <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
-      {{/* View switch (V1, picked 20 Oct): the table or the two-line cards, as an icon pair
-           on the line that names the list. Kept on the user (users.fleet_view). */}}
-      <span class="fl-viewsw" role="group" aria-label="Show devices as">
-        <a href="?fleet_view=table" class="{{if not (isCards .FleetView)}}on{{end}}" onclick="return flView('table')" title="Table: one line per device" aria-label="Table"{{if not (isCards .FleetView)}} aria-current="true"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></a>
-        <a href="?fleet_view=cards" class="{{if isCards .FleetView}}on{{end}}" onclick="return flView('cards')" title="Cards: two lines per device" aria-label="Cards"{{if isCards .FleetView}} aria-current="true"{{end}}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="6.5" rx="2"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="2"/></svg></a>
-      </span>
+      {{/* No view switch (30 Oct 2026, user: "list is the only view"). */}}
   <script>
     // Switch keeps the current filters; the choice is saved server-side (users.fleet_view).
     function flView(v) { var u = new URL(location.href); u.searchParams.set('fleet_view', v); location.href = u.toString(); return false; }

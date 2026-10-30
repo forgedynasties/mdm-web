@@ -70,6 +70,15 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	default:
 		wheres = append(wheres, "NOT d.hidden")
 	}
+	// The same lifecycle rule as the list (buildDeviceQuery): retired/wiped devices are
+	// left out unless asked for. Without it Lab's count read 219 against 94 listed (30 Oct).
+	switch f.Lifecycle {
+	case "retired":
+		wheres = append(wheres, "d.enrollment_status IN ('retired', 'wiped', 'unenrolled')")
+	case "all":
+	default:
+		wheres = append(wheres, "d.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')")
+	}
 	if f.Search != "" {
 		w, a := deviceSearchWhere(f.Search, &argN)
 		wheres = append(wheres, w)
