@@ -1492,7 +1492,7 @@ window.DEVICE_VITALS = {
         </tbody></table></div>
         {{else}}<div class="device-action-note" style="padding:18px">No role app has a build in the library yet.</div>{{end}}
         <div class="install-modal-foot">
-          {{if canAppLibrary .Role}}<label class="inst-drop" data-apk-drop title="An APK you drop goes into the library and installs on this device"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span>or <b>drop an APK</b> here</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
+          
           <span class="muted small" style="margin-left:auto">A followed app installs its channel's newest build, and every newer one by itself.</span>
           <button type="button" class="cc-btn" onclick="followModalClose()">Done</button>
         </div>
@@ -1547,7 +1547,7 @@ window.DEVICE_VITALS = {
                newest" — filled by installPane() in apps.js from the tile's data-channels. */}}
           <div class="inst-pane" id="inst-pane" hidden></div>
           <div class="install-modal-foot">
-            {{if canAppLibrary .Role}}<label class="inst-drop" data-apk-drop title="An APK you drop goes into the library and installs on this device"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span>or <b>drop an APK</b> here</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
+            
             <span class="muted small" id="install-count">Select one or more apps</span>
             <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>Install</button>
           </div>
@@ -1977,7 +1977,7 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   {{range .Follows}}<span class="dd-fpill" title="{{.Package}} · {{.Title}}">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}{{.Name}} <b>{{.Channel}}</b><i class="dd-fdot {{.State}}"></i>{{if ge .Pct 0}}<small>{{.Pct}} %</small>{{end}}{{if canOperate $.Role}}<button type="button" class="dd-fx" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='{"action":"unfollow","package":"{{.Package}}"}' hx-swap="none" hx-confirm="Stop following {{.Package}}? The app stays installed." aria-label="Stop following {{.Package}}" title="Stop following">&times;</button>{{end}}</span>{{end}}
   {{if canOperate .Role}}<button type="button" class="dd-fedit" onclick="followModalOpen()">{{if .Follows}}Edit{{else}}+ Follow an app{{end}}</button>{{end}}
 </div>{{end}}
-{{if and (canAppLibrary .Role) (supports .Device "install_apk")}}<label class="dd-drop" data-apk-drop><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span><b>Drop an APK here</b> to install it on this device · it goes into the library as a test build</span><input type="file" accept=".apk,application/vnd.android.package-archive" hidden onchange="dropApkInstall(this.files[0]);this.value=''"></label>{{end}}
+
 {{end}}
 
 {{define "device-apps-list"}}

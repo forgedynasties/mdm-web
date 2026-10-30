@@ -164,10 +164,13 @@ func TestFollowsRender(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{`class="dd-follows"`, `KIOSK <b>qa</b><i class="dd-fdot ok">`, `<small>42 %</small>`,
-		`hx-post="/devices/R95Y603F27X/follows"`, `"action":"unfollow"`, `onclick="followModalOpen()"`, `data-apk-drop`} {
+		`hx-post="/devices/R95Y603F27X/follows"`, `"action":"unfollow"`, `onclick="followModalOpen()"`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("follows strip is missing %q in %s", want, out)
 		}
+	}
+	if strings.Contains(out, "data-apk-drop") {
+		t.Error("the drop-an-APK zone is back on the device page (removed 30 Oct 2026)")
 	}
 	buf.Reset()
 	if err := tm.ExecuteTemplate(&buf, "dd-follows", map[string]any{"Device": d, "Role": "engineer"}); err != nil {
