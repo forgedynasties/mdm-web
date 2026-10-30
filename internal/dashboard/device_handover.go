@@ -14,7 +14,7 @@ import (
 
 // Hand over (roles replan, decided 30 Oct 2026): a device placed at a venue is "setting
 // up" until Field (or the Ops lead) hands it over; from then on it is "in service" and
-// Support, Sales and the owner's staff see it. Hand over is allowed once the checklist is
+// Support, Viewers and the owner's staff see it. Hand over is allowed once the checklist is
 // green: the role's app is installed, the device is locked, and it has checked in.
 
 type handOverCheck struct {

@@ -15,7 +15,7 @@ import (
 // Role homes (roles replan, decided 30 Oct 2026): each role signs in to a page built for
 // its job (Root redirects). Field → My visits (F2: Fleet's layout, visits in the left list,
 // one table with each device's checklist and Hand over); Ops lead → Setup at /visits (the Overview's
-// layout about setup visits). Support keeps the Overview, Sales lands on Venues, Engineers
+// layout about setup visits). Support lands on Today (alerts), Viewers on Venues, Engineers
 // on Fleet filtered to Lab.
 
 type visitDeviceRow struct {
@@ -238,7 +238,7 @@ var curatedAllow = map[string]map[string]bool{
 	"engineer": {"devices": true, "apps": true, "releases": true, "alerts": true},
 }
 
-// CurateByRole keeps Field, Sales and Engineers on their own pages (the server side of the
+// CurateByRole keeps Field, Viewers and Engineers on their own pages (the server side of the
 // curated dock).
 func (h *Handler) CurateByRole(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

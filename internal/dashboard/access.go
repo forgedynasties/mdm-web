@@ -895,7 +895,7 @@ func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []d
 //   Engineer                   everything; acts on Lab only, elsewhere looks, takes
 //                              screenshots and collects logs
 //   Ops lead                   Setting up and In service
-//   Support, Support (old), Sales   In service
+//   Support, Support (old), Viewer  In service
 //   Field                      the venues of their open setup visits, any state
 //   Owner                      their venues: In service, and Setting up read-only
 //   Staff                      their venue: In service

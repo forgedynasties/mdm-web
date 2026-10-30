@@ -66,8 +66,8 @@ type roleDef struct {
 // Roles replan (decided 30 Oct 2026): each role says what someone can do AND which
 // devices they see, by the device's state (db/setup_visits.go): Lab (no venue), Setting
 // up, In service. Stored keys stay where a role kept its job, so no account needs a
-// migration for the label to change: fleet_manager is the Ops lead, operator is Support,
-// viewer is Sales. engineer and field are new. fleet_admin ("Admin") and support are
+// migration for the label to change: fleet_manager is the Ops lead, operator is Support;
+// viewer stays Viewer (now: devices in service only). engineer and field are new. fleet_admin ("Admin") and support are
 // legacy: their holders move to a new role by hand.
 var roleDefs = []roleDef{
 	{Key: "admin", Label: "Super admin", Article: "a super admin", Plural: "Super admins", Level: 5,
@@ -84,8 +84,8 @@ var roleDefs = []roleDef{
 		Desc: "Only the venue of an open setup visit", Ceiling: "Field acts on the devices of venues where they are on an open setup visit, and hands them over."},
 	{Key: "support", Label: "Support (old)", Article: "a support agent", Plural: "Support (old)", Level: 1, Legacy: true,
 		Desc: "Old role: screenshots, reboot, lock", Ceiling: "An old role from before 30 Oct 2026. Move this person to a new role."},
-	{Key: "viewer", Label: "Sales", Article: "a sales person", Plural: "Sales people", Level: 0,
-		Desc: "Every restaurant, read-only", Ceiling: "Sales see every device in service, read-only."},
+	{Key: "viewer", Label: "Viewer", Article: "a viewer", Plural: "Viewers", Level: 0,
+		Desc: "Every device in service, read-only", Ceiling: "A viewer sees every device in service, read-only."},
 	{Key: "owner", Label: "Owner", Article: "an owner", Plural: "Owners", Level: 2, Customer: true,
 		Desc: "Their venues: reboot, lock, lost mode, alerts", Ceiling: "An owner sees only their venues, and can reboot, lock and unlock, use lost mode and handle alerts there."},
 	{Key: "staff", Label: "Staff", Article: "a staff member", Plural: "Staff", Level: 1, Customer: true,

@@ -283,7 +283,7 @@
 <details class="vs-row" name="vn-set" id="vn-visits"{{if eq $.Open "visits"}} open{{end}}>
   <summary><span class="vs-k">Setup visits</span><span class="vs-v"><span>{{.Summary}}{{if .SettingUp}} <small>· {{len .SettingUp}} setting up{{if .Ready}}, {{.Ready}} ready{{end}}</small>{{end}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
   <div class="vs-body">
-  <div class="vs-note">A visit lets its Field people work on this venue's devices until its end date. A device placed here is <b>setting up</b> until someone hands it over; then Support, Sales and the owner's staff see it.</div>
+  <div class="vs-note">A visit lets its Field people work on this venue's devices until its end date. A device placed here is <b>setting up</b> until someone hands it over; then Support, Viewers and the owner's staff see it.</div>
   {{range .Open}}{{$v := .}}
   <div class="vn-visit">
     <div><b>{{if .Purpose}}{{.Purpose}}{{else}}Setup visit{{end}}</b> <span class="cc-tag warn">until {{.EndsAt.Format "Mon 2 Jan"}}</span>
