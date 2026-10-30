@@ -1,9 +1,10 @@
 // Loaded by templates/devices.html.
   (function () {
-    // Rail sections show their five busiest rows; "Show all N" reveals the rest and
-    // the choice is remembered per section. The active row is always kept visible.
-    var CAP = 5;
+    // Rail sections show their busiest rows (restaurants 10, user 30 Oct 2026; others 5);
+    // "Show all N" reveals the rest and the choice is remembered per section. The active
+    // row is always kept visible.
     document.querySelectorAll('.fleet-rail-list').forEach(function (list) {
+      var CAP = list.dataset.sec === 'restaurants' ? 10 : 5;
       var items = Array.prototype.slice.call(list.querySelectorAll('.fleet-rail-item'));
       if (items.length <= CAP) return;
       items.sort(function (a, b) { return (+b.dataset.ct || 0) - (+a.dataset.ct || 0); });
