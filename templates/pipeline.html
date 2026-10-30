@@ -820,6 +820,10 @@
 </div>
 <style>
   .lu1-card { margin-bottom: 14px; overflow: hidden; }
+  /* The rail as Fleet draws it (its page adds these in devices.html). */
+  .pl-split .fleet-rail { border-radius: var(--r-4); box-shadow: var(--shadow-sm); padding-top: 10px; }
+  .pl-split .fleet-rail-item { min-height: 40px; border: 1px solid transparent; }
+  .pl-split .fleet-rail-item.on { border-color: var(--accent-edge); }
   .lu1-card .ft-wrap { position: relative; }
   .lu1-sec { display: flex; align-items: baseline; gap: 10px; padding: 14px 18px 6px; flex-wrap: wrap; }
   .lu1-sec h2 { font-size: 15px; font-weight: 650; margin: 0; }
