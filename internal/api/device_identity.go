@@ -82,11 +82,12 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 	}
 	if serial != "" && h.serialHasOwnKey(r.Context(), serial) {
 		ip := ratelimit.ClientIP(r)
-		// Only the enrollment key may reset a serial's own key: the public key's value
-		// is in the client source, so with it anyone knowing a serial could take the
-		// device over (security audit, 26 Oct 2026). Images without the enrollment key
-		// need Reset device key, as before 8 Oct.
-		if middleware.EnrollKeyUsed(r) && h.recoverLostKey(r.Context(), serial, ip) {
+		// Either shared key resets a serial's own key again (user, 30 Oct 2026: "get rid
+		// of the possible impersonation alert, auto reset key also"), the public one
+		// included, so v2.0 images and reflashed devices come back by themselves. This
+		// undoes the 26 Oct audit fix (with the public key anyone knowing a serial can
+		// re-key it); making it secure again is in ~/aio-mdm/TODO.md.
+		if h.recoverLostKey(r.Context(), serial, ip) {
 			return true
 		}
 		log.Printf("[device-auth] refused the shared key for %s (it has its own key) from %s", serial, ip)
@@ -151,11 +152,19 @@ func (h *Handler) noteSocketPeer(ctx context.Context, deviceID uuid.UUID, serial
 // device per quarter hour.
 const identityAlertEvery = 15 * time.Minute
 
+// identityAlertsOn: off since 30 Oct 2026, see raiseIdentityAlert.
+const identityAlertsOn = false
+
 var identityAlerted sync.Map // serial -> time.Time
 
-// raiseIdentityAlert opens (or refreshes) an "identity_conflict" alert on the device
-// and notifies the alert channels.
+// raiseIdentityAlert opened an "identity_conflict" ("Possible impersonation") alert. It
+// only logs since 30 Oct 2026 (user: "get rid of the possible impersonation alert"); the
+// alert comes back with the work in ~/aio-mdm/TODO.md.
 func (h *Handler) raiseIdentityAlert(ctx context.Context, serial, what, ip, prevIP string) {
+	log.Printf("[device-auth] %s: %s (from %s%s)", serial, what, ip, map[bool]string{true: " and " + prevIP, false: ""}[prevIP != ""])
+	if !identityAlertsOn {
+		return
+	}
 	if t, ok := identityAlerted.Load(serial); ok && time.Since(t.(time.Time)) < identityAlertEvery {
 		return
 	}
@@ -213,6 +222,8 @@ func (h *Handler) raiseIdentityAlert(ctx context.Context, serial, what, ip, prev
 const (
 	lostKeyWindow = 24 * time.Hour
 	lostKeyMaxDay = 6 // auto-resets per device per day before the refusal returns
+	// lostKeyCeilingOn: off since 30 Oct 2026 (see recoverLostKey).
+	lostKeyCeilingOn = false
 )
 
 var ownKeyIPs sync.Map // serial -> ip last written, to skip the database when unchanged
@@ -250,7 +261,9 @@ func (h *Handler) recoverLostKey(ctx context.Context, serial, ip string) bool {
 		}
 	}
 	n := len(kept)
-	if n >= lostKeyMaxDay {
+	// No daily ceiling since 30 Oct 2026: past it the device was refused and the
+	// impersonation alert raised, and that alert is gone, so it would go dark silently.
+	if lostKeyCeilingOn && n >= lostKeyMaxDay {
 		lostKeyCallsSeen.m[serial] = kept
 		lostKeyCallsSeen.Unlock()
 		log.Printf("[device-key] %s: %d automatic key resets in %s already — not resetting again", serial, n, lostKeyWindow)
