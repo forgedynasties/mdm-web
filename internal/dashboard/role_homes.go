@@ -204,7 +204,7 @@ var dockSets = map[string]map[string]bool{
 	"operator":      {"today": true, "venues": true, "fleet": true, "more": true, "search": true},
 	"support":       {"today": true, "venues": true, "fleet": true, "more": true, "search": true},
 	"engineer":      {"fleet": true, "apps": true, "releases": true, "search": true},
-	"field":         {"myvisits": true},
+	"field":         {"myvisits": true, "today": true, "enroll": true},
 	"viewer":        {"venues": true},
 }
 
@@ -212,7 +212,13 @@ var dockSets = map[string]map[string]bool{
 func dockShows(role, key string) bool {
 	set, curated := dockSets[role]
 	if !curated {
-		return key != "myvisits" && key != "setup" && key != "today" || role == "admin" && key == "setup"
+		switch key {
+		case "myvisits", "today", "enroll":
+			return false
+		case "setup":
+			return role == "admin"
+		}
+		return true
 	}
 	return set[key]
 }
@@ -233,7 +239,7 @@ var curatedPages = map[string]bool{
 // curatedAllow is what each restricted role may open. Field's "devices" means device
 // pages only: their list is My visits.
 var curatedAllow = map[string]map[string]bool{
-	"field":    {"my-visits": true, "devices": true},
+	"field":    {"my-visits": true, "devices": true, "alerts": true},
 	"viewer":   {"restaurants": true},
 	"engineer": {"devices": true, "apps": true, "releases": true, "alerts": true},
 }
@@ -257,14 +263,38 @@ func (h *Handler) CurateByRole(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ok := allow[seg]
+		ok := allow[seg] || seg == "enrollment" && rest == "android-app/qr.png"
 		if seg == "devices" && h.role(r) == "field" && rest == "" {
 			ok = false // the list page; device pages are fine
 		}
 		if !ok {
-			http.Redirect(w, r, "/", http.StatusFound)
+			// Only a page load goes home. A fragment or fetch (the header's alerts popover,
+			// a card loading itself) gets a plain refusal: followed, the redirect put the
+			// whole home page, island and all, inside the page asking.
+			if isNavigation(r) {
+				http.Redirect(w, r, "/", http.StatusFound)
+			} else {
+				http.Error(w, "Not on your pages", http.StatusForbidden)
+			}
 			return
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// isNavigation: a page load (typed, linked or htmx-boosted), not a fragment or a fetch.
+func isNavigation(r *http.Request) bool {
+	if r.Header.Get("HX-Request") == "true" {
+		return r.Header.Get("HX-Boosted") == "true"
+	}
+	m := r.Header.Get("Sec-Fetch-Mode")
+	return m == "" || m == "navigate"
+}
+
+// EnrollGuide: GET /my-visits/enroll, Field's "Enroll" (the Enrollment page is admin only):
+// the onboarding video with its steps and the AIO Enroll for Android download.
+func (h *Handler) EnrollGuide(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, "my_enroll.html", map[string]any{
+		"Title": "Enroll", "ActivePage": "enroll", "EnrollAndroid": h.enrollAndroidView(r),
 	})
 }

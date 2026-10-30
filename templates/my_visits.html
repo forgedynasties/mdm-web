@@ -51,7 +51,7 @@
       {{range .Rows}}
       <tr class="ft-row">
         <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
-          <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" hx-boost="false">{{.Device.SerialNumber}}</a></div></td>
+          <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div></td>
         <td class="ft-type"><span class="ft-ell">{{classOf .Device}}</span></td>
         <td class="ft-venue"><span class="ft-vn"><span class="ft-ell">{{.Device.RestaurantName}}</span></span></td>
         <td>{{if eq .State "setting_up"}}<span class="cc-tag warn">setting up</span>{{else}}<span class="cc-tag">in service</span>{{end}}</td>

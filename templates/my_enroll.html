@@ -1,0 +1,39 @@
+{{define "my_enroll.html"}}
+{{template "header" .}}
+{{/* Field's Enroll (30 Oct 2026): the Enrollment page is admin only, so Field gets the
+     onboarding guide and the AIO Enroll for Android download here. role_homes.go */}}
+<template id="page-island">
+  <span class="isl-t">Enroll</span>
+  <span class="isl-s">AIO Enroll for Android{{with .EnrollAndroid}}{{if .Version}} · {{.Version}}{{end}}{{end}}</span>
+</template>
+<style>
+.me-app{display:flex;gap:18px;align-items:center;padding:4px 18px 18px;flex-wrap:wrap}
+.me-app img{width:132px;height:132px;border-radius:12px;background:#fff;padding:6px;flex:none}
+.me-app-t{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 260px}
+.me-app-t b{font-size:15px}
+.me-app-t .cc-btn{align-self:flex-start}
+</style>
+
+<div class="cc-wrap">
+  <h1 class="cc-h1 sr-only">Enroll</h1>
+  <div class="cc-card" style="margin-bottom:16px">
+    <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><h2>Get AIO Enroll</h2><span class="m">on the phone you set devices up with</span></div>
+    {{with .EnrollAndroid}}{{if .Hosted}}
+    <div class="me-app">
+      <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="132" height="132">
+      <div class="me-app-t">
+        <b>AIO Enroll for Android</b>
+        <span class="muted small">{{if .Version}}{{.Version}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
+        <span class="small">Scan with the phone, or download here and copy it over. Android asks once to allow installs from your browser. Sign in with this account: devices you enrol show up under My visits.</span>
+        <a class="cc-btn sm primary" href="{{.URL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download APK</a>
+      </div>
+    </div>
+    {{else}}
+    <div class="me-app"><span class="muted">The app isn't hosted on this server yet. Ask an Ops lead.</span></div>
+    {{end}}{{end}}
+  </div>
+  {{template "enroll-guide" .}}
+</div>
+
+{{template "footer" .}}
+{{end}}
