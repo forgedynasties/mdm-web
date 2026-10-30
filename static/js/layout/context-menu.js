@@ -77,19 +77,19 @@
     var row = el.closest(ROW);
     var link = el.closest('a[href]');
     var t = link && classify(link.getAttribute('href'));
-    if (t) { t.el = (row && main.contains(row)) ? row : link; t.name = textOf(link); return t; }
+    if (t) { t.el = (row && main.contains(row)) ? row : link; t.name = textOf(link.querySelector('b') || link); return t; }
     if (!row || !main.contains(row)) return null;
     var href = row.getAttribute('data-href');
     if (href) {
       t = classify(href) || { kind: 'link', page: href };
-      t.el = row; t.name = textOf(row.querySelector('b, .nm, a')) || '';
+      t.el = row; t.name = textOf(row.querySelector('b') || row.querySelector('.nm') || row.querySelector('a')) || '';
       return t;
     }
     // A row whose own link names a device, venue, group, app or person.
     var links = row.querySelectorAll('a[href]');
     for (var i = 0; i < links.length; i++) {
       t = classify(links[i].getAttribute('href'));
-      if (t) { t.el = row; t.name = textOf(links[i]); return t; }
+      if (t) { t.el = row; t.name = textOf(links[i].querySelector('b') || links[i]); return t; }
     }
     return null;
   }

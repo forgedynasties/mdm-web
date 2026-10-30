@@ -151,13 +151,13 @@ a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width
       {{$tracked := 0}}{{range .Versions}}{{if .Tracked}}{{$tracked = add $tracked 1}}{{end}}{{end}}
       {{if and .Versions (not $tracked)}}<div class="ro-empty">No releases{{if .FilterProduct}} for this product{{end}} yet.{{if .NotTracked}} Tick “reported builds” above to see the builds devices are running.{{end}}</div>{{end}}
       {{range .Versions}}{{$c := index $.RolloutCounts .Version}}
-      <a class="ro-it{{if .IsDev}} dev{{end}}{{if not .Tracked}} rep{{end}}{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}{{if $.FilterProduct}}&amp;product={{$.FilterProduct}}{{end}}">
+      <a class="ro-it{{if .IsDev}} dev{{end}}{{if not .Tracked}} rep{{end}}{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" data-ctx="link" data-name="{{.Version}}" data-page="{{if .Tracked}}/releases/{{derefInt .ReleaseID}}{{else}}/releases?build={{urlquery .Version}}{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}{{if $.FilterProduct}}&amp;product={{$.FilterProduct}}{{end}}">
         <b title="{{.Version}}">{{.Version}}</b><span class="d">{{if .ReleasedAt}}{{shortDate (deref .ReleasedAt)}}{{else}}reported{{end}}</span>
         <small>{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{if $.ProdFor}}{{range index $.ProdFor (derefInt .ReleaseID)}}<span class="cc-tag ok" title="Lineup's prod firmware for {{.Model}}">prod</span>{{end}}{{end}}{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if $c.N}} · {{$c.N}} update{{if ne $c.N 1}}s{{end}}{{end}}{{if $c.Active}} · <span class="live">updating</span>{{end}}</small>
       </a>
       {{else}}<div class="ro-empty">No releases{{if .FilterProduct}} for this product{{end}} yet.</div>{{end}}
       <button type="button" class="ro-more" id="ro-more" onclick="roMore(true)" hidden>Show more</button>
-      {{if .HiddenReleases}}<div class="ro-sep">Hidden</div>{{range .HiddenReleases}}<a class="ro-it{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}"><b>{{.Version}}</b><span class="d">hidden</span></a>{{end}}{{end}}
+      {{if .HiddenReleases}}<div class="ro-sep">Hidden</div>{{range .HiddenReleases}}<a class="ro-it{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" data-ctx="link" data-name="{{.Version}}" data-page="{{if .Tracked}}/releases/{{derefInt .ReleaseID}}{{else}}/releases?build={{urlquery .Version}}{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}"><b>{{.Version}}</b><span class="d">hidden</span></a>{{end}}{{end}}
     </nav>
 
     <section class="cc-card ro-det">
