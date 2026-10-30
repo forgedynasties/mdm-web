@@ -72,7 +72,7 @@
           data-s-name="{{$g.Name}}" data-s-health="{{if .HasH}}{{.H.Score}}{{else}}999{{end}}" data-s-devices="{{.Devices}}" data-s-created="{{$g.CreatedAt.Unix}}">
         <td><a class="cl-nm" href="/groups/{{$g.ID}}">{{venueIcon $g.ID $g.Name "sm"}}<span class="cl-t"><b>{{$g.Name}}</b><small>{{.Devices}} device{{if ne .Devices 1}}s{{end}}</small></span></a></td>
         <td class="ft-num"><span class="cl-sc {{.Class}}"{{if .Why}} title="{{range $i, $w := .Why}}{{if $i}} · {{end}}{{$w}}{{end}}"{{end}}>{{if .HasH}}{{.H.Score}}{{else}}—{{end}}</span></td>
-        <td>{{if .Devices}}<span class="cl-on ft-pw {{if ge .OnPct 80}}battery-ok{{else if ge .OnPct 40}}battery-mid{{else}}battery-low{{end}}"><span class="ft-bar"><i style="width:{{if lt .OnPct 4}}4{{else}}{{.OnPct}}{{end}}%"></i></span><b>{{.Online}}</b><small>/{{.Devices}}</small></span>{{else}}<span class="muted small">no devices</span>{{end}}</td>
+        <td>{{if .Devices}}<span class="cl-on ft-pw {{if ge .OnPct 80}}battery-ok{{else if ge .OnPct 40}}battery-mid{{else}}battery-low{{end}}"><span class="ft-bar"><i style="width:{{if lt .OnPct 4}}4{{else}}{{.OnPct}}{{end}}%"></i></span><span><b>{{.Online}}</b><small>/{{.Devices}}</small></span></span>{{else}}<span class="muted small">no devices</span>{{end}}</td>
         <td><span class="cl-tags">
           {{if .Critical}}<span class="cc-tag bad">{{.Critical}} critical</span>{{end}}
           {{if .Offline}}<span class="cc-tag warn">{{.Offline}} offline</span>{{end}}
