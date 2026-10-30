@@ -41,13 +41,24 @@ type deviceRole struct {
 // Picker reports whether the Device card offers a role picker.
 func (r deviceRole) Picker() bool { return r.PerSerial || len(r.Roles) > 1 }
 
-// Choices are the picker's classes: every class per serial, else the model's roles.
+// Choices are the picker's classes: per serial every class a Standard-client device can
+// be (perSerialClass), else the model's roles.
 func (r deviceRole) Choices() []string {
 	if r.PerSerial {
-		return product.Classes()
+		var out []string
+		for _, c := range product.Classes() {
+			if perSerialClass(c) {
+				out = append(out, c)
+			}
+		}
+		return out
 	}
 	return r.Roles
 }
+
+// perSerialClass: a class a Standard-client device may be set to by serial. Not Tableside
+// AI (user, 30 Oct 2026: "changing to tsai not allowed"): a T7 is our own firmware tablet.
+func perSerialClass(c string) bool { return product.IsClass(c) && c != product.ClassT7 }
 
 // Pinned reports whether the class was set for this serial.
 func (r deviceRole) Pinned() bool { return r.Source == "pin" }
@@ -171,8 +182,8 @@ func (h *Handler) DeviceSetRole(w http.ResponseWriter, r *http.Request) {
 			h.hxDoneToast(w, r, back, "Back to its model's role", "success")
 			return
 		}
-		if !product.IsClass(class) {
-			h.hxDoneToast(w, r, back, "Unknown role", "error")
+		if !perSerialClass(class) {
+			h.hxDoneToast(w, r, back, "That role can't be set on this device", "error")
 			return
 		}
 		if err := h.db.PinDeviceClass(r.Context(), serial, class); err != nil {
