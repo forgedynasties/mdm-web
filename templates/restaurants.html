@@ -244,7 +244,7 @@
 {{/* The collection table (venues-demos.html, L1): one row per venue, group or release,
      shared by Venues and Fleet's Restaurants, Groups and Releases views (15 Oct).
      Params: Rows, Sum (venueSummary), Kind (restaurants | groups | releases). */}}
-{{define "coll-table"}}{{$rows := .Rows}}{{$s := .Sum}}{{$k := .Kind}}{{$total := len $rows}}
+{{define "coll-table"}}{{$open := .Open}}{{$rows := .Rows}}{{$s := .Sum}}{{$k := .Kind}}{{$total := len $rows}}
 {{$one := "venue"}}{{$many := "venues"}}{{if eq $k "groups"}}{{$one = "group"}}{{$many = "groups"}}{{else if eq $k "releases"}}{{$one = "release"}}{{$many = "releases"}}{{end}}
 <style>
 .vn-page{max-width:1280px;margin:0 auto}
@@ -262,6 +262,7 @@
 .vn-th button[aria-sort=ascending]::after{content:"↑"}.vn-th button[aria-sort=descending]::after{content:"↓"}
 .vn-tr{position:relative;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2);text-decoration:none}
 .vn-tr:hover{background:var(--surface2);color:var(--text-2)}
+.vn-tr:not([href]){cursor:default}.vn-tr:not([href]):hover{background:none}
 .vn-tr[hidden]{display:none}
 .vn-nm{min-width:0}.vn-nm b{display:block;color:var(--text);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vn-nm small,.vn-sm{font-size:11px;color:var(--text-faint)}
@@ -291,7 +292,7 @@
     <span><button type="button" data-vs="last">Last check-in</button></span>
   </div>
   {{range $rows}}
-  <a class="vn-tr" href="{{.Href}}"
+  <a class="vn-tr"{{if $open}} href="{{.Href}}"{{end}}
      data-name="{{.Name}}" data-text="{{.Text}}"
      data-score="{{if and .Devices .HasH}}{{.H.Score}}{{else}}999{{end}}" data-devices="{{.Devices}}" data-last="{{if not .Last.IsZero}}{{.Last.Unix}}{{else}}0{{end}}"
      data-look="{{if .NeedsLook}}1{{end}}" data-offline="{{if .Offline}}1{{end}}" data-empty="{{if not .Devices}}1{{end}}">

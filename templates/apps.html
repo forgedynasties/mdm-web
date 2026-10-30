@@ -111,7 +111,7 @@
       <div class="oc-ch"><h2>Apps <span>most installed first</span></h2>
         <div class="a1-ch-r">
           <label class="a1-q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="a1-q" type="search" placeholder="Search apps, packages, versions" autocomplete="off" aria-label="Search apps"></label>
-          <label class="a1-all"><input type="checkbox" id="a1-all"{{if .ShowAllApps}} checked{{end}}> Show all apps</label>
+          {{if .CanShowAll}}<label class="a1-all"><input type="checkbox" id="a1-all"{{if .ShowAllApps}} checked{{end}}> Show all apps</label>{{end}}
           <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-a1-pill="show">Show: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
             <div class="cc-menu" hidden>
               <button type="button" class="cc-mi active" data-a1-set="show" data-val="">All</button>
@@ -150,11 +150,9 @@
           <td>{{if .Channels}}<div class="a1-chs">{{range .Channels}}<span title="{{.Devices}} device{{if ne .Devices 1}}s{{end}}">{{.Label}} {{.Devices}}</span>{{end}}{{if .MoreChans}}<span class="m">+{{.MoreChans}}</span>{{end}}</div>{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="a1-act">
             {{if not .InLibrary}}{{if canAppLibrary $.Role}}<button type="button" class="cc-btn xs" onclick="event.stopPropagation();libAddOpen()">Add APK</button>{{end}}
-            {{else if and .Single (canOperate $.Role) $.Coverage}}<button type="button" class="cc-btn xs" hx-get="/apps/install-targets?pkg={{.Single}}" hx-target="#a1-ait-{{$i}}" hx-swap="innerHTML" onclick="event.stopPropagation();a1Slot({{$i}})">Install on…</button>
-            {{else if canOperate $.Role}}<a class="cc-btn xs" href="{{.Href}}">Install on…</a>{{end}}
+            {{end}}
           </td>
         </tr>
-        {{if and .Single .InLibrary}}<tr class="a1-slot" id="a1-slot-{{$i}}" hidden><td colspan="5"><div class="ait-slot" id="a1-ait-{{$i}}"></div></td></tr>{{end}}
         {{end}}
         </tbody>
       </table>

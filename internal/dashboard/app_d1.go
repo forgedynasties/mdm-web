@@ -261,16 +261,6 @@ func buildAppD1(in d1Inputs) appD1 {
 		}
 		todos = append(todos, t)
 	}
-	if v.OtherChannelCount > 0 && v.MissingCount > 0 {
-		var bits []string
-		for _, ch := range v.OtherChannels {
-			bits = append(bits, fmt.Sprintf("%s %d", ch.Label, ch.Devices))
-		}
-		todos = append(todos, d1Todo{
-			Title:  fmt.Sprintf("%d of the %d devices without it run another %s channel", v.OtherChannelCount, v.MissingCount, v.FamilyName),
-			Sub:    strings.Join(bits, " · ") + ". Check which channel each should run before installing this one",
-			Action: "See channels", Href: "#d1-channels"})
-	}
 	if v.Unknown > 0 {
 		todos = append(todos, d1Todo{Title: dp1Plural(v.Unknown, "device reports", "devices report") + " no version",
 			Sub:    "Left out of installs: an update there could be a downgrade. Ask them for a fresh app inventory",

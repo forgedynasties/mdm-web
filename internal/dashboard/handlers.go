@@ -22,8 +22,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"mdm/internal/aiobackend"
 	"mdm/internal/adbtunnel"
+	"mdm/internal/aiobackend"
 	"mdm/internal/alerts"
 	"mdm/internal/apkstore"
 	"mdm/internal/config"
@@ -246,7 +246,7 @@ func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redi
 type Handler struct {
 	// ownerProxy serves a device's shell and logcat streams from the server copy holding
 	// its socket (cluster.ProxyIfRemote, W5); nil with one copy.
-	ownerProxy func(http.ResponseWriter, *http.Request, uuid.UUID) bool
+	ownerProxy  func(http.ResponseWriter, *http.Request, uuid.UUID) bool
 	ingestStats func() ingest.Pipeline // the check-in pipeline, for the Server page (SetIngestStats)
 	onKeyReset  func(serial string)    // tells the device API a key was reset (SetKeyResetHook)
 	scout       *scout.Service         // scout enrolment (SetScout); nil until wired in main
@@ -256,7 +256,7 @@ type Handler struct {
 	remote      *remote.Manager
 	tunnels     *adbtunnel.Manager
 	// backend reads the AIO restaurant backend through Metabase; nil when unconfigured.
-	backend *aiobackend.Client
+	backend     *aiobackend.Client
 	logs        *logstream.Manager
 	store       *sessions.CookieStore
 	tmpl        *template.Template
@@ -928,6 +928,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.
 		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },
+		"canOpenPage":        canOpenPage,
 		"classOf":            classOf,
 		"dockShows":          dockShows,
 		"viewAsRoles":        func() []string { return []string{"fleet_manager", "operator", "engineer", "field", "viewer"} },

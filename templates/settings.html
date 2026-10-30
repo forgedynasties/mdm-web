@@ -378,13 +378,6 @@
           <form action="/apps/package/assign" method="POST" onclick="event.stopPropagation()"><input type="hidden" name="next" value="/apps"><input type="hidden" name="package" value="{{.Package}}"><input type="hidden" name="family_id" value="{{$fam.FamilyID}}"><input type="text" name="variant" value="{{.Label}}" class="form-input" style="width:90px;" aria-label="Variant label"><button type="submit" class="cc-btn sm">Rename</button><button type="submit" class="cc-btn sm" name="detach" value="1" title="Make this package its own tile">Detach</button></form>
           {{end}}
         </div>
-        {{if and (canOperate $.Role) $.Coverage}}
-        <div class="ait-wrap">
-          <button type="button" class="cc-btn sm" hx-get="/apps/install-targets?pkg={{.Package}}"
-                  hx-target="next .ait-slot" hx-swap="innerHTML">Install on…</button>
-          <div class="ait-slot"></div>
-        </div>
-        {{end}}
         {{if $.Coverage}}{{$c := $.Coverage.Of .Package}}
         {{if gt $c.Devices 0}}
         <div class="lf-cov">

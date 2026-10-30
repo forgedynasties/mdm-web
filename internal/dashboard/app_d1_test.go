@@ -52,14 +52,11 @@ func TestAppD1Builder(t *testing.T) {
 		t.Fatalf("head = %+v", v)
 	}
 	b := v.Banner
-	if b.Headline != "2 things to look at" || len(b.Todos) != 2 {
+	if b.Headline != "1 thing to look at" || len(b.Todos) != 1 {
 		t.Fatalf("banner = %+v", b)
 	}
 	if td := b.Todos[0]; td.Title != "Reconcile 1 device on another version" || td.HxGet != "/apps/install-targets?pkg=aio.app.nugget" || !strings.Contains(td.Sub, "16.9.0 on 1") {
 		t.Errorf("reconcile todo = %+v", td)
-	}
-	if td := b.Todos[1]; td.Title != "7 of the 10 devices without it run another Nugget channel" || !strings.HasPrefix(td.Sub, "stagev2 6 · uatv2 1") || td.Href != "#d1-channels" {
-		t.Errorf("channel todo = %+v", td)
 	}
 	if v.OtherChannelCount != 7 || v.MissingCount != 10 {
 		t.Errorf("install warning = %d of %d", v.OtherChannelCount, v.MissingCount)
@@ -124,9 +121,8 @@ func TestAppD1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h1 class="cc-h1">Nugget</h1>`, `<h2>2 things to look at</h2>`, `>Reconcile 1 on another version</button>`,
-		`hx-get="/apps/install-targets?pkg=aio.app.nugget" hx-target="#d1-targets"`, `>Install on 10 devices</button>`,
-		`7 of those 10 already run another Nugget channel`, `id="d1-channels"`, `href="/apps/aio.app.nugget.stagev2">stagev2</a>`,
+		`<h1 class="cc-h1">Nugget</h1>`, `<h2>1 thing to look at</h2>`, `>Reconcile 1 on another version</button>`,
+		`hx-get="/apps/install-targets?pkg=aio.app.nugget" hx-target="#d1-targets"`, `id="d1-channels"`, `href="/apps/aio.app.nugget.stagev2">stagev2</a>`,
 		`action="/setup/apps/`, `>APK</a>`, `data-d1-set="ver" data-val="16.9.0"`, `data-d1-set="venue" data-val="Huanchaco Peruvian"`,
 		`class="d1-r" data-ver="17.0.0"`, `id="lib-add-modal"`, `id="lib-card"`, `name="next" value="/apps/aio.app.nugget"`,
 	} {
@@ -134,9 +130,10 @@ func TestAppD1Renders(t *testing.T) {
 			t.Errorf("app page is missing %q", want)
 		}
 	}
-	// With another channel already on most "without it" devices, Install is not the loud one.
-	if strings.Contains(out, `class="cc-btn primary" hx-get="/apps/install-targets?pkg=aio.app.nugget"`) {
-		t.Error("Install is still the primary button despite the channel overlap")
+	// No fleet-wide "Install on N devices" or channel-overlap warning on app pages (user,
+	// 30 Oct 2026: "remove this from everywhere on apps").
+	if strings.Contains(out, ">Install on ") || strings.Contains(out, "already run another") {
+		t.Error("the Install on N devices button or its channel warning is back")
 	}
 	if p := os.Getenv("D1_RENDER_OUT"); p != "" {
 		os.WriteFile(p, buf.Bytes(), 0o644)

@@ -145,6 +145,7 @@
       '/releases': ['/rollouts', '/updates', '/packages'],
     };
     function owns(href, path) {
+      href = (href || '').split('?')[0]; // Engineers' Lab is /devices?state=lab
       if (href === '/') return path === '/';
       if (path === href || path.indexOf(href + '/') === 0) return true;
       var extra = GROUPS[href] || [];

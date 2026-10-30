@@ -454,3 +454,14 @@ func buildAppsA1(in a1Inputs) appsA1 {
 	_ = totInstalls
 	return v
 }
+
+// roleRowsOnly keeps the role apps' rows.
+func roleRowsOnly(rows []a1Row) []a1Row {
+	out := rows[:0:0]
+	for _, r := range rows {
+		if r.Role != "" {
+			out = append(out, r)
+		}
+	}
+	return out
+}

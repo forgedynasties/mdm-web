@@ -86,10 +86,8 @@
   <div>
     <div class="d1-cta">
       {{if gt $a.OtherCount 0}}<button type="button" class="cc-btn" hx-get="/apps/install-targets?pkg={{$a.Package}}" hx-target="#d1-targets" hx-swap="innerHTML">Reconcile {{$a.OtherCount}} on another version</button>{{end}}
-      {{if gt $a.MissingCount 0}}<button type="button" class="cc-btn{{if not $a.OtherChannelCount}} primary{{end}}" hx-get="/apps/install-targets?pkg={{$a.Package}}" hx-target="#d1-targets" hx-swap="innerHTML">Install on {{$a.MissingCount}} device{{if ne $a.MissingCount 1}}s{{end}}</button>{{end}}
     </div>
-    {{if and $a.OtherChannelCount $a.MissingCount}}<p class="d1-hint warn">{{$a.OtherChannelCount}} of those {{$a.MissingCount}} already run another {{$a.FamilyName}} channel: check which one each should run first.</p>
-    {{else if gt $a.Unknown 0}}<p class="d1-hint">{{$a.Unknown}} device{{if ne $a.Unknown 1}}s{{end}} report no version and are left out of both: an install there could be a downgrade.</p>{{end}}
+    {{if gt $a.Unknown 0}}<p class="d1-hint">{{$a.Unknown}} device{{if ne $a.Unknown 1}}s{{end}} report no version and are left out of both: an install there could be a downgrade.</p>{{end}}
   </div>
   {{end}}
 </div>

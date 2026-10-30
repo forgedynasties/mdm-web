@@ -24,13 +24,21 @@ func (h *Handler) AppLibraryPage(w http.ResponseWriter, r *http.Request) {
 	roleApps, _ := h.db.ListRoleApps(r.Context())
 	installs, _ := h.db.AppInstallsDaily(r.Context(), 14)
 	added, _ := h.db.AppsAddedSince(r.Context(), time.Now().AddDate(0, 0, -30))
+	a1 := buildAppsA1(a1Inputs{Families: families, Apps: apps, Cov: cov, RoleApps: roleApps,
+		Installs: installs, AddedLast: added, Now: time.Now()})
+	// "Show all apps" is the super admin's only, for now (user, 30 Oct 2026): everyone else
+	// gets the role apps alone, and their search can't reach the rest either.
+	allowAll := h.role(r) == "admin"
+	if !allowAll {
+		a1.Rows = roleRowsOnly(a1.Rows)
+	}
 	h.render(w, r, "apps.html", map[string]any{
 		"AppsTab": "library",
 		// Only the role apps (Lineup) unless "Show all apps" is ticked (user, 26 Oct 2026).
-		"ShowAllApps": r.URL.Query().Get("all") == "1",
+		"ShowAllApps": allowAll && r.URL.Query().Get("all") == "1",
+		"CanShowAll":  allowAll,
 		// A1 (picked 21 Oct 2026): banner, cards, one app table and a rail. apps_a1.go.
-		"A1": buildAppsA1(a1Inputs{Families: families, Apps: apps, Cov: cov, RoleApps: roleApps,
-			Installs: installs, AddedLast: added, Now: time.Now()}),
+		"A1":            a1,
 		"Title":         "App library",
 		"ActivePage":    "apps",
 		"Apps":          apps,

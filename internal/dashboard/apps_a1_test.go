@@ -174,7 +174,7 @@ func TestAppsA1Renders(t *testing.T) {
 		"Role": "admin", "Families": in.Families, "Apps": in.Apps, "Coverage": in.Cov, "AppFamilyMode": "suggest",
 		"Suggestions": []LibSuggestion{{Name: "Hardware Testing", BasePackage: "com.example.hw", Packages: []string{"com.example.hw", "com.example.hw.new"},
 			Variants: map[string]string{"com.example.hw": "prod", "com.example.hw.new": "new"}}},
-		"A1": buildAppsA1(in),
+		"A1": buildAppsA1(in), "CanShowAll": true,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "apps.html", data); err != nil {
@@ -183,7 +183,7 @@ func TestAppsA1Renders(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		`<h1 class="cc-h1">Apps</h1>`, `<h2>4 things to look at</h2>`, `onclick="libAddOpen()">Add apps</button>`,
-		`>Key Attestation: 46 devices on another version`, `class="a1-r"`, `data-href="/apps/aio.app.nugget"`, `href="/apps/aio.app.nugget">Install on…</a>`, `hx-get="/apps/install-targets?pkg=io.github.vvb2060.keyattestation"`,
+		`>Key Attestation: 46 devices on another version`, `class="a1-r"`, `data-href="/apps/aio.app.nugget"`,
 		`<span class="a1-ver none">not in library</span>`, `>Add APK</button>`, `class="a1-role"`, `stagev2 26`,
 		`data-a1-set="show" data-val="look"`, `id="lib-card"`, `id="lib-add-modal"`, `id="lib-apk-file"`,
 		`/apps/families`, `>no APK</span>`, `installs sent per day`, `1 more package on devices, not in the library`,
@@ -199,6 +199,17 @@ func TestAppsA1Renders(t *testing.T) {
 	// variant-grouping choice any more.
 	if !strings.Contains(out, `id="a1-all"`) || !strings.Contains(out, `<tr class="a1-r" hidden`) {
 		t.Error("apps.html must hide non-role apps behind a Show all apps checkbox")
+	}
+	// The box is the super admin's only (30 Oct 2026); for anyone else the handler keeps
+	// the role apps' rows alone.
+	if rows := roleRowsOnly(buildAppsA1(in).Rows); len(rows) == 0 {
+		t.Error("roleRowsOnly dropped the role apps")
+	} else {
+		for _, r := range rows {
+			if r.Role == "" {
+				t.Errorf("roleRowsOnly kept %s, not a role app", r.Package)
+			}
+		}
 	}
 	if strings.Contains(out, "app-family-mode") || strings.Contains(out, `data-val="role"`) {
 		t.Error("the variant choice and the Role apps option are gone")

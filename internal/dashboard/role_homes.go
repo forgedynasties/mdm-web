@@ -244,6 +244,13 @@ var curatedAllow = map[string]map[string]bool{
 	"engineer": {"devices": true, "apps": true, "releases": true, "alerts": true},
 }
 
+// canOpenPage: may this role open the top-level page seg ("restaurants", "groups"…)?
+// Links a curated role can't follow are drawn as plain text.
+func canOpenPage(role, seg string) bool {
+	allow, curated := curatedAllow[role]
+	return !curated || allow[seg]
+}
+
 // CurateByRole keeps Field, Viewers and Engineers on their own pages (the server side of the
 // curated dock).
 func (h *Handler) CurateByRole(next http.Handler) http.Handler {
@@ -263,7 +270,8 @@ func (h *Handler) CurateByRole(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		ok := allow[seg] || seg == "enrollment" && rest == "android-app/qr.png"
+		ok := allow[seg] || seg == "enrollment" && rest == "android-app/qr.png" ||
+			seg == "restaurants" && strings.HasSuffix(rest, "/icon") // venue icons show on every page
 		if seg == "devices" && h.role(r) == "field" && rest == "" {
 			ok = false // the list page; device pages are fine
 		}
