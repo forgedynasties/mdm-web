@@ -655,7 +655,7 @@
             {{range $.Models}}<option value="{{.Key}}"{{if eq .Key $pm}} selected{{end}}>{{.Label}}</option>{{end}}
           </select>
         </form>{{else}}{{if .Model}}{{productLabel .Model}}{{else}}<span class="muted">—</span>{{end}}{{end}}</td>
-        <td class="mono">{{.FirstSerial}} → {{.LastSerial}}</td>
+        <td class="mono lu1-range">{{.FirstSerial}} →<br>{{.LastSerial}}</td>
         <td class="mono">{{.Batch}}</td>
         <td class="ft-num">{{.Total}}</td>
         <td class="ft-num">{{.EverConnected}}</td>
@@ -831,6 +831,8 @@
   table.ft.lu1-runs { table-layout: auto; }
   table.ft.lu1-runs th, table.ft.lu1-runs td { width: auto !important; }
   table.ft.lu1-runs td:first-child { overflow: visible; text-overflow: clip; white-space: nowrap; }
+  table.ft.lu1-runs .lu-sel { width: 132px; max-width: 132px; }
+  table.ft.lu1-runs td.lu1-range { line-height: 1.35; font-size: 12px; }
   .lu1-sec { display: flex; align-items: baseline; gap: 10px; padding: 14px 18px 6px; flex-wrap: wrap; }
   .lu1-sec h2 { font-size: 15px; font-weight: 650; margin: 0; }
   .lu1-sec .muted { font-size: 12px; }
