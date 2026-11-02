@@ -528,7 +528,22 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// restaurant is view-only, and on each group that is.
 	acc := h.access(r)
 	lockedVenues, lockedGroups := acc.collectionLocks()
-	_ = lockedVenues // per-restaurant locks are not drawn: the tab carries the lock
+	// What the person can act on comes first in each list, the view-only ones after it,
+	// each part in its usual order (user, 2 Nov 2026: "unlocked should show first").
+	unlockedFirst := func(locked map[string]bool) func(a, b db.GroupHealth) int {
+		return func(a, b db.GroupHealth) int {
+			la, lb := locked[a.GroupID.String()], locked[b.GroupID.String()]
+			switch {
+			case la == lb:
+				return 0
+			case lb:
+				return -1
+			}
+			return 1
+		}
+	}
+	slices.SortStableFunc(railGroups, unlockedFirst(lockedGroups))
+	slices.SortStableFunc(railRests, unlockedFirst(lockedVenues))
 	restaurantsLocked := len(railRests) > 0 && acc.restaurantsViewOnly()
 	railTab := "restaurants"
 	switch {

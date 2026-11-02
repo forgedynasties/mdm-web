@@ -4599,7 +4599,7 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .fleet-rail-item:hover { background: var(--hover); }
 .fleet-rail-item.on { background: var(--accent-soft); color: var(--accent-text); }
 .fleet-rail-item .nm { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fleet-rail-item .ct { font-family: var(--mono); font-size: 11px; color: var(--text-faint); flex: none; padding-right: 9px; }
+.fleet-rail-item .ct { font-family: var(--mono); font-size: 11px; color: var(--text-faint); flex: none; padding-right: 9px; min-width: 3ch; text-align: right; } /* fixed width: the locks and arrows before it line up */
 .fleet-rail-item .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 /* collection rows: a filter link (.ri-main) + an always-visible "→" detail link
    (.ri-go). The arrow stays faded so it reads as "open this collection's page" at a
