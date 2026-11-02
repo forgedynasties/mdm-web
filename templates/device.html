@@ -1477,7 +1477,7 @@ window.DEVICE_VITALS = {
          (monogram tiles for now) and it queues an install. */}}
     {{/* Follow apps (F2, picked 30 Oct 2026): one list of the role apps, a channel and
          Follow / Stop per row. app_follows.go followRows. */}}
-    <div class="modal-backdrop" id="follow-modal" onclick="if(event.target===this)followModalClose()">
+    <div class="modal-backdrop" id="follow-modal" data-serial="{{.Device.SerialNumber}}" onclick="if(event.target===this)followModalClose()">
       <div class="modal-box modal-wide fl-box" role="dialog" aria-modal="true" aria-label="Follow apps">
         <div class="install-modal-head"><span class="modal-title">Follow apps</span>
           <span class="install-head-actions"><button type="button" class="modal-close" onclick="followModalClose()" aria-label="Close">&times;</button></span></div>
@@ -1488,7 +1488,7 @@ window.DEVICE_VITALS = {
           <td><span class="fl-nm">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}<span><b>{{.Name}}</b><small>{{.Product}}</small></span></span></td>
           <td><select class="fl-sel" aria-label="Channel for {{.Name}}" onchange="followPick(this)"{{if .Following}} disabled{{end}}>{{range .Channels}}<option value="{{.Package}}" data-newest="{{.Newest}}"{{if eq .Package $r.Following}} selected{{end}}>{{.Label}}</option>{{end}}</select></td>
           <td class="mono small fl-new">{{range $i, $c := .Channels}}{{if or (eq $c.Package $r.Following) (and (not $r.Following) (eq $i 0))}}{{$c.Newest}}{{end}}{{end}}</td>
-          <td class="fl-act">{{if .Following}}<span class="fl-on"><i></i>following {{.FollowingLabel}}</span><button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='{"action":"unfollow","package":"{{.Following}}"}' hx-swap="none" hx-on::after-request="if(event.detail.successful)followRowDone(this,false)">Stop</button>{{else}}<button type="button" class="cc-btn sm primary" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='js:{"action":"follow","package":followSelected(this)}' hx-swap="none" hx-on::after-request="if(event.detail.successful)followRowDone(this,true)">Follow</button>{{end}}</td>
+          <td class="fl-act">{{if .Following}}<span class="fl-on"><i></i>following {{.FollowingLabel}}</span><button type="button" class="cc-btn xs" data-fl-pkg="{{.Following}}" onclick="followSend(this,'unfollow')">Stop</button>{{else}}<button type="button" class="cc-btn sm primary" onclick="followSend(this,'follow')">Follow</button>{{end}}</td>
         </tr>
         {{end}}
         </tbody></table></div>

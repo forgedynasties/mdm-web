@@ -102,6 +102,28 @@ window.followSelected = function (btn) {
   var tr = btn && btn.closest && btn.closest('tr'), sel = tr && tr.querySelector('.fl-sel');
   return sel ? sel.value : '';
 };
+// Follow / Stop post straight to /devices/{serial}/follows (2 Nov 2026): as htmx buttons
+// (js: hx-vals + hx-on) the click started a request that never left the browser, so
+// Follow did nothing.
+window.followSend = function (btn, action) {
+  var m = document.getElementById('follow-modal'), serial = m && m.getAttribute('data-serial');
+  var pkg = action === 'follow' ? window.followSelected(btn) : btn.getAttribute('data-fl-pkg');
+  if (!serial || !pkg || btn.disabled) return;
+  btn.disabled = true;
+  var body = new URLSearchParams({ action: action, package: pkg });
+  fetch('/devices/' + encodeURIComponent(serial) + '/follows', { method: 'POST', body: body, headers: { 'HX-Request': 'true' }, credentials: 'same-origin' })
+    .then(function (r) {
+      btn.disabled = false;
+      // The handler answers with a toast in HX-Trigger, an error one when nothing changed.
+      var toast = null;
+      try { toast = (JSON.parse(r.headers.get('HX-Trigger') || '{}') || {}).toast || null; } catch (e) {}
+      var ok = r.ok && !(toast && toast.type === 'error');
+      if (toast && window.showToast) showToast(toast.msg, toast.type);
+      if (ok) { window.followRowDone(btn, action === 'follow'); return; }
+      if (!toast) return r.text().then(function (t) { if (window.showToast) showToast((t || 'Could not ' + action).trim().slice(0, 160), 'error'); });
+    })
+    .catch(function () { btn.disabled = false; if (window.showToast) showToast('Network error, try again', 'error'); });
+};
 window.followRowDone = function (btn, followed) {
   var tr = btn.closest('tr'), sel = tr.querySelector('.fl-sel'), act = tr.querySelector('.fl-act');
   if (followed) {
