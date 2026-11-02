@@ -366,17 +366,18 @@
 .fleet-rail{border-radius:var(--r-4)!important;box-shadow:var(--shadow-sm);padding-top:10px!important}
 .fleet-rail-item.on{border:1px solid var(--accent-edge)}
 .fleet-rail-item{min-height:40px}
-.rail-tabs{display:flex;align-items:center;gap:6px;margin:2px 4px 8px}
-.rail-seg{display:flex;flex:1;min-width:0;padding:3px;gap:2px;border:1px solid var(--border);border-radius:10px;background:var(--surface-3,var(--surface2))}
-.rail-seg [role=tab]{flex:1;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:5px;height:30px;padding:0 8px;border:0;border-radius:7px;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
-.rail-seg [role=tab] .n{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.rail-tabs{display:flex;align-items:center;gap:4px;margin:2px 0 8px}
+.rail-seg{display:flex;flex:1;min-width:0;padding:2px;gap:1px;border:1px solid var(--border);border-radius:10px;background:var(--surface-3,var(--surface2))}
+.rail-seg [role=tab]{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:3px;height:30px;padding:0 4px;border:0;border-radius:7px;background:none;font:inherit;font-size:11.5px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.rail-seg [role=tab] .n{font-size:10.5px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
 .rail-seg [role=tab][aria-selected=true]{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm,0 1px 2px rgba(0,0,0,.08))}
 .rail-seg [role=tab]:focus-visible{box-shadow:var(--ring);outline:none}
-.rail-tabs .rt-add{flex:none;width:30px;height:30px;display:inline-grid;place-items:center;border:1px solid var(--border);border-radius:9px;color:var(--text-2);text-decoration:none;font-size:16px}
+.rail-tabs .rt-add{flex:none;width:26px;height:26px;display:inline-grid;place-items:center;border:1px solid var(--border);border-radius:9px;color:var(--text-2);text-decoration:none;font-size:16px}
 .rail-tabs .rt-add:hover{background:var(--hover);color:var(--text)}
 .rail-tabs .rt-add[hidden]{display:none}
 .rail-lock{display:inline-flex;align-items:center;color:var(--muted)}
 .rail-lock svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.rail-seg .rail-lock svg{width:10px;height:10px}
 .fleet-rail-item .rail-lock{margin-left:6px}
 .fleet-rail-list[hidden]{display:none}
 @media(max-width:720px){
