@@ -110,7 +110,7 @@
 .aw-note{margin:6px 0 0;font-size:12px;color:var(--muted)}
 .aw-copy{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
 .aw-copy select{max-width:240px;font-size:12.5px;padding:5px 8px}
-@media (max-width:720px){.aw-groups{margin-left:0}.aw-k{width:100%}}
+@media (max-width:720px){.aw-groups{margin-left:0}.aw-k{width:100%}.aw-k:empty{display:none}}
 </style>
 <div class="aw" id="where">
 <form method="POST" action="/users/{{$u.ID}}/access-where" hx-boost="false">
@@ -132,8 +132,8 @@
       <label><input type="radio" name="elsewhere" value="view"{{if ne $w.Elsewhere "hidden"}} checked{{end}}>View only</label>
       <label><input type="radio" name="elsewhere" value="hidden"{{if eq $w.Elsewhere "hidden"}} checked{{end}}>Hidden</label>
     </span>
-    <button type="submit" class="cc-btn sm primary">Save</button>
   </div>
+  <div class="aw-row"><span class="aw-k"></span><button type="submit" class="cc-btn sm primary">Save</button></div>
   <p class="aw-note">{{roleLabel $u.Role}} role: {{if .RoleVerb}}{{.RoleVerb}} {{.RoleWhere}}{{else}}no access{{end}}. Where swaps the role's devices for this person; the role still decides what {{.FirstName}} may do there{{if .RoleVerb}} ({{.RoleVerb}}){{end}}.{{if $w.Set}} Set by {{$w.SetBy}} {{timeSince $w.SetAt}}.{{end}}</p>
 </form>
 {{if .CopyFrom}}<form method="POST" action="/users/{{$u.ID}}/access-where" class="aw-copy" hx-boost="false">
