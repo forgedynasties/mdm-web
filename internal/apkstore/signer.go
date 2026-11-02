@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -39,37 +40,48 @@ func (s *Store) SignerSHA256(ctx context.Context, key string) (string, error) {
 	return SignerFromReaderAt(&s3ReaderAt{ctx: ctx, client: s.client, bucket: s.bucket, key: key, size: size}, size)
 }
 
-// SignerFromReaderAt finds the APK Signing Block before the ZIP central directory and
-// returns the hex SHA-256 of its first signer's first certificate, v3 preferred.
+// SignerFromReaderAt returns the hex SHA-256 of the APK's first signer's first
+// certificate, v3 preferred.
 func SignerFromReaderAt(r io.ReaderAt, size int64) (string, error) {
-	cdOffset, err := centralDirOffset(r, size)
+	cert, err := firstCertFromReaderAt(r, size)
 	if err != nil {
 		return "", err
 	}
+	sum := sha256.Sum256(cert)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// firstCertFromReaderAt finds the APK Signing Block before the ZIP central directory and
+// returns its first signer's first certificate (DER), v3 preferred.
+func firstCertFromReaderAt(r io.ReaderAt, size int64) ([]byte, error) {
+	cdOffset, err := centralDirOffset(r, size)
+	if err != nil {
+		return nil, err
+	}
 	if cdOffset < 32 {
-		return "", errNoSigningBlock
+		return nil, errNoSigningBlock
 	}
 	tail := make([]byte, 24)
 	if _, err := r.ReadAt(tail, cdOffset-24); err != nil {
-		return "", err
+		return nil, err
 	}
 	if string(tail[8:]) != sigBlockMagic {
-		return "", errNoSigningBlock
+		return nil, errNoSigningBlock
 	}
 	blockSize := int64(binary.LittleEndian.Uint64(tail[:8]))
 	start := cdOffset - blockSize - 8
 	if blockSize < 24 || blockSize > 16<<20 || start < 0 {
-		return "", errors.New("bad signing block size")
+		return nil, errors.New("bad signing block size")
 	}
 	block := make([]byte, blockSize-24) // the ID-value pairs, after the leading size field
 	if _, err := r.ReadAt(block, start+8); err != nil {
-		return "", err
+		return nil, err
 	}
 	values := map[uint32][]byte{}
 	for p := block; len(p) >= 12; {
 		n := binary.LittleEndian.Uint64(p[:8])
 		if n < 4 || n > uint64(len(p)-8) {
-			return "", errors.New("bad signing block pair")
+			return nil, errors.New("bad signing block pair")
 		}
 		id := binary.LittleEndian.Uint32(p[8:12])
 		values[id] = p[12 : 8+n]
@@ -77,15 +89,10 @@ func SignerFromReaderAt(r io.ReaderAt, size int64) (string, error) {
 	}
 	for _, id := range []uint32{sigV3ID, sigV2ID} {
 		if v, ok := values[id]; ok {
-			cert, err := firstCertificate(v)
-			if err != nil {
-				return "", err
-			}
-			sum := sha256.Sum256(cert)
-			return hex.EncodeToString(sum[:]), nil
+			return firstCertificate(v)
 		}
 	}
-	return "", errNoSigningBlock
+	return nil, errNoSigningBlock
 }
 
 // firstCertificate walks signers → signer → signed data → (digests, certificates) → the
@@ -142,4 +149,25 @@ func centralDirOffset(r io.ReaderAt, size int64) (int64, error) {
 		return 0, errors.New("not a ZIP: no end of central directory")
 	}
 	return int64(binary.LittleEndian.Uint32(buf[i+16 : i+20])), nil
+}
+
+// isAndroidDebugCert reports whether a DER certificate is the Android SDK's debug key
+// (subject CN=Android Debug), the key every developer build is signed with.
+func isAndroidDebugCert(der []byte) bool {
+	c, err := x509.ParseCertificate(der)
+	return err == nil && c.Subject.CommonName == "Android Debug"
+}
+
+// SignedWithDebugKey reports whether the APK at key is signed with the Android debug key.
+func (s *Store) SignedWithDebugKey(ctx context.Context, key string) (bool, error) {
+	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	if err != nil {
+		return false, fmt.Errorf("s3 head: %w", err)
+	}
+	size := aws.ToInt64(head.ContentLength)
+	cert, err := firstCertFromReaderAt(&s3ReaderAt{ctx: ctx, client: s.client, bucket: s.bucket, key: key, size: size}, size)
+	if err != nil {
+		return false, err
+	}
+	return isAndroidDebugCert(cert), nil
 }

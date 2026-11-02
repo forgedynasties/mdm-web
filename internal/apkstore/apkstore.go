@@ -40,6 +40,10 @@ type Meta struct {
 	VersionName string
 	VersionCode int32  // 0 when the manifest has none
 	IconPNGB64  string // base64 PNG launcher icon, "" if none
+	// Debuggable / TestOnly are the manifest's android:debuggable and android:testOnly: a
+	// developer build (Android refuses a test-only APK without adb's -t).
+	Debuggable bool
+	TestOnly   bool
 }
 
 // New builds a Store from env: S3_BUCKET, S3_PREFIX, AWS_REGION. Credentials come
@@ -358,6 +362,12 @@ func metaFrom(pkg *apk.Apk) (*Meta, error) {
 		}
 		if c, err := mf.VersionCode.Int32(); err == nil {
 			m.VersionCode = c
+		}
+		if b, err := mf.App.Debuggable.Bool(); err == nil {
+			m.Debuggable = b
+		}
+		if b, err := mf.App.TestOnly.Bool(); err == nil {
+			m.TestOnly = b
 		}
 	}
 	if icon, err := pkg.Icon(nil); err == nil && icon != nil {

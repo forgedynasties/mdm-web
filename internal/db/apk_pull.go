@@ -87,8 +87,8 @@ func (d *DB) RecentAPKPulls(ctx context.Context, within, retryFailed time.Durati
 }
 
 // RefusedAPKPulls is the package@version pairs whose upload the library refused because
-// the APK is signed with another key than the package's library versions (a developer
-// build, say) within the window. Asking again would upload the same refused file, so the
+// the APK is signed with another key than the package's library versions, or is a
+// developer build (test-only, debuggable or debug-signed; 2 Nov 2026), within the window. Asking again would upload the same refused file, so the
 // auto-pull skips that version and takes the newest one it can use.
 func (d *DB) RefusedAPKPulls(ctx context.Context, within time.Duration) (map[string]bool, error) {
 	rows, err := d.pool.Query(ctx, `
@@ -96,7 +96,7 @@ func (d *DB) RefusedAPKPulls(ctx context.Context, within time.Duration) (map[str
 		FROM commands c
 		JOIN command_results r ON r.command_id = c.id
 		WHERE c.type = 'pull_apk' AND c.created_at > NOW() - $1::interval
-		  AND r.output ILIKE '%signed with a different key%'`, within.String())
+		  AND (r.output ILIKE '%signed with a different key%' OR r.output ILIKE '%a developer build%')`, within.String())
 	if err != nil {
 		return nil, err
 	}

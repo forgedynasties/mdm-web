@@ -100,6 +100,18 @@ func (h *Handler) APKPullRegister(ctx context.Context, deviceID, commandID uuid.
 	if meta.Package != pkg {
 		return "", fmt.Errorf("the upload is %s, not %s", meta.Package, pkg)
 	}
+	// No developer builds (2 Nov 2026; user: "make sure we dont pull developer builds
+	// again"): a test-only or debuggable APK, or one signed with the Android debug key, was
+	// pulled off a developer's device into the library, and every install of it failed
+	// (INSTALL_FAILED_TEST_ONLY). The wording is what RefusedAPKPulls matches.
+	if meta.TestOnly || meta.Debuggable {
+		log.Printf("[apk-pull] %s %s from device %s refused: developer build (testOnly=%v debuggable=%v)", meta.Package, meta.VersionName, deviceID, meta.TestOnly, meta.Debuggable)
+		return "", fmt.Errorf("a developer build (test-only or debuggable); not added")
+	}
+	if dbg, err := h.apk.SignedWithDebugKey(ctx, key); err == nil && dbg {
+		log.Printf("[apk-pull] %s %s from device %s refused: signed with the Android debug key", meta.Package, meta.VersionName, deviceID)
+		return "", fmt.Errorf("a developer build (signed with the Android debug key); not added")
+	}
 	apps, _ := h.db.ListApps(ctx)
 	for _, a := range apps {
 		if a.PackageName == meta.Package && a.VersionName == meta.VersionName {
