@@ -270,6 +270,32 @@ func (a *access) collectionLocks() (venues, groups map[string]bool) {
 	return
 }
 
+// restaurantsViewOnly reports whether this person only looks at restaurants: none of their
+// grants lets them operate restaurant devices as such (everywhere, a venue, devices being set
+// up or in service, their visits). Access through a group that happens to hold a restaurant
+// device doesn't count: the rail's Restaurants tab carries the lock and Groups opens first
+// (T1, picked 2 Nov 2026: "for engineer the lock icon will be on restaurant tab").
+func (a *access) restaurantsViewOnly() bool {
+	if a.unrestricted() || roleIsCustomer(a.role) {
+		return false
+	}
+	now := time.Now()
+	for _, g := range a.levels() {
+		if g.Expired(now) || g.Rank() < db.LevelOperate {
+			continue
+		}
+		switch g.ScopeType {
+		case "all", "venue", "visit":
+			return false
+		case "state":
+			if g.State != db.StateLab {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // markViewOnly sets ViewOnly on the devices the viewer can only look at, for the rows'
 // data-ro (the right-click menu shows their actions as read only).
 func (a *access) markViewOnly(devs []db.Device) {

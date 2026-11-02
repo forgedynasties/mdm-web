@@ -528,13 +528,8 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// restaurant is view-only, and on each group that is.
 	acc := h.access(r)
 	lockedVenues, lockedGroups := acc.collectionLocks()
-	restaurantsLocked := len(railRests) > 0 && !acc.unrestricted()
-	for _, x := range railRests {
-		if !lockedVenues[x.GroupID.String()] {
-			restaurantsLocked = false
-			break
-		}
-	}
+	_ = lockedVenues // per-restaurant locks are not drawn: the tab carries the lock
+	restaurantsLocked := len(railRests) > 0 && acc.restaurantsViewOnly()
 	railTab := "restaurants"
 	switch {
 	case activeGroup != "":

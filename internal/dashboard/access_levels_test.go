@@ -140,6 +140,12 @@ func TestLookOnlyAndLocks(t *testing.T) {
 	if !groups[h.String()] || groups[groupG.String()] {
 		t.Errorf("locked groups = %v, want only the d1-only group", groups)
 	}
+	if !a.restaurantsViewOnly() {
+		t.Error("engineers only look at restaurants (QA reaching a venue device doesn't change that)")
+	}
+	if newAccess("operator", db.AccessPolicy{}).restaurantsViewOnly() || newAccess("admin", db.AccessPolicy{}).restaurantsViewOnly() {
+		t.Error("support and super admins operate restaurant devices")
+	}
 	if v, g := newAccess("admin", db.AccessPolicy{}).collectionLocks(); len(v)+len(g) != 0 {
 		t.Error("super admins see no locks")
 	}
