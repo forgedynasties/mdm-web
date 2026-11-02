@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"sort"
 	"strconv"
 	"strings"
@@ -50,6 +51,7 @@ type a1Row struct {
 	Role       string // the Lineup role whose app this is, "" if none
 	RoleLabel  string
 	LibVersion string // library's newest prod-variant version, "" if none
+	Download   string // that build's APK (/apps/{id}/apk), "" if none (user, 2 Nov 2026)
 	InLibrary  bool
 	Devices    int
 	OnLib      int
@@ -71,6 +73,7 @@ type a1Row struct {
 // a1ChanRow is one channel package of an app, listed when its product is picked.
 type a1ChanRow struct {
 	Label, Package, Newest string
+	Download               string // the newest build's APK, "" if none
 	Devices                int
 }
 
@@ -185,6 +188,9 @@ func buildAppsA1(in a1Inputs) appsA1 {
 		f := &in.Families[i]
 		r := a1Row{Href: "/apps/" + f.Prod().Package, Name: f.Name, Package: f.BasePackage, Icon: f.Icon, InLibrary: true,
 			LibVersion: f.Prod().Latest.VersionName}
+		if l := f.Prod().Latest; l.ApkURL != "" && l.ID != uuid.Nil {
+			r.Download = "/apps/" + l.ID.String() + "/apk"
+		}
 		if role, ok := roleOf[f.BasePackage]; ok {
 			r.Role, r.RoleLabel = role, prod.ClassLabel(role)
 		}
@@ -198,7 +204,11 @@ func buildAppsA1(in a1Inputs) appsA1 {
 			r.Chans = append(r.Chans, vr.Label)
 		}
 		for _, vr := range f.Variants {
-			r.ChanRows = append(r.ChanRows, a1ChanRow{Label: vr.Label, Package: vr.Package, Newest: libNewest(in.Apps, vr.Package), Devices: chanDevs[vr.Label]})
+			cr := a1ChanRow{Label: vr.Label, Package: vr.Package, Newest: libNewest(in.Apps, vr.Package), Devices: chanDevs[vr.Label]}
+			if m := libVersionsOf(in.Apps, vr.Package); len(m) > 0 && m[0].ApkURL != "" {
+				cr.Download = "/apps/" + m[0].ID.String() + "/apk"
+			}
+			r.ChanRows = append(r.ChanRows, cr)
 		}
 		{
 			prodLabel := f.Prod().Label

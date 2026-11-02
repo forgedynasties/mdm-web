@@ -6,7 +6,10 @@
   .ap-ic{width:30px;height:30px;border-radius:8px;flex:none;object-fit:contain;background:var(--surface-3)}
   .ap-ic.sm{width:20px;height:20px;border-radius:6px}
   .ap-ic.ini{display:inline-grid;place-items:center;font-weight:750;font-size:13px;color:var(--text-2);text-transform:uppercase}
-  .ap-ver{font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .ap-ver{font-family:var(--mono);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block;max-width:calc(100% - 30px);vertical-align:middle}
+  .ap-dl{display:inline-grid;place-items:center;width:24px;height:24px;margin-left:4px;border-radius:7px;color:var(--text-2);vertical-align:middle}
+  .ap-dl:hover{background:var(--hover);color:var(--accent-text)}
+  .ap-dl svg{width:15px;height:15px}
   .ap-hact{margin-left:auto}
   .a1-sugg{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
   .a1-sugg form{display:flex;align-items:center;gap:12px;padding:9px 13px;border-radius:12px;background:var(--accent-soft);font-size:12.5px;margin:0}
@@ -84,7 +87,7 @@
           <tr class="ft-row" data-href="{{.Href}}" data-flags="{{if .Role}}role p-{{.Role}}{{else}}other{{end}}" data-text="{{.Search}}" data-s-name="{{.Name}}" data-s-devices="{{.Devices}}">
             <td><a class="cl-nm" href="{{.Href}}">{{if .Icon}}<img class="ap-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="ap-ic ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="cl-t"><b>{{.Name}}</b><small>{{if .RoleLabel}}{{.RoleLabel}} · {{end}}{{.Package}}</small></span></a></td>
             <td><span class="muted">{{if .Chans}}{{len .Chans}} channels{{else}}—{{end}}</span></td>
-            <td>{{if .InLibrary}}<span class="ap-ver">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{else}}<span class="cc-tag warn">not in library</span>{{if $lib}} <button type="button" class="cc-btn xs" onclick="event.stopPropagation();libAddOpen()">Add APK</button>{{end}}{{end}}</td>
+            <td>{{if .InLibrary}}<span class="ap-ver">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{with .Download}} <a class="ap-dl" href="{{.}}" download hx-boost="false" onclick="event.stopPropagation()" title="Download this build" aria-label="Download {{$.Name}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></a>{{end}}{{else}}<span class="cc-tag warn">not in library</span>{{if $lib}} <button type="button" class="cc-btn xs" onclick="event.stopPropagation();libAddOpen()">Add APK</button>{{end}}{{end}}</td>
             <td class="ft-num"><b>{{.Devices}}</b></td>
             <td class="ft-act"><a class="cl-go" href="{{.Href}}" title="Open {{.Name}}" aria-label="Open {{.Name}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
           </tr>
@@ -93,7 +96,7 @@
           <tr class="ft-row" hidden data-href="/apps/{{.Package}}" data-view-only="pc-{{$r.Role}}" data-flags="pc-{{$r.Role}}" data-text="{{$r.Name}} {{.Label}} {{.Package}} {{.Newest}}" data-s-name="{{$r.Name}} {{.Label}}" data-s-devices="{{.Devices}}">
             <td><a class="cl-nm" href="/apps/{{.Package}}">{{if $r.Icon}}<img class="ap-ic" src="{{iconSrc $r.Icon}}" alt="">{{else}}<span class="ap-ic ini">{{if $r.Name}}{{slice $r.Name 0 1}}{{end}}</span>{{end}}<span class="cl-t"><b>{{$r.Name}} · {{.Label}}</b><small class="mono">{{.Package}}</small></span></a></td>
             <td><span class="muted">{{.Label}}</span></td>
-            <td>{{if .Newest}}<span class="ap-ver">{{.Newest}}</span>{{else}}<span class="cc-tag warn">not in library</span>{{end}}</td>
+            <td>{{if .Newest}}<span class="ap-ver">{{.Newest}}</span>{{with .Download}} <a class="ap-dl" href="{{.}}" download hx-boost="false" onclick="event.stopPropagation()" title="Download this build" aria-label="Download this {{$r.Name}} build"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></a>{{end}}{{else}}<span class="cc-tag warn">not in library</span>{{end}}</td>
             <td class="ft-num"><b>{{.Devices}}</b></td>
             <td class="ft-act"><a class="cl-go" href="/apps/{{.Package}}" title="Open {{$r.Name}} · {{.Label}}" aria-label="Open {{$r.Name}} · {{.Label}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
           </tr>
