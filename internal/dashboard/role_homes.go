@@ -237,11 +237,12 @@ var curatedPages = map[string]bool{
 }
 
 // curatedAllow is what each restricted role may open. Field's "devices" means device
-// pages only: their list is My visits.
+// pages only: their list is My visits. Engineers open groups (access by levels, 2 Nov
+// 2026): group access is how they are given more, and the Fleet rail's Groups tab is theirs.
 var curatedAllow = map[string]map[string]bool{
 	"field":    {"my-visits": true, "devices": true, "alerts": true},
 	"viewer":   {"restaurants": true},
-	"engineer": {"devices": true, "apps": true, "releases": true, "alerts": true},
+	"engineer": {"devices": true, "apps": true, "releases": true, "alerts": true, "groups": true},
 }
 
 // canOpenPage: may this role open the top-level page seg ("restaurants", "groups"…)?

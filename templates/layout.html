@@ -302,49 +302,49 @@
 
       <div class="nav-dir-sec">
         <div class="t">Today</div>
-        <a class="js-dest{{if eq .ActivePage "alerts"}} on{{end}}" href="/alerts" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alerts">Alerts</a>
-        {{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/alert-config"}} on{{end}}" href="/alert-config" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alert rules">Alert rules</a>{{end}}
-        {{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/reports/alerts-by-restaurant"}} on{{end}}" href="/reports/alerts-by-restaurant" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alert report">Alert report</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-ic="pulse" data-cmdk-sec="Today" data-cmdk-label="Fleet health">Fleet health</a>
+        {{if canOpenPage .NavRole "alerts"}}<a class="js-dest{{if eq .ActivePage "alerts"}} on{{end}}" href="/alerts" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alerts">Alerts</a>{{end}}
+        {{if canOpenPage .NavRole "alert-config"}}{{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/alert-config"}} on{{end}}" href="/alert-config" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alert rules">Alert rules</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "reports"}}{{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/reports/alerts-by-restaurant"}} on{{end}}" href="/reports/alerts-by-restaurant" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alert report">Alert report</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "fleet-health"}}{{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-ic="pulse" data-cmdk-sec="Today" data-cmdk-label="Fleet health">Fleet health</a>{{end}}{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Fleet</div>
-        <a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-ic="building" data-cmdk-sec="Fleet" data-cmdk-label="Venues">Venues</a>
-        <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-ic="layers" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>
-        {{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>{{end}}
-        {{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>{{end}}
-        {{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/battery"}} on{{end}}" href="/battery" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Battery data">Battery data</a>{{end}}
+        {{if canOpenPage .NavRole "restaurants"}}<a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-ic="building" data-cmdk-sec="Fleet" data-cmdk-label="Venues">Venues</a>{{end}}
+        {{if canOpenPage .NavRole "groups"}}<a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-ic="layers" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>{{end}}
+        {{if canOpenPage .NavRole "map"}}{{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "enrollment"}}{{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "battery"}}{{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/battery"}} on{{end}}" href="/battery" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Battery data">Battery data</a>{{end}}{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Software</div>
-        <a class="js-dest{{if eq .ActivePath "/lineup"}} on{{end}}" href="/lineup" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Lineup">Lineup</a>
-        {{if canAdminOrOperator .NavRole}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Software" data-cmdk-label="Releases">Releases</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="MDM clients">MDM clients</a>
-        {{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Library">Apps · Library</a>{{end}}
-        {{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/apps/usage"}} on{{end}}" href="/apps/usage" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Resource use">Apps · Resource use</a>{{end}}
+        {{if canOpenPage .NavRole "lineup"}}<a class="js-dest{{if eq .ActivePath "/lineup"}} on{{end}}" href="/lineup" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Lineup">Lineup</a>{{end}}
+        {{if canOpenPage .NavRole "releases"}}{{if canAdminOrOperator .NavRole}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Software" data-cmdk-label="Releases">Releases</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "clients"}}<a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="MDM clients">MDM clients</a>{{end}}
+        {{if canOpenPage .NavRole "apps"}}{{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Library">Apps · Library</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "apps"}}{{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/apps/usage"}} on{{end}}" href="/apps/usage" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Resource use">Apps · Resource use</a>{{end}}{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">Control</div>
-        <a class="js-dest{{if eq .ActivePath "/lock"}} on{{end}}" href="/lock" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Device lock">Device lock</a>
-        <a class="js-dest{{if eq .ActivePath "/compliance/rules"}} on{{end}}" href="/compliance/rules" data-ic="shield" data-cmdk-sec="Control" data-cmdk-label="Compliance rules">Compliance rules</a>
-        <a class="js-dest{{if eq .ActivePath "/jobs"}} on{{end}}" href="/jobs" data-ic="send" data-cmdk-sec="Control" data-cmdk-label="Jobs">Jobs</a>
-        {{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/adb"}} on{{end}}" href="/adb" data-ic="monitor" data-cmdk-sec="Control" data-cmdk-label="Wireless adb">Wireless adb</a>{{end}}
+        {{if canOpenPage .NavRole "lock"}}<a class="js-dest{{if eq .ActivePath "/lock"}} on{{end}}" href="/lock" data-ic="lock" data-cmdk-sec="Control" data-cmdk-label="Device lock">Device lock</a>{{end}}
+        {{if canOpenPage .NavRole "compliance"}}<a class="js-dest{{if eq .ActivePath "/compliance/rules"}} on{{end}}" href="/compliance/rules" data-ic="shield" data-cmdk-sec="Control" data-cmdk-label="Compliance rules">Compliance rules</a>{{end}}
+        {{if canOpenPage .NavRole "jobs"}}<a class="js-dest{{if eq .ActivePath "/jobs"}} on{{end}}" href="/jobs" data-ic="send" data-cmdk-sec="Control" data-cmdk-label="Jobs">Jobs</a>{{end}}
+        {{if canOpenPage .NavRole "adb"}}{{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/adb"}} on{{end}}" href="/adb" data-ic="monitor" data-cmdk-sec="Control" data-cmdk-label="Wireless adb">Wireless adb</a>{{end}}{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">People</div>
-        {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-ic="users" data-cmdk-sec="People" data-cmdk-label="Users">Users</a>{{end}}
-        {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-ic="lock" data-cmdk-sec="People" data-cmdk-label="Access">Access</a>{{end}}
-        {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-ic="clock" data-cmdk-sec="People" data-cmdk-label="Activity log">Activity log</a>{{end}}
+        {{if canOpenPage .NavRole "users"}}{{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-ic="users" data-cmdk-sec="People" data-cmdk-label="Users">Users</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "users"}}{{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-ic="lock" data-cmdk-sec="People" data-cmdk-label="Access">Access</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "activity"}}{{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-ic="clock" data-cmdk-sec="People" data-cmdk-label="Activity log">Activity log</a>{{end}}{{end}}
       </div>
 
       <div class="nav-dir-sec">
         <div class="t">System</div>
-        {{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-ic="gear" data-cmdk-sec="System" data-cmdk-label="Settings">Settings</a>{{end}}
-        {{if canAdminOrOperator .NavRole}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-ic="server" data-cmdk-sec="System" data-cmdk-label="Server">Server</a>{{end}}
+        {{if canOpenPage .NavRole "settings"}}{{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/settings"}} on{{end}}" href="/settings" data-ic="gear" data-cmdk-sec="System" data-cmdk-label="Settings">Settings</a>{{end}}{{end}}
+        {{if canOpenPage .NavRole "server"}}{{if canAdminOrOperator .NavRole}}<a class="js-dest{{if eq .ActivePath "/server"}} on{{end}}" href="/server" data-ic="server" data-cmdk-sec="System" data-cmdk-label="Server">Server</a>{{end}}{{end}}
         <a class="js-dest{{if eq .ActivePath "/export"}} on{{end}}" href="/export" data-ic="download" data-cmdk-sec="System" data-cmdk-label="Export">Export</a>
       </div>
 

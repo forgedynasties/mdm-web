@@ -540,7 +540,7 @@ a.fleet-rail-item{min-height:40px}
       <span class="ct">{{.DeviceCount}}</span>
     </div>
     {{else}}
-    <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
+    <div class="fleet-rail-empty">{{if and (canAdminOrOperator .Role) (canOpenPage .Role "restaurants")}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
     {{end}}
     </div>
     <div class="fleet-rail-list" data-sec="groups" id="rail-groups" role="tabpanel" aria-labelledby="rt-groups"{{if ne .RailTab "groups"}} hidden{{end}}>
@@ -569,7 +569,7 @@ a.fleet-rail-item{min-height:40px}
       <span class="t">{{if eq $k "restaurants"}}Restaurants{{else if eq $k "groups"}}Groups{{else}}Releases{{end}}</span>
       <span class="c">· {{len .CollRows}} {{if eq $k "restaurants"}}venue{{else if eq $k "groups"}}group{{else}}release{{end}}{{if ne (len .CollRows) 1}}s{{end}}{{with .CollSummary}} · {{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Offline}} · {{.Offline}} offline{{end}}{{end}}</span>
       {{if eq $k "releases"}}<a class="cc-btn" style="margin-left:auto" href="/releases">Manage releases</a>
-      {{else}}<a class="cc-btn primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" style="margin-left:auto" href="{{if eq $k "restaurants"}}/restaurants/new{{else}}/groups/new{{end}}"{{if not (canAdminOrOperator .Role)}} data-role-need="operator"{{end}}>{{if eq $k "restaurants"}}+ New venue{{else}}+ New group{{end}}</a>{{end}}
+      {{else if canOpenPage .Role $k}}<a class="cc-btn primary{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" style="margin-left:auto" href="{{if eq $k "restaurants"}}/restaurants/new{{else}}/groups/new{{end}}"{{if not (canAdminOrOperator .Role)}} data-role-need="operator"{{end}}>{{if eq $k "restaurants"}}+ New venue{{else}}+ New group{{end}}</a>{{end}}
     </div>
     {{if .CollRows}}{{template "coll-table" (dict "Rows" .CollRows "Sum" .CollSummary "Kind" $k "Open" (canOpenPage .Role $k))}}
     {{else}}<div class="ovx-card" style="padding:30px;text-align:center;color:var(--muted);">No {{if eq $k "restaurants"}}restaurants{{else if eq $k "groups"}}groups{{else}}published releases{{end}} yet.</div>{{end}}
