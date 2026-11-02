@@ -31,7 +31,7 @@ func (h *Handler) requireReleaseAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if s.Role != "admin" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, onlySuperAdmin)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -53,7 +53,7 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if s.Role != "admin" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, onlySuperAdmin)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -74,7 +74,7 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 			return
 		}
 		if !roleCanOperate(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, roleCanOperate)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -95,7 +95,7 @@ func (h *Handler) requireSupport(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !roleCanSupport(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, roleCanSupport)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -122,7 +122,7 @@ func (h *Handler) requireTeam(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if roleIsCustomer(h.role(r)) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.forbidPage(w, r, "This page", "It is for the AIO team.")
 			return
 		}
 		next(w, r)
@@ -138,7 +138,7 @@ func (h *Handler) requireAppLibrary(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !roleCanAppLibrary(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, roleCanAppLibrary)
 			return
 		}
 		next(w, r)
@@ -153,7 +153,7 @@ func (h *Handler) requireOTA(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !roleCanOTA(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, roleCanOTA)
 			return
 		}
 		next(w, r)
@@ -169,7 +169,7 @@ func (h *Handler) requireAccountAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !roleCreatesUsers(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, roleCreatesUsers)
 			return
 		}
 		next(w, r)
@@ -184,7 +184,7 @@ func (h *Handler) requireUserManager(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if !roleManagesUsers(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, roleManagesUsers)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -203,7 +203,7 @@ func (h *Handler) requireStrictAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if s.Role != "admin" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, onlySuperAdmin)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -222,7 +222,7 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			return
 		}
 		if !roleCanOperate(s.Role) {
-			http.Error(w, "Forbidden", http.StatusForbidden)
+			h.guardRefuse(w, r, roleCanOperate)
 			return
 		}
 		if h.maintenanceGate(w, r) {
@@ -301,7 +301,7 @@ func (h *Handler) requireFleetOTA(next http.HandlerFunc) http.HandlerFunc {
 
 func (h *Handler) fleetOTAAllowed(w http.ResponseWriter, r *http.Request) bool {
 	if !roleCanOTA(h.role(r)) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+		h.guardRefuse(w, r, roleCanOTA)
 		return false
 	}
 	if !h.access(r).unrestricted() {
@@ -311,3 +311,5 @@ func (h *Handler) fleetOTAAllowed(w http.ResponseWriter, r *http.Request) bool {
 	}
 	return true
 }
+
+func onlySuperAdmin(role string) bool { return role == "admin" }

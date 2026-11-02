@@ -127,7 +127,7 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	g, err := h.db.GetGroup(r.Context(), id)
 	if err != nil || g.Hidden && h.role(r) != "admin" {
-		http.Error(w, "Group not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Group", "There is no group at this address. It may have been deleted.")
 		return
 	}
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{GroupID: id}, 0, 1000, "serial", "asc")
@@ -162,7 +162,7 @@ func (h *Handler) GroupDevicesModal(w http.ResponseWriter, r *http.Request) {
 	}
 	g, err := h.db.GetGroup(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Group not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Group", "There is no group at this address. It may have been deleted.")
 		return
 	}
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{GroupID: id}, 0, 1000, "serial", "asc")
@@ -298,7 +298,7 @@ func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	g, err := h.db.GetGroup(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Group not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Group", "There is no group at this address. It may have been deleted.")
 		return
 	}
 	// The Groups list asks for the group's name before it deletes (G1, 30 Oct 2026).
@@ -533,7 +533,7 @@ func (h *Handler) GroupMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	g, err := h.db.GetGroup(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Group not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Group", "There is no group at this address. It may have been deleted.")
 		return
 	}
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{GroupID: id}, 0, 1000, "serial", "asc")
@@ -625,7 +625,7 @@ func (h *Handler) GroupHiddenSet(w http.ResponseWriter, r *http.Request) {
 	}
 	g, err := h.db.GetGroup(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Group not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Group", "There is no group at this address. It may have been deleted.")
 		return
 	}
 	hide := r.FormValue("hidden") == "1"

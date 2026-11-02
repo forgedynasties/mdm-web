@@ -1,0 +1,26 @@
+{{define "denied.html"}}
+{{template "header" .}}
+{{/* A page someone may not open (403) or whose subject doesn't exist (404), inside the
+     dashboard: what it is, why, who can give access, a way back. access_denied.go */}}
+<style>
+.dn-wrap{max-width:560px;margin:0 auto;padding:56px 16px 80px;text-align:center}
+.dn-ic{width:48px;height:48px;border-radius:14px;background:var(--surface-3);color:var(--text-2);display:grid;place-items:center;margin:0 auto 16px}
+.dn-wrap .cc-h1{font-size:22px;margin:0}
+.dn-what{font-size:13px;color:var(--muted);margin:0 0 6px;font-weight:600}
+.dn-why{font-size:14.5px;line-height:1.55;color:var(--text);margin:12px auto 0;max-width:470px}
+.dn-who{font-size:13.5px;line-height:1.5;color:var(--text-2);margin:14px auto 0;max-width:470px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.dn-acts{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:22px}
+</style>
+<div class="dn-wrap">
+  <div class="dn-ic" aria-hidden="true">{{if eq .Code 403}}<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>{{else}}<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>{{end}}</div>
+  <p class="dn-what">{{.What}}</p>
+  <h1 class="cc-h1">{{if eq .Code 403}}You don't have access{{else}}Not found{{end}}</h1>
+  <p class="dn-why">{{.Why}}</p>
+  {{if .Who}}<p class="dn-who">{{.Who}}{{if .You}} You are signed in as {{.You}}.{{end}}</p>{{end}}
+  <div class="dn-acts">
+    {{if ne .Back "/"}}<a class="cc-btn" href="{{.Back}}">Go back</a>{{end}}
+    <a class="cc-btn primary" href="/">Go to your home page</a>
+  </div>
+</div>
+{{template "footer" .}}
+{{end}}

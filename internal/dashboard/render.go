@@ -36,6 +36,11 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
+	// FleetScoped: the More directory leaves out the fleet-wide pages (map, alert report,
+	// resource use) for someone who sees only part of the fleet; they'd be refused there.
+	if !data["Boosted"].(bool) && role != "admin" {
+		data["FleetScoped"] = h.access(r).hidesDevices()
+	}
 	data["CurrentUser"] = h.currentDisplayName(r)
 	if sess, ok := h.currentSession(r); ok && sess.Role == "admin" {
 		data["SuperAdmin"] = true

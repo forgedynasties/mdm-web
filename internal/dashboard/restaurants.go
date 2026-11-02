@@ -26,7 +26,7 @@ import (
 // and resolved alerts live without its own SSE connection.
 func (h *Handler) ReportAlertsByRestaurant(w http.ResponseWriter, r *http.Request) {
 	if h.access(r).hidesDevices() {
-		http.Error(w, "This report covers the whole fleet.", http.StatusForbidden)
+		h.forbidPage(w, r, "Alert report", "It covers the whole fleet, and your access covers part of it. "+h.yourDevices(r))
 		return
 	}
 	rows, err := h.db.AlertsByRestaurant(r.Context())
@@ -317,7 +317,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	rest, err := h.db.GetRestaurant(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Venue", "There is no venue at this address. It may have been deleted.")
 		return
 	}
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 1000, "serial", "asc")
@@ -530,7 +530,7 @@ func (h *Handler) RestaurantReport(w http.ResponseWriter, r *http.Request) {
 	}
 	rest, err := h.db.GetRestaurant(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Venue", "There is no venue at this address. It may have been deleted.")
 		return
 	}
 	win, weeks := pickReportWeek(r.URL.Query().Get("week"), time.Now())
@@ -619,7 +619,7 @@ func (h *Handler) RestaurantReportEmail(w http.ResponseWriter, r *http.Request) 
 	}
 	rest, err := h.db.GetRestaurant(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Venue", "There is no venue at this address. It may have been deleted.")
 		return
 	}
 
@@ -763,7 +763,7 @@ func (h *Handler) RestaurantDevicesModal(w http.ResponseWriter, r *http.Request)
 	}
 	rest, err := h.db.GetRestaurant(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Venue", "There is no venue at this address. It may have been deleted.")
 		return
 	}
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 1000, "serial", "asc")
@@ -1001,7 +1001,7 @@ func (h *Handler) RestaurantMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	rest, err := h.db.GetRestaurant(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		h.notFoundPage(w, r, "Venue", "There is no venue at this address. It may have been deleted.")
 		return
 	}
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 1000, "serial", "asc")

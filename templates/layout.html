@@ -304,7 +304,7 @@
         <div class="t">Today</div>
         <a class="js-dest{{if eq .ActivePage "alerts"}} on{{end}}" href="/alerts" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alerts">Alerts</a>
         {{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/alert-config"}} on{{end}}" href="/alert-config" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alert rules">Alert rules</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/reports/alerts-by-restaurant"}} on{{end}}" href="/reports/alerts-by-restaurant" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alert report">Alert report</a>
+        {{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/reports/alerts-by-restaurant"}} on{{end}}" href="/reports/alerts-by-restaurant" data-ic="bell" data-cmdk-sec="Today" data-cmdk-label="Alert report">Alert report</a>{{end}}
         <a class="js-dest{{if eq .ActivePath "/fleet-health"}} on{{end}}" href="/fleet-health" data-ic="pulse" data-cmdk-sec="Today" data-cmdk-label="Fleet health">Fleet health</a>
       </div>
 
@@ -312,7 +312,7 @@
         <div class="t">Fleet</div>
         <a class="js-dest{{if eq .ActivePath "/restaurants"}} on{{end}}" href="/restaurants" data-ic="building" data-cmdk-sec="Fleet" data-cmdk-label="Venues">Venues</a>
         <a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-ic="layers" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>
-        <a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>
+        {{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>{{end}}
         {{if canAdmin .NavRole}}<a class="js-dest{{if eq .ActivePath "/enrollment"}} on{{end}}" href="/enrollment" data-ic="phone" data-cmdk-sec="Fleet" data-cmdk-label="Enrollment">Enrollment</a>{{end}}
         {{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/battery"}} on{{end}}" href="/battery" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Battery data">Battery data</a>{{end}}
       </div>
@@ -323,7 +323,7 @@
         {{if canAdminOrOperator .NavRole}}<a class="js-dest{{if eq .ActivePath "/releases"}} on{{end}}" href="/releases" data-ic="tag" data-cmdk-sec="Software" data-cmdk-label="Releases">Releases</a>{{end}}
         <a class="js-dest{{if eq .ActivePath "/clients"}} on{{end}}" href="/clients" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="MDM clients">MDM clients</a>
         {{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/apps"}} on{{end}}" href="/apps" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Library">Apps · Library</a>{{end}}
-        <a class="js-dest{{if eq .ActivePath "/apps/usage"}} on{{end}}" href="/apps/usage" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Resource use">Apps · Resource use</a>
+        {{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/apps/usage"}} on{{end}}" href="/apps/usage" data-ic="layers" data-cmdk-sec="Software" data-cmdk-label="Apps · Resource use">Apps · Resource use</a>{{end}}
       </div>
 
       <div class="nav-dir-sec">
@@ -337,8 +337,7 @@
       <div class="nav-dir-sec">
         <div class="t">People</div>
         {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users"}} on{{end}}" href="/users" data-ic="users" data-cmdk-sec="People" data-cmdk-label="Users">Users</a>{{end}}
-        {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-ic="lock" data-cmdk-sec="People" data-cmdk-label="Access rules">Access rules</a>{{end}}
-        {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users/access/profiles"}} on{{end}}" href="/users/access/profiles" data-ic="lock" data-cmdk-sec="People" data-cmdk-label="Access profiles">Access profiles</a>{{end}}
+        {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/users/access"}} on{{end}}" href="/users/access" data-ic="lock" data-cmdk-sec="People" data-cmdk-label="Access">Access</a>{{end}}
         {{if canManageUsers .NavRole}}<a class="js-dest{{if eq .ActivePath "/activity"}} on{{end}}" href="/activity" data-ic="clock" data-cmdk-sec="People" data-cmdk-label="Activity log">Activity log</a>{{end}}
       </div>
 

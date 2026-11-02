@@ -42,6 +42,16 @@
       var main = document.querySelector('main'); if (!main || d.target === main) return;
       d.target = main; d.swapOverride = 'outerHTML'; d.selectOverride = 'main';
     }, true);
+    // The server's "You don't have access" / "Not found" page (header X-MDM-Page: error)
+    // is swapped in like any page on a boosted navigation: htmx leaves 4xx answers
+    // unswapped, so the click used to do nothing but toast.
+    document.addEventListener('htmx:beforeSwap', function (e) {
+      var d = e.detail, x = d && d.xhr; if (!x || x.status < 400) return;
+      if (x.getResponseHeader('X-MDM-Page') !== 'error') return;
+      var rc = d.requestConfig; if (rc && rc.verb && rc.verb !== 'get') return;
+      var main = document.querySelector('main'); if (!main || d.target !== main) return;
+      d.shouldSwap = true; d.isError = false;
+    }, true);
     // Safety net for polling regions: an hx-get element with no hx-target of its
     // own inherits the body's hx-target="main" and would replace the whole page
     // with its fragment every tick. Only a boosted navigation may swap <main>;

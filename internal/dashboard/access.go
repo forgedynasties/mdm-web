@@ -818,10 +818,10 @@ func (h *Handler) filterHiddenCommands(r *http.Request, cmds []db.Command) []db.
 	return out
 }
 
-// deviceRoute guards a /devices/{serial}/... route. A device the user may not
-// see answers 404 (so hidden devices do not leak by URL); a device shown
-// read-only accepts GETs and refuses writes; any other action is checked
-// against the policy. Admins skip all of it.
+// deviceRoute guards a /devices/{serial}/... route. A device the user may not see
+// answers 403 with the reason (a page load gets the "You don't have access" page; until
+// 2 Nov 2026 it was a bare 404); a device shown read-only accepts GETs and refuses
+// writes; any other action is checked against the policy. Admins skip all of it.
 func (h *Handler) deviceRoute(action string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		acc := h.access(r)
@@ -836,7 +836,7 @@ func (h *Handler) deviceRoute(action string, next http.HandlerFunc) http.Handler
 		}
 		if !acc.canDevice("view", dev.ID) {
 			if acc.hidesDevices() {
-				http.NotFound(w, r)
+				h.forbidPage(w, r, "Device "+dev.SerialNumber, h.deviceOutsideWhy(r, dev))
 				return
 			}
 			if r.Method != http.MethodGet || action != "view" {
@@ -903,16 +903,12 @@ func (h *Handler) keepVisibleSerials(r *http.Request, serials []string) []string
 
 // fleetWide guards a page or endpoint that is about the whole fleet (the device map,
 // compliance, exports, productions, AI fleet summary…) and has no per-device filter:
-// a user with a visibility limit is sent to their own device list instead (a JSON or
-// write request gets a 403). The Overview and Fleet health already do this.
+// a user with a visibility limit gets the "You don't have access" page (a JSON or write
+// request a plain 403). The Overview and Fleet health send them to their own pages.
 func (h *Handler) fleetWide(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.access(r).hidesDevices() {
-			if r.Method != http.MethodGet || strings.Contains(r.Header.Get("Accept"), "application/json") {
-				http.Error(w, "This covers the whole fleet, which your access policy does not.", http.StatusForbidden)
-				return
-			}
-			http.Redirect(w, r, "/devices", http.StatusFound)
+			h.forbidPage(w, r, "This page", "It covers the whole fleet, and your access covers part of it. "+h.yourDevices(r))
 			return
 		}
 		next(w, r)
@@ -956,14 +952,23 @@ func scopeHealth(rows []db.GroupHealth, seen map[uuid.UUID]int) []db.GroupHealth
 
 // collectionRoute guards /restaurants/{id}/… and /groups/{id}/…: a user with a
 // visibility limit reaches a restaurant or group only when they can see at least one of
-// its devices; otherwise it does not exist for them (404), as a hidden device does.
+// its devices. One that exists but holds none of theirs answers 403 with the reason;
+// only one that doesn't exist is a 404.
 func (h *Handler) collectionRoute(kind string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.isLoggedIn(r) {
+			next(w, r) // its own guard sends them to sign in
+			return
+		}
 		acc := h.access(r)
 		if acc.hidesDevices() {
+			label := "Venue"
+			if kind == "group" {
+				label = "Group"
+			}
 			id, err := uuid.Parse(r.PathValue("id"))
 			if err != nil {
-				http.NotFound(w, r)
+				h.notFoundPage(w, r, label, "There is no "+strings.ToLower(label)+" at this address.")
 				return
 			}
 			rests, groups := acc.visibleCollections()
@@ -972,7 +977,19 @@ func (h *Handler) collectionRoute(kind string, next http.HandlerFunc) http.Handl
 				seen = groups
 			}
 			if seen[id] == 0 {
-				http.NotFound(w, r)
+				name := ""
+				if kind == "group" {
+					if g, err := h.db.GetGroup(r.Context(), id); err == nil && g != nil {
+						name = g.Name
+					}
+				} else if v, err := h.db.GetRestaurant(r.Context(), id); err == nil && v != nil {
+					name = v.Name
+				}
+				if name == "" {
+					h.notFoundPage(w, r, label, "There is no "+strings.ToLower(label)+" at this address. It may have been deleted.")
+					return
+				}
+				h.forbidPage(w, r, label+" "+name, "None of its devices are ones you can see. "+h.yourDevices(r))
 				return
 			}
 		}

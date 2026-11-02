@@ -276,11 +276,11 @@ func (h *Handler) CurateByRole(next http.Handler) http.Handler {
 			ok = false // the list page; device pages are fine
 		}
 		if !ok {
-			// Only a page load goes home. A fragment or fetch (the header's alerts popover,
-			// a card loading itself) gets a plain refusal: followed, the redirect put the
-			// whole home page, island and all, inside the page asking.
+			// A page load gets the "You don't have access" page with a way home (it used to
+			// redirect home without a word). A fragment or fetch (the header's alerts
+			// popover, a card loading itself) gets a plain refusal.
 			if isNavigation(r) {
-				http.Redirect(w, r, "/", http.StatusFound)
+				h.errorPage(w, r, http.StatusForbidden, "This page", "It isn't one of the pages for "+rolePlural(h.role(r))+". Your dock lists yours.")
 			} else {
 				http.Error(w, "Not on your pages", http.StatusForbidden)
 			}
