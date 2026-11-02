@@ -27,7 +27,7 @@ func TestHumanizeAuditReadsAsASentence(t *testing.T) {
 		{"device.restaurant", "AT070", "", "removed the device from its restaurant"},
 		{"device.restaurant", "AT070", "b5a907ba", "assigned the device to a restaurant"},
 		{"deployment.retry", "AT070", "46", "retried the update (rollout 46)"},
-		{"command.send", "install_apk", "", "sent a install apk command"},
+		{"command.send", "install_apk", "", "sent an app install"},
 		{"device.queue_clear", "AT070", "", "cleared the command queue"},
 		// Unknown actions still render, rather than vanishing from the feed.
 		{"release.publish", "10203", "v2.1.012", "release publish"},

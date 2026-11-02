@@ -97,7 +97,7 @@ func humanizeAudit(e db.AuditEntry) string {
 		if e.Target == "" {
 			return "sent a command"
 		}
-		return "sent a " + strings.ReplaceAll(e.Target, "_", " ") + " command"
+		return commandSentText(e.Target)
 	case "command.resend":
 		return "re-sent a command" + trailing(e.Target)
 	case "command.cancel", "device.queue_remove":
@@ -147,4 +147,36 @@ func inParens(s string) string {
 		return ""
 	}
 	return s[i+1 : j]
+}
+
+// commandSentText is an activity line for a command, in words ("sent an app install"),
+// not the type key ("sent a install apk command").
+func commandSentText(kind string) string {
+	switch kind {
+	case "install_apk":
+		return "sent an app install"
+	case "uninstall":
+		return "sent an app uninstall"
+	case "app_update":
+		return "sent an MDM client update"
+	case "reboot":
+		return "sent a reboot"
+	case "screenshot":
+		return "took a screenshot"
+	case "shell":
+		return "ran a shell command"
+	case "wifi_config":
+		return "sent a Wi-Fi change"
+	case "collect_logs":
+		return "collected logs"
+	case "lost_mode":
+		return "sent lost mode"
+	case "ota":
+		return "sent a firmware update"
+	}
+	w := strings.ReplaceAll(kind, "_", " ")
+	if w != "" && strings.ContainsRune("aeiou", rune(w[0])) {
+		return "sent an " + w + " command"
+	}
+	return "sent a " + w + " command"
 }

@@ -26,6 +26,9 @@
 .ps-row .k{width:92px;color:var(--muted);flex:none}
 .ps-row form{margin:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .ps-row .form-input{font-size:12.5px;padding:5px 8px}
+.ps-row input[type=file]{max-width:190px;font-size:12px;color:var(--muted)}
+.ps-row input[type=file]::file-selector-button{margin-right:8px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font:inherit;font-weight:600;cursor:pointer}
+.ps-row input[type=password]{flex:1 1 120px;min-width:0}
 .ps-act{padding:8px 16px 12px;font-size:13px}
 .ps-act li{padding:6px 0;border-top:1px solid var(--border-soft);list-style:none;display:flex;gap:10px}
 .ps-act li:first-child{border-top:0}
@@ -77,10 +80,10 @@
             {{$found := false}}{{range .Assignable}}{{if eq . $cur}}{{$found = true}}{{end}}{{end}}{{if not $found}}<option value="{{$cur}}" selected disabled>{{roleLabel $cur}}</option>{{end}}
           </select></form></div>{{end}}
         <div class="ps-row"><span class="k">Name</span><form method="POST" action="/users/{{$u.ID}}/name" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input class="form-input" name="first_name" value="{{$u.FirstName}}" placeholder="First" aria-label="First name" style="width:96px"><input class="form-input" name="last_name" value="{{$u.LastName}}" placeholder="Last" aria-label="Last name" style="width:96px"><button type="submit" class="cc-btn sm">Save</button></form></div>
-        {{if .CanEditAvatar}}<div class="ps-row"><span class="k">Picture</span><form method="POST" action="/users/{{$u.ID}}/avatar" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input type="file" name="avatar" accept="image/*" aria-label="Picture" style="max-width:170px;font-size:12px"><button type="submit" class="cc-btn sm">Upload</button></form></div>{{end}}
+        {{if .CanEditAvatar}}<div class="ps-row"><span class="k">Picture</span><form method="POST" action="/users/{{$u.ID}}/avatar" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input type="file" name="avatar" accept="image/*" aria-label="Picture"><button type="submit" class="cc-btn sm">Upload</button></form></div>{{end}}
         {{if .Invited}}<div class="ps-row"><span class="k">Invite</span><span class="muted">sent {{timeSince (deref .Invited)}}, not used</span><form method="POST" action="/users/{{$u.ID}}/invite" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><button type="submit" class="cc-btn sm">Send again</button></form></div>{{end}}
         {{if and .IsSuperAdmin $u.Email (not $u.EmailVerifiedAt)}}<div class="ps-row"><span class="k">Email</span><span class="muted">not verified</span><form method="POST" action="/users/{{$u.ID}}/verify-email" hx-boost="false"><button type="submit" class="cc-btn sm">Verify</button></form></div>{{end}}
-        <div class="ps-row"><span class="k">Password</span><form method="POST" action="/users/{{$u.ID}}/password" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input type="password" class="form-input" name="password" minlength="6" placeholder="New password" aria-label="New password" autocomplete="new-password" style="width:150px"><button type="submit" class="cc-btn sm">Set</button></form></div>
+        <div class="ps-row"><span class="k">Password</span><form method="POST" action="/users/{{$u.ID}}/password" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input type="password" class="form-input" name="password" minlength="6" placeholder="New password" aria-label="New password" autocomplete="new-password"><button type="submit" class="cc-btn sm">Set</button></form></div>
         {{if .CanDelete}}<div class="ps-row"><span class="k">Remove</span><form method="POST" action="/users/{{$u.ID}}/delete" hx-boost="false" onsubmit="return confirm(this.dataset.q)" data-q="Remove {{$u.DisplayName}} ({{$u.Username}})? They lose access straight away."><button type="submit" class="cc-btn sm danger">Remove {{.FirstName}}</button></form></div>{{end}}
         </div>
       </div>

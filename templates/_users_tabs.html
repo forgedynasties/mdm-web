@@ -16,7 +16,7 @@
   <input type="hidden" name="subject" value="{{.Subject}}">
   <input type="hidden" name="back" value="{{.Back}}">
   <span class="acc-give-t">{{.Label}}</span>
-  <label><span class="sr-only">Where</span><select name="where" class="en-sel" required>
+  <label><span class="sr-only">Where</span><select name="where" class="form-input" required>
     <option value="" selected disabled>Where…</option>
     <option value="all">Every device</option>
     <option value="state:lab">Lab devices (no venue)</option>
@@ -31,7 +31,7 @@
     <label><input type="radio" name="level" value="operate" checked>Operate</label>
     <label><input type="radio" name="level" value="manage">Manage</label>
   </span>
-  <label class="acc-until">Until <input type="date" name="until" class="en-sel" aria-label="Until (optional)"></label>
+  <label class="acc-until">Until <input type="date" name="until" class="form-input" aria-label="Until (optional)"></label>
   <button type="submit" class="cc-btn sm primary">Give access</button>
 </form>
 {{end}}
@@ -46,6 +46,8 @@
 .acc-give{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border-soft)}
 .acc-give-t{font-weight:650;font-size:13px;margin-right:4px}
 .acc-give select{max-width:260px}
+.acc-give .form-input{padding:6px 10px;font-size:12.5px}
+.acc-until{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
 .acc-lv{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
 .acc-lv label{display:inline-flex;align-items:center;padding:5px 10px;font-size:12.5px;cursor:pointer;border-left:1px solid var(--border)}
 .acc-lv label:first-child{border-left:0}
