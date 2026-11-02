@@ -932,7 +932,6 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canOpenPage":        canOpenPage,
 		"classOf":            classOf,
 		"dockShows":          dockShows,
-		"viewAsRoles":        func() []string { return []string{"fleet_manager", "operator", "engineer", "field", "viewer"} },
 		"joinStrings":        strings.Join,
 		// canAct gates only the Actions dock link. Every authenticated role may
 		// open the Actions page — viewers see it read-only (the builder, recipes,

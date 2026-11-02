@@ -146,9 +146,6 @@
     <div class="appbar-island" id="appbar-island" aria-live="polite"></div>
     <div class="appbar-right">
       {{/* Search lives in the dock (.dock-search); ⌘K opens it from anywhere. */}}
-      {{/* View as… (roles replan, 30 Oct 2026): a super admin sees any role's dashboard. */}}
-      <style>.va-menu{position:relative}.va-btn{width:auto!important;padding:0 12px;font:600 12.5px/1 inherit;list-style:none;cursor:pointer;display:inline-flex;align-items:center}.va-btn::-webkit-details-marker{display:none}.va-btn.on{background:var(--warn-bg);color:var(--warn)}.va-pop{position:absolute;right:0;top:calc(100% + 6px);min-width:180px;z-index:80}</style>{{if .SuperAdmin}}<details class="va-menu"><summary class="appbar-icon va-btn{{if .ViewingAs}} on{{end}}" title="View as another role">{{if .ViewingAs}}As {{.ViewingAs}}{{else}}View as…{{end}}</summary>
-        <div class="cc-menu va-pop">{{range viewAsRoles}}<a class="cc-mi" href="/view-as?role={{.}}">{{roleLabel .}}</a>{{end}}{{if .ViewingAs}}<div class="cc-msep"></div><a class="cc-mi" href="/view-as">Back to super admin</a>{{end}}</div></details>{{end}}
 
       <button type="button" class="appbar-icon theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
         <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>

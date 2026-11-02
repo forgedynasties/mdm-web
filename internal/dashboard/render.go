@@ -44,9 +44,6 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	data["CurrentUser"] = h.currentDisplayName(r)
 	if sess, ok := h.currentSession(r); ok && sess.Role == "admin" {
 		data["SuperAdmin"] = true
-		if as := viewingAs(r); as != "" {
-			data["ViewingAs"] = roleLabel(as)
-		}
 	}
 	// Pages that list devices draw them as the user chose (table or cards).
 	if p := r.URL.Path; strings.HasPrefix(p, "/devices") || strings.HasPrefix(p, "/restaurants/") || strings.HasPrefix(p, "/groups/") || strings.HasPrefix(p, "/productions/") {

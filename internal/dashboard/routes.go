@@ -316,7 +316,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/follows", h.requireAuth(h.deviceRoute("install_apk", h.DeviceFollow)))
 	mux.HandleFunc("GET /my-visits", h.requireAuth(h.MyVisits))
 	mux.HandleFunc("GET /my-visits/enroll", h.requireAuth(h.EnrollGuide))
-	mux.HandleFunc("GET /view-as", h.requireAuth(h.ViewAs))
 	mux.HandleFunc("GET /visits", h.requireAuth(h.SetupHome))
 	post("POST /restaurants/{id}/visits", h.requireAuth(h.RestaurantVisitOpen))
 	post("POST /restaurants/{id}/visits/{vid}", h.requireAuth(h.RestaurantVisitChange))
