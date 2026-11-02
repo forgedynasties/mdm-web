@@ -227,9 +227,11 @@ func (d *DB) DeleteAccessLevel(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-// DeleteUserAccessLevels removes a person's own grants (account deleted or role changed to
+// DeleteUserAccessLevels removes a person's own grants and their Where (account deleted or role changed to
 // a customer one).
 func (d *DB) DeleteUserAccessLevels(ctx context.Context, username string) error {
-	_, err := d.pool.Exec(ctx, `DELETE FROM access_levels WHERE subject_type = 'user' AND subject = $1`, username)
-	return err
+	if _, err := d.pool.Exec(ctx, `DELETE FROM access_levels WHERE subject_type = 'user' AND subject = $1`, username); err != nil {
+		return err
+	}
+	return d.ClearAccessWhere(ctx, username)
 }

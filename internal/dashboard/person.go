@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"mdm/internal/db"
 )
 
@@ -13,14 +15,16 @@ import (
 
 type personGrant struct {
 	db.AccessLevel
-	From string // "Engineer" (their role) or "" (their own)
+	From  string // "Engineer" (their role) or "" (their own or their Where)
+	Where bool   // stands for their own Where (access_where.go)
 }
 
 func (h *Handler) renderPerson(w http.ResponseWriter, r *http.Request, u *db.User) {
 	ctx := r.Context()
 	now := time.Now()
 	var grants []personGrant
-	var mine []db.AccessLevel
+	var where *db.AccessWhere
+	roleWhere, roleLevel := "", db.LevelNone
 	sentence := ""
 	first := u.FirstName
 	if first == "" {
@@ -44,16 +48,21 @@ func (h *Handler) renderPerson(w http.ResponseWriter, r *http.Request, u *db.Use
 			sentence = first + " is " + roleArticle(u.Role) + " at " + joinAnd(venues) + ", and sees only that."
 		}
 	default:
+		var all []db.AccessLevel
+		all, where = h.effectiveGrants(ctx, u.Role, u.Username)
+		for _, g := range all {
+			switch g.SubjectType {
+			case "role":
+				grants = append(grants, personGrant{AccessLevel: g, From: roleLabel(u.Role)})
+			case "where":
+				grants = append(grants, personGrant{AccessLevel: g, Where: true})
+			default:
+				grants = append(grants, personGrant{AccessLevel: g})
+			}
+		}
+		sentence = whereSentence(first, all, where, now)
 		roleGs, _ := h.db.RoleAccessLevels(ctx, u.Role)
-		mine, _ = h.db.UserAccessLevels(ctx, u.Username)
-		for _, g := range roleGs {
-			grants = append(grants, personGrant{AccessLevel: g, From: roleLabel(u.Role)})
-		}
-		for _, g := range mine {
-			grants = append(grants, personGrant{AccessLevel: g})
-		}
-		all := append(append([]db.AccessLevel(nil), roleGs...), mine...)
-		sentence = accessSentence(first, pronounFor(first), all, now)
+		roleWhere, roleLevel = roleWhereText(roleGs, now)
 	}
 	var invited *time.Time
 	if inv, err := h.db.PendingInvites(ctx); err == nil {
@@ -68,6 +77,19 @@ func (h *Handler) renderPerson(w http.ResponseWriter, r *http.Request, u *db.Use
 		recent, _ = h.db.ListAuditFiltered(ctx, u.Username, 12)
 	}
 	groups, _ := h.db.ListGroups(ctx)
+	gnames := map[uuid.UUID]string{}
+	for _, g := range groups {
+		gnames[g.ID] = g.Name
+	}
+	// "Copy from…" offers the other team members who can hold a Where.
+	var copyFrom []db.User
+	if us, err := h.db.ListUsers(ctx); err == nil {
+		for _, x := range us {
+			if x.ID != u.ID && x.Role != "admin" && !roleIsCustomer(x.Role) {
+				copyFrom = append(copyFrom, x)
+			}
+		}
+	}
 	rests, _ := h.db.ListRestaurants(ctx)
 	h.render(w, r, "person.html", map[string]any{
 		"Title":          u.DisplayName(),
@@ -77,6 +99,10 @@ func (h *Handler) renderPerson(w http.ResponseWriter, r *http.Request, u *db.Use
 		"Sentence":       sentence,
 		"Grants":         grants,
 		"CanGive":        u.Role != "admin" && !roleIsCustomer(u.Role),
+		"Where":          whereChoiceOf(where, gnames),
+		"CopyFrom":       copyFrom,
+		"RoleWhere":      roleWhere,
+		"RoleVerb":       levelVerb(roleLevel),
 		"Groups":         groups,
 		"Venues":         rests,
 		"Now":            now,

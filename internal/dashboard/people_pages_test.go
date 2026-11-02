@@ -92,7 +92,7 @@ func TestAccessPageRenders(t *testing.T) {
 		"Role": "admin", "UsersTab": "access", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
 		"Groups": []db.Group{{ID: g, Name: "QA"}}, "Venues": []db.Restaurant{},
 	},
-		`Engineers can look at every device.`, `the QA group`, `value="manage"`, `starting point`,
+		`Engineers can operate the QA group (until `, `and look at every other device.`, `value="manage"`, `starting point`,
 		`action="/users/access/levels"`, `Give engineers access`, `>Who can act on…</span>`)
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
 		"Role": "admin", "UsersTab": "access", "Cards": cards, "Who": "group:" + g.String(), "WhoName": "the QA group",
@@ -113,9 +113,21 @@ func TestPersonPageRenders(t *testing.T) {
 		"Role": "admin", "UsersTab": "people", "User": u, "Sentence": "Hafiz can look at every device.", "Grants": grants,
 		"CanGive": true, "Groups": []db.Group{}, "Venues": []db.Restaurant{}, "Now": time.Now(), "Back": "/users/x/profile",
 		"FirstName": "Hafiz", "Assignable": []string{"engineer", "viewer"}, "CanDelete": true, "IsSuperAdmin": true,
+		"Where": whereChoiceOf(nil, nil), "RoleWhere": "Lab devices", "RoleVerb": "operate",
+		"CopyFrom": []db.User{{Username: "abdullah", FirstName: "Abdullah", Role: "engineer"}},
 	},
 		`Hafiz can look at every device.`, `Engineer role`, `their own`, `the Test Cycles group`, `Give Hafiz access`,
-		`action="/users/access/levels"`, `/users/access/levels/`, `name="subject" value="hafiz"`)
+		`action="/users/access/levels"`, `/users/access/levels/`, `name="subject" value="hafiz"`,
+		`action="/users/`+u.ID.String()+`/access-where"`, `name="scope" value="" checked`, `Copy their Where`, `value="abdullah"`)
+	// With a Where: Groups picked, the QA box ticked, Elsewhere Hidden, the row marked as theirs.
+	w := whereChoiceOf(&db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{g}, Elsewhere: "hidden", SetBy: "ali"}, map[uuid.UUID]string{g: "QA"})
+	grants = append(grants, personGrant{AccessLevel: db.AccessLevel{ScopeType: "group", ScopeID: &g, ScopeName: "QA", Level: "operate"}, Where: true})
+	renderPeople(t, peopleTmpl(t, "person.html", "_users_tabs.html"), "person.html", map[string]any{
+		"Role": "admin", "UsersTab": "people", "User": u, "Sentence": "s", "Grants": grants,
+		"CanGive": true, "Groups": []db.Group{{ID: g, Name: "QA"}}, "Venues": []db.Restaurant{}, "Now": time.Now(), "Back": "/b",
+		"FirstName": "Hafiz", "Where": w, "RoleWhere": "Lab devices", "RoleVerb": "operate",
+	},
+		`name="scope" value="groups" checked`, `value="`+g.String()+`" checked`, `value="hidden" checked`, `their Where`, `Set by ali`)
 }
 
 func TestActivityPageRenders(t *testing.T) {

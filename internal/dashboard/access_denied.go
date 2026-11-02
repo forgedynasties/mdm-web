@@ -124,9 +124,8 @@ func (h *Handler) yourDevices(r *http.Request) string {
 	if roleIsCustomer(acc.role) {
 		return "You see your venue's devices only."
 	}
-	gs, _ := h.db.RoleAccessLevels(r.Context(), acc.role)
-	own, _ := h.db.UserAccessLevels(r.Context(), acc.username)
-	return accessSentence("You", "You", append(gs, own...), time.Now())
+	gs, _ := h.effectiveGrants(r.Context(), acc.role, acc.username)
+	return accessSentence("You", "You", gs, time.Now())
 }
 
 // deviceOutsideWhy: why a device is outside someone's access, from its state.

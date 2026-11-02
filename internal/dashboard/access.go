@@ -156,8 +156,9 @@ func grantableActions(role string) []accessAction {
 
 // ── Levels (access by levels, picked 2 Nov 2026: L3 · G3) ───────────────────
 //
-// A team member's level on a device is the highest unexpired grant of their role or their
-// own that covers it (db/access_levels.go); an action needs the level below. The role
+// A team member's level on a device is the highest unexpired grant of their role (or of
+// their own Where, which replaces the role's) or their own that covers it
+// (db/access_levels.go, db/access_where.go); an action needs the level below. The role
 // ceiling still applies on top (a Viewer takes no screenshot, the old Support role keeps its
 // short list), shell stays super admin only and firmware updates admin and up.
 
@@ -206,7 +207,8 @@ func invalidateLevels() {
 	levelCache.Range(func(k, _ any) bool { levelCache.Delete(k); return true })
 }
 
-// levels are the grants that apply to this person (their role's and their own).
+// levels are the grants that apply to this person: their role's (or what their own Where
+// puts in their place) and their own.
 func (a *access) levels() []db.AccessLevel {
 	a.lvlOnce.Do(func() {
 		if a.h == nil { // a test builds the context itself, with lvls set
@@ -222,6 +224,14 @@ func (a *access) levels() []db.AccessLevel {
 			log.Printf("[access] levels for %q/%q: %v (none)", a.role, a.username, err)
 			return // fail closed: no level anywhere
 		}
+		// A person's own Where swaps their role's grants out (db/access_where.go). Unreadable,
+		// it fails closed too: the role's wider defaults must not stand in for it.
+		w, err := a.h.db.AccessWhereFor(a.ctx, a.username)
+		if err != nil {
+			log.Printf("[access] where for %q: %v (none)", a.username, err)
+			return
+		}
+		rows = db.EffectiveLevels(rows, w, time.Now())
 		levelCache.Store(key, levelEntry{rows: rows, at: time.Now()})
 		a.lvls = rows
 	})

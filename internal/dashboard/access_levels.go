@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -77,11 +78,12 @@ func levelVerb(l int) string {
 	return ""
 }
 
-// accessSentence says what grants give, highest level first: "Engineers can look at every
-// device. They can operate Lab devices and the QA group." subject is the sentence's start
-// ("Engineers", "Hafiz"); they is the pronoun for the second sentence.
+// accessSentence says what grants give, highest level first: "Engineers can operate Lab
+// devices and the QA group, and look at every other device." subject starts the sentence
+// ("Engineers", "Abdullah", "You"); they is "They" or "You" (plural verb) or the person's name.
 func accessSentence(subject, they string, gs []db.AccessLevel, now time.Time) string {
 	by := map[int][]string{}
+	seen := map[string]bool{}
 	for _, g := range gs {
 		if g.Expired(now) {
 			continue
@@ -90,22 +92,44 @@ func accessSentence(subject, they string, gs []db.AccessLevel, now time.Time) st
 		if g.Until != nil {
 			t += " (until " + g.Until.Local().Format("2 Jan") + ")"
 		}
-		by[g.Rank()] = append(by[g.Rank()], t)
-	}
-	var parts []string
-	for _, l := range []int{db.LevelView, db.LevelOperate, db.LevelManage} {
-		if len(by[l]) > 0 {
-			parts = append(parts, levelVerb(l)+" "+joinAnd(by[l]))
+		if k := fmt.Sprint(g.Rank(), t); !seen[k] {
+			seen[k] = true
+			by[g.Rank()] = append(by[g.Rank()], t)
 		}
 	}
+	var parts []string
+	for _, l := range []int{db.LevelManage, db.LevelOperate, db.LevelView} {
+		items := by[l]
+		if len(items) == 0 {
+			continue
+		}
+		if len(parts) > 0 {
+			for i, t := range items {
+				if t == "every device" {
+					items[i] = "every other device"
+				}
+			}
+		}
+		parts = append(parts, levelVerb(l)+" "+joinAnd(items))
+	}
 	if len(parts) == 0 {
-		return subject + " have no access to devices yet."
+		if they == "They" || they == "You" {
+			return subject + " have no access to devices yet."
+		}
+		return subject + " has no access to devices yet."
 	}
-	s := subject + " can " + parts[0] + "."
-	if len(parts) > 1 {
-		s += " " + they + " can " + joinAnd(parts[1:]) + "."
+	s := parts[0]
+	for i, p := range parts[1:] {
+		sep := ", "
+		if i == len(parts)-2 {
+			sep = " and "
+			if strings.Contains(s, " and ") {
+				sep = ", and "
+			}
+		}
+		s += sep + p
 	}
-	return s
+	return subject + " can " + s + "."
 }
 
 // ── The device page: why it is view-only, who can operate it ─────────────────
@@ -119,17 +143,18 @@ type lookView struct {
 // lookViewFor explains a view-only device to the person looking at it.
 func (h *Handler) lookViewFor(ctx context.Context, acc *access, dev *db.Device) lookView {
 	now := time.Now()
-	var op []string
-	roleGs, _ := h.db.RoleAccessLevels(ctx, acc.role)
-	ownGs, _ := h.db.UserAccessLevels(ctx, acc.username)
-	for _, g := range roleGs {
-		if !g.Expired(now) && g.Rank() >= db.LevelOperate {
-			op = append(op, scopeText(g))
+	var op, mine, own []string
+	gs, w := h.effectiveGrants(ctx, acc.role, acc.username)
+	for _, g := range gs {
+		if g.Expired(now) || g.Rank() < db.LevelOperate {
+			continue
 		}
-	}
-	var own []string
-	for _, g := range ownGs {
-		if !g.Expired(now) && g.Rank() >= db.LevelOperate {
+		switch g.SubjectType {
+		case "role":
+			op = append(op, scopeText(g))
+		case "where":
+			mine = append(mine, scopeText(g))
+		default:
 			own = append(own, scopeText(g))
 		}
 	}
@@ -142,6 +167,10 @@ func (h *Handler) lookViewFor(ctx context.Context, acc *access, dev *db.Device) 
 	}
 	var why string
 	switch {
+	case w != nil && len(mine) > 0:
+		why = "You operate " + joinAnd(mine) + " (set for you)"
+	case w != nil:
+		why = "You look at devices but operate none"
 	case len(op) > 0:
 		why = rolePlural(acc.role) + " operate " + joinAnd(op)
 	default:
@@ -200,6 +229,35 @@ func (h *Handler) whoCanOperate(ctx context.Context, dev *db.Device) []string {
 		if !seen[line] {
 			seen[line] = true
 			out = append(out, line)
+		}
+	}
+	// People with their own Where: what it stands for (their role's level on its scope).
+	if wheres, err := h.db.ListAccessWhere(ctx); err == nil && len(wheres) > 0 {
+		roleRows := map[string][]db.AccessLevel{}
+		for _, g := range all {
+			if g.SubjectType == "role" {
+				roleRows[g.Subject] = append(roleRows[g.Subject], g)
+			}
+		}
+		gnames := h.groupNames(ctx)
+		for _, u := range users {
+			wh, ok := wheres[u.Username]
+			if !ok || u.Role == "admin" || roleIsCustomer(u.Role) {
+				continue
+			}
+			for _, g := range db.EffectiveLevels(roleRows[u.Role], &wh, now) {
+				if g.Rank() < db.LevelOperate || !levelCovers(g, sc) {
+					continue
+				}
+				if g.ScopeID != nil {
+					g.ScopeName = gnames[*g.ScopeID]
+				}
+				line := u.DisplayName() + " · " + strings.ToLower(levelWord(g.Rank())) + " (" + scopeText(g) + ", set for them)"
+				if !seen[line] {
+					seen[line] = true
+					out = append(out, line)
+				}
+			}
 		}
 	}
 	return out

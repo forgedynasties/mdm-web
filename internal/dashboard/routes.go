@@ -575,6 +575,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /users/access", h.requireUserManager(h.AccessPage))
 	post("POST /users/access/levels", h.requireUserManager(h.AccessLevelSet))
 	post("POST /users/access/levels/{id}/delete", h.requireUserManager(h.AccessLevelDelete))
+	post("POST /users/{id}/access-where", h.requireUserManager(h.AccessWhereSave))
 	mux.HandleFunc("GET /users/access/profiles", h.requireUserManager(redirectTo("/users/access")))
 	mux.HandleFunc("GET /users/activity", h.requireUserManager(redirectTo("/activity")))
 	mux.HandleFunc("GET /users/{id}/access", h.requireUserManager(h.UserAccessPage))

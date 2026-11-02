@@ -157,7 +157,7 @@ func TestAccessSentence(t *testing.T) {
 	gs[2].ScopeName = "QA"
 	_ = g
 	s := accessSentence("Engineers", "They", gs, time.Now())
-	for _, want := range []string{"Engineers can look at every device.", "operate Lab devices and the QA group"} {
+	for _, want := range []string{"Engineers can operate Lab devices and the QA group, and look at every other device."} {
 		if !strings.Contains(s, want) {
 			t.Errorf("sentence %q lacks %q", s, want)
 		}

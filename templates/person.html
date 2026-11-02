@@ -47,6 +47,7 @@
       <div class="cc-card ps-card" id="access">
         <div class="ps-ch"><h2>Access</h2>{{if .CanGive}}<a href="/users/access?role={{$u.Role}}">{{roleLabel $u.Role}} access for everyone →</a>{{end}}</div>
         <p class="acc-sent">{{.Sentence}}</p>
+        {{if .CanGive}}{{template "person-where" .}}{{end}}
         {{if .Grants}}
         <div class="ft-wrap"><table class="ft">
           <thead><tr><th>Where</th><th style="width:100px">Level</th><th style="width:150px">From</th><th style="width:110px">Until</th><th style="width:80px"><span class="sr-only">Remove</span></th></tr></thead>
@@ -54,9 +55,9 @@
           <tr class="ft-row{{if .Expired $.Now}} acc-exp{{end}}">
             <td><b>{{accessScopeText .AccessLevel}}</b></td>
             <td><span class="acc-lvl l-{{.Level}}">{{title .Level}}</span></td>
-            <td>{{if .From}}<span class="muted">{{.From}} role</span>{{else}}<span class="cc-tag accent">their own</span>{{end}}</td>
+            <td>{{if .From}}<span class="muted">{{.From}} role</span>{{else if .Where}}<span class="cc-tag">their Where</span>{{else}}<span class="cc-tag accent">their own</span>{{end}}</td>
             <td>{{if .Until}}{{if .Expired $.Now}}<span class="cc-tag">ended {{.Until.Format "2 Jan"}}</span>{{else}}{{.Until.Format "2 Jan 2006"}}{{end}}{{else}}<span class="muted">no end</span>{{end}}</td>
-            <td>{{if not .From}}<form method="POST" action="/users/access/levels/{{.ID}}/delete" hx-boost="false" class="acc-x" onsubmit="return confirm(this.dataset.q)" data-q="Remove this access from {{$.FirstName}}?"><input type="hidden" name="back" value="{{$.Back}}"><button type="submit">Remove</button></form>{{end}}</td>
+            <td>{{if and (not .From) (not .Where)}}<form method="POST" action="/users/access/levels/{{.ID}}/delete" hx-boost="false" class="acc-x" onsubmit="return confirm(this.dataset.q)" data-q="Remove this access from {{$.FirstName}}?"><input type="hidden" name="back" value="{{$.Back}}"><button type="submit">Remove</button></form>{{end}}</td>
           </tr>{{end}}</tbody>
         </table></div>
         {{end}}
@@ -91,4 +92,57 @@
   </div>
 </div>
 {{template "footer" .}}
+{{end}}
+
+{{/* Where on the person (B, picked 2 Nov 2026; access_where.go): replaces the role's
+     default scope for this person; Elsewhere is what they get on other devices. */}}
+{{define "person-where"}}{{$u := .User}}{{$w := .Where}}
+<style>
+.aw{padding:10px 16px 12px;border-top:1px solid var(--border-soft)}
+.aw-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
+.aw-k{width:84px;flex:none;font-size:13px;font-weight:650}
+.aw .acc-lv{flex-wrap:wrap}
+.aw-groups{display:none;flex-wrap:wrap;gap:6px;margin:4px 0 6px 92px}
+.aw-groups label{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--border);border-radius:99px;font-size:12.5px;cursor:pointer}
+.aw-groups label:has(input:checked){background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text);font-weight:650}
+.aw:has(input[name=scope][value=groups]:checked) .aw-groups{display:flex}
+.aw:has(input[name=scope][value=""]:checked) .aw-else,.aw:has(input[name=scope][value=all]:checked) .aw-else{display:none}
+.aw-note{margin:6px 0 0;font-size:12px;color:var(--muted)}
+.aw-copy{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+.aw-copy select{max-width:240px;font-size:12.5px;padding:5px 8px}
+@media (max-width:720px){.aw-groups{margin-left:0}.aw-k{width:100%}}
+</style>
+<div class="aw" id="where">
+<form method="POST" action="/users/{{$u.ID}}/access-where" hx-boost="false">
+  <input type="hidden" name="back" value="{{.Back}}">
+  <div class="aw-row"><span class="aw-k">Where</span>
+    <span class="acc-lv" role="radiogroup" aria-label="Where {{.FirstName}} can {{.RoleVerb}}">
+      <label title="{{.RoleWhere}}"><input type="radio" name="scope" value=""{{if not $w.Set}} checked{{end}}>Role default</label>
+      <label><input type="radio" name="scope" value="lab"{{if eq $w.Scope "lab"}} checked{{end}}>Lab</label>
+      <label><input type="radio" name="scope" value="all"{{if eq $w.Scope "all"}} checked{{end}}>All</label>
+      <label title="Devices at a venue: being set up and in service"><input type="radio" name="scope" value="deployed"{{if eq $w.Scope "deployed"}} checked{{end}}>Deployed</label>
+      <label><input type="radio" name="scope" value="groups"{{if eq $w.Scope "groups"}} checked{{end}}>Groups…</label>
+    </span>
+  </div>
+  <div class="aw-groups" role="group" aria-label="Groups">
+    {{range .Groups}}<label><input type="checkbox" name="groups" value="{{.ID}}"{{if index $w.Groups (print .ID)}} checked{{end}}>{{.Name}}</label>{{else}}<span class="muted">No groups yet.</span>{{end}}
+  </div>
+  <div class="aw-row aw-else"><span class="aw-k">Elsewhere</span>
+    <span class="acc-lv" role="radiogroup" aria-label="Elsewhere">
+      <label><input type="radio" name="elsewhere" value="view"{{if ne $w.Elsewhere "hidden"}} checked{{end}}>View only</label>
+      <label><input type="radio" name="elsewhere" value="hidden"{{if eq $w.Elsewhere "hidden"}} checked{{end}}>Hidden</label>
+    </span>
+    <button type="submit" class="cc-btn sm primary">Save</button>
+  </div>
+  <p class="aw-note">{{roleLabel $u.Role}} role: {{if .RoleVerb}}{{.RoleVerb}} {{.RoleWhere}}{{else}}no access{{end}}. Where swaps the role's devices for this person; the role still decides what {{.FirstName}} may do there{{if .RoleVerb}} ({{.RoleVerb}}){{end}}.{{if $w.Set}} Set by {{$w.SetBy}} {{timeSince $w.SetAt}}.{{end}}</p>
+</form>
+{{if .CopyFrom}}<form method="POST" action="/users/{{$u.ID}}/access-where" class="aw-copy" hx-boost="false">
+  <input type="hidden" name="back" value="{{.Back}}"><input type="hidden" name="action" value="copy">
+  <label class="muted" style="font-size:12.5px">Copy from <select name="from" class="form-input" required>
+    <option value="" selected disabled>someone…</option>
+    {{range .CopyFrom}}<option value="{{.Username}}">{{.DisplayName}} · {{roleLabel .Role}}</option>{{end}}
+  </select></label>
+  <button type="submit" class="cc-btn sm">Copy their Where</button>
+</form>{{end}}
+</div>
 {{end}}
