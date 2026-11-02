@@ -967,6 +967,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return false
 		},
 		"hasPrefix": strings.HasPrefix,
+		// Access by levels (2 Nov 2026): a grant's scope in words, and small string helpers.
+		"accessScopeText": scopeText,
+		"activityKind":    activityKind,
+		"lower":           strings.ToLower,
+		"title": func(s string) string {
+			if s == "" {
+				return s
+			}
+			return strings.ToUpper(s[:1]) + s[1:]
+		},
+		"list": func(xs ...string) []string { return xs },
 		"batteryClass": func(pct int) string {
 			switch {
 			case pct < 20:

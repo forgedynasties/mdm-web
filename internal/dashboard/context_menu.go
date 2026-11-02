@@ -29,8 +29,7 @@ func ctxCaps(role string) string {
 		"venue": roleCanOperate(role) && role != "engineer",
 		"role":  roleCanOperate(role),
 		"admin": role == "admin",
-		// An engineer only looks at, screenshots and collects logs from devices at a venue.
-		"venueReadOnly": role == "engineer",
+		// Which rows are view-only comes from the server per device (data-ro, access by levels).
 	}
 	// Role… lists what a Standard-client device may be set to by serial (perSerialClass).
 	var roles [][2]string

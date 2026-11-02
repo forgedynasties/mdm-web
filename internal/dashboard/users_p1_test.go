@@ -1,10 +1,6 @@
 package dashboard
 
 import (
-	"bytes"
-	"html/template"
-	"os"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -100,59 +96,5 @@ func TestUsersP1Calm(t *testing.T) {
 	v := buildUsersP1(in)
 	if v.Banner.Tone != "calm" || v.Banner.Headline != "Every account is in order" || v.Banner.Line == "" {
 		t.Errorf("calm banner = %+v", v.Banner)
-	}
-}
-
-func TestUsersP1Renders(t *testing.T) {
-	src, err := os.ReadFile("handlers.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	funcs := template.FuncMap{}
-	for _, m := range regexp.MustCompile(`(?m)^\s*"([a-zA-Z][a-zA-Z0-9]*)":\s`).FindAllStringSubmatch(string(src), -1) {
-		funcs[m[1]] = func(...any) any { return "" }
-	}
-	funcs["dict"] = func(kv ...any) map[string]any {
-		m := map[string]any{}
-		for i := 0; i+1 < len(kv); i += 2 {
-			m[kv[i].(string)] = kv[i+1]
-		}
-		return m
-	}
-	funcs["roleLabel"] = roleLabel
-	funcs["deref"] = func(t *time.Time) time.Time { return *t }
-	funcs["canCreateUsers"] = func(string) bool { return true }
-	funcs["isCustomer"] = func(string) bool { return false }
-	funcs["hasPrefix"] = strings.HasPrefix
-	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}{{define "ubub"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/users.html", "../../templates/_users_tabs.html"))
-
-	now := time.Now()
-	in := p1Sample(now)
-	data := map[string]any{
-		"Role": "admin", "ActivePath": "/users", "Team": in.Team, "Customers": in.Customers, "Tab": "team", "Activity": "quiet",
-		"TeamRoles": []string{"viewer", "operator", "admin"}, "CustomerRoles": []string{"owner", "staff"},
-		"Orphans": in.Orphans, "Waiting": []db.User{{ID: uuid.New(), Username: "new@x", Role: "viewer", CreatedAt: now}},
-		"P1": buildUsersP1(in), "Invites": 1, "Assignable": []string{"viewer"}, "UsersTab": "people",
-	}
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "users.html", data); err != nil {
-		t.Fatalf("users.html failed to render: %v", err)
-	}
-	out := buf.String()
-	for _, want := range []string{
-		`<h2>5 things to look at</h2>`, `href="#waiting-signups">Verify</a>`, `href="/users?activity=quiet">Review</a>`,
-		`id="waiting-signups"`, `id="unlinked"`, `data-activity="quiet"`, `data-act="quiet"`, `data-up-act="invited"`,
-		`data-up-role="operator"`, `>Active this week</a>`, `<span><b>44%</b><small>active</small></span>`,
-		`Owner · customer`, `action="/users/merge"`, `id="invite-modal"`, `/static/js/oc-menus.js`,
-		// The People tabs (audit, 24 Oct 2026), Users current.
-		`aria-label="People"`, `href="/users/access/profiles"`, `>Activity log</a>`, `aria-current="page"`,
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("users page is missing %q", want)
-		}
-	}
-	if p := os.Getenv("P1_RENDER_OUT"); p != "" {
-		os.WriteFile(p, buf.Bytes(), 0o644)
 	}
 }

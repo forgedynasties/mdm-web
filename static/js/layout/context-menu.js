@@ -176,8 +176,9 @@
     }
     var serials = rows.length > 1 ? rows.map(function (r) { return r.dataset.serial; }) : [t.serial];
     var n = serials.length, one = n === 1, el = t.el, d = el.dataset || {};
-    var atVenue = rows.some(function (r) { return r.dataset && r.dataset.atv === '1'; });
-    var ro = !!(caps.venueReadOnly && atVenue);
+    // View-only rows (access by levels): the server marks each device the viewer may look
+    // at but not operate (data-ro), whatever the reason (a venue, a group they don't have).
+    var ro = rows.some(function (r) { return r.dataset && r.dataset.ro === '1'; });
     var page = '/devices/' + encodeURIComponent(t.serial);
     var out = { head: one ? t.serial : n + ' devices', sub: one ? (d.type || '') : 'selected', items: [] };
     var it = out.items;

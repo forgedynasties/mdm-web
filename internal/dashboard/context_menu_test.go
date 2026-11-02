@@ -16,7 +16,7 @@ func TestCtxCaps(t *testing.T) {
 		return m
 	}
 	eng := read("engineer")
-	if eng["venue"] != false || eng["venueReadOnly"] != true || eng["group"] != true || eng["screenshot"] != true {
+	if eng["venue"] != false || eng["group"] != true || eng["screenshot"] != true {
 		t.Errorf("engineer caps = %v", eng)
 	}
 	v := read("viewer")

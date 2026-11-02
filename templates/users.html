@@ -1,15 +1,17 @@
 {{define "users.html"}}
 {{template "header" .}}
-<nav class="nav-pills" aria-label="People">
-  <span class="cap">People</span>
-  <a href="/users" class="{{if eq .ActivePath "/users"}}on{{end}}">Everyone</a>
-  <a href="/activity" class="{{if eq .ActivePath "/activity"}}on{{end}}">Activity</a>
-  <a href="/users/access" class="{{if hasPrefix .ActivePath "/users/access"}}on{{end}}">Access control</a>
-</nav>
-
+{{/* People (U1, access by levels, picked 2 Nov 2026): Fleet's list language: a rail of
+     saved views and roles, search + sort, one table of people with what they can operate.
+     The person's page holds their access (person.go); the Access tab holds each role's. */}}
+<template id="page-island">
+  <span class="isl-dot {{if .Invites}}warn{{else}}on{{end}}"></span>
+  <span class="isl-t">People</span>
+  <span class="isl-s"><b>{{len .Team}}</b> on the AIO team · <b>{{len .Customers}}</b> customer{{if ne (len .Customers) 1}}s{{end}}{{if .Invites}} · <span class="w">{{.Invites}} invite{{if ne .Invites 1}}s{{end}} not used</span>{{end}}</span>
+  <span class="isl-acts">{{if .Assignable}}<button type="button" class="cc-btn primary" onclick="upInviteOpen()">Invite</button>{{end}}</span>
+</template>
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
 <style>
 [hidden]{display:none !important;}
-/* ── Users (U1, picked 20 Oct): one table, AIO team / Customers ── */
 .uu-av{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;text-transform:uppercase;background:var(--surface2);color:var(--muted)}
 .uu-row{display:flex;align-items:center;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);flex-wrap:wrap}
 .uu-id{flex:1;min-width:160px}.uu-name{font-size:13.5px;font-weight:650}.uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
@@ -22,25 +24,12 @@
 .vf-strip-h small{display:block;font-size:12px;color:var(--text-2);margin-top:1px}
 .vf-strip .uu-row{background:var(--surface)}
 .vf-strip .uu-act form{margin:0}
-.up-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
-.up-bar .rt{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.up-q{font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:240px}
-.ft.up th.c-role{width:140px}.ft.up th.c-acc{width:270px}.ft.up th.c-venue{width:300px}.ft.up th.c-seen{width:120px}.ft.up th.c-act{width:52px}
-.up-who{display:flex;align-items:center;gap:10px;min-width:0}
-.up-who .ubub{width:30px;height:30px;font-size:12px;flex:none}
-.up-who .t{min-width:0}.up-who b{display:block;font-weight:650;font-size:13px;overflow:hidden;text-overflow:ellipsis}
-.up-who small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
-.up-acc{color:var(--text-2)}.up-sn{color:var(--warn);font-weight:700;margin-left:6px;font-size:11.5px}
-.up-ven{display:inline-flex;align-items:center;gap:6px;margin-right:10px;color:var(--text-2)}
-.up-mute{color:var(--muted)}
-.ft.up td.c-act{overflow:visible;text-align:right;padding-right:14px}
 .up-more{position:relative;display:inline-block}
 .up-more>summary{list-style:none;cursor:pointer;width:30px;height:30px;border-radius:8px;display:inline-grid;place-items:center;color:var(--muted);font-size:17px;letter-spacing:1px}
 .up-more>summary::-webkit-details-marker{display:none}
 .up-more>summary:hover,.up-more[open]>summary{background:var(--hover);color:var(--text)}
 .up-more .cc-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:30}
 .cc-card:has(.up-more[open]){overflow:visible}
-.up-none{padding:26px 17px;text-align:center;color:var(--muted);font-size:13px}
 /* invite */
 .iv-b{padding:16px 18px;display:grid;gap:14px}
 .iv-b .form-input{width:100%;box-sizing:border-box}
@@ -57,78 +46,19 @@
 .iv-ven label{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:13px;cursor:pointer}
 .iv-ven label:hover{background:var(--hover)}
 .iv-foot{display:flex;justify-content:flex-end;gap:8px}
-/* P1 (21 Oct 2026) */
-.p1-line{margin:12px 0 0!important;font-size:13.5px!important}
-.ov2-ban.is-calm .p1-line{opacity:.8}
-#up-card .up-bar .oc-bar{margin:0;justify-content:flex-end}
-#up-card .up-q{width:200px}
-.p1-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:7px;vertical-align:1px;background:var(--text-faint)}
-.p1-dot.a-week{background:var(--ok)}.p1-dot.a-month{background:var(--accent)}.p1-dot.a-invited{background:var(--warn)}.p1-dot.a-new{background:transparent;box-shadow:inset 0 0 0 1.5px var(--text-faint)}
-.p1-foot{margin:0;padding:10px 17px 12px}
-.p1-roles{list-style:none;margin:-4px 0 0;padding:0}
-.p1-roles li{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
-.p1-roles li:first-child{border-top:0}
-.p1-roles .t{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.p1-roles .b{flex:none;width:80px;height:6px;border-radius:99px;background:var(--surface2);overflow:hidden}
-.p1-roles .b i{display:block;height:6px;background:var(--accent)}
-.p1-roles .n{width:24px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+.pp-who{display:flex;align-items:center;gap:10px;min-width:0;color:inherit;text-decoration:none}
+.pp-who .ubub{width:30px;height:30px;font-size:12px;flex:none}
+.pp-who .t{min-width:0}.pp-who b{display:block;font-weight:650;font-size:13px;overflow:hidden;text-overflow:ellipsis}
+.pp-who small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis}
+.pp-op{color:var(--text-2)}
+.pp-ven{display:inline-flex;align-items:center;gap:6px;margin-right:10px;color:var(--text-2)}
 </style>
-
-{{/* Context island (H1): name, the one status line and the two actions; the header's
-     own buttons are .isl-dup so nothing shows twice. */}}
-<template id="page-island">
-  <span class="isl-dot {{if .Invites}}warn{{else}}on{{end}}"></span>
-  <span class="isl-t">Users</span>
-  <span class="isl-s"><b>{{len .Team}}</b> on the AIO team · <b>{{len .Customers}}</b> customer{{if ne (len .Customers) 1}}s{{end}}{{if .Invites}} · <span class="w">{{.Invites}} invite{{if ne .Invites 1}}s{{end}} not used yet</span>{{end}}</span>
-  <span class="isl-acts"><a class="cc-btn js-dest" href="/users/access">Access control</a>{{if .Assignable}}<button type="button" class="cc-btn primary" onclick="upInviteOpen()">Invite</button>{{end}}</span>
-</template>
-<div class="cc-wrap">
-
-  <div class="cc-top">
-    <div>
-      <h1 class="cc-h1">Users</h1>
-      <div class="cc-status"><b>{{len .Team}}</b> on the AIO team · <b>{{len .Customers}}</b> customer{{if ne (len .Customers) 1}}s{{end}} · <b>{{.P1.Rail.Active}}</b> active this week{{if .Invites}} · <span class="hl warn">{{.Invites}} invite{{if ne .Invites 1}}s{{end}} not used yet</span>{{end}}</div>
-    </div>
-    <div class="cc-actions isl-dup">
-      <a class="cc-btn js-dest" href="/users/access"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Access control</a>
-      {{if .Assignable}}<button type="button" class="cc-btn primary" onclick="upInviteOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Invite</button>{{end}}
-    </div>
-  </div>
-  {{template "users-tabs" .}}
-
-  {{if .InviteFailed}}<div class="vf-strip"><div class="vf-strip-h"><span class="i"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></span><div><h2>The account was made, but the invite email to {{.InviteFailed}} didn't go out</h2><small>Use "Send invite again" in their row's ⋯ menu.</small></div></div></div>{{end}}
-
-  {{/* P1 (picked 21 Oct 2026): banner, cards, the people table and a rail. Builder:
-       internal/dashboard/users_p1.go. */}}
-  <div class="ov2">
-  <div class="ov2-main">
-  {{with .P1.Banner}}
-  <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}}">
-    <div class="ov2-ban-k">{{.Kicker}}</div>
-    <h2>{{.Headline}}</h2>
-    {{if .Todos}}
-    <ol class="oc-todo">
-      {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
-    </ol>
-    {{if .More}}<a class="oc-more" href="#up-card">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
-    {{end}}
-    {{with .Line}}<p class="p1-line">{{.}}</p>{{end}}
-  </div>
-  {{end}}
-
-  <div class="oc-stats">
-    {{range .P1.Cards}}
-    <div class="oc-st">
-      <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
-      <a class="oc-stm" href="{{.Href}}">
-        {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-        {{with .B}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-      </a>
-      {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/></svg>{{else}}<div style="height:16px"></div>{{end}}
-    </div>
-    {{end}}
-  </div>
-
+<div class="cl-page">
+<div class="cc-top"><div><h1 class="cc-h1">People</h1></div>
+  {{if .Assignable}}<div class="cc-actions isl-dup"><button type="button" class="cc-btn primary" onclick="upInviteOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Invite</button></div>{{end}}
+</div>
+{{template "users-tabs" .}}
+{{if .InviteFailed}}<div class="vf-strip"><div class="vf-strip-h"><div><h2>The account was made, but the invite email did not go out</h2><small>Open the person and use Send again.</small></div></div></div>{{end}}
   {{if .Waiting}}
   <div class="vf-strip" id="waiting-signups">
     <div class="vf-strip-h"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><div><h2>{{len .Waiting}} {{if eq (len .Waiting) 1}}person can't{{else}}people can't{{end}} sign in yet</h2><small>They signed up but haven't clicked the link we emailed. Verify them if you know the address is theirs.</small></div></div>
@@ -172,56 +102,60 @@
   </div>
   {{end}}
 
-  <div class="cc-card" id="up-card" data-activity="{{.Activity}}">
-    <div class="up-bar">
-      <div class="cc-seg" role="tablist">
-        <button type="button" role="tab" data-tab="team" class="{{if eq .Tab "team"}}on{{end}}" aria-selected="{{eq .Tab "team"}}">AIO team <span class="n">{{len .Team}}</span></button>
-        <button type="button" role="tab" data-tab="customers" class="{{if eq .Tab "customers"}}on{{end}}" aria-selected="{{eq .Tab "customers"}}">Customers <span class="n">{{len .Customers}}</span></button>
-      </div>
-      <div class="rt oc-bar">
-        <input type="search" class="up-q" id="up-q" placeholder="Search name, email{{if eq .Tab "customers"}} or venue{{end}}…" aria-label="Search people">
-        <div class="oc-f" data-for="team" {{if ne .Tab "team"}}hidden{{end}}><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-up-pill="role">Role: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu" hidden><button type="button" class="cc-mi active" data-up-role="">Any</button>{{range .TeamRoles}}<button type="button" class="cc-mi" data-up-role="{{.}}">{{roleLabel .}}</button>{{end}}</div></div>
-        <div class="oc-f" data-for="customers" {{if ne .Tab "customers"}}hidden{{end}}><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-up-pill="role">Role: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu" hidden><button type="button" class="cc-mi active" data-up-role="">Any</button>{{range .CustomerRoles}}<button type="button" class="cc-mi" data-up-role="{{.}}">{{roleLabel .}}</button>{{end}}</div></div>
-        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-up-pill="act">Activity: <b>Any</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu" hidden>
-            <button type="button" class="cc-mi active" data-up-act="">Any</button>
-            <button type="button" class="cc-mi" data-up-act="week">Active this week</button>
-            <button type="button" class="cc-mi" data-up-act="month">Active this month</button>
-            <button type="button" class="cc-mi" data-up-act="quiet">Quiet 30 days or more</button>
-            <button type="button" class="cc-mi" data-up-act="invited">Invite not used</button>
-          </div></div>
-      </div>
-    </div>
 
-    {{template "users-pane" (dict "Tab" "team" "Rows" .Team "Cur" .Tab "Role" .Role)}}
-    {{template "users-pane" (dict "Tab" "customers" "Rows" .Customers "Cur" .Tab "Role" .Role)}}
-    <div class="oc-foot p1-foot"><span><i style="background:var(--ok)"></i>active this week</span><span><i style="background:var(--accent)"></i>this month</span><span><i style="background:var(--warn)"></i>invite not used</span><span><i style="background:var(--text-faint)"></i>quiet 30 days or more</span><span class="tot">Total: <b>{{.P1.Rail.Total}} people</b></span></div>
-  </div>
-  </div>
-
-  {{with .P1.Rail}}
-  <aside class="ov2-rail" aria-label="How the accounts are used">
-    <a class="ov2-ring{{if .Tone}} s-{{.Tone}}{{end}}" href="/users?activity=week" title="{{.Active}} of {{.Total}} accounts did something in the last 7 days">
-      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
-      <span><b>{{.Pct}}%</b><small>active</small></span>
-    </a>
-    <div class="ov2-hi"><b>{{.Active}} of {{.Total}} accounts</b><small>did something in the last 7 days</small></div>
-    <div class="ov2-bars" role="img" aria-label="Actions by people each day">
-      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
-    </div>
-    <div class="ov2-hi"><small>actions by people each day, page views not counted</small></div>
-    <div class="ov2-rh"><h2>Roles</h2><a href="/users/access">Access control</a></div>
-    <ul class="p1-roles">
-      {{range .Roles}}<li><span class="t">{{.Label}}</span><span class="b" aria-hidden="true"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.N}}</span></li>{{end}}
-    </ul>
+<div data-cl data-one="person" data-many="people">
+<div class="fleet-md dv-rise-1">
+  <aside class="fleet-rail" aria-label="People views">
+    <div class="fleet-rail-cap"><span>People</span>{{if .Assignable}}<button type="button" class="add" title="Invite" onclick="upInviteOpen()">+</button>{{end}}</div>
+    <button type="button" class="fleet-rail-item on" data-clf="" data-title="Everyone" aria-pressed="true"><span class="dot ok"></span><span class="nm">Everyone</span><span class="ct">{{add (len .Team) (len .Customers)}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="team" aria-pressed="false"><span class="dot ok"></span><span class="nm">AIO team</span><span class="ct">{{len .Team}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="cust" aria-pressed="false"><span class="dot muted"></span><span class="nm">Customers</span><span class="ct">{{len .Customers}}</span></button>
+    {{if .Invites}}<button type="button" class="fleet-rail-item" data-clf="inv" aria-pressed="false"><span class="dot warn"></span><span class="nm">Invites not used</span><span class="ct">{{.Invites}}</span></button>{{end}}
+    <button type="button" class="fleet-rail-item" data-clf="quiet" aria-pressed="false"><span class="dot muted"></span><span class="nm">Not active in 30 days</span><span class="ct">{{.Quiet}}</span></button>
+    <div class="fleet-rail-cap" style="margin-top:12px"><span>Roles</span></div>
+    {{range $k := .TeamRoles}}{{$n := index $.RoleCount $k}}{{if $n}}<button type="button" class="fleet-rail-item" data-clf="r-{{$k}}" aria-pressed="false"><span class="dot muted"></span><span class="nm">{{roleLabel $k}}</span><span class="ct">{{$n}}</span></button>{{end}}{{end}}
+    {{range $k := .CustomerRoles}}{{$n := index $.RoleCount $k}}{{if $n}}<button type="button" class="fleet-rail-item" data-clf="r-{{$k}}" aria-pressed="false"><span class="dot muted"></span><span class="nm">{{roleLabel $k}}</span><span class="ct">{{$n}}</span></button>{{end}}{{end}}
+    <div class="fleet-rail-cap" style="margin-top:12px"><span>Settings</span></div>
+    <a class="fleet-rail-item" href="/users/access"><span class="dot muted"></span><span class="nm">Access by role</span></a>
+    {{if eq .Role "admin"}}<a class="fleet-rail-item" href="/activity"><span class="dot muted"></span><span class="nm">Activity</span></a>{{end}}
   </aside>
-  {{end}}
+  <div class="fleet-roster">
+    <div class="fleet-pane-head"><span class="t" data-cl-title>Everyone</span><span class="c" data-cl-count>{{add (len .Team) (len .Customers)}} people</span></div>
+    <div class="fleet-bar">
+      <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search name or email…" aria-label="Search people" autocomplete="off"></div>
+      {{template "cl-sort" "Role"}}
+        <button type="button" class="cc-mi active" role="menuitemradio" aria-checked="true" data-cls="rank" data-dir="desc">Role</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="name" data-dir="asc">Name</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="seen" data-dir="desc">Last active</button>
+      </div></div>
+    </div>
+    <div class="card cl-card dv-rise-2"><div class="ft-wrap"><table class="ft cl-ft">
+      <thead><tr>
+        <th scope="col">Person</th>
+        <th scope="col" style="width:140px">Role</th>
+        <th scope="col">Can operate</th>
+        <th scope="col" class="ft-num" style="width:120px">Last active</th>
+        <th scope="col" class="ft-act" style="width:52px"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody>
+      {{range $grp := (list "team" "cust")}}{{range (index (dict "team" $.Team "cust" $.Customers) $grp)}}
+      <tr class="ft-row" data-href="/users/{{.ID}}/profile" data-ctx="user" data-name="{{.DisplayName}}" data-email="{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}" data-page="/users/{{.ID}}/profile"
+          data-flags="{{$grp}} r-{{.Role}}{{if .Invited}} inv{{end}}{{if eq .Activity "quiet"}} quiet{{end}}" data-text="{{.DisplayName}} {{.Username}}{{if .Email}} {{.Email}}{{end}}{{range .Venues}} {{.Name}}{{end}}"
+          data-s-name="{{.DisplayName}}" data-s-rank="{{.Rank}}" data-s-seen="{{if .LastAt}}{{(deref .LastAt).Unix}}{{else}}0{{end}}">
+        <td><a class="pp-who js-dest" href="/users/{{.ID}}/profile">{{template "ubub" (userBubble .Username)}}<span class="t"><b>{{.DisplayName}}</b><small>{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}</small></span></a></td>
+        <td><span class="cc-pill {{rolePill .Role}}">{{roleLabel .Role}}</span></td>
+        <td class="pp-op">{{if eq $grp "cust"}}{{range .Venues}}<span class="pp-ven">{{venueIcon .ID .Name "sm"}}{{.Name}}</span>{{else}}<span class="muted">No venue yet</span>{{end}}{{else}}{{.Access}}{{end}}</td>
+        <td class="ft-num">{{if .Invited}}<span class="cc-tag warn" title="Invite sent {{timeSince (deref .Invited)}}">invite sent</span>{{else if .LastAt}}{{timeSince (deref .LastAt)}}{{else}}<span class="muted">never</span>{{end}}</td>
+        <td class="ft-act"><a class="cl-go js-dest" href="/users/{{.ID}}/profile" title="Open {{.DisplayName}}" aria-label="Open {{.DisplayName}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
+      </tr>
+      {{end}}{{end}}
+      </tbody>
+    </table></div>
+    <div class="cl-none" data-cl-none hidden>No one matches these filters.</div></div>
   </div>
-
 </div>
-
+</div>
+</div>
 {{if .Assignable}}
 <div id="invite-modal" class="modal-backdrop" onclick="if(event.target===this)upInviteClose()">
   <div class="modal-box" style="max-width:560px;" role="dialog" aria-labelledby="iv-title" aria-modal="true">
@@ -254,51 +188,9 @@
   </div>
 </div>
 {{end}}
-<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
+
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 <script src="/static/js/users/list.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}
-{{end}}
-
-{{define "users-pane"}}
-    <div class="up-pane" data-pane="{{.Tab}}" {{if ne .Cur .Tab}}hidden{{end}}>
-      {{if .Rows}}
-      <table class="ft up">
-        <thead><tr>
-          <th><button type="button" class="ft-sort" data-sort="name">Name <span class="ft-dir">↑</span></button></th>
-          <th class="c-role on"><button type="button" class="ft-sort" data-sort="rank">Role <span class="ft-dir">↓</span></button></th>
-          {{if eq $.Tab "team"}}<th class="c-acc">Access</th>{{else}}<th class="c-venue">Venues</th>{{end}}
-          <th class="c-seen ft-num"><button type="button" class="ft-sort" data-sort="seen">Last active <span class="ft-dir">↓</span></button></th>
-          <th class="c-act"><span class="sr-only">Actions</span></th>
-        </tr></thead>
-        <tbody>
-        {{range .Rows}}
-        <tr class="ft-row" data-href="/users/{{.ID}}/profile" data-ctx="user" data-name="{{.DisplayName}}" data-email="{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}" data-page="/users/{{.ID}}/profile" data-role="{{.Role}}" data-act="{{.Activity}}" data-rank="{{.Rank}}" data-name="{{.DisplayName}}" data-seen="{{if .LastAt}}{{timeISO (deref .LastAt)}}{{end}}" data-q="{{.DisplayName}} {{.Username}} {{if .Email}}{{.Email}}{{end}}{{range .Venues}} {{.Name}}{{end}}">
-          <td><a class="up-who js-dest" href="/users/{{.ID}}/profile" style="color:inherit;text-decoration:none">{{template "ubub" (userBubble .Username)}}<span class="t"><b>{{.DisplayName}}</b><small>{{if .Email}}{{.Email}}{{else}}{{.Username}}{{end}}</small></span></a></td>
-          <td><span class="cc-pill {{rolePill .Role}}">{{roleLabel .Role}}</span></td>
-          {{if eq $.Tab "team"}}
-          <td class="up-acc">{{.Access}}{{range .Sensitive}}<span class="up-sn" title="An access rule adds this">● {{.}}</span>{{end}}</td>
-          {{else}}
-          <td>{{range .Venues}}<span class="up-ven">{{venueIcon .ID .Name "sm"}}{{.Name}}</span>{{else}}<span class="up-mute">No venue yet</span>{{end}}</td>
-          {{end}}
-          <td class="ft-num"><i class="p1-dot a-{{.Activity}}" aria-hidden="true"></i>{{if .Invited}}<span class="cc-tag warn" title="Invite sent {{timeSince (deref .Invited)}}">invite sent</span>{{else if .LastAt}}{{timeSince (deref .LastAt)}}{{else}}<span class="up-mute">never</span>{{end}}</td>
-          <td class="c-act">{{if .CanManage}}
-            <details class="up-more"><summary aria-label="More for {{.DisplayName}}">⋯</summary>
-              <div class="cc-menu" role="menu">
-                <a class="cc-mi js-dest" role="menuitem" href="/users/{{.ID}}/profile?open=access"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Role and access</a>
-                <a class="cc-mi js-dest" role="menuitem" href="/users/{{.ID}}/profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>Profile</a>
-                {{if .Invited}}<form method="POST" action="/users/{{.ID}}/invite" hx-boost="true"><input type="hidden" name="redirect" value="/users{{if eq $.Tab "customers"}}?tab=customers{{end}}"><button type="submit" class="cc-mi" role="menuitem"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Send invite again</button></form>{{end}}
-                {{if canCreateUsers $.Role}}<hr class="cc-msep">
-                <form method="POST" action="/users/{{.ID}}/delete" hx-boost="true" hx-confirm="Remove {{.DisplayName}} ({{.Username}})? They lose access straight away."><button type="submit" class="cc-mi danger" role="menuitem"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Remove</button></form>{{end}}
-              </div>
-            </details>{{end}}</td>
-        </tr>
-        {{end}}
-        </tbody>
-      </table>
-      <div class="up-none" hidden>No one matches.</div>
-      {{else}}
-      <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span><div><b>{{if eq $.Tab "team"}}No one on the AIO team yet{{else}}No customer accounts yet{{end}}</b>{{if eq $.Tab "customers"}}Invite a restaurant's owner or staff with Invite above. They only ever see their own venues.{{else}}Use Invite above.{{end}}</div></div>
-      {{end}}
-    </div>
 {{end}}

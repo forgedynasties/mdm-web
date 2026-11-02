@@ -38,7 +38,34 @@ func newAccess(role string, pol db.AccessPolicy) *access {
 	a := &access{ctx: context.Background(), role: role, username: "u", pol: pol}
 	a.scopes = fixtureScopes()
 	a.once.Do(func() {}) // scopes preloaded; never touch the DB
+	a.lvls = seedLevels(role)
+	a.lvlOnce.Do(func() {})
 	return a
+}
+
+// seedLevels is the access_levels seed (db/access_levels.go) for one role, with group G as QA.
+func seedLevels(role string) []db.AccessLevel {
+	g := groupG
+	lv := func(scope, state, level string) db.AccessLevel {
+		return db.AccessLevel{SubjectType: "role", Subject: role, ScopeType: scope, State: state, Level: level}
+	}
+	switch role {
+	case "fleet_admin":
+		return []db.AccessLevel{lv("all", "", "manage")}
+	case "fleet_manager":
+		return []db.AccessLevel{lv("state", db.StateSettingUp, "manage"), lv("state", db.StateInService, "manage")}
+	case "operator", "support":
+		return []db.AccessLevel{lv("state", db.StateInService, "manage")}
+	case "viewer":
+		return []db.AccessLevel{lv("state", db.StateInService, "view")}
+	case "field":
+		return []db.AccessLevel{lv("visit", "", "manage")}
+	case "engineer":
+		qa := lv("group", "", "operate")
+		qa.ScopeID = &g
+		return []db.AccessLevel{lv("all", "", "view"), lv("state", db.StateLab, "operate"), qa}
+	}
+	return nil
 }
 
 func allow(scopeType string, id *uuid.UUID, actions ...string) db.AccessGrant {
@@ -48,126 +75,7 @@ func deny(scopeType string, id *uuid.UUID, actions ...string) db.AccessGrant {
 	return db.AccessGrant{Effect: "deny", ScopeType: scopeType, ScopeID: id, Actions: actions}
 }
 
-func TestDecide(t *testing.T) {
-	v, g := venueV, groupG
-	cases := []struct {
-		name   string
-		role   string
-		pol    db.AccessPolicy
-		action string
-		dev    *uuid.UUID
-		want   bool
-	}{
-		{"admin ignores everything", "admin", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{deny("all", nil, "*")}}, "shell", &d1, true},
-		{"operator base allow", "operator", db.AccessPolicy{}, "reboot", &d1, true},
-		{"operator base deny", "operator", db.AccessPolicy{Base: "deny"}, "reboot", &d1, false},
-		{"operator base deny + venue allow, in venue", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "reboot")}}, "reboot", &d1, true},
-		{"operator base deny + venue allow, outside venue", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "reboot")}}, "reboot", &d3, false},
-		{"group allow covers member", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("group", &g, "*")}}, "screenshot", &d2, true},
-		{"device allow covers only that device", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d1, "view")}}, "view", &d1, true},
-		{"device allow does not leak", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d1, "view")}}, "view", &d2, false},
-		{"deny wins over allow", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "reboot"), deny("device", &d2, "reboot")}}, "reboot", &d2, false},
-		{"deny wins over base allow", "operator", db.AccessPolicy{Grants: []db.AccessGrant{deny("restaurant", &v, "*")}}, "reboot", &d1, false},
-		{"support holds remote by default", "operator", db.AccessPolicy{}, "remote", &d1, true},
-		{"sales never remote, even by any-action", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "remote", &d1, false},
-		{"deny any-action also removes remote", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "remote"), deny("device", &d1, "*")}}, "remote", &d1, false},
-		{"remote explicit allow on devices", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("device", &d1, "remote")}}, "remote", &d1, true},
-		{"support no remote on lab devices", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "remote")}}, "remote", &d4, false},
-		{"shell never for operator even if granted", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
-		{"ota never for operator even if granted", "operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "ota")}}, "ota", &d1, false},
-		{"shell never for admin even if granted", "fleet_admin", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
-		{"admin holds ota by default", "fleet_admin", db.AccessPolicy{}, "ota", &d1, true},
-		{"admin holds remote by default", "fleet_admin", db.AccessPolicy{}, "remote", &d1, true},
-		{"admin ota scoped to venue", "fleet_admin", db.AccessPolicy{Grants: []db.AccessGrant{deny("all", nil, "ota"), allow("restaurant", &v, "ota")}}, "ota", &d1, false},
-		{"admin ota scoped: base deny + venue allow in", "fleet_admin", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d2, true},
-		{"admin ota scoped: base deny + venue allow out", "fleet_admin", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d3, false},
-		{"fleet manager holds remote by default", "fleet_manager", db.AccessPolicy{}, "remote", &d1, true},
-		{"fleet manager has no ota without a rule", "fleet_manager", db.AccessPolicy{}, "ota", &d1, false},
-		{"fleet manager never ota, even by rule", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("restaurant", &v, "ota")}}, "ota", &d1, false},
-		{"fleet manager never shell", "fleet_manager", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "shell")}}, "shell", &d1, false},
-		{"support reboots", "support", db.AccessPolicy{}, "reboot", &d1, true},
-		{"support locks", "support", db.AccessPolicy{}, "kiosk", &d1, true},
-		{"support never installs", "support", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "install_apk", &d1, false},
-		{"viewer never screenshots", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "screenshot")}}, "screenshot", &d1, false},
-		{"viewer sees by default", "viewer", db.AccessPolicy{}, "view", &d1, true},
-		{"viewer hidden by deny", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{deny("restaurant", &v, "view")}}, "view", &d1, false},
-		{"viewer never reboots", "viewer", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "reboot", &d1, false},
-		{"owner sees nothing by default", "owner", db.AccessPolicy{}, "view", &d1, false},
-		{"owner sees granted venue", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "view", &d1, true},
-		{"owner reboots at their venue", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "reboot", &d1, true},
-		{"owner never reboots elsewhere", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "reboot", &d3, false},
-		{"owner never sees through an all-scope rule", "owner", db.AccessPolicy{Grants: []db.AccessGrant{allow("all", nil, "*")}}, "view", &d3, false},
-		{"owner never installs", "owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "install_apk", &d1, false},
-		{"staff reboots at their venue", "staff", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "reboot", &d1, true},
-		{"staff never locks", "staff", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}, "kiosk", &d1, false},
-		{"fleet action: venue rule does not apply", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "alerts")}}, "alerts", nil, false},
-		{"fleet action: all rule applies", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("all", nil, "alerts")}}, "alerts", nil, true},
-		{"unknown device id", "operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "*")}}, "reboot", ptr(uuid.New()), false},
-		{"unknown action", "operator", db.AccessPolicy{}, "launch_nukes", &d1, false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			got := newAccess(c.role, c.pol).decide(c.action, c.dev)
-			if got.Allowed != c.want {
-				t.Fatalf("want %v got %v (%s)", c.want, got.Allowed, got.Reason)
-			}
-		})
-	}
-}
-
 func ptr(u uuid.UUID) *uuid.UUID { return &u }
-
-func TestVisibleIDsAndHiding(t *testing.T) {
-	v := venueV
-	// owner: only venue devices, always hidden
-	a := newAccess("owner", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}})
-	if !a.hidesDevices() {
-		t.Fatal("owner must hide")
-	}
-	if ids := a.visibleIDs(); len(ids) != 2 {
-		t.Fatalf("owner sees %d, want 2", len(ids))
-	}
-	// operator with base deny sees nothing without a view rule — "See device" is the
-	// visibility grant, with no separate hide switch (30 Sep access audit)
-	a = newAccess("operator", db.AccessPolicy{Base: "deny"})
-	if !a.hidesDevices() || len(a.visibleIDs()) != 0 || a.visibleIDs() == nil {
-		t.Fatal("base deny with no view rule must hide every device")
-	}
-	// a super op allowed to see one device sees only that device, flag or not
-	for _, hide := range []bool{false, true} {
-		a = newAccess("fleet_manager", db.AccessPolicy{Base: "deny", HideOutOfScope: hide, Grants: []db.AccessGrant{allow("device", &d1, "view")}})
-		if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d1 {
-			t.Fatalf("hide=%v: got %v", hide, ids)
-		}
-	}
-	// Sales with a deny: in service only (d1, d2), minus the group (d2)
-	a = newAccess("viewer", db.AccessPolicy{Grants: []db.AccessGrant{deny("group", &groupG, "view")}})
-	if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d1 {
-		t.Fatalf("sales sees %v, want only d1", ids)
-	}
-	// admin: never
-	if newAccess("admin", db.AccessPolicy{}).visibleIDs() != nil {
-		t.Fatal("admin filtered")
-	}
-}
-
-func TestFilterAndHolds(t *testing.T) {
-	a := newAccess("operator", db.AccessPolicy{Grants: []db.AccessGrant{allow("group", &groupG, "remote")}})
-	kept, dropped := a.filterDevices("remote", []uuid.UUID{d1, d2, d3, d4})
-	if len(kept) != 2 || dropped != 2 {
-		t.Fatalf("kept %v dropped %d", kept, dropped)
-	}
-	if !a.holdsAnywhere("remote") || a.holdsAnywhere("shell") {
-		t.Fatal("holdsAnywhere wrong")
-	}
-	if !a.anyDeviceAction(d1) || a.anyDeviceAction(d4) {
-		t.Fatal("base allow gives Support actions on d1 (in service) and none on d4 (lab)")
-	}
-	b := newAccess("operator", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d1, "view")}})
-	if b.anyDeviceAction(d1) {
-		t.Fatal("view-only device must report no actions")
-	}
-}
 
 func TestExpiredGrantsAreNotLoaded(t *testing.T) {
 	// The DB layer drops expired grants; the engine trusts what it is given. This
@@ -212,34 +120,6 @@ func TestRoleCeilings(t *testing.T) {
 	}
 }
 
-// TestVisibleIDsDPCNotHidden pins that a DPC-managed device is an ordinary fleet
-// device: it is no longer removed from a non-admin's list, and a policy that hides
-// nothing still hides nothing.
-func TestVisibleIDsDPCNotHidden(t *testing.T) {
-	// One DPC device among the four; the operator may see everything (base allow), so
-	// nothing may be removed — being DPC is no reason to hide a device.
-	a := newAccess("engineer", db.AccessPolicy{Base: "allow"}) // engineers see every state
-	sc := fixtureScopes()
-	sc[d2] = db.DeviceScope{RestaurantID: sc[d2].RestaurantID, Groups: sc[d2].Groups, DPC: true}
-	a.scopes = sc
-
-	if ids := a.visibleIDs(); ids != nil {
-		t.Fatalf("nothing hides these devices, want an unfiltered list, got %d ids", len(ids))
-	}
-	if a.canDevice("view", d2) != a.canDevice("view", d1) {
-		t.Error("the DPC device must be judged like any other, not hidden for being DPC")
-	}
-	if a.hidesDevices() {
-		t.Error("a policy with no view restriction must not hide")
-	}
-	// With a view restriction, the DPC device is judged by the policy like the rest.
-	a = newAccess("engineer", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d2, "view")}})
-	a.scopes = sc
-	if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d2 {
-		t.Fatalf("got %v, want only the DPC device the rule names", ids)
-	}
-}
-
 // TestVisibleIDsOwnerNeverCollapsesToNil guards the other half of that fix. Callers
 // disagree about what nil means — the fleet list reads it as "no filter", OwnerHome
 // reads it as "no devices" — so a policy-filtered result must stay an explicit list
@@ -257,26 +137,6 @@ func TestVisibleIDsOwnerNeverCollapsesToNil(t *testing.T) {
 	}
 	if len(ids) != 2 { // d3 and d4 are lab devices: never an owner's
 		t.Fatalf("owner sees %d devices, want 2", len(ids))
-	}
-}
-
-// A viewer set to "allow nothing" sees nothing: the viewer's see-everything default
-// used to be checked before the base, so the base never applied (30 Sep audit).
-func TestViewerBaseDenySeesNothing(t *testing.T) {
-	a := newAccess("viewer", db.AccessPolicy{Base: "deny"})
-	if a.canDevice("view", d1) {
-		t.Fatal("viewer with base deny can still see a device")
-	}
-	if ids := a.visibleIDs(); ids == nil || len(ids) != 0 {
-		t.Fatalf("viewer with base deny sees %v", ids)
-	}
-	a = newAccess("viewer", db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("device", &d1, "view")}})
-	if ids := a.visibleIDs(); len(ids) != 1 || ids[0] != d1 {
-		t.Fatalf("got %v, want only d1", ids)
-	}
-	// The default still holds without a base: viewers see the fleet.
-	if !newAccess("viewer", db.AccessPolicy{}).canDevice("view", d1) {
-		t.Fatal("a plain viewer must see the fleet")
 	}
 }
 
@@ -379,83 +239,6 @@ func TestRoleLadder(t *testing.T) {
 	}
 	if roleCanOperate("owner") || roleCanSupport("staff") || roleManagesUsers("owner") {
 		t.Error("a customer reached a team gate")
-	}
-}
-
-// TestDeviceStates pins who sees which state (roles replan, 30 Oct 2026): Lab (no venue),
-// Setting up (placed, not handed over), In service; Field through open setup visits.
-func TestDeviceStates(t *testing.T) {
-	v := venueV
-	lab, setup, live := uuid.New(), uuid.New(), uuid.New()
-	other := uuid.New()
-	scopes := map[uuid.UUID]db.DeviceScope{
-		lab:   {},
-		setup: {RestaurantID: &v},
-		live:  {RestaurantID: &v, InService: true},
-	}
-	mk := func(role string, pol db.AccessPolicy, visits ...uuid.UUID) *access {
-		a := &access{ctx: context.Background(), role: role, username: "u", pol: pol, scopes: scopes}
-		a.once.Do(func() {})
-		vv := map[uuid.UUID]bool{}
-		for _, x := range visits {
-			vv[x] = true
-		}
-		a.visitOnce.Do(func() { a.visitVenues = vv })
-		return a
-	}
-	owner := db.AccessPolicy{Base: "deny", Grants: []db.AccessGrant{allow("restaurant", &v, "view")}}
-	cases := []struct {
-		name, role, action string
-		pol                db.AccessPolicy
-		dev                uuid.UUID
-		visits             []uuid.UUID
-		want               bool
-	}{
-		{"engineer works on lab", "engineer", "install_apk", db.AccessPolicy{}, lab, nil, true},
-		{"engineer remote on lab", "engineer", "remote", db.AccessPolicy{}, lab, nil, true},
-		{"engineer looks at a venue", "engineer", "view", db.AccessPolicy{}, live, nil, true},
-		{"engineer screenshots at a venue", "engineer", "screenshot", db.AccessPolicy{}, live, nil, true},
-		{"engineer collects logs at a venue", "engineer", "query", db.AccessPolicy{}, setup, nil, true},
-		{"engineer never reboots at a venue", "engineer", "reboot", db.AccessPolicy{}, live, nil, false},
-		{"engineer never installs at a venue", "engineer", "install_apk", db.AccessPolicy{}, setup, nil, false},
-		{"ops lead: not lab", "fleet_manager", "view", db.AccessPolicy{}, lab, nil, false},
-		{"ops lead: setting up", "fleet_manager", "reboot", db.AccessPolicy{}, setup, nil, true},
-		{"ops lead: in service", "fleet_manager", "install_apk", db.AccessPolicy{}, live, nil, true},
-		{"support: in service", "operator", "install_apk", db.AccessPolicy{}, live, nil, true},
-		{"support: not setting up", "operator", "view", db.AccessPolicy{}, setup, nil, false},
-		{"support: not lab", "operator", "view", db.AccessPolicy{}, lab, nil, false},
-		{"sales: in service", "viewer", "view", db.AccessPolicy{}, live, nil, true},
-		{"sales: not setting up", "viewer", "view", db.AccessPolicy{}, setup, nil, false},
-		{"field on a visit: setting up", "field", "install_apk", db.AccessPolicy{}, setup, []uuid.UUID{v}, true},
-		{"field on a visit: in service too", "field", "remote", db.AccessPolicy{}, live, []uuid.UUID{v}, true},
-		{"field elsewhere sees nothing", "field", "view", db.AccessPolicy{}, live, []uuid.UUID{other}, false},
-		{"field never lab", "field", "view", db.AccessPolicy{}, lab, []uuid.UUID{v}, false},
-		{"field no fleet actions", "field", "groups", db.AccessPolicy{}, uuid.Nil, []uuid.UUID{v}, false},
-		{"owner sees setting up", "owner", "view", owner, setup, nil, true},
-		{"owner doesn't act while setting up", "owner", "reboot", owner, setup, nil, false},
-		{"owner acts in service", "owner", "reboot", owner, live, nil, true},
-		{"staff never setting up", "staff", "view", owner, setup, nil, false},
-		{"old admin sees everything", "fleet_admin", "reboot", db.AccessPolicy{}, lab, nil, true},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			var dev *uuid.UUID
-			if c.dev != uuid.Nil {
-				d := c.dev
-				dev = &d
-			}
-			got := mk(c.role, c.pol, c.visits...).decide(c.action, dev)
-			if got.Allowed != c.want {
-				t.Fatalf("want %v got %v (%s)", c.want, got.Allowed, got.Reason)
-			}
-		})
-	}
-	// Lists: Support's list is filtered to in service; an engineer's is not filtered.
-	if ids := mk("operator", db.AccessPolicy{}).visibleIDs(); len(ids) != 1 || ids[0] != live {
-		t.Errorf("support sees %v, want only the device in service", ids)
-	}
-	if mk("engineer", db.AccessPolicy{}).visibleIDs() != nil {
-		t.Error("an engineer's list must not be filtered")
 	}
 }
 

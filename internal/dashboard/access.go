@@ -39,6 +39,7 @@ var accessActions = []accessAction{
 	{Key: "logcat", Label: "Request logcat", Group: "Commands"},
 	{Key: "kiosk", Label: "Lock settings", Group: "Device"},
 	{Key: "lost_mode", Label: "Lost mode", Group: "Device", Help: "Put a missing device in lost mode (a full-screen return message) and take it out again."},
+	{Key: "wifi", Label: "Wi-Fi networks", Group: "Device", Help: "Add, switch to, change or forget the device's saved Wi-Fi networks."},
 	{Key: "notes", Label: "Device notes", Group: "Device"},
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
 	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Fleet managers and admins have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
@@ -153,6 +154,144 @@ func grantableActions(role string) []accessAction {
 	return out
 }
 
+// ── Levels (access by levels, picked 2 Nov 2026: L3 · G3) ───────────────────
+//
+// A team member's level on a device is the highest unexpired grant of their role or their
+// own that covers it (db/access_levels.go); an action needs the level below. The role
+// ceiling still applies on top (a Viewer takes no screenshot, the old Support role keeps its
+// short list), shell stays super admin only and firmware updates admin and up.
+
+// actionLevel is the level each action needs: View looks (screenshot, logs), Operate is
+// everyday device work, Manage adds remote control, Wi-Fi and moving devices.
+var actionLevel = map[string]int{
+	"view": db.LevelView, "screenshot": db.LevelView, "query": db.LevelView, "logcat": db.LevelView,
+	"reboot": db.LevelOperate, "kiosk": db.LevelOperate, "lost_mode": db.LevelOperate, "install_apk": db.LevelOperate,
+	"uninstall": db.LevelOperate, "app_control": db.LevelOperate, "notes": db.LevelOperate, "queue": db.LevelOperate,
+	"alerts": db.LevelOperate,
+	"remote": db.LevelManage, "wifi": db.LevelManage, "groups": db.LevelManage, "deploy": db.LevelManage,
+	"shell": db.LevelManage, "ota": db.LevelManage,
+}
+
+// levelWord is a level as people read it: "View", "Operate", "Manage", "no access".
+func levelWord(l int) string {
+	switch l {
+	case db.LevelView:
+		return "View"
+	case db.LevelOperate:
+		return "Operate"
+	case db.LevelManage:
+		return "Manage"
+	}
+	return "no access"
+}
+
+// needLevel is the level an action needs (Manage for anything unlisted).
+func needLevel(action string) int {
+	if l, ok := actionLevel[action]; ok {
+		return l
+	}
+	return db.LevelManage
+}
+
+// levelCache keeps each role's and person's grants for 20 s; a change on the Access or
+// person page clears it.
+var levelCache sync.Map // role + "|" + username -> levelEntry
+
+type levelEntry struct {
+	rows []db.AccessLevel
+	at   time.Time
+}
+
+func invalidateLevels() {
+	levelCache.Range(func(k, _ any) bool { levelCache.Delete(k); return true })
+}
+
+// levels are the grants that apply to this person (their role's and their own).
+func (a *access) levels() []db.AccessLevel {
+	a.lvlOnce.Do(func() {
+		if a.h == nil { // a test builds the context itself, with lvls set
+			return
+		}
+		key := a.role + "|" + a.username
+		if e, ok := levelCache.Load(key); ok && time.Since(e.(levelEntry).at) < 20*time.Second {
+			a.lvls = e.(levelEntry).rows
+			return
+		}
+		rows, err := a.h.db.AccessLevelsFor(a.ctx, a.role, a.username)
+		if err != nil {
+			log.Printf("[access] levels for %q/%q: %v (none)", a.role, a.username, err)
+			return // fail closed: no level anywhere
+		}
+		levelCache.Store(key, levelEntry{rows: rows, at: time.Now()})
+		a.lvls = rows
+	})
+	return a.lvls
+}
+
+// grantCoversDevice reports whether a level grant's scope holds the device.
+func (a *access) grantCoversDevice(g db.AccessLevel, sc db.DeviceScope) bool {
+	switch g.ScopeType {
+	case "all":
+		return true
+	case "state":
+		return g.State == sc.State()
+	case "group":
+		if g.ScopeID == nil {
+			return false
+		}
+		for _, id := range sc.Groups {
+			if id == *g.ScopeID {
+				return true
+			}
+		}
+	case "venue":
+		return g.ScopeID != nil && sc.RestaurantID != nil && *sc.RestaurantID == *g.ScopeID
+	case "visit":
+		return sc.RestaurantID != nil && a.onVisitAt(*sc.RestaurantID)
+	}
+	return false
+}
+
+// deviceLevel is this person's level on the device and the grant that gives it (nil: none).
+// Super admins manage everything; customers are not on levels (decideCustomer).
+func (a *access) deviceLevel(dev uuid.UUID) (int, *db.AccessLevel) {
+	if a.unrestricted() {
+		return db.LevelManage, nil
+	}
+	a.loadScopes()
+	sc := a.scopes[dev] // unknown (enrolled after the load): no venue, Lab
+	now := time.Now()
+	best, from := db.LevelNone, (*db.AccessLevel)(nil)
+	for i, g := range a.levels() {
+		if g.Expired(now) || g.Rank() <= best || !a.grantCoversDevice(g, sc) {
+			continue
+		}
+		best, from = g.Rank(), &a.lvls[i]
+	}
+	return best, from
+}
+
+// seesEverywhere reports whether an unexpired grant gives at least View on every device.
+func (a *access) seesEverywhere() bool {
+	now := time.Now()
+	for _, g := range a.levels() {
+		if g.ScopeType == "all" && !g.Expired(now) && g.Rank() >= db.LevelView {
+			return true
+		}
+	}
+	return false
+}
+
+// lookOnly reports whether this team member may look at the device but not operate it: the
+// device page renders read-only with Screenshot and Collect logs, and says why.
+func (a *access) lookOnly(dev uuid.UUID) bool {
+	if a.unrestricted() || roleIsCustomer(a.role) {
+		return false
+	}
+	l, _ := a.deviceLevel(dev)
+	return l == db.LevelView
+}
+
 // ── Per-request access context ──────────────────────────────────────────────
 
 // access is one request's resolved authorization context.
@@ -170,6 +309,9 @@ type access struct {
 	visitVenues map[uuid.UUID]bool
 	visOnce     sync.Once
 	vis         []uuid.UUID
+	// Level grants (role's and own), loaded on first use.
+	lvlOnce sync.Once
+	lvls    []db.AccessLevel
 }
 
 // policyCache avoids a users lookup on every request; entries live 20s so a
@@ -229,7 +371,12 @@ func (a *access) isDPC(dev uuid.UUID) bool {
 }
 
 func (a *access) loadScopes() {
-	a.once.Do(func() { a.scopes, a.scopeErr = a.h.db.DeviceScopes(a.ctx) })
+	a.once.Do(func() {
+		if a.h == nil { // a test builds the context itself, with scopes set
+			return
+		}
+		a.scopes, a.scopeErr = a.h.db.DeviceScopes(a.ctx)
+	})
 }
 
 // scopeContains reports whether a grant's scope covers the device (nil device =
@@ -327,47 +474,29 @@ func (a *access) decide(action string, dev *uuid.UUID) decision {
 	if c := roleCeiling(a.role); !c[action] {
 		return decision{false, roleLabel(a.role) + " accounts never get " + lowerFirst(act.Label), nil}
 	}
+	// A team member on one device: their level there decides (no rules, no state switch).
+	if dev != nil && !roleIsCustomer(a.role) {
+		have, _ := a.deviceLevel(*dev)
+		need := needLevel(action)
+		if have >= need {
+			return decision{true, "Their access here is " + levelWord(have), nil}
+		}
+		if have == db.LevelNone {
+			return decision{false, "No access to this device", nil}
+		}
+		return decision{false, lowerFirst(act.Label) + " needs " + levelWord(need) + "; their access here is " + levelWord(have), nil}
+	}
 	if d, ok := a.stateDecision(action, dev); !ok {
 		return d
 	}
 	if roleIsCustomer(a.role) {
 		return a.decideCustomer(action, dev)
 	}
-	var deny, allow *db.AccessGrant
-	for i := range a.pol.Grants {
-		g := &a.pol.Grants[i]
-		if !a.grantCovers(*g, action, dev) {
-			continue
-		}
-		if g.Effect == "deny" {
-			if deny == nil {
-				deny = g
-			}
-		} else if allow == nil {
-			allow = g
-		}
-	}
-	if deny != nil {
-		return decision{false, "Denied by a rule", deny}
-	}
-	if allow != nil {
-		return decision{true, "Allowed by a rule", allow}
-	}
-	// Sensitive actions need an explicit allow rule — except where the role holds
-	// them by default (sensitiveByDefault). Operators still need a rule that names
-	// the device for remote control, fleet managers one for firmware pushes.
+	// A team member's fleet-level question (no device): the role decides; rules are gone.
 	if act.Sensitive && !sensitiveByDefault(a.role, action) {
-		return decision{false, act.Label + " needs an explicit allow rule", nil}
+		return decision{false, act.Label + " is for super admins", nil}
 	}
-	// Base deny is checked before the viewer default: a viewer set to "allow nothing"
-	// must not still see the whole fleet (30 Sep access audit).
-	if a.pol.Base == "deny" {
-		return decision{false, "Base is \"allow nothing\" and no rule includes it", nil}
-	}
-	if action == "view" && a.role == "viewer" {
-		return decision{true, "Viewers see everything unless a rule hides it", nil}
-	}
-	return decision{true, "Base allows everything the role can do", nil}
+	return decision{true, "Their role allows it", nil}
 }
 
 // can decides one action, optionally for one device.
@@ -400,22 +529,12 @@ func (a *access) hidesDevices() bool {
 	if a.unrestricted() {
 		return false
 	}
-	if roleIsCustomer(a.role) || stateScoped(a.role) {
+	if roleIsCustomer(a.role) {
 		return true
 	}
-	return a.hasViewRestriction()
-}
-
-func (a *access) hasViewRestriction() bool {
-	if a.pol.Base == "deny" {
-		return true
-	}
-	for _, g := range a.pol.Grants {
-		if g.Effect == "deny" && g.Has("view") {
-			return true
-		}
-	}
-	return false
+	// A team member sees every device only with View (or more) everywhere; otherwise the
+	// devices their levels reach.
+	return !a.seesEverywhere()
 }
 
 // visibleIDs is the device-id allowlist for list queries, or nil for "no filter".
@@ -986,16 +1105,16 @@ func (a *access) atVenue(dev uuid.UUID) bool {
 	return a.scopes[dev].State() != db.StateLab
 }
 
-// engineerVenueCount is how many of ids an engineer may not act on with action: the ones
-// at a venue, where engineers only look, screenshot and collect logs ("deployed devices
-// should be read only", user, 30 Oct 2026). 0 for every other role and the look actions.
+// engineerVenueCount is how many of ids an engineer's level is too low for the action on
+// (access by levels, 2 Nov 2026; before that: every device at a venue). 0 for every other
+// role, whose sends skip such devices instead (filterDevices).
 func (a *access) engineerVenueCount(action string, ids []uuid.UUID) int {
-	if a.role != "engineer" || engineerLookActions[action] {
+	if a.role != "engineer" {
 		return 0
 	}
-	n := 0
+	need, n := needLevel(action), 0
 	for _, id := range ids {
-		if a.atVenue(id) {
+		if l, _ := a.deviceLevel(id); l < need {
 			n++
 		}
 	}
@@ -1004,12 +1123,11 @@ func (a *access) engineerVenueCount(action string, ids []uuid.UUID) int {
 
 // engineerVenueMsg says why an engineer's request was refused.
 func engineerVenueMsg(n int) string {
-	return fmt.Sprintf("Engineers act on lab devices only: %d of these device%s %s at a venue, read-only for engineers (screenshots and logs are fine).",
-		n, plural(n), map[bool]string{true: "is", false: "are"}[n == 1])
+	return fmt.Sprintf("Your access is too low for this on %d of these device%s (View there: screenshots and logs are fine).", n, plural(n))
 }
 
-// refuseEngineerVenue answers 403 when an engineer's request reaches any device at a
-// venue, so a bulk send is refused as a whole instead of quietly skipping devices.
+// refuseEngineerVenue answers 403 when an engineer's request reaches any device their
+// level is too low for, so a bulk send is refused as a whole instead of quietly skipping.
 func (h *Handler) refuseEngineerVenue(w http.ResponseWriter, r *http.Request, action string, ids []uuid.UUID) bool {
 	n := h.access(r).engineerVenueCount(action, ids)
 	if n == 0 {
@@ -1047,7 +1165,7 @@ func (h *Handler) notEngineer(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // keepActableAlerts is keepVisibleAlerts for acting (acknowledge, resolve, snooze,
-// assign): an engineer handles only alerts about Lab devices.
+// assign): an engineer handles only alerts about devices they may operate.
 func (a *access) keepActableAlerts(alerts []db.Alert) []db.Alert {
 	alerts = a.keepVisibleAlerts(alerts)
 	if a.role != "engineer" {
@@ -1055,19 +1173,12 @@ func (a *access) keepActableAlerts(alerts []db.Alert) []db.Alert {
 	}
 	out := alerts[:0:0]
 	for _, x := range alerts {
-		if x.DeviceID != nil && !a.atVenue(*x.DeviceID) {
+		if x.DeviceID == nil {
+			continue
+		}
+		if l, _ := a.deviceLevel(*x.DeviceID); l >= db.LevelOperate {
 			out = append(out, x)
 		}
 	}
 	return out
-}
-
-// engineerLookOnly reports whether this viewer, an engineer, may only look at the device
-// (it is at a venue): the device page renders read-only with Screenshot and Collect logs.
-func (a *access) engineerLookOnly(dev uuid.UUID) bool {
-	if a.role != "engineer" {
-		return false
-	}
-	a.loadScopes()
-	return a.scopes[dev].State() != db.StateLab
 }

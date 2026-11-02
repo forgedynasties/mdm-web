@@ -23,6 +23,9 @@ type Device struct {
 	KioskPackage   string          `json:"kiosk_package"`
 	LatestExtra    json.RawMessage `json:"latest_extra,omitempty"`
 	Hidden         bool            `json:"hidden"`
+	// ViewOnly is set for a page's viewer who may look at the device but not operate it
+	// (access by levels); never stored.
+	ViewOnly bool `json:"-"`
 	// Product is the hardware category the device reports (e.g. "t7", "kiosk27"), or
 	// "" if it never reported one. Use ProductLabel()/Caps() rather than reading this
 	// raw so empty/unknown resolves to the default product. See internal/product.

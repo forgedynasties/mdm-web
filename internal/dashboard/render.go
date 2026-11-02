@@ -28,6 +28,11 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	// menus, island chrome) is: they differ only on a device an engineer may only look at.
 	data["NavRole"] = role
 	data["Role"] = h.pageRole(r)
+	// Device rows mark the devices this viewer may only look at (data-ro, access by
+	// levels): the right-click menu shows their actions as view only.
+	if devs, ok := data["Devices"].([]db.Device); ok && len(devs) > 0 && role != "admin" {
+		h.access(r).markViewOnly(devs)
+	}
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
@@ -391,14 +396,13 @@ func writeJSONError(w http.ResponseWriter, status int, msg string) {
 }
 
 // pageRole is the role a page's controls are drawn for. On a device's pages
-// (/devices/{serial}/…) an engineer looking at a device at a venue gets the viewer's:
-// read-only there apart from Screenshot and Collect logs, which the device page's
-// EngineerLook strip offers (user, 30 Oct 2026: "for Engineer, deployed devices should be
-// read only"). The server refuses the writes on its own (access.stateDecision); this only
-// keeps the page from offering them.
+// (/devices/{serial}/…) someone with View access there gets the viewer's: read-only apart
+// from Screenshot and Collect logs, which the device page's look strip offers (access by
+// levels, 2 Nov 2026). The server refuses the writes on its own; this only keeps the page
+// from offering them.
 func (h *Handler) pageRole(r *http.Request) string {
 	role := h.role(r)
-	if role != "engineer" || !strings.HasPrefix(r.URL.Path, "/devices/") {
+	if role == "admin" || roleIsCustomer(role) || !strings.HasPrefix(r.URL.Path, "/devices/") {
 		return role
 	}
 	serial := r.PathValue("serial")
@@ -409,7 +413,7 @@ func (h *Handler) pageRole(r *http.Request) string {
 	if err != nil || dev == nil {
 		return role
 	}
-	if h.access(r).engineerLookOnly(dev.ID) {
+	if h.access(r).lookOnly(dev.ID) {
 		return "viewer"
 	}
 	return role

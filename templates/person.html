@@ -1,0 +1,91 @@
+{{define "person.html"}}
+{{template "header" .}}
+{{/* Person page (U1, access by levels, picked 2 Nov 2026): access in sentences, the role's
+     and their own grants, "Give access", account controls; super admins also see their
+     recent activity. person.go */}}
+{{$u := .User}}
+<template id="page-island">
+  <span class="isl-dot on"></span>
+  <span class="isl-t">{{$u.DisplayName}}</span>
+  <span class="isl-s">{{roleLabel $u.Role}}{{if .Invited}} · <span class="w">invite not used yet</span>{{end}}</span>
+</template>
+{{template "acc-css" .}}
+<style>
+.ps-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:1024px){.ps-grid{grid-template-columns:1fr}}
+.ps-h{display:flex;align-items:center;gap:14px;margin:0 0 14px;flex-wrap:wrap}
+.ps-h .ubub{width:48px;height:48px;font-size:18px}
+.ps-h h1{font-size:24px;font-weight:650;margin:0}
+.ps-h small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.ps-card{margin-bottom:14px;overflow:hidden}
+.ps-ch{display:flex;align-items:baseline;gap:10px;padding:14px 16px 0}
+.ps-ch h2{font-size:15px;font-weight:650;margin:0}
+.ps-ch a{margin-left:auto;font-size:12.5px;color:var(--accent-text);text-decoration:none;font-weight:600}
+.ps-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px;border-top:1px solid var(--border-soft);font-size:13px}
+.ps-row:first-of-type{border-top:0}
+.ps-row .k{width:92px;color:var(--muted);flex:none}
+.ps-row form{margin:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ps-row .form-input{font-size:12.5px;padding:5px 8px}
+.ps-act{padding:8px 16px 12px;font-size:13px}
+.ps-act li{padding:6px 0;border-top:1px solid var(--border-soft);list-style:none;display:flex;gap:10px}
+.ps-act li:first-child{border-top:0}
+.ps-act .t{color:var(--muted);width:76px;flex:none;font-size:12px}
+.ps-act ul{margin:0;padding:0}
+</style>
+<div class="cc-wrap">
+  <div class="ps-h">
+    {{template "ubub" .Bubble}}
+    <div><h1>{{$u.DisplayName}} <span class="cc-pill {{rolePill $u.Role}}" style="vertical-align:middle;margin-left:6px;font-size:12px">{{roleLabel $u.Role}}</span></h1>
+      <small>{{if $u.Email}}{{$u.Email}}{{else}}{{$u.Username}}{{end}}{{if .Stats}}{{if .Stats.LastAt}} · last active {{timeSince (deref .Stats.LastAt)}}{{end}}{{end}}</small></div>
+  </div>
+  {{template "users-tabs" .}}
+  <div class="ps-grid">
+    <div>
+      <div class="cc-card ps-card" id="access">
+        <div class="ps-ch"><h2>Access</h2>{{if .CanGive}}<a href="/users/access?role={{$u.Role}}">{{roleLabel $u.Role}} access for everyone →</a>{{end}}</div>
+        <p class="acc-sent">{{.Sentence}}</p>
+        {{if .Grants}}
+        <div class="ft-wrap"><table class="ft">
+          <thead><tr><th>Where</th><th style="width:100px">Level</th><th style="width:150px">From</th><th style="width:110px">Until</th><th style="width:80px"><span class="sr-only">Remove</span></th></tr></thead>
+          <tbody>{{range .Grants}}
+          <tr class="ft-row{{if .Expired $.Now}} acc-exp{{end}}">
+            <td><b>{{accessScopeText .AccessLevel}}</b></td>
+            <td><span class="acc-lvl l-{{.Level}}">{{title .Level}}</span></td>
+            <td>{{if .From}}<span class="muted">{{.From}} role</span>{{else}}<span class="cc-tag accent">their own</span>{{end}}</td>
+            <td>{{if .Until}}{{if .Expired $.Now}}<span class="cc-tag">ended {{.Until.Format "2 Jan"}}</span>{{else}}{{.Until.Format "2 Jan 2006"}}{{end}}{{else}}<span class="muted">no end</span>{{end}}</td>
+            <td>{{if not .From}}<form method="POST" action="/users/access/levels/{{.ID}}/delete" hx-boost="false" class="acc-x" onsubmit="return confirm(this.dataset.q)" data-q="Remove this access from {{$.FirstName}}?"><input type="hidden" name="back" value="{{$.Back}}"><button type="submit">Remove</button></form>{{end}}</td>
+          </tr>{{end}}</tbody>
+        </table></div>
+        {{end}}
+        {{if .CanGive}}{{template "acc-give" (dict "SubjectType" "user" "Subject" $u.Username "Back" .Back "Label" (printf "Give %s access" .FirstName) "Groups" .Groups "Venues" .Venues "Field" (eq $u.Role "field"))}}{{template "acc-levels-key" .}}{{end}}
+      </div>
+      {{if .CanSeeActivity}}
+      <div class="cc-card ps-card">
+        <div class="ps-ch"><h2>Recent activity</h2><a href="/activity?actor={{$u.Username}}">All of it →</a></div>
+        {{if .Recent}}<div class="ps-act"><ul>{{range .Recent}}<li><span class="t" title="{{localTime .CreatedAt}}">{{timeSince .CreatedAt}}</span><span>{{auditSentence .}}</span></li>{{end}}</ul></div>
+        {{else}}<p class="acc-key" style="padding-top:12px">Nothing yet.</p>{{end}}
+      </div>
+      {{end}}
+    </div>
+    <aside>
+      <div class="cc-card ps-card">
+        <div class="ps-ch"><h2>Account</h2></div>
+        <div style="padding-top:6px">
+        {{if .Assignable}}<div class="ps-row"><span class="k">Role</span><form method="POST" action="/users/{{$u.ID}}/role" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}">
+          <select name="role" class="form-input" aria-label="Role" onchange="if(confirm('Change {{$u.DisplayName}}\'s role? They are signed out so it applies now.'))this.form.requestSubmit();else this.value='{{$u.Role}}'">
+            {{$cur := $u.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}</option>{{end}}
+            {{$found := false}}{{range .Assignable}}{{if eq . $cur}}{{$found = true}}{{end}}{{end}}{{if not $found}}<option value="{{$cur}}" selected disabled>{{roleLabel $cur}}</option>{{end}}
+          </select></form></div>{{end}}
+        <div class="ps-row"><span class="k">Name</span><form method="POST" action="/users/{{$u.ID}}/name" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input class="form-input" name="first_name" value="{{$u.FirstName}}" placeholder="First" aria-label="First name" style="width:96px"><input class="form-input" name="last_name" value="{{$u.LastName}}" placeholder="Last" aria-label="Last name" style="width:96px"><button type="submit" class="cc-btn sm">Save</button></form></div>
+        {{if .CanEditAvatar}}<div class="ps-row"><span class="k">Picture</span><form method="POST" action="/users/{{$u.ID}}/avatar" enctype="multipart/form-data" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input type="file" name="avatar" accept="image/*" aria-label="Picture" style="max-width:170px;font-size:12px"><button type="submit" class="cc-btn sm">Upload</button></form></div>{{end}}
+        {{if .Invited}}<div class="ps-row"><span class="k">Invite</span><span class="muted">sent {{timeSince (deref .Invited)}}, not used</span><form method="POST" action="/users/{{$u.ID}}/invite" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><button type="submit" class="cc-btn sm">Send again</button></form></div>{{end}}
+        {{if and .IsSuperAdmin $u.Email (not $u.EmailVerifiedAt)}}<div class="ps-row"><span class="k">Email</span><span class="muted">not verified</span><form method="POST" action="/users/{{$u.ID}}/verify-email" hx-boost="false"><button type="submit" class="cc-btn sm">Verify</button></form></div>{{end}}
+        <div class="ps-row"><span class="k">Password</span><form method="POST" action="/users/{{$u.ID}}/password" hx-boost="false"><input type="hidden" name="redirect" value="{{.Back}}"><input type="password" class="form-input" name="password" minlength="6" placeholder="New password" aria-label="New password" autocomplete="new-password" style="width:150px"><button type="submit" class="cc-btn sm">Set</button></form></div>
+        {{if .CanDelete}}<div class="ps-row"><span class="k">Remove</span><form method="POST" action="/users/{{$u.ID}}/delete" hx-boost="false" onsubmit="return confirm(this.dataset.q)" data-q="Remove {{$u.DisplayName}} ({{$u.Username}})? They lose access straight away."><button type="submit" class="cc-btn sm danger">Remove {{.FirstName}}</button></form></div>{{end}}
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+{{template "footer" .}}
+{{end}}

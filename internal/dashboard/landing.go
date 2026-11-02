@@ -202,6 +202,7 @@ func (h *Handler) SneakPeekFleet(w http.ResponseWriter, r *http.Request) {
 		"Products": product.All(), "Classes": product.Classes(),
 		"SelectedCollection": "All devices", "SelectedCount": n,
 		"ActiveRestaurant": nil, "ActiveGroup": nil, "ActiveReleaseID": 0,
+		"RailTab": "restaurants", "ClearHref": "/sneak-peek/devices",
 		"View": "", "ViewID": "", "ViewColl": "",
 		"Page": 1, "TotalPages": 1, "Query": "", "PageSize": 200,
 		"Summary": summary, "Sort": "", "SortDir": "",

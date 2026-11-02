@@ -7,6 +7,7 @@ import (
 	_ "image/jpeg"
 	"math"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -520,7 +521,38 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// fleet list that calls that "offline" sends someone to look for working hardware.
 	custody, _ := h.db.DeviceCustodyMap(r.Context(), nickIDs)
 	enrollers, _ := h.db.ListEnrollers(r.Context())
+	// Rail tabs (T1, picked 2 Nov 2026): Restaurants or Groups, one list at a time. The
+	// selected collection opens its tab; otherwise someone who may only look at every
+	// restaurant (an engineer) starts on Groups, everyone else on Restaurants (the page
+	// then applies the person's last tab). R1: a lock on the Restaurants tab when every
+	// restaurant is view-only, and on each group that is.
+	acc := h.access(r)
+	lockedVenues, lockedGroups := acc.collectionLocks()
+	restaurantsLocked := len(railRests) > 0 && !acc.unrestricted()
+	for _, x := range railRests {
+		if !lockedVenues[x.GroupID.String()] {
+			restaurantsLocked = false
+			break
+		}
+	}
+	railTab := "restaurants"
+	switch {
+	case activeGroup != "":
+		railTab = "groups"
+	case activeRestaurant != "":
+	case restaurantsLocked:
+		railTab = "groups"
+	}
+	clearHref := "/devices"
+	if st := qv.Get("state"); st != "" {
+		clearHref += "?state=" + url.QueryEscape(st)
+	}
 	data := map[string]any{
+		"RailTab":              railTab,
+		"RailTabFixed":         activeGroup != "" || activeRestaurant != "",
+		"RestaurantsLocked":    restaurantsLocked,
+		"LockedGroups":         lockedGroups,
+		"ClearHref":            clearHref,
 		"Title":                "Devices",
 		"Devices":              devices,
 		"Custody":              custody,

@@ -9,9 +9,9 @@ import (
 	"mdm/internal/db"
 )
 
-// TestEngineerReadOnlyAtVenues: an engineer may do everything their role holds on a Lab
-// device; on a device at a venue (setting up or in service) only look, screenshot and
-// collect logs (user, 30 Oct 2026: "for Engineer, deployed devices should be read only").
+// TestEngineerReadOnlyAtVenues: with the seeded levels (access by levels, 2 Nov 2026) an
+// engineer operates Lab devices (Operate: no remote control, Wi-Fi or moving devices) and
+// only looks at, screenshots and collects logs from devices at a venue.
 func TestEngineerReadOnlyAtVenues(t *testing.T) {
 	v := venueV
 	lab, setup, live := uuid.New(), uuid.New(), uuid.New()
@@ -20,6 +20,8 @@ func TestEngineerReadOnlyAtVenues(t *testing.T) {
 	}}
 	a.once.Do(func() {})
 	a.visitOnce.Do(func() { a.visitVenues = map[uuid.UUID]bool{} })
+	a.lvls = seedLevels("engineer")
+	a.lvlOnce.Do(func() {})
 	ceiling := roleCeiling("engineer")
 	for _, act := range accessActions {
 		if act.Fleet {
@@ -30,9 +32,9 @@ func TestEngineerReadOnlyAtVenues(t *testing.T) {
 			dev  uuid.UUID
 			want bool
 		}{
-			{"lab", lab, ceiling[act.Key]},
-			{"setting up", setup, ceiling[act.Key] && engineerLookActions[act.Key]},
-			{"in service", live, ceiling[act.Key] && engineerLookActions[act.Key]},
+			{"lab", lab, ceiling[act.Key] && needLevel(act.Key) <= db.LevelOperate},
+			{"setting up", setup, ceiling[act.Key] && needLevel(act.Key) <= db.LevelView},
+			{"in service", live, ceiling[act.Key] && needLevel(act.Key) <= db.LevelView},
 		} {
 			d := c.dev
 			if got := a.decide(act.Key, &d).Allowed; got != c.want {
@@ -47,22 +49,23 @@ func TestEngineerReadOnlyAtVenues(t *testing.T) {
 			t.Errorf("%s at a venue must stay allowed", k)
 		}
 	}
-	// Bulk sends and group changes count the venue devices.
+	// Bulk sends count the devices their level is too low for.
 	if n := a.engineerVenueCount("reboot", []uuid.UUID{lab, setup, live}); n != 2 {
-		t.Errorf("reboot over lab+setup+live: %d at a venue, want 2", n)
+		t.Errorf("reboot over lab+setup+live: %d refused, want 2", n)
 	}
 	if n := a.engineerVenueCount("screenshot", []uuid.UUID{setup, live}); n != 0 {
 		t.Errorf("screenshots are a look action: %d refused, want 0", n)
 	}
-	if n := a.engineerVenueCount("groups", []uuid.UUID{lab}); n != 0 {
-		t.Errorf("a lab-only group: %d refused, want 0", n)
+	// Moving devices between groups is Manage: Lab's Operate doesn't reach it.
+	if n := a.engineerVenueCount("groups", []uuid.UUID{lab}); n != 1 {
+		t.Errorf("a lab-only group change: %d refused, want 1 (Manage)", n)
 	}
 	other := &access{ctx: context.Background(), role: "operator", scopes: a.scopes}
 	other.once.Do(func() {})
 	if n := other.engineerVenueCount("reboot", []uuid.UUID{live}); n != 0 {
 		t.Errorf("only engineers are counted: %d", n)
 	}
-	// Alerts: an engineer acts on Lab devices' alerts only.
+	// Alerts: an engineer acts on the alerts of devices they may operate.
 	alerts := []db.Alert{{ID: uuid.New(), DeviceID: &lab, Type: "device_offline"}, {ID: uuid.New(), DeviceID: &live, Type: "device_offline"}, {ID: uuid.New(), Type: "venue_offline"}}
 	if got := a.keepActableAlerts(alerts); len(got) != 1 || *got[0].DeviceID != lab {
 		t.Errorf("actable alerts: %+v, want only the lab device's", got)

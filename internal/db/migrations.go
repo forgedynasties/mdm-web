@@ -1907,11 +1907,8 @@ CREATE TABLE IF NOT EXISTS access_profiles (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-INSERT INTO access_profiles (name, description, actions, builtin, position) VALUES
-  ('Look only', 'See devices and alerts. No commands.', '{view}', true, 0),
-  ('Look and fix', 'Screenshot, restart, reload the app, kiosk, run diagnostics, collect logs, notes and the queue.', '{view,screenshot,reboot,app_control,query,logcat,kiosk,notes,queue}', true, 1),
-  ('Manage apps too', 'Everything in "Look and fix", plus install and remove apps.', '{view,screenshot,reboot,app_control,query,logcat,kiosk,notes,queue,install_apk,uninstall}', true, 2)
-ON CONFLICT (name) DO NOTHING;
+-- The three built-in profiles were seeded here until access by levels replaced them
+-- (2 Nov 2026, access_levels.go drops them once).
 ALTER TABLE access_grants ADD COLUMN IF NOT EXISTS profile_id UUID REFERENCES access_profiles(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS alert_digests (

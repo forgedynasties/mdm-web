@@ -1,9 +1,11 @@
 package dashboard
 
 import (
+	"html/template"
 	_ "image/gif"
 	_ "image/jpeg"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -104,6 +106,42 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		}
 		entries = kept
 	}
+	// V1 (access by levels, 2 Nov 2026): a time window and a kind, both on the server so
+	// paging stays right; the rail counts each kind within the window.
+	days := r.URL.Query().Get("days")
+	switch days {
+	case "1", "30", "all":
+	default:
+		days = "7"
+	}
+	if days != "all" {
+		n, _ := strconv.Atoi(days)
+		since := time.Now().Add(-time.Duration(n) * 24 * time.Hour)
+		kept := entries[:0:0]
+		for _, e := range entries {
+			if e.CreatedAt.After(since) {
+				kept = append(kept, e)
+			}
+		}
+		entries = kept
+	}
+	kindCount := map[string]int{"": len(entries)}
+	for _, e := range entries {
+		kindCount[activityKind(e.Action)]++
+	}
+	kind := r.URL.Query().Get("kind")
+	if _, ok := activityKinds[kind]; !ok {
+		kind = ""
+	}
+	if kind != "" {
+		kept := entries[:0:0]
+		for _, e := range entries {
+			if activityKind(e.Action) == kind {
+				kept = append(kept, e)
+			}
+		}
+		entries = kept
+	}
 
 	// KPI strip: today / this-week counts, distinct users, most common action —
 	// computed over the same (already actor-filtered) entry set the table shows.
@@ -173,5 +211,63 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"DistinctUsers": len(distinctUsers),
 		"TopAction":     topAction,
 		"TopActionN":    topActionN,
+		"BaseQS":        activityQS(actor, days, deviceSerial, showAdmin, showViews),
+		"Days":          days,
+		"Kind":          kind,
+		"KindCount":     kindCount,
+		"Kinds":         activityKindOrder,
 	})
+}
+
+// Activity kinds (V1): the rail of the Activity table.
+var activityKinds = map[string]string{
+	"devices": "Devices", "places": "Groups & venues", "people": "People & access",
+	"updates": "Updates & apps", "signin": "Sign-ins", "settings": "Settings",
+}
+
+type activityKindItem struct{ Key, Label string }
+
+var activityKindOrder = []activityKindItem{
+	{"devices", "Devices"}, {"places", "Groups & venues"}, {"people", "People & access"},
+	{"updates", "Updates & apps"}, {"signin", "Sign-ins"}, {"settings", "Settings"},
+}
+
+// activityKind sorts an audit action into one of the rail's kinds.
+func activityKind(action string) string {
+	pre, _, _ := strings.Cut(action, ".")
+	switch pre {
+	case "device", "command", "kiosk", "lost", "remote", "shell", "queue", "screenshot", "wifi", "testdata":
+		return "devices"
+	case "group", "restaurant", "venue", "visit", "setup", "lock":
+		return "places"
+	case "user", "access", "invite", "team", "role":
+		return "people"
+	case "ota", "release", "deployment", "legacy_ota", "app", "apps", "client", "pipeline", "firmware", "library":
+		return "updates"
+	case "auth", "login", "logout", "session", "password":
+		return "signin"
+	case "settings", "config":
+		return "settings"
+	}
+	return "devices"
+}
+
+// activityQS is the Activity filter's query string without kind and page, for the rail
+// and pager links.
+func activityQS(actor, days, device string, admin, views bool) template.URL {
+	q := url.Values{}
+	if actor != "" {
+		q.Set("actor", actor)
+	}
+	q.Set("days", days)
+	if device != "" {
+		q.Set("device", device)
+	}
+	if admin {
+		q.Set("admin", "1")
+	}
+	if views {
+		q.Set("views", "1")
+	}
+	return template.URL(q.Encode())
 }

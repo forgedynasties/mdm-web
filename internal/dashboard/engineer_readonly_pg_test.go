@@ -129,7 +129,15 @@ func TestEngineerReadOnlyRoutes(t *testing.T) {
 	refused("bulk lock at a venue", "/devices/bulk-kiosk", v("serials", venueSerial, "kiosk_enabled", "0"))
 	// Groups.
 	refused("group with a venue device", "/groups", v("name", "RO mixed "+stamp, "serials", venueSerial))
-	allowed("group of lab devices", "/groups", v("name", "RO lab "+stamp, "serials", labSerial))
+	// Moving devices into a group is Manage (access by levels, 2 Nov 2026): engineers operate
+	// Lab devices, so a group of them needs Manage given on top.
+	refused("group of lab devices on Operate", "/groups", v("name", "RO lab "+stamp, "serials", labSerial))
+	if err := d.SetAccessLevel(ctx, db.AccessLevel{SubjectType: "user", Subject: eng.Username, ScopeType: "state", State: db.StateLab, Level: "manage", CreatedBy: "test"}); err != nil {
+		t.Fatal(err)
+	}
+	invalidateLevels()
+	allowed("group of lab devices with Manage on Lab", "/groups", v("name", "RO lab "+stamp, "serials", labSerial))
+	defer d.DeleteUserAccessLevels(ctx, eng.Username)
 	g, err := d.CreateGroup(ctx, "RO venue group "+stamp)
 	if err != nil {
 		t.Fatal(err)

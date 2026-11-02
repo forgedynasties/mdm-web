@@ -572,22 +572,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/merge", h.requireStrictAdmin(h.UserMergeActor)) // Unlinked activity: super admin only
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireAuth(h.UserProfilePage))
-	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
-	mux.HandleFunc("GET /users/access/scope-search", h.requireUserManager(h.fleetWide(h.AccessScopeSearch)))
-	mux.HandleFunc("GET /users/access/who", h.requireUserManager(h.fleetWide(h.AccessWhoCanSee)))
+	// Access by levels (2 Nov 2026): a card per role, grants given to roles and people. The
+	// old rules editor, matrix and profiles are gone; their pages lead here.
+	mux.HandleFunc("GET /users/access", h.requireUserManager(h.AccessPage))
+	post("POST /users/access/levels", h.requireUserManager(h.AccessLevelSet))
+	post("POST /users/access/levels/{id}/delete", h.requireUserManager(h.AccessLevelDelete))
+	mux.HandleFunc("GET /users/access/profiles", h.requireUserManager(redirectTo("/users/access")))
+	mux.HandleFunc("GET /users/activity", h.requireUserManager(redirectTo("/activity")))
 	mux.HandleFunc("GET /users/{id}/access", h.requireUserManager(h.UserAccessPage))
 	mux.HandleFunc("GET /users/{id}/manage", h.requireUserManager(h.UserAccessPage))
-	mux.HandleFunc("GET /users/{id}/access/check", h.requireUserManager(h.UserAccessCheck))
-	post("POST /users/{id}/access/base", h.requireUserManager(h.UserAccessSetBase))
-	post("POST /users/{id}/access/grants", h.requireUserManager(h.UserAccessAddGrant))
-	post("POST /users/{id}/access/grants/{gid}/edit", h.requireUserManager(h.UserAccessEditGrant))
-	post("POST /users/{id}/access/grants/{gid}/delete", h.requireUserManager(h.UserAccessDeleteGrant))
-	post("POST /users/{id}/access/simple", h.requireUserManager(h.UserAccessSimpleSave))
-	post("POST /users/{id}/access/simple/preview", h.requireUserManager(h.UserAccessSimplePreview))
-	mux.HandleFunc("GET /users/access/profiles", h.requireUserManager(h.AccessProfilesPage))
-	post("POST /users/access/profiles", h.requireUserManager(h.AccessProfileSave))
-	post("POST /users/access/profiles/{pid}", h.requireUserManager(h.AccessProfileSave))
-	post("POST /users/access/profiles/{pid}/delete", h.requireUserManager(h.AccessProfileDelete))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE

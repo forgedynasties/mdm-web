@@ -1,10 +1,67 @@
-{{/* People tabs (audit, 24 Oct 2026): the People section's pages, in the menu's order.
-     Shown under the header of /users, /users/access, /users/access/profiles, /activity. */}}
+{{/* People tabs: one strip for the People section (access by levels, 2 Nov 2026: People ·
+     Access · Activity; the second strip and the profiles tab are gone). */}}
 {{define "users-tabs"}}
-<nav class="cc-tabs" aria-label="People" style="display:flex;gap:4px;margin:-6px 0 16px;padding:3px;background:var(--surface-3);border:1px solid var(--border);border-radius:11px;width:max-content;">
-  <a href="/users" class="cc-btn sm js-dest{{if eq .UsersTab "people"}} primary{{end}}"{{if eq .UsersTab "people"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "people"}}background:transparent;box-shadow:none;{{end}}">Users</a>
-  <a href="/users/access" class="cc-btn sm js-dest{{if eq .UsersTab "access"}} primary{{end}}"{{if eq .UsersTab "access"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "access"}}background:transparent;box-shadow:none;{{end}}">Access rules</a>
-  <a href="/users/access/profiles" class="cc-btn sm js-dest{{if eq .UsersTab "profiles"}} primary{{end}}"{{if eq .UsersTab "profiles"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "profiles"}}background:transparent;box-shadow:none;{{end}}">Access profiles</a>
-  <a href="/activity" class="cc-btn sm js-dest{{if eq .UsersTab "activity"}} primary{{end}}"{{if eq .UsersTab "activity"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "activity"}}background:transparent;box-shadow:none;{{end}}">Activity log</a>
+<nav class="cc-tabs" aria-label="People" style="display:flex;gap:4px;margin:-6px 0 16px;padding:3px;background:var(--surface-3);border:1px solid var(--border);border-radius:11px;width:max-content;max-width:100%;overflow-x:auto;">
+  <a href="/users" class="cc-btn sm js-dest{{if eq .UsersTab "people"}} primary{{end}}"{{if eq .UsersTab "people"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "people"}}background:transparent;box-shadow:none;{{end}}">People</a>
+  <a href="/users/access" class="cc-btn sm js-dest{{if eq .UsersTab "access"}} primary{{end}}"{{if eq .UsersTab "access"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "access"}}background:transparent;box-shadow:none;{{end}}">Access</a>
+  {{if eq .Role "admin"}}<a href="/activity" class="cc-btn sm js-dest{{if eq .UsersTab "activity"}} primary{{end}}"{{if eq .UsersTab "activity"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "activity"}}background:transparent;box-shadow:none;{{end}}">Activity</a>{{end}}
 </nav>
+{{end}}
+
+{{/* Give access (access by levels): where, level, until. dict: SubjectType, Subject, Back,
+     Label ("Give engineers access"), Groups, Venues, Field (offer "their setup visits"). */}}
+{{define "acc-give"}}
+<form method="POST" action="/users/access/levels" class="acc-give" hx-boost="false">
+  <input type="hidden" name="subject_type" value="{{.SubjectType}}">
+  <input type="hidden" name="subject" value="{{.Subject}}">
+  <input type="hidden" name="back" value="{{.Back}}">
+  <span class="acc-give-t">{{.Label}}</span>
+  <label><span class="sr-only">Where</span><select name="where" class="en-sel" required>
+    <option value="" selected disabled>Where…</option>
+    <option value="all">Every device</option>
+    <option value="state:lab">Lab devices (no venue)</option>
+    <option value="state:setting_up">Devices being set up</option>
+    <option value="state:in_service">Devices in service</option>
+    {{if .Field}}<option value="visit">The venues of their setup visits</option>{{end}}
+    {{with .Groups}}<optgroup label="Groups">{{range .}}<option value="group:{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}
+    {{with .Venues}}<optgroup label="Venues">{{range .}}<option value="venue:{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}
+  </select></label>
+  <span class="acc-lv" role="radiogroup" aria-label="Level">
+    <label><input type="radio" name="level" value="view" required>View</label>
+    <label><input type="radio" name="level" value="operate" checked>Operate</label>
+    <label><input type="radio" name="level" value="manage">Manage</label>
+  </span>
+  <label class="acc-until">Until <input type="date" name="until" class="en-sel" aria-label="Until (optional)"></label>
+  <button type="submit" class="cc-btn sm primary">Give access</button>
+</form>
+{{end}}
+
+{{/* The levels, in words, under each give-access form. */}}
+{{define "acc-levels-key"}}
+<p class="acc-key"><b>View</b> look, screenshot, collect logs · <b>Operate</b> + reboot, lock, lost mode, apps, notes, alerts · <b>Manage</b> + remote control, Wi-Fi, moving devices. Shell and firmware updates stay with super admins.</p>
+{{end}}
+
+{{define "acc-css"}}
+<style>
+.acc-give{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--border-soft)}
+.acc-give-t{font-weight:650;font-size:13px;margin-right:4px}
+.acc-give select{max-width:260px}
+.acc-lv{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.acc-lv label{display:inline-flex;align-items:center;padding:5px 10px;font-size:12.5px;cursor:pointer;border-left:1px solid var(--border)}
+.acc-lv label:first-child{border-left:0}
+.acc-lv input{position:absolute;opacity:0;pointer-events:none}
+.acc-lv label:has(input:checked){background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+.acc-lv label:has(input:focus-visible){box-shadow:var(--ring)}
+.acc-until{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+.acc-key{margin:0;padding:0 16px 12px;font-size:12px;color:var(--muted)}
+.acc-sent{margin:0;padding:12px 16px 4px;font-size:13.5px;line-height:1.5}
+.acc-lvl{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:650;background:var(--surface2);color:var(--text-2)}
+.acc-lvl.l-operate{background:var(--accent-soft);color:var(--accent-text)}
+.acc-lvl.l-manage{background:var(--warn-bg);color:var(--warn)}
+.acc-x{margin:0}
+.acc-x button{border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;font-size:12.5px;padding:4px 6px;border-radius:6px}
+.acc-x button:hover{background:var(--hover);color:var(--danger)}
+.acc-exp{opacity:.55}
+@media (max-width:720px){.acc-give select{max-width:100%;flex:1 1 100%}}
+</style>
 {{end}}

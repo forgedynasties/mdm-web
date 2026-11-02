@@ -48,7 +48,7 @@
        product key; T7s report no model and keep their catalog label. */}}
   {{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
   {{$online := index $.Online .ID}}
-  <tr class="ft-row {{rowClasses .}}" data-ctx="device" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-type="{{.ClassLabel}}"{{if .RestaurantID}} data-atv="1"{{end}}{{if .KioskEnabled}} data-locked="1"{{end}} data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
+  <tr class="ft-row {{rowClasses .}}" data-ctx="device" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-type="{{.ClassLabel}}"{{if .RestaurantID}} data-atv="1"{{end}}{{if .ViewOnly}} data-ro="1"{{end}}{{if .KioskEnabled}} data-locked="1"{{end}} data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
     {{if $.Selectable}}<td class="ft-cb"><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}"></td>{{end}}
     <td class="ft-dev">
       <div class="ft-l1">
@@ -124,7 +124,7 @@
 <div class="dl-list dl-serial-list">
   {{range .Devices}}
   {{$kind := deviceIcon .}}
-  <div class="dl-card dl-sc {{rowClasses .}}" data-ctx="device" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-type="{{.ClassLabel}}"{{if .RestaurantID}} data-atv="1"{{end}}{{if .KioskEnabled}} data-locked="1"{{end}} data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
+  <div class="dl-card dl-sc {{rowClasses .}}" data-ctx="device" data-serial="{{.SerialNumber}}" data-class="{{.Class}}" data-type="{{.ClassLabel}}"{{if .RestaurantID}} data-atv="1"{{end}}{{if .ViewOnly}} data-ro="1"{{end}}{{if .KioskEnabled}} data-locked="1"{{end}} data-kind="{{$kind}}" data-agent="{{if .IsDPC}}dpc{{else}}firmware{{end}}" data-model="{{.ProductKey}}" data-model-label="{{.ProductLabel}}">
     {{$flap := 0}}{{if $.Flapping}}{{$flap = index $.Flapping .ID}}{{end}}
     {{$noPack := and (ne $kind "dongle") (batteryMissing .LatestExtra)}}
     {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
@@ -366,6 +366,25 @@
 .fleet-rail{border-radius:var(--r-4)!important;box-shadow:var(--shadow-sm);padding-top:10px!important}
 .fleet-rail-item.on{border:1px solid var(--accent-edge)}
 .fleet-rail-item{min-height:40px}
+.rail-tabs{display:flex;align-items:center;gap:6px;margin:2px 4px 8px}
+.rail-seg{display:flex;flex:1;min-width:0;padding:3px;gap:2px;border:1px solid var(--border);border-radius:10px;background:var(--surface-3,var(--surface2))}
+.rail-seg [role=tab]{flex:1;min-width:0;display:inline-flex;align-items:center;justify-content:center;gap:5px;height:30px;padding:0 8px;border:0;border-radius:7px;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.rail-seg [role=tab] .n{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.rail-seg [role=tab][aria-selected=true]{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm,0 1px 2px rgba(0,0,0,.08))}
+.rail-seg [role=tab]:focus-visible{box-shadow:var(--ring);outline:none}
+.rail-tabs .rt-add{flex:none;width:30px;height:30px;display:inline-grid;place-items:center;border:1px solid var(--border);border-radius:9px;color:var(--text-2);text-decoration:none;font-size:16px}
+.rail-tabs .rt-add:hover{background:var(--hover);color:var(--text)}
+.rail-tabs .rt-add[hidden]{display:none}
+.rail-lock{display:inline-flex;align-items:center;color:var(--muted)}
+.rail-lock svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.fleet-rail-item .rail-lock{margin-left:6px}
+.fleet-rail-list[hidden]{display:none}
+@media(max-width:720px){
+  .fleet-rail .fleet-rail-list:not([hidden]){display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .fleet-rail .fleet-rail-list .fleet-rail-item{flex:none;min-height:34px;white-space:nowrap}
+  .fleet-rail .fleet-rail-list .fleet-rail-more{display:none}
+  .fleet-rail .fleet-rail-list .fleet-rail-item[hidden]{display:flex}
+}
 .rail-ro{display:inline-flex;align-items:center;gap:4px;margin-left:auto;font-size:10.5px;font-weight:650;letter-spacing:.02em;color:var(--muted);white-space:nowrap}
 .rail-ro svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 a.fleet-rail-item{min-height:40px}
@@ -498,43 +517,43 @@ a.fleet-rail-item{min-height:40px}
 </div>
 
 <div class="fleet-md dv-rise-1">
-  {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
+  {{/* ── Collections rail: Restaurants · Groups tabs (T1) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <div class="fleet-rail-cap">Collections</div>
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices" data-ini="All">
-      <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
-    </a>
-
-
-
-
-    <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a>{{if eq .Role "engineer"}}<span class="rail-ro" title="Read only: devices at restaurants can be looked at, screenshotted and have their logs collected, nothing else"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>Read only</span>{{else}}<a href="/restaurants/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a>{{end}}</div>
-    <div class="fleet-rail-list" data-sec="restaurants">
-    {{range .RailRestaurants}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="venue" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "restaurants"}} data-page="/restaurants/{{.GroupID}}"{{end}}>
-      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="vicon-dot">{{venueIcon .GroupID .Name "sm"}}<span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span></span><span class="nm">{{.Name}}</span></a>
+    {{/* Rail tabs (T1, picked 2 Nov 2026): Restaurants or Groups, one list at a time, with
+         the + for the open tab; the last tab is remembered per person (rail.js). No "All
+         devices" entry: clicking the selected item again clears the filter. R1: the
+         Restaurants tab carries a lock when every restaurant is view-only for this person,
+         and each view-only group carries one. */}}
+    <div class="rail-tabs" data-rail-tabs data-tab="{{.RailTab}}"{{if .RailTabFixed}} data-fixed="1"{{end}}>
+      <div class="rail-seg" role="tablist" aria-label="Restaurants or groups">
+        <button type="button" role="tab" id="rt-restaurants" data-rt="restaurants" aria-controls="rail-restaurants" aria-selected="{{eq .RailTab "restaurants"}}"{{if .RestaurantsLocked}} title="View only: you can look at restaurant devices, take screenshots and collect logs"{{end}}>{{if .RestaurantsLocked}}<span class="rail-lock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></span>{{end}}Restaurants <span class="n">{{len .RailRestaurants}}</span></button>
+        <button type="button" role="tab" id="rt-groups" data-rt="groups" aria-controls="rail-groups" aria-selected="{{eq .RailTab "groups"}}">Groups <span class="n">{{len .RailGroups}}</span></button>
+      </div>
+      {{if not .RestaurantsLocked}}<a href="/restaurants/new" class="add rt-add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" data-rt-add="restaurants"{{if ne .RailTab "restaurants"}} hidden{{end}} title="{{if canAdminOrOperator .Role}}New restaurant{{else}}Requires the operator role{{end}}" data-role-need="operator" aria-label="New restaurant">+</a>{{end}}
+      <a href="/groups/new" class="add rt-add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" data-rt-add="groups"{{if ne .RailTab "groups"}} hidden{{end}} title="{{if canAdminOrOperator .Role}}New group{{else}}Requires the operator role{{end}}" data-role-need="operator" aria-label="New group">+</a>
+    </div>
+    <div class="fleet-rail-list" data-sec="restaurants" id="rail-restaurants" role="tabpanel" aria-labelledby="rt-restaurants"{{if ne .RailTab "restaurants"}} hidden{{end}}>
+    {{range .RailRestaurants}}{{$on := eq (printf "%s" .GroupID) $.ActiveRestaurant}}
+    <div class="fleet-rail-item{{if $on}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="venue" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "restaurants"}} data-page="/restaurants/{{.GroupID}}"{{end}}>
+      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?restaurant={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="vicon-dot">{{venueIcon .GroupID .Name "sm"}}<span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span></span><span class="nm">{{.Name}}</span></a>
       {{if canOpenPage $.Role "restaurants"}}<a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>{{end}}
       <span class="ct">{{.DeviceCount}}</span>
     </div>
-    {{end}}
-    </div>
-    {{if not .RailRestaurants}}
+    {{else}}
     <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
     {{end}}
-
-    <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a><a href="/groups/new" class="add{{if not (canAdminOrOperator .Role)}} role-locked{{end}}" title="{{if canAdminOrOperator .Role}}New group{{else}}Requires the operator role{{end}}" data-role-need="operator">+</a></div>
-    <div class="fleet-rail-list" data-sec="groups">
-    {{range .RailGroups}}
-    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="group" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "groups"}} data-page="/groups/{{.GroupID}}"{{end}}>
-      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
+    </div>
+    <div class="fleet-rail-list" data-sec="groups" id="rail-groups" role="tabpanel" aria-labelledby="rt-groups"{{if ne .RailTab "groups"}} hidden{{end}}>
+    {{range .RailGroups}}{{$on := eq (printf "%s" .GroupID) $.ActiveGroup}}{{$lk := index $.LockedGroups (printf "%s" .GroupID)}}
+    <div class="fleet-rail-item{{if $on}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="group" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "groups"}} data-page="/groups/{{.GroupID}}"{{end}}>
+      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?group={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span>{{if $lk}}<span class="rail-lock" title="View only: you can look, take screenshots and collect logs here"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><span class="sr-only">view only</span></span>{{end}}</a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
-    {{end}}
-    </div>
-    {{if not .RailGroups}}
+    {{else}}
     <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
     {{end}}
+    </div>
 
     {{/* No Releases section (16 Oct): releases live on /releases; filter by one with + Filter → Release. */}}
   </aside>

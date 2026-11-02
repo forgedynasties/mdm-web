@@ -43,8 +43,8 @@ func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 	// the management and access cards appear only for those who may manage them.
 	canManage := roleManagesUsers(h.role(r)) && mayManageUser(h.role(r), u.Role, "")
 	if canManage {
-		// I1 (21 Oct 2026): for whoever may manage them, Profile and Manage are one page.
-		h.renderUserI1(w, r, u)
+		// The person page (U1, access by levels, 2 Nov 2026) for whoever may manage them.
+		h.renderPerson(w, r, u)
 		return
 	}
 	h.renderProfile(w, r, u.Username, true)

@@ -1,160 +1,82 @@
 {{define "activity.html"}}
 {{template "header" .}}
-<nav class="nav-pills" aria-label="People">
-  <span class="cap">People</span>
-  <a href="/users" class="{{if eq .ActivePath "/users"}}on{{end}}">Everyone</a>
-  <a href="/activity" class="{{if eq .ActivePath "/activity"}}on{{end}}">Activity</a>
-  <a href="/users/access" class="{{if hasPrefix .ActivePath "/users/access"}}on{{end}}">Access control</a>
-</nav>
-
+{{/* Activity (V1, access by levels, picked 2 Nov 2026): Fleet's list language. A rail of
+     kinds, person / time / device filters, one row per action in plain words linked to the
+     person and the device. Super admins only. activity.go */}}
+<template id="page-island">
+  <span class="isl-dot on"></span>
+  <span class="isl-t">Activity</span>
+  <span class="isl-s"><b>{{.Total}}</b> action{{if ne .Total 1}}s{{end}}{{if .ActorName}} by {{.ActorName}}{{end}} · {{if eq .Days "all"}}all time{{else if eq .Days "1"}}today{{else}}last {{.Days}} days{{end}}</span>
+  <span class="isl-acts"><a class="cc-btn" href="/export/report/activity.csv" hx-boost="false">Export</a></span>
+</template>
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
 <style>
-/* ── Activity · Command center ─────────────────────────── */
-.ac-filter{display:flex;align-items:center;gap:12px;padding:12px 17px;flex-wrap:wrap}
-.ac-filter select{min-width:200px}
-/* user picker: avatar bubble + name, searchable, top five most active then the rest */
-.ac-up{position:relative}
-.ac-up-btn{display:inline-flex;align-items:center;gap:8px;min-width:220px;font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);cursor:pointer}
-.ac-up-btn:hover{border-color:var(--rule-2)}
-.ac-up-btn .nm{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ac-up-btn .ubub{width:22px;height:22px;font-size:11px;margin:0}
-.ac-up-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;color:var(--muted)}
-.ac-up-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);padding:8px}
-.ac-up-pop[hidden]{display:none}
-.ac-up-q{width:100%;font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);margin-bottom:6px}
-.ac-up-cap{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 8px 3px}
-.ac-up-list{max-height:320px;overflow:auto}
-.ac-up-opt{display:flex;align-items:center;gap:9px;width:100%;text-align:left;font:inherit;font-size:13px;padding:7px 8px;border-radius:8px;border:0;background:none;color:var(--text);cursor:pointer}
-.ac-up-opt:hover,.ac-up-opt.hi{background:var(--surface2)}
-.ac-up-opt.on{background:var(--accent-soft);color:var(--accent-text)}
-.ac-up-opt .ubub{width:24px;height:24px;font-size:11px;margin:0}
-.ac-up-opt .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ac-up-opt .n{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.ac-up-more{width:100%;font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;border-top:1px solid var(--border-soft);padding:8px;cursor:pointer;text-align:left}
-.ac-up-none{font-size:12px;color:var(--muted);padding:8px}
-.ac-actor{display:flex;align-items:center;gap:9px;min-width:0}
-.ac-av.has-img{overflow:hidden;background:var(--surface2);}.ac-av.has-img img{width:100%;height:100%;object-fit:cover;display:block;}
-.ac-av{width:26px;height:26px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent-text);text-transform:uppercase}
-.ac-when{white-space:nowrap;color:var(--text-faint);font-size:12px}
-.ac-target{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;display:inline-block;vertical-align:middle}
-.ac-detail{color:var(--muted);font-size:12.5px}
-.ac-detail a{color:var(--accent-text);text-decoration:none;font-family:var(--mono)}
-.ac-detail a:hover{text-decoration:underline}
-.ht-user{color:inherit;text-decoration:none}.ht-user:hover{color:var(--accent-text)}
+.av-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+.av-f select,.av-f input{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
+.av-f input[name=device]{width:150px;font-family:var(--mono)}
+.av-who{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;min-width:0}
+.av-who .ubub{width:24px;height:24px;font-size:10px;flex:none}
+.av-what{color:var(--text-2)}
+.av-when{white-space:nowrap;color:var(--muted)}
+.cl-ft td.av-what{white-space:normal}
 </style>
-
-<div class="cc-wrap">
-
-  {{/* ── Top bar ── */}}
-  <div class="cc-top">
-    <div>
-      <h1 class="cc-h1">Activity</h1>
-    <div class="cc-status">{{.Total}} action{{if ne .Total 1}}s{{end}} logged{{if .Actor}} by <span class="hl">{{.ActorName}}</span>{{else}} by {{.DistinctUsers}} user{{if ne .DistinctUsers 1}}s{{end}}{{end}}</div>
-    </div>
-  </div>
-  {{template "users-tabs" .}}
-
-  {{/* ── KPI strip ── */}}
-  <div class="cc-kpis">
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Today</span><div class="v">{{.EntriesToday}}</div><div class="d">entries</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>This week</span><div class="v">{{.EntriesWeek}}</div><div class="d">last 7 days</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Distinct users</span><div class="v">{{.DistinctUsers}}</div><div class="d">active in log</div></div>
-    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Most common</span><div class="v" style="font-size:18px">{{.TopAction}}</div><div class="d">{{.TopActionN}} time{{if ne .TopActionN 1}}s{{end}}</div></div>
-  </div>
-
-  <div class="cc-card">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h2>Log</h2><span class="m">{{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}{{if .Actor}} for {{.ActorName}}{{end}}</span></div>
-
-    <form method="GET" action="/activity" class="ac-filter">
-      <label class="muted small" for="act-actor-btn">User</label>
-      {{$cur := .Actor}}
-      <input type="hidden" name="actor" id="act-actor" value="{{$cur}}">
-      <div class="ac-up" id="act-up">
-        <button type="button" class="ac-up-btn" id="act-actor-btn" aria-haspopup="listbox" aria-expanded="false">
-          {{if .Actor}}{{template "ubub" (userBubble .Actor)}}<span class="nm">{{.ActorName}}</span>{{else}}<span class="ubub">∗</span><span class="nm">All users</span>{{end}}
-          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <div class="ac-up-pop" id="act-up-pop" hidden role="listbox">
-          <input type="text" class="ac-up-q" id="act-up-q" placeholder="Search a name or email…" autocomplete="off" aria-label="Search users">
-          <div class="ac-up-list" id="act-up-list">
-            <button type="button" class="ac-up-opt{{if not .Actor}} on{{end}}" data-v="" data-s="all users"><span class="ubub">∗</span><span class="nm">All users</span></button>
-            {{if .TopActors}}<div class="ac-up-cap" data-cap="top">Most active</div>{{end}}
-            {{range .TopActors}}<button type="button" class="ac-up-opt{{if eq .Username $cur}} on{{end}}" data-v="{{.Username}}" data-s="{{.Name}} {{.Username}}">{{template "ubub" (userBubble .Username)}}<span class="nm">{{.Name}}</span><span class="n">{{.Count}}</span></button>{{end}}
-            {{if .MoreActors}}
-            <button type="button" class="ac-up-more" id="act-up-more">… {{len .MoreActors}} more</button>
-            <div id="act-up-rest" hidden>
-              <div class="ac-up-cap" data-cap="rest">Everyone else</div>
-              {{range .MoreActors}}<button type="button" class="ac-up-opt{{if eq .Username $cur}} on{{end}}" data-v="{{.Username}}" data-s="{{.Name}} {{.Username}}" data-rest="1">{{template "ubub" (userBubble .Username)}}<span class="nm">{{.Name}}</span><span class="n">{{.Count}}</span></button>{{end}}
-            </div>
-            {{end}}
-            <div class="ac-up-none" id="act-up-none" hidden>No one matches.</div>
-          </div>
-        </div>
-      </div>
-      <script src="/static/js/activity.js?v={{assetVer}}"></script>
-      {{if canAdmin .Role}}
-      <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-        <input type="checkbox" name="admin" value="1"{{if .ShowAdmin}} checked{{end}} onchange="this.form.submit()">
-        Show admin
-      </label>
-      <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Every page a user opened, one entry per page per minute">
-        <input type="checkbox" name="views" value="1"{{if .ShowViews}} checked{{end}} onchange="this.form.submit()">
-        Include page views
-      </label>
-      {{end}}
-      {{/* Device filter. A datalist rather than a select: the list is every device
-           that has any recorded activity, which is short today and will not stay
-           short, and typing a serial is how anyone who arrived here from a device
-           page will look. */}}
-      <label class="muted small" style="display:flex;align-items:center;gap:6px;">
-        Device
-        <input type="text" name="device" value="{{.Device}}" list="ac-devices" placeholder="any"
-               style="width:150px;font-family:ui-monospace,monospace;font-size:12px;" onchange="this.form.submit()">
-      </label>
-      <datalist id="ac-devices">{{range .DeviceSerials}}<option value="{{.}}"></option>{{end}}</datalist>
+<div class="cl-page">
+<div class="cc-top"><div><h1 class="cc-h1">Activity</h1></div></div>
+{{template "users-tabs" .}}
+<div class="fleet-md dv-rise-1">
+  <aside class="fleet-rail" aria-label="Kinds of activity">
+    <div class="fleet-rail-cap"><span>Activity</span></div>
+    <a class="fleet-rail-item{{if not .Kind}} on{{end}}" href="/activity?{{.BaseQS}}"><span class="dot ok"></span><span class="nm">Everything</span><span class="ct">{{index .KindCount ""}}</span></a>
+    {{range .Kinds}}<a class="fleet-rail-item{{if eq $.Kind .Key}} on{{end}}" href="/activity?{{$.BaseQS}}&amp;kind={{.Key}}"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $.KindCount .Key}}</span></a>{{end}}
+  </aside>
+  <div class="fleet-roster">
+    <div class="fleet-pane-head"><span class="t">{{if .Kind}}{{range .Kinds}}{{if eq $.Kind .Key}}{{.Label}}{{end}}{{end}}{{else}}Everything{{end}}</span><span class="c">{{.Total}} action{{if ne .Total 1}}s{{end}}</span></div>
+    <form method="GET" action="/activity" class="av-f">
+      {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+      <select name="actor" aria-label="Person" onchange="this.form.submit()">
+        <option value="">Everyone</option>
+        {{range .Actors}}<option value="{{.Username}}"{{if eq $.Actor .Username}} selected{{end}}>{{.Name}}</option>{{end}}
+      </select>
+      <select name="days" aria-label="When" onchange="this.form.submit()">
+        <option value="1"{{if eq .Days "1"}} selected{{end}}>Today</option>
+        <option value="7"{{if eq .Days "7"}} selected{{end}}>Last 7 days</option>
+        <option value="30"{{if eq .Days "30"}} selected{{end}}>Last 30 days</option>
+        <option value="all"{{if eq .Days "all"}} selected{{end}}>All time</option>
+      </select>
+      <input type="text" name="device" value="{{.Device}}" list="av-devices" placeholder="Any device" aria-label="Device" onchange="this.form.submit()">
+      <datalist id="av-devices">{{range .DeviceSerials}}<option value="{{.}}"></option>{{end}}</datalist>
+      <label class="muted small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" name="views" value="1"{{if .ShowViews}} checked{{end}} onchange="this.form.submit()">Page views</label>
       <noscript><button type="submit" class="cc-btn sm">Filter</button></noscript>
-      {{if or .Actor .Device}}<a href="/activity?{{if .ShowAdmin}}admin=1&{{end}}{{if .ShowViews}}views=1{{end}}" class="muted small">Clear filter</a>{{end}}
+      {{if or .Actor .Device .Kind}}<a href="/activity?days={{.Days}}" class="muted small">Clear</a>{{end}}
     </form>
-
+    <div class="card cl-card dv-rise-2">
     {{if .Entries}}
-    <div style="overflow-x:auto;">
-      <table class="cc-table">
-        <thead><tr><th>When</th><th>User</th><th>Device</th><th>Action</th><th>What changed</th></tr></thead>
-        <tbody>
-          {{range .Entries}}
-          <tr>
-            <td class="ac-when">{{timeSince .CreatedAt}}</td>
-            <td>{{$u := userURL .Actor}}{{$b := userBubble .Actor}}{{if $u}}<a href="{{$u}}" class="ac-actor ht-user"><span class="ac-av{{if $b.URL}} has-img{{end}}">{{if $b.URL}}<img src="{{$b.URL}}" alt="" loading="lazy">{{else}}{{$b.Initial}}{{end}}</span>{{.Actor}}</a>{{else}}<span class="ac-actor"><span class="ac-av">{{if .Actor}}{{slice .Actor 0 1}}{{end}}</span>{{.Actor}}</span>{{end}}</td>
-            <td class="ac-target">{{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail" style="font-family:ui-monospace,monospace;font-size:12px;">{{.DeviceSerial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
-            <td><span class="cc-tag">{{.Action}}</span></td>
-            <td class="ac-detail">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{auditSentence .}}{{end}}</td>
-          </tr>
-          {{end}}
-        </tbody>
-      </table>
-    </div>
+    <div class="ft-wrap"><table class="ft cl-ft">
+      <thead><tr><th scope="col" style="width:110px">When</th><th scope="col" style="width:190px">Who</th><th scope="col">Did</th><th scope="col" style="width:170px">Device</th></tr></thead>
+      <tbody>
+      {{range .Entries}}
+      <tr class="ft-row">
+        <td class="av-when" title="{{localTime .CreatedAt}}">{{timeSince .CreatedAt}}</td>
+        <td>{{$u := userURL .Actor}}{{if $u}}<a class="av-who" href="{{$u}}">{{template "ubub" (userBubble .Actor)}}<span>{{.Actor}}</span></a>{{else}}<span class="av-who">{{template "ubub" (userBubble .Actor)}}<span>{{.Actor}}</span></span>{{end}}</td>
+        <td class="av-what">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{auditSentence .}}{{end}}</td>
+        <td>{{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail mono">{{.DeviceSerial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
     {{else}}
-    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><div><b>No activity yet</b>{{if and (canAdmin .Role) (not .ShowAdmin)}}Actions by admin accounts are hidden. <a href="/activity?admin=1">Show them</a>{{else}}Actions taken in the dashboard will show up here.{{end}}</div></div>
+    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><div><b>Nothing here</b>No activity matches these filters.</div></div>
     {{end}}
-
     {{if gt .TotalPages 1}}
-    <div class="pagination">
-      {{if gt .Page 1}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&views={{if .ShowViews}}1{{end}}&page={{sub .Page 1}}">&#8592; Prev</a>
-      {{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
-      <div class="page-numbers">
-        {{range pageList .Page .TotalPages}}
-          {{if eq . 0}}<span class="page-num disabled">…</span>
-          {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
-          {{else}}<a class="page-num" href="?actor={{$.Actor}}&admin={{if $.ShowAdmin}}1{{end}}&views={{if $.ShowViews}}1{{end}}&page={{.}}">{{.}}</a>{{end}}
-        {{end}}
-      </div>
-      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&views={{if .ShowViews}}1{{end}}&page={{add .Page 1}}">Next &#8594;</a>
-      {{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
+    <div class="pagination" style="padding:10px 14px">
+      {{if gt .Page 1}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;kind={{.Kind}}&amp;page={{sub .Page 1}}">&#8592; Prev</a>{{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
+      <span class="muted small">Page {{.Page}} of {{.TotalPages}}</span>
+      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;kind={{.Kind}}&amp;page={{add .Page 1}}">Next &#8594;</a>{{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
     </div>
-    <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}</div>
     {{end}}
+    </div>
   </div>
-
 </div>
-
+</div>
 {{template "footer" .}}
 {{end}}

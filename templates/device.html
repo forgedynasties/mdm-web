@@ -260,7 +260,7 @@
   else document.addEventListener('htmx:afterSettle',show,{once:true});
   setTimeout(show,6000);
 })();</script>
-<div class="device-detail cc-wrap dd-cc"{{if .EngineerLook}} data-lock-msg="Read-only at a venue · engineers can screenshot and collect logs"{{end}}>
+<div class="device-detail cc-wrap dd-cc"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero ddc-hero--ribbon">
@@ -377,7 +377,7 @@
   <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}{{end}} · {{.Device.SerialNumber}}</span>
   {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.BuildID}}<span class="isl-tagn isl-build mono" title="Firmware build">{{.Device.BuildID}}</span>{{end}}{{if staffMode .Device.LatestExtra}}<span class="isl-tagn" title="Staff unlocked it with the staff PIN: the app is open for staff until they tap Back to guest mode, or it is locked again here.">Staff mode</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">{{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{end}}
   <span class="isl-s">{{if .Lab}}in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
-  <span class="isl-acts"{{if .EngineerLook}} data-lock-msg="Read-only at a venue · engineers can screenshot and collect logs"{{end}}>
+  <span class="isl-acts"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
     {{/* Wireless adb (D2, picked 17 Oct): a live pill — off / the step it is on / ready — that
          opens #adbp-pop with the steps and the adb connect lines (static/js/device/adb-pill.js). */}}
     {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}<button type="button" class="adbp{{if .Security.AdbOn}} on{{end}}" aria-haspopup="dialog" aria-expanded="false" onclick="window.adbPillOpen && adbPillOpen(this)" title="Wireless adb"><span class="adbp-i"></span><span class="adbp-t">adb: {{if .Security.AdbOn}}on{{else}}off{{end}}</span></button>{{end}}{{end}}
@@ -1206,11 +1206,11 @@ window.DEVICE_VITALS = {
       </div>
     </div>
     {{end}}{{end}}
-    {{if .EngineerLook}}
+    {{if .LookOnly}}{{/* View access here (access by levels, 2 Nov 2026): why, and who can operate it. */}}
     <div class="dd-needs" id="dd-look">
-      <div class="dd-nh">At a venue: engineers look here</div>
+      <div class="dd-nh">View only</div>
       <div class="dd-nr"><span class="dd-nd info" aria-hidden="true"></span>
-        <span class="dd-nt">Read-only<small>Restaurant devices are for Support and Field. You can take a screenshot or collect its logs.</small></span>
+        <span class="dd-nt">You can look at this device, take screenshots and collect logs<small>{{.Look.Why}}{{if .Look.Who}} <details class="dd-who"><summary>Who can operate it?</summary><ul>{{range .Look.Who}}<li>{{.}}</li>{{end}}</ul></details>{{end}}</small></span>
         <span class="dd-nbtns">
           {{if supports .Device "screenshot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0"><input type="hidden" name="type" value="screenshot"><button type="submit" class="cc-btn sm">Screenshot</button></form>{{end}}
           {{if supports .Device "collect_logs"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0"><input type="hidden" name="type" value="collect_logs"><button type="submit" class="cc-btn sm">Collect logs</button></form>{{end}}
@@ -1231,7 +1231,7 @@ window.DEVICE_VITALS = {
     <div class="dd-bkline"><span class="t"><b>{{.Text}}</b><small>{{.Sub}}</small></span>
       {{if and .VenueID (canAdminOrOperator $.Role)}}<form method="POST" action="/restaurants/{{.VenueID}}/backend-move"><input type="hidden" name="serial" value="{{$.Device.SerialNumber}}"><input type="hidden" name="from" value="device"><button type="submit" class="cc-btn sm primary">{{.Action}}</button></form>{{else if not .VenueID}}<a class="cc-btn sm" href="/restaurants#vb-place">Venues</a>{{end}}
     </div>
-    <style>.dd-bkline{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0 0 10px;border-radius:12px;background:var(--warn-bg,var(--surface2));font-size:12.5px}.dd-bkline .t{flex:1;min-width:0}.dd-bkline small{display:block;color:var(--muted)}.dd-bkline form{margin:0}</style>
+    <style>.dd-who{display:inline}.dd-who summary{display:inline;cursor:pointer;color:var(--accent-text);font-weight:600}.dd-who ul{margin:6px 0 0;padding-left:18px}.dd-bkline{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:0 0 10px;border-radius:12px;background:var(--warn-bg,var(--surface2));font-size:12.5px}.dd-bkline .t{flex:1;min-width:0}.dd-bkline small{display:block;color:var(--muted)}.dd-bkline form{margin:0}</style>
     {{end}}{{end}}
     <div class="ddc-card dd-devpane" id="dd-hw">
       {{/* The model's photo (device-photo-demos.html, M3, picked 15 Oct); its class icon when
@@ -1255,7 +1255,7 @@ window.DEVICE_VITALS = {
            columns; the Pad column is only a reading. Both buttons go through #wlc-chip. */}}
       {{if .PadState}}{{$padOn := ne .PadState "na"}}{{$canPad := canAdminOrOperator .Role}}
       <div class="ddc-kv wlc-row"><span class="k">Wireless charging</span><span class="v">
-        <span class="wlc-seg{{if not $canPad}} role-locked{{end}}" role="group" aria-label="Wireless charging"{{if not $canPad}} title="{{if $.EngineerLook}}Read-only at a venue · engineers can screenshot and collect logs{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}>
+        <span class="wlc-seg{{if not $canPad}} role-locked{{end}}" role="group" aria-label="Wireless charging"{{if not $canPad}} title="{{if $.LookOnly}}{{$.Look.Lock}}{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}>
           <button type="button" value="1" aria-pressed="{{if $padOn}}true{{else}}false{{end}}"{{if $canPad}} onclick="if (this.getAttribute('aria-pressed') !== 'true') { var c = document.getElementById('wlc-chip'); if (c) c.click(); }"{{end}}>On</button><button type="button" value="0" aria-pressed="{{if $padOn}}false{{else}}true{{end}}"{{if $canPad}} onclick="if (this.getAttribute('aria-pressed') !== 'true') { var c = document.getElementById('wlc-chip'); if (c) c.click(); }"{{end}}>Off</button>
         </span>
         <span class="muted small" id="wlc-row-st">{{if eq .PadState "on"}}charging the phone{{else if eq .PadState "vacant"}}no phone on it{{else if eq .PadState "flapping"}}misplaced, place it again{{else if eq .PadState "na"}}pad is off{{else}}pad unreadable{{end}}</span>
@@ -1461,7 +1461,7 @@ window.DEVICE_VITALS = {
       <h2>Apps</h2>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
-{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/lineup/apps?app={{.Device.Class}}">its product's app</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="{{if $.EngineerLook}}Read-only at a venue · engineers can screenshot and collect logs{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/lineup/apps?app={{.Device.Class}}">its product's app</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="{{if $.LookOnly}}{{$.Look.Lock}}{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
         Install app</button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>

@@ -264,11 +264,14 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Access policy: a device the user may not view is hidden (404) when their
 	// policy hides out-of-scope devices, else shown read-only; a device they may
 	// view but not act on renders with the viewer's action set.
-	engineerLook := false
+	lookOnly := false
+	var look lookView
 	if acc := h.access(r); !acc.unrestricted() {
-		if acc.engineerLookOnly(device.ID) {
-			// An engineer at a venue's device: read-only, plus Screenshot and Collect logs.
-			role, engineerLook = "viewer", true
+		if acc.lookOnly(device.ID) {
+			// View access here (access by levels): read-only, plus Screenshot and Collect
+			// logs, with why and who can operate it.
+			role, lookOnly = "viewer", true
+			look = h.lookViewFor(r.Context(), acc, device)
 		} else if !acc.canDevice("view", device.ID) {
 			if acc.hidesDevices() {
 				http.NotFound(w, r)
@@ -545,7 +548,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	devRole := h.deviceRoleOf(r.Context(), device)
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
 		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
-		"EngineerLook": engineerLook,
+		"LookOnly":     lookOnly,
+		"Look":         look,
 		"HandOver":     h.deviceHandOverView(r, device, kioskCfg != nil && kioskCfg.KioskEnabled),
 		"Title":  device.SerialNumber,
 		"DeviceSplit": h.displayPrefs(r).DeviceSplit, // the divider, per person

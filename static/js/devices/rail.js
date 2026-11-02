@@ -26,3 +26,36 @@
     });
   })();
   
+  // Rail tabs (T1, picked 2 Nov 2026): Restaurants or Groups, one list at a time. The page
+  // opens the tab of the selected collection; otherwise the person's last tab (this browser)
+  // wins over the server's default (Groups for someone who may only look at restaurants).
+  (function () {
+    var bar = document.querySelector('[data-rail-tabs]');
+    if (!bar) return;
+    var KEY = 'mdm-rail-tab';
+    var tabs = Array.prototype.slice.call(bar.querySelectorAll('[role=tab]'));
+    function show(which, remember) {
+      tabs.forEach(function (t) { t.setAttribute('aria-selected', t.dataset.rt === which ? 'true' : 'false'); t.tabIndex = t.dataset.rt === which ? 0 : -1; });
+      document.querySelectorAll('.fleet-rail-list[data-sec]').forEach(function (l) {
+        if (l.dataset.sec === 'restaurants' || l.dataset.sec === 'groups') l.hidden = l.dataset.sec !== which;
+      });
+      bar.querySelectorAll('[data-rt-add]').forEach(function (a) { a.hidden = a.dataset.rtAdd !== which; });
+      bar.dataset.tab = which;
+      if (remember) { try { localStorage.setItem(KEY, which); } catch (e) {} }
+    }
+    if (!bar.dataset.fixed) {
+      var last = null;
+      try { last = localStorage.getItem(KEY); } catch (e) {}
+      if ((last === 'restaurants' || last === 'groups') && last !== bar.dataset.tab) show(last, false);
+    }
+    show(bar.dataset.tab, false);
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { show(t.dataset.rt, true); });
+      t.addEventListener('keydown', function (e) {
+        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+        e.preventDefault();
+        var next = tabs[(tabs.indexOf(t) + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+        show(next.dataset.rt, true); next.focus();
+      });
+    });
+  })();

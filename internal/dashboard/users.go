@@ -58,7 +58,21 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		orphans, _ = h.db.ListOrphanActors(ctx)
 	}
 	invites, _ := h.db.PendingInvites(ctx)
-	profiles, _ := h.db.ListAccessProfiles(ctx)
+	// "Can operate" (access by levels, 2 Nov 2026): what each role and person may operate.
+	levels, _ := h.db.ListAccessLevels(ctx)
+	now := time.Now()
+	roleOp, ownOp := map[string][]string{}, map[string][]string{}
+	for _, g := range levels {
+		if g.Expired(now) || g.Rank() < db.LevelOperate {
+			continue
+		}
+		t := scopeText(g)
+		if g.SubjectType == "role" {
+			roleOp[g.Subject] = append(roleOp[g.Subject], t)
+		} else {
+			ownOp[g.Subject] = append(ownOp[g.Subject], t+" (own)")
+		}
+	}
 	// People who signed up but can't sign in yet (email not verified). Only the super
 	// admin can vouch for them, so only the super admin sees them singled out.
 	var waiting []db.User
@@ -77,30 +91,26 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		if at, ok := invites[u.ID]; ok {
 			row.Invited = &at
 		}
-		pol, _ := h.db.GetUserAccess(ctx, u.Username)
-		row.Rules = len(pol.Grants)
-		row.Activity = p1Activity(row, time.Now())
-		for _, g := range pol.Grants {
-			if g.Effect != "allow" {
-				continue
-			}
-			if roleIsCustomer(u.Role) {
-				if g.ScopeType == "restaurant" && g.ScopeID != nil && g.Has("view") {
-					row.Venues = append(row.Venues, venueRef{*g.ScopeID, g.ScopeName})
-				}
-				continue
-			}
-			for _, k := range sensitiveActionKeys {
-				if g.Has(k) && !sensitiveByDefault(u.Role, k) && !containsStr(row.Sensitive, accessShort(k)) {
-					row.Sensitive = append(row.Sensitive, accessShort(k))
-				}
-			}
-		}
+		row.Activity = p1Activity(row, now)
 		if roleIsCustomer(u.Role) {
+			if pol, err := h.db.GetUserAccess(ctx, u.Username); err == nil {
+				for _, g := range pol.Grants {
+					if g.Effect == "allow" && g.ScopeType == "restaurant" && g.ScopeID != nil && g.Has("view") {
+						row.Venues = append(row.Venues, venueRef{*g.ScopeID, g.ScopeName})
+					}
+				}
+			}
 			customers = append(customers, row)
 			continue
 		}
-		row.Access = accessPhrase(u.Role, pol, profiles)
+		switch ops := append(append([]string(nil), roleOp[u.Role]...), ownOp[u.Username]...); {
+		case u.Role == "admin":
+			row.Access = "Everything"
+		case len(ops) == 0:
+			row.Access = "Looks only"
+		default:
+			row.Access = strings.Join(ops, ", ")
+		}
 		team = append(team, row)
 	}
 	byRank := func(rows []userRow) {
@@ -125,16 +135,17 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			teamRoles = append(teamRoles, d.Key)
 		}
 	}
-	days, _ := h.db.PeopleActivityDaily(ctx, 8)
-	activity := r.URL.Query().Get("activity")
-	switch activity {
-	case "week", "month", "quiet", "invited":
-	default:
-		activity = ""
+	roleCount := map[string]int{}
+	quiet := 0
+	for _, x := range append(append([]userRow(nil), team...), customers...) {
+		roleCount[x.Role]++
+		if x.Activity == "quiet" {
+			quiet++
+		}
 	}
 	h.render(w, r, "users.html", map[string]any{
-		"P1":            buildUsersP1(p1Inputs{Team: team, Customers: customers, Waiting: len(waiting), Orphans: orphans, Days: days, Now: time.Now()}),
-		"Activity":      activity,
+		"RoleCount":     roleCount,
+		"Quiet":         quiet,
 		"Waiting":       waiting,
 		"Team":          team,
 		"Customers":     customers,
@@ -379,6 +390,9 @@ func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Their own access goes with them, so a new account under the name doesn't inherit it.
+	_ = h.db.DeleteUserAccessLevels(r.Context(), target.Username)
+	invalidateLevels()
 	h.usersRedirect(w, r)
 }
 
