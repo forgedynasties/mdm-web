@@ -71,11 +71,11 @@ func TestPeopleListRenders(t *testing.T) {
 	renderPeople(t, peopleTmpl(t, "users.html", "_users_tabs.html"), "users.html", map[string]any{
 		"Role": "admin", "Team": in.Team, "Customers": in.Customers, "TeamRoles": []string{"viewer", "operator", "admin"},
 		"CustomerRoles": []string{"owner", "staff"}, "RoleCount": map[string]int{"viewer": 2, "owner": 1},
-		"Orphans": in.Orphans, "Waiting": []db.User{{ID: uuid.New(), Username: "new@x", Role: "viewer", CreatedAt: now}},
+		"Waiting": []db.User{{ID: uuid.New(), Username: "new@x", Role: "viewer", CreatedAt: now}},
 		"Invites": 1, "Quiet": 1, "Assignable": []string{"viewer"}, "UsersTab": "people",
 	},
 		`data-clf="team"`, `data-clf="cust"`, `data-clf="inv"`, `data-clf="quiet"`, `data-clf="r-viewer"`,
-		`>Can operate</th>`, `Lab devices, the QA group`, `id="waiting-signups"`, `id="unlinked"`,
+		`>Can operate</th>`, `Lab devices, the QA group`, `id="waiting-signups"`,
 		`id="invite-modal"`, `href="/users/access"`, `href="/activity"`, `aria-current="page"`)
 }
 

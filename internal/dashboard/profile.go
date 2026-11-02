@@ -109,43 +109,6 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 	})
 }
 
-// UserMergeActor re-points past activity recorded under a username that no longer
-// has an account (deleted after e.g. a Microsoft sign-in replaced it) to an
-// existing user, so Activity, Actions history and release sign-offs show one
-// person. Only orphaned usernames can be merged: merging a live account would
-// silently rewrite history for someone who still signs in.
-func (h *Handler) UserMergeActor(w http.ResponseWriter, r *http.Request) {
-	from := strings.TrimSpace(r.FormValue("from"))
-	toID, err := uuid.Parse(strings.TrimSpace(r.FormValue("to")))
-	if from == "" || err != nil {
-		http.Error(w, "Pick a username and a target user", http.StatusBadRequest)
-		return
-	}
-	target, err := h.db.GetUser(r.Context(), toID)
-	if err != nil || target == nil {
-		http.Error(w, "Target user not found", http.StatusNotFound)
-		return
-	}
-	// Only into an account you may manage (security audit, 26 Oct 2026): history merged
-	// into a super admin's name reads as theirs.
-	if !mayManageUser(h.role(r), target.Role, "") {
-		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
-		return
-	}
-	if u, err := h.db.GetUserByUsername(r.Context(), from); err == nil && u != nil {
-		http.Error(w, "That username still has an account; delete it first if you really mean to merge it", http.StatusConflict)
-		return
-	}
-	n, err := h.db.MergeActor(r.Context(), from, target.Username)
-	if err != nil {
-		log.Printf("[users] merge %q -> %q: %v", from, target.Username, err)
-		http.Error(w, "Merge failed", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "user.merge", target.Username, fmt.Sprintf("%s → %s (%d rows)", from, target.Username, n))
-	h.hxRedirect(w, r, "/users")
-}
-
 // userBubbleFn is the template resolver for avatar bubbles, set when the template
 // func map is built; handlers use it for the layout chip and profile hero.
 var userBubbleFn func(name string) any

@@ -47,16 +47,8 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// The old built-in login (actor "admin") has no users row, so its history shows up
-	// as "unlinked" here, to be merged into a person (the existing Merge on this page).
 	summaries, _ := h.db.ActorSummaries(ctx)
 	actor := h.role(r)
-	// Unlinked activity (its card, banner row and Merge) is the super admin's alone (user,
-	// 29 Oct 2026).
-	var orphans []db.OrphanActor
-	if actor == "admin" {
-		orphans, _ = h.db.ListOrphanActors(ctx)
-	}
 	invites, _ := h.db.PendingInvites(ctx)
 	// "Can operate" (access by levels, 2 Nov 2026): what each role and person may operate.
 	levels, _ := h.db.ListAccessLevels(ctx)
@@ -153,7 +145,6 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		"Tab":           tab,
 		"TeamRoles":     teamRoles,
 		"CustomerRoles": customerRoles,
-		"Orphans":       orphans,
 		"AllUsers":      users,
 		"UsersTab":      "people",
 		"Assignable":    assignableRoles(actor),
