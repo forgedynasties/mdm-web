@@ -82,7 +82,7 @@
 .cl-dlg .cc-btn.danger{background:var(--danger);border-color:var(--danger);color:#fff}
 .cl-dlg .cc-btn.danger[disabled]{opacity:.45;cursor:not-allowed}
 @media(max-width:900px){
-  .cl-page .fleet-md{grid-template-columns:1fr}
+  .cl-page .fleet-md{grid-template-columns:minmax(0,1fr)}
   .cl-page .fleet-rail{position:static;max-height:none;margin-bottom:14px}
 }
 @media(max-width:720px){

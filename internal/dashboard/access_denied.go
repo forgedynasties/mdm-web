@@ -71,7 +71,8 @@ func (h *Handler) accessGivers(r *http.Request) string {
 	}
 	var names []string
 	for _, u := range us {
-		if u.Role == "admin" && !strings.HasPrefix(u.Username, "demo.") {
+		// Real people only: no demo accounts, no one-letter test names.
+		if u.Role == "admin" && !strings.HasPrefix(u.Username, "demo.") && len([]rune(u.DisplayName())) > 2 {
 			names = append(names, u.DisplayName())
 		}
 	}
