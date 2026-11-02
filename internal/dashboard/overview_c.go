@@ -487,6 +487,8 @@ func ovPillShort(class string) string {
 		return "POS"
 	case "mpos":
 		return "MPOS"
+	case "mom":
+		return "MoM"
 	case "payment":
 		return "Pay"
 	case "tablet":

@@ -47,6 +47,9 @@ const (
 	ClassKDS     = "kds"     // kitchen display
 	ClassPayment = "payment" // payment terminal running our agent
 	ClassOther   = "other"
+	// ClassMoM: devices that run MoM, the AIO manager app (com.manageaio.app; user, 2 Nov
+	// 2026: "Add a product called MoM and its role app would be the mom app").
+	ClassMoM = "mom"
 	// ClassPanel is retired: the wall kiosks are Kiosk now. The const and its label
 	// stay so a row written before the retag still renders; Classes() no longer
 	// offers it, so IsClass rejects it on new admin input. Payment terminal and tablet
@@ -57,7 +60,7 @@ const (
 
 // Classes lists every device class in display order (dashboard filters and forms).
 func Classes() []string {
-	return []string{ClassDongle, ClassPOS, ClassMPOS, ClassKiosk, ClassKDS, ClassT7, ClassOther}
+	return []string{ClassDongle, ClassPOS, ClassMPOS, ClassKiosk, ClassKDS, ClassT7, ClassMoM, ClassOther}
 }
 
 // ClassLabel is the human label for a class key; unknown keys are shown as-is and an
@@ -80,6 +83,8 @@ func ClassLabel(class string) string {
 		return "Kitchen display"
 	case ClassPayment:
 		return "Payment terminal"
+	case ClassMoM:
+		return "MoM"
 	case ClassOther:
 		return "Other"
 	case "":
@@ -100,6 +105,9 @@ func DefaultRoleApps() map[string]string {
 		ClassKDS:    "aio.app.kds",
 		ClassPOS:    "aio.app.pos",
 		ClassDongle: "aio.app.menuboards",
+		// MoM's channels are separate packages (com.aioapp.uat, .staging, .qa, .internal),
+		// not com.manageaio.app.<channel>, so only prod matches the role app's pattern.
+		ClassMoM: "com.manageaio.app",
 	}
 }
 
