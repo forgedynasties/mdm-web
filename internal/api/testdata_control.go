@@ -21,9 +21,17 @@ import (
 // Open and close take only the device's role app (Lineup › role › App) or one of its
 // channels — aio.app.nugget, aio.app.nugget.uatv2, … — never any other package.
 //
-//	open   monkey -p <pkg> -c android.intent.category.LAUNCHER 1   (the app's launcher activity)
-//	close  am force-stop <pkg>
-//	screen input keyevent KEYCODE_WAKEUP | KEYCODE_SLEEP
+//	open   wake, wm dismiss-keyguard, then monkey -p <pkg> -c android.intent.category.LAUNCHER 1
+//	close  am force-stop <pkg>, then pidof: stopped again if it came back, reported if it stays
+//	screen input keyevent KEYCODE_WAKEUP + wm dismiss-keyguard | KEYCODE_SLEEP
+//
+// 2 Nov 2026 (user): an app opened behind the lock screen ("the app launched successfully
+// but the device was on lockscreen"), so open and screen on dismiss the keyguard (T7s have
+// no PIN); and close now checks the process is gone ("it does not kill the app"): an app
+// whose own service starts it again is stopped once more, and the answer says if it is back.
+
+// qaUnlock wakes the screen and dismisses the lock screen (no PIN on these tablets).
+const qaUnlock = "input keyevent KEYCODE_WAKEUP; wm dismiss-keyguard >/dev/null 2>&1; "
 
 // qaCommandBy marks the commands these routes create, so the status route answers for
 // those and no other command.
@@ -43,6 +51,7 @@ func (h *Handler) TestDataAppOpen(w http.ResponseWriter, r *http.Request) {
 	// on some builds, so the command would read completed for an app that never opened.
 	h.qaControl(w, r, "app_open", pkg, map[string]string{"package": pkg},
 		"pm path "+pkg+" >/dev/null 2>&1 || { echo 'not installed: "+pkg+"'; exit 1; }; "+
+			qaUnlock+"sleep 1; "+
 			"monkey -p "+pkg+" -c android.intent.category.LAUNCHER 1 2>&1 | grep -q 'Events injected: 1' "+
 			"&& echo 'opened "+pkg+"' || { echo 'could not open "+pkg+"'; exit 1; }")
 }
@@ -54,7 +63,10 @@ func (h *Handler) TestDataAppClose(w http.ResponseWriter, r *http.Request) {
 	}
 	h.qaControl(w, r, "app_close", pkg, map[string]string{"package": pkg},
 		"pm path "+pkg+" >/dev/null 2>&1 || { echo 'not installed: "+pkg+"'; exit 1; }; "+
-			"am force-stop "+pkg+" && echo 'closed "+pkg+"'")
+			"am force-stop "+pkg+"; sleep 2; "+
+			"if pidof "+pkg+" >/dev/null; then am force-stop "+pkg+"; sleep 2; fi; "+
+			"p=$(pidof "+pkg+"); if [ -z \"$p\" ]; then echo 'closed "+pkg+"'; "+
+			"else echo 'stopped "+pkg+" but it started again (pid '$p')'; exit 1; fi")
 }
 
 func (h *Handler) TestDataScreen(w http.ResponseWriter, r *http.Request) {
@@ -68,8 +80,11 @@ func (h *Handler) TestDataScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	state := strings.ToLower(body.State)
-	h.qaControl(w, r, "screen_"+state, "", map[string]string{"state": state},
-		"input keyevent "+key+" && echo 'screen "+state+"'")
+	cmd := "input keyevent " + key + " && echo 'screen off'"
+	if state == "on" {
+		cmd = qaUnlock + "echo 'screen on'"
+	}
+	h.qaControl(w, r, "screen_"+state, "", map[string]string{"state": state}, cmd)
 }
 
 // qaRoleAppMatch: pkg is the role app's base package or one of its channels (base.*).

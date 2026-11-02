@@ -286,8 +286,8 @@ Response `201`: `{ "command": {…}, "skipped": ["serial", …] }`. If every tar
 ## 3b. Testing team API (`X-API-Key: <QA_API_KEY>`)
 
 A separate key for the testing team's own tools. It reaches the `/api/v1/testdata/…` routes
-and nothing else: reads, plus three fixed controls (open / close the role app, screen on /
-off) on Lab devices. It cannot reboot, wipe, unlock, install or run a shell.
+and nothing else: reads, plus fixed controls (open / close the role app, screen on / off,
+wireless charging on / off) on Lab devices. It cannot reboot, wipe, unlock, install or run a shell.
 Unset `QA_API_KEY` and the routes do not exist (404). It is set on **live**
 (`https://mdm.dev.aioapp.com`), not on stage. CORS is open (`*`), so a static page can call it
 from a browser.
@@ -311,9 +311,13 @@ returns `"restaurants": []`.
 | POST | `/api/v1/testdata/devices/{serial}/app/open` | `{"package":"aio.app.nugget"}`: open the app (its launcher activity) |
 | POST | `/api/v1/testdata/devices/{serial}/app/close` | `{"package":"aio.app.nugget"}`: force-stop the app |
 | POST | `/api/v1/testdata/devices/{serial}/screen` | `{"state":"on"\|"off"}`: wake the screen / put it to sleep |
-| GET | `/api/v1/testdata/commands/{id}` | Status of a command one of the three above sent |
+| POST | `/api/v1/testdata/devices/{serial}/wlc` | `{"enabled":true\|false}`: wireless charging on the pad on/off (products with a pad, T7). Answers at once: `{serial, enabled, connected}` |
+| GET | `/api/v1/testdata/commands/{id}` | Status of a command one of the open / close / screen routes sent |
 
-**Controls.** `open` and `close` take only the device's **role app** (Lineup › role › App, e.g.
+**Controls.** `open` and `screen on` wake the tablet and dismiss the lock screen first. `close`
+force-stops the app and checks its process is gone; if the app's own service starts it again
+it is stopped once more, and a restart that stays is a `failed` answer naming the new pid.
+`open` and `close` take only the device's **role app** (Lineup › role › App, e.g.
 `aio.app.nugget` on a T7) or one of its channels (`aio.app.nugget.uatv2`, …); any other package
 is 403 with `role_app` in the answer. An offline device is 409 (`last_seen_at` included), not
 queued. The reply is 202 `{command_id, status, done, output, action, …}`; add `?wait=true` to

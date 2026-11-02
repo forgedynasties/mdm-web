@@ -515,9 +515,11 @@ func main() {
 	// CORS is wide open (*) rather than an allowlist: the dashboard calling this is a
 	// static page that can be hosted/moved anywhere, and the route is already gated by
 	// its own key, so an origin check adds no real protection here.
+	// Kept for the testdata routes registered with the dashboard handler further down (WLC).
+	var qaAuth, qaCORS func(http.Handler) http.Handler
 	if qaAPIKey != "" {
-		qaAuth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(qaAPIKey, `{"error":"unauthorized"}`, h) }
-		qaCORS := func(h http.Handler) http.Handler {
+		qaAuth = func(h http.Handler) http.Handler { return middleware.APIKeyAuth(qaAPIKey, `{"error":"unauthorized"}`, h) }
+		qaCORS = func(h http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Access-Control-Allow-Origin", "*")
 				w.Header().Set("Access-Control-Allow-Headers", "X-API-Key, Content-Type")
@@ -656,6 +658,11 @@ func main() {
 	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))
 	mux.Handle("POST /api/v1/devices/{serial}/brightness", adminAuth(http.HandlerFunc(dash.APISetDeviceBrightness)))
 	mux.Handle("POST /api/v1/devices/{serial}/wlc", adminAuth(http.HandlerFunc(dash.APISetDeviceWlc)))
+	if qaAPIKey != "" {
+		// Testing team: wireless charging on/off on Lab T7s (2 Nov 2026).
+		mux.Handle("POST /api/v1/testdata/devices/{serial}/wlc", qaCORS(qaAuth(http.HandlerFunc(dash.QASetDeviceWlc))))
+		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/wlc", qaCORS(http.NotFoundHandler()))
+	}
 	mux.Handle("DELETE /api/v1/restaurants/{id}/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.UnassignRestaurantDevice)))
 	dash.SetAdbTunnels(tunnelMgr)
 	dash.SetIngestStats(apiHandler.IngestStats)
