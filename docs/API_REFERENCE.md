@@ -172,7 +172,7 @@ Status: `200` · `400` · `401` · `403` · `404` no venue, or the venue has no 
 ### POST `/api/v1/device-group`
 
 A Lab device picks its own group (Standard client status screen). `{"serial"}` reads
-`{lab, current: {id, name} | null, venue?, groups: [{id, name, count}]}`; adding `"set": "<group id>"`
+`{lab, current: {id, name} | null, venue?, role?, groups: [{id, name, count}]}`; adding `"set": "<group id>"`
 (or `""` for no group) moves the device there, out of any other group. Only a Lab device (at no
 venue, not waiting in the To place queue) may set, and only to a listed group: one that is not
 hidden and has no member at a venue. 409 otherwise. Audited as `group.device_pick`.

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"mdm/internal/db"
+	"mdm/internal/product"
 )
 
 // DeviceGroup lets a Lab device pick its own group from the Standard client's status screen
@@ -15,7 +16,7 @@ import (
 // choose and choosing there adds it to that group it also shows the current group"; the app
 // opens on the picker while a Lab device has no group).
 //
-//	POST /api/v1/device-group {"serial"}                 → {lab, current, groups}
+//	POST /api/v1/device-group {"serial"}                 → {lab, current, groups, venue?, role?}
 //	POST /api/v1/device-group {"serial", "set": "<id>"}  → moves it there ("" = no group)
 //
 // A device has one group: a pick moves it out of any other. Only Lab devices (at no venue,
@@ -104,6 +105,9 @@ func (h *Handler) DeviceGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	if device.RestaurantName != "" {
 		out["venue"] = device.RestaurantName
+	}
+	if c := device.Class(); c != "" {
+		out["role"] = product.ClassLabel(c) // the app's badge (S3): "Sunmi D3 Pro · POS terminal"
 	}
 	if lab {
 		list := []grp{}
