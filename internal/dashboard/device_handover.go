@@ -36,6 +36,11 @@ type handOverView struct {
 	CanSetUp  bool // this viewer may put it back into setup (Ops lead, super admin)
 }
 
+// handOverGate: whether Hand over waits for a green checklist. Off for now (user, 3 Nov 2026:
+// "remove checklist gate for now"; parked in TODO.md): the checklist still shows, as a hint,
+// and every device being set up counts as ready.
+const handOverGate = false
+
 // handOverChecks is the device's checklist: role app, locked, checked in.
 func (h *Handler) handOverChecks(ctx context.Context, d *db.Device, kioskOn bool) ([]handOverCheck, bool) {
 	var out []handOverCheck
@@ -71,7 +76,7 @@ func (h *Handler) handOverChecks(ctx context.Context, d *db.Device, kioskOn bool
 	for _, c := range out {
 		ready = ready && c.OK
 	}
-	return out, ready
+	return out, ready || !handOverGate
 }
 
 // mayHandOver: the super admin, the Ops lead, and Field (on devices being set up).
@@ -168,7 +173,8 @@ func (h *Handler) RestaurantSetupAgain(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToast(w, r, back, fmt.Sprintf("%d device%s in setup · Field people can work on them", n, plural(int(n))), "success")
 }
 
-// DeviceHandOver: POST /devices/{serial}/handover. Allowed once the checklist is green.
+// DeviceHandOver: POST /devices/{serial}/handover. Allowed once the checklist is green (while
+// handOverGate is on).
 func (h *Handler) DeviceHandOverPost(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	back := "/devices/" + serial
