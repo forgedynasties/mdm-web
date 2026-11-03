@@ -455,11 +455,18 @@ func (h *Handler) EnrollmentProfilesDeleteExpired(w http.ResponseWriter, r *http
 // agent as Device Owner and hands it the server URL + enrollment token.
 // enrollAndroid is the AIO Enroll for Android download on the Enrollment page.
 type enrollAndroid struct {
-	Hosted  bool
-	Version string
-	SizeMB  string
-	URL     string // absolute, so the QR works from a phone
-	At      time.Time
+	Hosted    bool
+	Version   string
+	SizeMB    string
+	URL       string // absolute, so the QR works from a phone
+	At        time.Time
+	Changelog string           // what the hosted build changed, as published
+	Earlier   []enrollAndroidV // the builds before it, newest first, with a changelog
+}
+
+type enrollAndroidV struct {
+	Version, Changelog string
+	At                 time.Time
 }
 
 func (h *Handler) enrollAndroidView(r *http.Request) enrollAndroid {
@@ -467,8 +474,19 @@ func (h *Handler) enrollAndroidView(r *http.Request) enrollAndroid {
 	if !ok {
 		return enrollAndroid{}
 	}
-	return enrollAndroid{Hosted: true, Version: b.Version, SizeMB: fmt.Sprintf("%.1f MB", float64(b.Size)/(1<<20)),
-		URL: h.baseURL(r) + "/agent/" + AgentAPKSlots[enrollAndroidSlot], At: b.At}
+	v := enrollAndroid{Hosted: true, Version: b.Version, SizeMB: fmt.Sprintf("%.1f MB", float64(b.Size)/(1<<20)),
+		URL: h.baseURL(r) + "/agent/" + AgentAPKSlots[enrollAndroidSlot], At: b.At, Changelog: b.Changelog}
+	for _, old := range h.cfg.AgentAPKHistory(enrollAndroidSlot) {
+		switch {
+		case old.SHA == b.SHA:
+			if v.Changelog == "" {
+				v.Changelog = old.Changelog
+			}
+		case old.Changelog != "" && len(v.Earlier) < 4:
+			v.Earlier = append(v.Earlier, enrollAndroidV{Version: old.Version, Changelog: old.Changelog, At: old.At})
+		}
+	}
+	return v
 }
 
 // EnrollAndroidQR is a QR of the AIO Enroll for Android download link, to scan with the

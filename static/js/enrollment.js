@@ -94,10 +94,10 @@
     document.querySelectorAll('details.en-kebab[open]').forEach(function (o) { if (o !== d) o.removeAttribute('open'); });
   }, true);
   document.addEventListener('change', function (e) { if (e.target.classList && e.target.classList.contains('en-pick')) syncProfiles(); });
-  // A pane swapped in (Setup's left list) gets its wiring.
+  // A pane swapped in (Setup's left list, or the How to enroll popup) gets its wiring.
   document.addEventListener('htmx:afterSettle', function (e) {
     var t = e.detail && e.detail.target;
-    if (t && (t.id === 'oh-pane' || t.tagName === 'MAIN')) init();
+    if (t && (t.id === 'oh-pane' || t.id === 'en-how-body' || t.tagName === 'MAIN')) init();
   });
   init();
 })();

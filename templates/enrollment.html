@@ -315,28 +315,77 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
   </section>
 {{end}}
 
-{{define "en-app"}}      {{with .EnrollAndroid}}{{if .Hosted}}
-      <details class="en-app">
-        <summary class="cc-btn"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Get the Android app</summary>
-        <div class="cc-menu en-app-pop" role="dialog" aria-label="AIO Enroll for Android">
-          <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="132" height="132">
-          <div class="en-app-t">
-            <b>AIO Enroll for Android</b>
-            <span class="muted small">{{if .Version}}{{.Version}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
-            <span class="small">Scan with the phone, or download here and copy it over. Android asks once to allow installs from your browser.</span>
-            <a class="cc-btn sm primary" href="{{.URL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download APK</a>
-          </div>
-        </div>
-      </details>
-      <script>
-      (function () {
-        if (window.__enAppClose) return; window.__enAppClose = true;
-        function shut(e) { document.querySelectorAll('details.en-app[open]').forEach(function (d) { if (!e || e.key === 'Escape' || !d.contains(e.target)) d.open = false; }); }
-        document.addEventListener('click', function (e) { shut(e); });
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') shut(e); });
-      })();
-      </script>
-      {{end}}{{end}}
+{{define "en-app"}}{{with .EnrollAndroid}}{{if .Hosted}}<button type="button" class="cc-btn en-app-btn" onclick="enDlg('en-app-dlg')"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Get the Android app</button>{{end}}{{end}}{{end}}
+
+{{/* Setup's two popups (3 Nov 2026; user: "maybe just open this as a popup, get android button
+     should show a similar popup with latest version changelog and download link"). How to
+     enroll loads the page's own How view into the dialog on first open (#en-how-body), so the
+     left list never changes under it. Called from the island, which lives outside <main>. */}}
+{{define "en-dialogs"}}
+<style>
+.en-dlg2{width:min(1180px,calc(100vw - 32px));max-height:calc(100vh - 48px);padding:0;overflow:hidden;display:none;flex-direction:column}
+.en-dlg2[open]{display:flex}
+.en-dlg2.sm{width:min(560px,calc(100vw - 32px))}
+.en-dlg2 .dh{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border-soft)}
+.en-dlg2 .dh h2{margin:0;font-size:16px;flex:1}
+.en-dlg2 .dh .x{border:0;background:transparent;font-size:22px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:8px}
+.en-dlg2 .dh .x:hover{background:var(--hover);color:var(--text)}
+.en-dlg2 .db{overflow:auto;padding:16px 18px 18px}
+.en-dlg2 .db .fleet-pane-head{display:none}
+.en-app-top{display:flex;gap:16px;align-items:center}
+.en-app-top img{width:140px;height:140px;border-radius:10px;background:#fff;padding:5px;flex:none;box-shadow:inset 0 0 0 1px var(--border)}
+.en-app-top .t{display:flex;flex-direction:column;gap:6px;align-items:flex-start;line-height:1.45;font-size:13px;min-width:0}
+.en-app-top .t b{font-size:15px}
+.en-app-top .cc-btn svg,.en-app-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.en-app-new{margin-top:16px;border-top:1px solid var(--border-soft);padding-top:12px}
+.en-app-new h3{margin:0 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.en-app-new p{margin:0;font-size:13.5px;line-height:1.5;color:var(--text)}
+.en-app-old{margin:12px 0 0;padding:0;list-style:none;font-size:12.5px;color:var(--text-2);line-height:1.45}
+.en-app-old li{padding:6px 0;border-top:1px solid var(--border-soft)}
+.en-app-old li b{color:var(--text);font-weight:650;margin-right:6px}
+.en-dlg2 .loading{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+@media (max-width:720px){.en-app-top{flex-direction:column;align-items:flex-start}}
+</style>
+<dialog class="cl-dlg en-dlg2" id="en-how-dlg" aria-labelledby="en-how-dlg-h">
+  <div class="dh"><h2 id="en-how-dlg-h">How to enroll</h2><button type="button" class="x" aria-label="Close" onclick="this.closest('dialog').close()">&times;</button></div>
+  <div class="db"><div id="en-how-body" hx-get="/visits?view=how" hx-select="#oh-en-body" hx-swap="innerHTML" hx-trigger="en-load once"><div class="loading">Loading…</div></div></div>
+</dialog>
+{{with .EnrollAndroid}}{{if .Hosted}}
+<dialog class="cl-dlg en-dlg2 sm" id="en-app-dlg" aria-labelledby="en-app-dlg-h">
+  <div class="dh"><h2 id="en-app-dlg-h">AIO Enroll for Android</h2><button type="button" class="x" aria-label="Close" onclick="this.closest('dialog').close()">&times;</button></div>
+  <div class="db">
+    <div class="en-app-top">
+      <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="140" height="140" loading="lazy">
+      <div class="t">
+        <b>{{if .Version}}Version {{.Version}}{{else}}Latest version{{end}}</b>
+        <span class="muted small">{{if not .At.IsZero}}Published {{timeSince .At}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
+        <span>Scan with the phone, or download here and copy it over. Android asks once to allow installs from your browser.</span>
+        <a class="cc-btn sm primary" href="{{.URL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download APK</a>
+      </div>
+    </div>
+    <div class="en-app-new">
+      <h3>What's new{{if .Version}} in {{.Version}}{{end}}</h3>
+      <p>{{if .Changelog}}{{.Changelog}}{{else}}<span class="muted">No notes for this build.</span>{{end}}</p>
+      {{if .Earlier}}<ul class="en-app-old">{{range .Earlier}}<li><b>{{.Version}}</b>{{.Changelog}} <span class="muted">· {{timeSince .At}}</span></li>{{end}}</ul>{{end}}
+    </div>
+  </div>
+</dialog>
+{{end}}{{end}}
+<script>
+window.enDlg = function (id) {
+  var d = document.getElementById(id); if (!d) return;
+  if (!d.open) d.showModal();
+  var b = d.querySelector('[hx-trigger="en-load once"]');
+  if (b && window.htmx) htmx.trigger(b, 'en-load');
+};
+document.addEventListener('close', function (e) {
+  var d = e.target; if (!d || !d.classList || !d.classList.contains('en-dlg2')) return;
+  d.querySelectorAll('video').forEach(function (v) { v.pause(); });
+}, true);
+document.addEventListener('click', function (e) {
+  var d = e.target; if (d && d.tagName === 'DIALOG' && d.classList.contains('en-dlg2')) d.close(); // backdrop
+});
+</script>
 {{end}}
 
 {{define "en-modal"}}
