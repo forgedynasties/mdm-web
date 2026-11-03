@@ -641,6 +641,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Apps":                apps,
 		"Families":            devFams,
 		"InstallChannels":     installChannelsByFamily(devFams),
+		"InstallInstalled":    installedByFamily(devFams, installedPkgs),
 		"Follows":             follows,
 		"FollowSet":           followSet(follows),
 		"FollowRows":          h.followRows(r.Context(), devFams, follows),

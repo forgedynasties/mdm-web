@@ -1523,35 +1523,34 @@ window.DEVICE_VITALS = {
           <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">
           <input type="hidden" name="progress_view" value="1">
           <span class="install-hidden"></span>
-          <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
-          <div class="app-drawer install-drawer" id="install-drawer">
-            {{$other := false}}
+          {{/* I1 (picked 3 Nov 2026): the apps as a list on the left (role apps first, the
+               rest under "Other apps"), the picked app's channels and builds in the pane on
+               the right (installPane in apps.js), and a footer sentence saying exactly what
+               Install will do. Several apps can be ticked; each keeps its own channel/build. */}}
+          <div class="inst-left">
+          <div class="inst-search"><input type="search" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)" autocomplete="off"></div>
+          <div class="install-drawer inst-list" id="install-drawer">
+            {{$other := false}}{{$first := true}}
             {{range .Families}}{{$prod := .Prod}}
+            {{if $first}}{{$first = false}}{{if hasPrefix .BasePackage "aio.app."}}<div class="inst-sep first">Role apps</div>{{end}}{{end}}
             {{if and (not $other) (not (hasPrefix .BasePackage "aio.app."))}}{{$other = true}}<div class="inst-sep">Other apps</div>{{end}}
-            {{/* One tile per app family. data-opts lists every variant × version
-                 (prod, newest first); the chooser under a selected tile picks which
-                 APK goes into the hidden apk_url input. */}}
             <div class="install-tile-wrap">
-            <button type="button" class="app-row app-tile install-tile{{if or .Grouped (gt .Versions 1)}} is-family{{end}}{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" data-channels="{{index $.InstallChannels .ID}}" title="{{.Name}}{{if $prod.Latest.VersionName}} v{{$prod.Latest.VersionName}}{{end}}" onclick="installToggle(this)">
+            <button type="button" class="install-tile inst-row{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" data-channels="{{index $.InstallChannels .ID}}" data-installed="{{index $.InstallInstalled .ID}}" title="{{.Name}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{$prod.Latest.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
-              <span class="app-tname">{{.Name}}</span>{{if $prod.Latest.VersionName}}<span class="app-tver">v{{$prod.Latest.VersionName}}{{if .Grouped}} · {{$prod.Label}}{{end}}</span>{{end}}{{if or .Grouped (gt .Versions 1)}}<span class="app-tmeta">{{if .Grouped}}{{len .Variants}} variant{{if ne (len .Variants) 1}}s{{end}} · {{end}}{{.Versions}} version{{if ne .Versions 1}}s{{end}}</span>{{end}}
+              <span class="inr-t"><b>{{.Name}}</b><span class="app-tver">{{if .Grouped}}{{$prod.Label}} {{end}}{{$prod.Latest.VersionName}}{{if .Grouped}} · {{len .Variants}} channel{{if ne (len .Variants) 1}}s{{end}}{{end}}</span></span>
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
-            {{if or .Grouped (gt .Versions 1)}}
-            <select class="form-input install-pick" aria-label="Variant and version for {{.Name}}" hidden onchange="installPick(this)" onclick="event.stopPropagation()">
-              {{range .Variants}}<optgroup label="{{.Label}} · {{.Package}}">{{range .Versions}}<option value="{{.App.ApkURL}}" data-pkg="{{.App.PackageName}}">{{if .App.VersionName}}v{{.App.VersionName}}{{else}}unversioned{{end}}{{if .Latest}} (latest){{end}}</option>{{end}}</optgroup>{{end}}
-            </select>
-            {{end}}
             </div>
             {{end}}
           </div>
           <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
-          {{/* QA builds (C, 30 Oct 2026): the picked app's channel, build and "keep it on the
-               newest" — filled by installPane() in apps.js from the tile's data-channels. */}}
-          <div class="inst-pane" id="inst-pane" hidden></div>
+          </div>
+          <div class="inst-pane" id="inst-pane"{{if canAppLibrary .Role}} data-apk-drop{{end}}>
+            <div class="inst-empty"><b>Pick an app on the left</b><span>Its channels (prod, UAT, stage, QA…) and their builds show here.</span></div>
+          </div>
           <div class="install-modal-foot">
             
-            <span class="muted small" id="install-count">Select one or more apps</span>
+            <span class="small inst-say" id="install-count">Pick one or more apps</span>
             <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>Install</button>
           </div>
         </form>

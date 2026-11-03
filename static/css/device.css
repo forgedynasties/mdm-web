@@ -751,3 +751,53 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
   #install-form.inst-two>.inst-pane{grid-column:1;grid-row:auto;border-left:0;border-top:1px solid var(--border);max-height:none}
   .install-modal-foot{flex-wrap:wrap}.inst-drop{flex-basis:100%}
 }
+
+/* Install app I1 (picked 3 Nov 2026): the apps as a list on the left, the picked app's
+   channels and builds in a pane on the right, a sentence in the footer. */
+#install-form{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);column-gap:0}
+#install-form>.install-hidden{display:none}
+#install-form>.inst-left{grid-column:1;border-right:1px solid var(--border-soft);display:flex;flex-direction:column;min-height:0}
+#install-form>.inst-pane{grid-column:2;padding:14px 20px;max-height:62vh;overflow:auto}
+#install-form>.install-modal-foot{grid-column:1/-1}
+@media(min-width:721px){#install-modal .modal-box{max-width:980px;width:min(980px,calc(100vw - 32px))}}
+.inst-search{padding:12px 14px 6px}
+.inst-search input{width:100%}
+.install-drawer.inst-list{display:block;max-height:58vh;overflow:auto;padding:0 8px 10px}
+.install-drawer .inst-sep{padding:12px 8px 6px;border-top:1px solid var(--border-soft);margin-top:6px}
+.install-drawer .inst-sep.first{border-top:0;margin-top:0;padding-top:4px}
+.inst-row.install-tile{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;text-align:left;position:relative;border:1px solid transparent}
+.inst-row.install-tile:hover{background:var(--hover)}
+.inst-row.install-tile.on{background:var(--accent-soft);border-color:var(--accent-edge)}
+.inst-row .app-icon,.inst-row .app-mono{width:32px;height:32px;border-radius:8px;flex:none}
+.inst-row .inr-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.inst-row .inr-t b{font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inst-row .app-tver{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inst-row.install-tile.install-installed{padding-bottom:8px}
+.inst-row.install-tile.install-installed .app-tname{opacity:1}
+.inst-row.install-tile.install-installed::after{content:"on device";position:static;transform:none;flex:none;font-size:10.5px;font-weight:700;letter-spacing:0;text-transform:none;padding:2px 8px;border-radius:99px;background:var(--ok-bg);color:var(--ok)}
+.inst-row .install-tick{position:static;flex:none;order:3}
+.inst-empty{display:flex;flex-direction:column;gap:4px;padding:28px 6px 14px;text-align:center;color:var(--muted);font-size:13px}
+.inst-empty b{color:var(--text);font-size:14px}
+.inst-pane .inst-ph{gap:12px;margin-bottom:6px}
+.inst-pane .inst-ph>span{display:flex;flex-direction:column;min-width:0}
+.inst-pane .inst-ph b{font-size:15px}.inst-pane .inst-ph small{font-size:12px;color:var(--muted)}
+.inst-rows{display:flex;flex-direction:column;gap:6px}
+.inst-ch{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:12px;cursor:pointer;background:var(--surface)}
+.inst-ch:hover{border-color:var(--accent-edge)}
+.inst-ch.on{border-color:var(--accent);background:var(--accent-soft)}
+.inst-ch:focus-visible{outline:none;box-shadow:var(--ring)}
+.inst-rd{width:16px;height:16px;border-radius:50%;border:2px solid var(--border);flex:none;box-sizing:border-box}
+.inst-ch.on .inst-rd{border:5px solid var(--accent)}
+.inst-cn{display:flex;flex-direction:column;min-width:0;flex:1}
+.inst-cn b{font-size:13.5px}.inst-cn small{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inst-have{flex:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--ok-bg);color:var(--ok);white-space:nowrap}
+.inst-bsel{flex:none;font:inherit;font-size:12px;font-family:var(--mono);padding:5px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);max-width:190px}
+.inst-pane .inst-drop{margin:14px 0 0;padding:10px 12px}
+.inst-say b{font-weight:700}
+@media(max-width:720px){
+  #install-form{grid-template-columns:minmax(0,1fr)}
+  #install-form>.inst-left{border-right:0;border-bottom:1px solid var(--border-soft)}
+  #install-form>.inst-pane{grid-column:1;max-height:none}
+  .install-drawer.inst-list{max-height:34vh}
+  .inst-ch{flex-wrap:wrap}.inst-bsel{max-width:100%}
+}

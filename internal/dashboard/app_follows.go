@@ -459,6 +459,29 @@ func installChannelsJSON(f LibFamily) string {
 	return string(b)
 }
 
+// installedByFamily is, per family id, the versions of its packages installed on the device
+// ({package: version} as JSON), so the Install dialog (I1) marks the channel it is on.
+func installedByFamily(fams []LibFamily, pkgs []db.DevicePackage) map[string]string {
+	ver := map[string]string{}
+	for _, p := range pkgs {
+		ver[p.PackageName] = p.VersionName
+	}
+	out := map[string]string{}
+	for _, f := range fams {
+		m := map[string]string{}
+		for _, v := range f.Variants {
+			if x, ok := ver[v.Package]; ok {
+				m[v.Package] = x
+			}
+		}
+		if len(m) > 0 {
+			b, _ := json.Marshal(m)
+			out[f.ID] = string(b)
+		}
+	}
+	return out
+}
+
 // installChannelsByFamily is each family's channels for the dialog, by family id.
 func installChannelsByFamily(fams []LibFamily) map[string]string {
 	out := map[string]string{}

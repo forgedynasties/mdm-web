@@ -79,10 +79,10 @@ window.installModalOpen = function () {
       else { t.setAttribute('data-url', t.dataset.url0); t.setAttribute('data-pkg', t.dataset.pkg0); var tv2 = t.querySelector('.app-tver'); if (tv2) tv2.textContent = t.dataset.ver0; }
       t.removeAttribute('data-follow');
     });
-    var pane = document.getElementById('inst-pane'); if (pane) { pane.hidden = true; pane.dataset.tile = ''; form.classList.remove('inst-two'); }
+    var pane = document.getElementById('inst-pane'); if (pane) instEmpty(pane);
     var holder = form.querySelector('.install-hidden'); if (holder) holder.innerHTML = '';
     var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
-    if (c) c.textContent = 'Select one or more apps';
+    if (c) c.textContent = 'Pick one or more apps';
     if (s) { s.disabled = true; s.textContent = 'Install'; }
   }
   var f = document.getElementById('install-filter');
@@ -308,6 +308,10 @@ window.mdmMarkInstalled = function (pkg) {
 window.installToggle = function (btn) {
   var url = btn.getAttribute('data-url'); if (!url) return;
   var form = document.getElementById('install-form'); if (!form) return;
+  // I1: a ticked app that isn't the one in the pane is shown, not unticked; clicking the
+  // one shown unticks it.
+  var shown = document.getElementById('inst-pane');
+  if (shown && btn.classList.contains('on') && shown.dataset.tile !== btn.getAttribute('data-family')) { installPane(btn); installLabel(); return; }
   var holder = form.querySelector('.install-hidden');
   var on = btn.classList.toggle('on');
   var pick = btn.parentElement && btn.parentElement.querySelector('.install-pick');
@@ -324,12 +328,12 @@ window.installToggle = function (btn) {
   }
   var n = holder.querySelectorAll('input[name="apk_url"]').length;
   var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
-  if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Select one or more apps';
+  if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Pick one or more apps';
   if (s) { s.disabled = n === 0; s.textContent = n ? ('Install (' + n + ')') : 'Install'; }
   if (pane) {
     if (on) installPane(btn);
     else if (pane.dataset.tile === btn.getAttribute('data-family')) {
-      var other = form.querySelector('.install-tile.on'); if (other) installPane(other); else { pane.hidden = true; pane.dataset.tile = ''; form.classList.remove('inst-two'); }
+      var other = form.querySelector('.install-tile.on'); if (other) installPane(other); else instEmpty(pane);
     }
     installLabel();
   }
@@ -464,40 +468,81 @@ function instSet(btn, url, pkg) {
   btn.setAttribute('data-url', url); btn.setAttribute('data-pkg', pkg);
   if (inp) { inp.value = url; inp.setAttribute('data-url', url); }
 }
+// The pane with nothing picked: what it is for, and the APK drop zone.
+function instEmpty(pane) {
+  pane.dataset.tile = '';
+  pane.innerHTML = '<div class="inst-empty"><b>Pick an app on the left</b><span>Its channels (prod, UAT, stage, QA…) and their builds show here.</span></div>' + instDrop(pane);
+}
+function instDrop(pane) {
+  return pane.hasAttribute('data-apk-drop') ? '<label class="inst-drop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span>Drop an APK here, or <u>pick one</u>: it goes into the library and installs on this device</span><input type="file" accept=".apk" hidden onchange="dropApkInstall(this.files[0])"></label>' : '';
+}
+function instChName(l) { return { prod: 'Prod', uatv2: 'UAT', uat: 'UAT', stagev2: 'Stage', staging: 'Stage', qa: 'QA', internal: 'Internal' }[l] || (l ? l.charAt(0).toUpperCase() + l.slice(1) : ''); }
+// I1 (picked 3 Nov 2026): the picked app's channels as rows (newest build, a menu for older
+// ones, the one on this device marked), "keep it on the newest" under them.
 window.installPane = function (btn) {
   var pane = document.getElementById('inst-pane'), form = document.getElementById('install-form'); if (!pane || !form) return;
-  var chs = instChannels(btn); if (!chs.length) { pane.hidden = true; form.classList.remove('inst-two'); return; }
+  var chs = instChannels(btn), inst = {};
+  try { inst = JSON.parse(btn.getAttribute('data-installed') || '{}') || {}; } catch (e) {}
+  var icon = btn.querySelector('.app-icon, .app-mono'), name = btn.getAttribute('data-app') || '';
+  if (!chs.length) {
+    pane.dataset.tile = btn.getAttribute('data-family');
+    pane.innerHTML = '<div class="inst-ph">' + (icon ? icon.outerHTML : '') + '<span><b>' + instEsc(name) + '</b><small class="mono">' + instEsc(btn.getAttribute('data-pkg') || '') + '</small></span></div><p class="muted small">One build in the library: it installs as it is.</p>' + instDrop(pane);
+    return;
+  }
   var pkg = btn.getAttribute('data-pkg'), ch = chs.filter(function (c) { return c.pkg === pkg; })[0] || chs[0];
   var url = btn.getAttribute('data-url'), vi = Math.max(0, ch.urls.indexOf(url));
   if (btn.getAttribute('data-follow') === null) btn.setAttribute('data-follow', ch.label === 'prod' ? '0' : '1');
+  btn.setAttribute('data-ch', instChName(ch.label)); btn.setAttribute('data-ver', ch.vers[vi] || '');
   var follow = btn.getAttribute('data-follow') === '1';
-  var icon = btn.querySelector('.app-icon, .app-mono'), name = btn.getAttribute('data-app') || '';
-  var h = '<div class="inst-ph">' + (icon ? icon.outerHTML : '') + '<b>' + instEsc(name) + '</b><span class="mono small muted">' + instEsc(ch.pkg) + '</span></div>';
-  h += '<div class="inst-lbl">Channel</div><div class="inst-chs" role="radiogroup" aria-label="Channel">';
-  chs.forEach(function (c, i) { h += '<button type="button" class="inst-c' + (c === ch ? ' on' : '') + '" role="radio" aria-checked="' + (c === ch) + '" data-i="' + i + '">' + instEsc(c.label) + '<small>' + instEsc(c.vers[0] || '') + '</small></button>'; });
-  h += '</div><div class="inst-lbl">Build</div><div class="inst-bld">';
-  ch.vers.forEach(function (v, i) { if (i > 5) return; h += '<label><input type="radio" name="inst-b" value="' + i + '"' + (i === vi ? ' checked' : '') + '> <b class="mono">' + instEsc(v || 'unversioned') + '</b>' + (i === 0 ? ' <span class="muted small">newest</span>' : '') + '</label>'; });
-  h += '</div><label class="inst-keep"><input type="checkbox"' + (follow ? ' checked' : '') + '> <span><b>Keep this device on the newest ' + instEsc(ch.label) + ' build</b><small>every newer ' + instEsc(name) + ' ' + instEsc(ch.label) + ' build in the library installs here by itself</small></span></label>';
-  pane.innerHTML = h; pane.hidden = false; pane.dataset.tile = btn.getAttribute('data-family'); form.classList.add('inst-two');
-  pane.querySelectorAll('.inst-c').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var c = chs[+b.dataset.i]; instSet(btn, c.urls[0], c.pkg);
-      btn.setAttribute('data-follow', c.label === 'prod' ? '0' : '1');
-      var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = 'v' + (c.vers[0] || '') + ' · ' + c.label;
-      installPane(btn); installLabel();
-    });
+  var on = Object.keys(inst).map(function (k) { var c = chs.filter(function (x) { return x.pkg === k; })[0]; return (c ? instChName(c.label) : k) + ' ' + inst[k]; });
+  var h = '<div class="inst-ph">' + (icon ? icon.outerHTML : '') + '<span><b>' + instEsc(name) + '</b><small>' + (on.length ? 'On this device: ' + instEsc(on.join(', ')) : 'Not on this device') + '</small></span></div>';
+  h += '<div class="inst-lbl">Channel and build</div><div class="inst-rows" role="radiogroup" aria-label="Channel">';
+  chs.forEach(function (c, i) {
+    var cur = c === ch, have = inst[c.pkg];
+    h += '<div class="inst-ch' + (cur ? ' on' : '') + '" role="radio" aria-checked="' + cur + '" tabindex="0" data-i="' + i + '">' +
+      '<span class="inst-rd"></span><span class="inst-cn"><b>' + instEsc(instChName(c.label)) + '</b><small class="mono">' + instEsc(c.pkg) + '</small></span>' +
+      (have ? '<span class="inst-have">' + instEsc(have) + ' on device</span>' : '') +
+      '<select class="inst-bsel" aria-label="Build of ' + instEsc(instChName(c.label)) + '">' +
+      c.vers.slice(0, 12).map(function (v, j) { return '<option value="' + j + '"' + (cur && j === vi ? ' selected' : '') + '>' + instEsc(v || 'unversioned') + (j === 0 ? ' · newest' : '') + '</option>'; }).join('') +
+      '</select></div>';
   });
-  pane.querySelectorAll('input[name="inst-b"]').forEach(function (r) {
-    r.addEventListener('change', function () { instSet(btn, ch.urls[+r.value], ch.pkg); var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = 'v' + (ch.vers[+r.value] || '') + ' · ' + ch.label; });
+  h += '</div><label class="inst-keep"><input type="checkbox"' + (follow ? ' checked' : '') + '> <span><b>Keep this device on the newest ' + instEsc(instChName(ch.label)) + ' build</b><small>every newer ' + instEsc(name) + ' ' + instEsc(instChName(ch.label)) + ' build in the library installs here by itself</small></span></label>';
+  h += instDrop(pane);
+  pane.innerHTML = h; pane.dataset.tile = btn.getAttribute('data-family');
+  function pick(i, j) {
+    var c = chs[i]; if (!c) return;
+    var changed = c !== ch;
+    instSet(btn, c.urls[j] || c.urls[0], c.pkg);
+    btn.setAttribute('data-ch', instChName(c.label)); btn.setAttribute('data-ver', c.vers[j] || c.vers[0] || '');
+    if (changed) btn.setAttribute('data-follow', c.label === 'prod' ? '0' : '1');
+    var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = instChName(c.label) + ' ' + (c.vers[j] || c.vers[0] || '');
+    if (changed) installPane(btn);
+    installLabel();
+  }
+  pane.querySelectorAll('.inst-ch').forEach(function (row) {
+    var i = +row.dataset.i, sel = row.querySelector('.inst-bsel');
+    row.addEventListener('click', function (e) { if (e.target === sel) return; pick(i, +sel.value); });
+    row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(i, +sel.value); } });
+    sel.addEventListener('change', function () { pick(i, +sel.value); });
   });
   var kc = pane.querySelector('.inst-keep input');
   if (kc) kc.addEventListener('change', function () { btn.setAttribute('data-follow', kc.checked ? '1' : '0'); installLabel(); });
 };
+// The footer says what Install will do: one app in full ("Install POS · UAT 987.0.0 and
+// follow UAT"), several as a count.
 window.installLabel = function () {
-  var form = document.getElementById('install-form'), s = document.getElementById('install-submit'); if (!form || !s) return;
+  var form = document.getElementById('install-form'), s = document.getElementById('install-submit'), c = document.getElementById('install-count'); if (!form || !s) return;
   var on = form.querySelectorAll('.install-tile.on'), f = 0;
   on.forEach(function (t) { if (t.getAttribute('data-follow') === '1') f++; });
-  if (on.length) s.textContent = (f ? 'Install and follow' : 'Install') + (on.length > 1 ? ' (' + on.length + ')' : '');
+  if (!on.length) { if (c) c.textContent = 'Pick one or more apps'; return; }
+  s.textContent = (f ? 'Install and follow' : 'Install') + (on.length > 1 ? ' (' + on.length + ')' : '');
+  if (!c) return;
+  if (on.length === 1) {
+    var t = on[0], ch = t.getAttribute('data-ch'), v = t.getAttribute('data-ver');
+    c.innerHTML = 'Install <b>' + instEsc(t.getAttribute('data-app') || '') + (ch ? ' · ' + instEsc(ch) : '') + (v ? ' ' + instEsc(v) : '') + '</b>' + (f ? ' and follow ' + instEsc(ch || '') : '');
+  } else {
+    c.textContent = on.length + ' apps' + (f ? ' · ' + f + ' followed' : '');
+  }
 };
 // Follow what was ticked, before the install goes out (the follow job then sees the
 // install in flight and waits for it).
@@ -509,7 +554,7 @@ window.installFollows = function (form) {
     fetch('/devices/' + encodeURIComponent(serial) + '/follows', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' } }).catch(function () {});
     t.removeAttribute('data-follow');
   });
-  var pane = document.getElementById('inst-pane'); if (pane) { pane.hidden = true; pane.dataset.tile = ''; form.classList.remove('inst-two'); }
+  var pane = document.getElementById('inst-pane'); if (pane) instEmpty(pane);
 };
 // Drop an APK on the Apps card or the dialog: into the library (as uploadApk does), then
 // installed on this device. Engineers may add channel builds; a prod build is refused
