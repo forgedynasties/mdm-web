@@ -1,150 +1,176 @@
 {{define "adb.html"}}
 {{template "header" .}}
-{{/* Wireless adb (A1, picked 17 Oct): "Connect devices" first — one search over every device
-     that can take it, chips for one or several, the duration, Connect — then the live progress
-     per device and every device's `adb connect` line in one Commands box; "Open now" below,
-     with copy / turn off / end tunnel per device and in batch. The flow: adb_flow.go. */}}
+{{/* Wireless adb W2 (picked 3 Nov 2026): Fleet's rail, search, sort and chips over one table of
+     every device that can take wireless adb or has it open; the connect pane on the right acts on
+     the ticked rows and shows the live progress. adb.go AdbPage, adb_flow.go, static/js/adb.js. */}}
+<template id="page-island">
+  <span class="isl-dot {{if .N.open}}warn{{else}}ok{{end}}"></span>
+  <span class="isl-t">Wireless adb</span>
+  <span class="isl-s"><b>{{.N.open}}</b> open · {{.N.capable}} can take it{{if not .TunnelsOn}} · tunnels off, same network only{{end}}</span>
+</template>
 <style>
-.adb-wrap{margin:0 auto}
-.adb-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 4px}
-.adb-hd h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.01em}
-.adb-sub{font-size:12.5px;color:var(--muted);margin:0 0 14px;max-width:86ch;line-height:1.5}
-.adb-card{margin-bottom:14px}
-.adb-body{padding:14px 17px}
-.adb-pick{position:relative}
-.adb-q{display:flex;align-items:center;flex-wrap:wrap;gap:6px;border:1px solid var(--border);border-radius:10px;padding:6px 8px;background:var(--surface);min-height:40px;cursor:text}
-.adb-q:focus-within{box-shadow:var(--ring);border-color:var(--accent-edge)}
-.adb-q svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2;margin:0 2px 0 4px;flex:none}
-.adb-q input{flex:1;min-width:180px;border:0;outline:0;background:transparent;font:inherit;font-size:13px;color:var(--text);padding:3px 2px}
-.adb-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:8px;background:var(--accent-soft);color:var(--accent-text);font-family:var(--mono);font-size:12px;font-weight:600}
-.adb-chip button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0 4px;opacity:.7}
-.adb-chip button:hover{opacity:1}
-.adb-sug{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;max-height:300px;overflow:auto}
-.adb-sug[hidden]{display:none}
-.adb-sug .cc-mi .sub{font-size:11.5px;color:var(--muted);margin-left:auto;white-space:nowrap}
-.adb-sug .cc-mi .mono{font-family:var(--mono);font-size:12.5px}
-.adb-sug .dot{width:7px;height:7px;border-radius:50%;background:var(--text-faint);flex:none}
-.adb-sug .dot.on{background:var(--ok)}
-.adb-sug .cc-mi.act{background:var(--hover)}
-.adb-ctl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
-.adb-ctl .lbl{font-size:12px;color:var(--muted)}
+.adb-page{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.adb-page .ft td .sub{display:block;font-size:11.5px;color:var(--muted);white-space:normal}
+.adb-page .ft .tick{width:34px}
+.adb-page .ft .tick input{width:15px;height:15px;accent-color:var(--accent)}
+.adb-page .ft .act{text-align:right;white-space:nowrap}
+.adb-page .ft .act form{display:inline;margin:0}
+.adb-sn{font-family:var(--mono);font-size:12.5px;font-weight:650;color:var(--text);text-decoration:none}
+.adb-sn:hover{color:var(--accent-text)}
+code.adb-c{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border-soft);border-radius:6px;padding:2px 6px;white-space:nowrap}
+.adb-more{position:relative;display:inline-block}
+.adb-more>summary{list-style:none;cursor:pointer}.adb-more>summary::-webkit-details-marker{display:none}
+.adb-more .cc-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:210px;text-align:left}
+.adb-more .cc-menu form{display:block}
+.adb-more .cc-menu .cc-mi{width:100%;border:0;background:transparent;font:inherit;text-align:left;cursor:pointer}
+.adb-pane{position:sticky;top:16px;border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:14px 15px;font-size:13px;max-height:calc(100vh - 32px);overflow:auto}
+.adb-pane h2{margin:0;font-size:15px}
+.adb-pane .m{color:var(--muted);font-size:12px;margin:2px 0 10px;line-height:1.45}
+.adb-pane .sec{border-top:1px solid var(--border-soft);margin-top:12px;padding-top:12px}
+.adb-picked{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 10px}
+.adb-picked span{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border-radius:8px;background:var(--accent-soft);color:var(--accent-text);font-family:var(--mono);font-size:11.5px;font-weight:600}
+.adb-picked button{border:0;background:transparent;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0 3px;opacity:.7}
+.adb-picked button:hover{opacity:1}
+.adb-lbl{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
 .adb-seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
 .adb-seg label{display:flex;cursor:pointer}
 .adb-seg input{position:absolute;opacity:0;pointer-events:none}
-.adb-seg span{padding:6px 11px;font-size:12px;color:var(--text-2);border-right:1px solid var(--border)}
+.adb-seg span{padding:6px 10px;font-size:12px;color:var(--text-2);border-right:1px solid var(--border)}
 .adb-seg label:last-child span{border-right:0}
 .adb-seg input:checked+span{background:var(--accent-soft);color:var(--accent-text);font-weight:650}
 .adb-seg input:focus-visible+span{box-shadow:var(--ring)}
-.adb-ctl .cc-btn.primary{margin-left:auto}
-.adb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
-.adb-dev{border:1px solid var(--border);border-radius:14px;padding:12px 14px;background:var(--surface)}
-.adb-dev .hd{display:flex;align-items:center;gap:8px;margin-bottom:2px}
-.adb-dev .hd .s{font-family:var(--mono);font-size:13px;font-weight:650;color:var(--text);flex:none}
+.adb-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.adb-btns .cc-btn[disabled]{opacity:.45;cursor:not-allowed}
+.adb-dev{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px}
+.adb-dev .hd{display:flex;align-items:center;gap:8px}
+.adb-dev .hd .s{font-family:var(--mono);font-size:12.5px;font-weight:650;flex:none}
 .adb-dev .hd .v{font-size:12px;color:var(--muted);min-width:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.adb-dev .hd .cc-tag{flex:none;max-width:55%;overflow:hidden;text-overflow:ellipsis}
-.adb-cmds{border:1px solid var(--ok-edge);background:var(--ok-bg);border-radius:14px;padding:12px 14px;margin-top:12px}
+.adb-cmds{border:1px solid var(--ok-edge);background:var(--ok-bg);border-radius:12px;padding:10px 12px;margin-top:10px}
 .adb-cmds[hidden]{display:none}
-.adb-cmds .hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.adb-cmds .hd b{font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ok)}
-.adb-cmds .hd .cc-btn:first-of-type{margin-left:auto}
-.adb-open{width:100%;border-collapse:collapse;font-size:13px}
-.adb-open th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--border)}
-.adb-open td{padding:9px 14px;border-bottom:1px solid var(--border-soft);vertical-align:middle;color:var(--text-2)}
-.adb-open tr:last-child td{border-bottom:0}
-.adb-open .s{font-family:var(--mono);font-size:12.5px;color:var(--text);font-weight:600;text-decoration:none}
-.adb-open .sub{display:block;font-size:11.5px;color:var(--muted)}
-.adb-open .acts{text-align:right;white-space:nowrap}
-.adb-open .acts form{display:inline}
-.adb-open input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
-.adb-bar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border-soft);background:var(--surface2);font-size:13px}
-.adb-bar[hidden]{display:none}
-.adb-mono{font-family:var(--mono);font-size:12.5px}
-.adb-empty{padding:18px 17px;font-size:13px;color:var(--muted)}
+.adb-cmds .hd{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.adb-cmds .hd b{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--ok)}
+.adb-cmds .hd .sp{flex:1}
+.adb-cmd{display:flex;align-items:center;gap:6px;margin-top:5px;min-width:0}
+.adb-cmd code{font-family:var(--mono);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.adb-cmd .w{display:none}
+@media (max-width:1280px){.adb-page{grid-template-columns:minmax(0,1fr) 300px}}
+@media (max-width:1024px){.adb-page{grid-template-columns:minmax(0,1fr)}.adb-pane{position:static;max-height:none}}
 </style>
 
-<div class="adb-wrap">
-<div class="cc-top">
-  <div>
-    <div class="cc-eyebrow">Control</div>
-    <h1 class="cc-h1">Wireless adb</h1>
-    <div class="cc-status adb-st">{{if .Open}}<span class="cc-tag warn">{{len .Open}} open</span>{{end}}
-  {{if not .TunnelsOn}}<span class="cc-tag">tunnels off on this server · same network only</span>{{end}}</div>
+<div class="adb-page">
+<div class="cl-page" id="adb-root" data-cl data-one="device" data-many="devices" data-start="{{.Start}}">
+<div class="fleet-md">
+  <aside class="fleet-rail" aria-label="Wireless adb views">
+    <div class="fleet-rail-cap"><span>Wireless adb</span></div>
+    <button type="button" class="fleet-rail-item" data-clf="open" data-title="Open now" aria-pressed="false"><span class="dot {{if .N.open}}warn{{else}}muted{{end}}"></span><span class="nm">Open now</span><span class="ct">{{.N.open}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="can" data-title="Can connect" aria-pressed="false"><span class="dot ok"></span><span class="nm">Can connect</span><span class="ct">{{.N.can}}</span></button>
+    {{if .N.cant}}<button type="button" class="fleet-rail-item" data-clf="cant" data-title="Can't" aria-pressed="false"><span class="dot muted"></span><span class="nm">Can't</span><span class="ct">{{.N.cant}}</span></button>{{end}}
+    <button type="button" class="fleet-rail-item" data-clf="" data-title="Every device" aria-pressed="false"><span class="dot ok"></span><span class="nm">Every device</span><span class="ct">{{len .Rows}}</span></button>
+    {{if .Where}}<div class="fleet-rail-cap"><span>Where</span></div>
+    {{range .Where}}<button type="button" class="fleet-rail-item" data-clf="{{.Key}}" aria-pressed="false"><span class="dot ok"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></button>{{end}}{{end}}
+    <div class="fleet-rail-cap"><span>Client</span></div>
+    <button type="button" class="fleet-rail-item" data-clf="fw" data-title="Firmware MDM" aria-pressed="false"><span class="dot ok"></span><span class="nm">Firmware MDM</span><span class="ct">{{.N.fw}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="std" data-title="Standard MDM" aria-pressed="false"><span class="dot ok"></span><span class="nm">Standard MDM</span><span class="ct">{{.N.std}}</span></button>
+  </aside>
+  <div class="fleet-roster" style="min-width:0">
+    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0" data-cl-title>Open now</h1><span class="c" data-cl-count>{{len .Rows}} devices</span></div>
+    <div class="fleet-bar">
+      <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search serial, venue, who opened it…" aria-label="Search devices" autocomplete="off"></div>
+      {{template "cl-sort" "Open, online first"}}
+        <button type="button" class="cc-mi active" role="menuitemradio" aria-checked="true" data-cls="order" data-dir="asc">Open, online first</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="left" data-dir="asc">Closes soonest</button>
+        <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="name" data-dir="asc">Serial</button>
+      </div></div>
+    </div>
+    <div class="fl-fchips" role="group" aria-label="Quick filters">
+      <button type="button" class="fq" data-clc="online" aria-pressed="false">Online <span class="n">{{.N.online}}</span></button>
+      {{if .N.tunnel}}<button type="button" class="fq" data-clc="tunnel" aria-pressed="false">Tunnel <span class="n">{{.N.tunnel}}</span></button>{{end}}
+      {{if .N.lan}}<button type="button" class="fq" data-clc="lan" aria-pressed="false">Same network only <span class="n">{{.N.lan}}</span></button>{{end}}
+      {{if .N.stays}}<button type="button" class="fq" data-clc="stays" aria-pressed="false">Until turned off <span class="n">{{.N.stays}}</span></button>{{end}}
+      {{if .N.mine}}<button type="button" class="fq" data-clc="mine" aria-pressed="false">Opened by me <span class="n">{{.N.mine}}</span></button>{{end}}
+      <button type="button" class="fq-clear" data-cl-clear hidden>Clear</button>
+    </div>
+    <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft">
+      <thead><tr>
+        <th scope="col" class="tick"><input type="checkbox" id="adb-all" aria-label="Tick every device shown"></th>
+        <th scope="col">Device</th>
+        <th scope="col" style="width:150px">Where</th>
+        <th scope="col" style="width:120px">Client</th>
+        <th scope="col" style="width:200px">adb</th>
+        <th scope="col">Connect</th>
+        <th scope="col" class="act" style="width:120px"><span class="sr-only">Actions</span></th>
+      </tr></thead>
+      <tbody id="adb-rows" data-cl-body>
+      {{range $i, $r := .Rows}}
+      <tr class="ft-row" data-flags="{{.Flags}}" data-text="{{.Text}}" data-s-name="{{.Device.SerialNumber}}" data-s-order="{{$i}}" data-s-left="{{.LeftHours}}"
+          data-serial="{{.Device.SerialNumber}}" data-group="{{.Group}}" data-switch="{{if .CanSwitch}}1{{end}}" data-any="{{.Any}}" data-lan="{{.Lan}}">
+        <td class="tick"><input type="checkbox" class="adb-tick" value="{{.Device.SerialNumber}}" aria-label="Tick {{.Device.SerialNumber}}"{{if eq .Group "cant"}} disabled title="{{.Why}}"{{end}}></td>
+        <td><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
+          <a class="adb-sn" href="/devices/{{.Device.SerialNumber}}">{{.Device.SerialNumber}}</a>
+          {{if .LastBy}}<span class="sub">{{.LastWord}} by {{.LastBy}} · {{timeSince .LastAt}}</span>{{end}}</td>
+        <td><span class="ft-ell">{{if .Venue}}{{.Venue}}{{else}}Lab{{end}}</span></td>
+        <td>{{.Device.KindLabel}}</td>
+        <td>{{if eq .Group "open"}}<span class="cc-tag warn">adb on</span> <span class="sub">{{if .OffIn}}{{.OffIn}} left{{else if .StaysOn}}until turned off{{end}}</span>
+          {{else if eq .Group "cant"}}<span class="cc-tag">can't</span> <span class="sub">{{.Why}}</span>
+          {{else}}<span class="cc-tag">off</span>{{end}}
+          {{with .Tunnel}}<span class="sub">tunnel :{{.Port}} · closes after {{.ClosesInText}} idle{{if .Connected}} · <b style="color:var(--ok)">connected</b>{{end}}</span>
+          {{if .LastRefused}}<span class="sub" style="color:var(--danger)">refused {{.LastRefused}}</span>{{end}}{{end}}</td>
+        <td>{{if .Any}}<code class="adb-c">{{.Any}}</code>{{else if .Lan}}<code class="adb-c">{{.Lan}}</code><span class="sub">same network only</span>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="act">
+          {{if or .Any .Lan}}<button type="button" class="cc-btn sm" data-cmd="{{if .Any}}{{.Any}}{{else}}{{.Lan}}{{end}}" onclick="copyText(this.dataset.cmd, this)">Copy</button>{{end}}
+          {{if or (and .CanSwitch (eq .Group "open")) .Tunnel}}
+          <details class="adb-more"><summary class="cc-btn sm" aria-label="More for {{.Device.SerialNumber}}">⋯</summary>
+            <div class="cc-menu" role="menu">
+              {{if and .Any .Lan}}<button type="button" class="cc-mi" data-cmd="{{.Lan}}" onclick="copyText(this.dataset.cmd, this)">Copy same-network command</button>{{end}}
+              {{with .Tunnel}}{{if .LastRefused}}<form method="POST" action="/adb/tunnel/{{.ID}}/allow"><input type="hidden" name="allow_from" value="{{.LastRefused}}"><button type="submit" class="cc-mi" title="Your adb left through another address than your browser (two WAN links, VPN)">Allow {{.LastRefused}}</button></form>{{end}}
+              <form method="POST" action="/adb/tunnel/{{.ID}}/end"><button type="submit" class="cc-mi">End tunnel</button></form>{{end}}
+              {{if and .CanSwitch (eq .Group "open")}}<form method="POST" action="/adb/commands"><input type="hidden" name="action" value="off"><input type="hidden" name="serial" value="{{.Device.SerialNumber}}"><button type="submit" class="cc-mi">Turn adb off</button></form>{{end}}
+            </div>
+          </details>{{else if eq .Group "can"}}<button type="button" class="cc-btn sm" data-pick-one="{{.Device.SerialNumber}}">Connect…</button>{{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div></div>
+    <div class="cl-none" data-cl-none hidden>No device matches these filters.</div>
   </div>
 </div>
+</div>
 
-<section class="cc-card adb-card">
-  <div class="cc-ch"><h2>Connect devices</h2><span class="m">{{.Capable}} device{{if ne .Capable 1}}s{{end}} can take it</span></div>
-  <form class="adb-body" id="adb-connect" method="POST" action="/adb/connect" autocomplete="off">
-    <div class="adb-pick">
-      <div class="adb-q" id="adb-q"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <span id="adb-chips"></span>
-        <input id="adb-search" type="search" placeholder="Search a serial or venue — pick one or several" aria-label="Find devices" role="combobox" aria-expanded="false" aria-controls="adb-sug"></div>
-      <div class="adb-sug cc-menu" id="adb-sug" role="listbox" hidden></div>
-    </div>
-    <div class="adb-ctl">
-      <span class="lbl">Stays open for</span>
-      <span class="adb-seg" role="radiogroup" aria-label="Stays open for">
-        <label><input type="radio" name="hours" value="2"><span>2 h</span></label>
-        <label><input type="radio" name="hours" value="24" checked><span>24 h</span></label>
-        <label><input type="radio" name="hours" value="168"><span>7 d</span></label>
-        <label><input type="radio" name="hours" value="0"><span>Until turned off</span></label>
-      </span>
-      <span class="lbl" id="adb-n"></span>
-      <button class="cc-btn primary" type="submit" id="adb-go" disabled>Connect</button>
+<aside class="adb-pane" aria-label="Connect">
+  <form id="adb-act" method="POST" action="/adb/connect" autocomplete="off" hx-boost="false">
+    <input type="hidden" name="action" value="off">
+    <h2 id="adb-act-h">Connect devices</h2>
+    <div class="m" id="adb-act-m">Tick devices in the list to connect them, or to turn adb off. One device: its Connect… button.</div>
+    <div class="adb-picked" id="adb-picked"></div>
+    <span class="adb-lbl">Stays open for</span>
+    <span class="adb-seg" role="radiogroup" aria-label="Stays open for">
+      <label><input type="radio" name="hours" value="2"><span>2 h</span></label>
+      <label><input type="radio" name="hours" value="24" checked><span>24 h</span></label>
+      <label><input type="radio" name="hours" value="168"><span>7 d</span></label>
+      <label><input type="radio" name="hours" value="0"><span>Until off</span></label>
+    </span>
+    <div class="adb-btns">
+      <button type="submit" class="cc-btn primary" id="adb-go" disabled>Connect</button>
+      <button type="submit" class="cc-btn" id="adb-off" formaction="/adb/commands" disabled>Turn off</button>
+      <button type="button" class="cc-btn" id="adb-copy-sel" disabled>Copy commands</button>
+      <button type="button" class="cc-btn" id="adb-clear" hidden>Clear</button>
     </div>
   </form>
-</section>
-
-<section class="cc-card adb-card" id="adb-watch"{{if not .Watching}} hidden{{end}} data-serials="{{.Watching}}">
-  <div class="cc-ch"><h2>Connecting</h2><span class="m" id="adb-watch-m">checking…</span></div>
-  <div class="adb-body">
-    <div class="adb-grid" id="adb-devs"></div>
+  <section class="sec" id="adb-watch"{{if not .Watching}} hidden{{end}} data-serials="{{.Watching}}">
+    <h2>Connecting</h2><div class="m" id="adb-watch-m">checking…</div>
+    <div id="adb-devs"></div>
     <div class="adb-cmds" id="adb-cmds" hidden>
-      <div class="hd"><b>Commands</b><span class="small muted" id="adb-cmds-n"></span>
+      <div class="hd"><b>Commands</b><span class="small muted" id="adb-cmds-n"></span><span class="sp"></span>
         <button type="button" class="cc-btn sm" id="adb-copy-all">Copy all</button>
         <button type="button" class="cc-btn sm" id="adb-lan-t" aria-pressed="false">Same network</button></div>
       <div id="adb-cmd-list"></div>
     </div>
-  </div>
-</section>
-
-<section class="cc-card adb-card" id="adb-open-card">
-  <div class="cc-ch"><h2>Open now</h2><span class="m">{{if .Open}}{{len .Open}} device{{if ne (len .Open) 1}}s{{end}} · each closes on its own at the time shown{{else}}nothing open{{end}}</span></div>
-  {{if .Open}}
-  <form method="POST" action="/adb/commands" id="adb-off-form">
-  <input type="hidden" name="action" value="off">
-  <div class="adb-bar" id="adb-bar" hidden><b id="adb-count">0</b> selected
-    <button class="cc-btn sm" type="submit">Turn off</button>
-    <button class="cc-btn sm" type="button" id="adb-copy-sel">Copy their commands</button>
-    <span style="flex:1"></span><button class="cc-btn sm" type="button" id="adb-clear">Clear</button></div>
-  <table class="adb-open">
-    <tr><th style="width:30px"><input type="checkbox" id="adb-all" aria-label="Select every open device"></th><th>Device</th><th>Open</th><th>Connect</th><th></th></tr>
-    {{range .Open}}
-    {{$any := ""}}{{with .Tunnel}}{{$any = printf "adb connect %s:%d" $.TunnelHost .Port}}{{end}}
-    {{$lan := ""}}{{if and (eq .Group "open") .IP}}{{$lan = printf "adb connect %s:%d" .IP .Port}}{{end}}
-    <tr data-any="{{$any}}" data-lan="{{$lan}}">
-      <td><input type="checkbox" name="serial" value="{{.Device.SerialNumber}}"{{if not .CanSwitch}} disabled title="Its client can't switch adb off"{{end}}></td>
-      <td><a class="s" href="/devices/{{.Device.SerialNumber}}?view=new">{{.Device.SerialNumber}}</a>
-        <span class="sub">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Lab{{end}} · {{if .Online}}online{{else}}offline{{end}}{{if .LastBy}} · by {{.LastBy}}{{end}}</span></td>
-      <td>{{if eq .Group "open"}}<span class="cc-tag warn">adb on</span> <span class="small muted">{{if .OffIn}}{{.OffIn}} left{{else if .StaysOn}}until turned off{{end}}</span>{{else}}<span class="cc-tag">adb off</span>{{end}}
-        {{with .Tunnel}}<span class="sub">tunnel :{{.Port}} · closes after {{.ClosesInText}} idle{{if .Connected}} · <b style="color:var(--ok)">connected</b>{{end}}</span>
-        {{if .LastRefused}}<span class="sub" style="color:var(--danger)">refused {{.LastRefused}}</span>{{end}}{{end}}</td>
-      <td>{{if $any}}<code class="adb-mono">{{$any}}</code>{{else if $lan}}<code class="adb-mono">{{$lan}}</code><span class="sub">same network only</span>{{else}}<span class="muted">—</span>{{end}}</td>
-      <td class="acts">
-        {{if or $any $lan}}<button type="button" class="cc-btn sm" data-cmd="{{if $any}}{{$any}}{{else}}{{$lan}}{{end}}" onclick="copyText(this.dataset.cmd, this)">Copy</button>{{end}}
-        {{with .Tunnel}}{{if .LastRefused}}<button type="submit" class="cc-btn sm primary" formaction="/adb/tunnel/{{.ID}}/allow" name="allow_from" value="{{.LastRefused}}" title="Your adb left through another address than your browser (two WAN links, VPN)">Allow {{.LastRefused}}</button>{{end}}
-        <button type="submit" class="cc-btn sm" formaction="/adb/tunnel/{{.ID}}/end">End tunnel</button>{{end}}
-        {{if and .CanSwitch (eq .Group "open")}}<button type="submit" class="cc-btn sm" name="serial" value="{{.Device.SerialNumber}}" data-one="1">Turn off</button>{{end}}
-      </td>
-    </tr>
-    {{end}}
-  </table>
-  </form>
-  {{else}}<div class="adb-empty">No device has adb open. Connect one above.</div>{{end}}
-</section>
+  </section>
+</aside>
 </div>
 
-<script>window.ADB_PAGE = {picks: {{.PicksJSON}}};</script>
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 <script src="/static/js/adb-steps.js?v={{assetVer}}"></script>
 <script src="/static/js/adb.js?v={{assetVer}}"></script>
 {{template "footer" .}}

@@ -3,7 +3,6 @@ package dashboard
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"net/http"
 	"net/url"
 	"sort"
@@ -116,10 +115,28 @@ func (h *Handler) adbRowFor(d *db.Device, online bool, hist *db.AdbTCPFleetRow) 
 	return r
 }
 
-// AdbPage renders /adb (A1, picked 17 Oct): "Connect devices" — one search over every device
-// that can take wireless adb, the duration, Connect — then the live progress for the devices
-// being connected (their serials ride the URL, so a reload keeps watching), the `adb connect`
-// lines for all of them, and "Open now" below with copy / turn off / end tunnel, in batch too.
+// adbListRow is one row of the W2 list: a device that can take wireless adb, or has it open.
+type adbListRow struct {
+	adbRow
+	Any, Lan  string // the `adb connect` lines: through the tunnel, and on the same network
+	Venue     string // "" = Lab
+	Flags     string // coll_list keys: views, chips, venue, client
+	Text      string // what the search matches
+	LeftHours int    // sort key: hours until it closes (stays on = a big number)
+}
+
+// adbPlace is one entry of the rail's Where section.
+type adbPlace struct {
+	Key, Name string
+	N         int
+}
+
+// AdbPage renders /adb as W2 (picked 3 Nov 2026; user: "pretty hard to navigate need to make
+// it fleets twin", then "w2 is fine"): Fleet's rail (Open now · Can connect · Can't, then where
+// and which client), search, sort and chips over one table of every device that can take
+// wireless adb or has it open; ticking rows fills the connect pane on the right (duration,
+// Connect, Turn off, Copy commands), which also shows the live progress of the devices being
+// connected (their serials ride the URL, so a reload keeps watching). The flow: adb_flow.go.
 func (h *Handler) AdbPage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	hist, err := h.db.AdbTCPFleet(ctx)
@@ -133,15 +150,11 @@ func (h *Handler) AdbPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	connected := h.hub.ConnectedIDsForDisplay()
-	type pickable struct {
-		Serial string `json:"s"`
-		Venue  string `json:"v,omitempty"`
-		Kind   string `json:"k"`
-		Online bool   `json:"o"`
-		Open   bool   `json:"a,omitempty"`
-	}
-	var picks []pickable
-	var open []adbRow
+	me := h.currentUsername(r)
+	host := h.adbTunnelHost(r)
+	var rows []adbListRow
+	places := map[string]*adbPlace{}
+	var nOpen, nCan, nCant, nOnline, nTunnel, nLan, nStays, nMine, nFw, nStd int
 	for i := range devices {
 		d := &devices[i]
 		var hp *db.AdbTCPFleetRow
@@ -150,37 +163,118 @@ func (h *Handler) AdbPage(w http.ResponseWriter, r *http.Request) {
 		}
 		_, online := connected[d.ID]
 		row := h.adbRowFor(d, online, hp)
-		if row.CanSwitch || (d.AgentKind == "dpc" && row.Group == "open" && row.CanTunnel) {
-			picks = append(picks, pickable{Serial: d.SerialNumber, Venue: d.RestaurantName, Kind: d.KindLabel(), Online: online, Open: row.Group == "open"})
+		capable := row.CanSwitch || (d.AgentKind == "dpc" && row.Group == "open" && row.CanTunnel)
+		// A firmware device that can't (old client, last try failed) is listed with its reason;
+		// a Standard client that isn't listening is most of them, and nothing to act on.
+		cantShown := row.Group == "cant" && d.AgentKind == "firmware"
+		if !capable && row.Group != "open" && row.Tunnel == nil && !cantShown {
+			continue
 		}
-		if row.Group == "open" || row.Tunnel != nil {
-			open = append(open, row)
+		lr := adbListRow{adbRow: row, Venue: d.RestaurantName, LeftHours: 1 << 20}
+		if row.Tunnel != nil {
+			lr.Any = fmt.Sprintf("adb connect %s:%d", host, row.Tunnel.Port)
 		}
+		if row.Group == "open" && row.IP != "" {
+			lr.Lan = fmt.Sprintf("adb connect %s:%d", row.IP, row.Port)
+		}
+		var f []string
+		switch {
+		case row.Group == "open" || row.Tunnel != nil:
+			f = append(f, "open")
+			nOpen++
+			if row.OffIn != "" && hp != nil && hp.Hours > 0 {
+				lr.LeftHours = int(time.Until(hp.LastAt.Add(time.Duration(hp.Hours)*time.Hour)).Hours())
+			}
+			if row.Tunnel != nil {
+				f = append(f, "tunnel")
+				nTunnel++
+			} else if lr.Lan != "" {
+				f = append(f, "lan")
+				nLan++
+			}
+			if row.StaysOn {
+				f = append(f, "stays")
+				nStays++
+			}
+		case row.Group == "cant":
+			f = append(f, "cant")
+			nCant++
+		default:
+			f = append(f, "can")
+			nCan++
+		}
+		if online {
+			f = append(f, "online")
+			nOnline++
+		}
+		if me != "" && row.LastBy == me {
+			f = append(f, "mine")
+			nMine++
+		}
+		key, name := "lab", "Lab"
+		if d.RestaurantID != nil {
+			key, name = "v-"+d.RestaurantID.String(), d.RestaurantName
+		}
+		f = append(f, key)
+		if pl := places[key]; pl != nil {
+			pl.N++
+		} else {
+			places[key] = &adbPlace{Key: key, Name: name, N: 1}
+		}
+		if d.AgentKind == "dpc" {
+			f = append(f, "std")
+			nStd++
+		} else {
+			f = append(f, "fw")
+			nFw++
+		}
+		lr.Flags = strings.Join(f, " ")
+		lr.Text = strings.Join([]string{d.SerialNumber, name, d.KindLabel(), row.LastBy, lr.Any, lr.Lan}, " ")
+		rows = append(rows, lr)
 	}
-	sort.SliceStable(open, func(i, j int) bool {
-		if open[i].Device.RestaurantName != open[j].Device.RestaurantName {
-			return open[i].Device.RestaurantName < open[j].Device.RestaurantName
+	// Open first, then online, then by serial.
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if (a.Group == "open") != (b.Group == "open") {
+			return a.Group == "open"
 		}
-		return open[i].Device.SerialNumber < open[j].Device.SerialNumber
+		if a.Online != b.Online {
+			return a.Online
+		}
+		return a.Device.SerialNumber < b.Device.SerialNumber
 	})
-	picksJSON, _ := json.Marshal(picks)
+	var where []adbPlace
+	for _, p := range places {
+		where = append(where, *p)
+	}
+	sort.Slice(where, func(i, j int) bool {
+		if (where[i].Key == "lab") != (where[j].Key == "lab") {
+			return where[i].Key == "lab"
+		}
+		if where[i].N != where[j].N {
+			return where[i].N > where[j].N
+		}
+		return where[i].Name < where[j].Name
+	})
 	var watching []string
 	for _, s := range strings.Split(r.URL.Query().Get("connect"), ",") {
 		if s = strings.TrimSpace(s); s != "" && len(watching) < 100 {
 			watching = append(watching, s)
 		}
 	}
+	start := "open"
+	if nOpen == 0 {
+		start = "can"
+	}
 	h.render(w, r, "adb.html", map[string]any{
-		"Title":      "Wireless adb",
-		"Open":       open,
-		"Capable":    len(picks),
-		"PicksJSON":  template.JS(picksJSON),
-		"Watching":   strings.Join(watching, ","),
-		"Sessions":   h.tunnels.List(),
-		"TunnelsOn":  h.tunnels.Enabled(),
-		"TunnelHost": h.adbTunnelHost(r),
-		"MyIP":       ratelimit.ClientIP(r),
-		"Now":        time.Now(),
+		"Title":     "Wireless adb",
+		"Rows":      rows,
+		"Where":     where,
+		"Start":     start,
+		"N":         map[string]int{"open": nOpen, "can": nCan, "cant": nCant, "online": nOnline, "tunnel": nTunnel, "lan": nLan, "stays": nStays, "mine": nMine, "fw": nFw, "std": nStd, "capable": nOpen + nCan},
+		"Watching":  strings.Join(watching, ","),
+		"TunnelsOn": h.tunnels.Enabled(),
+		"MyIP":      ratelimit.ClientIP(r),
 	})
 }
 
