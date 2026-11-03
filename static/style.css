@@ -7918,7 +7918,7 @@ body .cc-top:has(.cc-actions:not(.isl-dup) > *) { margin-bottom: 14px; }
 .appbar-island .isl-cr .sep { color: var(--text-faint); flex: none; }
 .appbar-island .isl-cr .isl-t { max-width: none; min-width: 0; }
 @media (max-width: 1280px) { .appbar-island .isl-cr .cr:first-child, .appbar-island .isl-cr .cr:first-child + .sep { display: none; } }
-.isl-live { position: absolute; inset: 0; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 16px; border-radius: inherit;
+.appbar-island .isl-live { position: absolute; top: 0; left: 0; right: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 16px; border-radius: inherit;
   background: var(--surface); opacity: 0; transform: translateY(-4px) scale(.985); transition: opacity .18s ease, transform .18s ease; z-index: 2; }
 .isl-live.show { opacity: 1; transform: none; }
 .isl-live .il-m { flex: 1; min-width: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
