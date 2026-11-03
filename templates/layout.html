@@ -443,6 +443,40 @@
         slot.classList.add('always');
       }
       crumbs();
+      chips();
+    }
+    // D3: the page's status line ("2 of 29 online · 27 offline · 19 open alerts") becomes
+    // chips, one per " · " part; a part the page wrote as a link is a link chip, and a
+    // warning (.w) or danger (.d) part keeps its tone.
+    function chips() {
+      slot.querySelectorAll('.isl-s').forEach(function (s) {
+        if (s.dataset.chips) return;
+        var groups = [[]];
+        Array.prototype.slice.call(s.childNodes).forEach(function (n) {
+          if (n.nodeType === 3 && n.nodeValue.indexOf('·') >= 0) {
+            var bits = n.nodeValue.split('·');
+            bits.forEach(function (b, i) {
+              if (i > 0) groups.push([]);
+              if (b.trim()) groups[groups.length - 1].push(document.createTextNode(b));
+            });
+          } else groups[groups.length - 1].push(n);
+        });
+        var box = document.createElement('span'); box.className = 'isl-chips'; box.dataset.chips = '1';
+        groups.forEach(function (g) {
+          g = g.filter(function (n) { return n.nodeType !== 3 || n.nodeValue.trim(); });
+          if (!g.length) return;
+          var only = g.length === 1 && g[0].nodeType === 1 && g[0].tagName === 'A' ? g[0] : null;
+          var c = only || document.createElement('span');
+          c.classList.add('isl-chip');
+          if (!only) g.forEach(function (n) { c.appendChild(n); });
+          if (c.querySelector('.d') || c.classList.contains('d')) c.classList.add('bad');
+          else if (c.querySelector('.w') || c.classList.contains('w')) c.classList.add('warn');
+          if (c.firstChild && c.firstChild.nodeType === 3) c.firstChild.nodeValue = c.firstChild.nodeValue.replace(/^\s+/, '');
+          if (c.lastChild && c.lastChild.nodeType === 3) c.lastChild.nodeValue = c.lastChild.nodeValue.replace(/\s+$/, '');
+          box.appendChild(c);
+        });
+        s.replaceWith(box);
+      });
     }
     // D3 (picked 3 Nov 2026): a breadcrumb in front of the page's name, from the More
     // directory (each link names its section): "Software › MDM clients › Firmware MDM".

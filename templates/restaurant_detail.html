@@ -104,16 +104,17 @@
   {{$on := .OnlineCount}}{{$n := .Restaurant.DeviceCount}}
   <span class="isl-dot {{if eq $n 0}}{{else if lt $on $n}}warn{{else}}on{{end}}"></span>
   {{venueIcon .Restaurant.ID .Restaurant.Name "sm"}}<span class="isl-t">{{.Restaurant.Name}}</span>
-  <span class="isl-s">{{if $n}}<b>{{$on}}</b> of {{$n}} online{{else}}No devices yet{{end}}{{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}</span>
+  <span class="isl-s">{{if $n}}<b>{{$on}}</b> of {{$n}} online{{if lt $on $n}} · <a class="w" href="/devices?restaurant={{.Restaurant.ID}}&status=offline">{{sub $n $on}} offline</a>{{end}}{{else}}No devices yet{{end}}{{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}</span>
   <span class="isl-acts">
     {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('vn-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}
-    <a class="cc-btn" href="/restaurants/{{.Restaurant.ID}}/report">Weekly report</a>
-    {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn" onclick="window.vnOpenCard && vnOpenCard('vn-profile')">Edit</button>
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
-        <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST" onsubmit="return confirm('Delete {{.Restaurant.Name}}? Its devices stop being at a venue.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete venue</button></form>
+        <a class="cc-mi" href="/restaurants/{{.Restaurant.ID}}/report">Weekly report</a>
+        <a class="cc-mi" href="/devices?restaurant={{.Restaurant.ID}}">Open in Fleet</a>
+        {{if canAdminOrOperator .Role}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.vnOpenCard && vnOpenCard('vn-profile')">Edit venue</button>
+        <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST" onsubmit="return confirm('Delete {{.Restaurant.Name}}? Its devices stop being at a venue.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete venue</button></form>{{end}}
       </div>
-    </details>{{end}}
+    </details>
   </span>
 </template>
 <div class="vn-page">

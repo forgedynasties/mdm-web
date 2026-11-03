@@ -225,11 +225,16 @@
   <template id="page-island">
     <span class="isl-dot {{if gt $offCount 0}}warn{{else}}on{{end}}"></span>
     <span class="isl-t">Fleet · {{if eq .View "restaurants"}}Restaurants{{else if eq .View "groups"}}Groups{{else if eq .View "releases"}}Releases{{else}}{{.SelectedCollection}}{{end}}</span>
-    <span class="isl-s"><b>{{$onCount}}</b> of {{.Summary.Total}} online · {{.SelectedCount}} in view{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}}{{end}}{{if .RefusedSerials}} · <span class="w">{{len .RefusedSerials}} unidentified</span>{{end}}</span>
+    <span class="isl-s"><b>{{$onCount}}</b> of {{.Summary.Total}} online · {{.SelectedCount}} in view{{if gt $offCount 0}} · <a class="w" href="/devices?status=offline">{{$offCount}} offline</a>{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}}{{end}}{{if .RefusedSerials}} · <span class="w">{{len .RefusedSerials}} unidentified</span>{{end}}</span>
     <span class="isl-acts">
-      {{if .MapsEmbedKey}}<button type="button" class="cc-btn" data-fl-map aria-pressed="false" onclick="window.flToggleMap && flToggleMap()">Map view</button>{{end}}
-      <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()">Refresh</button>
       {{if canAdmin .Role}}<a class="cc-btn primary" href="/enrollment" hx-boost="false">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} · {{.FleetCounts.Inbox}} new{{end}}{{end}}</a>{{end}}
+      <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
+        <div class="isl-menu cc-menu" role="menu">
+          {{if .MapsEmbedKey}}<button type="button" class="cc-mi" data-fl-map aria-pressed="false" onclick="this.closest('details').open=false; window.flToggleMap && flToggleMap()">Map view</button>{{end}}
+          <button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.mdmRefreshDevices && window.mdmRefreshDevices()">Refresh</button>
+          <a class="cc-mi" href="/export">Export…</a>
+        </div>
+      </details>
     </span>
   </template>
   {{/* Page header (H1): the page's name, then what it shows. A venue or group view is

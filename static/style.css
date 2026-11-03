@@ -7943,3 +7943,15 @@ body .cc-top:has(.cc-actions:not(.isl-dup) > *) { margin-bottom: 14px; }
 .isl-job .ij-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .isl-job .ij-n { font-family: var(--mono); font-size: 11.5px; color: var(--muted); flex: none; }
 @media (max-width: 1100px) { .isl-job .ij-t { display: none; } }
+/* D3 chips: the page's key numbers, one each; a link chip opens that view. */
+.appbar-island .isl-chips { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1; overflow: hidden; }
+.appbar-island .isl-chip { flex: none; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 99px;
+  padding: 3px 10px; font-size: 12px; color: var(--text-2); white-space: nowrap; text-decoration: none; background: var(--surface); }
+.appbar-island .isl-chip b { color: var(--text); font-weight: 650; }
+.appbar-island a.isl-chip:hover { border-color: var(--accent-edge); color: var(--text); }
+.appbar-island .isl-chip.warn { background: var(--warn-bg); border-color: transparent; color: var(--warn); }
+.appbar-island .isl-chip.bad { background: var(--danger-bg, #fde8e4); border-color: transparent; color: var(--danger); }
+.appbar-island .isl-chip.warn b, .appbar-island .isl-chip.bad b { color: inherit; }
+.appbar-island .isl-chip .w, .appbar-island .isl-chip .d { color: inherit; font-weight: 650; }
+.appbar-island .isl-chip.info { background: var(--info-bg); border-color: transparent; color: var(--info); }
+@media (max-width: 1100px) { .appbar-island .isl-chips .isl-chip:nth-child(n+3) { display: none; } }

@@ -374,7 +374,8 @@
   <span class="isl-dot {{if .Online}}on{{else}}off{{end}}"></span>
   {{if .Device.Class}}<svg class="isl-cls" aria-hidden="true"><use href="#dk-{{.Device.Class}}"/></svg>{{end}}
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
-  <span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}{{end}} · {{.Device.SerialNumber}}</span>
+  {{/* D3: the way up is the device's venue (or the Lab), not the Devices list. */}}
+  <nav class="isl-cr" aria-label="Breadcrumb"><a class="cr" href="/devices">Fleet</a><span class="sep" aria-hidden="true">›</span>{{if .Device.RestaurantID}}<a class="cr" href="/restaurants/{{.Device.RestaurantID}}">{{.Device.RestaurantName}}</a>{{else}}<a class="cr" href="/devices?state=lab">Lab</a>{{end}}<span class="sep" aria-hidden="true">›</span><span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}{{end}} · {{.Device.SerialNumber}}</span></nav>
   {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.BuildID}}<span class="isl-tagn isl-build mono" title="Firmware build">{{.Device.BuildID}}</span>{{end}}{{if staffMode .Device.LatestExtra}}<span class="isl-tagn" title="Staff unlocked it with the staff PIN: the app is open for staff until they tap Back to guest mode, or it is locked again here.">Staff mode</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">{{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{end}}
   <span class="isl-s">{{if .Lab}}in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
   <span class="isl-acts"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>

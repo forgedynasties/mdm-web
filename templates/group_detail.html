@@ -33,16 +33,16 @@
   {{$n := .Group.DeviceCount}}
   <span class="isl-dot {{if eq $n 0}}{{else if lt $onCount $n}}warn{{else}}on{{end}}"></span>
   <span class="isl-t">{{.Group.Name}}</span>
-  <span class="isl-s">{{if $n}}<b>{{$onCount}}</b> of {{$n}} online{{else}}No devices yet{{end}} · group</span>
+  <span class="isl-s">{{if $n}}<b>{{$onCount}}</b> of {{$n}} online{{if lt $onCount $n}} · <a class="w" href="/devices?group={{.Group.ID}}&status=offline">{{sub $n $onCount}} offline</a>{{end}}{{else}}No devices yet{{end}}</span>
   <span class="isl-acts">
     {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('gp-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}
-    <a class="cc-btn" href="/devices?group={{.Group.ID}}">Open in Fleet</a>
-    {{if canAdminOrOperator .Role}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
-        <form action="/groups/{{.Group.ID}}/delete" method="POST" onsubmit="return confirm('Delete the group {{.Group.Name}}? Its devices stay where they are; only the group goes.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete group</button></form>
+        <a class="cc-mi" href="/devices?group={{.Group.ID}}">Open in Fleet</a>
+        {{if canAdminOrOperator .Role}}
+        <form action="/groups/{{.Group.ID}}/delete" method="POST" onsubmit="return confirm('Delete the group {{.Group.Name}}? Its devices stay where they are; only the group goes.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete group</button></form>{{end}}
       </div>
-    </details>{{end}}
+    </details>
   </span>
 </template>
 

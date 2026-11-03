@@ -122,13 +122,18 @@
 <template id="page-island">
   <span class="isl-dot {{if gt .AlL1.Crit 0}}danger{{else if gt .ActiveCount 0}}warn{{else}}on{{end}}"></span>
   <span class="isl-t">Alerts</span>
-  <span class="isl-s"><b>{{.ActiveCount}}</b> problem{{if ne .ActiveCount 1}}s{{end}}{{if .AlL1.Needs}} · <span class="{{if .AlL1.Crit}}d{{else}}w{{end}}">{{.AlL1.Needs}} need{{if eq .AlL1.Needs 1}}s{{end}} action</span>{{end}}{{if .AlL1.Crit}} · {{.AlL1.Crit}} critical{{end}}</span>
+  <span class="isl-s"><a href="/alerts?show=open"><b>{{.ActiveCount}}</b> problem{{if ne .ActiveCount 1}}s{{end}}</a>{{if .AlL1.Needs}} · <a class="{{if .AlL1.Crit}}d{{else}}w{{end}}" href="/alerts?show=needs">{{.AlL1.Needs}} need{{if eq .AlL1.Needs 1}}s{{end}} action</a>{{end}}{{if .AlL1.Crit}} · <span class="d">{{.AlL1.Crit}} critical</span>{{end}}</span>
   <span class="isl-acts">
-    {{if and .ActiveCount (canOperate .Role) (ne .Role "engineer")}}
-    <form action="/alerts/ack-all" method="POST" onsubmit="return confirm('Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.')"><button type="submit" class="cc-btn">Acknowledge all</button></form>
-    <form action="/alerts/resolve-all" method="POST" onsubmit="return confirm('Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.')"><button type="submit" class="cc-btn">Resolve all</button></form>
-    {{end}}
-    {{if canAdmin .Role}}<a class="cc-btn" href="/alert-config">Alert rules</a>{{end}}
+    {{if or (and .ActiveCount (canOperate .Role) (ne .Role "engineer")) (canAdmin .Role)}}
+    <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
+      <div class="isl-menu cc-menu" role="menu">
+        {{if and .ActiveCount (canOperate .Role) (ne .Role "engineer")}}
+        <form action="/alerts/ack-all" method="POST" onsubmit="return confirm('Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.')"><button type="submit" class="cc-mi">Acknowledge all</button></form>
+        <form action="/alerts/resolve-all" method="POST" onsubmit="return confirm('Resolve every open alert? They are closed and kept as history; any whose condition still holds will fire again.')"><button type="submit" class="cc-mi">Resolve all</button></form>
+        {{end}}
+        {{if canAdmin .Role}}<a class="cc-mi" href="/alert-config">Alert rules</a><a class="cc-mi" href="/reports/alerts-by-restaurant">Alert report</a>{{end}}
+      </div>
+    </details>{{end}}
   </span>
 </template>
 <h1 class="cc-h1 sr-only">Alerts</h1>
