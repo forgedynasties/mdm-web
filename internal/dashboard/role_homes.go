@@ -184,7 +184,8 @@ func (h *Handler) CurateByRole(next http.Handler) http.Handler {
 			return
 		}
 		ok := allow[seg] || seg == "enrollment" && rest == "android-app/qr.png" ||
-			seg == "restaurants" && strings.HasSuffix(rest, "/icon") // venue icons show on every page
+			seg == "restaurants" && strings.HasSuffix(rest, "/icon") || // venue icons show on every page
+			seg == "users" && strings.HasSuffix(rest, "/avatar.png") // profile pictures too (3 Nov 2026)
 		if seg == "devices" && h.role(r) == "field" && rest == "" {
 			ok = false // the list page; device pages are fine
 		}
