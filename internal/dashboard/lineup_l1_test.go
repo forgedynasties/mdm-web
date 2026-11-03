@@ -242,10 +242,9 @@ func TestLineupRolePaneRenders(t *testing.T) {
 		t.Fatalf("clients tab failed to render: %v", err)
 	}
 	out = buf.String()
-	// R1 bento (23 Oct): hero, completion card with the client switch, history below.
-	for _, want := range []string{`<h1 class="cc-h1">MDM clients</h1>`, `class="bt-card bt-hero"`, `Every device on Standard MDM runs 0.4.0.`,
-		`class="on" aria-current="true">Standard MDM</a>`, `<h3>On 0.4.0</h3>`, `<b>100%</b>`, `12 of 12 devices · hosted code 24`,
-		`id="cv-hist"`, `MDM clients · Standard MDM`} {
+	// C2 (3 Nov): Fleet's rail with the clients and standings, the policy strip, the versions.
+	for _, want := range []string{`<h1 class="cc-h1">MDM clients</h1>`, `class="cl-page c2"`, `class="fleet-rail-item on" href="/clients?client=dpc"`,
+		`hosted 0.4.0 (code 24)`, `<b>12 of 12 on 0.4.0</b>`, `data-clf="behind"`, `MDM clients · Standard MDM`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("clients tab is missing %q", want)
 		}

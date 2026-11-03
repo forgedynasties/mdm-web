@@ -388,3 +388,107 @@
 </div>
 {{end}}
 {{end}}
+
+{{/* MDM clients C2 (picked 3 Nov 2026; user: "make mdm clients page also fleets twin", "we
+     should do C2 and then on click it should take it to fleet page with that filter
+     selected"): Fleet's rail (the clients, then standings that filter the table) and one
+     table of versions with their changelog, devices, and Update now / Roll back; a row
+     opens Fleet on that client and version (?kind=&client=). The auto-update policy is
+     the strip above the table. Context: the pipeline page data (.Client, .ClientCards). */}}
+{{define "cl-c2"}}{{with .Client}}{{$c := .}}{{$kind := "dpc"}}{{if hasPrefix .Slot "firmware"}}{{$kind = "firmware"}}{{end}}
+{{$newer := 0}}{{$behindRows := 0}}{{$oldN := 0}}{{range .VersionRows}}{{if eq .Kind "newer"}}{{$newer = add $newer (len .Devices)}}{{end}}{{if .Old}}{{$oldN = add $oldN 1}}{{end}}{{end}}
+<style>
+.c2 .fleet-pane-head .c{white-space:normal}
+.c2-pol{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 14px;margin:0 0 12px;font-size:13px}
+.c2-pol .bar{flex:1 1 160px;min-width:120px;height:8px;border-radius:9px;background:var(--surface2);overflow:hidden;display:flex}
+.c2-pol .bar i{display:block;height:100%}.c2-pol .bar .ok{background:var(--ok)}.c2-pol .bar .wait{background:var(--warn)}.c2-pol .bar .other{background:var(--text-faint)}.c2-pol .bar .unk{background:var(--border)}
+.c2-pol .cv-pol{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.c2 td.c2-v{font-family:var(--mono);font-size:12.5px;font-weight:650;white-space:nowrap}
+.c2 td.c2-n b{display:block;font-weight:600;font-size:13px;white-space:normal}.c2 td.c2-n small{display:block;color:var(--muted);font-size:11.5px}
+.c2 .c2-c{display:flex;align-items:center;gap:8px}.c2 .c2-c .n{font-family:var(--mono);font-size:12.5px;min-width:24px;text-align:right}
+.c2 .c2-c .b{flex:1;height:6px;border-radius:9px;background:var(--surface2);overflow:hidden;min-width:60px}.c2 .c2-c .b i{display:block;height:100%;background:var(--accent)}
+.c2 tr.k-hosted .c2-c .b i{background:var(--ok)}
+.c2 td.c2-a{text-align:right;white-space:nowrap}.c2 td.c2-a form{display:inline;margin:0}
+.c2 tr.ft-row.k-release td.c2-v,.c2 tr.ft-row.k-release td.c2-n b{color:var(--text-2);font-weight:500}
+.c2 tr.ft-row:not([data-href]){cursor:default}
+.c2 .c2-go{color:var(--muted);font-size:13px;margin-left:6px}
+.c2 .cl-menu{display:inline-block;position:relative}
+</style>
+<div class="cl-page c2" data-cl data-one="version" data-many="versions" data-start="cur">
+<div class="fleet-md">
+  <aside class="fleet-rail" aria-label="MDM clients">
+    <div class="fleet-rail-cap"><span>Clients</span></div>
+    {{range $.ClientCards}}<a class="fleet-rail-item{{if .On}} on{{end}}" href="/clients?client={{.Slot}}"><span class="dot {{if .Behind}}warn{{else}}ok{{end}}"></span><span class="nm">{{.Label}}<small style="display:block;font-size:11px;font-weight:500;color:var(--muted)">{{if .Hosted}}hosted {{.Version}}{{else}}nothing hosted{{end}}</small></span><span class="ct">{{.Devices}}</span></a>{{end}}
+    <div class="fleet-rail-cap"><span>Versions</span></div>
+    <button type="button" class="fleet-rail-item" data-clf="cur" data-title="All versions" aria-pressed="false"><span class="dot ok"></span><span class="nm">All versions</span><span class="ct">{{.Devices}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="behind" data-title="Behind" aria-pressed="false"><span class="dot {{if .Behind}}warn{{else}}muted{{end}}"></span><span class="nm">Behind</span><span class="ct">{{.Behind}}</span></button>
+    <button type="button" class="fleet-rail-item" data-clf="hosted" data-title="On the hosted build" aria-pressed="false"><span class="dot ok"></span><span class="nm">On hosted</span><span class="ct">{{.UpToDate}}</span></button>
+    {{if $newer}}<button type="button" class="fleet-rail-item" data-clf="newer" data-title="Newer than hosted" aria-pressed="false"><span class="dot info"></span><span class="nm">Newer</span><span class="ct">{{$newer}}</span></button>{{end}}
+    {{if .NoBuild}}<button type="button" class="fleet-rail-item" data-clf="nobuild" data-title="Can't update here" aria-pressed="false"><span class="dot muted"></span><span class="nm">Can't update here</span><span class="ct">{{.NoBuild}}</span></button>{{end}}
+    {{if .Unknown}}<button type="button" class="fleet-rail-item" data-clf="unknown" data-title="No version reported" aria-pressed="false"><span class="dot muted"></span><span class="nm">No version</span><span class="ct">{{.Unknown}}</span></button>{{end}}
+    {{if $oldN}}<button type="button" class="fleet-rail-item" data-clf="old" data-title="Older releases" aria-pressed="false"><span class="dot muted"></span><span class="nm">Older releases</span><span class="ct">{{$oldN}}</span></button>{{end}}
+  </aside>
+  <div class="fleet-roster" id="cl-c2" style="min-width:0"{{if .Updating}} hx-get="/clients?client={{.Slot}}" hx-select="#cl-c2" hx-target="this" hx-swap="outerHTML" hx-trigger="every 6s" hx-push-url="false"{{end}}>
+    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">{{.Label}}</h1><span class="c">{{if .Hosted}}hosted {{.Build.Version}} (code {{.Build.VersionCode}}) · {{.Note}}{{else}}nothing hosted yet{{end}}</span></div>
+    <div class="c2-pol">
+      {{if .Hosted}}<b>{{.UpToDate}} of {{.Devices}} on {{.Build.Version}}</b>{{end}}
+      <span class="bar" aria-hidden="true">{{range $.ClientCards}}{{if .On}}{{range .Bar}}<i class="{{.Tone}}" style="width:{{.Pct}}%" title="{{.Title}}"></i>{{end}}{{end}}{{end}}</span>
+      {{template "cl-policy" $}}
+      {{if and .BehindSerials (canOperate $.Role)}}<form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on every device behind {{.Build.Version}}?" onsubmit="clSent(this)" style="margin:0"><input type="hidden" name="type" value="app_update"><input type="hidden" name="target_type" value="devices"><input type="hidden" name="target_serials" value="{{.BehindSerials}}"><button type="submit" class="cc-btn sm primary">Update all behind ({{.Behind}})</button></form>{{end}}
+    </div>
+    <div class="fleet-bar">
+      <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search a version or what changed…" aria-label="Search versions" autocomplete="off"></div>
+      <span class="pl-faint" data-cl-count></span>
+    </div>
+    {{if .VersionRows}}
+    <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft">
+      <thead><tr><th scope="col" style="width:110px">Version</th><th scope="col">What changed</th><th scope="col" style="width:190px">Devices</th><th scope="col" class="c2-a" style="width:190px"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody data-cl-body>
+      {{range .VersionRows}}
+      <tr class="ft-row k-{{.Kind}}" data-flags="{{.Kind}} {{if .Old}}old{{else}}cur{{end}}" data-text="{{.Version}} {{.Title}} {{.Detail}}" data-s-name="{{.Key}}"{{if and .Version .Devices}} data-href="/devices?kind={{$kind}}&client={{.Version}}"{{end}}>
+        <td class="c2-v">{{if .Version}}{{.Version}}{{else}}—{{end}}</td>
+        <td class="c2-n"><b>{{.Title}}</b><small>{{.Detail}}</small></td>
+        <td><span class="c2-c"><span class="n">{{len .Devices}}</span><span class="b"><i style="width:{{.Pct}}%"></i></span>{{if and .Version .Devices}}<span class="c2-go" aria-hidden="true">↗</span>{{end}}</span></td>
+        <td class="c2-a">
+          {{if eq .Kind "hosted"}}<span class="cl-tag ok">hosted</span>
+          {{else if and .NSend (canOperate $.Role)}}
+          <form method="POST" action="/commands" hx-post="/commands" hx-swap="none" hx-confirm="Update the client on {{.NSend}} device(s) from {{.Version}} to {{$c.Build.Version}}?" onsubmit="clSent(this)">
+            <input type="hidden" name="type" value="app_update"><input type="hidden" name="target_type" value="devices"><input type="hidden" name="target_serials" value="{{.Serials}}">
+            <button type="submit" class="cc-btn sm">Update {{.NSend}} now</button>
+          </form>
+          {{else if .Updating}}<span class="cl-tag go"><span class="cl-spin"></span>installing</span>
+          {{else if eq .Kind "newer"}}<span class="cl-tag unk">newer</span>
+          {{else if eq .Kind "nobuild"}}<span class="cl-meta">can't update here</span>
+          {{else if eq .Kind "unknown"}}<span class="cl-meta">needs a firmware OTA</span>
+          {{else if and (eq .Kind "release") .Release}}{{if and .Release.Archived (canAdmin $.Role)}}
+          <form method="POST" action="/clients/rollback" hx-post="/clients/rollback" hx-swap="none" hx-confirm="Make {{.Version}} the build this server hosts? Devices on a newer build stay there; those behind it will be offered it.">
+            <input type="hidden" name="slot" value="{{$c.Slot}}"><input type="hidden" name="sha256" value="{{.Release.Build.SHA256Hex}}">
+            <button type="submit" class="cc-btn sm">Roll back to this</button>
+          </form>{{else if not .Release.Archived}}<span class="cl-meta" title="Published before the server kept an archive: its APK is no longer on disk.">not archived</span>{{end}}
+          {{end}}
+          {{with .Release}}{{if .Archived}}{{$b := .Build}}
+          <div class="cl-menu">
+            <button type="button" class="cl-kebab" aria-haspopup="true" aria-expanded="false" aria-label="More for {{$b.Version}}" onclick="clMenu(event,this)">&#8943;</button>
+            <div class="cl-pop" hidden>
+              <a href="/agent/history/{{$c.Slot}}/{{$b.SHA256Hex}}.apk" download>Download APK</a>
+              <button type="button" onclick="clCopy(this,'{{$b.SHA256Hex}}')">Copy SHA-256</button>
+              {{if $b.Changelog}}<div class="cv-chg">{{$b.Changelog}}</div>{{end}}
+            </div>
+          </div>
+          {{end}}{{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div></div>
+    <div class="cl-none" data-cl-none hidden>No version matches.</div>
+    {{if .Hosted}}<div class="pl-faint" style="margin-top:8px">A version opens Fleet on its devices. Download the hosted build: <span class="mono">{{.URL}}</span></div>{{end}}
+    {{else}}
+    <div class="cl-empty">Nothing has been published to this client yet. CI posts a build with <span class="cl-url">POST {{$.ServerURL}}/api/v1/agent-apk?slot={{.Slot}}&amp;changelog=…</span>; the changelog it sends is what shows here.</div>
+    {{end}}
+    {{if or $.KeysOwn $.KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{$.KeysOwn}}</b> with their own key · <b{{if $.KeysShared}} style="color:var(--warn)"{{end}}>{{$.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling.</div>{{end}}
+  </div>
+</div>
+</div>
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
+{{end}}{{end}}

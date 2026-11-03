@@ -3,7 +3,7 @@
 // is the single source of truth), with the live search box and any overrides on top.
 var FLEET_PARAMS = ['q', 'sort', 'dir', 'page', 'group', 'restaurant', 'production', 'product', 'status', 'build',
   'battery', 'ram', 'temp', 'kiosk', 'charging', 'timezone', 'hidden', 'hygiene', 'enrolled_by', 'kind', 'class',
-  'onboarding', 'lifecycle'];
+  'onboarding', 'lifecycle', 'client'];
 function getFilterVals(overrides) {
   var p = new URLSearchParams(location.search);
   var vals = {};
@@ -72,7 +72,7 @@ function mdmDevSkeleton() {
 function scopeRoster(anchor, u) {
   clearSelectAllMatching();
   setSel('search-input', '');
-  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: '' };
+  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '', kind: '', class: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: '', client: '' };
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
@@ -118,7 +118,7 @@ function clearFilters() {
   // Clears the filter chips, but keeps the rail collection (group/restaurant), the
   // product tab and the search in scope — Clear sits with the chips, so it clears those.
   ffClose();
-  navigateDevices({page: '1', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: ''});
+  navigateDevices({page: '1', production: '', product: '', status: '', build: '', battery: '', ram: '', temp: '', kiosk: '', charging: '', timezone: '', hidden: '', kind: '', onboarding: '', enrolled_by: '', lifecycle: '', hygiene: '', client: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.

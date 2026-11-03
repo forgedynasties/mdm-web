@@ -24,6 +24,7 @@ var fleetFilterFields = map[string]func(f *db.DeviceFilter, v string){
 	"kind":        func(f *db.DeviceFilter, v string) { f.AgentKind = v },
 	"product":     func(f *db.DeviceFilter, v string) { f.Product = v },
 	"build":       func(f *db.DeviceFilter, v string) { f.BuildID = v },
+	"client":      func(f *db.DeviceFilter, v string) { f.ClientVersion = v },
 	"battery":     func(f *db.DeviceFilter, v string) { f.Battery = v },
 	"ram":         func(f *db.DeviceFilter, v string) { f.RAM = v },
 	"temp":        func(f *db.DeviceFilter, v string) { f.Temp = v },

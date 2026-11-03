@@ -372,8 +372,8 @@ type DeviceConfig struct {
 	DeviceClass string `json:"-"`
 	// Offline kiosk-exit (the on-device exit PIN). The per-device rotating code (TOTP seed)
 	// was removed on 17 Oct; the offline_exit_seed column is left in place, unused.
-	OfflineExitEnabled bool   `json:"offline_exit_enabled"`
-	OfflineExitRelock  string `json:"offline_exit_relock"`
+	OfflineExitEnabled bool      `json:"offline_exit_enabled"`
+	OfflineExitRelock  string    `json:"offline_exit_relock"`
 	UpdatedAt          time.Time `json:"updated_at"`
 }
 
@@ -439,23 +439,23 @@ type QFILPackage struct {
 // Release groups the packages for one target build version under a single
 // lifecycle. Version equals the target build id.
 type Release struct {
-	ID                  int        `json:"id"`
-	Version             string     `json:"version"`
-	Product             string     `json:"product"` // hardware product this release targets (t7/kiosk18/22/27)
-	Name                string     `json:"name"`
-	Changelog           string     `json:"changelog"`
-	Status              string     `json:"status"`          // "draft" | "published"
-	Hidden              bool       `json:"hidden"`          // hidden from the main releases list (irrelevant)
-	CreatedAt           time.Time  `json:"created_at"`
-	PublishedAt         *time.Time `json:"published_at"`
-	ParentReleaseID     *int       `json:"parent_release_id"`       // set for branch builds — the release this forked from
-	IsBranch            bool       `json:"is_branch"`               // off-mainline temporary test build
-	IsDev               bool       `json:"is_dev"`                  // work in progress: only devs/admins see it
+	ID              int        `json:"id"`
+	Version         string     `json:"version"`
+	Product         string     `json:"product"` // hardware product this release targets (t7/kiosk18/22/27)
+	Name            string     `json:"name"`
+	Changelog       string     `json:"changelog"`
+	Status          string     `json:"status"` // "draft" | "published"
+	Hidden          bool       `json:"hidden"` // hidden from the main releases list (irrelevant)
+	CreatedAt       time.Time  `json:"created_at"`
+	PublishedAt     *time.Time `json:"published_at"`
+	ParentReleaseID *int       `json:"parent_release_id"` // set for branch builds — the release this forked from
+	IsBranch        bool       `json:"is_branch"`         // off-mainline temporary test build
+	IsDev           bool       `json:"is_dev"`            // work in progress: only devs/admins see it
 	// Which artifacts a release can actually deliver, populated by ListDeployableReleases.
 	// A full image reaches any device (and is the only thing the legacy path can use);
 	// an incremental only reaches devices on its exact source build.
-	HasFull      bool `json:"has_full,omitempty"`
-	Incrementals int  `json:"incrementals,omitempty"`
+	HasFull             bool       `json:"has_full,omitempty"`
+	Incrementals        int        `json:"incrementals,omitempty"`
 	PackageCount        int        `json:"package_count,omitempty"` // populated by ListReleases
 	DeployCount         int        `json:"deploy_count,omitempty"`  // populated by ListReleases
 	MergedFromReleaseID *int       `json:"merged_from_release_id"`  // mainline node: the branch it absorbed on merge
@@ -477,28 +477,28 @@ type FleetVersion struct {
 }
 
 type Update struct {
-	ID              int            `json:"id"`
-	OtaPackageID    int            `json:"ota_package_id"`
-	ReleaseID       int            `json:"release_id"`
-	RebootBehavior  string         `json:"reboot_behavior"` // "immediate", "scheduled", "manual"
-	ScheduledTime   *time.Time     `json:"scheduled_time"`
-	Status          string         `json:"status"` // "pending", "active", "complete"
-	CreatedAt       time.Time      `json:"created_at"`
-	CreatedBy       string         `json:"created_by"` // username that pushed it ("" for legacy rows)
-	OtaPackage      *OTAPackage    `json:"ota_package,omitempty"`
-	Release         *Release       `json:"release,omitempty"`
-	Targets         []UpdateTarget `json:"targets,omitempty"`
-	DeviceTotal       int          `json:"device_total,omitempty"`       // populated by ListDeploymentsByPackage
-	DeviceInstalled   int          `json:"device_installed,omitempty"`   // populated by ListDeploymentsByPackage
-	DeviceDownloading int          `json:"device_downloading,omitempty"` // populated by ListDeployments
-	DeviceInstalling  int          `json:"device_installing,omitempty"`  // installing/verifying/finalizing
-	DeviceAwaiting    int          `json:"device_awaiting,omitempty"`    // applied, waiting on its reboot
-	DeviceFailed      int          `json:"device_failed,omitempty"`      // populated by ListDeployments
-	DeviceNotBack     int          `json:"device_not_back,omitempty"`    // of DeviceAwaiting: rebooted 15+ min ago, not back (ListDeployments)
-	Product           string       `json:"product,omitempty"`            // release product (populated by ListDeployments)
-	ReleaseIsDev      bool         `json:"release_is_dev,omitempty"`     // release is dev-only (populated by ListDeployments)
-	DeviceStatus      string       `json:"device_status,omitempty"`      // populated by ResolveUpdateForDevice
-	DeviceRebootSentAt *time.Time  `json:"-"`                             // populated by ResolveUpdateForDevice
+	ID                 int            `json:"id"`
+	OtaPackageID       int            `json:"ota_package_id"`
+	ReleaseID          int            `json:"release_id"`
+	RebootBehavior     string         `json:"reboot_behavior"` // "immediate", "scheduled", "manual"
+	ScheduledTime      *time.Time     `json:"scheduled_time"`
+	Status             string         `json:"status"` // "pending", "active", "complete"
+	CreatedAt          time.Time      `json:"created_at"`
+	CreatedBy          string         `json:"created_by"` // username that pushed it ("" for legacy rows)
+	OtaPackage         *OTAPackage    `json:"ota_package,omitempty"`
+	Release            *Release       `json:"release,omitempty"`
+	Targets            []UpdateTarget `json:"targets,omitempty"`
+	DeviceTotal        int            `json:"device_total,omitempty"`       // populated by ListDeploymentsByPackage
+	DeviceInstalled    int            `json:"device_installed,omitempty"`   // populated by ListDeploymentsByPackage
+	DeviceDownloading  int            `json:"device_downloading,omitempty"` // populated by ListDeployments
+	DeviceInstalling   int            `json:"device_installing,omitempty"`  // installing/verifying/finalizing
+	DeviceAwaiting     int            `json:"device_awaiting,omitempty"`    // applied, waiting on its reboot
+	DeviceFailed       int            `json:"device_failed,omitempty"`      // populated by ListDeployments
+	DeviceNotBack      int            `json:"device_not_back,omitempty"`    // of DeviceAwaiting: rebooted 15+ min ago, not back (ListDeployments)
+	Product            string         `json:"product,omitempty"`            // release product (populated by ListDeployments)
+	ReleaseIsDev       bool           `json:"release_is_dev,omitempty"`     // release is dev-only (populated by ListDeployments)
+	DeviceStatus       string         `json:"device_status,omitempty"`      // populated by ResolveUpdateForDevice
+	DeviceRebootSentAt *time.Time     `json:"-"`                            // populated by ResolveUpdateForDevice
 }
 
 type UpdateTarget struct {
@@ -540,13 +540,13 @@ func (t UpdateTarget) DurationSeconds() int {
 }
 
 type Command struct {
-	ID          uuid.UUID       `json:"id"`
-	Type        string          `json:"type"`
-	ApkURL      string          `json:"apk_url"`
-	Payload     json.RawMessage `json:"payload"`
-	TargetType  string          `json:"target_type"`
-	CreatedBy   string          `json:"created_by"` // display name/email snapshotted at creation; "" for system-initiated
-	CreatedAt   time.Time       `json:"created_at"`
+	ID         uuid.UUID       `json:"id"`
+	Type       string          `json:"type"`
+	ApkURL     string          `json:"apk_url"`
+	Payload    json.RawMessage `json:"payload"`
+	TargetType string          `json:"target_type"`
+	CreatedBy  string          `json:"created_by"` // display name/email snapshotted at creation; "" for system-initiated
+	CreatedAt  time.Time       `json:"created_at"`
 }
 
 type ExportRow struct {
@@ -559,8 +559,8 @@ type ExportRow struct {
 	// recorded. Equal to Timestamp for raw rows; for interval rows it is the
 	// check-in chosen for the bucket; for cycles rows it is the carried-forward
 	// check-in (zero when the row is Empty). It is what a chart point shows.
-	SampleAt     time.Time       `json:"sample_at"`
-	LastSeenAt   time.Time       `json:"last_seen_at"`
+	SampleAt   time.Time `json:"sample_at"`
+	LastSeenAt time.Time `json:"last_seen_at"`
 	// Empty marks a cycles-mode grid row with no check-in within one interval
 	// of the mark — data fields are zero values and should export as blanks.
 	Empty bool `json:"empty,omitempty"`
@@ -589,6 +589,7 @@ type DeviceFilter struct {
 	Product             string    // filter by hardware product key ("t7", "kiosk27", ...), or "" (no filter)
 	Online              string    // "online", "offline", or "" (no filter)
 	BuildID             string    // exact build_id match, or "" (no filter)
+	ClientVersion       string    // the MDM client's version (latest_extra agent_version), or "" (no filter)
 	Battery             string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
 	Kiosk               string    // "enabled" (kiosk on), "disabled" (kiosk off), "lost" (in lost mode), or "" (no filter)
 	Charging            string    // "yes" (charging), "no" (not charging), or "" (no filter)

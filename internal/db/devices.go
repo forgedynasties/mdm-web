@@ -112,6 +112,11 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		args = append(args, f.BuildID)
 		argN++
 	}
+	if f.ClientVersion != "" {
+		wheres = append(wheres, fmt.Sprintf("d.latest_extra->>'agent_version' = $%d", argN))
+		args = append(args, f.ClientVersion)
+		argN++
+	}
 	if f.Timezone != "" {
 		wheres = append(wheres, fmt.Sprintf("d.latest_extra->>'timezone' = $%d", argN))
 		args = append(args, f.Timezone)
@@ -407,6 +412,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		args = append(args, f.BuildID)
 		argN++
 	}
+	if f.ClientVersion != "" {
+		wheres = append(wheres, fmt.Sprintf("d.latest_extra->>'agent_version' = $%d", argN))
+		args = append(args, f.ClientVersion)
+		argN++
+	}
 
 	if f.Kiosk == "enabled" {
 		wheres = append(wheres, "EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true)")
@@ -462,11 +472,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		// Battery filters run against the latest checkin snapshot denormalized onto devices.
 		switch f.Battery {
 		case "low":
-			base += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
+			base += " AND " + hasBatteryD + " AND d.latest_battery_pct < 20"
 		case "mid":
-			base += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
+			base += " AND " + hasBatteryD + " AND d.latest_battery_pct BETWEEN 20 AND 49"
 		case "ok":
-			base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
+			base += " AND " + hasBatteryD + " AND d.latest_battery_pct >= 50"
 		}
 		base += vitalsWhere(f)
 
@@ -551,11 +561,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	base += "\nWHERE " + strings.Join(wheres, " AND ")
 	switch f.Battery {
 	case "low":
-		base += " AND "+hasBatteryD+" AND d.latest_battery_pct < 20"
+		base += " AND " + hasBatteryD + " AND d.latest_battery_pct < 20"
 	case "mid":
-		base += " AND "+hasBatteryD+" AND d.latest_battery_pct BETWEEN 20 AND 49"
+		base += " AND " + hasBatteryD + " AND d.latest_battery_pct BETWEEN 20 AND 49"
 	case "ok":
-		base += " AND "+hasBatteryD+" AND d.latest_battery_pct >= 50"
+		base += " AND " + hasBatteryD + " AND d.latest_battery_pct >= 50"
 	}
 	base += vitalsWhere(f)
 
@@ -563,6 +573,29 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 }
 
 // GetDistinctBuildIDs returns all distinct non-empty build IDs for non-hidden devices.
+// GetDistinctClientVersions lists the MDM client versions devices report, most common first
+// (Fleet's "MDM client" filter; the MDM clients page links here with one picked).
+func (d *DB) GetDistinctClientVersions(ctx context.Context) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT latest_extra->>'agent_version' v FROM devices
+		WHERE NOT hidden AND COALESCE(latest_extra->>'agent_version', '') <> ''
+		GROUP BY 1 ORDER BY count(*) DESC, 1
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) GetDistinctBuildIDs(ctx context.Context) ([]string, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT build_id FROM devices
@@ -636,8 +669,6 @@ func (d *DB) CountDevicesByProduct(ctx context.Context) (map[string]int, error) 
 	return counts, rows.Err()
 }
 
-
-
 // ListAllSerials returns every device serial (visible and hidden), so callers can
 // detect and linkify serials named in free text (e.g. the AI report prose).
 // FamilySample is what the enroll app learns hardware families from: one live device's serial, the
@@ -679,7 +710,7 @@ func (d *DB) FamilySamples(ctx context.Context) ([]FamilySample, error) {
 	return out, rows.Err()
 }
 
-// DeviceEnrolledBy is the username that enrolled the device through the enroll app ('' if unknown).
+// DeviceEnrolledBy is the username that enrolled the device through the enroll app (” if unknown).
 func (d *DB) DeviceEnrolledBy(ctx context.Context, serial string) (string, error) {
 	var by string
 	err := d.pool.QueryRow(ctx, `SELECT enrolled_by FROM devices WHERE serial_number = $1`, serial).Scan(&by)
@@ -878,8 +909,6 @@ func (d *DB) GetDeviceLive(ctx context.Context, deviceID uuid.UUID) (*Checkin, e
 	return &c, nil
 }
 
-
-
 // BuildChange is one point in time where a device's reported build_id differed from
 // its previous check-in — i.e. it booted into a different build (OTA applied, rollback,
 // reflash). Drawn as markers on the device vitals chart.
@@ -912,14 +941,9 @@ func (d *DB) GetBuildChanges(ctx context.Context, deviceID uuid.UUID) ([]BuildCh
 	return out, rows.Err()
 }
 
-
-
-
-
 // chartExtraKeys are the only extra keys the device graph reads (temperature, RAM,
 // wireless charging, charging state, and a flapping charger on the charge strip).
 var chartExtraKeys = []string{"battery_temp_c", "cpu_temp_c", "ram_usage_mb", "wlc_status", "charging", "charger_flapping"}
-
 
 // scanCheckins materializes check-in rows, defaulting empty extra to "{}".
 func scanCheckins(rows pgx.Rows) ([]Checkin, error) {

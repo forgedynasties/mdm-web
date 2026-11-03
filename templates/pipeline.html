@@ -44,11 +44,7 @@
       {{template "lu-apps" .}}
       <script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
     {{else if .Client}}
-      {{template "cl-bento" .}}
-      <section class="bt-card bt-hist" id="cv-hist"><div class="bt-h"><div><h3>Version history</h3><small>every build hosted here, its devices, Update now and roll back</small></div></div>
-      {{template "clients-detail" .}}
-      </section>
-      {{if or .KeysOwn .KeysShared}}<div class="pl-faint" style="margin-top:14px">Device keys, last 30 days: <b>{{.KeysOwn}}</b> with their own key · <b{{if .KeysShared}} style="color:var(--warn)"{{end}}>{{.KeysShared}}</b> still on the shared key, which is public and proves nothing about which device is calling.</div>{{end}}
+      {{template "cl-c2" .}}
     {{end}}
     </div>
     {{end}}

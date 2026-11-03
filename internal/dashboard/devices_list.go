@@ -88,19 +88,20 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	return db.DeviceFilter{
-		Search:       r.URL.Query().Get("q"),
-		GroupID:      groupID,
-		RestaurantID: restaurantID,
-		ProductionID: productionID,
-		Online:       r.URL.Query().Get("status"),
-		BuildID:      r.URL.Query().Get("build"),
-		Battery:      r.URL.Query().Get("battery"),
-		Kiosk:        r.URL.Query().Get("kiosk"),
-		Charging:     r.URL.Query().Get("charging"),
-		RAM:          r.URL.Query().Get("ram"),
-		Temp:         r.URL.Query().Get("temp"),
-		Timezone:     r.URL.Query().Get("timezone"),
-		Product:      r.URL.Query().Get("product"),
+		Search:        r.URL.Query().Get("q"),
+		GroupID:       groupID,
+		RestaurantID:  restaurantID,
+		ProductionID:  productionID,
+		Online:        r.URL.Query().Get("status"),
+		BuildID:       r.URL.Query().Get("build"),
+		ClientVersion: r.URL.Query().Get("client"),
+		Battery:       r.URL.Query().Get("battery"),
+		Kiosk:         r.URL.Query().Get("kiosk"),
+		Charging:      r.URL.Query().Get("charging"),
+		RAM:           r.URL.Query().Get("ram"),
+		Temp:          r.URL.Query().Get("temp"),
+		Timezone:      r.URL.Query().Get("timezone"),
+		Product:       r.URL.Query().Get("product"),
 		// Mixed-fleet axes (see docs/ux-enrollment-refactor-plan.md §3.2).
 		AgentKind:           r.URL.Query().Get("kind"),
 		Class:               r.URL.Query().Get("class"),
@@ -196,6 +197,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		groups      []db.Group
 		productions []db.Production
 		builds      []string
+		clientVers  []string
 		timezones   []string
 		restaurants []db.Restaurant
 		railGroups  []db.GroupHealth
@@ -254,6 +256,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	run(func() error {
 		var err error
 		builds, err = h.db.GetDistinctBuildIDs(r.Context())
+		return err
+	})
+	run(func() error {
+		var err error
+		clientVers, err = h.db.GetDistinctClientVersions(r.Context())
 		return err
 	})
 	run(func() error {
@@ -601,6 +608,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Productions":          productions,
 		"Products":             h.productFilters(r.Context()),
 		"Builds":               builds,
+		"ClientVersions":       clientVers,
 		"Timezones":            timezones,
 		"FilterGroup":          r.URL.Query().Get("group"),
 		"FilterProduction":     r.URL.Query().Get("production"),

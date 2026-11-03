@@ -771,6 +771,7 @@ window.FLEET_FIELDS = [
   {k: 'product', label: 'Model', grp: 'Identity', vals: [{{range .Products}}[{{.Key}}, {{.Label}}],{{end}}]},
   {k: 'production', label: 'Production', grp: 'Identity', vals: [{{range .Productions}}[{{printf "%s" .ID}}, {{.Name}}],{{end}}]},
   {k: 'build', label: 'Release', grp: 'Identity', vals: [{{range .Builds}}[{{.}}, {{.}}],{{end}}]},
+  {k: 'client', label: 'MDM client', grp: 'Identity', vals: [{{range .ClientVersions}}[{{.}}, {{.}}],{{end}}]},
   {k: 'battery', label: 'Battery', grp: 'Health', vals: [['low', 'Critical <20%'], ['mid', 'Low 20–49%'], ['ok', 'Healthy 50%+']]},
   {k: 'temp', label: 'Temperature', grp: 'Health', vals: [['hot', 'Hot'], ['warm', 'Warm or hotter']]},
   {k: 'ram', label: 'RAM', grp: 'Health', vals: [['high', 'High 80%+'], ['warn', 'Elevated 60%+']]},
