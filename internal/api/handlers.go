@@ -3167,3 +3167,74 @@ func (h *Handler) reenrollRefusal(ctx context.Context, serial string, venue *uui
 	}
 	return "this device is already enrolled at another venue; reset its key in the MDM first"
 }
+
+// CancelCommand (admin key): POST /api/v1/commands/{id}/cancel {"serials": [...]}. Cancels the
+// command for the named devices, or for every device it still runs on when none are named:
+// each is marked cancelled for that device only and, if it is on a socket (this copy or the
+// other), sent a cancel_command frame so a download in flight aborts. A device already past
+// downloading (installing) may still finish; finished deliveries are left as they are.
+func (h *Handler) CancelCommand(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid command id"})
+		return
+	}
+	var body struct {
+		Serials []string `json:"serials"`
+	}
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON"})
+			return
+		}
+	}
+	if _, err := h.db.GetCommand(r.Context(), id); err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "command not found"})
+		return
+	}
+	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id, h.cfg.CommandExpiry())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	want := map[string]bool{}
+	for _, s := range body.Serials {
+		want[s] = true
+	}
+	type result struct {
+		Serial string `json:"serial"`
+		Was    string `json:"was"`
+		Result string `json:"result"` // cancelled, cancelled_and_pushed, already_<status>, not_targeted
+	}
+	var out []result
+	seen := map[string]bool{}
+	for _, d := range deliveries {
+		if len(want) > 0 && !want[d.SerialNumber] {
+			continue
+		}
+		seen[d.SerialNumber] = true
+		switch d.Status {
+		case "installed", "failed", "completed", "cancelled", "expired":
+			out = append(out, result{d.SerialNumber, d.Status, "already_" + d.Status})
+			continue
+		}
+		if err := h.db.CancelDeviceCommand(r.Context(), id, d.DeviceID); err != nil {
+			out = append(out, result{d.SerialNumber, d.Status, "error: " + err.Error()})
+			continue
+		}
+		res := "cancelled"
+		if msg, e := json.Marshal(map[string]any{"type": "cancel_command", "id": id.String()}); e == nil && h.hub.Push(d.DeviceID, msg) {
+			res = "cancelled_and_pushed"
+		}
+		h.hub.PublishDeviceUpdate(d.DeviceID)
+		out = append(out, result{d.SerialNumber, d.Status, res})
+	}
+	for s := range want {
+		if !seen[s] {
+			out = append(out, result{s, "", "not_targeted"})
+		}
+	}
+	h.hub.PublishCommandUpdate(id)
+	_ = h.db.InsertAudit(r.Context(), "api", "command.cancel", id.String(), fmt.Sprintf("%d devices", len(out)))
+	writeJSON(w, http.StatusOK, map[string]any{"command_id": id, "devices": out})
+}

@@ -245,6 +245,7 @@ Required: `name, product_code, model_code, batch_month (1–12), batch_year (0�
 | GET | `/api/v1/commands` | List commands |
 | POST | `/api/v1/commands` | Create + fan out to targets |
 | GET | `/api/v1/commands/{id}` | Command + per-device delivery status |
+| POST | `/api/v1/commands/{id}/cancel` | Cancel for `{"serials":[…]}` (or every device it still runs on): marked cancelled, `cancel_command` pushed so a download aborts; an install past downloading may finish |
 
 `POST /enrollment-profiles` request — only `name` is required; the rest is the intent
 every device inheriting this token picks up:
