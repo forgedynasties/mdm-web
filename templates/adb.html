@@ -13,9 +13,7 @@
 .adb-page .cl-page{max-width:none;margin:0}
 .adb-page .ft code.adb-c{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
 .adb-page .ft td .sub{display:block;font-size:11.5px;color:var(--muted);white-space:normal}
-.adb-page .ft .tick{width:34px}
-.adb-page .ft .tick input{-webkit-appearance:checkbox;appearance:auto;width:16px;height:16px;min-width:0;padding:0;margin:0;border:0;box-shadow:none;background:none;accent-color:var(--accent);vertical-align:middle;cursor:pointer}
-.adb-page .ft .tick input:disabled{cursor:not-allowed;opacity:.4}
+.adb-page .ft .ft-cb input:disabled{cursor:not-allowed;opacity:.4}
 .adb-page .ft .act{text-align:right;white-space:nowrap}
 .adb-page .ft .act form{display:inline;margin:0}
 .adb-sn{font-family:var(--mono);font-size:12.5px;font-weight:650;color:var(--text);text-decoration:none}
@@ -95,7 +93,7 @@ code.adb-c{font-family:var(--mono);font-size:12px;background:var(--surface2);bor
     </div>
     <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft">
       <thead><tr>
-        <th scope="col" class="tick"><input type="checkbox" id="adb-all" aria-label="Tick every device shown"></th>
+        <th scope="col" class="ft-cb" style="width:40px"><input type="checkbox" id="adb-all" aria-label="Tick every device shown"></th>
         <th scope="col" style="width:210px">Device</th>
         <th scope="col" style="width:190px">adb</th>
         <th scope="col">Connect</th>
@@ -105,7 +103,7 @@ code.adb-c{font-family:var(--mono);font-size:12px;background:var(--surface2);bor
       {{range $i, $r := .Rows}}
       <tr class="ft-row" data-flags="{{.Flags}}" data-text="{{.Text}}" data-s-name="{{.Device.SerialNumber}}" data-s-order="{{$i}}" data-s-left="{{.LeftHours}}"
           data-serial="{{.Device.SerialNumber}}" data-group="{{.Group}}" data-switch="{{if .CanSwitch}}1{{end}}" data-any="{{.Any}}" data-lan="{{.Lan}}">
-        <td class="tick"><input type="checkbox" class="adb-tick" value="{{.Device.SerialNumber}}" aria-label="Tick {{.Device.SerialNumber}}"{{if eq .Group "cant"}} disabled title="{{.Why}}"{{end}}></td>
+        <td class="ft-cb"><input type="checkbox" class="adb-tick" value="{{.Device.SerialNumber}}" aria-label="Tick {{.Device.SerialNumber}}"{{if eq .Group "cant"}} disabled title="{{.Why}}"{{end}}></td>
         <td><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
           <a class="adb-sn" href="/devices/{{.Device.SerialNumber}}">{{.Device.SerialNumber}}</a>
           <span class="sub">{{if .Venue}}{{.Venue}}{{else}}Lab{{end}} · {{.Device.KindLabel}}</span>
