@@ -348,7 +348,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 </style>
 <dialog class="cl-dlg en-dlg2" id="en-how-dlg" aria-labelledby="en-how-dlg-h">
   <div class="dh"><h2 id="en-how-dlg-h">How to enroll</h2><button type="button" class="x" aria-label="Close" onclick="this.closest('dialog').close()">&times;</button></div>
-  <div class="db"><div id="en-how-body" hx-get="/visits?view=how" hx-select="#oh-en-body" hx-swap="innerHTML" hx-trigger="en-load once"><div class="loading">Loading…</div></div></div>
+  <div class="db"><div id="en-how-body" hx-get="/visits?view=how" hx-select="#oh-en-body" hx-target="this" hx-swap="innerHTML" hx-push-url="false" hx-trigger="en-load once"><div class="loading">Loading…</div></div></div>
 </dialog>
 {{with .EnrollAndroid}}{{if .Hosted}}
 <dialog class="cl-dlg en-dlg2 sm" id="en-app-dlg" aria-labelledby="en-app-dlg-h">
