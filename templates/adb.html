@@ -14,7 +14,8 @@
 .adb-page .ft code.adb-c{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
 .adb-page .ft td .sub{display:block;font-size:11.5px;color:var(--muted);white-space:normal}
 .adb-page .ft .tick{width:34px}
-.adb-page .ft .tick input{width:15px;height:15px;accent-color:var(--accent)}
+.adb-page .ft .tick input{-webkit-appearance:checkbox;appearance:auto;width:16px;height:16px;min-width:0;padding:0;margin:0;border:0;box-shadow:none;background:none;accent-color:var(--accent);vertical-align:middle;cursor:pointer}
+.adb-page .ft .tick input:disabled{cursor:not-allowed;opacity:.4}
 .adb-page .ft .act{text-align:right;white-space:nowrap}
 .adb-page .ft .act form{display:inline;margin:0}
 .adb-sn{font-family:var(--mono);font-size:12.5px;font-weight:650;color:var(--text);text-decoration:none}
@@ -125,7 +126,7 @@ code.adb-c{font-family:var(--mono);font-size:12px;background:var(--surface2);bor
               <form method="POST" action="/adb/tunnel/{{.ID}}/end"><button type="submit" class="cc-mi">End tunnel</button></form>{{end}}
               {{if and .CanSwitch (eq .Group "open")}}<form method="POST" action="/adb/commands"><input type="hidden" name="action" value="off"><input type="hidden" name="serial" value="{{.Device.SerialNumber}}"><button type="submit" class="cc-mi">Turn adb off</button></form>{{end}}
             </div>
-          </details>{{else if eq .Group "can"}}<button type="button" class="cc-btn sm" data-pick-one="{{.Device.SerialNumber}}">Connect…</button>{{end}}
+          </details>{{else if eq .Group "off"}}<button type="button" class="cc-btn sm" data-pick-one="{{.Device.SerialNumber}}">Connect…</button>{{end}}
         </td>
       </tr>
       {{end}}
