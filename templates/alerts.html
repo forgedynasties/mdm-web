@@ -77,12 +77,16 @@
 
 /* ── L1 (3 Nov 2026): Fleet's twin, the problems as one table ── */
 .al-wrap.cl-page{max-width:var(--page-max,1760px)}
-.al-ft td{vertical-align:top}
-.al-what{min-width:220px}
-.al-what>b{font-size:13.5px;font-weight:650;color:var(--text);overflow-wrap:anywhere}
-.al-what>small{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.45}
-.al-what .alx-syms{margin-top:6px}
-.al-what .alx-fold-g{margin-top:5px}
+/* One lean line per problem, like Fleet's rows: the title and the why, each cut to one
+   line; the symptoms, note and alerts open under "N alerts". */
+.al-ft td{padding-top:8px;padding-bottom:8px}
+.al-ft td.al-what{white-space:normal;overflow:visible}
+.al-what>b,.al-what>small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.al-what>b{font-size:13px;font-weight:650;color:var(--text)}
+.al-what>small{color:var(--muted);font-size:12px;margin-top:1px;max-width:calc(100% - 70px);display:inline-block;vertical-align:middle}
+.al-what .al-more{display:inline-block;margin:0 0 0 8px;vertical-align:middle}
+.al-what .al-more[open]{display:block;margin:6px 0 0;white-space:normal}
+.al-what .al-more .alx-syms{margin:6px 0 2px}
 .al-sev{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:1px;background:var(--muted)}
 .al-sev.critical{background:var(--danger)}
 .al-sev.warning{background:var(--warn)}
@@ -94,7 +98,7 @@
 .alr-chip.none{color:var(--text-faint);background:none;border:1px dashed var(--border)}
 .alr-chip.ok{color:var(--ok);background:var(--ok-bg)}
 .alr-chip.hot{color:var(--warn);background:var(--warn-bg)}
-.alr-act{width:1%}
+.al-ft td.alr-act{overflow:visible}
 .alr-act-in{display:flex;align-items:center;justify-content:flex-end;gap:6px}
 .alr-act-in>.cc-btn,.alr-act-in>.alx-menu>summary{white-space:nowrap}
 .alr-act-in>.alx-menu{display:block}
@@ -219,11 +223,11 @@
     <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft al-ft">
       <thead><tr>
         <th scope="col">Problem</th>
-        <th scope="col" style="width:170px">Device</th>
-        <th scope="col" style="width:170px">Venue</th>
-        <th scope="col" class="ft-num" style="width:70px">Since</th>
-        <th scope="col" style="width:110px">Owner</th>
-        <th scope="col" style="width:130px">State</th>
+        <th scope="col" style="width:150px">Device</th>
+        <th scope="col" style="width:160px">Venue</th>
+        <th scope="col" class="ft-num" style="width:72px">Since</th>
+        <th scope="col" style="width:100px">Owner</th>
+        <th scope="col" style="width:120px">State</th>
         <th scope="col" class="ft-act" style="width:150px"><span class="sr-only">Actions</span></th>
       </tr></thead>
       <tbody id="al-rows">
@@ -391,12 +395,11 @@
 {{define "alr-row"}}
 {{$p := .R.P}}{{$root := .Root}}
 <tr class="ft-row" id="{{$p.Anchor}}" data-flags="{{.R.Flags}}" data-text="{{.R.Text}}" data-s-since="{{.R.Since}}" data-s-sev="{{.R.Sev}}" data-s-name="{{$p.Title}}"{{if $p.Serial}} data-serial="{{$p.Serial}}" data-ctx="device"{{end}}>
-  <td class="al-what"><span class="al-sev {{$p.Severity}}" title="{{if eq $p.Severity "critical"}}Critical{{else if eq $p.Severity "warning"}}Warning{{else}}Info{{end}}"><span class="sr-only">{{$p.Severity}}: </span></span><b>{{$p.Title}}</b>
-    {{if $p.Why}}<small>{{$p.Why}}</small>{{end}}
-    {{if $p.Note}}<div class="alx-note">{{$p.Note}}</div>{{end}}
-    {{if gt (len $p.Symptoms) 1}}<div class="alx-syms">{{range $p.Symptoms}}<span class="alx-sym {{.Severity}}">{{.Label}}{{if gt .Count 1}} ×{{.Count}}{{end}}</span>{{end}}</div>{{end}}
-    <details class="alx-fold-g">
-      <summary>{{if eq (len $p.Members) 1}}Show the alert{{else}}Show the {{len $p.Members}} alerts{{end}}</summary>
+  <td class="al-what"><b title="{{$p.Title}}"><span class="al-sev {{$p.Severity}}" title="{{if eq $p.Severity "critical"}}Critical{{else if eq $p.Severity "warning"}}Warning{{else}}Info{{end}}"><span class="sr-only">{{$p.Severity}}: </span></span>{{$p.Title}}</b>
+    <small{{if $p.Why}} title="{{$p.Why}}"{{end}}>{{if $p.Note}}“{{$p.Note}}” · {{end}}{{$p.Why}}</small>
+    <details class="alx-fold-g al-more">
+      <summary>{{if eq (len $p.Members) 1}}1 alert{{else}}{{len $p.Members}} alerts{{end}}</summary>
+      {{if gt (len $p.Symptoms) 1}}<div class="alx-syms">{{range $p.Symptoms}}<span class="alx-sym {{.Severity}}">{{.Label}}{{if gt .Count 1}} ×{{.Count}}{{end}}</span>{{end}}</div>{{end}}
       {{range $p.Members}}
       <div class="alx-gm">
         <div class="alx-gm-h">

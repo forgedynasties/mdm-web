@@ -98,7 +98,7 @@
 <div class="pl-bulk" id="pl-bulk" hidden>
   <b id="pl-bulk-n">0 selected</b>
   <span class="muted">Deploy to</span>
-  <select class="form-input pl-sel" id="pl-bulk-venue" aria-label="Venue for the ticked devices"><option value="">Pick a venue…</option>{{range .Venues}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{if .NewVenue}}<option value="__new">+ New venue…</option>{{end}}</select>
+  <button type="button" class="form-input pl-sel pl-vbtn" id="pl-bulk-venue" data-value="" aria-haspopup="listbox" aria-label="Venue for the ticked devices">Pick a venue…</button>
   <span class="sp"></span>
   {{if .Lab}}<button type="button" class="cc-btn sm" onclick="placeBulk('lab')">Send to Lab</button>{{end}}
   <button type="button" class="cc-btn sm primary" onclick="placeBulk('deploy')" id="pl-bulk-go" disabled title="Pick a venue first">Deploy</button>
@@ -121,12 +121,14 @@
       <small class="muted pl-sub" title="{{if .Model}}{{.Model}} · {{end}}{{if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}">{{if .Model}}{{.Model}}{{else if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}{{if not .Online}} · seen {{timeSince .Device.LastSeenAt}}{{end}}</small></td>
     <td>{{if .Choices}}<select class="form-input pl-sel pl-role{{if not .Device.DeviceClass}} need{{end}}" data-cur="{{.Device.DeviceClass}}" aria-label="Role of {{.Device.SerialNumber}}">{{if not .Device.DeviceClass}}<option value="">Pick a role…</option>{{end}}{{$cur := .Device.DeviceClass}}{{range .Choices}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{classLabel .}}</option>{{end}}</select>{{else if .Device.DeviceClass}}{{classLabel .Device.DeviceClass}}{{else}}<span class="muted">from its model</span>{{end}}</td>
     <td>{{if .By}}{{.By}}{{else}}<span class="muted">—</span>{{end}}<small class="muted pl-sub">{{timeSince .Device.EnrolledAt}}</small></td>
-    <td><select class="form-input pl-sel pl-venue need" aria-label="Venue for {{.Device.SerialNumber}}"><option value="">Pick a venue…</option>{{range $.Venues}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{if $.NewVenue}}<option value="__new">+ New venue…</option>{{end}}</select></td>
+    <td><button type="button" class="form-input pl-sel pl-vbtn pl-venue need" data-value="" aria-haspopup="listbox" aria-label="Venue for {{.Device.SerialNumber}}">Pick a venue…</button></td>
     <td class="mv-act"><button type="button" class="cc-btn sm pl-go" onclick="placeRow(this)" disabled title="Pick a venue first">Deploy</button></td>
   </tr>
   {{end}}
   </tbody>
 </table></div></div>
+{{/* The venues for the pickers, rendered once (hundreds of venues: user, 3 Nov 2026). */}}
+<template id="pl-venue-list">{{range .Venues}}<button type="button" class="cc-mi pl-vi" role="option" data-id="{{.ID}}" data-name="{{.Name}}" data-q="{{.Name}} {{.Address}}"><span class="pl-vn">{{.Name}}</span>{{if .Address}}<small>{{.Address}}</small>{{end}}</button>{{end}}{{if .NewVenue}}<button type="button" class="cc-mi pl-vi pl-vnew" role="option" data-id="__new" data-name="+ New venue…" data-q="">+ New venue…</button>{{end}}</template>
 {{if .NewVenue}}
 <dialog class="pl-dlg" id="pl-new" aria-labelledby="pl-new-t">
   <form method="POST" action="/restaurants" hx-boost="false" id="pl-new-form" onsubmit="return placeNewSubmit(this)">
@@ -152,7 +154,18 @@
 .pl-ft .ft-dev .ft-l1{white-space:nowrap}
 .pl-ft .pl-sel,.pl-bulk .pl-sel{height:34px;padding:4px 8px;font-size:13px;line-height:1.2}
 .pl-ft .pl-sel{width:100%;min-width:0;box-sizing:border-box}
-.pl-bulk .pl-sel{width:auto;max-width:320px}
+.pl-bulk .pl-sel{width:auto;min-width:220px;max-width:320px}
+.pl-vbtn{text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:26px!important;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%;background-size:4px 4px;background-repeat:no-repeat}
+.pl-vbtn.need{color:var(--text-2)}
+.pl-vpop{position:fixed;z-index:200;padding:6px;display:flex;flex-direction:column;max-height:340px}
+.pl-vq{padding:2px 2px 6px}.pl-vq input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:var(--bg);color:var(--text)}
+.pl-vl{overflow:auto;min-height:0}
+.pl-vi{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;cursor:pointer}
+.pl-vi .pl-vn{display:block;font-size:13px}
+.pl-vi small{display:block;color:var(--text-2);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-vi.hi,.pl-vi:hover{background:var(--hover)}
+.pl-vnew{color:var(--accent-text);font-weight:600;border-top:1px solid var(--border-soft);margin-top:4px}
+.pl-vnone{padding:10px;color:var(--text-2);font-size:12.5px}
 .pl-sel.need{border-color:var(--warn-edge)}
 .pl-sub{display:block;font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-row.done{opacity:.45}
@@ -194,7 +207,7 @@
   }
   function needsRole(tr) { var r = tr.querySelector('.pl-role'); return r && !r.value; }
   window.placeRow = function (btn) {
-    var tr = btn.closest('tr'), v = tr.querySelector('.pl-venue').value;
+    var tr = btn.closest('tr'), v = tr.querySelector('.pl-venue').dataset.value;
     if (v === '__new') { placeNewVenue([tr]); return; }
     if (!v) { toast('Pick a venue first', 'error'); tr.querySelector('.pl-venue').focus(); return; }
     if (needsRole(tr)) { toast('Pick its role first', 'error'); tr.querySelector('.pl-role').focus(); return; }
@@ -212,7 +225,7 @@
       })).then(function () { toast('Sent to the Lab', 'success'); sync(); }, function (e) { toast(e.message, 'error'); sync(); });
       return;
     }
-    var v = document.getElementById('pl-bulk-venue').value;
+    var v = document.getElementById('pl-bulk-venue').dataset.value;
     if (v === '__new') { placeNewVenue(rows); return; }
     if (!v) { toast('Pick a venue for the ticked devices', 'error'); return; }
     var bad = rows.filter(needsRole);
@@ -247,17 +260,17 @@
   function rowReady(tr) {
     var b = tr.querySelector('.pl-go'), v = tr.querySelector('.pl-venue');
     if (!b || tr.classList.contains('done')) return;
-    var ok = v && v.value && !needsRole(tr);
+    var ok = v && v.dataset.value && !needsRole(tr);
     b.disabled = !ok;
     b.classList.toggle('primary', !!ok);
-    b.title = !v || !v.value ? 'Pick a venue first' : (needsRole(tr) ? 'Pick its role first' : '');
+    b.title = !v || !v.dataset.value ? 'Pick a venue first' : (needsRole(tr) ? 'Pick its role first' : '');
   }
   function sync() {
     var rows = picked(), bar = document.getElementById('pl-bulk');
     if (!bar) return;
     bar.hidden = !rows.length;
     document.getElementById('pl-bulk-n').textContent = rows.length + ' selected';
-    var go = document.getElementById('pl-bulk-go'), v = document.getElementById('pl-bulk-venue').value;
+    var go = document.getElementById('pl-bulk-go'), v = document.getElementById('pl-bulk-venue').dataset.value;
     go.textContent = 'Deploy ' + rows.length;
     go.disabled = !v || !rows.length;
     go.title = v ? '' : 'Pick a venue first';
@@ -266,9 +279,63 @@
     var t = e.target;
     if (t.id === 'pl-all') { document.querySelectorAll('.pl-pick:not(:disabled)').forEach(function (c) { c.checked = t.checked; }); sync(); }
     else if (t.classList && t.classList.contains('pl-pick')) sync();
-    else if (t.id === 'pl-bulk-venue') sync();
-    else if (t.classList && (t.classList.contains('pl-venue') || t.classList.contains('pl-role'))) { t.classList.toggle('need', !t.value); rowReady(t.closest('tr')); }
+    else if (t.classList && t.classList.contains('pl-role')) { t.classList.toggle('need', !t.value); rowReady(t.closest('tr')); }
   });
+
+  // ── The venue picker: a search box over the venue list (it grows to hundreds) ──
+  var pop = null, popFor = null, hi = -1;
+  function items() { return pop ? Array.prototype.filter.call(pop.querySelectorAll('.pl-vi'), function (b) { return !b.hidden; }) : []; }
+  function mark(i) { var l = items(); if (!l.length) return; hi = (i + l.length) % l.length; l.forEach(function (b, k) { b.classList.toggle('hi', k === hi); }); l[hi].scrollIntoView({ block: 'nearest' }); }
+  function closePop() { if (pop) { pop.remove(); pop = null; } if (popFor) popFor.setAttribute('aria-expanded', 'false'); popFor = null; hi = -1; }
+  function choose(b) {
+    var target = popFor; closePop();
+    if (!target) return;
+    if (b.dataset.id === '__new') {
+      var tr = target.closest('tr');
+      placeNewVenue(tr ? [tr] : null); return;
+    }
+    target.dataset.value = b.dataset.id; target.textContent = b.dataset.name; target.title = b.dataset.name;
+    target.classList.remove('need');
+    var row = target.closest('tr'); if (row) rowReady(row); else sync();
+    target.focus();
+  }
+  function openPop(btn) {
+    closePop();
+    var src = document.getElementById('pl-venue-list'); if (!src) return;
+    pop = document.createElement('div');
+    pop.className = 'cc-menu pl-vpop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Pick a venue');
+    pop.innerHTML = '<div class="pl-vq"><input type="search" placeholder="Search venues" aria-label="Search venues" autocomplete="off"></div><div class="pl-vl" role="listbox"></div><div class="pl-vnone" hidden>No venue matches.</div>';
+    pop.querySelector('.pl-vl').appendChild(src.content.cloneNode(true));
+    document.body.appendChild(pop);
+    var r = btn.getBoundingClientRect(), w = Math.max(r.width, 280);
+    pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+    pop.style.width = w + 'px';
+    var below = innerHeight - r.bottom;
+    if (below < 300 && r.top > below) pop.style.bottom = (innerHeight - r.top + 4) + 'px'; else pop.style.top = (r.bottom + 4) + 'px';
+    popFor = btn; btn.setAttribute('aria-expanded', 'true');
+    var q = pop.querySelector('input');
+    q.addEventListener('input', function () {
+      var t = q.value.trim().toLowerCase(), n = 0;
+      pop.querySelectorAll('.pl-vi').forEach(function (b) { var ok = b.classList.contains('pl-vnew') || !t || (b.dataset.q || '').toLowerCase().indexOf(t) >= 0; b.hidden = !ok; if (ok && !b.classList.contains('pl-vnew')) n++; });
+      pop.querySelector('.pl-vnone').hidden = n > 0;
+      mark(0);
+    });
+    q.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); mark(hi + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); mark(hi - 1); }
+      else if (e.key === 'Enter') { e.preventDefault(); var l = items(); if (l[hi]) choose(l[hi]); }
+      else if (e.key === 'Escape') { e.preventDefault(); var b = popFor; closePop(); if (b) b.focus(); }
+    });
+    pop.addEventListener('click', function (e) { var b = e.target.closest('.pl-vi'); if (b) choose(b); });
+    q.focus();
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.pl-vbtn');
+    if (b) { if (popFor === b) closePop(); else openPop(b); return; }
+    if (pop && !pop.contains(e.target)) closePop();
+  });
+  addEventListener('scroll', function (e) { if (pop && !pop.contains(e.target)) closePop(); }, true);
+  addEventListener('resize', closePop);
 })();
 </script>
 {{end}}

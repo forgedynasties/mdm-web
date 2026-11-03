@@ -223,7 +223,9 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	}
 	groups, _ := h.db.ListGroups(r.Context())
 	stats, _ := h.db.EnrollmentStats(r.Context())
-	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 60)
+	// Every enrolment of the last 30 days: the tab's count is this list's length and the
+	// table pages itself, so a cap made it read "60" whatever the month held (3 Nov 2026).
+	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 2000)
 	// From the AIO backend (E1): the coverage view, when the backend has been copied.
 	var cov *prodCoverageView
 	covWork := 0
