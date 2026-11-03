@@ -54,7 +54,8 @@ func hubTmpl(t *testing.T, files ...string) *template.Template {
 	return template.Must(tmpl.Parse(`{{define "header"}}<i hidden></i>{{end}}{{define "footer"}}<i hidden></i>{{end}}`))
 }
 
-func TestEnrollmentHubRenders(t *testing.T) {
+// M1 (3 Nov 2026): the Enrollment page's views are Setup's, each in the pane alone.
+func TestSetupEnrollmentViews(t *testing.T) {
 	now := time.Now()
 	venue := uuid.New()
 	in := covInputs{Base: "/enrollment?tab=backend", Now: now,
@@ -65,61 +66,54 @@ func TestEnrollmentHubRenders(t *testing.T) {
 		Names: map[uuid.UUID]string{venue: "Huanchaco"}}
 	pl := placements{Rows: []placementRow{{R: in.Rs[1], Devs: []placementDev{{Serial: "bcf308127809f0b0", Label: "Self-order kiosk"}}, Total: 19}}}
 	bk := buildBackendB1(in, pl, map[string]bool{"prod/9": true}, []db.Restaurant{{ID: venue, Name: "Huanchaco"}})
-	data := map[string]any{
-		"Role": "admin", "Stats": db.EnrollmentStats{Inbox: 3, Enrolled7d: 6, Firmware: 200, DPC: 20},
-		"Bk": &bk,
-		"Prov": map[string]any{"AgentAPKHosted": true, "AgentAPKHostedInfo": map[string]any{"URL": "https://mdm/agent.apk", "Name": "dpc.apk", "Size": 1, "At": now, "SHA": "x"},
-			"FleetAdbKey": map[string]any{"SecretSet": true}},
-		"Restaurants": []db.Restaurant{{ID: uuid.New(), Name: "Huanchaco"}},
-		"Profiles": []db.EnrollmentProfile{{ID: uuid.New(), Name: "AIO Enroll app · binyamin", Token: "enr_x", EnrollCount: 30}},
-		"Enrollments": []db.Enrollment{{Serial: "DP02254J10876", DeviceClass: "pos", EnrolledAt: now}},
-		"Unenrollments": []db.Unenrollment{},
-		"Inbox": []db.Device{{ID: uuid.New(), SerialNumber: "AK270AABU00026", AgentKind: "dpc", EnrolledAt: now}},
-		"Sightings": []sightingGroup{}, "Groups": []db.Group{},
-		"SightingsReady": 2, "ExpiredProfiles": 0, "Enrolling": false, "ScoutOn": true, "FleetKeySet": true,
+	base := func(role, view string) map[string]any {
+		d := map[string]any{
+			"Role": role, "View": view, "EnView": enrollmentViews[view], "Stats": db.EnrollmentStats{Inbox: 3, Enrolled7d: 6, Firmware: 200, DPC: 20},
+			"Bk": &bk, "SightingsReady": 2, "Sightings": []sightingGroup{},
+			"Prov": map[string]any{"AgentAPKHosted": true, "AgentAPKHostedInfo": map[string]any{"URL": "https://mdm/agent.apk", "Name": "dpc.apk", "Size": 1, "At": now, "SHA": "x"},
+				"FleetAdbKey": map[string]any{"SecretSet": true}},
+			"Restaurants": []db.Restaurant{{ID: venue, Name: "Huanchaco"}}, "Venues": []db.Restaurant{{ID: venue, Name: "Huanchaco"}},
+			"Profiles":    []db.EnrollmentProfile{{ID: uuid.New(), Name: "AIO Enroll app · binyamin", Token: "enr_x", EnrollCount: 30}},
+			"Enrollments": []db.Enrollment{{Serial: "DP02254J10876", DeviceClass: "pos", EnrolledAt: now}},
+			"Groups":      []db.Group{}, "ExpiredProfiles": 0, "Enrolling": false, "ScoutOn": true, "FleetKeySet": true,
+			"DeviceKey": "secret-key", "DeviceKeyMask": "sec••••key",
+			"Rows": []placeRow{}, "SetRows": []visitDeviceRow{}, "SvcRows": []visitDeviceRow{}, "Visits": []db.SetupVisit{},
+		}
+		if role != "admin" { // as enrollmentData: the provisioning cards and the key are the super admin's
+			delete(d, "Prov")
+			d["DeviceKey"], d["DeviceKeyMask"] = "", ""
+		}
+		return d
 	}
-	var buf bytes.Buffer
-	if err := hubTmpl(t, "enrollment.html", "coverage.html", "restaurants.html", "layout.html", "_settings_cards.html").ExecuteTemplate(&buf, "enrollment.html", data); err != nil {
-		t.Fatalf("enrollment.html: %v", err)
+	tmpl := hubTmpl(t, "ops_home.html", "enrollment.html", "restaurants.html", "layout.html", "_settings_cards.html")
+	render := func(role, view string) string {
+		var buf bytes.Buffer
+		if err := tmpl.ExecuteTemplate(&buf, "ops_home.html", base(role, view)); err != nil {
+			t.Fatalf("%s as %s: %v", view, role, err)
+		}
+		return buf.String()
 	}
-	out := buf.String()
-	for _, want := range []string{
-		// E1 (30 Oct 2026): Fleet's layout, the tabs as the left list, tables on the right.
-		`class="fleet-rail en-rail"`, `data-en-tab="inbox"><span class="dot warn"></span><span class="nm">Needs a venue</span><span class="ct">3</span>`,
-		`<b>3</b> need a venue · 220 in the MDM · 6 this week`,
-		`data-en-tab="backend"`, `<section class="en-tabpane" data-tab="backend"`, `data-en-tab="found"`,
-		// B1 (3 Nov 2026): one table of backend restaurants.
-		`data-cl data-one="restaurant"`, `data-start="act"`, `data-clf="act"`, `data-clf="ignored"`, `data-clc="env-prod"`,
-		`Ole Ole Burrito`, `Redwood Grill`, `data-flags="env-prod all act real here"`, `data-flags="env-prod ignored real"`,
-		`value="unignore"`, `value="link"`, `>Huanchaco</option>`, `1 self-order kiosk here has no venue`,
-		`Standard MDM for QR provisioning`, `id="fleet-adb-key"`,
-		`class="cc-btn" data-en-tab="how">`, `/static/video/enroll-guide.mp4`, `data-t="43.6"`,
-		// Needs a venue as a table: tick boxes, the assign bar, a venue picker per row.
-		`id="en-assign"`, `id="en-inbox-all"`, `class="ft-row en-row lt-row" id="dev-AK270AABU00026"`, `class="en-dpick" value="AK270AABU00026"`,
-		`action="/devices/AK270AABU00026/onboard"`, `>Assign</button>`, `data-f="type" data-v="needed">Model has no class`,
-		// Enrolled and Profiles as tables.
-		`data-f="week" data-v="1">This week`, `id="prof-`, `data-f-state="active"`, `id="en-prof-all"`, `action="/enrollment/profiles/bulk"`,
+	for view, wants := range map[string][]string{
+		"recent":   {`data-tab="recent"`, `data-f="week" data-v="1">This week`, `DP02254J10876`},
+		"profiles": {`id="prof-`, `data-f-state="active"`, `id="en-prof-all"`, `action="/enrollment/profiles/bulk"`},
+		"backend":  {`data-cl data-one="restaurant"`, `data-start="act"`, `data-flags="env-prod all act real here"`, `value="unignore"`, `>Huanchaco</option>`},
+		"how":      {`id="en-how-tabs"`, `/static/video/enroll-guide.mp4`, `Standard MDM for QR provisioning`, `id="fleet-adb-key"`, `secret-key`},
 	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("Enrollment hub is missing %q", want)
+		out := render("admin", view)
+		for _, w := range append(wants, `hx-get="/visits?view=recent"`, `>From the AIO backend<`, `onclick="enOpenModal()"`, `id="en-modal"`, `/static/js/enrollment.js`) {
+			if !strings.Contains(out, w) {
+				t.Errorf("%s view is missing %q", view, w)
+			}
 		}
 	}
-	if strings.Contains(out, "Unenrollments") || strings.Contains(out, "How devices get here") {
-		t.Error("Enrollment hub still shows unenrollments or the old tab name")
-	}
-	// No number cards any more, and How to enroll is a header button, not a list entry.
-	if strings.Contains(out, `class="en-fun"`) || strings.Contains(out, `class="fleet-rail-item" data-en-tab="how"`) {
-		t.Error("the funnel cards or a How to enroll rail entry are back")
-	}
-	// Found on Wi-Fi and From the AIO backend are super admin only (26 Oct 2026).
-	data["Role"] = "fleet_admin"
-	buf.Reset()
-	if err := hubTmpl(t, "enrollment.html", "coverage.html", "restaurants.html", "layout.html", "_settings_cards.html").ExecuteTemplate(&buf, "enrollment.html", data); err != nil {
-		t.Fatalf("enrollment.html as fleet_admin: %v", err)
-	}
-	for _, gone := range []string{`data-tab="found"`, `data-tab="backend"`, `data-en-tab="found"`, `data-en-tab="backend"`} {
-		if strings.Contains(buf.String(), gone) {
-			t.Errorf("a non-super-admin sees %q", gone)
+	// The Ops lead: Enrolled and How to enroll, none of the super admin's (no tokens, no key).
+	out := render("fleet_manager", "how")
+	for _, gone := range []string{`view=profiles`, `view=found`, `view=backend`, `secret-key`, `id="fleet-adb-key"`, `id="en-modal"`} {
+		if strings.Contains(out, gone) {
+			t.Errorf("an Ops lead sees %q", gone)
 		}
+	}
+	if !strings.Contains(out, `view=recent`) {
+		t.Error("an Ops lead should see Enrolled")
 	}
 }

@@ -47,7 +47,7 @@ func (v venueVisitsView) Summary() string {
 }
 
 // mayManageVisits: the super admin and the Ops lead.
-func mayManageVisits(role string) bool { return role == "admin" || role == "fleet_manager" }
+func mayManageVisits(role string) bool { return role == "admin" || role == "fleet_admin" || role == "fleet_manager" }
 
 func (h *Handler) venueVisitsView(r *http.Request, id uuid.UUID, devices []db.Device) venueVisitsView {
 	ctx := r.Context()

@@ -175,38 +175,31 @@ func (h *Handler) ScoutRecheck(w http.ResponseWriter, r *http.Request) {
 	h.hxDoneToast(w, r, "/enrollment?tab=found", "Checking the device again…", "success")
 }
 
-// EnrollmentPage shows enrollment profiles (revocable QR/zero-touch tokens) plus the
-// manual adb provisioning path with the shared device API key.
+// enrollmentTabView maps the old /enrollment?tab= names onto Setup's views (M1, 3 Nov 2026:
+// the Enrollment page moved into Setup; Needs a venue is To place there).
+var enrollmentTabView = map[string]string{"inbox": "place", "recent": "recent", "profiles": "profiles", "found": "found", "backend": "backend", "how": "how"}
+
+// enrollmentViews are Setup's views that come from Enrollment; superAdminViews of them are
+// the super admin's alone (enrolment tokens, the Wi-Fi scout, the AIO backend).
+var enrollmentViews = map[string]bool{"recent": true, "profiles": true, "found": true, "backend": true, "how": true}
+var superAdminViews = map[string]bool{"profiles": true, "found": true, "backend": true}
+
+// EnrollmentPage is GET /enrollment: Setup's views since 3 Nov 2026 (the scout card still
+// polls ?partial=scout here).
 func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
-	deviceKey := os.Getenv("DEVICE_API_KEY")
-	masked := deviceKey
-	if len(masked) > 6 {
-		masked = masked[:3] + "••••••" + masked[len(masked)-3:]
-	}
-	inbox, _ := h.db.ListOnboardingInbox(r.Context(), 50)
-	restaurants, _ := h.db.ListRestaurants(r.Context())
-	// Live refresh: the page re-fetches just the inbox on device events.
-	if r.URL.Query().Get("partial") == "inbox" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		h.tmpl.ExecuteTemplate(w, "enroll-inbox", map[string]any{
-			"Inbox": inbox, "Restaurants": restaurants, "Classes": product.Classes(), "Role": h.role(r),
-		})
-		return
-	}
-	sightings, _ := h.db.ListSightings(r.Context())
-	sgroups := groupSightings(sightings)
-	readyN, enrolling := 0, false
-	for _, g := range sgroups {
-		readyN += g.ReadyN
-	}
-	for _, sg := range sightings {
-		if sg.State == "enrolling" {
-			enrolling = true
-			break
-		}
-	}
-	// The scout card polls itself while a job runs (see the enroll-scout template).
 	if r.URL.Query().Get("partial") == "scout" {
+		sightings, _ := h.db.ListSightings(r.Context())
+		sgroups := groupSightings(sightings)
+		readyN, enrolling := 0, false
+		for _, g := range sgroups {
+			readyN += g.ReadyN
+		}
+		for _, sg := range sightings {
+			if sg.State == "enrolling" {
+				enrolling = true
+				break
+			}
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		h.tmpl.ExecuteTemplate(w, "enroll-scout", map[string]any{
 			"Sightings": sgroups, "SightingsReady": readyN, "Enrolling": enrolling,
@@ -214,50 +207,85 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	profiles, _ := h.db.ListEnrollmentProfiles(r.Context())
-	expiredN := 0
-	for _, pr := range profiles {
-		if pr.Expired() {
-			expiredN++
+	view := enrollmentTabView[r.URL.Query().Get("tab")]
+	if view == "" {
+		view = "recent"
+	}
+	to := "/visits?view=" + view
+	if f := r.URL.Query().Get("flash"); f != "" {
+		to += "&flash=" + url.QueryEscape(f) + "&flash_type=" + url.QueryEscape(r.URL.Query().Get("flash_type"))
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+// enrollmentData adds what Setup's Enrollment views and their left-list counts need to data;
+// the heavy parts only for the view being shown, the super admin's only for them.
+func (h *Handler) enrollmentData(r *http.Request, view string, data map[string]any) {
+	ctx := r.Context()
+	super := h.role(r) == "admin"
+	enrollments, _ := h.db.RecentEnrollments(ctx, "", time.Now().AddDate(0, 0, -30), 2000)
+	data["Enrollments"] = enrollments
+	data["EnrollAndroid"] = h.enrollAndroidView(r)
+	if super {
+		profiles, _ := h.db.ListEnrollmentProfiles(ctx)
+		expiredN := 0
+		for _, pr := range profiles {
+			if pr.Expired() {
+				expiredN++
+			}
+		}
+		data["Profiles"], data["ExpiredProfiles"] = profiles, expiredN
+		sightings, _ := h.db.ListSightings(ctx)
+		sgroups := groupSightings(sightings)
+		readyN, enrolling := 0, false
+		for _, g := range sgroups {
+			readyN += g.ReadyN
+		}
+		for _, sg := range sightings {
+			if sg.State == "enrolling" {
+				enrolling = true
+				break
+			}
+		}
+		data["Sightings"], data["SightingsReady"], data["Enrolling"] = sgroups, readyN, enrolling
+		// From the AIO backend (B1): one table of backend restaurants; its count is in the list.
+		data["Bk"] = h.backendB1For(r)
+		groups, _ := h.db.ListGroups(ctx)
+		data["Groups"] = groups
+	}
+	if !enrollmentViews[view] {
+		return
+	}
+	stats, _ := h.db.EnrollmentStats(ctx)
+	// The fleet device key is the super admin's alone (the Ops lead sees How to enroll too).
+	deviceKey, masked := "", ""
+	if super {
+		deviceKey = os.Getenv("DEVICE_API_KEY")
+		masked = deviceKey
+		if len(masked) > 6 {
+			masked = masked[:3] + "••••••" + masked[len(masked)-3:]
 		}
 	}
-	groups, _ := h.db.ListGroups(r.Context())
-	stats, _ := h.db.EnrollmentStats(r.Context())
-	// Every enrolment of the last 30 days: the tab's count is this list's length and the
-	// table pages itself, so a cap made it read "60" whatever the month held (3 Nov 2026).
-	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 2000)
-	// From the AIO backend (B1, 3 Nov 2026): one table of backend restaurants, super admin only.
-	var bk *bkB1
-	if h.role(r) == "admin" {
-		bk = h.backendB1For(r)
+	for k, v := range map[string]any{
+		"ServerURL":      h.baseURL(r),
+		"DeviceKey":      deviceKey,
+		"DeviceKeyMask":  masked,
+		"AdminComponent": "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
+		"AgentPackage":   "aio.app.mdmclient.dpc",
+		"Names":          h.actorDisplayNames(ctx),
+		"Classes":        product.Classes(),
+		"Stats":          stats,
+		"HasAgentAPK":    h.cfg.AgentAPKHosted() || (h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != ""),
+		"AgentAPKURL":    h.agentAPKURL(r),
+		"ScoutOn":        h.scout != nil && h.cfg.FleetAdbKeySecret() != "",
+		"FleetKeySet":    h.cfg.FleetAdbKeySecret() != "",
+		"St":             h.movedSettings(r), // Getting started (S1, 24 Oct 2026)
+	} {
+		data[k] = v
 	}
-	h.render(w, r, "enrollment.html", map[string]any{
-		"Title":           "Enrollment",
-		"ActivePage":      "enrollment",
-		"ServerURL":       h.baseURL(r),
-		"DeviceKey":       deviceKey,
-		"DeviceKeyMask":   masked,
-		"AdminComponent":  "aio.app.mdmclient.dpc/aio.app.mdmclient.dpc.MdmDeviceAdminReceiver",
-		"AgentPackage":    "aio.app.mdmclient.dpc",
-		"Profiles":        profiles,
-		"ExpiredProfiles": expiredN,
-		"Enrollments":     enrollments,
-		"Names":           h.actorDisplayNames(r.Context()),
-		"Groups":          groups,
-		"Restaurants":     restaurants,
-		"Classes":         product.Classes(),
-		"Inbox":           inbox,
-		"Stats":           stats,
-		"HasAgentAPK":     h.cfg.AgentAPKHosted() || (h.cfg.AgentAPKURL() != "" && h.cfg.AgentAPKChecksum() != ""),
-		"EnrollAndroid":   h.enrollAndroidView(r),
-		"AgentAPKURL":     h.agentAPKURL(r),
-		"Sightings":       sgroups,
-		"SightingsReady":  readyN,
-		"Enrolling":       enrolling,
-		"ScoutOn":         h.scout != nil && h.cfg.FleetAdbKeySecret() != "",
-		"FleetKeySet":     h.cfg.FleetAdbKeySecret() != "",
-		// How devices get here: the provisioning cards that were Settings › Enrollment.
-		"Prov": map[string]any{
+	if super {
+		// How to enroll: the provisioning cards that were Settings › Enrollment.
+		data["Prov"] = map[string]any{
 			"AgentAPKURL":      h.cfg.AgentAPKURL(),
 			"AgentAPKChecksum": h.cfg.AgentAPKChecksum(),
 			"AgentAPKHosted":   h.cfg.AgentAPKHosted(),
@@ -267,10 +295,8 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 			}(),
 			"AgentAPKFromEnv": h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
 			"FleetAdbKey":     h.fleetAdbKeyView(r),
-		},
-		"Bk":         bk,
-		"St":         h.movedSettings(r), // Getting started (S1, 24 Oct 2026)
-	})
+		}
+	}
 }
 
 // EnrollmentProfileCreate makes a new enrollment profile with a fresh "enr_..." token.

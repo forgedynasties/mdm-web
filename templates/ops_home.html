@@ -4,7 +4,12 @@
 <template id="page-island">
   <span class="isl-dot {{if .Rows}}warn{{else}}ok{{end}}"></span>
   <span class="isl-t">Setup</span>
-  <span class="isl-s"><b>{{len .Rows}}</b> to place · {{.SettingN}} setting up · {{.ServiceN}} in service</span>
+  <span class="isl-s"><b>{{len .Rows}}</b> to place · {{.SettingN}} setting up · {{.ServiceN}} in service · {{len .Enrollments}} enrolled in 30 days</span>
+  <span class="isl-acts">
+    <a class="cc-btn" href="/visits?view=how" hx-get="/visits?view=how" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true">How to enroll</a>
+    {{template "en-app" .}}
+    {{if eq .Role "admin"}}<button type="button" class="cc-btn primary" onclick="enOpenModal()">New profile</button>{{end}}
+  </span>
 </template>
 {{template "place-style"}}
 <style>
@@ -21,6 +26,13 @@
     <a class="fleet-rail-item oh-v{{if eq .View "place"}} on{{end}}" href="/visits" hx-get="/visits" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot {{if .Rows}}warn{{else}}ok{{end}}"></span><span class="nm">To place</span><span class="ct">{{len .Rows}}</span></a>
     <a class="fleet-rail-item oh-v{{if eq .View "setup"}} on{{end}}" href="/visits?view=setup" hx-get="/visits?view=setup" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot {{if .SettingN}}info{{else}}ok{{end}}"></span><span class="nm">Setting up</span><span class="ct">{{.SettingN}}</span></a>
     <a class="fleet-rail-item oh-v{{if eq .View "service"}} on{{end}}" href="/visits?view=service" hx-get="/visits?view=service" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot ok"></span><span class="nm">In service</span><span class="ct">{{.ServiceN}}</span></a>
+    <div class="fleet-rail-cap">Enrollment</div>
+    {{template "oh-view" (dict "Key" "recent" "Name" "Enrolled · 30 days" "N" (len .Enrollments) "Dot" "ok" "Cur" .View)}}
+    {{if eq .Role "admin"}}
+    {{template "oh-view" (dict "Key" "profiles" "Name" "Profiles" "N" (len .Profiles) "Dot" "ok" "Cur" .View)}}
+    {{template "oh-view" (dict "Key" "found" "Name" "Found on Wi-Fi" "N" .SightingsReady "Dot" (or (and .SightingsReady "warn") "muted") "Cur" .View)}}
+    {{with .Bk}}{{template "oh-view" (dict "Key" "backend" "Name" "From the AIO backend" "N" .Act "Dot" (or (and .Act "warn") "muted") "Cur" $.View)}}{{end}}
+    {{end}}
     {{with .Visits}}
     <div class="fleet-rail-cap">Setup visits</div>
     {{range .}}<a class="fleet-rail-item" href="/restaurants/{{.RestaurantID}}?open=visits"><span class="dot info"></span><span class="nm">{{.Restaurant}}<span class="sub">{{joinStrings .People ", "}} · until {{.EndsAt.Format "Mon 2 Jan"}}</span></span></a>{{end}}
@@ -34,7 +46,17 @@
 
   {{/* Only this pane reloads when a view is picked in the left list (user, 3 Nov 2026). */}}
   <div class="fleet-roster" id="oh-pane" style="min-width:0">
-    {{if eq .View "place"}}
+    {{if .EnView}}
+    {{template "en-style"}}
+    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">{{if eq .View "recent"}}Enrolled{{else if eq .View "profiles"}}Profiles{{else if eq .View "found"}}Found on Wi-Fi{{else if eq .View "backend"}}From the AIO backend{{else}}How to enroll{{end}}</h1><span class="c">{{if eq .View "recent"}}{{len .Enrollments}} in the last 30 days · standard-client devices{{else if eq .View "profiles"}}{{len .Profiles}} profiles · QR and adb enrolment tokens{{else if eq .View "found"}}{{if .Sightings}}{{.SightingsReady}} ready to enrol{{else}}nothing nearby{{end}}{{else if eq .View "backend"}}{{with .Bk}}{{.ProdIn}} of {{.ProdTotal}} Prod devices in the MDM · {{.ProdLinked}} of {{.Rest}} restaurants linked{{if .Synced}} · synced {{timeSince .Synced}}{{end}}{{end}}{{else}}four paths, one fleet{{end}}</span></div>
+    <div class="en-wrap">
+    {{if eq .View "recent"}}{{template "en-sec-recent" .}}
+    {{else if eq .View "profiles"}}{{template "en-sec-profiles" .}}
+    {{else if eq .View "found"}}{{template "en-sec-found" .}}
+    {{else if eq .View "backend"}}{{with .Bk}}{{template "enroll-backend-b1" (dict "B" . "Role" $.Role)}}{{end}}
+    {{else}}{{template "en-sec-how" .}}{{end}}
+    </div>
+    {{else if eq .View "place"}}
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">To place</h1><span class="c">{{len .Rows}} enrolled, no venue yet · newest first</span></div>
     {{if .Rows}}
     {{template "place-table" (dict "Rows" .Rows "Venues" .Venues "Back" "/visits" "NewVenue" true "Lab" true)}}
@@ -87,6 +109,9 @@
   </div>
 </div>
 {{template "place-script"}}
+{{if eq .Role "admin"}}{{template "en-modal" .}}{{end}}
+<script src="/static/js/enrollment.js?v={{assetVer}}"></script>
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 <script>
 (function () {
   if (window.__ohRail) return; window.__ohRail = true;
@@ -99,6 +124,9 @@
 </script>
 {{template "footer" .}}
 {{end}}
+
+{{/* A left-list entry that swaps only the pane (dict Key Name N Dot Cur). */}}
+{{define "oh-view"}}<a class="fleet-rail-item oh-v{{if eq .Cur .Key}} on{{end}}" href="/visits?view={{.Key}}" hx-get="/visits?view={{.Key}}" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot {{.Dot}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></a>{{end}}
 
 {{/* ── The To place table, shared by the Ops lead's home and Field's My visits (K2) ──
      dict: Rows []placeRow, Venues []db.Restaurant, Back, NewVenue (may create venues),

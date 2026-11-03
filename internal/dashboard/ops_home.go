@@ -18,7 +18,9 @@ import (
 // them to venues assign roles create venues", "the queue page should be their main page").
 //
 // GET /visits ("Setup"), Fleet's layout. The left list: To place · Setting up · In service, then
-// the venues and the open setup visits. To place is the queue (db/placement.go): a row per
+// Enrollment (Enrolled; the super admin's Profiles, Found on Wi-Fi, From the AIO backend; M1,
+// 3 Nov 2026, the Enrollment page moved in), the open setup visits and the venues. How to
+// enroll, the Android app and New profile are in the island. To place is the queue (db/placement.go): a row per
 // device with its role, a venue picker and Deploy; tick several to deploy them together or send
 // them to the Lab; "+ New venue…" in the picker creates one and deploys the ticked devices
 // there. Setting up holds the old Setup page's to-dos and each device's checklist and Hand over.
@@ -68,7 +70,10 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	view := r.URL.Query().Get("view")
-	if view != "setup" && view != "service" {
+	switch {
+	case view == "setup" || view == "service":
+	case enrollmentViews[view] && (!superAdminViews[view] || h.role(r) == "admin"):
+	default:
 		view = "place"
 	}
 	queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace}, 0, 2000, "serial", "asc")
@@ -157,12 +162,16 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.SliceStable(railVenues, func(i, j int) bool { return railVenues[i].DeviceCount > railVenues[j].DeviceCount })
 	sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
-	h.render(w, r, "ops_home.html", map[string]any{
-		"Title": "Setup", "ActivePage": "setup", "View": view,
+	data := map[string]any{
+		"Title": "Setup", "ActivePage": "setup", "View": view, "EnView": enrollmentViews[view],
 		"Rows": rows, "SetRows": setRows, "SvcRows": svc, "Todos": todos, "Ready": ready,
 		"SettingN": len(setRows), "ServiceN": len(svc), "Visits": visits,
 		"Venues": venues, "RailVenues": railVenues, "Back": "/visits",
-	})
+		"Restaurants": venues,
+	}
+	// Enrollment moved in (M1, 3 Nov 2026): its views and the left list's counts.
+	h.enrollmentData(r, view, data)
+	h.render(w, r, "ops_home.html", data)
 }
 
 // DevicePlacementPost: POST /devices/{serial}/placement {placement: queue|lab}. "Send to Lab"

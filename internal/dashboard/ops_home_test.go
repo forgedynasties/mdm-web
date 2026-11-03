@@ -24,11 +24,11 @@ func TestOpsHomeRenders(t *testing.T) {
 	venues := []db.Restaurant{{ID: venue, Name: "Ah Huevo - Pleasanton", DeviceCount: 4}}
 	set := []visitDeviceRow{{Device: db.Device{ID: uuid.New(), SerialNumber: "AK270AABU00180", RestaurantID: &venue, RestaurantName: "Ah Huevo"},
 		State: db.StateSettingUp, Checks: []handOverCheck{{Label: "role app", OK: true}}, CanHand: true}}
-	tmpl := hubTmpl(t, "ops_home.html", "my_visits.html")
+	tmpl := hubTmpl(t, "ops_home.html", "my_visits.html", "enrollment.html", "restaurants.html", "layout.html", "_settings_cards.html")
 	for _, view := range []string{"place", "setup", "service"} {
 		data := map[string]any{"View": view, "Rows": rows, "SetRows": set, "SvcRows": set, "Todos": []setupTodo{{Title: "x", Href: "/r"}},
 			"SettingN": 1, "ServiceN": 1, "Ready": 0, "Visits": []db.SetupVisit{{RestaurantID: venue, Restaurant: "Ah Huevo", EndsAt: now}},
-			"Venues": venues, "RailVenues": venues}
+			"Venues": venues, "RailVenues": venues, "Enrollments": []db.Enrollment{}, "Role": "fleet_manager"}
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, "ops_home.html", data); err != nil {
 			t.Fatalf("ops_home.html %s: %v", view, err)

@@ -1,5 +1,9 @@
-{{define "enrollment.html"}}
-{{template "header" .}}
+{{/* Enrollment's pieces (M1, 3 Nov 2026: the Enrollment page moved into Setup; /enrollment
+     redirects to /visits?view=…). Setup (ops_home.html) renders one of these views in its pane:
+     Enrolled, Profiles, Found on Wi-Fi, From the AIO backend, How to enroll. "Needs a venue" is
+     To place now. Each define takes the page data. */}}
+
+{{define "en-style"}}
 <style>
 /* ── Enroll · command center ─────────────────────────────────────────── */
 /* Tabs: one section at a time, full width (static/enrollment-tabs-demos.html, B).
@@ -141,112 +145,47 @@ div.en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
 .en-card .lt-more{margin:0 17px 14px}
 @media(max-width:720px){.en-card .ft{min-width:760px}.en-wrap .fleet-pane-head{flex-wrap:wrap}.en-acts{margin-left:0;width:100%}.en-acts .cc-btn{flex:1 1 auto;justify-content:center}.en-wrap .fleet-bar{flex-wrap:wrap}}
 </style>
+{{end}}
 
-{{$canOp := canAdminOrOperator .Role}}
-{{$inboxN := .Stats.Inbox}}
-{{/* Found on Wi-Fi and From the AIO backend are super admin only (user, 26 Oct 2026). */}}
-{{$super := eq .Role "admin"}}
-{{/* E1 "Fleet twin" (picked 30 Oct 2026): Fleet's layout. The tabs are the left list (Needs a
-     venue, Enrolled, Profiles; the super admin's Found on Wi-Fi and From the AIO backend),
-     the picked one fills the right as a Fleet-style table. The four number cards are gone
-     (their numbers are the counts in the list). How to enroll is a header button, not a list
-     entry (user: "how to enroll does not belong in the left rail"). ?tab= still names the
-     pane: inbox, recent, profiles, found, backend, how. */}}
-<template id="page-island">
-  <span class="isl-dot {{if gt $inboxN 0}}warn{{else}}on{{end}}"></span>
-  <span class="isl-t">Enrollment</span>
-  <span class="isl-s"><b>{{$inboxN}}</b> need{{if eq $inboxN 1}}s{{end}} a venue · {{add .Stats.Firmware .Stats.DPC}} in the MDM{{if gt .Stats.Enrolled7d 0}} · {{.Stats.Enrolled7d}} this week{{end}}</span>
-</template>
-<div class="fl-wrap en-wrap">
-  <h1 class="cc-h1 sr-only">Enrollment</h1>
-  <div class="fleet-md">
-  <aside class="fleet-rail en-rail" aria-label="Enrollment" data-default="{{if gt $inboxN 0}}inbox{{else if and $super (gt .SightingsReady 0)}}found{{else}}profiles{{end}}">
-    <div class="fleet-rail-cap">Enrollment</div>
-    <button type="button" class="fleet-rail-item" data-en-tab="inbox"><span class="dot {{if gt $inboxN 0}}warn{{else}}ok{{end}}"></span><span class="nm">Needs a venue</span><span class="ct">{{$inboxN}}</span></button>
-    <button type="button" class="fleet-rail-item" data-en-tab="recent"><span class="dot ok"></span><span class="nm">Enrolled</span><span class="ct">{{len .Enrollments}}</span></button>
-    <button type="button" class="fleet-rail-item" data-en-tab="profiles"><span class="dot ok"></span><span class="nm">Profiles</span><span class="ct">{{len .Profiles}}</span></button>
-    {{if $super}}
-    <div class="fleet-rail-cap en-rail-cap">Super admin</div>
-    <button type="button" class="fleet-rail-item" data-en-tab="found"><span class="dot {{if gt .SightingsReady 0}}warn{{else}}muted{{end}}"></span><span class="nm">Found on Wi-Fi</span><span class="ct">{{.SightingsReady}}</span></button>
-    {{with .Bk}}<button type="button" class="fleet-rail-item" data-en-tab="backend" title="Backend restaurants that list your devices but have no venue here"><span class="dot {{if .Act}}warn{{else}}muted{{end}}"></span><span class="nm">From the AIO backend</span><span class="ct">{{.Act}}</span></button>{{end}}
-    {{end}}
-  </aside>
-
-  <div class="fleet-roster">
-    <div class="fleet-pane-head">
-      <span class="t" id="en-pane-t">Enrollment</span><span class="c" id="en-pane-c"></span>
-      <span class="en-acts">
-        <button type="button" class="cc-btn" data-en-tab="how"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><path d="M12 17h.01"/></svg>How to enroll</button>
-      {{/* AIO Enroll for Android (19 Oct): this server hosts the phone app (slot
-           enroll-android); the header button opens its QR and download. */}}
-      {{with .EnrollAndroid}}{{if .Hosted}}
-      <details class="en-app">
-        <summary class="cc-btn"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Get the Android app</summary>
-        <div class="cc-menu en-app-pop" role="dialog" aria-label="AIO Enroll for Android">
-          <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="132" height="132">
-          <div class="en-app-t">
-            <b>AIO Enroll for Android</b>
-            <span class="muted small">{{if .Version}}{{.Version}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
-            <span class="small">Scan with the phone, or download here and copy it over. Android asks once to allow installs from your browser.</span>
-            <a class="cc-btn sm primary" href="{{.URL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download APK</a>
-          </div>
-        </div>
-      </details>
-      <script>
-      (function () {
-        if (window.__enAppClose) return; window.__enAppClose = true;
-        function shut(e) { document.querySelectorAll('details.en-app[open]').forEach(function (d) { if (!e || e.key === 'Escape' || !d.contains(e.target)) d.open = false; }); }
-        document.addEventListener('click', function (e) { shut(e); });
-        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') shut(e); });
-      })();
-      </script>
-      {{end}}{{end}}
-      {{if $canOp}}<button type="button" class="cc-btn primary" onclick="enOpenModal()" data-coach="enroll-new-profile" data-coach-title="Start with a profile" data-coach-text="A profile is a scannable QR that says what a batch of devices is and where it goes. Scout and app enrolments mint their own; this one is for QR and adb."><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New profile</button>{{end}}
-      </span>
-    </div>
-
-  {{if $super}}<section class="en-tabpane" data-tab="found" role="tabpanel" data-title="Found on Wi-Fi" data-sub="{{if .Sightings}}{{.SightingsReady}} ready to enrol{{else}}nothing nearby{{end}}">
-  {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
-  <div class="cc-card" id="en-scout-card">
-    {{template "enroll-scout" .}}
-  </div>
-  </section>{{end}}
-
-  {{/* ── Needs a venue (the inbox): Fleet's table, a venue picker per row, or tick
-       several and assign them from the bar (each one goes through /onboard). ── */}}
-  <section class="en-tabpane lt" data-tab="inbox" role="tabpanel" id="en-inbox-card" data-lt-n="12" data-title="Needs a venue" data-sub="{{if gt $inboxN 0}}{{$inboxN}} device{{if ne $inboxN 1}}s{{end}} waiting{{else}}nothing waiting{{end}}">
+{{define "en-sec-recent"}}{{$canOp := canAdminOrOperator .Role}}{{$super := eq .Role "admin"}}
+  <section class="en-tabpane on lt" data-tab="recent" role="tabpanel" id="en-recent" data-lt-n="15" data-title="Enrolled" data-sub="{{len .Enrollments}} in the last 30 days · standard-client devices">
+    {{if .Enrollments}}
     <div class="fleet-bar">
-      <div class="fleet-search">{{template "en-search-ic"}}<input class="lt-q" type="search" placeholder="Search serial, model, venue…" aria-label="Search the waiting devices" autocomplete="off"></div>
-      <button type="button" class="fleet-fbtn" data-copy-serials="#en-inbox" title="Copy the serials waiting for a venue, one per line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg><span class="cs-lbl">Copy serials</span></button>
-      <button type="button" class="fleet-fbtn en-sort" data-sort="#en-inbox">{{template "en-sort-ic"}}Sort<span class="sort-cur">· Newest ↓</span></button>
+      <div class="fleet-search">{{template "en-search-ic"}}<input class="lt-q" type="search" placeholder="Search serial, person, venue…" aria-label="Search enrollments" autocomplete="off"></div>
     </div>
     <div class="fl-fchips">
       <span class="fl-quick">
-        <button type="button" class="fq lt-chip" data-f="kind" data-v="dpc">Standard client</button>
-        <button type="button" class="fq lt-chip" data-f="kind" data-v="firmware">Firmware client</button>
-        <button type="button" class="fq lt-chip" data-f="type" data-v="needed">Model has no class</button>
+        <button type="button" class="fq lt-chip" data-f="path" data-v="app">AIO Enroll</button>
+        <button type="button" class="fq lt-chip" data-f="path" data-v="other">adb script / QR</button>
+        <button type="button" class="fq lt-chip" data-f="week" data-v="1">This week</button>
       </span>
       <span class="lt-count en-count"></span>
-      <a class="en-all" href="/devices?onboarding=pending">All in Fleet →</a>
     </div>
-    {{if $canOp}}
-    <div class="en-assign" id="en-assign" hidden>
-      <b id="en-assign-n">0 selected</b>
-      <select class="en-sel" id="en-assign-site" aria-label="Venue for the selected devices"><option value="">Venue…</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
-      <button type="button" class="cc-btn sm primary" id="en-assign-go">Assign to venue</button>
-      <button type="button" class="cc-btn sm" id="en-assign-clear">Clear</button>
+    <div class="lt-none lt-out en-none">No enrollment matches.</div>
+    <div class="card en-card"><div class="ft-wrap"><table class="ft en-ft">
+      <thead><tr><th style="width:96px">When</th><th style="width:210px">By</th><th class="ft-dev">Device</th><th style="width:150px">Type</th><th>Venue</th><th style="width:130px">Path</th><th class="ft-act" style="width:46px"><span class="sr-only">Open</span></th></tr></thead>
+      <tbody>
+      {{range .Enrollments}}
+      <tr class="ft-row lt-row" data-ts="{{.EnrolledAt.Unix}}" data-f-path="{{if .EnrolledBy}}app{{else}}other{{end}}" data-lt-text="{{.Serial}} {{if .EnrolledBy}}{{(userBubble .EnrolledBy).Name}} {{.EnrolledBy}}{{end}} {{.RestaurantName}} {{classLabel .DeviceClass}}">
+        <td><span class="dl-synced" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</span></td>
+        <td>{{if .EnrolledBy}}{{template "ubub" (userBubble .EnrolledBy)}} {{if userURL .EnrolledBy}}<a href="{{userURL .EnrolledBy}}" class="link-detail">{{(userBubble .EnrolledBy).Name}}</a>{{else}}{{(userBubble .EnrolledBy).Name}}{{end}}{{else}}<span class="muted" title="Enrolled before AIO Enroll recorded this, or moved by hand.">not recorded</span>{{end}}</td>
+        <td class="ft-dev"><div class="ft-l1"><a class="ft-sn link-detail" href="/devices/{{.Serial}}" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></a></div></td>
+        <td>{{classLabel .DeviceClass}}</td>
+        <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{if .EnrolledBy}}<span class="cc-tag accent">AIO Enroll</span>{{else}}<span class="muted small">adb script / QR</span>{{end}}</td>
+        <td class="ft-act"><a class="en-go" href="/devices/{{.Serial}}" aria-label="Open {{.Serial}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    <div class="lt-more lt-out" data-what="enrollments"><button type="button" class="app-more lt-more-t"></button></div>
     </div>
-    {{end}}
-    <div class="lt-none lt-out en-none">No waiting device matches.</div>
-    <div class="card en-card" id="en-inbox">{{template "enroll-inbox" .}}</div>
+    {{else}}<div class="card en-card"><div class="en-empty">No enrollments in the last 30 days.</div></div>{{end}}
   </section>
+{{end}}
 
-  {{/* From the AIO backend (E1, 23 Oct 2026): Prod coverage, the same view /coverage
-       shows. prod_coverage.go */}}
-  {{if and $super .Bk}}{{template "enroll-backend-b1" (dict "B" .Bk "Role" .Role)}}{{end}}
-
-  {{/* ── Profiles: one line each; ⋯ holds QR / Copy token / Edit / Revoke. ── */}}
-  <section class="en-tabpane lt" data-tab="profiles" role="tabpanel" id="en-profiles" data-lt-n="10" data-title="Profiles" data-sub="{{len .Profiles}} · {{.Stats.ActiveProfs}} active">
+{{define "en-sec-profiles"}}{{$canOp := canAdminOrOperator .Role}}{{$super := eq .Role "admin"}}
+  <section class="en-tabpane on lt" data-tab="profiles" role="tabpanel" id="en-profiles" data-lt-n="10" data-title="Profiles" data-sub="{{len .Profiles}} · {{.Stats.ActiveProfs}} active">
     {{if .Profiles}}
     <div class="fleet-bar">
       <div class="fleet-search">{{template "en-search-ic"}}<input class="lt-q" type="search" placeholder="Search name, venue, group…" aria-label="Search profiles" autocomplete="off"></div>
@@ -316,45 +255,19 @@ div.en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
     <div class="card en-card"><div class="cc-empty"><span class="i"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></svg></span><div><b>No profiles yet</b>A profile is a scannable QR that says what a batch of devices is and where it goes.{{if $canOp}} <a href="#" onclick="enOpenModal();return false">Create one</a>.{{end}}</div></div></div>
     {{end}}
   </section>
+{{end}}
 
-  {{/* ── Enrolled: who enrolled what (devices.enrolled_by, from AIO Enroll). Devices
-       enrolled before the app recorded it show as "not recorded". ── */}}
-  <section class="en-tabpane lt" data-tab="recent" role="tabpanel" id="en-recent" data-lt-n="15" data-title="Enrolled" data-sub="{{len .Enrollments}} in the last 30 days · standard-client devices">
-    {{if .Enrollments}}
-    <div class="fleet-bar">
-      <div class="fleet-search">{{template "en-search-ic"}}<input class="lt-q" type="search" placeholder="Search serial, person, venue…" aria-label="Search enrollments" autocomplete="off"></div>
-    </div>
-    <div class="fl-fchips">
-      <span class="fl-quick">
-        <button type="button" class="fq lt-chip" data-f="path" data-v="app">AIO Enroll</button>
-        <button type="button" class="fq lt-chip" data-f="path" data-v="other">adb script / QR</button>
-        <button type="button" class="fq lt-chip" data-f="week" data-v="1">This week</button>
-      </span>
-      <span class="lt-count en-count"></span>
-    </div>
-    <div class="lt-none lt-out en-none">No enrollment matches.</div>
-    <div class="card en-card"><div class="ft-wrap"><table class="ft en-ft">
-      <thead><tr><th style="width:96px">When</th><th style="width:210px">By</th><th class="ft-dev">Device</th><th style="width:150px">Type</th><th>Venue</th><th style="width:130px">Path</th><th class="ft-act" style="width:46px"><span class="sr-only">Open</span></th></tr></thead>
-      <tbody>
-      {{range .Enrollments}}
-      <tr class="ft-row lt-row" data-ts="{{.EnrolledAt.Unix}}" data-f-path="{{if .EnrolledBy}}app{{else}}other{{end}}" data-lt-text="{{.Serial}} {{if .EnrolledBy}}{{(userBubble .EnrolledBy).Name}} {{.EnrolledBy}}{{end}} {{.RestaurantName}} {{classLabel .DeviceClass}}">
-        <td><span class="dl-synced" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</span></td>
-        <td>{{if .EnrolledBy}}{{template "ubub" (userBubble .EnrolledBy)}} {{if userURL .EnrolledBy}}<a href="{{userURL .EnrolledBy}}" class="link-detail">{{(userBubble .EnrolledBy).Name}}</a>{{else}}{{(userBubble .EnrolledBy).Name}}{{end}}{{else}}<span class="muted" title="Enrolled before AIO Enroll recorded this, or moved by hand.">not recorded</span>{{end}}</td>
-        <td class="ft-dev"><div class="ft-l1"><a class="ft-sn link-detail" href="/devices/{{.Serial}}" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Serial}}</span><span class="tail">{{serialTail .Serial}}</span></a></div></td>
-        <td>{{classLabel .DeviceClass}}</td>
-        <td>{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">—</span>{{end}}</td>
-        <td>{{if .EnrolledBy}}<span class="cc-tag accent">AIO Enroll</span>{{else}}<span class="muted small">adb script / QR</span>{{end}}</td>
-        <td class="ft-act"><a class="en-go" href="/devices/{{.Serial}}" aria-label="Open {{.Serial}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></a></td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table></div>
-    <div class="lt-more lt-out" data-what="enrollments"><button type="button" class="app-more lt-more-t"></button></div>
-    </div>
-    {{else}}<div class="card en-card"><div class="en-empty">No enrollments in the last 30 days.</div></div>{{end}}
+{{define "en-sec-found"}}{{$canOp := canAdminOrOperator .Role}}{{$super := eq .Role "admin"}}
+  <section class="en-tabpane on" data-tab="found" role="tabpanel" data-title="Found on Wi-Fi" data-sub="{{if .Sightings}}{{.SightingsReady}} ready to enrol{{else}}nothing nearby{{end}}">
+  {{/* ── Found on a venue's Wi-Fi (scout enrolment) ──────────────────────── */}}
+  <div class="cc-card" id="en-scout-card">
+    {{template "enroll-scout" .}}
+  </div>
   </section>
+{{end}}
 
-  <section class="en-tabpane" data-tab="how" role="tabpanel" data-title="How to enroll" data-sub="four paths, one fleet">
+{{define "en-sec-how"}}{{$canOp := canAdminOrOperator .Role}}{{$super := eq .Role "admin"}}
+  <section class="en-tabpane on" data-tab="how" role="tabpanel" data-title="How to enroll" data-sub="four paths, one fleet">
   {{template "enroll-guide" .}}
   <div style="height:16px"></div>
   {{with .St}}{{template "st-getting-started" .}}{{end}}
@@ -388,7 +301,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
       <div class="en-pane" data-pane="fw">
         <div class="en-step"><div class="en-num">1</div><div><div class="b">Nothing to scan</div><div class="t">Our own hardware ships with the system-app client. It authenticates with the fleet device key and registers itself on first check-in.</div></div></div>
         <div class="en-step"><div class="en-num">2</div><div><div class="b">It lands in the inbox</div><div class="t">Give it a site (and a product if the model default is wrong), press Done. That is the whole enrollment.</div></div></div>
-        {{if canAdmin .Role}}
+        {{if $super}}
         <div class="en-kv"><span class="k">Server URL</span><span class="v">{{.ServerURL}}</span></div>
         <div class="en-kv"><span class="k">Fleet device key</span><span class="v"><span>{{.DeviceKeyMask}}</span> <button type="button" class="en-copy" onclick="enCopy(this, document.getElementById('en-key-real').value)">Copy</button></span></div>
         <div class="en-step" style="border-top:0;padding-top:4px"><div class="t">The fleet key is baked into the firmware build. Treat it like a secret; rotate it in the server env if exposed.</div></div>
@@ -398,13 +311,35 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     </div>
   </div>
     <div style="height:16px"></div>
-  {{template "enroll-provisioning" .Prov}}
+  {{with .Prov}}{{template "enroll-provisioning" .}}{{end}}
   </section>
-  </div>{{/* .fleet-roster */}}
-  </div>{{/* .fleet-md */}}
-</div>
+{{end}}
 
-{{/* ── Profile create / edit modal ───────────────────────────────────────── */}}
+{{define "en-app"}}      {{with .EnrollAndroid}}{{if .Hosted}}
+      <details class="en-app">
+        <summary class="cc-btn"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>Get the Android app</summary>
+        <div class="cc-menu en-app-pop" role="dialog" aria-label="AIO Enroll for Android">
+          <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="132" height="132">
+          <div class="en-app-t">
+            <b>AIO Enroll for Android</b>
+            <span class="muted small">{{if .Version}}{{.Version}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
+            <span class="small">Scan with the phone, or download here and copy it over. Android asks once to allow installs from your browser.</span>
+            <a class="cc-btn sm primary" href="{{.URL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download APK</a>
+          </div>
+        </div>
+      </details>
+      <script>
+      (function () {
+        if (window.__enAppClose) return; window.__enAppClose = true;
+        function shut(e) { document.querySelectorAll('details.en-app[open]').forEach(function (d) { if (!e || e.key === 'Escape' || !d.contains(e.target)) d.open = false; }); }
+        document.addEventListener('click', function (e) { shut(e); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') shut(e); });
+      })();
+      </script>
+      {{end}}{{end}}
+{{end}}
+
+{{define "en-modal"}}
 <div id="en-modal" class="modal-backdrop" onclick="enCloseModal(event)">
   <div class="modal-box">
     <div class="modal-header">
@@ -428,9 +363,6 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
     </div>
   </div>
 </div>
-
-<script src="/static/js/enrollment.js?v={{assetVer}}"></script>
-{{template "footer" .}}
 {{end}}
 
 {{/* Inbox rows: one per device that has no site yet. Re-fetched live via
@@ -679,7 +611,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 {{/* From the AIO backend, B1 (picked 3 Nov 2026): one table of backend restaurants.
      dict: B *bkB1, Role. Views, chips, search and sort filter in place (coll_list.js). */}}
 {{define "enroll-backend-b1"}}{{$b := .B}}{{$role := .Role}}
-<section class="en-tabpane" data-tab="backend" role="tabpanel" data-title="From the AIO backend" data-sub="{{$b.ProdIn}} of {{$b.ProdTotal}} Prod devices in the MDM · {{$b.ProdLinked}} of {{$b.Rest}} restaurants linked{{if $b.Synced}} · synced {{timeSince $b.Synced}}{{end}}">
+<section class="en-tabpane on" data-tab="backend" role="tabpanel" data-title="From the AIO backend" data-sub="{{$b.ProdIn}} of {{$b.ProdTotal}} Prod devices in the MDM · {{$b.ProdLinked}} of {{$b.Rest}} restaurants linked{{if $b.Synced}} · synced {{timeSince $b.Synced}}{{end}}">
 <style>
 .bk-b1.cl-page{max-width:none;margin:0}
 .bk-b1 .ptabs{margin-bottom:10px;padding-bottom:10px}
@@ -761,6 +693,5 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
   </table></div></div>
   <div class="cl-none" data-cl-none hidden>No restaurant matches these filters.</div>
 </div>
-<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 </section>
 {{end}}
