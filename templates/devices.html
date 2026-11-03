@@ -198,6 +198,9 @@
      via OOB too — otherwise it kept showing whichever (or no) collection was
      active before the click. */}}
 {{define "coll-tools-block"}}
+{{/* The venue or group picked in the left list, with a way back to every device (user, 3 Nov
+     2026: "there is no mechanism to reset the selection"; there is no All devices entry). */}}
+{{if or .ActiveGroup .ActiveRestaurant}}<a class="fl-scope" href="{{.ClearHref}}" title="Show every device again"><span class="k">{{if .ActiveGroup}}Group{{else}}Venue{{end}}</span><b>{{.SelectedCollection}}</b><span class="x" aria-hidden="true">×</span><span class="sr-only">Clear</span></a>{{end}}
 {{if canAdminOrOperator .Role}}
 {{/* No ⋯ menu for a venue or group (30 Oct 2026): the heading it sat by is gone; rename and
      the rest live on the Venues and Groups pages. */}}
@@ -366,6 +369,12 @@
 .fleet-rail{border-radius:var(--r-4)!important;box-shadow:var(--shadow-sm);padding-top:10px!important}
 .fleet-rail-item.on{border:1px solid var(--accent-edge)}
 .fleet-rail-item{min-height:40px}
+.fleet-rail-item .ri-x{margin-left:auto;padding:0 4px;font-size:15px;line-height:1;color:var(--accent-text)}
+.fl-scope{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 6px 0 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:99px;color:var(--accent-text);font-size:13px;text-decoration:none;white-space:nowrap;max-width:420px;overflow:hidden}
+.fl-scope .k{color:var(--text-2);font-size:12px}
+.fl-scope b{font-weight:650;overflow:hidden;text-overflow:ellipsis}
+.fl-scope .x{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;font-size:14px}
+.fl-scope:hover .x{background:var(--accent-edge);color:#fff}
 .rail-tabs{display:flex;align-items:center;gap:4px;margin:2px 0 8px}
 .rail-seg{display:flex;flex:1;min-width:0;padding:2px;gap:1px;border:1px solid var(--border);border-radius:10px;background:var(--surface-3,var(--surface2))}
 .rail-seg [role=tab]{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:3px;height:30px;padding:0 4px;border:0;border-radius:7px;background:none;font:inherit;font-size:11.5px;font-weight:600;color:var(--text-2);cursor:pointer;white-space:nowrap}
@@ -536,7 +545,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="restaurants" id="rail-restaurants" role="tabpanel" aria-labelledby="rt-restaurants"{{if ne .RailTab "restaurants"}} hidden{{end}}>
     {{range .RailRestaurants}}{{$on := eq (printf "%s" .GroupID) $.ActiveRestaurant}}
     <div class="fleet-rail-item{{if $on}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="venue" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "restaurants"}} data-page="/restaurants/{{.GroupID}}"{{end}}>
-      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?restaurant={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="vicon-dot">{{venueIcon .GroupID .Name "sm"}}<span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span></span><span class="nm">{{.Name}}</span></a>
+      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?restaurant={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="vicon-dot">{{venueIcon .GroupID .Name "sm"}}<span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span></span><span class="nm">{{.Name}}</span>{{if $on}}<span class="ri-x" aria-hidden="true">×</span>{{end}}</a>
       {{if canOpenPage $.Role "restaurants"}}<a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>{{end}}
       <span class="ct">{{.DeviceCount}}</span>
     </div>
@@ -547,7 +556,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="groups" id="rail-groups" role="tabpanel" aria-labelledby="rt-groups"{{if ne .RailTab "groups"}} hidden{{end}}>
     {{range .RailGroups}}{{$on := eq (printf "%s" .GroupID) $.ActiveGroup}}{{$lk := index $.LockedGroups (printf "%s" .GroupID)}}
     <div class="fleet-rail-item{{if $on}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="group" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "groups"}} data-page="/groups/{{.GroupID}}"{{end}}>
-      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?group={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span>{{if $lk}}<span class="rail-lock" title="View only: you can look, take screenshots and collect logs here"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><span class="sr-only">view only</span></span>{{end}}</a>
+      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?group={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span>{{if $lk}}<span class="rail-lock" title="View only: you can look, take screenshots and collect logs here"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><span class="sr-only">view only</span></span>{{end}}{{if $on}}<span class="ri-x" aria-hidden="true">×</span>{{end}}</a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
