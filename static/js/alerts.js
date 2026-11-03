@@ -35,3 +35,24 @@
     document.querySelectorAll('#alerts-live .alx-menu[open]').forEach(function(m){ m.open=false; var s=m.querySelector('summary'); if(s) s.focus(); });
   });
 })();
+
+// The left list switches between the problem list and the Crashes pane in place: nothing
+// but the pane changes (3 Nov 2026). The address follows, so a reload lands on the same pane.
+document.addEventListener('click',function(e){
+  var c=e.target.closest('[data-al-crashes]'), f=!c&&e.target.closest('#alerts-live [data-clf]');
+  if(!c&&!f) return;
+  var list=document.getElementById('al-list'), cr=document.getElementById('al-crash'); if(!list||!cr) return;
+  var dev=new URLSearchParams(location.search).get('device'), u=new URL(location.href);
+  u.search=''; if(dev) u.searchParams.set('device',dev);
+  if(c){
+    list.hidden=true; cr.hidden=false;
+    document.querySelectorAll('#alerts-live [data-clf]').forEach(function(x){ x.classList.remove('on'); x.setAttribute('aria-pressed','false'); });
+    c.classList.add('on'); c.setAttribute('aria-pressed','true');
+    u.searchParams.set('view','crashes');
+  } else {
+    list.hidden=false; cr.hidden=true;
+    var cb=document.querySelector('[data-al-crashes]'); if(cb){ cb.classList.remove('on'); cb.setAttribute('aria-pressed','false'); }
+    u.searchParams.set('show',f.dataset.clf||'open');
+  }
+  history.replaceState(history.state,'',u.pathname+u.search);
+});

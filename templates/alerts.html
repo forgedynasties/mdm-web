@@ -142,7 +142,7 @@
     {{template "al-view" (dict "Crashes" $crashes "Key" "open" "Name" "Everything open" "N" $a.Open "Dot" "info" "Title" "Everything open" "Dev" $root.DeviceFilter)}}
     {{template "al-view" (dict "Crashes" $crashes "Key" "acked" "Name" "Acknowledged" "N" $a.Acked "Dot" "muted" "Title" "Acknowledged" "Dev" $root.DeviceFilter)}}
     {{template "al-view" (dict "Crashes" $crashes "Key" "snoozed" "Name" "Snoozed" "N" $a.Snoozed "Dot" "muted" "Title" "Snoozed" "Dev" $root.DeviceFilter)}}
-    <a class="fleet-rail-item{{if $crashes}} on{{end}}" href="/alerts?view=crashes{{if .DeviceFilter}}&amp;device={{.DeviceFilter}}{{end}}"{{if $crashes}} aria-current="page"{{end}}><span class="dot {{if .CrashCount}}bad{{else}}muted{{end}}"></span><span class="nm">Crashes · 7 days</span><span class="ct">{{.CrashCount}}</span></a>
+    <button type="button" class="fleet-rail-item{{if $crashes}} on{{end}}" data-al-crashes aria-pressed="{{if $crashes}}true{{else}}false{{end}}"><span class="dot {{if .CrashCount}}bad{{else}}muted{{end}}"></span><span class="nm">Crashes · 7 days</span><span class="ct">{{.CrashCount}}</span></button>
     {{if $a.Kinds}}<div class="fleet-rail-cap">By problem</div>
     {{range $a.Kinds}}{{template "al-view" (dict "Crashes" $crashes "Key" .Key "Name" .Label "N" .N "Dot" "warn" "Title" .Label "Dev" $root.DeviceFilter)}}{{end}}{{end}}
     {{if or $a.Venues $a.NoVenue}}<div class="fleet-rail-cap">By venue</div>
@@ -159,7 +159,9 @@
     </div>
     {{end}}
 
-    {{if $crashes}}
+    {{/* Both panes are on the page; the left list switches between them in place (user,
+         3 Nov 2026: "the pane should reload only not the side rail"). */}}
+    <div id="al-crash"{{if not $crashes}} hidden{{end}}>
     <div class="fleet-pane-head"><span class="t">Crashes</span><span class="c">{{.CrashCount}} in 7 days{{if and .CrashGroups (ne .CrashGroups .CrashCount)}} · {{.CrashGroups}} distinct{{end}}</span></div>
     {{if .Crashes}}
     <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft al-ft">
@@ -196,8 +198,9 @@
       </tbody>
     </table></div></div>
     {{end}}
+    </div>
 
-    {{else}}
+    <div id="al-list"{{if $crashes}} hidden{{end}}>
     <div class="fleet-pane-head"><span class="t" data-cl-title>{{if eq .Show "needs"}}Needs action{{else}}Everything open{{end}}</span><span class="c" data-cl-count>{{len $a.Rows}} problems</span></div>
     <div class="fleet-bar">
       <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search problem, serial, venue…" aria-label="Search alerts" autocomplete="off"></div>
@@ -238,7 +241,7 @@
     {{else}}
     <div class="cl-none">All clear. Alerts are raised from device telemetry; nothing is open{{if .DeviceFilter}} on {{.DeviceFilter}}{{end}}.</div>
     {{end}}
-    {{end}}
+    </div>
   </div>
 </div>
 </div>
@@ -385,9 +388,9 @@
 </div>
 {{end}}
 
-{{/* A left-list entry (dict Crashes Key Name N Dot Title Dev): on the problem list a
-     button that filters in place (coll_list.js); on the Crashes page a link back to it. */}}
-{{define "al-view"}}{{if .Crashes}}<a class="fleet-rail-item" href="/alerts?show={{.Key}}{{if .Dev}}&amp;device={{.Dev}}{{end}}"><span class="dot {{.Dot}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></a>{{else}}<button type="button" class="fleet-rail-item" data-clf="{{.Key}}" data-title="{{.Title}}" aria-pressed="false"><span class="dot {{.Dot}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></button>{{end}}{{end}}
+{{/* A left-list entry (dict Crashes Key Name N Dot Title Dev): a button that filters the
+     problem list in place (coll_list.js) and brings it back from the Crashes pane. */}}
+{{define "al-view"}}<button type="button" class="fleet-rail-item" data-clf="{{.Key}}" data-title="{{.Title}}" aria-pressed="false"><span class="dot {{.Dot}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></button>{{end}}
 
 {{/* L1: one problem as a table row (dict "R" alL1Row "Root" page data). The workflow
      stays: Acknowledge with a note, and Assign / Snooze / Resolve with a reason (and the

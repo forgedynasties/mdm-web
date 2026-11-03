@@ -18,9 +18,9 @@
 <div class="fleet-md">
   <aside class="fleet-rail" aria-label="Setup">
     <div class="fleet-rail-cap">Setup</div>
-    <a class="fleet-rail-item{{if eq .View "place"}} on{{end}}" href="/visits"><span class="dot {{if .Rows}}warn{{else}}ok{{end}}"></span><span class="nm">To place</span><span class="ct">{{len .Rows}}</span></a>
-    <a class="fleet-rail-item{{if eq .View "setup"}} on{{end}}" href="/visits?view=setup"><span class="dot {{if .SettingN}}info{{else}}ok{{end}}"></span><span class="nm">Setting up</span><span class="ct">{{.SettingN}}</span></a>
-    <a class="fleet-rail-item{{if eq .View "service"}} on{{end}}" href="/visits?view=service"><span class="dot ok"></span><span class="nm">In service</span><span class="ct">{{.ServiceN}}</span></a>
+    <a class="fleet-rail-item oh-v{{if eq .View "place"}} on{{end}}" href="/visits" hx-get="/visits" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot {{if .Rows}}warn{{else}}ok{{end}}"></span><span class="nm">To place</span><span class="ct">{{len .Rows}}</span></a>
+    <a class="fleet-rail-item oh-v{{if eq .View "setup"}} on{{end}}" href="/visits?view=setup" hx-get="/visits?view=setup" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot {{if .SettingN}}info{{else}}ok{{end}}"></span><span class="nm">Setting up</span><span class="ct">{{.SettingN}}</span></a>
+    <a class="fleet-rail-item oh-v{{if eq .View "service"}} on{{end}}" href="/visits?view=service" hx-get="/visits?view=service" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot ok"></span><span class="nm">In service</span><span class="ct">{{.ServiceN}}</span></a>
     {{with .Visits}}
     <div class="fleet-rail-cap">Setup visits</div>
     {{range .}}<a class="fleet-rail-item" href="/restaurants/{{.RestaurantID}}?open=visits"><span class="dot info"></span><span class="nm">{{.Restaurant}}<span class="sub">{{joinStrings .People ", "}} · until {{.EndsAt.Format "Mon 2 Jan"}}</span></span></a>{{end}}
@@ -32,10 +32,10 @@
     {{end}}
   </aside>
 
-  <div class="fleet-roster" style="min-width:0">
+  {{/* Only this pane reloads when a view is picked in the left list (user, 3 Nov 2026). */}}
+  <div class="fleet-roster" id="oh-pane" style="min-width:0">
     {{if eq .View "place"}}
-    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">To place</h1><span class="c">{{len .Rows}} enrolled, no venue yet · newest first</span>
-      <span class="pl-head-acts"><button type="button" class="cc-btn" onclick="placeNewVenue()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New venue</button></span></div>
+    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">To place</h1><span class="c">{{len .Rows}} enrolled, no venue yet · newest first</span></div>
     {{if .Rows}}
     {{template "place-table" (dict "Rows" .Rows "Venues" .Venues "Back" "/visits" "NewVenue" true "Lab" true)}}
     {{else}}
@@ -87,6 +87,16 @@
   </div>
 </div>
 {{template "place-script"}}
+<script>
+(function () {
+  if (window.__ohRail) return; window.__ohRail = true;
+  // The left list marks what was picked at once; the pane is swapped in by htmx.
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest('.oh-v'); if (!a) return;
+    document.querySelectorAll('.oh-v').forEach(function (x) { x.classList.toggle('on', x === a); });
+  });
+})();
+</script>
 {{template "footer" .}}
 {{end}}
 
