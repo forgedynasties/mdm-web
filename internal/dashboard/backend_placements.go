@@ -378,13 +378,26 @@ func (h *Handler) BackendPlaceSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "That restaurant isn't in the AIO backend copy", http.StatusBadRequest)
 		return
 	}
-	if r.FormValue("action") == "ignore" {
+	back := r.FormValue("back")
+	if !strings.HasPrefix(back, "/") || strings.HasPrefix(back, "//") {
+		back = "/coverage"
+	}
+	switch r.FormValue("action") {
+	case "ignore":
 		if err := h.db.IgnoreBackendRestaurant(ctx, env, rid, h.currentUsername(r)); err != nil {
 			http.Error(w, "Could not save", http.StatusInternalServerError)
 			return
 		}
 		h.audit(r, "backend.ignore", bkKey(env, rid), br.Name)
-		http.Redirect(w, r, flashURL("/coverage", br.Name+" ignored", "success"), http.StatusSeeOther)
+		http.Redirect(w, r, flashURL(back, br.Name+" ignored", "success"), http.StatusSeeOther)
+		return
+	case "unignore":
+		if err := h.db.UnignoreBackendRestaurant(ctx, env, rid); err != nil {
+			http.Error(w, "Could not save", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "backend.unignore", bkKey(env, rid), br.Name)
+		http.Redirect(w, r, flashURL(back, br.Name+" listed again", "success"), http.StatusSeeOther)
 		return
 	}
 	p, _, err := h.loadPlacements(ctx)

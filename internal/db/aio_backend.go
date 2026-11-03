@@ -344,6 +344,12 @@ func (d *DB) IgnoreBackendRestaurant(ctx context.Context, env string, id int64, 
 	return err
 }
 
+// UnignoreBackendRestaurant lists an ignored restaurant again.
+func (d *DB) UnignoreBackendRestaurant(ctx context.Context, env string, id int64) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM backend_ignores WHERE env = $1 AND restaurant_id = $2`, env, id)
+	return err
+}
+
 // BackendDevicesFor returns the copied devices listed under any of these ids
 // (upper-cased serials or Android IDs).
 func (d *DB) BackendDevicesFor(ctx context.Context, ids []string) ([]BackendDevice, error) {

@@ -56,14 +56,18 @@ func hubTmpl(t *testing.T, files ...string) *template.Template {
 
 func TestEnrollmentHubRenders(t *testing.T) {
 	now := time.Now()
-	cov := buildProdCoverage(covInputs{Base: "/enrollment?tab=backend", Env: "prod", All: true, Now: now,
-		Rs:  []db.BackendRestaurant{{Env: "prod", Restaurant: aiobackend.Restaurant{ID: 9, Name: "Redwood Grill", RecordStatus: "Active"}}},
-		Bds: []db.BackendDevice{{Env: "prod", Device: aiobackend.Device{ID: 1, RestaurantID: 9, Type: "kds", Serial: "DK1"}}}})
-	pl := &venuesPlacementView{Rows: []placementRow{{R: db.BackendRestaurant{Env: "prod", Restaurant: aiobackend.Restaurant{ID: 1960, Name: "Ole Ole Burrito"}},
-		Devs: []placementDev{{Serial: "bcf308127809f0b0", Label: "Self-order kiosk"}}, Total: 19}}, Devices: 1}
+	venue := uuid.New()
+	in := covInputs{Base: "/enrollment?tab=backend", Now: now,
+		Rs: []db.BackendRestaurant{{Env: "prod", Restaurant: aiobackend.Restaurant{ID: 9, Name: "Redwood Grill", RecordStatus: "Active"}},
+			{Env: "prod", Restaurant: aiobackend.Restaurant{ID: 1960, Name: "Ole Ole Burrito", City: "Oakland"}}},
+		Bds: []db.BackendDevice{{Env: "prod", Device: aiobackend.Device{ID: 1, RestaurantID: 9, Type: "kds", Serial: "DK1"}},
+			{Env: "prod", Device: aiobackend.Device{ID: 2, RestaurantID: 1960, Type: "kiosk", Serial: "BCF308127809F0B0"}}},
+		Names: map[uuid.UUID]string{venue: "Huanchaco"}}
+	pl := placements{Rows: []placementRow{{R: in.Rs[1], Devs: []placementDev{{Serial: "bcf308127809f0b0", Label: "Self-order kiosk"}}, Total: 19}}}
+	bk := buildBackendB1(in, pl, map[string]bool{"prod/9": true}, []db.Restaurant{{ID: venue, Name: "Huanchaco"}})
 	data := map[string]any{
 		"Role": "admin", "Stats": db.EnrollmentStats{Inbox: 3, Enrolled7d: 6, Firmware: 200, DPC: 20},
-		"Cov": &cov, "CovWork": cov.C.Missing + cov.C.Elsewhere, "Placements": pl,
+		"Bk": &bk,
 		"Prov": map[string]any{"AgentAPKHosted": true, "AgentAPKHostedInfo": map[string]any{"URL": "https://mdm/agent.apk", "Name": "dpc.apk", "Size": 1, "At": now, "SHA": "x"},
 			"FleetAdbKey": map[string]any{"SecretSet": true}},
 		"Restaurants": []db.Restaurant{{ID: uuid.New(), Name: "Huanchaco"}},
@@ -84,7 +88,10 @@ func TestEnrollmentHubRenders(t *testing.T) {
 		`class="fleet-rail en-rail"`, `data-en-tab="inbox"><span class="dot warn"></span><span class="nm">Needs a venue</span><span class="ct">3</span>`,
 		`<b>3</b> need a venue · 220 in the MDM · 6 this week`,
 		`data-en-tab="backend"`, `<section class="en-tabpane" data-tab="backend"`, `data-en-tab="found"`,
-		`In the AIO backend, not here yet`, `Ole Ole Burrito`, `Redwood Grill`, `href="/enrollment?tab=backend&amp;type=pos"`,
+		// B1 (3 Nov 2026): one table of backend restaurants.
+		`data-cl data-one="restaurant"`, `data-start="act"`, `data-clf="act"`, `data-clf="ignored"`, `data-clc="env-prod"`,
+		`Ole Ole Burrito`, `Redwood Grill`, `data-flags="env-prod all act real here"`, `data-flags="env-prod ignored real"`,
+		`value="unignore"`, `value="link"`, `>Huanchaco</option>`, `1 self-order kiosk here has no venue`,
 		`Standard MDM for QR provisioning`, `id="fleet-adb-key"`,
 		`class="cc-btn" data-en-tab="how">`, `/static/video/enroll-guide.mp4`, `data-t="43.6"`,
 		// Needs a venue as a table: tick boxes, the assign bar, a venue picker per row.

@@ -226,12 +226,10 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	// Every enrolment of the last 30 days: the tab's count is this list's length and the
 	// table pages itself, so a cap made it read "60" whatever the month held (3 Nov 2026).
 	enrollments, _ := h.db.RecentEnrollments(r.Context(), "", time.Now().AddDate(0, 0, -30), 2000)
-	// From the AIO backend (E1): the coverage view, when the backend has been copied.
-	var cov *prodCoverageView
-	covWork := 0
-	if v, ok := h.prodCoverageFor(r, "/enrollment?tab=backend"); ok && v.C.Total() > 0 {
-		cov = &v
-		covWork = v.C.Missing + v.C.Elsewhere
+	// From the AIO backend (B1, 3 Nov 2026): one table of backend restaurants, super admin only.
+	var bk *bkB1
+	if h.role(r) == "admin" {
+		bk = h.backendB1For(r)
 	}
 	h.render(w, r, "enrollment.html", map[string]any{
 		"Title":           "Enrollment",
@@ -270,9 +268,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 			"AgentAPKFromEnv": h.cfg.AgentAPKURLVal == "" && os.Getenv("AGENT_APK_URL") != "",
 			"FleetAdbKey":     h.fleetAdbKeyView(r),
 		},
-		"Cov":        cov,
-		"CovWork":    covWork,
-		"Placements": h.venuesPlacementView(r.Context()),
+		"Bk":         bk,
 		"St":         h.movedSettings(r), // Getting started (S1, 24 Oct 2026)
 	})
 }

@@ -168,7 +168,7 @@ div.en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
     {{if $super}}
     <div class="fleet-rail-cap en-rail-cap">Super admin</div>
     <button type="button" class="fleet-rail-item" data-en-tab="found"><span class="dot {{if gt .SightingsReady 0}}warn{{else}}muted{{end}}"></span><span class="nm">Found on Wi-Fi</span><span class="ct">{{.SightingsReady}}</span></button>
-    {{if .Cov}}<button type="button" class="fleet-rail-item" data-en-tab="backend" title="AIO {{.Cov.EnvLabel}} devices not in the MDM yet"><span class="dot {{if .CovWork}}warn{{else}}muted{{end}}"></span><span class="nm">From the AIO backend</span><span class="ct">{{.CovWork}}</span></button>{{end}}
+    {{with .Bk}}<button type="button" class="fleet-rail-item" data-en-tab="backend" title="Backend restaurants that list your devices but have no venue here"><span class="dot {{if .Act}}warn{{else}}muted{{end}}"></span><span class="nm">From the AIO backend</span><span class="ct">{{.Act}}</span></button>{{end}}
     {{end}}
   </aside>
 
@@ -243,11 +243,7 @@ div.en-row .cc-btn.sm{padding:6px 12px;font-size:12.5px}
 
   {{/* From the AIO backend (E1, 23 Oct 2026): Prod coverage, the same view /coverage
        shows. prod_coverage.go */}}
-  {{if and $super .Cov}}<section class="en-tabpane" data-tab="backend" role="tabpanel" data-title="From the AIO backend" data-sub="AIO {{.Cov.EnvLabel}} devices not in the MDM yet">
-  {{template "cov-style"}}
-  {{template "venues-backend-place" (dict "Placements" .Placements "Role" .Role)}}
-  {{template "cov-body" (dict "Cov" .Cov "Role" .Role)}}
-  </section>{{end}}
+  {{if and $super .Bk}}{{template "enroll-backend-b1" (dict "B" .Bk "Role" .Role)}}{{end}}
 
   {{/* ── Profiles: one line each; ⋯ holds QR / Copy token / Edit / Revoke. ── */}}
   <section class="en-tabpane lt" data-tab="profiles" role="tabpanel" id="en-profiles" data-lt-n="10" data-title="Profiles" data-sub="{{len .Profiles}} · {{.Stats.ActiveProfs}} active">
@@ -679,3 +675,92 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 
 {{define "en-search-ic"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>{{end}}
 {{define "en-sort-ic"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"></path></svg>{{end}}
+
+{{/* From the AIO backend, B1 (picked 3 Nov 2026): one table of backend restaurants.
+     dict: B *bkB1, Role. Views, chips, search and sort filter in place (coll_list.js). */}}
+{{define "enroll-backend-b1"}}{{$b := .B}}{{$role := .Role}}
+<section class="en-tabpane" data-tab="backend" role="tabpanel" data-title="From the AIO backend" data-sub="{{$b.ProdIn}} of {{$b.ProdTotal}} Prod devices in the MDM · {{$b.ProdLinked}} of {{$b.Rest}} restaurants linked{{if $b.Synced}} · synced {{timeSince $b.Synced}}{{end}}">
+<style>
+.bk-b1.cl-page{max-width:none;margin:0}
+.bk-b1 .ptabs{margin-bottom:10px;padding-bottom:10px}
+.bk-b1 .bk-name b{font-weight:650}
+.bk-b1 .bk-name small{display:block;color:var(--text-2);font-size:12px;margin-top:1px;overflow:hidden;text-overflow:ellipsis}
+.bk-b1 .bk-name .cc-tag{margin-left:6px;vertical-align:1px}
+.bk-b1 td.bk-name{white-space:normal}
+.bk-b1 .bk-here{color:var(--warn)}
+.bk-bar{display:inline-flex;width:64px;height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;vertical-align:middle;margin-right:7px}
+.bk-bar i{display:block;height:100%}.bk-bar i.p{background:var(--ok)}.bk-bar i.e{background:var(--warn)}
+.bk-b1 .ft td{height:52px}
+.bk-b1 td.ft-act{overflow:visible}
+.bk-b1 .ft-act form{display:inline}
+.bk-b1 .en-kebab{display:inline-block;position:relative;vertical-align:middle}
+.bk-b1 .en-kebab .menu{right:0;left:auto;min-width:240px;text-align:left}
+.bk-b1 .bk-link{display:flex;gap:6px;padding:6px}
+.bk-b1 .bk-link select{min-width:0;flex:1}
+</style>
+<div class="cl-page bk-b1" data-cl data-one="restaurant" data-many="restaurants" data-start="{{if $b.Act}}act{{else}}all{{end}}">
+  <div class="ptabs" role="group" aria-label="Which restaurants">
+    <button type="button" class="ptab" data-clf="act" data-title="To act on" aria-pressed="false">To act on <span class="n">{{$b.Act}}</span></button>
+    <button type="button" class="ptab" data-clf="all" data-title="All" aria-pressed="false">All <span class="n">{{$b.All}}</span></button>
+    <button type="button" class="ptab" data-clf="linked" data-title="Linked" aria-pressed="false">Linked <span class="n">{{$b.Linked}}</span></button>
+    <button type="button" class="ptab" data-clf="ignored" data-title="Ignored" aria-pressed="false">Ignored <span class="n">{{$b.Ignored}}</span></button>
+  </div>
+  <div class="fleet-bar">
+    <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search restaurant, city, serial…" aria-label="Search backend restaurants" autocomplete="off"></div>
+    {{template "cl-sort" "Most devices ↓"}}
+      <button type="button" class="cc-mi active" role="menuitemradio" aria-checked="true" data-cls="devices" data-dir="desc">Most devices ↓</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="mdm" data-dir="desc">Most in the MDM ↓</button>
+      <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="name" data-dir="asc">Name</button>
+    </div></div>
+  </div>
+  <div class="fl-fchips" role="group" aria-label="Quick filters">
+    <button type="button" class="fq" data-clc="env-prod" aria-pressed="false">Prod <span class="n">{{$b.Prod}}</span></button>
+    {{if $b.Stage}}<button type="button" class="fq" data-clc="env-stage" aria-pressed="false">Stage <span class="n">{{$b.Stage}}</span></button>{{end}}
+    <button type="button" class="fq" data-clc="real" aria-pressed="false">Real restaurants <span class="n">{{$b.Real}}</span></button>
+    <button type="button" class="fq" data-clc="here" aria-pressed="false">Has your devices <span class="n">{{$b.HereN}}</span></button>
+    <button type="button" class="fq-clear" data-cl-clear hidden>Clear</button>
+    <span class="lt-count en-count" data-cl-count></span>
+  </div>
+  <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft">
+    <thead><tr>
+      <th scope="col">Restaurant</th>
+      <th scope="col" class="ft-num" style="width:96px">In backend</th>
+      <th scope="col" style="width:190px">In the MDM</th>
+      <th scope="col" style="width:190px">Venue</th>
+      <th scope="col" class="ft-act" style="width:170px"><span class="sr-only">Actions</span></th>
+    </tr></thead>
+    <tbody>
+    {{range $b.Rows}}
+    <tr class="ft-row" data-flags="{{.Flags}}" data-text="{{.Text}}" data-s-devices="{{.C.Total}}" data-s-mdm="{{.C.InMDM}}" data-s-name="{{.Name}}"{{if .VenueID}} data-href="/restaurants/{{.VenueID}}"{{end}}>
+      <td class="bk-name"><b>{{.Name}}</b>{{if .Test}}<span class="cc-tag">test</span>{{end}}
+        <small>{{if .City}}{{.City}} · {{end}}{{.EnvLabel}} #{{.ID}}{{if .Here}} · <span class="bk-here" title="{{.HereSerials}}">{{.HereText}}</span>{{end}}</small></td>
+      <td class="ft-num">{{.C.Total}}</td>
+      <td>{{if .C.Total}}<span class="bk-bar" aria-hidden="true"><i class="p" style="width:{{.PlacedPct}}%"></i><i class="e" style="width:{{.ElsePct}}%"></i></span>{{if .C.Placed}}{{.C.Placed}} placed{{if .C.Elsewhere}} · {{end}}{{end}}{{if .C.Elsewhere}}{{.C.Elsewhere}} elsewhere{{end}}{{if not .C.InMDM}}<span class="muted">none</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</td>
+      <td>{{if .VenueID}}<a href="/restaurants/{{.VenueID}}">{{.VName}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
+      <td class="ft-act">
+        {{if .VenueID}}<a class="cc-btn sm" href="/restaurants/{{.VenueID}}">Open</a>
+        {{else if and (not .Ignored) (canAdminOrOperator $role)}}<form method="POST" action="/restaurants/backend-place" hx-boost="false"><input type="hidden" name="action" value="create"><input type="hidden" name="env" value="{{.Env}}"><input type="hidden" name="rid" value="{{.ID}}"><button type="submit" class="cc-btn sm{{if and .Here (not .Test)}} primary{{end}}">Create venue</button></form>{{end}}
+        {{if and (not .VenueID) (canAdminOrOperator $role)}}
+        <details class="en-kebab">
+          <summary aria-label="More for {{.Name}}" title="More">⋯</summary>
+          <div class="menu">
+            {{if .Ignored}}
+            <form method="POST" action="/restaurants/backend-place" hx-boost="false"><input type="hidden" name="action" value="unignore"><input type="hidden" name="env" value="{{.Env}}"><input type="hidden" name="rid" value="{{.ID}}"><input type="hidden" name="back" value="/enrollment?tab=backend"><button type="submit">List it again</button></form>
+            {{else}}
+            {{if $b.Unlinked}}<form method="POST" action="/restaurants/backend-place" hx-boost="false" class="bk-link"><input type="hidden" name="action" value="link"><input type="hidden" name="env" value="{{.Env}}"><input type="hidden" name="rid" value="{{.ID}}">
+              <select name="venue" class="form-input" aria-label="Link {{.Name}} to a venue" required><option value="">Link to a venue…</option>{{range $b.Unlinked}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select><button type="submit" class="cc-btn sm">Link</button></form><hr>{{end}}
+            <form method="POST" action="/restaurants/backend-place" hx-boost="false" onsubmit="return confirm(this.dataset.q)" data-q="Ignore {{.Name}}? It moves to Ignored and stops counting as something to act on."><input type="hidden" name="action" value="ignore"><input type="hidden" name="env" value="{{.Env}}"><input type="hidden" name="rid" value="{{.ID}}"><input type="hidden" name="back" value="/enrollment?tab=backend"><button type="submit" class="danger">Ignore</button></form>
+            {{end}}
+          </div>
+        </details>
+        {{end}}
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table></div></div>
+  <div class="cl-none" data-cl-none hidden>No restaurant matches these filters.</div>
+</div>
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
+</section>
+{{end}}
