@@ -13,7 +13,9 @@
   function init(root) {
     if (!root || root.dataset.clReady) return;
     root.dataset.clReady = '1';
-    var tbody = root.querySelector('tbody');
+    // [data-cl-body] names the table the views filter when the root holds more than one
+    // (Alerts: the hidden Crashes pane comes first).
+    var tbody = root.querySelector('[data-cl-body]') || root.querySelector('tbody');
     if (!tbody) return;
     var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.ft-row'));
     var st = root._clCarry || { view: root.dataset.start || '', chips: {}, prod: '', q: '', sort: null };

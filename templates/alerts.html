@@ -233,7 +233,7 @@
         <th scope="col" style="width:120px">State</th>
         <th scope="col" class="ft-act" style="width:150px"><span class="sr-only">Actions</span></th>
       </tr></thead>
-      <tbody id="al-rows">
+      <tbody id="al-rows" data-cl-body>
       {{range $a.Rows}}{{template "alr-row" (dict "R" . "Root" $root)}}{{end}}
       </tbody>
     </table></div></div>
