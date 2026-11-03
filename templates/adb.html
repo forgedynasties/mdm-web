@@ -10,6 +10,8 @@
 </template>
 <style>
 .adb-page{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.adb-page .cl-page{max-width:none;margin:0}
+.adb-page .ft code.adb-c{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
 .adb-page .ft td .sub{display:block;font-size:11.5px;color:var(--muted);white-space:normal}
 .adb-page .ft .tick{width:34px}
 .adb-page .ft .tick input{width:15px;height:15px;accent-color:var(--accent)}
@@ -93,12 +95,10 @@ code.adb-c{font-family:var(--mono);font-size:12px;background:var(--surface2);bor
     <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft">
       <thead><tr>
         <th scope="col" class="tick"><input type="checkbox" id="adb-all" aria-label="Tick every device shown"></th>
-        <th scope="col">Device</th>
-        <th scope="col" style="width:150px">Where</th>
-        <th scope="col" style="width:120px">Client</th>
-        <th scope="col" style="width:200px">adb</th>
+        <th scope="col" style="width:210px">Device</th>
+        <th scope="col" style="width:190px">adb</th>
         <th scope="col">Connect</th>
-        <th scope="col" class="act" style="width:120px"><span class="sr-only">Actions</span></th>
+        <th scope="col" class="act" style="width:104px"><span class="sr-only">Actions</span></th>
       </tr></thead>
       <tbody id="adb-rows" data-cl-body>
       {{range $i, $r := .Rows}}
@@ -107,15 +107,14 @@ code.adb-c{font-family:var(--mono);font-size:12px;background:var(--surface2);bor
         <td class="tick"><input type="checkbox" class="adb-tick" value="{{.Device.SerialNumber}}" aria-label="Tick {{.Device.SerialNumber}}"{{if eq .Group "cant"}} disabled title="{{.Why}}"{{end}}></td>
         <td><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
           <a class="adb-sn" href="/devices/{{.Device.SerialNumber}}">{{.Device.SerialNumber}}</a>
+          <span class="sub">{{if .Venue}}{{.Venue}}{{else}}Lab{{end}} · {{.Device.KindLabel}}</span>
           {{if .LastBy}}<span class="sub">{{.LastWord}} by {{.LastBy}} · {{timeSince .LastAt}}</span>{{end}}</td>
-        <td><span class="ft-ell">{{if .Venue}}{{.Venue}}{{else}}Lab{{end}}</span></td>
-        <td>{{.Device.KindLabel}}</td>
         <td>{{if eq .Group "open"}}<span class="cc-tag warn">adb on</span> <span class="sub">{{if .OffIn}}{{.OffIn}} left{{else if .StaysOn}}until turned off{{end}}</span>
           {{else if eq .Group "cant"}}<span class="cc-tag">can't</span> <span class="sub">{{.Why}}</span>
           {{else}}<span class="cc-tag">off</span>{{end}}
           {{with .Tunnel}}<span class="sub">tunnel :{{.Port}} · closes after {{.ClosesInText}} idle{{if .Connected}} · <b style="color:var(--ok)">connected</b>{{end}}</span>
           {{if .LastRefused}}<span class="sub" style="color:var(--danger)">refused {{.LastRefused}}</span>{{end}}{{end}}</td>
-        <td>{{if .Any}}<code class="adb-c">{{.Any}}</code>{{else if .Lan}}<code class="adb-c">{{.Lan}}</code><span class="sub">same network only</span>{{else}}<span class="muted">—</span>{{end}}</td>
+        <td>{{if .Any}}<code class="adb-c" title="{{.Any}}">{{.Any}}</code>{{else if .Lan}}<code class="adb-c" title="{{.Lan}}">{{.Lan}}</code><span class="sub">same network only</span>{{else}}<span class="muted">—</span>{{end}}</td>
         <td class="act">
           {{if or .Any .Lan}}<button type="button" class="cc-btn sm" data-cmd="{{if .Any}}{{.Any}}{{else}}{{.Lan}}{{end}}" onclick="copyText(this.dataset.cmd, this)">Copy</button>{{end}}
           {{if or (and .CanSwitch (eq .Group "open")) .Tunnel}}
