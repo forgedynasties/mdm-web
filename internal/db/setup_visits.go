@@ -74,13 +74,16 @@ const DefaultVisitDays = 3
 // Device states.
 const (
 	StateLab       = "lab"
+	StateToPlace   = "to_place" // at no venue, enrolled for a restaurant (placement.go)
 	StateSettingUp = "setting_up"
 	StateInService = "in_service"
 )
 
-// DeviceState is the device's state from its venue and hand-over.
-func DeviceState(restaurantID *uuid.UUID, handedOver bool) string {
+// DeviceState is the device's state from its venue, hand-over and placement.
+func DeviceState(restaurantID *uuid.UUID, handedOver bool, placement string) string {
 	switch {
+	case restaurantID == nil && placement == PlacementQueue:
+		return StateToPlace
 	case restaurantID == nil:
 		return StateLab
 	case handedOver:

@@ -1850,7 +1850,7 @@ func (h *Handler) DeviceOnboard(w http.ResponseWriter, r *http.Request) {
 	if rid := r.FormValue("restaurant_id"); rid != "" {
 		if parsed, err := uuid.Parse(rid); err == nil {
 			// Only into a venue this person may act on (security audit, 26 Oct 2026).
-			if !h.access(r).venueInScope(parsed) {
+			if !h.access(r).mayPlaceAt(device.ID, parsed) {
 				http.Error(w, "That venue is outside your access.", http.StatusForbidden)
 				return
 			}

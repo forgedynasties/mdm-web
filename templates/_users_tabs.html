@@ -20,9 +20,11 @@
     <option value="" selected disabled>Where…</option>
     <option value="all">Every device</option>
     <option value="state:lab">Lab devices (no venue)</option>
+    <option value="state:to_place">Devices to place (enrolled, no venue yet)</option>
     <option value="state:setting_up">Devices being set up</option>
     <option value="state:in_service">Devices in service</option>
     {{if .Field}}<option value="visit">The venues of their setup visits</option>{{end}}
+    <option value="own">The devices they enrolled, until handed over</option>
     {{with .Groups}}<optgroup label="Groups">{{range .}}<option value="group:{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}
     {{with .Venues}}<optgroup label="Venues">{{range .}}<option value="venue:{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}
   </select></label>

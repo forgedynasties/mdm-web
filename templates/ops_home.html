@@ -1,0 +1,254 @@
+{{define "ops_home.html"}}
+{{template "header" .}}
+{{/* The Ops lead's home (Q1, picked 3 Nov 2026): Fleet's layout, To place first. ops_home.go */}}
+<template id="page-island">
+  <span class="isl-dot {{if .Rows}}warn{{else}}ok{{end}}"></span>
+  <span class="isl-t">Setup</span>
+  <span class="isl-s"><b>{{len .Rows}}</b> to place · {{.SettingN}} setting up · {{.ServiceN}} in service</span>
+</template>
+{{template "place-style"}}
+<style>
+.oh-todo{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--warn-edge);background:var(--warn-bg);border-radius:10px;margin-bottom:8px;font-size:13.5px}
+.oh-todo .sp{flex:1}.oh-todo small{display:block;color:var(--text-2)}
+.fleet-rail-item .sub{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.mv-ck{display:inline-flex;gap:4px;flex-wrap:wrap}
+.mv-act{text-align:right;white-space:nowrap}.mv-act form{display:inline;margin:0}
+</style>
+
+<div class="fleet-md">
+  <aside class="fleet-rail" aria-label="Setup">
+    <div class="fleet-rail-cap">Setup</div>
+    <a class="fleet-rail-item{{if eq .View "place"}} on{{end}}" href="/visits"><span class="dot {{if .Rows}}warn{{else}}ok{{end}}"></span><span class="nm">To place</span><span class="ct">{{len .Rows}}</span></a>
+    <a class="fleet-rail-item{{if eq .View "setup"}} on{{end}}" href="/visits?view=setup"><span class="dot {{if .SettingN}}info{{else}}ok{{end}}"></span><span class="nm">Setting up</span><span class="ct">{{.SettingN}}</span></a>
+    <a class="fleet-rail-item{{if eq .View "service"}} on{{end}}" href="/visits?view=service"><span class="dot ok"></span><span class="nm">In service</span><span class="ct">{{.ServiceN}}</span></a>
+    {{with .Visits}}
+    <div class="fleet-rail-cap">Setup visits</div>
+    {{range .}}<a class="fleet-rail-item" href="/restaurants/{{.RestaurantID}}?open=visits"><span class="dot info"></span><span class="nm">{{.Restaurant}}<span class="sub">{{joinStrings .People ", "}} · until {{.EndsAt.Format "Mon 2 Jan"}}</span></span></a>{{end}}
+    {{end}}
+    {{with .RailVenues}}
+    <div class="fleet-rail-cap">Venues</div>
+    {{range $i, $v := .}}{{if lt $i 8}}<a class="fleet-rail-item" href="/restaurants/{{$v.ID}}"><span class="dot ok"></span><span class="nm">{{$v.Name}}</span><span class="ct">{{$v.DeviceCount}}</span></a>{{end}}{{end}}
+    <a class="fleet-rail-item" href="/restaurants"><span class="nm muted">All venues →</span></a>
+    {{end}}
+  </aside>
+
+  <div class="fleet-roster" style="min-width:0">
+    {{if eq .View "place"}}
+    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">To place</h1><span class="c">{{len .Rows}} enrolled, no venue yet · newest first</span>
+      <span class="pl-head-acts"><button type="button" class="cc-btn" onclick="placeNewVenue()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New venue</button></span></div>
+    {{if .Rows}}
+    {{template "place-table" (dict "Rows" .Rows "Venues" .Venues "Back" "/visits" "NewVenue" true "Lab" true)}}
+    {{else}}
+    <div class="pl-empty"><b>Nothing to place</b>A device enrolled with "Not decided yet" in AIO Enroll waits here until you put it at a venue.</div>
+    {{end}}
+
+    {{else if eq .View "setup"}}
+    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">Setting up</h1><span class="c">{{.SettingN}} at a venue, not handed over{{if .Ready}} · {{.Ready}} ready to hand over{{end}}</span></div>
+    {{range .Todos}}<div class="oh-todo"><span class="dot warn"></span><span class="sp"><b>{{.Title}}</b><small>{{.Sub}}</small></span><a class="cc-btn sm" href="{{.Href}}">{{.Action}}</a></div>{{end}}
+    {{if .SetRows}}
+    <div class="ft-wrap"><table class="ft">
+      <thead><tr><th class="ft-dev" scope="col">Device</th><th class="ft-type" scope="col">Type</th><th class="ft-venue" scope="col">Venue</th><th scope="col" style="width:230px">Checklist</th><th class="ft-num ft-seen" scope="col">Last seen</th><th scope="col" style="width:120px"><span class="sr-only">Hand over</span></th></tr></thead>
+      <tbody>
+      {{range .SetRows}}
+      <tr class="ft-row" data-href="/devices/{{.Device.SerialNumber}}">
+        <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
+          <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div></td>
+        <td class="ft-type"><span class="ft-ell">{{classOf .Device}}</span></td>
+        <td class="ft-venue"><a class="ft-ell" href="/restaurants/{{.Device.RestaurantID}}">{{.Device.RestaurantName}}</a></td>
+        <td>{{if .Checks}}<span class="mv-ck">{{range .Checks}}<span class="cc-tag {{if .OK}}ok{{end}}" title="{{.Fix}}">{{if .OK}}✓{{else}}·{{end}} {{.Label}}</span>{{end}}</span>{{else}}<span class="muted small">—</span>{{end}}</td>
+        <td class="ft-num ft-seen"><span class="dl-synced">{{timeSince .Device.LastSeenAt}}</span></td>
+        <td class="mv-act">{{if .CanHand}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/handover" hx-boost="false"><input type="hidden" name="back" value="/visits?view=setup"><button type="submit" class="cc-btn sm{{if .Ready}} primary{{end}}"{{if not .Ready}} disabled title="Finish the checklist first"{{end}}>Hand over</button></form>{{end}}</td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    {{else}}
+    <div class="pl-empty"><b>Nothing being set up</b>Devices you deploy from To place show here with their checklist until they are handed over.</div>
+    {{end}}
+
+    {{else}}
+    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">In service</h1><span class="c">{{.ServiceN}} handed over</span>
+      <span class="pl-head-acts"><a class="cc-btn" href="/devices?state=in_service">Open in Fleet</a></span></div>
+    <div class="ft-wrap"><table class="ft">
+      <thead><tr><th class="ft-dev" scope="col">Device</th><th class="ft-type" scope="col">Type</th><th class="ft-venue" scope="col">Venue</th><th class="ft-num ft-seen" scope="col">Last seen</th></tr></thead>
+      <tbody>
+      {{range .SvcRows}}
+      <tr class="ft-row" data-href="/devices/{{.Device.SerialNumber}}">
+        <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
+          <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div></td>
+        <td class="ft-type"><span class="ft-ell">{{classOf .Device}}</span></td>
+        <td class="ft-venue"><a class="ft-ell" href="/restaurants/{{.Device.RestaurantID}}">{{.Device.RestaurantName}}</a></td>
+        <td class="ft-num ft-seen"><span class="dl-synced">{{if .Online}}now{{else}}{{timeSince .Device.LastSeenAt}}{{end}}</span></td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table></div>
+    {{end}}
+  </div>
+</div>
+{{template "place-script"}}
+{{template "footer" .}}
+{{end}}
+
+{{/* ── The To place table, shared by the Ops lead's home and Field's My visits (K2) ──
+     dict: Rows []placeRow, Venues []db.Restaurant, Back, NewVenue (may create venues),
+     Lab (may send to the Lab). A row's Deploy sets its role (when changed), then places it
+     (POST /devices/{serial}/onboard); ticked rows go together from the bar. */}}
+{{define "place-table"}}
+<div class="pl-bulk" id="pl-bulk" hidden>
+  <b id="pl-bulk-n">0 selected</b>
+  <span class="muted">Deploy to</span>
+  <select class="form-input pl-sel" id="pl-bulk-venue" aria-label="Venue for the ticked devices"><option value="">Pick a venue…</option>{{range .Venues}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{if .NewVenue}}<option value="__new">+ New venue…</option>{{end}}</select>
+  <span class="sp"></span>
+  {{if .Lab}}<button type="button" class="cc-btn sm" onclick="placeBulk('lab')">Send to Lab</button>{{end}}
+  <button type="button" class="cc-btn sm primary" onclick="placeBulk('deploy')" id="pl-bulk-go">Deploy</button>
+</div>
+<div class="ft-wrap"><table class="ft pl-ft" data-back="{{.Back}}">
+  <thead><tr>
+    <th class="ft-cb" scope="col"><input type="checkbox" id="pl-all" aria-label="Select all"></th>
+    <th class="ft-dev" scope="col">Device</th>
+    <th scope="col" style="width:180px">Role</th>
+    <th scope="col" style="width:170px">Enrolled</th>
+    <th scope="col" style="width:230px">Venue</th>
+    <th scope="col" style="width:96px"><span class="sr-only">Deploy</span></th>
+  </tr></thead>
+  <tbody>
+  {{range .Rows}}
+  <tr class="ft-row pl-row" data-serial="{{.Device.SerialNumber}}">
+    <td class="ft-cb"><input type="checkbox" class="pl-pick" aria-label="Select {{.Device.SerialNumber}}"></td>
+    <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
+      <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div>
+      <small class="muted pl-sub">{{if .Model}}{{.Model}} · {{end}}{{if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}{{if not .Online}} · seen {{timeSince .Device.LastSeenAt}}{{end}}</small></td>
+    <td>{{if .Choices}}<select class="form-input pl-sel pl-role{{if not .Device.DeviceClass}} need{{end}}" data-cur="{{.Device.DeviceClass}}" aria-label="Role of {{.Device.SerialNumber}}">{{if not .Device.DeviceClass}}<option value="">Pick a role…</option>{{end}}{{$cur := .Device.DeviceClass}}{{range .Choices}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{classLabel .}}</option>{{end}}</select>{{else if .Device.DeviceClass}}{{classLabel .Device.DeviceClass}}{{else}}<span class="muted">from its model</span>{{end}}</td>
+    <td>{{if .By}}{{.By}}{{else}}<span class="muted">—</span>{{end}}<small class="muted pl-sub">{{timeSince .Device.EnrolledAt}}</small></td>
+    <td><select class="form-input pl-sel pl-venue need" aria-label="Venue for {{.Device.SerialNumber}}"><option value="">Pick a venue…</option>{{range $.Venues}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{if $.NewVenue}}<option value="__new">+ New venue…</option>{{end}}</select></td>
+    <td class="mv-act"><button type="button" class="cc-btn sm" onclick="placeRow(this)">Deploy</button></td>
+  </tr>
+  {{end}}
+  </tbody>
+</table></div>
+{{if .NewVenue}}
+<dialog class="pl-dlg" id="pl-new" aria-labelledby="pl-new-t">
+  <form method="POST" action="/restaurants" hx-boost="false" id="pl-new-form" onsubmit="return placeNewSubmit(this)">
+    <h2 id="pl-new-t">New venue</h2>
+    <label class="pl-f"><span>Name</span><input class="form-input" name="name" required autocomplete="off"></label>
+    <label class="pl-f"><span>Address</span><input class="form-input" name="address" autocomplete="off" placeholder="Street, city, state"></label>
+    <p class="muted small" id="pl-new-n"></p>
+    <p class="muted small">Hours, staff PIN, Wi-Fi and the AIO backend link are set later in Venue settings.</p>
+    <div class="pl-dlg-acts"><button type="button" class="cc-btn" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="cc-btn primary" id="pl-new-go">Create venue</button></div>
+  </form>
+</dialog>
+{{end}}
+{{end}}
+
+{{define "place-style"}}
+<style>
+.pl-head-acts{margin-left:auto;display:flex;gap:8px}
+.pl-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:10px;margin-bottom:10px;font-size:13.5px}
+.pl-bulk .sp{flex:1}
+.pl-sel{padding:5px 8px;font-size:13px;max-width:100%}
+.pl-sel.need{border-color:var(--warn-edge)}
+.pl-sub{display:block;font-size:12px;margin-top:2px}
+.pl-row.done{opacity:.45}
+.pl-empty{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;text-align:center;color:var(--text-2)}
+.pl-empty b{display:block;font-size:16px;color:var(--text);margin-bottom:6px}
+.pl-dlg{border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);padding:20px;width:min(420px,calc(100vw - 32px));box-shadow:var(--shadow-pop)}
+.pl-dlg::backdrop{background:var(--overlay,rgba(0,0,0,.35))}
+.pl-dlg h2{margin:0 0 14px;font-size:17px}
+.pl-f{display:block;margin-bottom:12px}.pl-f span{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px}.pl-f input{width:100%;box-sizing:border-box}
+.pl-dlg-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+</style>
+{{end}}
+
+{{define "place-script"}}
+<script>
+(function () {
+  if (window.__placeOnce) return; window.__placeOnce = true;
+  function toast(m, t) { if (window.showToast) showToast(m, t); }
+  function post(url, data) {
+    return fetch(url, { method: 'POST', body: new URLSearchParams(data), headers: { 'HX-Request': 'true' }, credentials: 'same-origin' })
+      .then(function (r) {
+        var t = null;
+        try { t = (JSON.parse(r.headers.get('HX-Trigger') || '{}') || {}).toast || null; } catch (e) {}
+        if (r.ok && !(t && t.type === 'error')) return t;
+        if (t) throw new Error(t.msg);
+        return r.text().then(function (x) { throw new Error((x || 'Failed').trim().slice(0, 160)); });
+      });
+  }
+  function enc(s) { return encodeURIComponent(s); }
+  function back() { var t = document.querySelector('.pl-ft'); return (t && t.getAttribute('data-back')) || location.pathname; }
+  // Sets the row's role when it was changed, then places it at the venue.
+  function deploy(tr, venue) {
+    var serial = tr.getAttribute('data-serial'), role = tr.querySelector('.pl-role'), p = Promise.resolve();
+    if (role && role.value && role.value !== role.getAttribute('data-cur')) {
+      p = post('/devices/' + enc(serial) + '/role', { 'class': role.value }).then(function () { role.setAttribute('data-cur', role.value); });
+    }
+    return p.then(function () { return post('/devices/' + enc(serial) + '/onboard', { restaurant_id: venue, from: back() }); })
+      .then(function () { tr.classList.add('done'); tr.querySelectorAll('select,button,input').forEach(function (x) { x.disabled = true; }); });
+  }
+  function needsRole(tr) { var r = tr.querySelector('.pl-role'); return r && !r.value; }
+  window.placeRow = function (btn) {
+    var tr = btn.closest('tr'), v = tr.querySelector('.pl-venue').value;
+    if (v === '__new') { placeNewVenue([tr]); return; }
+    if (!v) { toast('Pick a venue first', 'error'); tr.querySelector('.pl-venue').focus(); return; }
+    if (needsRole(tr)) { toast('Pick its role first', 'error'); tr.querySelector('.pl-role').focus(); return; }
+    btn.disabled = true;
+    deploy(tr, v).then(function () { toast('Deployed · it is setting up now', 'success'); }, function (e) { btn.disabled = false; toast(e.message, 'error'); });
+  };
+  function picked() { return Array.prototype.filter.call(document.querySelectorAll('.pl-row'), function (tr) { var c = tr.querySelector('.pl-pick'); return c && c.checked && !c.disabled; }); }
+  window.placeBulk = function (what) {
+    var rows = picked();
+    if (!rows.length) return;
+    if (what === 'lab') {
+      if (!confirm('Send ' + rows.length + ' device' + (rows.length === 1 ? '' : 's') + ' to the Lab? They leave this queue and go to the engineers.')) return;
+      Promise.all(rows.map(function (tr) {
+        return post('/devices/' + enc(tr.getAttribute('data-serial')) + '/placement', { placement: 'lab', back: back() }).then(function () { tr.remove(); });
+      })).then(function () { toast('Sent to the Lab', 'success'); sync(); }, function (e) { toast(e.message, 'error'); sync(); });
+      return;
+    }
+    var v = document.getElementById('pl-bulk-venue').value;
+    if (v === '__new') { placeNewVenue(rows); return; }
+    if (!v) { toast('Pick a venue for the ticked devices', 'error'); return; }
+    var bad = rows.filter(needsRole);
+    if (bad.length) { toast(bad.length + ' ticked device' + (bad.length === 1 ? ' needs' : 's need') + ' a role first', 'error'); return; }
+    var go = document.getElementById('pl-bulk-go'); go.disabled = true;
+    rows.reduce(function (p, tr) { return p.then(function () { return deploy(tr, v); }); }, Promise.resolve())
+      .then(function () { go.disabled = false; toast(rows.length + ' deployed · setting up now', 'success'); sync(); }, function (e) { go.disabled = false; toast(e.message, 'error'); sync(); });
+  };
+  // New venue: the ticked rows (or the one row) go with it; RestaurantCreate places them.
+  var pending = [];
+  window.placeNewVenue = function (rows) {
+    var d = document.getElementById('pl-new'); if (!d) return;
+    pending = rows || picked();
+    var n = document.getElementById('pl-new-n'), go = document.getElementById('pl-new-go');
+    n.textContent = pending.length ? pending.length + ' device' + (pending.length === 1 ? '' : 's') + ' will be deployed there: ' + pending.map(function (tr) { return tr.getAttribute('data-serial'); }).join(', ') : '';
+    go.textContent = pending.length ? 'Create and deploy ' + pending.length : 'Create venue';
+    d.showModal();
+  };
+  window.placeNewSubmit = function (form) {
+    if (pending.some(needsRole)) { toast('Pick the role of every device first', 'error'); return false; }
+    form.querySelectorAll('input[name=serials]').forEach(function (x) { x.remove(); });
+    pending.forEach(function (tr) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'serials'; i.value = tr.getAttribute('data-serial'); form.appendChild(i); });
+    // Roles first, then the plain form post (the server answers with the new venue's page).
+    var roles = pending.filter(function (tr) { var r = tr.querySelector('.pl-role'); return r && r.value && r.value !== r.getAttribute('data-cur'); });
+    if (!roles.length) return true;
+    Promise.all(roles.map(function (tr) { return post('/devices/' + enc(tr.getAttribute('data-serial')) + '/role', { 'class': tr.querySelector('.pl-role').value }); }))
+      .then(function () { form.submit(); }, function (e) { toast(e.message, 'error'); });
+    return false;
+  };
+  function sync() {
+    var rows = picked(), bar = document.getElementById('pl-bulk');
+    if (!bar) return;
+    bar.hidden = !rows.length;
+    document.getElementById('pl-bulk-n').textContent = rows.length + ' selected';
+    document.getElementById('pl-bulk-go').textContent = 'Deploy ' + rows.length;
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.id === 'pl-all') { document.querySelectorAll('.pl-pick:not(:disabled)').forEach(function (c) { c.checked = t.checked; }); sync(); }
+    else if (t.classList && t.classList.contains('pl-pick')) sync();
+    else if (t.classList && (t.classList.contains('pl-venue') || t.classList.contains('pl-role'))) t.classList.toggle('need', !t.value);
+  });
+})();
+</script>
+{{end}}

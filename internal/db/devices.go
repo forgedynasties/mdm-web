@@ -1333,7 +1333,9 @@ func (d *DB) GetDeviceIDsByRestaurantIDs(ctx context.Context, restaurantIDs []uu
 func stateWhere(state string) string {
 	switch state {
 	case StateLab:
-		return "d.restaurant_id IS NULL"
+		return "d.restaurant_id IS NULL AND d.placement <> 'queue'"
+	case StateToPlace:
+		return "d.restaurant_id IS NULL AND d.placement = 'queue'"
 	case StateSettingUp:
 		return "d.restaurant_id IS NOT NULL AND d.handed_over_at IS NULL"
 	case StateInService:

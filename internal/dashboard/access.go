@@ -258,6 +258,9 @@ func (a *access) grantCoversDevice(g db.AccessLevel, sc db.DeviceScope) bool {
 		return g.ScopeID != nil && sc.RestaurantID != nil && *sc.RestaurantID == *g.ScopeID
 	case "visit":
 		return sc.RestaurantID != nil && a.onVisitAt(*sc.RestaurantID)
+	case "own":
+		// The devices this person enrolled, until handed over (Field, K2; placement.go).
+		return sc.EnrolledBy != "" && sc.EnrolledBy == a.username && !sc.InService
 	}
 	return false
 }
@@ -1049,9 +1052,11 @@ func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []d
 //   super admin, Admin (old)   everything
 //   Engineer                   everything; acts on Lab only, elsewhere looks, takes
 //                              screenshots and collects logs
-//   Ops lead                   Setting up and In service
+//   Ops lead                   To place (no venue, enrolled for a restaurant), Setting up
+//                              and In service
 //   Support, Support (old), Viewer  In service
-//   Field                      the venues of their open setup visits, any state
+//   Field                      the venues of their open setup visits, any state, and the
+//                              devices they enrolled until handed over
 //   Owner                      their venues: In service, and Setting up read-only
 //   Staff                      their venue: In service
 
@@ -1102,7 +1107,7 @@ func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 			return no("Only devices in service")
 		}
 	case "owner":
-		if st == db.StateLab || (st == db.StateSettingUp && action != "view") {
+		if st == db.StateLab || st == db.StateToPlace || (st == db.StateSettingUp && action != "view") {
 			return no("Being set up: read-only until it is handed over")
 		}
 	case "field":
@@ -1129,7 +1134,7 @@ func (a *access) onVisitAt(venue uuid.UUID) bool {
 // i.e. not Lab. An unknown device (enrolled after the scopes were loaded) is Lab.
 func (a *access) atVenue(dev uuid.UUID) bool {
 	a.loadScopes()
-	return a.scopes[dev].State() != db.StateLab
+	return a.scopes[dev].RestaurantID != nil
 }
 
 // engineerVenueCount is how many of ids an engineer's level is too low for the action on

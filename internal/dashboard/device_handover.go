@@ -91,7 +91,7 @@ func (h *Handler) deviceHandOverView(r *http.Request, d *db.Device, kioskOn bool
 	}
 	ctx := r.Context()
 	at, by, _ := h.db.DeviceHandOver(ctx, d.ID)
-	v := &handOverView{State: db.DeviceState(d.RestaurantID, at != nil), HandedAt: at, HandedBy: by,
+	v := &handOverView{State: db.DeviceState(d.RestaurantID, at != nil, ""), HandedAt: at, HandedBy: by,
 		VenueName: d.RestaurantName, VenueID: d.RestaurantID.String()}
 	if v.State == db.StateSettingUp {
 		v.Checks, v.Ready = h.handOverChecks(ctx, d, kioskOn)

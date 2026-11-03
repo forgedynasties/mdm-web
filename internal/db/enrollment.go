@@ -33,6 +33,7 @@ type EnrollmentProfile struct {
 	MaxEnrolls     *int       // token stops enrolling after this many devices
 	LastEnrolledAt *time.Time
 	CreatedBy      string // username of the account that minted it (enroll app); '' for dashboard/API profiles
+	Placement      string // AIO Enroll's answer for devices with no venue: queue | lab | '' (R1, placement.go)
 }
 
 func (p EnrollmentProfile) Revoked() bool { return p.RevokedAt != nil }
@@ -70,14 +71,15 @@ type EnrollmentProfileInput struct {
 	ExpiresAt    *time.Time
 	MaxEnrolls   *int
 	CreatedBy    string
+	Placement    string // queue | lab | '' (placement.go)
 }
 
 func (d *DB) CreateEnrollmentProfile(ctx context.Context, in EnrollmentProfileInput) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO enrollment_profiles (name, token, group_id, notes, device_class, restaurant_id, expires_at, max_enrolls, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-		in.Name, in.Token, in.GroupID, in.Notes, in.DeviceClass, in.RestaurantID, in.ExpiresAt, in.MaxEnrolls, in.CreatedBy).Scan(&id)
+		INSERT INTO enrollment_profiles (name, token, group_id, notes, device_class, restaurant_id, expires_at, max_enrolls, created_by, placement)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+		in.Name, in.Token, in.GroupID, in.Notes, in.DeviceClass, in.RestaurantID, in.ExpiresAt, in.MaxEnrolls, in.CreatedBy, in.Placement).Scan(&id)
 	return id, err
 }
 
@@ -95,12 +97,12 @@ func (d *DB) UpdateEnrollmentProfile(ctx context.Context, id uuid.UUID, in Enrol
 
 const enrollmentProfileCols = `p.id, p.name, p.token, p.group_id, COALESCE(g.name, ''), p.notes,
 		       p.created_at, p.revoked_at, p.enroll_count,
-		       p.device_class, p.restaurant_id, COALESCE(r.name, ''), p.expires_at, p.max_enrolls, p.last_enrolled_at, p.created_by`
+		       p.device_class, p.restaurant_id, COALESCE(r.name, ''), p.expires_at, p.max_enrolls, p.last_enrolled_at, p.created_by, p.placement`
 
 func scanEnrollmentProfile(row interface{ Scan(...any) error }, p *EnrollmentProfile) error {
 	return row.Scan(&p.ID, &p.Name, &p.Token, &p.GroupID, &p.GroupName, &p.Notes,
 		&p.CreatedAt, &p.RevokedAt, &p.EnrollCount,
-		&p.DeviceClass, &p.RestaurantID, &p.RestaurantName, &p.ExpiresAt, &p.MaxEnrolls, &p.LastEnrolledAt, &p.CreatedBy)
+		&p.DeviceClass, &p.RestaurantID, &p.RestaurantName, &p.ExpiresAt, &p.MaxEnrolls, &p.LastEnrolledAt, &p.CreatedBy, &p.Placement)
 }
 
 func (d *DB) ListEnrollmentProfiles(ctx context.Context) ([]EnrollmentProfile, error) {
@@ -224,9 +226,10 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 	var onboardedAt *time.Time
 	err = tx.QueryRow(ctx, `
 		INSERT INTO devices (serial_number, product, device_key_hash, enrolled_via,
-		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at, enrolled_by, class_source)
+		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at, enrolled_by, class_source, placement)
 		VALUES ($1, $2, $3, $4, 'dpc', 'enrolled', NOW(), $5, $6,
-		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END, $7, $8)
+		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END, $7, $8,
+		        CASE WHEN $9 <> '' THEN $9 ELSE `+r1Placement("$7")+` END)
 		ON CONFLICT (serial_number) DO UPDATE
 		SET device_key_hash   = EXCLUDED.device_key_hash,
 		    key_rotated_at    = CASE WHEN devices.device_key_hash IS NOT NULL THEN NOW() ELSE devices.key_rotated_at END,
@@ -243,9 +246,11 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		                             WHEN EXCLUDED.device_class <> '' THEN EXCLUDED.class_source ELSE devices.class_source END,
 		    restaurant_id     = COALESCE(EXCLUDED.restaurant_id, devices.restaurant_id),
 		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at),
-		    enrolled_by       = CASE WHEN EXCLUDED.enrolled_by <> '' THEN EXCLUDED.enrolled_by ELSE devices.enrolled_by END
+		    enrolled_by       = CASE WHEN EXCLUDED.enrolled_by <> '' THEN EXCLUDED.enrolled_by ELSE devices.enrolled_by END,
+		    -- AIO Enroll's answer wins; else a device keeps where it was (R1 for one that never had any).
+		    placement         = CASE WHEN $9 <> '' THEN $9 WHEN devices.placement <> '' THEN devices.placement ELSE EXCLUDED.placement END
 		RETURNING id, (xmax <> 0), onboarded_at`,
-		serial, product, keyHash, profile.ID, class, profile.RestaurantID, profile.CreatedBy, source).
+		serial, product, keyHash, profile.ID, class, profile.RestaurantID, profile.CreatedBy, source, profile.Placement).
 		Scan(&res.DeviceID, &res.ReEnrolled, &onboardedAt)
 	if err != nil {
 		return res, err

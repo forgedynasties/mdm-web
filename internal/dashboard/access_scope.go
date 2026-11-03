@@ -70,6 +70,20 @@ func (a *access) venueInScope(id uuid.UUID) bool {
 	return false
 }
 
+// enrolledHere reports whether the person enrolled the device and it isn't handed over yet:
+// Field may put such a device at any venue (K2, 3 Nov 2026; db/placement.go).
+func (a *access) enrolledHere(dev uuid.UUID) bool {
+	a.loadScopes()
+	sc := a.scopes[dev]
+	return a.username != "" && sc.EnrolledBy == a.username && !sc.InService
+}
+
+// mayPlaceAt reports whether the person may put the device at the venue: a venue in their
+// scope, or for Field any venue when it is a device they enrolled.
+func (a *access) mayPlaceAt(dev, venue uuid.UUID) bool {
+	return a.venueInScope(venue) || (a.role == "field" && a.enrolledHere(dev))
+}
+
 // keepVisibleEnrollments drops enrollment rows for devices the viewer can't see.
 func keepVisibleEnrollments(rows []db.Enrollment, set map[string]bool) []db.Enrollment {
 	if set == nil {

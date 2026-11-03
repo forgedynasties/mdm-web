@@ -44,6 +44,8 @@ func scopeText(g db.AccessLevel) string {
 		switch g.State {
 		case db.StateLab:
 			return "Lab devices"
+		case db.StateToPlace:
+			return "devices to place"
 		case db.StateSettingUp:
 			return "devices being set up"
 		case db.StateInService:
@@ -61,6 +63,8 @@ func scopeText(g db.AccessLevel) string {
 		return "a removed venue"
 	case "visit":
 		return "the venues of their setup visits"
+	case "own":
+		return "the devices they enrolled, until handed over"
 	}
 	return "—"
 }
@@ -346,7 +350,7 @@ func (a *access) restaurantsViewOnly() bool {
 		case "all", "venue", "visit":
 			return false
 		case "state":
-			if g.State != db.StateLab {
+			if g.State != db.StateLab && g.State != db.StateToPlace {
 				return false
 			}
 		}
@@ -488,11 +492,11 @@ func (h *Handler) AccessPage(w http.ResponseWriter, r *http.Request) {
 func parseScope(where string) (scopeType string, id *uuid.UUID, state string, ok bool) {
 	kind, rest, _ := strings.Cut(where, ":")
 	switch kind {
-	case "all", "visit":
+	case "all", "visit", "own":
 		return kind, nil, "", rest == ""
 	case "state":
 		switch rest {
-		case db.StateLab, db.StateSettingUp, db.StateInService:
+		case db.StateLab, db.StateToPlace, db.StateSettingUp, db.StateInService:
 			return "state", nil, rest, true
 		}
 	case "group", "venue":

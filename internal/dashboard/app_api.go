@@ -232,12 +232,26 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 	var body struct {
 		DeviceClass  string `json:"device_class"`
 		RestaurantID string `json:"restaurant_id"`
+		// With no venue: "queue" (Not decided yet: Ops places it) or "lab"; omitted by older
+		// builds, which leaves it to the enroller's role (R1, db/placement.go).
+		Placement string `json:"placement"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body); err != nil {
 		appErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
+	placement := strings.TrimSpace(body.Placement)
+	if placement != "" && placement != db.PlacementQueue && placement != db.PlacementLab {
+		appErr(w, http.StatusBadRequest, "placement must be queue or lab")
+		return
+	}
 	name := appEnrollProfilePrefix + s.Username
+	switch placement {
+	case db.PlacementQueue:
+		name = appEnrollProfilePrefix + "to place · " + s.Username
+	case db.PlacementLab:
+		name = appEnrollProfilePrefix + "lab · " + s.Username
+	}
 	var site *db.Restaurant
 	if rid := strings.TrimSpace(body.RestaurantID); rid != "" {
 		id, err := uuid.Parse(rid)
@@ -249,7 +263,8 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 			appErr(w, http.StatusBadRequest, "unknown restaurant")
 			return
 		}
-		if !h.accessFor(r.Context(), s.Role, s.Username).venueInScope(site.ID) {
+		// Field enrolls devices of their own, which they may put at any venue (K2, 3 Nov 2026).
+		if s.Role != "field" && !h.accessFor(r.Context(), s.Role, s.Username).venueInScope(site.ID) {
 			appErr(w, http.StatusForbidden, "that venue is outside your access")
 			return
 		}
@@ -260,10 +275,11 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 			return
 		}
 		name = appEnrollProfilePrefix + site.Name + " · " + s.Username
+		placement = ""
 	}
 	sameSite := func(p db.EnrollmentProfile) bool {
 		if site == nil {
-			return p.RestaurantID == nil
+			return p.RestaurantID == nil && p.Placement == placement
 		}
 		return p.RestaurantID != nil && *p.RestaurantID == site.ID
 	}
@@ -290,6 +306,7 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 	in := db.EnrollmentProfileInput{
 		Name: name, Token: "enr_" + hex.EncodeToString(raw), ExpiresAt: &exp,
 		Notes: "Minted by the AIO Enroll desktop app for " + s.Username, CreatedBy: s.Username,
+		Placement: placement,
 	}
 	if site != nil {
 		in.RestaurantID = &site.ID
@@ -326,7 +343,7 @@ func (h *Handler) AppRestaurants(w http.ResponseWriter, r *http.Request, s *db.S
 	acc := h.accessFor(r.Context(), s.Role, s.Username)
 	out := make([]map[string]any, 0, len(list))
 	for _, x := range list {
-		if !acc.venueInScope(x.ID) {
+		if s.Role != "field" && !acc.venueInScope(x.ID) {
 			continue
 		}
 		out = append(out, map[string]any{"id": x.ID, "name": x.Name, "address": x.Address, "device_count": x.DeviceCount})

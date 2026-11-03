@@ -261,6 +261,8 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
 			for _, did := range ids {
+				// Placed: out of the onboarding inbox too (the Setup queue deploys this way).
+				_ = h.db.MarkOnboarded(r.Context(), did)
 				h.hub.PublishDeviceUpdate(did)
 			}
 			h.pushGuestToDevices(r.Context(), ids)

@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -71,7 +70,7 @@ func (h *Handler) MyVisits(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			row := visitDeviceRow{Device: *d, Visit: v.Restaurant, Online: h.hub.IsConnectedForDisplay(d.ID)}
-			row.State = db.DeviceState(d.RestaurantID, scopes[d.ID].InService)
+			row.State = scopes[d.ID].State()
 			if row.State == db.StateSettingUp {
 				cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
 				row.Checks, row.Ready = h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled)
@@ -82,6 +81,39 @@ func (h *Handler) MyVisits(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			rows = append(rows, row)
+		}
+	}
+	// Field's own enrolments (K2, 3 Nov 2026): the ones waiting for a venue are their queue,
+	// the ones being set up anywhere are in the table with the visits' devices.
+	var place []placeRow
+	var venues []db.Restaurant
+	if role == "field" && sel == "" {
+		me := h.currentUsername(r)
+		queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace, EnrolledBy: me}, 0, 500, "serial", "asc")
+		place = h.placeRowsFor(ctx, queue)
+		mine, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateSettingUp, EnrolledBy: me}, 0, 500, "serial", "asc")
+		have := map[uuid.UUID]bool{}
+		for _, x := range rows {
+			have[x.Device.ID] = true
+		}
+		for i := range mine {
+			d := &mine[i]
+			if d.Hidden || have[d.ID] {
+				continue
+			}
+			row := visitDeviceRow{Device: *d, Visit: d.RestaurantName, Online: h.hub.IsConnectedForDisplay(d.ID), State: db.StateSettingUp}
+			cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
+			row.Checks, row.Ready = h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled)
+			row.CanHand = h.mayHandOver(r, d)
+			setting++
+			if row.Ready {
+				ready++
+			}
+			rows = append(rows, row)
+		}
+		if len(place) > 0 {
+			venues, _ = h.db.ListRestaurants(ctx)
+			sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
 		}
 	}
 	// Setting up first (ready ones on top), then in service; serial within.
@@ -103,97 +135,7 @@ func (h *Handler) MyVisits(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "my_visits.html", map[string]any{
 		"Title": "My visits", "ActivePage": "myvisits",
 		"Visits": visits, "Sel": sel, "Rows": rows, "SettingUp": setting, "ReadyN": ready, "Now": time.Now(),
-	})
-}
-
-type setupTodo struct {
-	Title, Sub, Action, Href string
-}
-
-// SetupHome: GET /visits, the Ops lead's home ("Setup"; /setup is an old redirect to Apps).
-func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
-	if !mayManageVisits(h.role(r)) {
-		http.Error(w, "Setup is the Ops lead's home.", http.StatusForbidden)
-		return
-	}
-	ctx := r.Context()
-	visits, _ := h.db.OpenVisits(ctx)
-	setting, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateSettingUp}, 0, 2000, "serial", "asc")
-	week, _ := h.db.HandedOverSince(ctx, time.Now().AddDate(0, 0, -7))
-	onVisit := map[uuid.UUID]bool{}
-	people := map[string]bool{}
-	endsThisWeek := 0
-	for _, v := range visits {
-		onVisit[v.RestaurantID] = true
-		for _, p := range v.People {
-			people[p] = true
-		}
-		if time.Until(v.EndsAt) < 7*24*time.Hour {
-			endsThisWeek++
-		}
-	}
-	type venueAgg struct {
-		ID           uuid.UUID
-		Name         string
-		Total, Ready int
-	}
-	agg := map[uuid.UUID]*venueAgg{}
-	var order []uuid.UUID
-	noVisit := 0
-	for i := range setting {
-		d := &setting[i]
-		if d.RestaurantID == nil || d.Hidden {
-			continue
-		}
-		a := agg[*d.RestaurantID]
-		if a == nil {
-			a = &venueAgg{ID: *d.RestaurantID, Name: d.RestaurantName}
-			agg[a.ID] = a
-			order = append(order, a.ID)
-		}
-		a.Total++
-		cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
-		if _, ok := h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled); ok {
-			a.Ready++
-		}
-		if !onVisit[a.ID] {
-			noVisit++
-		}
-	}
-	var todos []setupTodo
-	for _, id := range order {
-		a := agg[id]
-		if !onVisit[id] {
-			todos = append(todos, setupTodo{Title: fmt.Sprintf("%s: %d device%s setting up, no visit open", a.Name, a.Total, plural(a.Total)),
-				Sub: "nobody can finish them: open a visit or hand them over", Action: "Open a visit", Href: visitBack(id)})
-		}
-	}
-	for _, id := range order {
-		if a := agg[id]; a.Ready > 0 {
-			todos = append(todos, setupTodo{Title: fmt.Sprintf("%s: %d ready to hand over", a.Name, a.Ready),
-				Sub: "the checklist is green", Action: "Hand over", Href: visitBack(id)})
-		}
-	}
-	for _, v := range visits {
-		if left := time.Until(v.EndsAt); left < 24*time.Hour {
-			todos = append(todos, setupTodo{Title: v.Restaurant + " visit ends within a day",
-				Sub: joinAnd(v.People) + " · extend it if the work isn't done", Action: "Extend", Href: visitBack(v.RestaurantID)})
-		}
-	}
-	readyAll, totalAll := 0, 0
-	for _, a := range agg {
-		readyAll += a.Ready
-		totalAll += a.Total
-	}
-	pct := 100
-	if totalAll > 0 {
-		pct = readyAll * 100 / totalAll
-	}
-	h.render(w, r, "ops_setup.html", map[string]any{
-		"Title": "Setup", "ActivePage": "setup",
-		"Visits": visits, "Todos": todos, "SettingUp": totalAll, "Ready": readyAll, "NoVisit": noVisit,
-		"Week": week, "People": len(people), "EndsThisWeek": endsThisWeek, "Agg": agg,
-		"Pct": pct, "RingOffset": fmt.Sprintf("%.1f", 326.7*(1-float64(pct)/100)),
+		"Place": place, "Venues": venues,
 	})
 }
 

@@ -6,7 +6,7 @@
 <template id="page-island">
   <span class="isl-dot {{if .SettingUp}}warn{{else}}ok{{end}}"></span>
   <span class="isl-t">My visits</span>
-  <span class="isl-s"><b>{{len .Visits}}</b> open{{if .SettingUp}} · {{.SettingUp}} setting up{{if .ReadyN}} · <span class="w">{{.ReadyN}} ready to hand over</span>{{end}}{{end}}</span>
+  <span class="isl-s">{{if .Place}}<b>{{len .Place}}</b> to place · {{end}}<b>{{len .Visits}}</b> open{{if .SettingUp}} · {{.SettingUp}} setting up{{if .ReadyN}} · <span class="w">{{.ReadyN}} ready to hand over</span>{{end}}{{end}}</span>
 </template>
 <style>
 .mv-head{display:flex;align-items:baseline;gap:10px;margin:2px 0 14px;flex-wrap:wrap}
@@ -17,12 +17,14 @@
 .mv-act{text-align:right;white-space:nowrap}
 .mv-act form{display:inline;margin:0}
 .fleet-rail-item .sub{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.mv-sec{font-size:15px;font-weight:650;margin:18px 0 10px}.mv-sec .muted{font-weight:500;font-size:13px}
 </style>
 
 <div class="fleet-md">
   <aside class="fleet-rail" aria-label="My visits">
     <div class="fleet-rail-cap">My visits</div>
     <a class="fleet-rail-item{{if not .Sel}} on{{end}}" href="/my-visits"><span class="dot {{if .SettingUp}}warn{{else}}ok{{end}}"></span><span class="nm">All my devices</span><span class="ct">{{len .Rows}}</span></a>
+    {{if .Place}}<a class="fleet-rail-item" href="/my-visits#to-place"><span class="dot warn"></span><span class="nm">To place</span><span class="ct">{{len .Place}}</span></a>{{end}}
     {{range .Visits}}
     <a class="fleet-rail-item{{if eq $.Sel .ID.String}} on{{end}}" href="/my-visits?visit={{.ID}}"><span class="dot warn"></span><span class="nm">{{.Restaurant}}<span class="sub">{{if .Purpose}}{{.Purpose}} · {{end}}until {{.EndsAt.Format "Mon 2 Jan"}}</span></span></a>
     {{end}}
@@ -31,8 +33,15 @@
   <div style="min-width:0">
     <div class="mv-head"><h1 class="cc-h1">{{if .Sel}}{{range .Visits}}{{if eq $.Sel .ID.String}}{{.Restaurant}}{{end}}{{end}}{{else}}All my devices{{end}}</h1>
       <span class="muted">{{len .Rows}} device{{if ne (len .Rows) 1}}s{{end}}{{if .SettingUp}} · {{.SettingUp}} setting up{{end}}</span></div>
-    {{if not .Visits}}
-    <div class="mv-empty"><b>No open visits</b>An Ops lead opens a setup visit at a venue and puts you on it. Its devices show here until the visit ends.</div>
+    {{if .Place}}
+    {{template "place-style"}}
+    <h2 class="mv-sec" id="to-place">Your devices to place <span class="muted">{{len .Place}} · enrolled by you, no venue yet</span></h2>
+    {{template "place-table" (dict "Rows" .Place "Venues" .Venues "Back" "/my-visits" "NewVenue" false "Lab" false)}}
+    {{template "place-script"}}
+    <h2 class="mv-sec">At venues</h2>
+    {{end}}
+    {{if and (not .Visits) (not .Rows)}}
+    <div class="mv-empty"><b>No open visits</b>An Ops lead opens a setup visit at a venue and puts you on it. Its devices show here until the visit ends. Devices you enroll yourself show here too.</div>
     {{else if not .Rows}}
     <div class="mv-empty"><b>No devices here yet</b>Enrol them with AIO Enroll: a device placed at the venue shows up here, setting up.</div>
     {{else}}

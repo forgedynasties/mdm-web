@@ -14,8 +14,9 @@ import (
 //
 // A grant gives a level — view, operate or manage — on a scope to a role (everyone with it)
 // or to one person, optionally until a date. Scopes: every device ("all"), a device state
-// (lab, setting_up, in_service), a group, a venue, or the venues of the person's open setup
-// visits ("visit", Field). A team member's level on a device is the highest any unexpired
+// (lab, to_place, setting_up, in_service), a group, a venue, the venues of the person's open
+// setup visits ("visit", Field), or the devices the person enrolled until handed over ("own",
+// Field; placement.go). A team member's level on a device is the highest any unexpired
 // grant of their role or their own gives; nothing subtracts. Owners and Staff keep their venue
 // walls (access_grants rows read by decideCustomer), and shell and firmware updates stay with
 // super admins whatever the level.
@@ -31,7 +32,7 @@ CREATE TABLE IF NOT EXISTS access_levels (
 	id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	subject_type TEXT NOT NULL CHECK (subject_type IN ('role', 'user')),
 	subject      TEXT NOT NULL,
-	scope_type   TEXT NOT NULL CHECK (scope_type IN ('all', 'state', 'group', 'venue', 'visit')),
+	scope_type   TEXT NOT NULL CHECK (scope_type IN ('all', 'state', 'group', 'venue', 'visit', 'own')),
 	scope_id     UUID,
 	state        TEXT NOT NULL DEFAULT '',
 	level        TEXT NOT NULL CHECK (level IN ('view', 'operate', 'manage')),

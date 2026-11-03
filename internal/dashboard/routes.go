@@ -312,6 +312,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
 	post("POST /devices/{serial}/role", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetRole)))
+	post("POST /devices/{serial}/placement", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DevicePlacementPost)))
 	post("POST /devices/{serial}/handover", h.requireAuth(h.deviceRoute("view", h.DeviceHandOverPost)))
 	post("POST /devices/{serial}/follows", h.requireAuth(h.deviceRoute("install_apk", h.DeviceFollow)))
 	mux.HandleFunc("GET /my-visits", h.requireAuth(h.MyVisits))
