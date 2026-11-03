@@ -989,6 +989,13 @@ func (h *Handler) collectionRoute(kind string, next http.HandlerFunc) http.Handl
 			if kind == "group" {
 				seen = groups
 			}
+			// The Ops lead runs the venues (hours, PIN, Wi-Fi, placing devices), so every venue
+			// page is theirs, a new one with no devices included (4 Nov 2026: "after creating,
+			// opening it says not allowed").
+			if kind == "restaurant" && h.role(r) == "fleet_manager" {
+				next(w, r)
+				return
+			}
 			if seen[id] == 0 {
 				name := ""
 				if kind == "group" {
