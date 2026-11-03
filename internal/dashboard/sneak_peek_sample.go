@@ -554,7 +554,6 @@ func (s *sneakPeekSample) AlertsPage() map[string]any {
 	}
 	alAnchors(needs)
 	alAnchors(watching)
-	cs := s.CrashStats()
 	return map[string]any{
 		"Title": "Alerts", "Summary": sum, "View": "",
 		"Needs": needs, "WatchingP": watching,
@@ -563,11 +562,8 @@ func (s *sneakPeekSample) AlertsPage() map[string]any {
 		"Crashes":    crashes, "CrashCount": len(crashes), "CrashGroups": len(crashes),
 		"DeviceFilter": "", "CrashPage": 1, "CrashPages": 1,
 		"CrashPageBase": "/sneak-peek/alerts?view=crashes",
-		// A1 (21 Oct 2026): the banner, cards and rail from the same sample.
-		"AlBanner": buildAlertBanner(needs, watching, s.now),
-		"AlCards":  buildAlertCards(needs, watching, nil, &cs, s.now),
-		"AlRail":   buildAlertRail(needs, watching, &cs, s.now),
-		"AlVenues": alVenues(needs, watching),
+		// L1 (3 Nov 2026): the list's rows and counts from the same sample.
+		"AlL1": buildAlertsL1("", needs, watching), "Show": "needs",
 	}
 }
 

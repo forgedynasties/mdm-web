@@ -8,6 +8,7 @@ import (
 	_ "image/jpeg"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -59,15 +60,27 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// alShowRE is a rail view key the list may open with (needs, open, acked, snoozed, k-…, v-…, nov).
+var alShowRE = regexp.MustCompile(`^[a-z][a-z0-9-]{0,60}$`)
+
 // AlertList renders the alerts page, optionally filtered by ?status=open|acknowledged|resolved.
 func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	// The inbox has one segmented control: All / Needs action / Watching. Resolved
 	// history is intentionally not a view here — the inbox is about what's active.
 	view := r.URL.Query().Get("view")
+	// The list opens on a rail view (?show=, coll_list.js); the old tab links map onto it.
+	show := r.URL.Query().Get("show")
 	switch view {
-	case "", "needs", "watching", "crashes":
+	case "needs":
+		show, view = "needs", ""
+	case "watching":
+		show, view = "open", ""
+	case "crashes":
 	default:
 		view = ""
+	}
+	if !alShowRE.MatchString(show) {
+		show = "needs"
 	}
 	summary, err := h.db.AlertSummaryCounts(r.Context(), h.access(r).hidesIdentityAlerts())
 	if err != nil {
@@ -171,19 +184,6 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	alAnchors(needs)
 	alAnchors(watching)
 	alAnchors(snoozed)
-	// A1 (21 Oct 2026): banner, count cards and rail. Fleet-wide counts (alerts raised,
-	// crashes) only for viewers who see the whole fleet and no device filter.
-	var raised *db.AlertsRaised
-	var crashStats *db.FleetCrashStats
-	if deviceID == nil && !acc.hidesDevices() {
-		if rc, err := h.db.AlertsRaisedCounts(r.Context(), acc.hidesIdentityAlerts()); err == nil {
-			raised = &rc
-		}
-		if cs, err := h.db.GetFleetCrashStats(r.Context(), 1); err == nil {
-			crashStats = &cs
-		}
-	}
-	now := time.Now()
 	// Crash signatures on several devices are release issues, not device problems —
 	// and a release concern, so the section is super-admin only.
 	var issues []releaseIssueView
@@ -244,10 +244,8 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"Reasons":       problemReasons(),
 		"CanAct":        canAct,
 		"Me":            h.currentUsername(r),
-		"AlBanner":      buildAlertBanner(needs, watching, now),
-		"AlCards":       buildAlertCards(needs, watching, raised, crashStats, now),
-		"AlRail":        buildAlertRail(needs, watching, crashStats, now),
-		"AlVenues":      alVenues(needs, watching, snoozed),
+		"AlL1":          buildAlertsL1(h.currentUsername(r), needs, watching, snoozed),
+		"Show":          show,
 	})
 }
 

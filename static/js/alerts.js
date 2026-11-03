@@ -1,40 +1,4 @@
-// Loaded by templates/alerts.html.
-// Client-side search: hide cards whose text doesn't match, preserved across the
-// live refresh below.
-window.__alxQ = window.__alxQ || "";
-// A1 filter pills (Severity, Owner, Venue): {sev, owner, venue}, matched against the
-// problem rows' data-sev / data-owner / data-venue. Kept across the live refresh.
-window.__alxF = window.__alxF || {};
-function alxPill(sel){
-  var pill=sel.closest('[data-f]'); if(!pill) return;
-  window.__alxF[pill.getAttribute('data-f')]=sel.value;
-  alxFilter();
-}
-function alxFilter(){
-  var inp=document.getElementById('alx-q'); if(inp) window.__alxQ=inp.value;
-  var q=(window.__alxQ||"").trim().toLowerCase(), f=window.__alxF||{}, shown=0;
-  document.querySelectorAll('#alerts-live [data-f]').forEach(function(p){
-    var k=p.getAttribute('data-f'), s=p.querySelector('select'); if(s) s.value=f[k]||"";
-    p.classList.toggle('set', !!f[k]);
-  });
-  var pills=!!(f.sev||f.owner||f.venue), on=!!q||pills;
-  var cards=document.querySelectorAll('#alerts-live .alx-al, #alerts-live tr[data-search]');
-  cards.forEach(function(c){
-    var hay=(c.getAttribute('data-search')||"").toLowerCase();
-    var ok=!q||hay.indexOf(q)!==-1;
-    if(ok && c.tagName==='TR'){
-      if(f.sev && c.getAttribute('data-sev')!==f.sev) ok=false;
-      if(f.owner && c.getAttribute('data-owner')!==f.owner) ok=false;
-      if(f.venue && c.getAttribute('data-venue')!==f.venue) ok=false;
-    }
-    c.style.display=ok?"":"none"; if(ok)shown++;
-  });
-  document.querySelectorAll('#alerts-live .alx-sec, #alerts-live .alx-fold, #alerts-live .alx-pager').forEach(function(s){ s.style.display=on?"none":""; });
-  // A search that matches a device folded inside a group must not leave it hidden
-  // behind a collapsed expander — open every group while filtering.
-  document.querySelectorAll('#alerts-live .alx-fold-g').forEach(function(d){ d.open=!!q; });
-  var nm=document.getElementById('alx-nomatch'); if(nm) nm.style.display=(on&&cards.length&&shown===0)?"block":"none";
-}
+// Loaded by templates/alerts.html. Search, views, chips and sort are coll_list.js (L1, 3 Nov 2026).
 // Live refresh: re-fetch the current (filter-preserving) URL and swap the region.
 (function(){
   var pending=false;
@@ -46,7 +10,13 @@ function alxFilter(){
       pending=false;
       var doc=new DOMParser().parseFromString(html,'text/html');
       var fresh=doc.getElementById('alerts-live'), cur=document.getElementById('alerts-live');
-      if(fresh&&cur){ cur.innerHTML=fresh.innerHTML; var inp=document.getElementById('alx-q'); if(inp)inp.value=window.__alxQ||""; alxFilter(); }
+      if(fresh&&cur){
+        // The list (coll_list.js) keeps its view, chips, search and sort across the swap.
+        var old=cur.querySelector('[data-cl]'), keep=old&&old._clState;
+        cur.innerHTML=fresh.innerHTML;
+        var nr=cur.querySelector('[data-cl]'); if(nr&&keep) nr._clCarry=keep;
+        if(window.collListBoot) window.collListBoot();
+      }
     }).catch(function(){pending=false;});
   }
   document.addEventListener('mdm:alerts-update',refresh);

@@ -6,6 +6,9 @@
 //   search [data-clq]         against the row's data-text
 //   sort   [data-cls="key"]   data-s-<key> on each row; "name" sorts A→Z, the rest as set by data-dir
 // A row carries data-flags (space-separated keys), data-classes and data-text.
+// data-start on the root names the rail view to open with. A page that swaps its list in
+// place (Alerts' live refresh) carries the state over: set the new root's _clCarry to the
+// old root's _clState, then call window.collListBoot().
 (function () {
   function init(root) {
     if (!root || root.dataset.clReady) return;
@@ -13,7 +16,8 @@
     var tbody = root.querySelector('tbody');
     if (!tbody) return;
     var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.ft-row'));
-    var st = { view: '', chips: {}, prod: '', q: '' };
+    var st = root._clCarry || { view: root.dataset.start || '', chips: {}, prod: '', q: '', sort: null };
+    root._clState = st;
     var one = root.dataset.one || 'item', many = root.dataset.many || 'items';
     var countEl = root.querySelector('[data-cl-count]'), titleEl = root.querySelector('[data-cl-title]');
     var none = root.querySelector('[data-cl-none]');
@@ -73,6 +77,7 @@
       if (tr && !e.target.closest('a,button,summary,details,input,form')) location.href = tr.dataset.href;
     });
     function sortBy(key, dir, label) {
+      st.sort = { key: key, dir: dir, label: label };
       var sign = dir === 'desc' ? -1 : 1;
       rows.sort(function (a, b) {
         var x = a.dataset['s' + key[0].toUpperCase() + key.slice(1)], y = b.dataset['s' + key[0].toUpperCase() + key.slice(1)];
@@ -88,6 +93,14 @@
     }
     var qi = root.querySelector('[data-clq]');
     if (qi) qi.addEventListener('input', function () { st.q = qi.value.trim(); apply(); });
+    // Show the state it opens with (data-start, or carried over from the list it replaced).
+    if (qi && st.q) qi.value = st.q;
+    root.querySelectorAll('[data-clf]').forEach(function (x) {
+      var on = x.dataset.clf === st.view; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+      if (on && titleEl) titleEl.textContent = x.dataset.title || (x.querySelector('.nm') || x).textContent;
+    });
+    root.querySelectorAll('[data-clc]').forEach(function (x) { var on = !!st.chips[x.dataset.clc]; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); });
+    if (st.sort) sortBy(st.sort.key, st.sort.dir, st.sort.label);
     document.addEventListener('click', function (e) {
       var m = root.querySelector('[data-cl-sortmenu]');
       if (m && !m.hidden && !e.target.closest('[data-cl-sortmenu],[data-cl-sortbtn]')) m.hidden = true;
@@ -95,6 +108,7 @@
     apply();
   }
   function boot() { document.querySelectorAll('[data-cl]').forEach(init); }
+  window.collListBoot = boot;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   document.addEventListener('htmx:afterSettle', boot);
 

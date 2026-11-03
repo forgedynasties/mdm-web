@@ -108,7 +108,7 @@ func TestAlertsProblemsRender(t *testing.T) {
 		return m
 	}
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}{{define "crash-trace"}}{{end}}`))
-	tmpl = template.Must(tmpl.ParseFiles("../../templates/alerts.html"))
+	tmpl = template.Must(tmpl.ParseFiles("../../templates/alerts.html", "../../templates/restaurants.html"))
 
 	now := time.Now()
 	as := problemFixture(now)
@@ -131,7 +131,6 @@ func TestAlertsProblemsRender(t *testing.T) {
 	alAnchors(needs)
 	alAnchors(watching)
 	alAnchors(snoozed)
-	cs := db.FleetCrashStats{Total24h: 14, Devices24h: 6, Daily: []int{3, 5, 2, 4, 1, 3, 6}}
 	issue := releaseIssueView{db.CrashIssue{Kind: "system_app_crash", BuildID: "v2.1.024",
 		Summary: "com.google.android.permissioncontroller — java.lang.IllegalArgumentException", Events: 75, Devices: 40,
 		FirstAt: now.Add(-72 * time.Hour), LastAt: now, ReleaseID: 7}, "com.google.android.permissioncontroller", "Crash", "crash"}
@@ -142,10 +141,7 @@ func TestAlertsProblemsRender(t *testing.T) {
 		"AlertCount": len(as), "Issues": []releaseIssueView{issue},
 		"Assignees": []assigneeOption{{"sam", "Sam Lee"}, {"me", "Me Myself"}}, "Me": "me",
 		"Reasons": problemReasons(), "CanAct": true, "Role": "admin", "CrashCount": 0,
-		"AlBanner": buildAlertBanner(needs, watching, now),
-		"AlCards":  buildAlertCards(needs, watching, &db.AlertsRaised{Critical24: 2, CriticalPrev: 3, Warning24: 5, WarningPrev: 3}, &cs, now),
-		"AlRail":   buildAlertRail(needs, watching, &cs, now),
-		"AlVenues": alVenues(needs, watching, snoozed),
+		"AlL1": buildAlertsL1("me", needs, watching, snoozed), "Show": "needs",
 	}
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "alerts.html", data); err != nil {
@@ -156,16 +152,12 @@ func TestAlertsProblemsRender(t *testing.T) {
 		_ = os.WriteFile(dump, buf.Bytes(), 0o644)
 	}
 	for _, want := range []string{
-		"T7-P: Charging hardware", "Flights Vegas: 2 devices offline", "Release issues",
-		"v2.1.024: com.google.android.permissioncontroller", `href="/releases/7/crashes"`,
+		"T7-P: Charging hardware", "Flights Vegas: 2 devices offline",
 		`value="false_alarm"`, "after hours", "new since acknowledged", "Snoozed", "Sam Lee",
-		// A1 (21 Oct): banner, count cards, problem table and the rail.
-		`class="ov2-ban is-`, `class="oc-todo"`, `>Critical</a>`, `>Warnings</a>`, `>Crashes</a>`,
-		`raised in 24 h`, `▼ 1</span><b>2</b>`, `▲ 2</span><b>5</b>`, `▲ 3</span><b>14</b>`,
-		`<table class="alr-t">`, `data-owner="none"`, `class="alr-sev critical"`, `id="alr-snoozed"`,
-		`acknowledged</small>`, `aria-label="Crashes each of the last seven days"`, `24 crashes in 7 days`,
-		`data-f="sev"`, `data-f="owner"`, `name="op" value="ack"`, `name="op" value="assign"`,
-		`name="op" value="snooze"`, `name="op" value="resolve"`,
+		// L1 (3 Nov): Fleet's twin, rail views, chips, one table.
+		`data-cl data-one="problem"`, `data-start="needs"`, `data-clf="needs"`, `data-clf="snoozed"`, `href="/alerts?view=crashes"`,
+		`>By problem<`, `>By venue<`, `data-clc="warn"`, `data-cls="since" data-dir="desc"`, `class="ft cl-ft al-ft"`,
+		`data-flags="`, `name="op" value="ack"`, `name="op" value="assign"`, `name="op" value="snooze"`, `name="op" value="resolve"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)
