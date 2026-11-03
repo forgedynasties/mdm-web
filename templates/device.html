@@ -1222,9 +1222,12 @@ window.DEVICE_VITALS = {
     {{/* What needs a look on this device (O5), first on the Overview since V1 (23 Oct 2026);
          to-do rows with a fix since N1 (27 Oct). device_needs.go */}}
     {{with .Needs}}
-    <div class="dd-needs" id="dd-needs">
+    {{/* Three rows, the rest behind "N more" (3 Nov 2026: six of them pushed the device card
+         out of the pane). The Health tab lists them all. */}}
+    <div class="dd-needs{{if gt (len .) 3}} dd-needs-cap{{end}}" id="dd-needs">
       <div class="dd-nh">{{len .}} thing{{if ne (len .) 1}}s{{end}} to look at</div>
       {{template "dd-todo-rows" (dict "Items" . "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" false "Serial" $.Device.SerialNumber "RoleOK" (canOperate $.Role))}}
+      {{if gt (len .) 3}}<button type="button" class="dd-nmore" aria-expanded="false" onclick="var c=this.parentNode.classList.toggle('dd-needs-cap');this.setAttribute('aria-expanded',!c);this.textContent=c?this.dataset.more:'Show fewer'" data-more="{{sub (len .) 3}} more">{{sub (len .) 3}} more</button>{{end}}
     </div>
     {{end}}
     {{/* M2 (23 Oct 2026): the AIO backend lists this device at another place. */}}
@@ -1791,6 +1794,9 @@ html.dd-fit .dd-split-l .chart-body .chart-wrap--tall>canvas{position:absolute;i
 .dd-needs{grid-column:1/-1;align-self:start;background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden}
 .dd-nh{padding:12px 16px 8px;font-weight:650;font-size:14px}
 .dd-nr{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);font-size:13px}
+.dd-needs-cap .dd-nr~.dd-nr~.dd-nr~.dd-nr{display:none}
+.dd-nmore{display:block;width:100%;border:0;border-top:1px solid var(--border);background:transparent;font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-text);padding:9px 16px;text-align:left;cursor:pointer}
+.dd-nmore:hover{background:var(--hover)}
 .dd-nd{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}.dd-nd.bad{background:var(--danger)}.dd-nd.info{background:var(--info)}.dd-nd.ok{background:var(--ok)}
 .dd-nbtns{display:flex;gap:6px;flex-wrap:wrap;flex:none}.dd-nbtns form{margin:0}
 .dd-nt{flex:1;min-width:0;font-weight:600}.dd-nt small{display:block;color:var(--muted);font-size:12px;font-weight:400}
