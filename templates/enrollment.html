@@ -355,7 +355,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
   <div class="dh"><h2 id="en-app-dlg-h">AIO Enroll for Android</h2><button type="button" class="x" aria-label="Close" onclick="this.closest('dialog').close()">&times;</button></div>
   <div class="db">
     <div class="en-app-top">
-      <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="140" height="140" loading="lazy">
+      <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="140" height="140">
       <div class="t">
         <b>{{if .Version}}Version {{.Version}}{{else}}Latest version{{end}}</b>
         <span class="muted small">{{if not .At.IsZero}}Published {{timeSince .At}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
