@@ -37,15 +37,31 @@ DO $$ BEGIN
 END $$;
 CREATE OR REPLACE FUNCTION devices_placement_reset() RETURNS trigger AS $$
 BEGIN
-  IF NEW.restaurant_id IS DISTINCT FROM OLD.restaurant_id THEN
-    NEW.handed_over_at := NULL;
-    NEW.handed_over_by := '';
+  -- Placed at a venue = deployed (user, 3 Nov 2026: "when a device is placed at a venue its
+  -- deployed. ops lead can manually put devices to set up bucket"); off a venue, no state.
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.restaurant_id IS NOT NULL AND NEW.handed_over_at IS NULL THEN
+      NEW.handed_over_at := now();
+      NEW.handed_over_by := 'placed';
+    END IF;
+  ELSIF NEW.restaurant_id IS DISTINCT FROM OLD.restaurant_id THEN
+    IF NEW.restaurant_id IS NULL THEN
+      NEW.handed_over_at := NULL;
+      NEW.handed_over_by := '';
+    ELSE
+      NEW.handed_over_at := now();
+      NEW.handed_over_by := 'placed';
+    END IF;
   END IF;
   RETURN NEW;
 END $$ LANGUAGE plpgsql;
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'devices_placement_reset') THEN
     CREATE TRIGGER devices_placement_reset BEFORE UPDATE OF restaurant_id ON devices
+      FOR EACH ROW EXECUTE FUNCTION devices_placement_reset();
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'devices_placement_insert') THEN
+    CREATE TRIGGER devices_placement_insert BEFORE INSERT ON devices
       FOR EACH ROW EXECUTE FUNCTION devices_placement_reset();
   END IF;
 END $$;
@@ -67,6 +83,17 @@ CREATE TABLE IF NOT EXISTS setup_visit_people (
 );
 CREATE INDEX IF NOT EXISTS idx_setup_visit_people_user ON setup_visit_people (username);
 `
+
+// SetSettingUp puts devices at a venue back into the Setting up bucket (the Ops lead's "Set up
+// again"): Field people work on them until someone hands them over. Returns how many moved.
+func (d *DB) SetSettingUp(ctx context.Context, ids []uuid.UUID) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `UPDATE devices SET handed_over_at = NULL, handed_over_by = ''
+		WHERE id = ANY($1) AND restaurant_id IS NOT NULL AND handed_over_at IS NOT NULL`, ids)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
 
 // DefaultVisitDays is a new setup visit's length (user, 30 Oct 2026: "3 days default editable").
 const DefaultVisitDays = 3

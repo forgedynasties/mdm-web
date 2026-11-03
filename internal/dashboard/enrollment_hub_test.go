@@ -77,7 +77,7 @@ func TestSetupEnrollmentViews(t *testing.T) {
 			"Enrollments": []db.Enrollment{{Serial: "DP02254J10876", DeviceClass: "pos", EnrolledAt: now}},
 			"Groups":      []db.Group{}, "ExpiredProfiles": 0, "Enrolling": false, "ScoutOn": true, "FleetKeySet": true,
 			"DeviceKey": "secret-key", "DeviceKeyMask": "sec••••key",
-			"Rows": []placeRow{}, "SetRows": []visitDeviceRow{}, "SvcRows": []visitDeviceRow{}, "Visits": []db.SetupVisit{},
+			"Rows": []placeRow{}, "SetRows": []visitDeviceRow{}, "SvcRows": []visitDeviceRow{},
 		}
 		if role != "admin" { // as enrollmentData: the provisioning cards and the key are the super admin's
 			delete(d, "Prov")

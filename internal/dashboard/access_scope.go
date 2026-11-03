@@ -52,11 +52,12 @@ func (a *access) venueInScope(id uuid.UUID) bool {
 	if !a.hidesDevices() {
 		return true
 	}
-	// The Ops lead runs every venue, empty ones included; Field the venues of their visits.
+	// The Ops lead runs every venue, empty ones included; Field the venues with devices being
+	// set up (no setup visits since 3 Nov 2026).
 	if a.role == "fleet_manager" && a.pol.Base != "deny" {
 		return true
 	}
-	if a.role == "field" && a.onVisitAt(id) {
+	if a.role == "field" && a.settingUpAt(id) {
 		return true
 	}
 	if rests, _ := a.visibleCollections(); rests[id] > 0 {
@@ -64,6 +65,17 @@ func (a *access) venueInScope(id uuid.UUID) bool {
 	}
 	for _, g := range a.pol.Grants {
 		if g.Effect == "allow" && g.ScopeType == "restaurant" && g.ScopeID != nil && *g.ScopeID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// settingUpAt reports whether any device at the venue is in the Setting up bucket.
+func (a *access) settingUpAt(venue uuid.UUID) bool {
+	a.loadScopes()
+	for _, sc := range a.scopes {
+		if sc.RestaurantID != nil && *sc.RestaurantID == venue && !sc.InService {
 			return true
 		}
 	}

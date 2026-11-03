@@ -1,12 +1,12 @@
 {{define "my_visits.html"}}
 {{template "header" .}}
-{{/* Field's home (roles replan, F2 picked 30 Oct 2026): Fleet's layout, the open setup
-     visits in the left list, one table of their venues' devices with each one's checklist
-     and Hand over. role_homes.go */}}
+{{/* Field's home "Setup" (no setup visits since 3 Nov 2026): the devices they enrolled waiting
+     for a venue, then every device the Ops lead put into setup with its checklist and Hand
+     over. The left list is the venues with devices being set up. role_homes.go */}}
 <template id="page-island">
   <span class="isl-dot {{if .SettingUp}}warn{{else}}ok{{end}}"></span>
-  <span class="isl-t">My visits</span>
-  <span class="isl-s">{{if .Place}}<b>{{len .Place}}</b> to place · {{end}}<b>{{len .Visits}}</b> open{{if .SettingUp}} · {{.SettingUp}} setting up{{if .ReadyN}} · <span class="w">{{.ReadyN}} ready to hand over</span>{{end}}{{end}}</span>
+  <span class="isl-t">Setup</span>
+  <span class="isl-s">{{if .Place}}<b>{{len .Place}}</b> to place · {{end}}<b>{{.SettingUp}}</b> being set up{{if .ReadyN}} · <span class="w">{{.ReadyN}} ready to hand over</span>{{end}}</span>
 </template>
 <style>
 .mv-head{display:flex;align-items:baseline;gap:10px;margin:2px 0 14px;flex-wrap:wrap}
@@ -16,34 +16,30 @@
 .mv-ck{display:inline-flex;gap:4px;flex-wrap:wrap}
 .mv-act{text-align:right;white-space:nowrap}
 .mv-act form{display:inline;margin:0}
-.fleet-rail-item .sub{display:block;font-size:11px;color:var(--muted);font-weight:500}
 .mv-sec{font-size:15px;font-weight:650;margin:18px 0 10px}.mv-sec .muted{font-weight:500;font-size:13px}
 </style>
 
 <div class="fleet-md">
-  <aside class="fleet-rail" aria-label="My visits">
-    <div class="fleet-rail-cap">My visits</div>
-    <a class="fleet-rail-item{{if not .Sel}} on{{end}}" href="/my-visits"><span class="dot {{if .SettingUp}}warn{{else}}ok{{end}}"></span><span class="nm">All my devices</span><span class="ct">{{len .Rows}}</span></a>
+  <aside class="fleet-rail" aria-label="Setup">
+    <div class="fleet-rail-cap">Setup</div>
+    <a class="fleet-rail-item{{if not .Sel}} on{{end}}" href="/my-visits"><span class="dot {{if .SettingUp}}warn{{else}}ok{{end}}"></span><span class="nm">Everything</span></a>
     {{if .Place}}<a class="fleet-rail-item" href="/my-visits#to-place"><span class="dot warn"></span><span class="nm">To place</span><span class="ct">{{len .Place}}</span></a>{{end}}
-    {{range .Visits}}
-    <a class="fleet-rail-item{{if eq $.Sel .ID.String}} on{{end}}" href="/my-visits?visit={{.ID}}"><span class="dot warn"></span><span class="nm">{{.Restaurant}}<span class="sub">{{if .Purpose}}{{.Purpose}} · {{end}}until {{.EndsAt.Format "Mon 2 Jan"}}</span></span></a>
-    {{end}}
+    {{with .VenuesN}}<div class="fleet-rail-cap">Being set up at</div>
+    {{range .}}<a class="fleet-rail-item{{if eq $.Sel .ID}} on{{end}}" href="/my-visits?venue={{.ID}}"><span class="dot warn"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></a>{{end}}{{end}}
   </aside>
 
   <div style="min-width:0">
-    <div class="mv-head"><h1 class="cc-h1">{{if .Sel}}{{range .Visits}}{{if eq $.Sel .ID.String}}{{.Restaurant}}{{end}}{{end}}{{else}}All my devices{{end}}</h1>
-      <span class="muted">{{len .Rows}} device{{if ne (len .Rows) 1}}s{{end}}{{if .SettingUp}} · {{.SettingUp}} setting up{{end}}</span></div>
+    <div class="mv-head"><h1 class="cc-h1">{{if .Sel}}{{.SelName}}{{else}}Setup{{end}}</h1>
+      <span class="muted">{{.SettingUp}} device{{if ne .SettingUp 1}}s{{end}} being set up{{if .ReadyN}} · {{.ReadyN}} ready to hand over{{end}}</span></div>
     {{if .Place}}
     {{template "place-style"}}
-    <h2 class="mv-sec" id="to-place">Your devices to place <span class="muted">{{len .Place}} · enrolled by you, no venue yet</span></h2>
+    <h2 class="mv-sec" id="to-place">Your devices to place <span class="muted">{{len .Place}} · enrolled by you, no venue yet · placing one deploys it</span></h2>
     {{template "place-table" (dict "Rows" .Place "Venues" .Venues "Back" "/my-visits" "NewVenue" false "Lab" false)}}
     {{template "place-script"}}
-    <h2 class="mv-sec">At venues</h2>
+    <h2 class="mv-sec">Being set up</h2>
     {{end}}
-    {{if and (not .Visits) (not .Rows)}}
-    <div class="mv-empty"><b>No open visits</b>An Ops lead opens a setup visit at a venue and puts you on it. Its devices show here until the visit ends. Devices you enroll yourself show here too.</div>
-    {{else if not .Rows}}
-    <div class="mv-empty"><b>No devices here yet</b>Enrol them with AIO Enroll: a device placed at the venue shows up here, setting up.</div>
+    {{if not .Rows}}
+    <div class="mv-empty"><b>Nothing to set up</b>The Ops lead puts devices into setup when they need work on site; they show here with their checklist until handed over. Devices you enroll show above until you place them.</div>
     {{else}}
     <div class="ft-wrap">
     <table class="ft">
@@ -66,7 +62,7 @@
         <td>{{if eq .State "setting_up"}}<span class="cc-tag warn">setting up</span>{{else}}<span class="cc-tag">in service</span>{{end}}</td>
         <td>{{if .Checks}}<span class="mv-ck">{{range .Checks}}<span class="cc-tag {{if .OK}}ok{{end}}" title="{{.Fix}}">{{if .OK}}✓{{else}}·{{end}} {{.Label}}</span>{{end}}</span>{{else}}<span class="muted small">—</span>{{end}}</td>
         <td class="ft-num ft-seen"><span class="dl-synced">{{timeSince .Device.LastSeenAt}}</span></td>
-        <td class="mv-act">{{if and .CanHand (eq .State "setting_up")}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/handover" hx-boost="false"><input type="hidden" name="back" value="/my-visits{{if $.Sel}}?visit={{$.Sel}}{{end}}"><button type="submit" class="cc-btn sm{{if .Ready}} primary{{end}}"{{if not .Ready}} disabled title="Finish the checklist first"{{end}}>Hand over</button></form>{{end}}</td>
+        <td class="mv-act">{{if and .CanHand (eq .State "setting_up")}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/handover" hx-boost="false"><input type="hidden" name="back" value="/my-visits{{if $.Sel}}?venue={{$.Sel}}{{end}}"><button type="submit" class="cc-btn sm{{if .Ready}} primary{{end}}"{{if not .Ready}} disabled title="Finish the checklist first"{{end}}>Hand over</button></form>{{end}}</td>
       </tr>
       {{end}}
       </tbody>

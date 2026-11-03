@@ -1055,8 +1055,9 @@ func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []d
 //   Ops lead                   To place (no venue, enrolled for a restaurant), Setting up
 //                              and In service
 //   Support, Support (old), Viewer  In service
-//   Field                      the venues of their open setup visits, any state, and the
-//                              devices they enrolled until handed over
+//   Field                      every device in the Setting up bucket (the Ops lead puts them
+//                              there; placing at a venue deploys), and the devices they
+//                              enrolled until placed
 //   Owner                      their venues: In service, and Setting up read-only
 //   Staff                      their venue: In service
 
@@ -1078,7 +1079,7 @@ var engineerLookActions = map[string]bool{"view": true, "screenshot": true, "que
 func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 	if dev == nil {
 		if a.role == "field" {
-			return decision{false, "Field acts only on their setup visits' devices", nil}, false
+			return decision{false, "Field acts on devices being set up and the ones they enrolled", nil}, false
 		}
 		if a.role == "engineer" && action != "alerts" {
 			return decision{false, "Engineers act on lab devices, not on venues or deployments", nil}, false
@@ -1111,8 +1112,8 @@ func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 			return no("Being set up: read-only until it is handed over")
 		}
 	case "field":
-		if sc.RestaurantID == nil || !a.onVisitAt(*sc.RestaurantID) {
-			return no("Not at a venue of one of your open setup visits")
+		if st != db.StateSettingUp {
+			return no("Only devices being set up")
 		}
 	}
 	return decision{}, true

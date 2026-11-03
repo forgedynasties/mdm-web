@@ -1,22 +1,20 @@
 package dashboard
 
 import (
-	"context"
 	"fmt"
 	"net/http"
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
 	"mdm/internal/db"
 )
 
-// Setup visits on the venue page (roles replan, decided 30 Oct 2026): Venue settings ›
-// Setup visits. The Ops lead opens a visit (what it is for, until when, which Field
-// people), extends or closes it; the row also lists the venue's devices that are setting
-// up, each with its checklist and Hand over. db/setup_visits.go holds the model.
+// The venue page's Setup row (no setup visits since 3 Nov 2026; user: "we can remove visit
+// logic, ops lead can set devices to setup phase, then all the people in field can see them").
+// Placing a device at a venue deploys it; the Ops lead puts devices back into the Setting up
+// bucket (Set up again), Field people work on them, and anyone allowed hands them over once
+// the checklist is green. The row lists the devices setting up here with their checklist.
 
 type venueSetupRow struct {
 	Device db.Device
@@ -25,47 +23,39 @@ type venueSetupRow struct {
 }
 
 type venueVisitsView struct {
-	Open       []db.SetupVisit
-	Past       []db.SetupVisit
-	SettingUp  []venueSetupRow
-	Ready      int
-	CanManage  bool     // open, extend, close visits
-	CanHand    bool     // hand over here
-	Field      []string // Field accounts, for the people picker
-	DefaultEnd string   // yyyy-mm-dd, DefaultVisitDays from today
+	SettingUp []venueSetupRow
+	Ready     int
+	InService int  // devices here in service (what Set up again would move)
+	CanManage bool // Set up again (Ops lead, super admin)
+	CanHand   bool // hand over here
 }
 
 // Summary is the row's one line.
 func (v venueVisitsView) Summary() string {
-	switch {
-	case len(v.Open) == 1:
-		return "1 open · ends " + v.Open[0].EndsAt.Format("Mon 2 Jan")
-	case len(v.Open) > 1:
-		return fmt.Sprintf("%d open", len(v.Open))
+	if len(v.SettingUp) == 0 {
+		return "Nothing being set up"
 	}
-	return "None open"
+	s := fmt.Sprintf("%d being set up", len(v.SettingUp))
+	if v.Ready > 0 {
+		s += fmt.Sprintf(" · %d ready to hand over", v.Ready)
+	}
+	return s
 }
 
-// mayManageVisits: the super admin and the Ops lead.
+// mayManageVisits: who decides what is being set up (the Ops lead and super admins).
 func mayManageVisits(role string) bool { return role == "admin" || role == "fleet_admin" || role == "fleet_manager" }
 
 func (h *Handler) venueVisitsView(r *http.Request, id uuid.UUID, devices []db.Device) venueVisitsView {
 	ctx := r.Context()
-	role := h.role(r)
-	v := venueVisitsView{CanManage: mayManageVisits(role),
-		DefaultEnd: time.Now().AddDate(0, 0, db.DefaultVisitDays).Format("2006-01-02")}
-	if vs, err := h.db.VenueVisits(ctx, id); err == nil {
-		for _, x := range vs {
-			if x.Open() {
-				v.Open = append(v.Open, x)
-			} else {
-				v.Past = append(v.Past, x)
-			}
-		}
-	}
+	v := venueVisitsView{CanManage: mayManageVisits(h.role(r))}
 	scopes, _ := h.db.DeviceScopes(ctx)
 	for _, d := range devices {
-		if sc, ok := scopes[d.ID]; !ok || sc.InService || d.Hidden {
+		sc, ok := scopes[d.ID]
+		if !ok || d.Hidden {
+			continue
+		}
+		if sc.InService {
+			v.InService++
 			continue
 		}
 		cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
@@ -78,120 +68,10 @@ func (h *Handler) venueVisitsView(r *http.Request, id uuid.UUID, devices []db.De
 	if len(v.SettingUp) > 0 {
 		v.CanHand = h.mayHandOver(r, &v.SettingUp[0].Device)
 	}
-	if v.CanManage {
-		v.Field = h.fieldAccounts(ctx)
-	}
 	return v
 }
 
-// fieldAccounts lists the usernames with the Field role.
-func (h *Handler) fieldAccounts(ctx context.Context) []string {
-	us, err := h.db.ListUsers(ctx)
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, u := range us {
-		if u.Role == "field" {
-			out = append(out, u.Username)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
-func visitBack(id uuid.UUID) string { return fmt.Sprintf("/restaurants/%s?open=visits#vn-visits", id) }
-
-// RestaurantVisitOpen: POST /restaurants/{id}/visits {purpose, ends (yyyy-mm-dd), people[]}.
-func (h *Handler) RestaurantVisitOpen(w http.ResponseWriter, r *http.Request) {
-	if !mayManageVisits(h.role(r)) {
-		http.Error(w, "Only an Ops lead opens setup visits.", http.StatusForbidden)
-		return
-	}
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil || !h.access(r).venueInScope(id) {
-		http.Error(w, "Venue not found", http.StatusNotFound)
-		return
-	}
-	r.ParseForm()
-	ends, err := visitEnd(r.FormValue("ends"))
-	if err != nil {
-		h.hxDoneToast(w, r, visitBack(id), err.Error(), "error")
-		return
-	}
-	people := cleanPeople(r.Form["people"], h.fieldAccounts(r.Context()))
-	if len(people) == 0 {
-		h.hxDoneToast(w, r, visitBack(id), "Pick at least one Field person", "error")
-		return
-	}
-	purpose := strings.TrimSpace(r.FormValue("purpose"))
-	if len(purpose) > 120 {
-		purpose = purpose[:120]
-	}
-	vid, err := h.db.OpenSetupVisit(r.Context(), id, purpose, ends, people, h.currentUsername(r))
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "visit.open", vid.String(), fmt.Sprintf("%s · %s · until %s", id, strings.Join(people, ", "), ends.Format("2 Jan")))
-	h.hxDoneToast(w, r, visitBack(id), "Setup visit open until "+ends.Format("Mon 2 Jan"), "success")
-}
-
-// RestaurantVisitChange: POST /restaurants/{id}/visits/{vid} {action: extend|close|people, ends, people[]}.
-func (h *Handler) RestaurantVisitChange(w http.ResponseWriter, r *http.Request) {
-	if !mayManageVisits(h.role(r)) {
-		http.Error(w, "Only an Ops lead changes setup visits.", http.StatusForbidden)
-		return
-	}
-	id, err1 := uuid.Parse(r.PathValue("id"))
-	vid, err2 := uuid.Parse(r.PathValue("vid"))
-	if err1 != nil || err2 != nil {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
-	}
-	v, err := h.db.GetSetupVisit(r.Context(), vid)
-	if err != nil || v.RestaurantID != id {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
-	}
-	r.ParseForm()
-	back := visitBack(id)
-	switch r.FormValue("action") {
-	case "extend":
-		ends, err := visitEnd(r.FormValue("ends"))
-		if err != nil {
-			h.hxDoneToast(w, r, back, err.Error(), "error")
-			return
-		}
-		if err := h.db.ExtendSetupVisit(r.Context(), vid, ends); err != nil {
-			h.hxDoneToast(w, r, back, "That visit is closed", "error")
-			return
-		}
-		h.audit(r, "visit.extend", vid.String(), ends.Format("2 Jan"))
-		h.hxDoneToast(w, r, back, "Visit now ends "+ends.Format("Mon 2 Jan"), "success")
-	case "close":
-		if err := h.db.CloseSetupVisit(r.Context(), vid, h.currentUsername(r)); err != nil {
-			h.hxDoneToast(w, r, back, "That visit is closed already", "error")
-			return
-		}
-		h.audit(r, "visit.close", vid.String(), "")
-		h.hxDoneToast(w, r, back, "Visit closed: its Field people no longer see this venue", "success")
-	case "people":
-		people := cleanPeople(r.Form["people"], h.fieldAccounts(r.Context()))
-		if len(people) == 0 {
-			h.hxDoneToast(w, r, back, "Keep at least one Field person, or close the visit", "error")
-			return
-		}
-		if err := h.db.SetVisitPeople(r.Context(), vid, people); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		h.audit(r, "visit.people", vid.String(), strings.Join(people, ", "))
-		h.hxDoneToast(w, r, back, "People updated", "success")
-	default:
-		http.Error(w, "Unknown action", http.StatusBadRequest)
-	}
-}
+func visitBack(id uuid.UUID) string { return fmt.Sprintf("/restaurants/%s?open=setup#vn-setup", id) }
 
 // RestaurantHandOverReady: POST /restaurants/{id}/handover hands over every ready device here.
 func (h *Handler) RestaurantHandOverReady(w http.ResponseWriter, r *http.Request) {
@@ -235,35 +115,3 @@ func (h *Handler) RestaurantHandOverReady(w http.ResponseWriter, r *http.Request
 	h.hxDoneToast(w, r, back, fmt.Sprintf("%d device%s handed over · in service", n, map[bool]string{true: "", false: "s"}[n == 1]), "success")
 }
 
-// visitEnd parses an end date: end of that day in UTC, not in the past, at most 60 days out.
-func visitEnd(s string) (time.Time, error) {
-	d, err := time.Parse("2006-01-02", strings.TrimSpace(s))
-	if err != nil {
-		return time.Time{}, fmt.Errorf("Pick an end date")
-	}
-	end := d.Add(24*time.Hour - time.Second)
-	switch {
-	case end.Before(time.Now()):
-		return time.Time{}, fmt.Errorf("The end date has passed")
-	case end.After(time.Now().AddDate(0, 0, 60)):
-		return time.Time{}, fmt.Errorf("A visit can last 60 days at most")
-	}
-	return end, nil
-}
-
-// cleanPeople keeps the picked usernames that are Field accounts.
-func cleanPeople(picked, field []string) []string {
-	ok := map[string]bool{}
-	for _, f := range field {
-		ok[f] = true
-	}
-	var out []string
-	seen := map[string]bool{}
-	for _, p := range picked {
-		if ok[p] && !seen[p] {
-			seen[p] = true
-			out = append(out, p)
-		}
-	}
-	return out
-}

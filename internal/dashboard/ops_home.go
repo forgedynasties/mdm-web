@@ -2,11 +2,9 @@ package dashboard
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -19,7 +17,8 @@ import (
 //
 // GET /visits ("Setup"), Fleet's layout. The left list: To place · Setting up · In service, then
 // Enrollment (Enrolled; the super admin's Profiles, Found on Wi-Fi, From the AIO backend; M1,
-// 3 Nov 2026, the Enrollment page moved in), the open setup visits and the venues. How to
+// 3 Nov 2026, the Enrollment page moved in) and the venues. No setup visits (3 Nov 2026):
+// placing deploys, and In service rows have Set up again for when Field must rework one. How to
 // enroll, the Android app and New profile are in the island. To place is the queue (db/placement.go): a row per
 // device with its role, a venue picker and Deploy; tick several to deploy them together or send
 // them to the Lab; "+ New venue…" in the picker creates one and deploys the ticked devices
@@ -56,11 +55,6 @@ func (h *Handler) placeRowsFor(ctx context.Context, devs []db.Device) []placeRow
 	return out
 }
 
-// setupTodo is one line of the Setting up pane's to-do strip.
-type setupTodo struct {
-	Title, Sub, Action, Href string
-}
-
 // SetupHome: GET /visits, the Ops lead's home ("Setup"; /setup is an old redirect to Apps).
 // ?view= place (default) | setup | service.
 func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
@@ -79,14 +73,9 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace}, 0, 2000, "serial", "asc")
 	setting, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateSettingUp}, 0, 2000, "serial", "asc")
 	service, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateInService}, 0, 5000, "serial", "asc")
-	visits, _ := h.db.OpenVisits(ctx)
 	venues, _ := h.db.ListRestaurants(ctx)
 	rows := h.placeRowsFor(ctx, queue)
 
-	onVisit := map[uuid.UUID]bool{}
-	for _, v := range visits {
-		onVisit[v.RestaurantID] = true
-	}
 	// Setting up: each device's checklist; the to-dos per venue.
 	type venueAgg struct {
 		ID           uuid.UUID
@@ -130,21 +119,6 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 		}
 		return setRows[i].Device.SerialNumber < setRows[j].Device.SerialNumber
 	})
-	var todos []setupTodo
-	if view == "setup" {
-		for _, id := range order {
-			if a := agg[id]; !onVisit[id] {
-				todos = append(todos, setupTodo{Title: fmt.Sprintf("%s: %d device%s setting up, no visit open", a.Name, a.Total, plural(a.Total)),
-					Sub: "nobody on site can finish them: open a visit or hand them over", Action: "Open a visit", Href: visitBack(id)})
-			}
-		}
-		for _, v := range visits {
-			if time.Until(v.EndsAt) < 24*time.Hour {
-				todos = append(todos, setupTodo{Title: v.Restaurant + " visit ends within a day",
-					Sub: joinAnd(v.People) + " · extend it if the work isn't done", Action: "Extend", Href: visitBack(v.RestaurantID)})
-			}
-		}
-	}
 	var svc []visitDeviceRow
 	for i := range service {
 		d := &service[i]
@@ -164,8 +138,8 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
 	data := map[string]any{
 		"Title": "Setup", "ActivePage": "setup", "View": view, "EnView": enrollmentViews[view],
-		"Rows": rows, "SetRows": setRows, "SvcRows": svc, "Todos": todos, "Ready": ready,
-		"SettingN": len(setRows), "ServiceN": len(svc), "Visits": visits,
+		"Rows": rows, "SetRows": setRows, "SvcRows": svc, "Ready": ready,
+		"SettingN": len(setRows), "ServiceN": len(svc),
 		"Venues": venues, "RailVenues": railVenues, "Back": "/visits",
 		"Restaurants": venues,
 	}

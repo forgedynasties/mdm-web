@@ -33,10 +33,6 @@
     {{template "oh-view" (dict "Key" "found" "Name" "Found on Wi-Fi" "N" .SightingsReady "Dot" (or (and .SightingsReady "warn") "muted") "Cur" .View)}}
     {{with .Bk}}{{template "oh-view" (dict "Key" "backend" "Name" "From the AIO backend" "N" .Act "Dot" (or (and .Act "warn") "muted") "Cur" $.View)}}{{end}}
     {{end}}
-    {{with .Visits}}
-    <div class="fleet-rail-cap">Setup visits</div>
-    {{range .}}<a class="fleet-rail-item" href="/restaurants/{{.RestaurantID}}?open=visits"><span class="dot info"></span><span class="nm">{{.Restaurant}}<span class="sub">{{joinStrings .People ", "}} · until {{.EndsAt.Format "Mon 2 Jan"}}</span></span></a>{{end}}
-    {{end}}
     {{with .RailVenues}}
     <div class="fleet-rail-cap">Venues</div>
     {{range $i, $v := .}}{{if lt $i 8}}<a class="fleet-rail-item" href="/restaurants/{{$v.ID}}"><span class="dot ok"></span><span class="nm">{{$v.Name}}</span><span class="ct">{{$v.DeviceCount}}</span></a>{{end}}{{end}}
@@ -66,7 +62,6 @@
 
     {{else if eq .View "setup"}}
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">Setting up</h1><span class="c">{{.SettingN}} at a venue, not handed over{{if .Ready}} · {{.Ready}} ready to hand over{{end}}</span></div>
-    {{range .Todos}}<div class="oh-todo"><span class="dot warn"></span><span class="sp"><b>{{.Title}}</b><small>{{.Sub}}</small></span><a class="cc-btn sm" href="{{.Href}}">{{.Action}}</a></div>{{end}}
     {{if .SetRows}}
     <div class="card cl-card"><div class="ft-wrap"><table class="ft">
       <thead><tr><th class="ft-dev" scope="col">Device</th><th class="ft-type" scope="col">Type</th><th class="ft-venue" scope="col">Venue</th><th scope="col" style="width:230px">Checklist</th><th class="ft-num ft-seen" scope="col">Last seen</th><th scope="col" style="width:120px"><span class="sr-only">Hand over</span></th></tr></thead>
@@ -85,14 +80,14 @@
       </tbody>
     </table></div></div>
     {{else}}
-    <div class="pl-empty"><b>Nothing being set up</b>Devices you deploy from To place show here with their checklist until they are handed over.</div>
+    <div class="pl-empty"><b>Nothing being set up</b>Placing a device deploys it. Put a deployed device into setup (In service › Set up, or its ⋯ menu) when Field people need to work on it.</div>
     {{end}}
 
     {{else}}
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">In service</h1><span class="c">{{.ServiceN}} handed over</span>
       <span class="pl-head-acts"><a class="cc-btn" href="/devices?state=in_service">Open in Fleet</a></span></div>
     <div class="card cl-card"><div class="ft-wrap"><table class="ft">
-      <thead><tr><th class="ft-dev" scope="col">Device</th><th class="ft-type" scope="col">Type</th><th class="ft-venue" scope="col">Venue</th><th class="ft-num ft-seen" scope="col">Last seen</th></tr></thead>
+      <thead><tr><th class="ft-dev" scope="col">Device</th><th class="ft-type" scope="col">Type</th><th class="ft-venue" scope="col">Venue</th><th class="ft-num ft-seen" scope="col">Last seen</th><th scope="col" style="width:110px"><span class="sr-only">Set up</span></th></tr></thead>
       <tbody>
       {{range .SvcRows}}
       <tr class="ft-row" data-href="/devices/{{.Device.SerialNumber}}">
@@ -101,6 +96,7 @@
         <td class="ft-type"><span class="ft-ell">{{classOf .Device}}</span></td>
         <td class="ft-venue"><a class="ft-ell" href="/restaurants/{{.Device.RestaurantID}}">{{.Device.RestaurantName}}</a></td>
         <td class="ft-num ft-seen"><span class="dl-synced">{{if .Online}}now{{else}}{{timeSince .Device.LastSeenAt}}{{end}}</span></td>
+        <td class="mv-act"><form method="POST" action="/devices/{{.Device.SerialNumber}}/setup-again" hx-boost="false"><input type="hidden" name="back" value="/visits?view=service"><button type="submit" class="cc-btn sm" title="Put it into setup: Field people can work on it until it is handed over again">Set up</button></form></td>
       </tr>
       {{end}}
       </tbody>

@@ -26,8 +26,7 @@ func TestOpsHomeRenders(t *testing.T) {
 		State: db.StateSettingUp, Checks: []handOverCheck{{Label: "role app", OK: true}}, CanHand: true}}
 	tmpl := hubTmpl(t, "ops_home.html", "my_visits.html", "enrollment.html", "restaurants.html", "layout.html", "_settings_cards.html")
 	for _, view := range []string{"place", "setup", "service"} {
-		data := map[string]any{"View": view, "Rows": rows, "SetRows": set, "SvcRows": set, "Todos": []setupTodo{{Title: "x", Href: "/r"}},
-			"SettingN": 1, "ServiceN": 1, "Ready": 0, "Visits": []db.SetupVisit{{RestaurantID: venue, Restaurant: "Ah Huevo", EndsAt: now}},
+		data := map[string]any{"View": view, "Rows": rows, "SetRows": set, "SvcRows": set, "SettingN": 1, "ServiceN": 1, "Ready": 0,
 			"Venues": venues, "RailVenues": venues, "Enrollments": []db.Enrollment{}, "Role": "fleet_manager"}
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, "ops_home.html", data); err != nil {
@@ -44,7 +43,7 @@ func TestOpsHomeRenders(t *testing.T) {
 	}
 	// Field's My visits with their own queue: no venue creation, no Lab.
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "my_visits.html", map[string]any{"Place": rows, "Venues": venues, "Rows": set, "SettingUp": 1, "Visits": []db.SetupVisit{}}); err != nil {
+	if err := tmpl.ExecuteTemplate(&buf, "my_visits.html", map[string]any{"Place": rows, "Venues": venues, "Rows": set, "SettingUp": 1}); err != nil {
 		t.Fatalf("my_visits.html: %v", err)
 	}
 	if out := buf.String(); !strings.Contains(out, "Your devices to place") || strings.Contains(out, "+ New venue") || strings.Contains(out, "Send to Lab") {

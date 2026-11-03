@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"fmt"
 	"context"
 	"net/http"
 	"strings"
@@ -32,7 +33,7 @@ type handOverView struct {
 	HandedBy  string
 	VenueName string
 	VenueID   string
-	VisitEnds *time.Time // the viewer's open visit there, for Field
+	CanSetUp  bool // this viewer may put it back into setup (Ops lead, super admin)
 }
 
 // handOverChecks is the device's checklist: role app, locked, checked in.
@@ -73,7 +74,7 @@ func (h *Handler) handOverChecks(ctx context.Context, d *db.Device, kioskOn bool
 	return out, ready
 }
 
-// mayHandOver: the super admin, the Ops lead, and Field at a venue of their open visit.
+// mayHandOver: the super admin, the Ops lead, and Field (on devices being set up).
 func (h *Handler) mayHandOver(r *http.Request, d *db.Device) bool {
 	switch h.role(r) {
 	case "admin":
@@ -96,19 +97,75 @@ func (h *Handler) deviceHandOverView(r *http.Request, d *db.Device, kioskOn bool
 	if v.State == db.StateSettingUp {
 		v.Checks, v.Ready = h.handOverChecks(ctx, d, kioskOn)
 		v.CanHand = h.mayHandOver(r, d)
-		if h.role(r) == "field" {
-			if vs, err := h.db.OpenVisitsFor(ctx, h.currentUsername(r)); err == nil {
-				for _, x := range vs {
-					if x.RestaurantID == *d.RestaurantID {
-						e := x.EndsAt
-						v.VisitEnds = &e
-						break
-					}
-				}
-			}
+	}
+	v.CanSetUp = v.State == db.StateInService && mayManageVisits(h.role(r))
+	return v
+}
+
+// DeviceSetupAgain: POST /devices/{serial}/setup-again. The Ops lead puts a deployed device
+// into the Setting up bucket (user, 3 Nov 2026), where Field people work on it until someone
+// hands it over again.
+func (h *Handler) DeviceSetupAgain(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	back := safeBack(r.FormValue("back"), "/devices/"+serial)
+	if !mayManageVisits(h.role(r)) {
+		http.Error(w, "Only an Ops lead puts devices into setup.", http.StatusForbidden)
+		return
+	}
+	d, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil || d == nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if d.RestaurantID == nil {
+		h.hxDoneToast(w, r, back, "It is at no venue", "error")
+		return
+	}
+	if _, err := h.db.SetSettingUp(r.Context(), []uuid.UUID{d.ID}); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.setup_again", serial, d.RestaurantName)
+	h.hub.PublishDeviceUpdate(d.ID)
+	h.hxDoneToast(w, r, back, "In setup · Field people can work on it until it is handed over", "success")
+}
+
+// RestaurantSetupAgain: POST /restaurants/{id}/setup-again puts every deployed device at the
+// venue into the Setting up bucket (a restaurant being reworked).
+func (h *Handler) RestaurantSetupAgain(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	back := safeBack(r.FormValue("back"), "/restaurants/"+id.String()+"?open=setup#vn-setup")
+	if !mayManageVisits(h.role(r)) {
+		http.Error(w, "Only an Ops lead puts devices into setup.", http.StatusForbidden)
+		return
+	}
+	devs, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 2000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	var ids []uuid.UUID
+	var serials []string
+	for _, d := range devs {
+		if !d.Hidden {
+			ids = append(ids, d.ID)
+			serials = append(serials, d.SerialNumber)
 		}
 	}
-	return v
+	n, err := h.db.SetSettingUp(r.Context(), ids)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.setup_again", strings.Join(serials, ","), id.String())
+	for _, did := range ids {
+		h.hub.PublishDeviceUpdate(did)
+	}
+	h.hxDoneToast(w, r, back, fmt.Sprintf("%d device%s in setup · Field people can work on them", n, plural(int(n))), "success")
 }
 
 // DeviceHandOver: POST /devices/{serial}/handover. Allowed once the checklist is green.

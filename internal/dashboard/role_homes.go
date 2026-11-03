@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 
 	"mdm/internal/db"
 )
@@ -27,115 +26,86 @@ type visitDeviceRow struct {
 	Visit   string // the visit's purpose (or the venue) it is listed under
 }
 
-// MyVisits: GET /my-visits. Field sees their open visits; the Ops lead and super admin
-// see every open visit.
+// MyVisits: GET /my-visits, Field's home ("Setup"; no setup visits since 3 Nov 2026). Their
+// own enrolments waiting for a venue (they place them, which deploys them), then every device
+// the Ops lead put into setup, with its checklist and Hand over. The left list is the venues
+// with devices being set up (?venue= narrows the table). The Ops lead and super admin may open
+// it too.
 func (h *Handler) MyVisits(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	role := h.role(r)
-	var visits []db.SetupVisit
-	var err error
-	switch {
-	case role == "field":
-		visits, err = h.db.OpenVisitsFor(ctx, h.currentUsername(r))
-	case mayManageVisits(role):
-		visits, err = h.db.OpenVisits(ctx)
-	default:
-		http.Error(w, "My visits is the Field home.", http.StatusForbidden)
+	if role != "field" && !mayManageVisits(role) {
+		http.Error(w, "This is the Field home.", http.StatusForbidden)
 		return
 	}
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	sel := r.URL.Query().Get("venue")
+	setting, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateSettingUp}, 0, 2000, "serial", "asc")
+	type venueN struct {
+		ID   string
+		Name string
+		N    int
 	}
-	sel := r.URL.Query().Get("visit")
-	scopes, _ := h.db.DeviceScopes(ctx)
-	seen := map[uuid.UUID]bool{}
+	byVenue := map[string]*venueN{}
+	var order []string
 	var rows []visitDeviceRow
-	setting, ready := 0, 0
-	for _, v := range visits {
-		if sel != "" && sel != v.ID.String() {
+	ready := 0
+	for i := range setting {
+		d := &setting[i]
+		if d.Hidden || d.RestaurantID == nil {
 			continue
 		}
-		if seen[v.RestaurantID] {
+		vid := d.RestaurantID.String()
+		if byVenue[vid] == nil {
+			byVenue[vid] = &venueN{ID: vid, Name: d.RestaurantName}
+			order = append(order, vid)
+		}
+		byVenue[vid].N++
+		if sel != "" && sel != vid {
 			continue
 		}
-		seen[v.RestaurantID] = true
-		devs, err := h.db.ListDevices(ctx, db.DeviceFilter{RestaurantID: v.RestaurantID}, 0, 2000, "serial", "asc")
-		if err != nil {
-			continue
+		row := visitDeviceRow{Device: *d, Visit: d.RestaurantName, Online: h.hub.IsConnectedForDisplay(d.ID), State: db.StateSettingUp}
+		cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
+		row.Checks, row.Ready = h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled)
+		row.CanHand = h.mayHandOver(r, d)
+		if row.Ready {
+			ready++
 		}
-		for i := range devs {
-			d := &devs[i]
-			if d.Hidden {
-				continue
-			}
-			row := visitDeviceRow{Device: *d, Visit: v.Restaurant, Online: h.hub.IsConnectedForDisplay(d.ID)}
-			row.State = scopes[d.ID].State()
-			if row.State == db.StateSettingUp {
-				cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
-				row.Checks, row.Ready = h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled)
-				row.CanHand = h.mayHandOver(r, d)
-				setting++
-				if row.Ready {
-					ready++
-				}
-			}
-			rows = append(rows, row)
-		}
+		rows = append(rows, row)
 	}
-	// Field's own enrolments (K2, 3 Nov 2026): the ones waiting for a venue are their queue,
-	// the ones being set up anywhere are in the table with the visits' devices.
-	var place []placeRow
-	var venues []db.Restaurant
-	if role == "field" && sel == "" {
-		me := h.currentUsername(r)
-		queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace, EnrolledBy: me}, 0, 500, "serial", "asc")
-		place = h.placeRowsFor(ctx, queue)
-		mine, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateSettingUp, EnrolledBy: me}, 0, 500, "serial", "asc")
-		have := map[uuid.UUID]bool{}
-		for _, x := range rows {
-			have[x.Device.ID] = true
-		}
-		for i := range mine {
-			d := &mine[i]
-			if d.Hidden || have[d.ID] {
-				continue
-			}
-			row := visitDeviceRow{Device: *d, Visit: d.RestaurantName, Online: h.hub.IsConnectedForDisplay(d.ID), State: db.StateSettingUp}
-			cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
-			row.Checks, row.Ready = h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled)
-			row.CanHand = h.mayHandOver(r, d)
-			setting++
-			if row.Ready {
-				ready++
-			}
-			rows = append(rows, row)
-		}
-		if len(place) > 0 {
-			venues, _ = h.db.ListRestaurants(ctx)
-			sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
-		}
-	}
-	// Setting up first (ready ones on top), then in service; serial within.
-	rank := func(x visitDeviceRow) int {
-		switch {
-		case x.State == db.StateSettingUp && x.Ready:
-			return 0
-		case x.State == db.StateSettingUp:
-			return 1
-		}
-		return 2
-	}
+	// Ready ones first, then by venue and serial.
 	sort.SliceStable(rows, func(i, j int) bool {
-		if rank(rows[i]) != rank(rows[j]) {
-			return rank(rows[i]) < rank(rows[j])
+		if rows[i].Ready != rows[j].Ready {
+			return rows[i].Ready
+		}
+		if rows[i].Visit != rows[j].Visit {
+			return rows[i].Visit < rows[j].Visit
 		}
 		return rows[i].Device.SerialNumber < rows[j].Device.SerialNumber
 	})
+	var venues []venueN
+	for _, k := range order {
+		venues = append(venues, *byVenue[k])
+	}
+	sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
+	// Their own enrolments waiting for a venue (K2): they place them, which deploys them.
+	var place []placeRow
+	var all []db.Restaurant
+	if sel == "" {
+		queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace, EnrolledBy: h.currentUsername(r)}, 0, 500, "serial", "asc")
+		place = h.placeRowsFor(ctx, queue)
+		if len(place) > 0 {
+			all, _ = h.db.ListRestaurants(ctx)
+			sort.SliceStable(all, func(i, j int) bool { return strings.ToLower(all[i].Name) < strings.ToLower(all[j].Name) })
+		}
+	}
+	selName := ""
+	if v := byVenue[sel]; v != nil {
+		selName = v.Name
+	}
 	h.render(w, r, "my_visits.html", map[string]any{
-		"Title": "My visits", "ActivePage": "myvisits",
-		"Visits": visits, "Sel": sel, "Rows": rows, "SettingUp": setting, "ReadyN": ready, "Now": time.Now(),
-		"Place": place, "Venues": venues,
+		"Title": "Setup", "ActivePage": "myvisits",
+		"VenuesN": venues, "Sel": sel, "SelName": selName, "Rows": rows, "SettingUp": len(rows), "ReadyN": ready,
+		"Place": place, "Venues": all, "Now": time.Now(),
 	})
 }
 

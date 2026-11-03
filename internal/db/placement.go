@@ -45,6 +45,12 @@ SELECT 'role', v.role, v.scope, v.state, 'manage', 'seed' FROM s CROSS JOIN (VAL
 	('field',         'own',   '')
 ) AS v(role, scope, state)
 ON CONFLICT DO NOTHING;
+-- No setup visits (3 Nov 2026): Field manages every device in the Setting up bucket.
+WITH s AS (INSERT INTO access_seed (k) VALUES ('setup-bucket-v1') ON CONFLICT DO NOTHING RETURNING k),
+     del AS (DELETE FROM access_levels a USING s WHERE a.subject_type = 'role' AND a.subject = 'field' AND a.scope_type = 'visit' RETURNING a.id)
+INSERT INTO access_levels (subject_type, subject, scope_type, state, level, created_by)
+SELECT 'role', 'field', 'state', 'setting_up', 'manage', 'seed' FROM s
+ON CONFLICT DO NOTHING;
 `
 
 // Placement values (devices.placement, enrollment_profiles.placement).
