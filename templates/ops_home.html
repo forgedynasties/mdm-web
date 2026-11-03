@@ -46,7 +46,7 @@
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">Setting up</h1><span class="c">{{.SettingN}} at a venue, not handed over{{if .Ready}} · {{.Ready}} ready to hand over{{end}}</span></div>
     {{range .Todos}}<div class="oh-todo"><span class="dot warn"></span><span class="sp"><b>{{.Title}}</b><small>{{.Sub}}</small></span><a class="cc-btn sm" href="{{.Href}}">{{.Action}}</a></div>{{end}}
     {{if .SetRows}}
-    <div class="ft-wrap"><table class="ft">
+    <div class="card cl-card"><div class="ft-wrap"><table class="ft">
       <thead><tr><th class="ft-dev" scope="col">Device</th><th class="ft-type" scope="col">Type</th><th class="ft-venue" scope="col">Venue</th><th scope="col" style="width:230px">Checklist</th><th class="ft-num ft-seen" scope="col">Last seen</th><th scope="col" style="width:120px"><span class="sr-only">Hand over</span></th></tr></thead>
       <tbody>
       {{range .SetRows}}
@@ -61,7 +61,7 @@
       </tr>
       {{end}}
       </tbody>
-    </table></div>
+    </table></div></div>
     {{else}}
     <div class="pl-empty"><b>Nothing being set up</b>Devices you deploy from To place show here with their checklist until they are handed over.</div>
     {{end}}
@@ -69,7 +69,7 @@
     {{else}}
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">In service</h1><span class="c">{{.ServiceN}} handed over</span>
       <span class="pl-head-acts"><a class="cc-btn" href="/devices?state=in_service">Open in Fleet</a></span></div>
-    <div class="ft-wrap"><table class="ft">
+    <div class="card cl-card"><div class="ft-wrap"><table class="ft">
       <thead><tr><th class="ft-dev" scope="col">Device</th><th class="ft-type" scope="col">Type</th><th class="ft-venue" scope="col">Venue</th><th class="ft-num ft-seen" scope="col">Last seen</th></tr></thead>
       <tbody>
       {{range .SvcRows}}
@@ -82,7 +82,7 @@
       </tr>
       {{end}}
       </tbody>
-    </table></div>
+    </table></div></div>
     {{end}}
   </div>
 </div>
@@ -103,7 +103,7 @@
   {{if .Lab}}<button type="button" class="cc-btn sm" onclick="placeBulk('lab')">Send to Lab</button>{{end}}
   <button type="button" class="cc-btn sm primary" onclick="placeBulk('deploy')" id="pl-bulk-go" disabled title="Pick a venue first">Deploy</button>
 </div>
-<div class="ft-wrap"><table class="ft pl-ft" data-back="{{.Back}}">
+<div class="card cl-card"><div class="ft-wrap"><table class="ft pl-ft" data-back="{{.Back}}">
   <thead><tr>
     <th class="ft-cb" scope="col" style="width:40px"><input type="checkbox" id="pl-all" aria-label="Select all"></th>
     <th class="ft-dev" scope="col">Device</th>
@@ -126,7 +126,7 @@
   </tr>
   {{end}}
   </tbody>
-</table></div>
+</table></div></div>
 {{if .NewVenue}}
 <dialog class="pl-dlg" id="pl-new" aria-labelledby="pl-new-t">
   <form method="POST" action="/restaurants" hx-boost="false" id="pl-new-form" onsubmit="return placeNewSubmit(this)">

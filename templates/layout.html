@@ -73,6 +73,10 @@
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/css/phone.css?v={{.AssetVer}}" media="(max-width: 720px)">
   <link rel="stylesheet" href="/static/motion.css?v={{.AssetVer}}">
+  {{/* The Fleet-twin lists (Venues, Groups, Apps, People, Activity): loaded here, not in each
+       page's <main>, so a slow first fetch after a deploy never shows them unstyled. Every rule
+       is scoped to its own .cl-* classes. */}}
+  <link rel="stylesheet" href="/static/css/coll-list.css?v={{.AssetVer}}">
   {{/* The device picker's styles (co-* only), loaded here rather than by the pages
        that use it: a stylesheet inside <main> arrives after a boosted swap has
        already painted the page, which showed it unstyled for a moment. */}}

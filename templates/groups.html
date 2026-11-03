@@ -10,7 +10,6 @@
   <span class="isl-s">{{if $total}}<b>{{$total}}</b> group{{if ne $total 1}}s{{end}}{{if $p.Look}} · <span class="w">{{$p.Look}} need{{if eq $p.Look 1}}s{{end}} a look</span>{{end}} · {{$p.Devices}} device{{if ne $p.Devices 1}}s{{end}}{{if $p.OfflineDevices}} · {{$p.OfflineDevices}} offline{{end}}{{else}}No groups yet{{end}}</span>
   <span class="isl-acts">{{if $can}}<a class="cc-btn primary" href="/groups/new">New group</a>{{end}}</span>
 </template>
-<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
 <div class="cl-page">
 <div class="cc-top">
   <div><h1 class="cc-h1">Groups</h1></div>

@@ -1,7 +1,6 @@
 {{define "app_detail.html"}}
 {{template "header" .}}
 {{$a := .App}}{{$next := printf "/apps/%s" $a.Package}}
-<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
 <style>
   /* App page P1 (picked 30 Oct 2026): Fleet's layout. ← Apps and the app's name; its
      channels in the rail; the picked channel's Versions (library + devices in one list)

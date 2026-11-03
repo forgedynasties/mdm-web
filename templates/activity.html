@@ -9,7 +9,6 @@
   <span class="isl-s"><b>{{.Total}}</b> action{{if ne .Total 1}}s{{end}}{{if .ActorName}} by {{.ActorName}}{{end}} · {{if eq .Days "all"}}all time{{else if eq .Days "1"}}today{{else}}last {{.Days}} days{{end}}</span>
   <span class="isl-acts"><a class="cc-btn" href="/export/report/activity.csv" hx-boost="false">Export</a></span>
 </template>
-<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
 <style>
 .av-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
 .av-f select,.av-f input{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}

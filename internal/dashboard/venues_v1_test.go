@@ -162,7 +162,7 @@ func TestVenuesListRenders(t *testing.T) {
 		`data-cl data-one="venue"`, `data-clf="look"`, `data-clf="st-CA"`, `>California<`, `data-clp="t7"`, `data-clc="pin"`,
 		`data-cls="health" data-dir="asc"`, `class="ft cl-ft"`, `data-flags="look offline open hot st-CA"`, `Sunnyvale, CA · New York`,
 		`<span class="cl-now on">Open</span>`, `class="cc-tag bad">1 running hot`, `/static/js/coll_list.js`,
-		`/static/css/coll-list.css`, `<use href="#dk-kds">`,
+		`<use href="#dk-kds">`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("table view is missing %q", want)
@@ -170,6 +170,10 @@ func TestVenuesListRenders(t *testing.T) {
 	}
 	if strings.Contains(out, `id="vc1-grid"`) {
 		t.Error("the card grid should only render in the cards view")
+	}
+	// The list stylesheet comes with the layout (every page has it before a navigation swaps in).
+	if lay, err := os.ReadFile("../../templates/layout.html"); err != nil || !strings.Contains(string(lay), `/static/css/coll-list.css`) {
+		t.Error("layout.html should load /static/css/coll-list.css")
 	}
 }
 
