@@ -217,10 +217,22 @@ type venueSummary struct{ Devices, Offline, Critical, NeedLook, WithOffline, Emp
 var pipRank = map[string]int{"off": 0, "dormant": 1, "on": 2}
 
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
+	// From the Setup queue (3 Nov 2026): ?back= is where to return after creating, ?serials=
+	// the devices it was opened for; they are deployed to the new venue.
+	back := safeBack(r.URL.Query().Get("back"), "")
+	var serials []string
+	if back != "" {
+		serials = h.keepVisibleSerials(r, parseSerialsField([]string{r.URL.Query().Get("serials")}))
+		if len(serials) > 50 {
+			serials = serials[:50]
+		}
+	}
 	h.render(w, r, "restaurant_form.html", map[string]any{
 		"ScopesJSON": h.pickerScopesJSON(r),
 		"Title":      "New restaurant",
 		"Timezones":  restaurantTimezones,
+		"Back":       back,
+		"ForSerials": serials,
 	})
 }
 
@@ -267,6 +279,14 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 			}
 			h.pushGuestToDevices(r.Context(), ids)
 		}
+	}
+	if back := safeBack(r.FormValue("back"), ""); back != "" {
+		msg := rest.Name + " created"
+		if n := len(h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))); n > 0 {
+			msg += fmt.Sprintf(" · %d device%s deployed there", n, plural(n))
+		}
+		http.Redirect(w, r, flashURL(back, msg, "success"), http.StatusSeeOther)
+		return
 	}
 	http.Redirect(w, r, "/restaurants/"+rest.ID.String(), http.StatusFound)
 }

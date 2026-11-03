@@ -138,19 +138,8 @@
   </tbody>
 </table></div></div>
 {{/* The venues for the pickers, rendered once (hundreds of venues: user, 3 Nov 2026). */}}
-<template id="pl-venue-list">{{range .Venues}}<button type="button" class="cc-mi pl-vi" role="option" data-id="{{.ID}}" data-name="{{.Name}}" data-q="{{.Name}} {{.Address}}"><span class="pl-vn">{{.Name}}</span>{{if .Address}}<small>{{.Address}}</small>{{end}}</button>{{end}}{{if .NewVenue}}<button type="button" class="cc-mi pl-vi pl-vnew" role="option" data-id="__new" data-name="+ New venue…" data-q="">+ New venue…</button>{{end}}</template>
-{{if .NewVenue}}
-<dialog class="pl-dlg" id="pl-new" aria-labelledby="pl-new-t">
-  <form method="POST" action="/restaurants" hx-boost="false" id="pl-new-form" onsubmit="return placeNewSubmit(this)">
-    <h2 id="pl-new-t">New venue</h2>
-    <label class="pl-f"><span>Name</span><input class="form-input" name="name" required autocomplete="off"></label>
-    <label class="pl-f"><span>Address</span><input class="form-input" name="address" autocomplete="off" placeholder="Street, city, state"></label>
-    <p class="muted small" id="pl-new-n"></p>
-    <p class="muted small">Hours, staff PIN, Wi-Fi and the AIO backend link are set later in Venue settings.</p>
-    <div class="pl-dlg-acts"><button type="button" class="cc-btn" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="cc-btn primary" id="pl-new-go">Create venue</button></div>
-  </form>
-</dialog>
-{{end}}
+<template id="pl-venue-list">{{range .Venues}}<button type="button" class="cc-mi pl-vi" role="option" data-id="{{.ID}}" data-name="{{.Name}}" data-q="{{.Name}} {{.Address}}">{{venueIcon .ID .Name "sm"}}<span class="pl-vt"><span class="pl-vn">{{.Name}}</span>{{if .Address}}<small>{{.Address}}</small>{{end}}</span></button>{{end}}{{if .NewVenue}}<button type="button" class="cc-mi pl-vi pl-vnew" role="option" data-id="__new" data-name="+ New venue…" data-q="">+ New venue…</button>{{end}}</template>
+
 {{end}}
 
 {{define "place-style"}}
@@ -170,7 +159,9 @@
 .pl-vpop{position:fixed;z-index:200;padding:6px;display:flex;flex-direction:column;max-height:340px}
 .pl-vq{padding:2px 2px 6px}.pl-vq input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:var(--bg);color:var(--text)}
 .pl-vl{overflow:auto;min-height:0}
-.pl-vi{display:block;width:100%;text-align:left;border:0;background:none;font:inherit;cursor:pointer}
+.pl-vi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;font:inherit;cursor:pointer}
+.pl-vi .pl-vt{min-width:0;flex:1}
+.pl-vi .vicon{flex:none}
 .pl-vi[hidden]{display:none}
 .pl-vi .pl-vn{display:block;font-size:13px}
 .pl-vi small{display:block;color:var(--text-2);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -182,11 +173,6 @@
 .pl-row.done{opacity:.45}
 .pl-empty{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;text-align:center;color:var(--text-2)}
 .pl-empty b{display:block;font-size:16px;color:var(--text);margin-bottom:6px}
-.pl-dlg{border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);padding:20px;width:min(420px,calc(100vw - 32px));box-shadow:var(--shadow-pop)}
-.pl-dlg::backdrop{background:var(--overlay,rgba(0,0,0,.35))}
-.pl-dlg h2{margin:0 0 14px;font-size:17px}
-.pl-f{display:block;margin-bottom:12px}.pl-f span{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px}.pl-f input{width:100%;box-sizing:border-box}
-.pl-dlg-acts{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 </style>
 {{end}}
 
@@ -245,26 +231,20 @@
     rows.reduce(function (p, tr) { return p.then(function () { return deploy(tr, v); }); }, Promise.resolve())
       .then(function () { go.disabled = false; toast(rows.length + ' deployed · setting up now', 'success'); sync(); }, function (e) { go.disabled = false; toast(e.message, 'error'); sync(); });
   };
-  // New venue: the ticked rows (or the one row) go with it; RestaurantCreate places them.
-  var pending = [];
+  // New venue: the Venues page's form, for the ticked rows (or the one row); it deploys them
+  // there and comes back here (user, 3 Nov 2026: "go to the venues page … and then return to
+  // this page again with a redirect"). A changed role is saved first.
   window.placeNewVenue = function (rows) {
-    var d = document.getElementById('pl-new'); if (!d) return;
-    pending = rows || picked();
-    var n = document.getElementById('pl-new-n'), go = document.getElementById('pl-new-go');
-    n.textContent = pending.length ? pending.length + ' device' + (pending.length === 1 ? '' : 's') + ' will be deployed there: ' + pending.map(function (tr) { return tr.getAttribute('data-serial'); }).join(', ') : '';
-    go.textContent = pending.length ? 'Create and deploy ' + pending.length : 'Create venue';
-    d.showModal();
-  };
-  window.placeNewSubmit = function (form) {
-    if (pending.some(needsRole)) { toast('Pick the role of every device first', 'error'); return false; }
-    form.querySelectorAll('input[name=serials]').forEach(function (x) { x.remove(); });
-    pending.forEach(function (tr) { var i = document.createElement('input'); i.type = 'hidden'; i.name = 'serials'; i.value = tr.getAttribute('data-serial'); form.appendChild(i); });
-    // Roles first, then the plain form post (the server answers with the new venue's page).
-    var roles = pending.filter(function (tr) { var r = tr.querySelector('.pl-role'); return r && r.value && r.value !== r.getAttribute('data-cur'); });
-    if (!roles.length) return true;
+    rows = rows || picked();
+    if (rows.some(needsRole)) { toast('Pick the role of every device first', 'error'); return; }
+    var roles = rows.filter(function (tr) { var r = tr.querySelector('.pl-role'); return r && r.value && r.value !== r.getAttribute('data-cur'); });
+    var go = function () {
+      var q = new URLSearchParams({ back: location.pathname + location.search });
+      if (rows.length) q.set('serials', rows.map(function (tr) { return tr.getAttribute('data-serial'); }).join(','));
+      location.href = '/restaurants/new?' + q.toString();
+    };
     Promise.all(roles.map(function (tr) { return post('/devices/' + enc(tr.getAttribute('data-serial')) + '/role', { 'class': tr.querySelector('.pl-role').value }); }))
-      .then(function () { form.submit(); }, function (e) { toast(e.message, 'error'); });
-    return false;
+      .then(go, function (e) { toast(e.message, 'error'); });
   };
   // Deploy needs a venue (and the role, when the model leaves it open): till then the button is
   // off and the device stays in the queue (user, 3 Nov 2026: "venue should be must for deploy").

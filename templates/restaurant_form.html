@@ -28,6 +28,7 @@
 .rf-steps{display:flex;gap:8px;align-items:center;margin:0 0 16px;font-size:12.5px;font-weight:600;}
 .rf-step{display:inline-flex;align-items:center;gap:7px;color:var(--accent);}
 .rf-step .n{width:20px;height:20px;border-radius:50%;background:var(--accent-fill);border:1px solid var(--accent-fill);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;}
+.rf-for{margin:0 0 14px;padding:10px 14px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:10px;font-size:13px}
 .rf-step .ln{width:26px;height:1px;background:var(--border);}
 .rf-prev{position:sticky;top:16px;padding:16px 17px;}
 .pv-map{height:130px;border-radius:12px;border:1px solid var(--border-soft);position:relative;margin-bottom:14px;
@@ -54,6 +55,9 @@
 {{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
 <form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST">
   {{if .RedirectTo}}<input type="hidden" name="redirect" value="{{.RedirectTo}}">{{end}}
+  {{if .Back}}<input type="hidden" name="back" value="{{.Back}}">{{end}}
+  {{range .ForSerials}}<input type="hidden" name="serials" value="{{.}}">{{end}}
+  {{with .ForSerials}}<div class="rf-for">Opened from Setup for {{range $i, $s := .}}{{if $i}}, {{end}}<b class="mono">{{$s}}</b>{{end}}: {{if eq (len .) 1}}it is{{else}}they are{{end}} deployed to the new venue, and you go back to Setup.</div>{{end}}
 
   {{if not .Restaurant}}
   <div class="rf-steps">
