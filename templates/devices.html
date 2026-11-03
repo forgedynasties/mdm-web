@@ -369,7 +369,8 @@
 .fleet-rail{border-radius:var(--r-4)!important;box-shadow:var(--shadow-sm);padding-top:10px!important}
 .fleet-rail-item.on{border:1px solid var(--accent-edge)}
 .fleet-rail-item{min-height:40px}
-.fleet-rail-item .ri-x{margin-left:auto;padding:0 4px;font-size:15px;line-height:1;color:var(--accent-text)}
+/* The picked entry shows it clears on a second click (3 Nov 2026). */
+.fleet-rail-item.on .ri-main::after{content:"×";margin-left:auto;padding:0 2px 0 6px;font-size:15px;line-height:1;color:var(--accent-text)}
 .fl-scope{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 6px 0 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:99px;color:var(--accent-text);font-size:13px;text-decoration:none;white-space:nowrap;max-width:420px;overflow:hidden}
 .fl-scope .k{color:var(--text-2);font-size:12px}
 .fl-scope b{font-weight:650;overflow:hidden;text-overflow:ellipsis}
@@ -545,7 +546,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="restaurants" id="rail-restaurants" role="tabpanel" aria-labelledby="rt-restaurants"{{if ne .RailTab "restaurants"}} hidden{{end}}>
     {{range .RailRestaurants}}{{$on := eq (printf "%s" .GroupID) $.ActiveRestaurant}}
     <div class="fleet-rail-item{{if $on}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="venue" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "restaurants"}} data-page="/restaurants/{{.GroupID}}"{{end}}>
-      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?restaurant={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="vicon-dot">{{venueIcon .GroupID .Name "sm"}}<span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span></span><span class="nm">{{.Name}}</span>{{if $on}}<span class="ri-x" aria-hidden="true">×</span>{{end}}</a>
+      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?restaurant={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="vicon-dot">{{venueIcon .GroupID .Name "sm"}}<span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span></span><span class="nm">{{.Name}}</span></a>
       {{if canOpenPage $.Role "restaurants"}}<a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>{{end}}
       <span class="ct">{{.DeviceCount}}</span>
     </div>
@@ -556,7 +557,7 @@ a.fleet-rail-item{min-height:40px}
     <div class="fleet-rail-list" data-sec="groups" id="rail-groups" role="tabpanel" aria-labelledby="rt-groups"{{if ne .RailTab "groups"}} hidden{{end}}>
     {{range .RailGroups}}{{$on := eq (printf "%s" .GroupID) $.ActiveGroup}}{{$lk := index $.LockedGroups (printf "%s" .GroupID)}}
     <div class="fleet-rail-item{{if $on}} on{{end}}" data-ct="{{.DeviceCount}}" data-ini="{{printf "%.2s" .Name}}" data-ctx="group" data-id="{{.GroupID}}" data-name="{{.Name}}"{{if canOpenPage $.Role "groups"}} data-page="/groups/{{.GroupID}}"{{end}}>
-      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?group={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span>{{if $lk}}<span class="rail-lock" title="View only: you can look, take screenshots and collect logs here"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><span class="sr-only">view only</span></span>{{end}}{{if $on}}<span class="ri-x" aria-hidden="true">×</span>{{end}}</a>
+      <a class="ri-main" href="{{if $on}}{{$.ClearHref}}{{else}}/devices?group={{.GroupID}}{{end}}"{{if $on}} title="Show every device again"{{end}}><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span>{{if $lk}}<span class="rail-lock" title="View only: you can look, take screenshots and collect logs here"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg><span class="sr-only">view only</span></span>{{end}}</a>
       <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
