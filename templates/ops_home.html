@@ -101,16 +101,16 @@
   <select class="form-input pl-sel" id="pl-bulk-venue" aria-label="Venue for the ticked devices"><option value="">Pick a venue…</option>{{range .Venues}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{if .NewVenue}}<option value="__new">+ New venue…</option>{{end}}</select>
   <span class="sp"></span>
   {{if .Lab}}<button type="button" class="cc-btn sm" onclick="placeBulk('lab')">Send to Lab</button>{{end}}
-  <button type="button" class="cc-btn sm primary" onclick="placeBulk('deploy')" id="pl-bulk-go">Deploy</button>
+  <button type="button" class="cc-btn sm primary" onclick="placeBulk('deploy')" id="pl-bulk-go" disabled title="Pick a venue first">Deploy</button>
 </div>
 <div class="ft-wrap"><table class="ft pl-ft" data-back="{{.Back}}">
   <thead><tr>
-    <th class="ft-cb" scope="col"><input type="checkbox" id="pl-all" aria-label="Select all"></th>
+    <th class="ft-cb" scope="col" style="width:40px"><input type="checkbox" id="pl-all" aria-label="Select all"></th>
     <th class="ft-dev" scope="col">Device</th>
-    <th scope="col" style="width:180px">Role</th>
-    <th scope="col" style="width:170px">Enrolled</th>
-    <th scope="col" style="width:230px">Venue</th>
-    <th scope="col" style="width:96px"><span class="sr-only">Deploy</span></th>
+    <th scope="col" style="width:170px">Role</th>
+    <th scope="col" style="width:150px">Enrolled</th>
+    <th scope="col" style="width:220px">Venue</th>
+    <th scope="col" style="width:92px"><span class="sr-only">Deploy</span></th>
   </tr></thead>
   <tbody>
   {{range .Rows}}
@@ -118,11 +118,11 @@
     <td class="ft-cb"><input type="checkbox" class="pl-pick" aria-label="Select {{.Device.SerialNumber}}"></td>
     <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
       <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div>
-      <small class="muted pl-sub">{{if .Model}}{{.Model}} · {{end}}{{if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}{{if not .Online}} · seen {{timeSince .Device.LastSeenAt}}{{end}}</small></td>
+      <small class="muted pl-sub" title="{{if .Model}}{{.Model}} · {{end}}{{if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}">{{if .Model}}{{.Model}}{{else if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}{{if not .Online}} · seen {{timeSince .Device.LastSeenAt}}{{end}}</small></td>
     <td>{{if .Choices}}<select class="form-input pl-sel pl-role{{if not .Device.DeviceClass}} need{{end}}" data-cur="{{.Device.DeviceClass}}" aria-label="Role of {{.Device.SerialNumber}}">{{if not .Device.DeviceClass}}<option value="">Pick a role…</option>{{end}}{{$cur := .Device.DeviceClass}}{{range .Choices}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{classLabel .}}</option>{{end}}</select>{{else if .Device.DeviceClass}}{{classLabel .Device.DeviceClass}}{{else}}<span class="muted">from its model</span>{{end}}</td>
     <td>{{if .By}}{{.By}}{{else}}<span class="muted">—</span>{{end}}<small class="muted pl-sub">{{timeSince .Device.EnrolledAt}}</small></td>
     <td><select class="form-input pl-sel pl-venue need" aria-label="Venue for {{.Device.SerialNumber}}"><option value="">Pick a venue…</option>{{range $.Venues}}<option value="{{.ID}}">{{.Name}}</option>{{end}}{{if $.NewVenue}}<option value="__new">+ New venue…</option>{{end}}</select></td>
-    <td class="mv-act"><button type="button" class="cc-btn sm" onclick="placeRow(this)">Deploy</button></td>
+    <td class="mv-act"><button type="button" class="cc-btn sm pl-go" onclick="placeRow(this)" disabled title="Pick a venue first">Deploy</button></td>
   </tr>
   {{end}}
   </tbody>
@@ -147,9 +147,14 @@
 .pl-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:10px;margin-bottom:10px;font-size:13.5px}
 .pl-bulk .sp{flex:1}
 .pl-bulk[hidden]{display:none}
-.pl-sel{padding:5px 8px;font-size:13px;max-width:100%}
+.pl-ft{table-layout:fixed;width:100%}
+.pl-ft td{overflow:hidden}
+.pl-ft .ft-dev .ft-l1{white-space:nowrap}
+.pl-ft .pl-sel,.pl-bulk .pl-sel{height:34px;padding:4px 8px;font-size:13px;line-height:1.2}
+.pl-ft .pl-sel{width:100%;min-width:0;box-sizing:border-box}
+.pl-bulk .pl-sel{width:auto;max-width:320px}
 .pl-sel.need{border-color:var(--warn-edge)}
-.pl-sub{display:block;font-size:12px;margin-top:2px}
+.pl-sub{display:block;font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-row.done{opacity:.45}
 .pl-empty{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;text-align:center;color:var(--text-2)}
 .pl-empty b{display:block;font-size:16px;color:var(--text);margin-bottom:6px}
@@ -237,18 +242,32 @@
       .then(function () { form.submit(); }, function (e) { toast(e.message, 'error'); });
     return false;
   };
+  // Deploy needs a venue (and the role, when the model leaves it open): till then the button is
+  // off and the device stays in the queue (user, 3 Nov 2026: "venue should be must for deploy").
+  function rowReady(tr) {
+    var b = tr.querySelector('.pl-go'), v = tr.querySelector('.pl-venue');
+    if (!b || tr.classList.contains('done')) return;
+    var ok = v && v.value && !needsRole(tr);
+    b.disabled = !ok;
+    b.classList.toggle('primary', !!ok);
+    b.title = !v || !v.value ? 'Pick a venue first' : (needsRole(tr) ? 'Pick its role first' : '');
+  }
   function sync() {
     var rows = picked(), bar = document.getElementById('pl-bulk');
     if (!bar) return;
     bar.hidden = !rows.length;
     document.getElementById('pl-bulk-n').textContent = rows.length + ' selected';
-    document.getElementById('pl-bulk-go').textContent = 'Deploy ' + rows.length;
+    var go = document.getElementById('pl-bulk-go'), v = document.getElementById('pl-bulk-venue').value;
+    go.textContent = 'Deploy ' + rows.length;
+    go.disabled = !v || !rows.length;
+    go.title = v ? '' : 'Pick a venue first';
   }
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (t.id === 'pl-all') { document.querySelectorAll('.pl-pick:not(:disabled)').forEach(function (c) { c.checked = t.checked; }); sync(); }
     else if (t.classList && t.classList.contains('pl-pick')) sync();
-    else if (t.classList && (t.classList.contains('pl-venue') || t.classList.contains('pl-role'))) t.classList.toggle('need', !t.value);
+    else if (t.id === 'pl-bulk-venue') sync();
+    else if (t.classList && (t.classList.contains('pl-venue') || t.classList.contains('pl-role'))) { t.classList.toggle('need', !t.value); rowReady(t.closest('tr')); }
   });
 })();
 </script>
