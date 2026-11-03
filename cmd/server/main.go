@@ -584,6 +584,7 @@ func main() {
 	// rather than unreachable. Same auth as the WebSocket; see api/commands_pull.go.
 	mux.Handle("GET /api/v1/commands/pending", deviceAuth(http.HandlerFunc(apiHandler.PendingCommands)))
 	mux.Handle("GET /api/v1/venue-icon", deviceAuth(http.HandlerFunc(apiHandler.VenueIcon)))
+	mux.Handle("POST /api/v1/device-group", devicePost(apiHandler.DeviceGroup))
 	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
 	// Save to library (26 Oct 2026): a device uploads an installed APK for a pull_apk.
 	mux.Handle("POST /api/v1/apk-pull/url", devicePost(apiHandler.APKPullURL))

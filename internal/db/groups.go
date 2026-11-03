@@ -259,3 +259,51 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	}
 	return devices, rows.Err()
 }
+
+// LabGroups are the groups a Lab device may pick for itself on the device (3 Nov 2026, G3):
+// not hidden, and no member at a venue (the rule that lets an engineer edit a group).
+// DeviceCount counts members as ListGroups does.
+func (d *DB) LabGroups(ctx context.Context) ([]Group, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false) AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled'))
+		FROM groups g
+		LEFT JOIN device_groups dg ON dg.group_id = g.id
+		LEFT JOIN devices dv ON dv.id = dg.device_id
+		WHERE NOT g.hidden
+		GROUP BY g.id, g.name, g.created_at, g.hidden
+		HAVING COUNT(dv.restaurant_id) = 0
+		ORDER BY g.name
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var groups []Group
+	for rows.Next() {
+		var g Group
+		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.Hidden, &g.DeviceCount); err != nil {
+			return nil, err
+		}
+		groups = append(groups, g)
+	}
+	return groups, rows.Err()
+}
+
+// MoveDeviceToGroup takes the device out of every group and puts it in group (nil = none),
+// in one transaction.
+func (d *DB) MoveDeviceToGroup(ctx context.Context, deviceID uuid.UUID, group *uuid.UUID) error {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `DELETE FROM device_groups WHERE device_id = $1`, deviceID); err != nil {
+		return err
+	}
+	if group != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO device_groups (device_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, deviceID, *group); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}

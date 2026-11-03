@@ -169,6 +169,14 @@ calls. Fetch it when `venue_icon_v` (lost_mode payload, config `self_lock`) chan
 never rides in a WebSocket frame.
 Status: `200` · `400` · `401` · `403` · `404` no venue, or the venue has no icon.
 
+### POST `/api/v1/device-group`
+
+A Lab device picks its own group (Standard client status screen). `{"serial"}` reads
+`{lab, current: {id, name} | null, venue?, groups: [{id, name, count}]}`; adding `"set": "<group id>"`
+(or `""` for no group) moves the device there, out of any other group. Only a Lab device (at no
+venue, not waiting in the To place queue) may set, and only to a listed group: one that is not
+hidden and has no member at a venue. 409 otherwise. Audited as `group.device_pick`.
+
 ### GET `/api/v1/ws` (WebSocket upgrade)
 Long-lived device socket for server-push delivery. `X-API-Key` header is checked **before** upgrade.
 Query: `serial` (required). Status: `101` upgrade · `400` missing serial · `404` device not found.
