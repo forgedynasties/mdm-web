@@ -32,7 +32,7 @@
   {{else if eq .View "setup"}}<span class="isl-t">Lineup · Models without a role</span><span class="isl-s">{{.NoneCount}} model{{if ne .NoneCount 1}}s{{end}} · {{.NoneDevices}} device{{if ne .NoneDevices 1}}s{{end}}</span>
   {{else if eq .View "runs"}}<span class="isl-t">Lineup · Factory runs</span><span class="isl-s">{{.RunCount}} run{{if ne .RunCount 1}}s{{end}}</span>
   {{else if eq .View "all"}}<span class="isl-t">Lineup</span><span class="isl-s">{{len .LURows}} products{{$n := 0}}{{range .LURows}}{{if .Todo}}{{$n = add $n .Todo}}{{end}}{{end}}{{if $n}} · <span class="w">{{$n}} to look at</span>{{end}}</span>
-  {{else if .Client}}{{with .Client}}<span class="isl-t">MDM clients · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · {{.Behind}} behind{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
+  {{else if .Client}}{{with .Client}}<span class="isl-t">MDM clients · {{.Label}}</span><span class="isl-s">{{if .Hosted}}hosted {{.Build.Version}} · {{.UpToDate}} of {{.Devices}} on it{{if .Behind}} · <span class="w">{{.Behind}} behind</span>{{end}}{{else}}nothing hosted{{end}}</span>{{end}}
   {{else}}<span class="isl-t">Lineup · {{.RoleLabel}}</span><span class="isl-s">{{.HWDevices}} device{{if ne .HWDevices 1}}s{{end}} · {{len .HWModels}} model{{if ne (len .HWModels) 1}}s{{end}}</span>{{end}}
 </template>
 
