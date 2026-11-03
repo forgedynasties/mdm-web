@@ -1265,20 +1265,29 @@ func (h *Handler) DeploymentRemoveDevice(w http.ResponseWriter, r *http.Request)
 	if !h.requireDeviceAction(w, r, "ota", device.ID) {
 		return
 	}
+	// A download in flight is told to stop before the row goes (the same frame Retry sends).
+	if cmdID, ok, _ := h.db.GetActiveOTACommandID(r.Context(), device.ID); ok {
+		if msg, e := json.Marshal(map[string]any{"type": "cancel_command", "id": cmdID.String()}); e == nil {
+			h.hub.Push(device.ID, msg)
+		}
+	}
 	removed, err := h.db.RemoveDeviceFromUpdate(r.Context(), did, device.ID)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	if removed {
-		// Clear any guard so a queued OTA can't still reach the device, and refresh
-		// the dashboard — mirrors the retry/clear-OTA path.
-		_ = h.db.ClearPendingOTACommands(r.Context(), device.ID)
-		h.hub.PublishDeviceUpdate(device.ID)
-		h.hub.PublishDeploymentUpdate()
-		h.audit(r, "deployment.remove_device", r.PathValue("serial"), strconv.Itoa(did))
+	back := fmt.Sprintf("/releases/%d/deployments/%d", relID, did)
+	if !removed {
+		h.hxDoneToast(w, r, back, device.SerialNumber+" can't be removed now: it is installing or has installed this update", "error")
+		return
 	}
-	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
+	// Clear any guard so a queued OTA can't still reach the device, and refresh
+	// the dashboard — mirrors the retry/clear-OTA path.
+	_ = h.db.ClearPendingOTACommands(r.Context(), device.ID)
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishDeploymentUpdate()
+	h.audit(r, "deployment.remove_device", r.PathValue("serial"), strconv.Itoa(did))
+	h.hxDoneToast(w, r, back, device.SerialNumber+" removed from this rollout", "success")
 }
 
 // DeploymentAddTargets widens an existing deployment by adding more devices or
