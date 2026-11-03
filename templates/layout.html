@@ -442,6 +442,41 @@
         slot.appendChild(t);
         slot.classList.add('always');
       }
+      crumbs();
+    }
+    // D3 (picked 3 Nov 2026): a breadcrumb in front of the page's name, from the More
+    // directory (each link names its section): "Software › MDM clients › Firmware MDM".
+    // The page's own name stays the last part; "Page · Item" titles split into two parts.
+    // A page whose island brings its own .isl-cr keeps it.
+    function crumbs() {
+      var t = slot.querySelector('.isl-t');
+      if (!t || slot.querySelector('.isl-cr')) return;
+      var path = location.pathname, best = null, bestLen = -1;
+      document.querySelectorAll('a[data-cmdk-sec][href]').forEach(function (a) {
+        var h = (a.getAttribute('href') || '').split('?')[0];
+        if (!h || h.indexOf('{') >= 0) return;
+        var hit = h === '/' ? path === '/' : (path === h || path.indexOf(h + '/') === 0);
+        if (hit && h.length > bestLen) { best = a; bestLen = h.length; }
+      });
+      if (!best) return;
+      var sec = best.getAttribute('data-cmdk-sec'), label = best.getAttribute('data-cmdk-label') || best.textContent.trim();
+      var href = (best.getAttribute('href') || '').split('?')[0], title = t.textContent.trim().replace(/\s+/g, ' ');
+      var parts = [];
+      if (sec && sec !== label) parts.push({ t: sec });
+      var cut = title;
+      if (title.indexOf(label + ' · ') === 0) { parts.push({ t: label, h: href }); cut = title.slice(label.length + 3); }
+      else if (sec && title.indexOf(sec + ' · ') === 0) cut = title.slice(sec.length + 3);
+      else if (path !== href && title !== label) parts.push({ t: label, h: href });
+      var nav = document.createElement('nav'); nav.className = 'isl-cr'; nav.setAttribute('aria-label', 'Breadcrumb');
+      parts.forEach(function (p) {
+        var e = document.createElement(p.h ? 'a' : 'span'); e.className = 'cr'; e.textContent = p.t;
+        if (p.h) e.href = p.h;
+        nav.appendChild(e);
+        var sp = document.createElement('span'); sp.className = 'sep'; sp.setAttribute('aria-hidden', 'true'); sp.textContent = '›'; nav.appendChild(sp);
+      });
+      if (cut !== title) t.textContent = cut; // only a plain "Page · Item" title is rewritten
+      t.parentNode.insertBefore(nav, t);
+      nav.appendChild(t);
     }
     // The first fill lands without the fade, so the island is simply there.
     slot.style.transition = 'none';
@@ -459,6 +494,7 @@
   })();
   </script>
   <script src="/static/js/layout/chrome.js?v={{assetVer}}"></script>
+  <script src="/static/js/layout/island.js?v={{assetVer}}"></script>
   {{/* Right-click menus (R1, 30 Oct 2026): one panel for every page, outside <main> so a
        boosted swap keeps it; data-ctx-caps is what this viewer may do from it. */}}
   <div id="ctx-menu" class="cc-menu ctx-menu" role="menu" aria-label="Actions" hidden data-ctx-caps="{{ctxCaps .NavRole}}"></div>

@@ -168,6 +168,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
 	mux.HandleFunc("GET /dock/status", h.requireAuth(h.DockStatus))
+	mux.HandleFunc("GET /island/jobs", h.requireAuth(h.IslandJobs))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdmin(h.AlertConfigView))
 	// Requires auth: the page exposes real device serials and restaurant/venue names,

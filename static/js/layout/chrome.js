@@ -751,7 +751,7 @@
     // (older/insecure-origin browsers). Usage: copyText(theText, theButton).
     function copyText(text, btn) {
       function done(ok) {
-        showToast(ok ? 'Copied to clipboard' : 'Copy failed', ok ? 'success' : 'error');
+        window.showToast(ok ? 'Copied to clipboard' : 'Copy failed', ok ? 'success' : 'error');
         if (ok && btn) {
           var prev = btn.textContent;
           btn.textContent = 'Copied';
@@ -796,10 +796,10 @@
     }
     function copySerials(scope, btn) {
       var list = collectSerials(scope);
-      if (list.length === 0) { showToast('No device serials in this list', 'info'); return; }
+      if (list.length === 0) { window.showToast('No device serials in this list', 'info'); return; }
       var label = btn && (btn.querySelector('.cs-lbl') || btn);
       function done(ok) {
-        showToast(ok ? 'Copied ' + list.length + ' serial' + (list.length === 1 ? '' : 's') : 'Copy failed', ok ? 'success' : 'error');
+        window.showToast(ok ? 'Copied ' + list.length + ' serial' + (list.length === 1 ? '' : 's') : 'Copy failed', ok ? 'success' : 'error');
         if (ok && label) {
           var prev = label.textContent;
           label.textContent = 'Copied';
@@ -838,7 +838,7 @@
       try {
         var u = new URL(location.href), m = u.searchParams.get('flash');
         if (!m) return;
-        showToast(m, u.searchParams.get('flash_type') || 'info');
+        window.showToast(m, u.searchParams.get('flash_type') || 'info');
         u.searchParams.delete('flash'); u.searchParams.delete('flash_type');
         history.replaceState(null, '', u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '') + u.hash);
       } catch (e) {}
@@ -850,7 +850,7 @@
     // htmx dispatches a `toast` event on the body. Used for hx-request feedback.
     document.body.addEventListener('toast', function (e) {
       var d = (e && e.detail) || {};
-      showToast(d.msg || 'Done', d.type || 'info');
+      window.showToast(d.msg || 'Done', d.type || 'info');
     });
 
     document.body.addEventListener('htmx:afterRequest', function (evt) {
@@ -867,9 +867,9 @@
       var xhr = evt.detail.xhr;
       if (!xhr) return;
       if (xhr.status >= 200 && xhr.status < 300) {
-        showToast('Done', 'success');
+        window.showToast('Done', 'success');
       } else if (xhr.status >= 400) {
-        showToast('Something went wrong', 'error');
+        window.showToast('Something went wrong', 'error');
       }
     });
 
