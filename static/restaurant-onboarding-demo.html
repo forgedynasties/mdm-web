@@ -61,7 +61,20 @@ body{background:var(--bg);color:var(--text);margin:0}
 .tool.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}
 .tools .sep{width:1px;height:22px;background:var(--border);margin:0 4px}
 .canvas{flex:1;min-height:0;overflow:auto;padding:14px;display:grid;place-items:center}
-svg.plan{background:#fff;border:1px solid var(--border);border-radius:14px;touch-action:none;cursor:crosshair;max-width:100%;height:auto}
+svg.plan{background:#fff;border:1px solid var(--border);border-radius:14px;touch-action:none;cursor:default;max-width:100%;height:auto}
+svg.plan.drawing,svg.plan.drawing .room{cursor:crosshair}
+.room{cursor:grab}
+.room rect:first-child{transition:stroke .15s}
+.room.lift{filter:drop-shadow(0 10px 18px rgba(40,20,10,.22))}
+.room.lift rect:first-child{stroke:#cf4529!important;stroke-width:3}
+.room.bad rect:first-child{stroke:#c0392b!important;stroke-dasharray:6 4;opacity:.75}
+.room.lift .hdl{display:none}
+svg.plan.dragging,svg.plan.dragging *{cursor:grabbing!important}
+.hdl{fill:#fff;stroke:#cf4529;stroke-width:2}
+.h-nw,.h-se{cursor:nwse-resize}.h-ne,.h-sw{cursor:nesw-resize}.h-n,.h-s{cursor:ns-resize}.h-e,.h-w{cursor:ew-resize}
+.ghost{fill:rgba(207,69,41,.07);stroke:#cf4529;stroke-width:2;stroke-dasharray:7 5;pointer-events:none}
+.dev.lift{filter:drop-shadow(0 4px 6px rgba(0,0,0,.3))}
+.tg{pointer-events:none}
 html[data-theme="dark"] svg.plan{background:#1d1b22}
 .room rect{stroke-width:2}
 .room text{font:600 12px Poppins,system-ui;fill:#3b3540;pointer-events:none}
@@ -182,7 +195,7 @@ body{min-height:100vh}
       var iv = setInterval(function () {
         i = Math.min(text.length, i + 4); while (text[i - 1] === '<') { i = text.indexOf('>', i) + 1; }
         bub.innerHTML = text.slice(0, i); scroll();
-        if (i >= text.length) { clearInterval(iv); if (opts) choices(opts); if (then) then(); }
+        if (i >= text.length) { clearInterval(iv); if (opts) choices(opts); else { var pa = log.querySelector('.plan-acts'); if (pa) { log.appendChild(pa); scroll(); } } if (then) then(); }
       }, 16);
     }, 650);
   }
@@ -448,7 +461,7 @@ body{min-height:100vh}
     rooms = rooms.filter(function (r) { return r.w > 0; });
     var card = stage.querySelector('.found'); card.classList.add('sm');
     stage.innerHTML = card.outerHTML +
-      '<div class="planner"><div class="pl-main"><div class="tools" id="tools"></div><div class="canvas"><svg class="plan" id="plan" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '"></svg></div><div class="hint" id="hint">Drag a room to move it · pick a room tool, then drag on the plan to draw one · drag a device to move it · Delete removes the selected room</div></div><div class="side" id="side"></div></div>';
+      '<div class="planner"><div class="pl-main"><div class="tools" id="tools"></div><div class="canvas"><svg class="plan" id="plan" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '"></svg></div><div class="hint" id="hint">Drag a room to move it: it settles in the nearest free spot · drag a selected room&rsquo;s handles to resize · pick a room tool, then drag to draw one · arrow keys nudge, Delete removes</div></div><div class="side" id="side"></div></div>';
     svg = document.getElementById('plan');
     var tb = document.getElementById('tools');
     tb.innerHTML = '<button class="tool on" data-t="move">↖ Move</button><span class="sep"></span>' + Object.keys(T).map(function (k) { return '<button class="tool" data-t="' + k + '"><i style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n + '</button>'; }).join('') + '<span class="sep"></span><button class="tool" data-t="tables">⊕ Tables</button>';
@@ -456,7 +469,7 @@ body{min-height:100vh}
       var b = e.target.closest('.tool'); if (!b) return;
 
       if (b.dataset.t === 'tables') { fillTables(); suggest(false); return; }
-      tool = b.dataset.t; tb.querySelectorAll('.tool').forEach(function (x) { x.classList.toggle('on', x === b); });
+      tool = b.dataset.t; tb.querySelectorAll('.tool').forEach(function (x) { x.classList.toggle('on', x === b); }); svg.classList.toggle('drawing', tool !== 'move');
     });
     fillTables(); suggest(true); wire(); side();
   }
@@ -477,7 +490,7 @@ body{min-height:100vh}
   // The AI's placement rules: one Nugget per table, KDS along the kitchen's far wall (one per
   // ~10 tables, at least 2), POS at the counter, handhelds parked at the counter, kiosks by the
   // entrance, menu boards over the counter.
-  function suggest(animate) {
+  function suggest(animate, quick) {
     var on = PK[S.pkg].on || Object.keys(D).filter(function (k) { return devs.some(function (d) { return d.t === k; }); });
     devs = [];
     var find = function (t) { return rooms.filter(function (r) { return r.t === t; }); };
@@ -491,14 +504,21 @@ body{min-height:100vh}
     });
     find('bar').forEach(function (b) { if (on.indexOf('pos') >= 0) devs.push({ t: 'pos', x: b.x + b.w - 24, y: b.y + b.h - 22 }); });
     find('entrance').forEach(function (e) { if (on.indexOf('kiosk') >= 0) { var n = S.tables > 20 ? 2 : 1; for (var i = 0; i < n; i++) devs.push({ t: 'kiosk', x: e.x + e.w * (i + 1) / (n + 1), y: e.y + e.h / 2 }); } });
-    draw(animate); side();
+    draw(animate); if (!quick) side();
   }
   function draw(animate) {
     var h = '<defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="rgba(0,0,0,.05)"/></pattern></defs><rect width="' + W + '" height="' + H + '" fill="url(#g)"/>';
-    rooms.forEach(function (r, i) { h += '<g class="room' + (i === sel ? ' sel' : '') + '" data-r="' + i + '"><rect x="' + r.x + '" y="' + r.y + '" width="' + r.w + '" height="' + r.h + '" rx="10" fill="' + T[r.t].c + '" stroke="' + T[r.t].s + '"/><text x="' + (r.x + 10) + '" y="' + (r.y + r.h - 10) + '">' + T[r.t].n + '</text></g>'; });
-    tables.forEach(function (t) { h += t.bar ? '<circle class="tbl" cx="' + t.x + '" cy="' + (t.y + (t.side ? 0 : 12)) + '" r="5"/>' : '<circle class="tbl" cx="' + t.x + '" cy="' + t.y + '" r="' + t.r + '"/><text class="tno" x="' + t.x + '" y="' + (t.y + t.r + 9) + '">' + t.no + '</text>'; });
+    rooms.forEach(function (r, i) { h += '<g class="room' + (i === sel ? ' sel' : '') + '" data-r="' + i + '"><rect x="' + r.x + '" y="' + r.y + '" width="' + r.w + '" height="' + r.h + '" rx="10" fill="' + T[r.t].c + '" stroke="' + T[r.t].s + '"/><text x="' + (r.x + 10) + '" y="' + (r.y + r.h - 10) + '">' + T[r.t].n + '</text>' + (i === sel ? handles(r) : '') + '</g>'; });
+    tables.forEach(function (t) { h += '<g class="tg" data-room="' + t.room + '">' + (t.bar ? '<circle class="tbl" cx="' + t.x + '" cy="' + (t.y + (t.side ? 0 : 12)) + '" r="5"/>' : '<circle class="tbl" cx="' + t.x + '" cy="' + t.y + '" r="' + t.r + '"/><text class="tno" x="' + t.x + '" y="' + (t.y + t.r + 9) + '">' + t.no + '</text>') + '</g>'; });
     devs.forEach(function (d, i) { var dd = D[d.t]; h += '<g class="dev' + (animate ? ' pop' : '') + '" data-d="' + i + '" style="transform-origin:' + d.x + 'px ' + d.y + 'px;animation-delay:' + (animate ? i * 18 : 0) + 'ms"><circle cx="' + d.x + '" cy="' + d.y + '" r="10" fill="' + dd.c + '"/><text x="' + d.x + '" y="' + d.y + '">' + dd.k + '</text><title>' + dd.n + ' · ' + dd.hw + (d.at ? ' · on ' + d.at : '') + '</title></g>'; });
+    h += '<rect class="ghost" id="ghost" rx="10" visibility="hidden"/>';
     svg.innerHTML = h;
+  }
+  // Resize handles on the selected room: corners and edge midpoints.
+  function handles(r) {
+    return [['nw', 0, 0], ['n', .5, 0], ['ne', 1, 0], ['e', 1, .5], ['se', 1, 1], ['s', .5, 1], ['sw', 0, 1], ['w', 0, .5]].map(function (k) {
+      return '<rect class="hdl h-' + k[0] + '" data-h="' + k[0] + '" x="' + (r.x + r.w * k[1] - 6) + '" y="' + (r.y + r.h * k[2] - 6) + '" width="12" height="12" rx="4"/>';
+    }).join('');
   }
   function side() {
     var el = document.getElementById('side'); if (!el) return;
@@ -515,35 +535,140 @@ body{min-height:100vh}
       if (m) { S.pkg = 'custom'; for (var i = devs.length - 1; i >= 0; i--) if (devs[i].t === m.dataset.m) { devs.splice(i, 1); break; } draw(false); side(); }
     };
   }
+  // Rooms never overlap (user, 4 Nov 2026: "rooms auto dropping and placing since one room cannot
+  // override the other"): a room follows the pointer freely, a dashed outline shows the nearest
+  // free spot on the grid, and on release it glides there. Handles resize it up to its neighbours.
+  function hits(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+  function free(r, skip) {
+    if (r.x < 0 || r.y < 0 || r.x + r.w > W || r.y + r.h > H) return false;
+    return rooms.every(function (o, j) { return j === skip || !hits(r, o); });
+  }
+  function settle(r, skip) {
+    var best = null, bd = Infinity;
+    for (var y = 0; y + r.h <= H; y += G) for (var x = 0; x + r.w <= W; x += G) {
+      var d = (x - r.x) * (x - r.x) + (y - r.y) * (y - r.y);
+      if (d < bd && free({ x: x, y: y, w: r.w, h: r.h }, skip)) { bd = d; best = { x: x, y: y }; }
+    }
+    return best;
+  }
+  function ghost(g, r) {
+    var el = document.getElementById('ghost'); if (!el) return;
+    if (!g) { el.setAttribute('visibility', 'hidden'); return; }
+    el.setAttribute('x', g.x); el.setAttribute('y', g.y); el.setAttribute('width', r.w); el.setAttribute('height', r.h); el.setAttribute('visibility', 'visible');
+  }
+  function shift(els, x, y) { els.forEach(function (el) { el.setAttribute('transform', 'translate(' + x + ' ' + y + ')'); }); }
+  function glide(els, fx, fy, tx, ty, done) {
+    var t0 = performance.now();
+    (function f(now) {
+      var k = Math.min(1, (now - t0) / 180), e = 1 - Math.pow(1 - k, 3);
+      shift(els, fx + (tx - fx) * e, fy + (ty - fy) * e);
+      if (k < 1) requestAnimationFrame(f); else done();
+    })(t0);
+  }
+  function inRoom(d, r) { return d.x > r.x && d.x < r.x + r.w && d.y > r.y && d.y < r.y + r.h; }
+  // Moves a room with its tables and the devices in it.
+  function moveRoom(i, dx, dy) {
+    var r = rooms[i];
+    devs.forEach(function (d) { if (inRoom(d, r)) { d.x += dx; d.y += dy; } });
+    tables.forEach(function (t) { if (t.room === i) { t.x += dx; t.y += dy; } });
+    r.x += dx; r.y += dy;
+  }
   function wire() {
-    var drag = null;
+    var drag = null, last = null, queued = false;
     function pt(e) { var r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
     svg.addEventListener('pointerdown', function (e) {
-      var p = pt(e), dv = e.target.closest('.dev'), rm = e.target.closest('.room');
+      if (drag) return;
+      var p = pt(e), hd = e.target.closest('.hdl'), dv = e.target.closest('.dev'), rm = e.target.closest('.room');
       svg.setPointerCapture(e.pointerId);
-      if (tool === 'move' && dv) { drag = { k: 'dev', i: +dv.dataset.d, ox: p.x - devs[+dv.dataset.d].x, oy: p.y - devs[+dv.dataset.d].y }; return; }
-      if (tool === 'move' && rm) { var i = +rm.dataset.r; sel = i; drag = { k: 'room', i: i, ox: p.x - rooms[i].x, oy: p.y - rooms[i].y, sx: rooms[i].x, sy: rooms[i].y }; draw(false); return; }
-      if (tool !== 'move') { var r = { t: tool, x: snap(p.x), y: snap(p.y), w: 20, h: 20 }; rooms.push(r); sel = rooms.length - 1; drag = { k: 'new', i: sel, x0: r.x, y0: r.y }; draw(false); }
-    });
-    svg.addEventListener('pointermove', function (e) {
-      if (!drag) return; var p = pt(e);
-      if (drag.k === 'dev') { devs[drag.i].x = p.x - drag.ox; devs[drag.i].y = p.y - drag.oy; draw(false); }
-      if (drag.k === 'room') {
-        var r = rooms[drag.i], nx = snap(p.x - drag.ox), ny = snap(p.y - drag.oy), dx = nx - r.x, dy = ny - r.y;
-        r.x = nx; r.y = ny;
-        tables.forEach(function (t) { if (t.room === drag.i) { t.x += dx; t.y += dy; } });
-        devs.forEach(function (d) { if (d.x > r.x - dx && d.x < r.x - dx + r.w && d.y > r.y - dy && d.y < r.y - dy + r.h) { d.x += dx; d.y += dy; } });
-        draw(false);
+      if (hd) { var r0 = rooms[sel]; drag = { k: 'size', i: sel, h: hd.dataset.h, o: { x: r0.x, y: r0.y, w: r0.w, h: r0.h } }; svg.classList.add('sizing'); return; }
+      if (tool === 'move' && dv) {
+        var di = +dv.dataset.d; dv.classList.remove('pop'); dv.classList.add('lift');
+        drag = { k: 'dev', i: di, el: dv, ox: p.x - devs[di].x, oy: p.y - devs[di].y, dx: 0, dy: 0 }; return;
       }
-      if (drag.k === 'new') { var rr = rooms[drag.i], x1 = snap(p.x), y1 = snap(p.y); rr.x = Math.min(drag.x0, x1); rr.y = Math.min(drag.y0, y1); rr.w = Math.max(40, Math.abs(x1 - drag.x0)); rr.h = Math.max(40, Math.abs(y1 - drag.y0)); draw(false); }
+      if (tool === 'move' && rm) {
+        var i = +rm.dataset.r, r = rooms[i]; sel = i; draw(false);
+        var els = [svg.querySelector('.room[data-r="' + i + '"]')];
+        svg.querySelectorAll('.tg[data-room="' + i + '"]').forEach(function (el) { els.push(el); });
+        devs.forEach(function (d, j) { if (inRoom(d, r)) els.push(svg.querySelector('.dev[data-d="' + j + '"]')); });
+        var gh = document.getElementById('ghost'); els.forEach(function (el) { svg.insertBefore(el, gh); }); // lifted above the other rooms
+        els[0].classList.add('lift'); svg.classList.add('dragging');
+        drag = { k: 'room', i: i, els: els, ox: p.x - r.x, oy: p.y - r.y, dx: 0, dy: 0, to: { x: r.x, y: r.y } }; return;
+      }
+      if (tool === 'move') { if (sel >= 0) { sel = -1; draw(false); } return; }
+      var n = { t: tool, x: snap(p.x), y: snap(p.y), w: 40, h: 40 }; rooms.push(n); sel = rooms.length - 1;
+      drag = { k: 'new', i: sel, x0: n.x, y0: n.y }; draw(false);
     });
-    svg.addEventListener('pointerup', function () {
-      if (drag && drag.k === 'new') { var r = rooms[drag.i]; if (r.t === 'dining' || r.t === 'patio' || r.t === 'bar') fillTables(); suggest(true);
-        ai('Added a <b>' + T[r.t].n.toLowerCase() + '</b> (' + Math.round(r.w / 20) + ' × ' + Math.round(r.h / 20) + ' squares) and placed devices for it.'); }
-      drag = null;
+    function frame() {
+      queued = false; if (!drag || !last) return; var p = last;
+      if (drag.k === 'dev') {
+        var d = devs[drag.i]; drag.dx = clamp(p.x - drag.ox, 10, W - 10) - d.x; drag.dy = clamp(p.y - drag.oy, 10, H - 10) - d.y;
+        shift([drag.el], drag.dx, drag.dy);
+      }
+      if (drag.k === 'room') {
+        var r = rooms[drag.i], nx = clamp(p.x - drag.ox, 0, W - r.w), ny = clamp(p.y - drag.oy, 0, H - r.h);
+        drag.dx = nx - r.x; drag.dy = ny - r.y; shift(drag.els, drag.dx, drag.dy);
+        drag.to = settle({ x: snap(nx), y: snap(ny), w: r.w, h: r.h }, drag.i); ghost(drag.to, r);
+      }
+      if (drag.k === 'size') {
+        var o = drag.o, x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h, sx = snap(p.x), sy = snap(p.y), MIN = 60, h = drag.h;
+        if (/w/.test(h)) x1 = clamp(sx, 0, x2 - MIN);
+        if (/e/.test(h)) x2 = clamp(sx, x1 + MIN, W);
+        if (/n/.test(h)) y1 = clamp(sy, 0, y2 - MIN);
+        if (/s/.test(h)) y2 = clamp(sy, y1 + MIN, H);
+        // Grow up to the neighbours: step a growing edge back until the room fits.
+        var c = { x: x1, y: o.y, w: x2 - x1, h: o.h }, n = 0;
+        while (!free(c, drag.i) && n++ < 80) { if (c.x < o.x) { c.x += G; c.w -= G; } else if (c.x + c.w > o.x + o.w) c.w -= G; else break; }
+        c.y = y1; c.h = y2 - y1; n = 0;
+        while (!free(c, drag.i) && n++ < 80) { if (c.y < o.y) { c.y += G; c.h -= G; } else if (c.y + c.h > o.y + o.h) c.h -= G; else break; }
+        var r2 = rooms[drag.i];
+        if (c.x !== r2.x || c.y !== r2.y || c.w !== r2.w || c.h !== r2.h) {
+          r2.x = c.x; r2.y = c.y; r2.w = c.w; r2.h = c.h;
+          fillTables(); suggest(false, true);
+        }
+      }
+      if (drag.k === 'new') {
+        var rr = rooms[drag.i], ex = clamp(snap(p.x), 0, W), ey = clamp(snap(p.y), 0, H);
+        rr.x = Math.min(drag.x0, ex); rr.y = Math.min(drag.y0, ey); rr.w = Math.max(40, Math.abs(ex - drag.x0)); rr.h = Math.max(40, Math.abs(ey - drag.y0));
+        if (rr.x + rr.w > W) rr.x = W - rr.w; if (rr.y + rr.h > H) rr.y = H - rr.h;
+        draw(false);
+        var bad = !free(rr, drag.i); svg.querySelector('.room[data-r="' + drag.i + '"]').classList.toggle('bad', bad);
+        drag.to = bad ? settle(rr, drag.i) : null; ghost(drag.to, rr);
+      }
+    }
+    svg.addEventListener('pointermove', function (e) {
+      if (!drag) return; last = pt(e);
+      if (!queued) { queued = true; requestAnimationFrame(frame); }
     });
+    function end() {
+      if (!drag) return; var dr = drag; drag = null; last = null;
+      svg.classList.remove('dragging', 'sizing'); ghost(null);
+      if (dr.k === 'dev') { var d = devs[dr.i]; d.x += dr.dx; d.y += dr.dy; draw(false); return; }
+      if (dr.k === 'room') {
+        var r = rooms[dr.i], to = dr.to || { x: r.x, y: r.y };
+        glide(dr.els, dr.dx, dr.dy, to.x - r.x, to.y - r.y, function () { moveRoom(dr.i, to.x - r.x, to.y - r.y); draw(false); });
+        return;
+      }
+      if (dr.k === 'size') { fillTables(); suggest(false); return; }
+      if (dr.k === 'new') {
+        var nr = rooms[dr.i];
+        if (!free(nr, dr.i)) {
+          var to2 = settle(nr, dr.i);
+          if (!to2) { rooms.splice(dr.i, 1); sel = -1; draw(false); ai('There is no free space for a <b>' + T[nr.t].n.toLowerCase() + '</b> that size. Make a room smaller first (drag its handles).'); return; }
+          nr.x = to2.x; nr.y = to2.y;
+        }
+        if (nr.t === 'dining' || nr.t === 'patio' || nr.t === 'bar') fillTables(); suggest(true);
+        ai('Added a <b>' + T[nr.t].n.toLowerCase() + '</b> (' + Math.round(nr.w / 20) + ' × ' + Math.round(nr.h / 20) + ' squares) and placed devices for it.');
+      }
+    }
+    svg.addEventListener('pointerup', end);
+    svg.addEventListener('pointercancel', end);
     document.addEventListener('keydown', function (e) {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && sel >= 0 && document.activeElement === document.body) { rooms.splice(sel, 1); sel = -1; fillTables(); suggest(false); }
+      if (sel < 0 || document.activeElement !== document.body) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') { rooms.splice(sel, 1); sel = -1; fillTables(); suggest(false); return; }
+      var mv = { ArrowLeft: [-G, 0], ArrowRight: [G, 0], ArrowUp: [0, -G], ArrowDown: [0, G] }[e.key]; if (!mv) return;
+      e.preventDefault(); var r = rooms[sel];
+      if (free({ x: r.x + mv[0], y: r.y + mv[1], w: r.w, h: r.h }, sel)) { moveRoom(sel, mv[0], mv[1]); draw(false); }
     });
   }
 })();
