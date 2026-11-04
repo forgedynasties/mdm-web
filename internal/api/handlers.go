@@ -782,6 +782,39 @@ func (h *Handler) enrichLocation(ctx context.Context, extra json.RawMessage) jso
 
 // enrollFailures throttles bad-token attempts per source IP (the endpoint is
 // unauthenticated by design — the profile token is the credential).
+// recoverWithOldToken re-keys a Standard-client device that presents the token it enrolled
+// with after that token expired or ran out of enrolments (never a revoked one). Answers and
+// returns true when it did.
+func (h *Handler) recoverWithOldToken(w http.ResponseWriter, r *http.Request, token, serial string) bool {
+	ctx := r.Context()
+	profile, err := h.db.RecoveryProfileByToken(ctx, token, serial)
+	if err != nil {
+		return false
+	}
+	raw := make([]byte, 24)
+	if _, err := rand.Read(raw); err != nil {
+		return false
+	}
+	deviceKey := "dvk_" + hex.EncodeToString(raw)
+	sum := sha256.Sum256([]byte(deviceKey))
+	id, err := h.db.RecoverDeviceKey(ctx, serial, hex.EncodeToString(sum[:]))
+	if err != nil {
+		log.Printf("[enroll] %s recover via %q: %v", serial, profile.Name, err)
+		return false
+	}
+	log.Printf("[enroll] device %s got a new key with its old token (profile %q)", serial, profile.Name)
+	if err := h.db.InsertAuditDevice(ctx, "device", "device.key_recover", serial,
+		fmt.Sprintf("new key with the token it enrolled with (%s), which no longer enrols new devices", profile.Name), id); err != nil {
+		log.Printf("[enroll] %s audit: %v", serial, err)
+	}
+	h.hub.PublishDeviceUpdate(id)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"device_key": deviceKey, "device_id": id.String(), "profile": profile.Name,
+		"re_enrolled": true, "onboarded": true,
+	})
+	return true
+}
+
 var (
 	enrollFailures      = ratelimit.New(time.Minute)
 	enrollMaxFailPerMin = 10
@@ -818,6 +851,11 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	}
 	profile, err := h.db.ActiveEnrollmentProfileByToken(r.Context(), req.Token)
 	if err != nil {
+		// The device it already enrolled may come back with it after it expired: a new
+		// key and nothing else changes (RecoveryProfileByToken).
+		if h.recoverWithOldToken(w, r, req.Token, req.Serial) {
+			return
+		}
 		enrollFailures.Hit(ip)
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid enrollment token"})
 		return

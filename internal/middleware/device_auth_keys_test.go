@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -43,6 +44,28 @@ func TestDeviceAuthMarksTheEnrollKey(t *testing.T) {
 		h.ServeHTTP(httptest.NewRecorder(), req)
 		if got != want {
 			t.Errorf("key %q: EnrollKeyUsed = %v, want %v", key, got, want)
+		}
+	}
+}
+
+func TestDeviceAuthLookupFailureIsNot401(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	for name, c := range map[string]struct {
+		err  error
+		want int
+	}{
+		"unknown key": {ErrUnknownKey, http.StatusUnauthorized},
+		"db down":     {errors.New("conn closed"), http.StatusServiceUnavailable},
+		"found":       {nil, http.StatusNoContent},
+	} {
+		h := DeviceAuthE([]string{"public-default"}, func(context.Context, string) (string, error) { return "SER1", c.err }, ok)
+		req := httptest.NewRequest("POST", "/api/v1/checkin", nil)
+		req.RemoteAddr = "192.0.2.9:1234"
+		req.Header.Set("X-API-Key", "dvk_whatever")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != c.want {
+			t.Errorf("%s: got %d, want %d", name, rec.Code, c.want)
 		}
 	}
 }

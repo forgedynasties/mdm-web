@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -94,6 +96,22 @@ func BoundSerial(r *http.Request) string {
 // sharedKeys[0] is the public key; any later one is a secret enrollment key, and a
 // request that used one is marked for EnrollKeyUsed.
 func DeviceAuth(sharedKeys []string, lookup func(ctx context.Context, keyHashHex string) (string, bool), next http.Handler) http.Handler {
+	return DeviceAuthE(sharedKeys, func(ctx context.Context, h string) (string, error) {
+		if s, ok := lookup(ctx, h); ok {
+			return s, nil
+		}
+		return "", ErrUnknownKey
+	}, next)
+}
+
+// ErrUnknownKey is what a DeviceAuthE lookup returns for a key no device holds.
+var ErrUnknownKey = errors.New("unknown device key")
+
+// DeviceAuthE is DeviceAuth with a lookup that can fail: a key no device holds is 401, but
+// a lookup that could not run (the database unreachable, a deploy cutting connections) is
+// 503 with Retry-After, never 401. On 29 Oct 2026 such a 401 made a Standard client drop a
+// good key, and with its enrollment token expired it could not get back in.
+func DeviceAuthE(sharedKeys []string, lookup func(ctx context.Context, keyHashHex string) (string, error), next http.Handler) http.Handler {
 	type sharedKey struct {
 		key    []byte
 		enroll bool
@@ -125,9 +143,18 @@ func DeviceAuth(sharedKeys []string, lookup func(ctx context.Context, keyHashHex
 		}
 		if len(provided) > 0 {
 			sum := sha256.Sum256(provided)
-			if serial, ok := lookup(r.Context(), hex.EncodeToString(sum[:])); ok {
+			serial, err := lookup(r.Context(), hex.EncodeToString(sum[:]))
+			if err == nil {
 				next.ServeHTTP(w, r.WithContext(
 					context.WithValue(r.Context(), boundSerialKey{}, serial)))
+				return
+			}
+			if !errors.Is(err, ErrUnknownKey) {
+				log.Printf("[device-auth] key lookup failed, answering 503: %v", err)
+				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Retry-After", "10")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				w.Write([]byte(`{"error":"try again"}`))
 				return
 			}
 		}

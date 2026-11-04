@@ -18,6 +18,8 @@ import (
 	_ "time/tzdata" // embed the IANA tz database so LoadLocation works without OS tzdata
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"mdm/internal/adbtunnel"
 	"mdm/internal/aiobackend"
 	"mdm/internal/api"
 	"mdm/internal/cluster"
@@ -30,7 +32,6 @@ import (
 	"mdm/internal/metrics"
 	"mdm/internal/middleware"
 	"mdm/internal/ota"
-	"mdm/internal/adbtunnel"
 	"mdm/internal/remote"
 	"mdm/internal/safehttp"
 	"mdm/internal/scout"
@@ -493,11 +494,16 @@ func main() {
 
 	// Device auth accepts the legacy shared fleet key or a per-device key issued at
 	// enrollment; per-device keys bind the request to its device's serial.
-	deviceKeyLookup := func(ctx context.Context, hash string) (string, bool) {
+	deviceKeyLookup := func(ctx context.Context, hash string) (string, error) {
 		_, serial, err := database.DeviceSerialByKeyHash(ctx, hash)
-		return serial, err == nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", middleware.ErrUnknownKey
+		}
+		return serial, err
 	}
-	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAuth([]string{deviceAPIKey, deviceEnrollKey}, deviceKeyLookup, h) }
+	deviceAuth := func(h http.Handler) http.Handler {
+		return middleware.DeviceAuthE([]string{deviceAPIKey, deviceEnrollKey}, deviceKeyLookup, h)
+	}
 	adminAuth := func(h http.Handler) http.Handler { return middleware.AdminAPIKeyAuth(adminAPIKey, h) }
 	// maxDeviceBody caps device POST bodies (post-inflation). Check-ins carry the
 	// installed-app list and a logcat result can be sizable, so it's generous, but
@@ -518,7 +524,9 @@ func main() {
 	// Kept for the testdata routes registered with the dashboard handler further down (WLC).
 	var qaAuth, qaCORS func(http.Handler) http.Handler
 	if qaAPIKey != "" {
-		qaAuth = func(h http.Handler) http.Handler { return middleware.APIKeyAuth(qaAPIKey, `{"error":"unauthorized"}`, h) }
+		qaAuth = func(h http.Handler) http.Handler {
+			return middleware.APIKeyAuth(qaAPIKey, `{"error":"unauthorized"}`, h)
+		}
 		qaCORS = func(h http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Access-Control-Allow-Origin", "*")

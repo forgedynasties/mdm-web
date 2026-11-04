@@ -160,6 +160,36 @@ func (d *DB) ActiveEnrollmentProfileByToken(ctx context.Context, token string) (
 	return &p, nil
 }
 
+// RecoveryProfileByToken finds the profile a device enrolled with by its token even when the
+// token has expired or used up its enrolments, for that device only: the serial must be a
+// Standard-client device still enrolled through it. A revoked token never recovers (4 Nov
+// 2026: an HK1 box lost its key on a server error and its 30-day token had run out).
+func (d *DB) RecoveryProfileByToken(ctx context.Context, token, serial string) (*EnrollmentProfile, error) {
+	var p EnrollmentProfile
+	err := scanEnrollmentProfile(d.pool.QueryRow(ctx, `
+		SELECT `+enrollmentProfileCols+`
+		FROM enrollment_profiles p
+		LEFT JOIN groups g ON g.id = p.group_id
+		LEFT JOIN restaurants r ON r.id = p.restaurant_id
+		WHERE p.token = $1 AND p.revoked_at IS NULL
+		  AND EXISTS (SELECT 1 FROM devices d WHERE d.serial_number = $2 AND d.enrolled_via = p.id
+		              AND d.agent_kind = 'dpc' AND d.enrollment_status = 'enrolled')`, token, serial), &p)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// RecoverDeviceKey gives an enrolled device a new key and changes nothing else (venue,
+// class, groups and placement stay as they are).
+func (d *DB) RecoverDeviceKey(ctx context.Context, serial, keyHash string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		UPDATE devices SET device_key_hash = $2, key_rotated_at = NOW()
+		WHERE serial_number = $1 RETURNING id`, serial, keyHash).Scan(&id)
+	return id, err
+}
+
 func (d *DB) SetEnrollmentProfileRevoked(ctx context.Context, id uuid.UUID, revoked bool) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE enrollment_profiles
