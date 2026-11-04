@@ -293,9 +293,8 @@ func (h *Handler) DeviceMoveServer(w http.ResponseWriter, r *http.Request) {
 	// Record where we sent it. This is a suspicion, not a sighting — the device has
 	// not arrived anywhere yet, and may never (a bad URL, a device that never comes
 	// back up). It is marked source "move" and carries no seen-at, so the page can say
-	// "moving to stage" rather than claiming it is there. A peer announcement or the
-	// reconciliation sweep is what turns this into a fact.
-	if _, err := h.db.SetDeviceCustody(r.Context(), device.ID, peerNameForURL(h.cfg, target), target, time.Time{}, "move"); err != nil {
+	// "moving to stage" rather than claiming it is there. Its next check-in here clears it.
+	if _, err := h.db.SetDeviceCustody(r.Context(), device.ID, serverNameForURL(target), target, time.Time{}, "move"); err != nil {
 		log.Printf("[device] record move custody for %s: %v", serial, err)
 	}
 	h.audit(r, "device.move_server", serial, target)
@@ -328,7 +327,7 @@ func (h *Handler) moveDPCServer(w http.ResponseWriter, r *http.Request, device *
 		return
 	}
 	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
-	if _, err := h.db.SetDeviceCustody(r.Context(), device.ID, peerNameForURL(h.cfg, target), target, time.Time{}, "move"); err != nil {
+	if _, err := h.db.SetDeviceCustody(r.Context(), device.ID, serverNameForURL(target), target, time.Time{}, "move"); err != nil {
 		log.Printf("[device] record move custody for %s: %v", serial, err)
 	}
 	h.audit(r, "device.move_server", serial, target)

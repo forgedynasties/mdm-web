@@ -234,7 +234,6 @@
       bar('Deployments active', q.deployments_live, 3, 'ok') +
       bar('OTA downloads in flight', q.ota_in_flight, Math.max(q.devices_total, 1), 'warn') +
       bar('Remote screen sessions', q.shell_sessions, 4) +
-      bar('Peer outbox', q.peer_outbox, 20, q.peer_outbox ? 'warn' : 'ok') +
       bar('Open alerts', q.alerts_open, Math.max(q.devices_total, 1), 'warn');
 
     var ig = p.ingest, pw = document.getElementById('sv-pipe-wrap');

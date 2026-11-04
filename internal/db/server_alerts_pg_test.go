@@ -34,14 +34,14 @@ func TestServerAndAlertQueriesAgainstPostgres(t *testing.T) {
 
 	// The pool's tracer counts queries run under a request's context.
 	rctx, u := metrics.WithDBUsage(ctx)
-	if _, _, _, _, _, _, _, err := d.ServerWorkCounts(rctx); err != nil {
+	if _, _, _, _, _, _, err := d.ServerWorkCounts(rctx); err != nil {
 		t.Fatal(err)
 	}
 	if u.Queries() != 1 || u.Duration() <= 0 {
 		t.Errorf("tracer counted %d queries / %v", u.Queries(), u.Duration())
 	}
 
-	if _, _, _, _, total, _, _, err := d.ServerWorkCounts(ctx); err != nil {
+	if _, _, _, total, _, _, err := d.ServerWorkCounts(ctx); err != nil {
 		t.Fatalf("work counts: %v", err)
 	} else if total < 0 {
 		t.Fatalf("devices total %d", total)

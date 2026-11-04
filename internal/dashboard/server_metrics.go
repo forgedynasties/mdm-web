@@ -29,7 +29,6 @@ type serverQueues struct {
 	DeploymentsLive  int `json:"deployments_live"`
 	OTAInFlight      int `json:"ota_in_flight"`
 	ShellSessions    int `json:"shell_sessions"`
-	PeerOutbox       int `json:"peer_outbox"`
 	DevicesTotal     int `json:"devices_total"`
 	DevicesOnline    int `json:"devices_online"`
 	DevicesElsewhere int `json:"devices_elsewhere"`
@@ -40,7 +39,7 @@ func (h *Handler) serverQueues(r *http.Request) serverQueues {
 	q := serverQueues{}
 	ctx := r.Context()
 	var err error
-	q.CommandsPending, q.DeploymentsLive, q.OTAInFlight, q.PeerOutbox,
+	q.CommandsPending, q.DeploymentsLive, q.OTAInFlight,
 		q.DevicesTotal, q.DevicesElsewhere, q.AlertsOpen, err = h.db.ServerWorkCounts(ctx)
 	if err != nil && ctx.Err() == nil {
 		log.Printf("[server] work counts: %v", err)

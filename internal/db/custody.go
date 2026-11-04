@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -140,57 +139,6 @@ func (d *DB) DeviceCustodyMap(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	return out, rows.Err()
 }
 
-// DeviceIDBySerial resolves a serial a peer named to one of our devices. Peers only
-// ever name devices; they can never create one.
-func (d *DB) DeviceIDBySerial(ctx context.Context, serial string) (uuid.UUID, time.Time, bool, error) {
-	var id uuid.UUID
-	var seen time.Time
-	err := d.pool.QueryRow(ctx, `SELECT id, last_seen_at FROM devices WHERE serial_number = $1`, serial).Scan(&id, &seen)
-	if err == pgx.ErrNoRows {
-		return uuid.Nil, time.Time{}, false, nil
-	}
-	if err != nil {
-		return uuid.Nil, time.Time{}, false, err
-	}
-	return id, seen, true, nil
-}
-
-// CustodyCandidate is a device quiet enough to be worth asking the peers about.
-type CustodyCandidate struct {
-	ID       uuid.UUID
-	Serial   string
-	LastSeen time.Time
-}
-
-// DevicesToReconcile returns devices whose whereabouts are worth a question: quiet for
-// longer than quietFor and not retired. Devices already filed elsewhere are included
-// once their sighting is older than recheckAfter, so a stale claim gets re-tested
-// rather than believed forever.
-func (d *DB) DevicesToReconcile(ctx context.Context, quietFor, recheckAfter time.Duration, limit int) ([]CustodyCandidate, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, serial_number, last_seen_at
-		  FROM devices
-		 WHERE enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
-		   AND serial_number <> ''
-		   AND last_seen_at < NOW() - $1::interval
-		   AND (custody_server = '' OR custody_seen_at IS NULL OR custody_seen_at < NOW() - $2::interval)
-		 ORDER BY last_seen_at DESC
-		 LIMIT $3`, quietFor, recheckAfter, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []CustodyCandidate
-	for rows.Next() {
-		var c CustodyCandidate
-		if err := rows.Scan(&c.ID, &c.Serial, &c.LastSeen); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
-}
-
 // ExpireStaleCustody drops custody claims nobody has refreshed. The device is then
 // plainly missing again — which is the truth: it is not reporting anywhere.
 func (d *DB) ExpireStaleCustody(ctx context.Context) (int64, error) {
@@ -203,84 +151,6 @@ func (d *DB) ExpireStaleCustody(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return tag.RowsAffected(), nil
-}
-
-// ── the peer outbox ───────────────────────────────────────────────────────────
-
-// PeerOutboxItem is one announcement waiting to be delivered.
-type PeerOutboxItem struct {
-	ID       int64
-	Peer     string
-	Serial   string
-	Payload  json.RawMessage
-	Attempts int
-}
-
-// EnqueuePeerAnnounce queues "this device is here" for one peer. Re-queuing the same
-// (peer, serial) refreshes the payload rather than stacking: the newest sighting is the
-// only one worth sending.
-func (d *DB) EnqueuePeerAnnounce(ctx context.Context, peer, serial string, payload json.RawMessage) error {
-	_, err := d.pool.Exec(ctx, `
-		INSERT INTO peer_outbox (peer, serial, payload, next_attempt_at)
-		VALUES ($1, $2, $3, NOW())
-		ON CONFLICT (peer, serial) DO UPDATE
-		   SET payload = EXCLUDED.payload, attempts = 0, last_error = '', next_attempt_at = NOW()`,
-		peer, serial, payload)
-	return err
-}
-
-// ClaimPeerOutbox takes up to limit due announcements. The claim pushes next_attempt_at
-// forward so a second worker (or the same one on the next tick) does not send them
-// again while this send is in flight.
-func (d *DB) ClaimPeerOutbox(ctx context.Context, limit int) ([]PeerOutboxItem, error) {
-	rows, err := d.pool.Query(ctx, `
-		UPDATE peer_outbox SET next_attempt_at = NOW() + INTERVAL '2 minutes', attempts = attempts + 1
-		 WHERE id IN (SELECT id FROM peer_outbox WHERE next_attempt_at <= NOW()
-		              ORDER BY next_attempt_at LIMIT $1 FOR UPDATE SKIP LOCKED)
-		 RETURNING id, peer, serial, payload, attempts`, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []PeerOutboxItem
-	for rows.Next() {
-		var it PeerOutboxItem
-		if err := rows.Scan(&it.ID, &it.Peer, &it.Serial, &it.Payload, &it.Attempts); err != nil {
-			return nil, err
-		}
-		out = append(out, it)
-	}
-	return out, rows.Err()
-}
-
-// DeletePeerOutbox drops a delivered announcement.
-func (d *DB) DeletePeerOutbox(ctx context.Context, id int64) error {
-	_, err := d.pool.Exec(ctx, `DELETE FROM peer_outbox WHERE id = $1`, id)
-	return err
-}
-
-// FailPeerOutbox records why a send failed and backs the next attempt off. Given up on
-// after 12 attempts (roughly a day at this backoff): the reconciliation sweep asks the
-// peer directly anyway, so a lost announcement is an inefficiency, not a lost fact.
-func (d *DB) FailPeerOutbox(ctx context.Context, id int64, attempts int, reason string) error {
-	if attempts >= 12 {
-		_, err := d.pool.Exec(ctx, `DELETE FROM peer_outbox WHERE id = $1`, id)
-		return err
-	}
-	backoff := time.Duration(attempts*attempts) * time.Minute
-	if backoff > 2*time.Hour {
-		backoff = 2 * time.Hour
-	}
-	_, err := d.pool.Exec(ctx, `
-		UPDATE peer_outbox SET last_error = $2, next_attempt_at = NOW() + $3::interval WHERE id = $1`,
-		id, reason, backoff)
-	return err
-}
-
-// DropPeerOutboxFor forgets queued announcements for a peer that is gone from config.
-func (d *DB) DropPeerOutboxFor(ctx context.Context, keep []string) error {
-	_, err := d.pool.Exec(ctx, `DELETE FROM peer_outbox WHERE NOT (peer = ANY($1))`, keep)
-	return err
 }
 
 // CancelPendingForCustody clears out what a device can no longer collect, the moment we
@@ -307,7 +177,7 @@ func (d *DB) CancelPendingForCustody(ctx context.Context, deviceID uuid.UUID) (i
 // One query also means one failure: a single bad table name zeroes every count. It
 // did — `deployments` had become `updates` and the block read all zeroes, silently,
 // because the error was dropped. So it is returned now.
-func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deploymentsLive, otaInFlight, peerOutbox, devicesTotal, devicesElsewhere, alertsOpen int, err error) {
+func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deploymentsLive, otaInFlight, devicesTotal, devicesElsewhere, alertsOpen int, err error) {
 	err = d.pool.QueryRow(ctx, `
 		SELECT
 		  (SELECT COUNT(*) FROM command_targets ct
@@ -321,11 +191,10 @@ func (d *DB) ServerWorkCounts(ctx context.Context) (commandsPending, deployments
 		  -- deployment's own state (pending / active / complete / canceled).
 		  (SELECT COUNT(*) FROM update_devices ud JOIN updates u ON u.id = ud.update_id
 		    WHERE u.status = 'active' AND ud.status IN ('downloading', 'installing', 'verifying', 'finalizing')),
-		  (SELECT COUNT(*) FROM peer_outbox),
 		  (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')),
 		  (SELECT COUNT(*) FROM devices WHERE custody_server <> ''),
 		  (SELECT COUNT(*) FROM alerts WHERE status <> 'resolved')
-	`).Scan(&commandsPending, &deploymentsLive, &otaInFlight, &peerOutbox, &devicesTotal, &devicesElsewhere, &alertsOpen)
+	`).Scan(&commandsPending, &deploymentsLive, &otaInFlight, &devicesTotal, &devicesElsewhere, &alertsOpen)
 	return
 }
 

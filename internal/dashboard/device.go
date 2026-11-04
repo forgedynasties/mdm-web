@@ -591,8 +591,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Custody":     deviceCustodyOrEmpty(h.db.DeviceCustody(r.Context(), device.ID)),
 		// Whether this device's build can take an MDM OTA.
 		"OTAGate": h.otaGate.Device(r.Context(), *device),
-		// Servers to offer when moving a device: this one first, then any peer named
-		// in MDM_PEER_URLS (comma separated) — a stage box, usually.
+		// Servers to offer when moving a device (Settings' list, this one included).
 		"MDMServers":       h.mdmServerChoices(),
 		"ThisServer":       h.thisServerURL(),
 		"Caps":             device.CapSet(),

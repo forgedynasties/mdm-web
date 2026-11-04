@@ -673,19 +673,6 @@ func main() {
 	// The DPC agent APK this server hosts: what a factory-reset device downloads
 	// during QR provisioning, and what an "Update agent" command installs. Posting
 	// it here is how a build publishes a new agent without anyone opening Settings.
-	// Peer endpoints: another MDM asking, or telling, where a device is reporting.
-	// Authenticated by the peer key, which is not the admin key — see internal/api/peer.go.
-	// Peer administration (admin key): configure the neighbours, test them, force a
-	// reconciliation pass. No dashboard form — see internal/api/peers_admin.go.
-	mux.Handle("GET /api/v1/peers", adminAuth(http.HandlerFunc(apiHandler.ListPeers)))
-	mux.Handle("PUT /api/v1/peers", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.SetPeers))))
-	mux.Handle("POST /api/v1/peers/ping", adminAuth(http.HandlerFunc(apiHandler.PingPeers)))
-	mux.Handle("POST /api/v1/peers/sweep", adminAuth(http.HandlerFunc(apiHandler.SweepPeers)))
-
-	mux.Handle("POST /api/v1/peer/ping", http.HandlerFunc(apiHandler.PeerPing))
-	mux.Handle("POST /api/v1/peer/device-seen", middleware.MaxBytes(16<<10, http.HandlerFunc(apiHandler.PeerDeviceSeen)))
-	mux.Handle("POST /api/v1/peer/lookup", middleware.MaxBytes(256<<10, http.HandlerFunc(apiHandler.PeerLookup)))
-
 	mux.Handle("POST /api/v1/agent-apk",
 		adminAuth(middleware.MaxBytes(128<<20, http.HandlerFunc(dash.AgentAPKPublish))))
 	dash.RegisterRoutes(mux)
@@ -747,12 +734,6 @@ func main() {
 		}
 	})
 
-	// Peer traffic: the outbox delivers arrival announcements, the sweep asks peers
-	// about devices we have stopped hearing from. The sweep is what makes this
-	// self-correcting — a lost announcement costs nothing, because the question gets
-	// asked again on a schedule.
-	safego("peer-outbox", func() { apiHandler.Peers().RunOutbox(bgCtx, time.Minute) })
-	safego("peer-sweep", func() { apiHandler.Peers().RunSweep(bgCtx, 10*time.Minute) })
 	safego("scout-scan", func() { scoutSvc.Run(bgCtx) })
 
 	// One-time: fill the power/usage columns on days rolled up before they existed, so

@@ -1964,18 +1964,9 @@ func serialTailLen(s string) int {
 	return 3
 }
 
-// peerNameForURL turns the URL an operator picked in "Move & reboot" into the name of
-// the peer it belongs to, so the device page says "stage" rather than a bare host. An
-// address that is not a configured peer keeps its host as the label: a device can be
-// sent somewhere this server has no relationship with, and that has to be sayable too.
-func peerNameForURL(cfg *config.Config, target string) string {
+// serverNameForURL is the label for the server a device was moved to: its host.
+func serverNameForURL(target string) string {
 	want := strings.TrimRight(strings.TrimSpace(target), "/")
-	for _, p := range cfg.Peers(false) {
-		if strings.TrimRight(strings.TrimSpace(p.URL), "/") == want ||
-			strings.TrimRight(strings.TrimSpace(p.DashboardURL), "/") == want {
-			return p.Name
-		}
-	}
 	if u, err := url.Parse(want); err == nil && u.Host != "" {
 		return u.Host
 	}

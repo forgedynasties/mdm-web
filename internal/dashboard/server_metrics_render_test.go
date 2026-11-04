@@ -22,7 +22,7 @@ func TestServerMetricsPayloadShape(t *testing.T) {
 	c.Observe("POST", "/api/v1/checkin", 500, 12*time.Millisecond, nil)
 	c.StreamOpen("GET", "/events/devices", 3*time.Millisecond)
 	c.Checkin()
-	c.Emit("peer", "ok", "arrival announced for AT070AABU00231")
+	c.Emit("checkin", "", "AT070AABU00231 v2.1.025")
 	c.SampleNow(31, 6, 25, 0)
 
 	payload := serverPayload{
@@ -46,7 +46,7 @@ func TestServerMetricsPayloadShape(t *testing.T) {
 		`"route"`, `"calls"`, `"p50_ms"`, `"p95_ms"`, `"errors"`, `"total_ms"`, `"streams"`, `"open"`, `"opened"`, `"ttfb_p50_ms"`, `"ttfb_p95_ms"`, `"life_p50_sec"`, `"share_pct"`, `"db_ms_per_call"`, `"queries_per_call"`,
 		`"db"`, `"size_mb"`, `"cache_hit_pct"`, `"conn_active"`, `"conn_max"`, `"longest_query_sec"`, `"tables"`,
 		`"commands_pending"`, `"deployments_live"`, `"ota_in_flight"`, `"shell_sessions"`,
-		`"peer_outbox"`, `"devices_total"`, `"devices_online"`, `"devices_elsewhere"`, `"alerts_open"`,
+		`"devices_total"`, `"devices_online"`, `"devices_elsewhere"`, `"alerts_open"`,
 	} {
 		if !strings.Contains(body, key) {
 			t.Errorf("payload is missing %s — the page reads it", key)
