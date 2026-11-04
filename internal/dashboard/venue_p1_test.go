@@ -198,13 +198,13 @@ func TestVenueP1Renders(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		`<template id="page-island">`, `class="isl-dup-sr"`,
-		`class="ov2 vp1"`, `class="ov2-ban is-warn"`, `3 things to look at at Mom&#39;s Biryani`,
+		// V1 (4 Nov 2026): Fleet's rail, the to-dos as a list, devices by type + Show devices.
+		`class="cl-page vn1" id="vn1"`, `data-vn-pane="overview"`, `data-vn-row="lock"`, `data-vn-row="wifi"`,
+		`3 things to look at at Mom&#39;s Biryani`,
 		`Both devices offline for over a day: AT070AABU00455 (4 d), AT070AABU00767 (3 d)`,
 		`href="?open=lock#vn-lock">Set PIN</a>`,
-		`href="?window=7d" class="on"`, `>Online</a>`, `>Stability</a>`, `>Battery</a>`,
-		`class="card vp1-dev"`, `/members?head=0`, `data-class="t7"`,
-		`id="restaurant-members"`, `AT070AABU00455`,
-		`class="vp1-rail"`, `id="vn-settings"`, `id="vn-lock"`,
+		`class="vn1-types"`, `/devices?restaurant=` + in.ID.String() + `&class=t7`, `>Show devices</a>`,
+		`id="vn-settings"`, `id="vn-lock"`,
 		`id="vn-enrol"`, `action="/restaurants/` + in.ID.String() + `/auto-enroll"`, `name="on" value="1"`,
 		`id="vn-updates"`, `<b class="vu-paused">Paused</b>`, `Resume goes back to while closed`,
 		`name="action" value="resume"`, `value="closed"`, `Outside service hours: 23:30 – 12:00 now`,
@@ -246,11 +246,10 @@ func TestVenueP1Renders(t *testing.T) {
 	out = buf.String()
 	for _, want := range []string{
 		`Link to Huanchaco Peruvian Food in the AIO backend?`, `Prod #2007 · 1 device listed there · same name`,
-		`<input type="hidden" name="rid" value="2007"><button type="submit">Link</button></form><a class="alt" href="?open=backend#vn-backend">Other…</a>`,
+		`<input type="hidden" name="rid" value="2007"><button type="submit" class="cc-btn sm primary">Link</button></form><a class="cc-btn sm" href="?open=backend#vn-backend">Other…</a>`,
 		`id="vn-backend"`, `<b>Not linked</b> <small>· suggests Huanchaco Peruvian Food</small>`, `<span class="vb-ev">same name</span>`,
 		`list="vb-list-prod"`, `<option value="Huanchaco Peruvian Food · #2007">Brentwood</option>`,
-		`+ 1 unenrolled`, `class="ft-row ft-un" data-class="dongle"`, `<span class="ft-unchip">Unenrolled</span> in the AIO backend · not onboarded`,
-		`also lists <b>1 tablet</b> here by Android ID`, `<b>Menu board <span>0 + 1</span></b>`,
+		`+ 1 unenrolled`, `The AIO backend lists 1 more device here that is not in the MDM.`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("venue page with the backend is missing %q", want)

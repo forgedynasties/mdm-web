@@ -5,6 +5,34 @@
    venue's own facts on the right, each a one-line summary that opens its form in place.
    Below 1024px the right column drops under the devices. */
 .vn-page{max-width:1280px;margin:0 auto}
+/* V1 (4 Nov 2026): Fleet's rail and one pane. */
+.vn1 .fleet-rail-item .nm small{display:block;font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.vn1 .fleet-rail-item .nm{min-width:0}
+.vn1-card{padding:14px 16px;margin-bottom:14px}
+.vn1-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:15px;font-weight:650;margin:0 0 6px}
+.vn1-h small{font-size:12px;font-weight:500;color:var(--muted)}
+.vn1-td{display:flex;align-items:center;gap:12px;padding:10px 2px;border-top:1px solid var(--border-soft);font-size:13px}
+.vn1-td:first-child{border-top:0}
+.vn1-td .t{flex:1;min-width:0;font-weight:600}.vn1-td .t small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.vn1-td form{margin:0}
+.vn1-dt{width:9px;height:9px;border-radius:50%;flex:none;background:var(--warn)}
+.vn1-dt.bad{background:var(--danger)}.vn1-dt.ok{background:var(--ok)}.vn1-dt.info{background:var(--info)}
+.vn1-calm{color:var(--muted);font-size:13px;margin:4px 0}
+.vn1-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:start}
+.vn1-grid>#power-live>.vn-card{margin:0}
+.vn1-types{width:100%;border-collapse:collapse;font-size:13px}
+.vn1-types td{padding:9px 4px;border-top:1px solid var(--border-soft)}
+.vn1-types tr:first-child td{border-top:0}
+.vn1-types tr[data-href]{cursor:pointer}.vn1-types tr[data-href]:hover td{background:var(--hover)}
+.vn1-types .n{font-family:var(--mono);color:var(--text-2);width:36px}
+.vn1-types .s{color:var(--text-2);white-space:nowrap}.vn1-types .w{color:var(--warn)}.vn1-types .d{color:var(--danger)}
+.vn1-types .go{color:var(--muted);width:18px;text-align:right}
+.vn1-bar{display:flex;width:90px;height:6px;border-radius:99px;overflow:hidden;background:var(--surface2)}
+.vn1-bar i{display:block}.vn1-bar .on{background:var(--ok)}.vn1-bar .of{background:var(--text-faint);opacity:.5}.vn1-bar .al{background:var(--danger)}
+.vn1-un{font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.vn1-acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.vn1 .vs-card{max-width:none}
+@media(max-width:1024px){.vn1-grid{grid-template-columns:minmax(0,1fr)}}
 /* P1 (21 Oct 2026): main column (banner, cards, pill chart, devices) and the settings rail. */
 .vp1{grid-template-columns:minmax(0,1fr) 380px}
 .vp1-rail{display:grid;gap:12px;min-width:0;align-self:start}
@@ -106,11 +134,11 @@
   {{venueIcon .Restaurant.ID .Restaurant.Name "sm"}}<span class="isl-t">{{.Restaurant.Name}}</span>
   <span class="isl-s">{{if $n}}<b>{{$on}}</b> of {{$n}} online{{if lt $on $n}} · <a class="w" href="/devices?restaurant={{.Restaurant.ID}}&status=offline">{{sub $n $on}} offline</a>{{end}}{{else}}No devices yet{{end}}{{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}</span>
   <span class="isl-acts">
+    {{if .Devices}}<a class="cc-btn" href="/devices?restaurant={{.Restaurant.ID}}">Show devices</a>{{end}}
     {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('vn-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
         <a class="cc-mi" href="/restaurants/{{.Restaurant.ID}}/report">Weekly report</a>
-        <a class="cc-mi" href="/devices?restaurant={{.Restaurant.ID}}">Open in Fleet</a>
         {{if canAdminOrOperator .Role}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.vnOpenCard && vnOpenCard('vn-profile')">Edit venue</button>
         <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST" onsubmit="return confirm('Delete {{.Restaurant.Name}}? Its devices stop being at a venue.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete venue</button></form>{{end}}
       </div>
@@ -157,81 +185,76 @@
   </div>
 </div>
 
-{{/* P1 (21 Oct 2026): this venue's to-do banner, Online / Stability / Battery cards over a
-     window; the Venue settings card is the rail. The device table is under both (D1). */}}
-<div class="ov2 vp1">
-  <div class="ov2-main">
-    {{with .P1}}
-    {{with .Banner}}
-    <div class="ov2-ban is-{{.Tone}}">
-      <div class="ov2-ban-k">{{.Kicker}}</div>
-      <h2>{{.Headline}}</h2>
-      {{if .Todos}}
-      <ol class="oc-todo">
-        {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}<form method="POST" action="/restaurants/{{$.Restaurant.ID}}/{{.Post}}">{{range .Fields}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}<button type="submit">{{.Action}}</button></form>{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}{{if .AltHref}}<a class="alt" href="{{.AltHref}}">{{.Alt}}</a>{{end}}</li>{{end}}
-      </ol>
-      {{if .More}}<a class="oc-more" href="/alerts">{{.More}} more in Alerts <i aria-hidden="true">→</i></a>{{end}}
-      {{else}}<p>{{.Calm}}</p>{{end}}
-    </div>
-    {{end}}
-
-    <div class="vp1-wh"><span>Window</span><span class="vp1-win" role="group" aria-label="Window for the cards">{{range .Windows}}<a href="{{.Href}}"{{if .Active}} class="on" aria-current="true"{{end}}>{{.Label}}</a>{{end}}</span></div>
-    <div class="oc-stats vp1-stats">
-      {{range .Stats}}
-      <div class="oc-st">
-        <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
-        {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
-        <a class="oc-stm" href="{{.Href}}">
-          {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-          {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-        </a>
-        {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/>{{with .LineB}}<path class="b" d="{{.}}"/>{{end}}</svg>{{end}}
-        {{end}}
-      </div>
-      {{end}}
-    </div>
-
-    {{end}}
-
-  </div>
-
-  <aside class="vp1-rail" aria-label="Venue settings">
-    {{template "venue-settings" .}}
-
-    {{/* Power and usage — what the venue's hardware actually did over the chosen window.
-         The whole card (figures AND the per-day strip) is one htmx target, so the range
-         buttons never leave the bars showing the old window under a new number. Under the
-         settings since S1 (19 Oct), so the venue's identity comes first. */}}
-    <div id="power-live">{{template "restaurant-power" .}}</div>
+{{/* V1 "Fleet's twin" (picked 4 Nov 2026; user: "need to work on this page, not good",
+     "adding device list of all devices is an overkill", "we can add button show devices that
+     will take to fleet page"): Fleet's rail with Overview and every setting (each with its
+     value as a hint, those that need you marked), and one pane. Overview = the to-dos as a
+     quiet list, the devices by type (each row and Show devices open Fleet on this venue) and
+     the last 7 days. A setting shows the settings card with that row open. No device table,
+     no trend cards (the island's chips say it). vn1.js */}}
+{{$rid := .Restaurant.ID}}
+<div class="cl-page vn1" id="vn1">
+<div class="fleet-md">
+  <aside class="fleet-rail" aria-label="{{.Restaurant.Name}}">
+    <div class="fleet-rail-cap"><span>{{.Restaurant.Name}}</span></div>
+    {{$todo := 0}}{{with .P1}}{{with .Banner}}{{$todo = len .Todos}}{{if .More}}{{$todo = add $todo 1}}{{end}}{{end}}{{end}}
+    <button type="button" class="fleet-rail-item on" data-vn-pane="overview" aria-pressed="true"><span class="dot {{if $todo}}warn{{else}}ok{{end}}"></span><span class="nm">Overview</span><span class="ct">{{if $todo}}{{$todo}} to do{{end}}</span></button>
+    <div class="fleet-rail-cap"><span>Settings</span></div>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="profile" aria-pressed="false"><span class="dot ok"></span><span class="nm">Profile<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="location" aria-pressed="false"><span class="dot ok"></span><span class="nm">Location<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="backend" aria-pressed="false"><span class="dot ok"></span><span class="nm">AIO backend<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="hours" aria-pressed="false"><span class="dot ok"></span><span class="nm">Service hours<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="updates" aria-pressed="false"><span class="dot ok"></span><span class="nm">Updates<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="lock" aria-pressed="false"><span class="dot ok"></span><span class="nm">Device lock<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="lost" aria-pressed="false"><span class="dot ok"></span><span class="nm">Lost devices<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="hostapp" aria-pressed="false"><span class="dot ok"></span><span class="nm">Host app<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="wifi" aria-pressed="false"><span class="dot ok"></span><span class="nm">Device Wi-Fi<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="setup" aria-pressed="false"><span class="dot ok"></span><span class="nm">Setup<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="enrol" aria-pressed="false"><span class="dot ok"></span><span class="nm">Auto-enrol<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="people" aria-pressed="false"><span class="dot ok"></span><span class="nm">People<small class="vn1-hint"></small></span></button>
   </aside>
+  <div class="fleet-roster" style="min-width:0">
+    <section class="vn1-pane" data-vn-for="overview">
+      {{with .P1}}{{with .Banner}}
+      <div class="card vn1-card">
+        <h2 class="vn1-h">{{.Headline}}<small>{{.Kicker}}</small></h2>
+        {{if .Todos}}
+        <div class="vn1-todo">
+          {{range .Todos}}<div class="vn1-td"><span class="vn1-dt"></span><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}<form method="POST" action="/restaurants/{{$rid}}/{{.Post}}">{{range .Fields}}<input type="hidden" name="{{index . 0}}" value="{{index . 1}}">{{end}}<button type="submit" class="cc-btn sm primary">{{.Action}}</button></form>{{else if .Href}}<a class="cc-btn sm primary" href="{{.Href}}">{{.Action}}</a>{{end}}{{if .AltHref}}<a class="cc-btn sm" href="{{.AltHref}}">{{.Alt}}</a>{{end}}</div>{{end}}
+          {{if .More}}<div class="vn1-td"><span class="vn1-dt info"></span><span class="t">{{.More}} more in Alerts</span><a class="cc-btn sm" href="/alerts?show=v-{{$rid}}">Open</a></div>{{end}}
+        </div>
+        {{else}}<p class="vn1-calm">{{.Calm}}</p>{{end}}
+      </div>
+      {{end}}{{end}}
+      <div class="vn1-grid">
+        <div class="card vn1-card">
+          <h2 class="vn1-h">Devices{{$un := 0}}{{with .Unenrolled}}{{$un = len .Rows}}{{end}}<small>{{len .Devices}}{{if $un}} + {{$un}} unenrolled{{end}}</small></h2>
+          {{with .P1}}{{if .Tabs}}
+          <table class="vn1-types"><tbody>
+          {{range $i, $t := .Tabs}}{{if and $i $t.Total}}
+            <tr data-href="/devices?restaurant={{$rid}}{{with $t.Class}}&class={{.}}{{end}}"><td><b>{{$t.Label}}</b></td><td class="n">{{$t.Total}}</td>
+              <td><span class="vn1-bar" aria-hidden="true"><i class="on" style="width:{{$t.POn}}%"></i><i class="of" style="width:{{$t.POff}}%"></i><i class="al" style="width:{{$t.PAl}}%"></i></span></td>
+              <td class="s">{{$t.Online}} online{{if $t.Offline}} · <span class="w">{{$t.Offline}} offline</span>{{end}}{{if $t.Alerts}} · <span class="d">{{$t.Alerts}} alert{{if ne $t.Alerts 1}}s{{end}}</span>{{end}}</td><td class="go">↗</td></tr>
+          {{end}}{{end}}
+          </tbody></table>
+          {{end}}{{end}}
+          {{if not .Devices}}<p class="vn1-calm">No devices here yet.</p>{{end}}
+          {{if $un}}<p class="vn1-un">The AIO backend lists {{$un}} more device{{if ne $un 1}}s{{end}} here that {{if eq $un 1}}is{{else}}are{{end}} not in the MDM.</p>{{end}}
+          <div class="vn1-acts">{{if .Devices}}<a class="cc-btn primary sm" href="/devices?restaurant={{$rid}}">Show devices</a>{{end}}{{if canAdminOrOperator .Role}}<button type="button" class="cc-btn sm" onclick="var d=document.getElementById('vn-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}</div>
+        </div>
+        <div id="power-live">{{template "restaurant-power" .}}</div>
+      </div>
+    </section>
+    <section class="vn1-pane" data-vn-for="settings" hidden>
+      {{template "venue-settings" .}}
+    </section>
+  </div>
 </div>
-
-{{/* D1 (22 Oct 2026): one full-width Devices card, the type tabs (were the "Devices by
-     type" pill chart) filtering the table in place. The table refreshes on
-     restaurant-updated without its own header (?head=0). */}}
-<section class="card vp1-dev" aria-label="Devices">
-  <div class="vp1-dh"><h2>Devices{{$un := 0}}{{with .Unenrolled}}{{$un = len .Rows}}{{end}}{{if or .Devices $un}} <span>{{len .Devices}}{{if $un}} + {{$un}} unenrolled{{end}}</span>{{end}}</h2></div>
-  {{with .P1}}{{if gt (len .Tabs) 2}}
-  <div class="vp1-tabs" role="tablist" aria-label="Device type">
-    {{range $i, $t := .Tabs}}
-    <button type="button" class="vp1-tab{{if eq $i 0}} on{{end}}" role="tab" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}" data-class="{{$t.Class}}">
-      <b>{{$t.Label}} <span>{{$t.Total}}{{if $t.Unenrolled}} + {{$t.Unenrolled}}{{end}}</span></b>
-      <span class="vp1-bar" aria-hidden="true"><i class="on" style="width:{{$t.POn}}%"></i><i class="of" style="width:{{$t.POff}}%"></i><i class="al" style="width:{{$t.PAl}}%"></i><i class="un" style="width:{{$t.PUn}}%"></i></span>
-      <small>{{if $t.Total}}{{$t.Online}} online · {{$t.Offline}} offline{{if $t.Alerts}} · <em>{{$t.Alerts}} alert{{if ne $t.Alerts 1}}s{{end}}</em>{{end}}{{if $t.Unenrolled}} · {{end}}{{end}}{{if $t.Unenrolled}}{{$t.Unenrolled}} unenrolled{{end}}</small>
-    </button>
-    {{end}}
-  </div>
-  {{end}}{{end}}
-  <!-- Members — refreshes in place on device add/remove via a "restaurant-updated" event -->
-  <div id="restaurant-members" data-morph
-       hx-get="/restaurants/{{.Restaurant.ID}}/members?head=0" hx-trigger="restaurant-updated from:body"
-       hx-target="this" hx-swap="innerHTML" hx-select="unset">
-    {{template "restaurant-members" (withNoHead .)}}
-  </div>
-</section>
+</div>
 </div>
 
 <script src="/static/js/restaurant_detail.js?v={{assetVer}}"></script>
+<script src="/static/js/vn1.js?v={{assetVer}}"></script>
 
 {{template "footer" .}}
 {{end}}
