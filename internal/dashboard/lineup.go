@@ -24,7 +24,7 @@ type hwModel struct {
 	Also                         []roleCount
 	NoRole                       int
 	Known, CanFw                 bool // Known: our own board, built in to its role
-	Devices, Firmware, DPC, Lite int
+	Devices, Firmware, DPC       int
 	FwMode                       string // prod | lab | off
 	Runs                         int    // production runs linked to the model
 }
@@ -86,7 +86,7 @@ func (h *Handler) lineupHardware(ctx context.Context, productions []db.Productio
 	for _, p := range rows {
 		m := hwModel{
 			Key: p.Key, Known: product.IsKnown(p.Key), Reported: modelLabel(p.Manufacturer, p.Model),
-			Devices: p.Devices, Firmware: p.Firmware, DPC: p.DPC, Lite: p.Lite, Name: p.Name, Role: p.Role,
+			Devices: p.Devices, Firmware: p.Firmware, DPC: p.DPC, Name: p.Name, Role: p.Role,
 			FwMode: db.FirmwareModeOf(modes, p.Key), Runs: runs[p.Key],
 		}
 		if m.Known {

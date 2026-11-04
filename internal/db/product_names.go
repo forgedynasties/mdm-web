@@ -81,7 +81,6 @@ type ProductRow struct {
 	Devices      int
 	Firmware     int // MDM Firmware
 	DPC          int // MDM DPC
-	Lite         int // MDM Lite
 	Manufacturer string
 	Model        string
 	Name         string   // admin-set display name, "" when none
@@ -96,8 +95,7 @@ func (d *DB) ProductOverview(ctx context.Context) ([]ProductRow, error) {
 		SELECT COALESCE(NULLIF(d.product, ''), '`+prod.DefaultKey+`') AS p,
 		       COUNT(*)::int,
 		       COUNT(*) FILTER (WHERE d.agent_kind <> '`+prod.KindDPC+`')::int,
-		       COUNT(*) FILTER (WHERE d.agent_kind = '`+prod.KindDPC+`' AND COALESCE(d.latest_extra->>'agent_type', '') <> '`+prod.AgentTypeMDMLite+`')::int,
-		       COUNT(*) FILTER (WHERE d.agent_kind = '`+prod.KindDPC+`' AND COALESCE(d.latest_extra->>'agent_type', '') = '`+prod.AgentTypeMDMLite+`')::int,
+		       COUNT(*) FILTER (WHERE d.agent_kind = '`+prod.KindDPC+`')::int,
 		       COALESCE((array_agg(d.latest_extra->>'manufacturer') FILTER (WHERE d.latest_extra->>'manufacturer' <> ''))[1], ''),
 		       COALESCE((array_agg(d.latest_extra->>'model') FILTER (WHERE d.latest_extra->>'model' <> ''))[1], ''),
 		       COALESCE(MAX(pn.name), ''), COALESCE(MAX(pn.role), ''), COALESCE(pn.roles, '{}'), COALESCE(MAX(pn.updated_by), '')
@@ -112,7 +110,7 @@ func (d *DB) ProductOverview(ctx context.Context) ([]ProductRow, error) {
 	var out []ProductRow
 	for rows.Next() {
 		var r ProductRow
-		if err := rows.Scan(&r.Key, &r.Devices, &r.Firmware, &r.DPC, &r.Lite, &r.Manufacturer, &r.Model, &r.Name, &r.Role, &r.Roles, &r.UpdatedBy); err != nil {
+		if err := rows.Scan(&r.Key, &r.Devices, &r.Firmware, &r.DPC, &r.Manufacturer, &r.Model, &r.Name, &r.Role, &r.Roles, &r.UpdatedBy); err != nil {
 			return nil, err
 		}
 		r.Roles = liveRoles(r.Roles)

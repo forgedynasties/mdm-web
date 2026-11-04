@@ -52,7 +52,7 @@
     {{if $.Selectable}}<td class="ft-cb"><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}"></td>{{end}}
     <td class="ft-dev">
       <div class="ft-l1">
-        {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not $online) (legacyCheckingIn .LastSeenAt)}}
+        {{$on := "Online"}}{{$off := "Offline"}}{{if eq .EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not $online) (legacyCheckingIn .LastSeenAt)}}
         {{if $online}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}
         <a href="/devices/{{.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false" title="{{if $nick}}{{$nick}} · {{end}}{{$model}}"><span class="pre">{{serialHead .SerialNumber}}</span><span class="tail">{{serialTail .SerialNumber}}</span></a>
         {{if .KioskEnabled}}<span class="dl-kiosk" title="Locked" aria-label="Locked"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
@@ -75,12 +75,12 @@
     {{$tsrc := tempSource .LatestExtra}}
     <td class="ft-num ft-temp" data-m="temp"{{if eq $tsrc "cpu"}} title="CPU (SoC) temperature — this device has no battery sensor"{{end}}>{{if eq $tsrc "cpu"}}<span class="ft-src">CPU</span>{{end}}{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</td>
     <td class="ft-num ft-ram" data-m="ram">{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</td>
-    {{/* Our images name their builds (v2.1.022); DPC and Lite report the stock Android
+    {{/* Our images name their builds (v2.1.022); DPC devices report the stock Android
          fingerprint, too long to help here — it stays in the tooltip. */}}
     <td class="ft-build">{{if not .BuildID}}<span class="ft-none">—</span>{{else if .IsDPC}}<span class="ft-none" title="{{.BuildID}}">Stock</span>{{else}}<span class="dl-buildid" title="Firmware build">{{.BuildID}}</span>{{end}}</td>
     {{$ver := extraField .LatestExtra "agent_version"}}{{if eq $ver "—"}}{{$ver = ""}}{{end}}
-    <td class="ft-client" title="{{.KindLabel}}{{if $ver}} {{$ver}}{{end}}">{{if $ver}}<span class="ft-ver">{{$ver}}</span>{{else}}<span class="ft-none">—</span>{{end}}<span class="ft-k">{{if .IsMDMLite}}Lite{{else if .IsDPC}}Std{{else}}FW{{end}}</span></td>
-    <td class="ft-num ft-seen"><span class="dl-synced{{if $online}} is-on{{end}}"{{if .IsMDMLite}} data-always="1"{{end}} title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{if and $online (not .IsMDMLite)}}now{{else}}{{timeSince .LastSeenAt}}{{end}}</span></td>
+    <td class="ft-client" title="{{.KindLabel}}{{if $ver}} {{$ver}}{{end}}">{{if $ver}}<span class="ft-ver">{{$ver}}</span>{{else}}<span class="ft-none">—</span>{{end}}<span class="ft-k">{{if .IsDPC}}Std{{else}}FW{{end}}</span></td>
+    <td class="ft-num ft-seen"><span class="dl-synced{{if $online}} is-on{{end}}" title="Last seen">{{if $online}}now{{else}}{{timeSince .LastSeenAt}}{{end}}</span></td>
     <td class="ft-act">
       {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
       <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
@@ -132,12 +132,12 @@
           <span class="dl-ic {{$kind}}" role="img" aria-label="{{.ClassLabel}}" title="{{.ClassLabel}}"><svg><use href="#dk-{{$kind}}"/></svg></span>
     <div class="dl-sc-id">
       <div class="dl-sc-l1">
-                  {{$on := "Online"}}{{$off := "Offline"}}{{if .IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not (index $.Online .ID)) (legacyCheckingIn .LastSeenAt)}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}
+                  {{$on := "Online"}}{{$off := "Offline"}}{{if eq .EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{$legacy := isLegacyBuild .BuildID}}{{$ci := and $legacy (not (index $.Online .ID)) (legacyCheckingIn .LastSeenAt)}}{{if index $.Online .ID}}<span class="dl-status on" role="img" aria-label="{{$on}}" title="{{$on}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{else if $ci}}<span class="dl-status checkin" role="img" aria-label="Checking in" title="Checking in — legacy firmware reports over HTTP, not a live connection" data-label-on="{{$on}}" data-label-off="{{$off}}" data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"><i></i></span>{{else}}<span class="dl-status off" role="img" aria-label="{{$off}}" title="{{$off}}" data-label-on="{{$on}}" data-label-off="{{$off}}"{{if $legacy}} data-legacy="1" data-legacy-window="{{legacyWindowSecs}}"{{end}}><i></i></span>{{end}}
                   {{$nick := ""}}{{if $.Nicknames}}{{$nick = index $.Nicknames .ID}}{{end}}{{/* Hardware identity: prefer the reported model ("samsung SM-S146VL") over the
                product key; T7s report no model and keep their catalog label. */}}{{$model := .ProductLabel}}{{$mdl := extraField .LatestExtra "model"}}{{if and (ne $mdl "") (ne $mdl "—")}}{{$model = $mdl}}{{$mfr := extraField .LatestExtra "manufacturer"}}{{if and (ne $mfr "") (ne $mfr "—")}}{{$model = printf "%s %s" $mfr $mdl}}{{end}}{{end}}{{with productName .Product}}{{$model = .}}{{end}}
         <a href="/devices/{{.SerialNumber}}" class="dl-sc-sn link-detail" data-full="1" hx-boost="false" title="{{if $nick}}{{$nick}}{{else}}{{$model}}{{end}}"><span class="pre">{{serialHead .SerialNumber}}</span><span class="tail">{{serialTail .SerialNumber}}</span></a>
         <button type="button" class="dl-copy" data-copy="{{.SerialNumber}}" title="Copy serial number" aria-label="Copy serial number"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
-        <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="{{if .IsMDMLite}}Last check-in{{else}}Last seen{{end}}">{{timeSince .LastSeenAt}}</span>
+        <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}" title="Last seen">{{timeSince .LastSeenAt}}</span>
       {{if .KioskEnabled}}<span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
       {{if deviceLost .LatestExtra}}<span class="dl-ktag lost" title="In lost mode: its screen is locked to a return message">Lost</span>{{end}}
       {{if staffMode .LatestExtra}}<span class="dl-ktag staff" title="Staff unlocked it with the staff PIN: the app is open for staff until they tap Back to guest mode, or it is locked again here.">Staff mode</span>{{end}}
@@ -148,8 +148,8 @@
       </div>
       <div class="dl-sc-l2">{{if $nick}}<span>{{$nick}}</span><span class="sep">·</span>{{end}}<span>{{$model}}</span><span class="sep">·</span><span class="dl-agent">{{.KindLabel}}</span></div>
       {{/* The firmware build, under the agent: our images name their builds (v2.1.022),
-           which is what someone scanning the fleet for stragglers looks for. DPC and
-           Lite report the stock Android fingerprint, too long to help here. */}}
+           which is what someone scanning the fleet for stragglers looks for. DPC devices
+           report the stock Android fingerprint, too long to help here. */}}
       {{if and (not .IsDPC) .BuildID}}<div class="dl-sc-l3" title="Firmware build">{{.BuildID}}</div>{{end}}
     </div>
     <div class="dl-stats">
@@ -772,7 +772,7 @@ a.fleet-rail-item{min-height:40px}
 // fleet (models, releases, time zones, enrollers) are as of this page load.
 window.FLEET_FIELDS = [
   {k: 'status', label: 'Status', grp: 'Identity', vals: [['online', 'Online'], ['offline', 'Offline']]},
-  {{if canAdmin .Role}}{k: 'kind', label: 'Agent', grp: 'Identity', vals: [['firmware', 'Firmware MDM'], ['dpc', 'Standard MDM'], ['mdm-lite', 'MDM Lite']]},{{end}}
+  {{if canAdmin .Role}}{k: 'kind', label: 'Agent', grp: 'Identity', vals: [['firmware', 'Firmware MDM'], ['dpc', 'Standard MDM']]},{{end}}
   {k: 'product', label: 'Model', grp: 'Identity', vals: [{{range .Products}}[{{.Key}}, {{.Label}}],{{end}}]},
   {k: 'production', label: 'Production', grp: 'Identity', vals: [{{range .Productions}}[{{printf "%s" .ID}}, {{.Name}}],{{end}}]},
   {k: 'build', label: 'Release', grp: 'Identity', vals: [{{range .Builds}}[{{.}}, {{.}}],{{end}}]},

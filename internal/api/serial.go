@@ -8,7 +8,7 @@ import (
 )
 
 // serialRe is what a device serial can look like: letters, digits, '-' and '_' — a T7's
-// AT070AABU00429, MDM-lite's android-<ANDROID_ID>, a corrupted T7's msm-<ANDROID_ID>.
+// AT070AABU00429, the Standard client's android-<ANDROID_ID>, a corrupted T7's msm-<ANDROID_ID>.
 //
 // A serial with anything else in it is not a serial. T7s with a corrupted bootloader
 // read "androidboot.baseband=msm" (the next token of the kernel command line) as their

@@ -15,7 +15,7 @@ Release notes in [CHANGELOG.md](CHANGELOG.md).
 
 ## The clients
 
-Two kinds of hardware, three tiers of client. How much control we get is decided by
+Two kinds of hardware, two tiers of client. How much control we get is decided by
 whether we own the firmware, and capability gating in
 [`internal/product/caps.go`](internal/product/caps.go) is the source of truth.
 
@@ -27,15 +27,9 @@ OTA; since 1.0.0 it also updates itself as an APK.
 
 **DPC** — off-the-shelf devices can't take our image, so this is a normal APK that
 becomes Device Owner through Android Enterprise provisioning and manages the device
-via `DevicePolicyManager`. More power than Lite, but needs a factory-reset device
-with no accounts. **Currently paused.**
+via `DevicePolicyManager`. Needs a factory-reset device with no accounts.
 
-**Lite** — a dependency-free AAR embedded in an app we already ship. No Device
-Owner, no adb, no root: it reports vitals, crashes, security posture and app
-inventory, and accepts a few remote controls (screenshot, WebView reload, clear
-cache, update check, restart). HTTP check-in only, no live WebSocket.
-
-All three are checked out here as submodules, so one clone gets the whole MDM:
+Both are checked out here as submodules, so one clone gets the whole MDM:
 
 ```bash
 git clone --recurse-submodules git@github.com:AIOApp/mdm.git
@@ -46,8 +40,7 @@ git submodule update --remote          # advance each to its branch tip
 | Path | Tier | Package | Branch |
 |---|---|---|---|
 | `aio-mdm-client/` | Firmware | `com.aioapp.mdm` | `main` |
-| `aio-mdm-client-dpc/` | DPC — paused | `aio.app.mdmclient.dpc` | `menu-board` |
-| `aio-mdm-lite/` | Lite (the AAR) | `AioMdm` | `main` |
+| `aio-mdm-client-dpc/` | DPC | `aio.app.mdmclient.dpc` | `menu-board` |
 
 Do not rename the paths. None of them are built
 into the server image (`.dockerignore` keeps them out of the build context) and

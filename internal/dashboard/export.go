@@ -82,7 +82,7 @@ var exportColumns = []string{
 }
 
 // storageFreePct is free space as a percentage of the volume, for devices that
-// report the volume size (Lite and the DPC agent send storage_total_bytes). The
+// report the volume size (the DPC agent sends storage_total_bytes). The
 // firmware client only sends storage_free_gb, so on a T7 or a kiosk this column is
 // blank rather than a percentage of a total nobody knows.
 func storageFreePct(raw json.RawMessage) string {

@@ -136,7 +136,7 @@ func (h *Handler) ProductAttach(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ProductRename(w http.ResponseWriter, r *http.Request) {
 	key := product.Normalize(r.PathValue("key"))
 	if key == "" || product.IsKnown(key) {
-		h.hxDoneToast(w, r, "/lineup", "Only stock products (Standard MDM / MDM Lite hardware) can be renamed", "error")
+		h.hxDoneToast(w, r, "/lineup", "Only stock products (Standard MDM hardware) can be renamed", "error")
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))

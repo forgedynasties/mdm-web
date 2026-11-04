@@ -383,7 +383,7 @@ func (h *Handler) pipelineModels(ctx context.Context, role string, devices []db.
 		if mrole != role {
 			continue
 		}
-		m := pipeModel{Key: row.Key, Maker: row.Manufacturer, Mode: db.FirmwareModeOf(modes, row.Key), Firmware: row.Firmware, Std: row.DPC + row.Lite}
+		m := pipeModel{Key: row.Key, Maker: row.Manufacturer, Mode: db.FirmwareModeOf(modes, row.Key), Firmware: row.Firmware, Std: row.DPC}
 		m.Label = prod.Label(row.Key)
 		if n := names[row.Key]; n != "" {
 			m.Label = n

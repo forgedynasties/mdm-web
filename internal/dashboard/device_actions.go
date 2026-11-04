@@ -51,7 +51,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Capability gate, as the bulk Actions path does: never queue a command the
-	// device's agent can't run (e.g. uninstall on MDM-lite, which has no Device Owner).
+	// device's agent can't run.
 	if !device.Supports(cmdType) {
 		http.Error(w, fmt.Sprintf("%s isn't available on this device's agent (%s).", cmdTypeLabel(cmdType), device.KindLabel()), http.StatusBadRequest)
 		return

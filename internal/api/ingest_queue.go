@@ -88,7 +88,7 @@ func (h *Handler) queueHistory(ctx context.Context, job historyJob) {
 //
 // Retry-After is spread over 20–60 s: every device that was shed at the same moment
 // coming back at the same moment is the burst again. The firmware client honours it
-// as a floor on its next poll; MDM-lite simply tries on its next scheduled run.
+// as a floor on its next poll.
 func (h *Handler) admitCheckin(w http.ResponseWriter, r *http.Request) (release func(), ok bool) {
 	shed := func() (func(), bool) {
 		checkinsShed.Add(1)

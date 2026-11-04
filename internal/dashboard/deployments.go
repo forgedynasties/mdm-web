@@ -64,7 +64,7 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				var why string
 				switch {
 				case notFirmware > 0:
-					why = fmt.Sprintf("Push update is only for Firmware MDM devices — %d of the selected are Standard MDM / MDM Lite.", notFirmware)
+					why = fmt.Sprintf("Push update is only for Firmware MDM devices — %d of the selected are Standard MDM.", notFirmware)
 				case len(models) > 1:
 					var names []string
 					for k := range models {

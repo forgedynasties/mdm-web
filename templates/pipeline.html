@@ -317,7 +317,7 @@
               </form>
               {{else if .CanFw}}<span class="lu1-pt {{if eq .FwMode "prod"}}ok{{else if eq .FwMode "lab"}}info{{end}}">Firmware: {{if eq .FwMode "prod"}}Prod{{else if eq .FwMode "lab"}}Lab only{{else}}Off{{end}}</span>
               {{else}}<span class="lu1-pt">Maker's firmware</span>{{end}}
-              {{if .Firmware}}<span class="lu1-pt">Firmware MDM {{.Firmware}}</span>{{end}}{{if .DPC}}<span class="lu1-pt">Standard MDM {{.DPC}}</span>{{end}}{{if .Lite}}<span class="lu1-pt">MDM Lite {{.Lite}}</span>{{end}}
+              {{if .Firmware}}<span class="lu1-pt">Firmware MDM {{.Firmware}}</span>{{end}}{{if .DPC}}<span class="lu1-pt">Standard MDM {{.DPC}}</span>{{end}}
               <span class="lu1-pt{{if not .Devices}} zero{{end}}">{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Also}} here{{end}}</span>
               {{range .Also}}<a class="lu1-pt info" href="/lineup?role={{.Role}}#model-{{$m.Key}}">Also {{classLabel .Role}} · {{.N}}</a>{{end}}
               {{if .NoRole}}<a class="lu1-pt warn" href="/devices?product={{$m.Key}}" title="Devices of this model nobody has picked a role for yet: their app and lock wait">{{.NoRole}} need{{if eq .NoRole 1}}s{{end}} a role</a>{{end}}
@@ -370,7 +370,7 @@
   </div>
 {{end}}
 
-{{define "lu-agents"}}<span class="lu-agents">{{if .Firmware}}<span class="lu-ag">Firmware MDM <b>{{.Firmware}}</b></span>{{end}}{{if .DPC}}<span class="lu-ag">Standard MDM <b>{{.DPC}}</b></span>{{end}}{{if .Lite}}<span class="lu-ag">MDM Lite <b>{{.Lite}}</b></span>{{end}}</span>{{end}}
+{{define "lu-agents"}}<span class="lu-agents">{{if .Firmware}}<span class="lu-ag">Firmware MDM <b>{{.Firmware}}</b></span>{{end}}{{if .DPC}}<span class="lu-ag">Standard MDM <b>{{.DPC}}</b></span>{{end}}</span>{{end}}
 
 {{/* ── Lineup: models attached to no role ── */}}
 {{define "lu-none"}}

@@ -823,15 +823,8 @@ func agentUpdatePayload(pkg, version, sha256Hex string) json.RawMessage {
 	return json.RawMessage(b)
 }
 
-// clientVersionOf is the build a device is actually running for its slot. For MDM-lite
-// that is the *host app*: the library version says which Lite is embedded, but what a
-// slot hosts and installs is the whole app, so comparing the library version against it
-// would call a device behind a build it is already running.
+// clientVersionOf is the build of its MDM client a device is running.
 func clientVersionOf(d *db.Device) (name string, code int64) {
-	if d.IsMDMLite() {
-		return extraNested(d.LatestExtra, "host_app", "version_name"),
-			extraNestedInt64(d.LatestExtra, "host_app", "version_code")
-	}
 	name = extraString(d.LatestExtra, "agent_version")
 	if name == "—" {
 		name = ""
@@ -867,9 +860,6 @@ func frameworkVersionReported(name string, pkg string) bool {
 // showed a whole fleet as up to date. Comparing packages makes that impossible: a
 // version is only believed when it belongs to the app the slot hosts.
 func clientPackageOf(d *db.Device) string {
-	if d.IsMDMLite() {
-		return extraNested(d.LatestExtra, "host_app", "package")
-	}
 	return extraString(d.LatestExtra, "agent_package")
 }
 
@@ -1119,8 +1109,7 @@ func clientHistoryRows(slot string, hist []config.AgentAPKBuild, hostedSHA strin
 // Settings.
 // clientSlotOrder and clientSlotLabels are the client catalogue, shared by the
 // Clients page and the device page's client pill so the two can never drift.
-// Menu board + Lite dropped from the active client lineup entirely (2026-10-05) — just
-// firmware and the standard (DPC) client now. GMS is not supported (2026-10-08): the
+// Just firmware and the standard (DPC) client. GMS is not supported (2026-10-08): the
 // slot key stays for the publish API and for whatever is still out there on that image,
 // but it is not a client this dashboard offers, so the firmware client is one row with
 // no tree to choose and the build line is never named after a tree.
@@ -1134,9 +1123,9 @@ var clientSlotLabels = map[string]string{
 // ClientPillView is the device hero's client pill: which client manages this device,
 // the version it runs, whether that is the hosted build, and — for the popover the
 // pill opens — every client with its hosted version plus this client's changelog.
-// One pill in one place for firmware, DPC and Lite alike.
+// One pill in one place for firmware and DPC alike.
 type ClientPillView struct {
-	Kind      string // "Firmware MDM" | "Standard MDM" | "MDM Lite"
+	Kind      string // "Firmware MDM" | "Standard MDM"
 	ClassIcon string // dk-* sprite id for the device's hardware class ("" when there's no device)
 	Title     string // the tooltip the old tag carried
 	Version   string // what the device reports ("" = it has never said)
@@ -1187,9 +1176,6 @@ func (h *Handler) clientPillFor(d *db.Device) ClientPillView {
 		v.ClassIcon = "other"
 	}
 	switch {
-	case d.IsMDMLite():
-		v.Kind = "MDM Lite"
-		v.Title = "Reported by the MDM Lite library inside an app (no Device Owner): vitals and that app's crashes, over periodic check-ins with no live connection."
 	case d.IsDPC():
 		v.Kind = "Standard MDM"
 		v.Title = "Managed by the AIO MDM standard client (Device Owner) on a stock device."
@@ -1431,12 +1417,6 @@ func firmwareSlotFor(buildID, buildType string) string {
 	return "firmware-qcom"
 }
 
-// liteSlotPackages mapped MDM-lite host apps to a slot. Lite was dropped from the
-// active client lineup (menu board + Lite demo app) — kept empty rather than removed
-// so agentSlotFor's "nothing to offer it" fallback still applies cleanly to any
-// MDM-lite device still out there instead of needing a special case.
-var liteSlotPackages = map[string]string{}
-
 // agentAPKPath is where a slot's APK lives on disk ("" for an unknown slot).
 func agentAPKPath(slot string) string {
 	name, ok := AgentAPKSlots[slot]
@@ -1563,17 +1543,6 @@ func (h *Handler) foldedStanding(d *db.Device, real string, code int64) string {
 func agentSlotFor(d *db.Device) string {
 	if d == nil {
 		return "dpc"
-	}
-	// MDM-lite first: it is stored as a DPC kind, but what updates is the host app.
-	// The suffixed build variants of an app (…​.qa, …​.internal) are the same app.
-	if d.IsMDMLite() {
-		pkg := extraNested(d.LatestExtra, "host_app", "package")
-		for base, slot := range liteSlotPackages {
-			if pkg == base || strings.HasPrefix(pkg, base+".") {
-				return slot
-			}
-		}
-		return "" // Lite inside an app that is not ours: nothing to offer it
 	}
 	if d.IsDPC() {
 		return "dpc"

@@ -691,7 +691,7 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	if !device.Supports("remote") || device.IsMDMLite() {
+	if !device.Supports("remote") {
 		http.Error(w, "Remote control isn't available on this device's agent ("+device.KindLabel()+").", http.StatusBadRequest)
 		return
 	}

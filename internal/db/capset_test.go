@@ -27,8 +27,8 @@ func TestFirmwareCapabilitiesMergeWithDefaults(t *testing.T) {
 	}
 
 	// An advertised capability the defaults do not carry is still added.
-	fw.Capabilities = []string{product.CapAppControl}
-	if !fw.CapSet()[product.CapAppControl] {
+	fw.Capabilities = []string{product.CapMoveServer}
+	if !fw.CapSet()[product.CapMoveServer] {
 		t.Error("an advertised capability was not merged in")
 	}
 

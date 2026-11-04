@@ -15,8 +15,7 @@ import (
 )
 
 // Enrollment profiles over the admin API (X-API-Key), so a build machine can mint the
-// token it needs to bake into an app — the MDM-lite host apps carry their server URL
-// and token at compile time — instead of someone copying one out of the dashboard.
+// token it needs instead of someone copying one out of the dashboard.
 // Same rules as the dashboard form: it creates the token, the profile carries the
 // intent (class, site, group) applied to every device that enrolls with it.
 //

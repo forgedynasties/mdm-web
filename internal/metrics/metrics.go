@@ -516,7 +516,7 @@ func looksNumeric(s string) bool {
 }
 
 // looksLikeSerial matches the shapes device identities actually take here: our
-// hardware serials (AT070AABU00231), the android-<id> form MDM Lite falls back to, and
+// hardware serials (AT070AABU00231), the android-<id> form the Standard client falls back to, and
 // the short hex ids some stock devices report.
 func looksLikeSerial(s string) bool {
 	if strings.HasPrefix(s, "android-") {

@@ -103,16 +103,8 @@ var commands = []Command{
 	{Type: "reboot", Cap: CapReboot, Roles: rolesFloor, API: true},
 	{Type: "shell", Cap: CapShell, Roles: rolesAdmin, API: true},
 
-	// ── MDM-lite app controls ────────────────────────────────────────────────
-	// The menu board app's own controls, all gated by one capability and one grant:
-	// operator-level like reboot, and far less disruptive.
-	{Type: "app_reload", Cap: CapAppControl, Roles: rolesOperator, API: true, Access: "app_control"},
-	{Type: "app_restart", Cap: CapAppControl, Roles: rolesOperator, API: true, Access: "app_control"},
-	{Type: "app_clear_cache", Cap: CapAppControl, Roles: rolesOperator, API: true, Access: "app_control"},
-	{Type: "app_update_check", Cap: CapAppControl, Roles: rolesOperator, API: true, Access: "app_control"},
-
 	// The agent installing a newer build of itself: the DPC agent, the firmware
-	// client (ClientUpdater) and the Lite host app. Evaluated as "install_apk" —
+	// client (ClientUpdater). Evaluated as "install_apk" —
 	// it is an install from the same app library, and that is the grant operators
 	// already hold. Under its own name ("app_update") it matched no access action,
 	// so the policy layer answered "Unknown action" and refused every non-admin a
@@ -242,18 +234,6 @@ func CommandFor(cmdType string) (Command, bool) {
 // absent from the catalogue needs nothing — the capability gate is additive, so an
 // unknown name cannot withdraw a command from a device.
 func CommandNeeds(cmdType string) string { return commandByType[cmdType].Cap }
-
-// AppControlCommands are the MDM-lite app-control command types, all gated by
-// CapAppControl and delivered in the check-in response (MDM-lite polls, no socket).
-func AppControlCommands() []string {
-	var out []string
-	for _, c := range commands {
-		if c.Cap == CapAppControl {
-			out = append(out, c.Type)
-		}
-	}
-	return out
-}
 
 // APICommandTypes is the set the admin JSON API accepts (POST /api/v1/commands).
 func APICommandTypes() map[string]bool {

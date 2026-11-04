@@ -513,7 +513,7 @@ function pushUpdateCheck() {
     models[c.dataset.model] = c.dataset.modelLabel || c.dataset.model;
   });
   var keys = Object.keys(models);
-  if (notFw) return { ok: false, why: 'Push update is only for Firmware MDM devices — ' + notFw + ' selected ' + (notFw === 1 ? 'is' : 'are') + ' Standard MDM / MDM Lite.' };
+  if (notFw) return { ok: false, why: 'Push update is only for Firmware MDM devices — ' + notFw + ' selected ' + (notFw === 1 ? 'is' : 'are') + ' Standard MDM.' };
   if (keys.length > 1) return { ok: false, why: 'Select devices of one model to push an update (selected: ' + keys.map(function (k) { return models[k]; }).join(', ') + ').' };
   return { ok: true, model: keys[0] || '' };
 }

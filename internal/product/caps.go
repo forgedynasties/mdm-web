@@ -14,19 +14,12 @@ const (
 	// KindAndroid is the catalog's name for "not our firmware": a product outside the
 	// catalog is stock Android, and any agent on it is the DPC agent.
 	KindAndroid = "android"
-	// AgentTypeMDMLite is the agent_type of AIO MDM-lite, the library embedded in an
-	// app (e.g. the menu board) that reports vitals and crashes with no Device Owner.
-	// It is stored as KindDPC: like the DPC agent it runs on stock hardware and
-	// advertises what it can do, and every non-firmware rule (capability gating, no
-	// OTA) applies. latest_extra.agent_type keeps "mdm-lite" so the dashboard can tell
-	// the two apart. It only checks in over HTTP: it has no live connection.
-	AgentTypeMDMLite = "mdm-lite"
 )
 
-// IsStockAgent reports whether a check-in's agent_type is one of the stock-device
-// agents (the DPC agent or the embedded app library) rather than our firmware.
+// IsStockAgent reports whether a check-in's agent_type is the stock-device (DPC) agent
+// rather than our firmware.
 func IsStockAgent(agentType string) bool {
-	return agentType == KindDPC || agentType == AgentTypeMDMLite
+	return agentType == KindDPC
 }
 
 // Device roles — what a device does in the restaurant, following the AIO lineup
@@ -156,12 +149,8 @@ const (
 	// CapAdbTcp: switch wireless adb on or off (client 1.4.9+). It takes effect only on
 	// firmware that ships aio-adb-tcp.rc (v2.1.022+); older images report that plainly.
 	CapAdbTcp = "adb_tcp"
-	// CapAppControl: the MDM-lite host app's own controls (reload the page, restart the
-	// app, clear its web cache, check for an app update). No Device Owner needed.
-	CapAppControl = "app_control"
 	// CapSelfUpdate: the agent can install a newer version of itself from a URL. The DPC
-	// agent does it silently (Device Owner); the MDM-lite host app does it silently only
-	// when the device allows it to install apps, else via Android's prompt.
+	// agent does it silently (Device Owner).
 	CapSelfUpdate = "self_update"
 	// CapLostMode: the full-screen lost message under lock task. CapWifiConfig: add or
 	// forget a Wi-Fi network. Both from firmware client 1.12.0 and DPC agent 0.3.0.

@@ -129,7 +129,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product,
 		                     device_class, agent_kind, capabilities, capabilities_degraded)
 		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5, $6,
-		        CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'mdm-lite') THEN 'dpc' ELSE 'firmware' END,
+		        CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE 'firmware' END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array' THEN $4::jsonb->'capabilities' ELSE '[]'::jsonb END,
 		        CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array' THEN $4::jsonb->'capabilities_degraded' ELSE '[]'::jsonb END)
 		ON CONFLICT (serial_number) DO UPDATE
@@ -159,7 +159,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
 			    -- (delta / legacy client) leaves what was learned.
-			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' IN ('dpc', 'mdm-lite') THEN 'dpc' ELSE devices.agent_kind END,
+			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE devices.agent_kind END,
 			    capabilities       = CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array'
 			                              THEN $4::jsonb->'capabilities' ELSE devices.capabilities END,
 			    capabilities_degraded = CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array'

@@ -84,7 +84,7 @@ type HostAppLine struct {
 }
 
 // hostAppView reads extra.host_app; nil when the device reports none (an older client, a
-// class with no host app) or reports MDM-lite's own host_app, which carries no variants.
+// class with no host app) or reports a host_app with no variants.
 func hostAppView(extra json.RawMessage) *HostAppView {
 	if len(extra) == 0 {
 		return nil

@@ -21,10 +21,6 @@ var wantCommandRoles = map[string][]string{
 	"uninstall":        {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
 	"pull_apk":         {"admin", "fleet_admin", "fleet_manager"}, // Save to library (26 Oct 2026)
 	"reboot":           {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner", "staff"},
-	"app_reload":       {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
-	"app_restart":      {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
-	"app_clear_cache":  {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
-	"app_update_check": {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
 	"app_update":       {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
 	"shell":            {"admin"},
 	"collect_logs":     {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
@@ -102,7 +98,6 @@ func TestCommandPolicyActions(t *testing.T) {
 		// Writing the boot logo is a system-partition write, judged like the other
 		// firmware push: dev ceiling, sensitive, never granted to operators.
 		"update_splash": "ota",
-		"app_reload":    "app_control",
 		"set_kiosk":     "kiosk",
 		"reboot":        "reboot",
 	}

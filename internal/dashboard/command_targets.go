@@ -271,21 +271,15 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	var unsupSerials []string
 	unsupportedBy := map[string]int{}
 	// Which agent each target runs, and which of them can run each console action.
-	// The three kinds are counted apart because "DPC" alone is a lie on this page:
-	// MDM Lite is stored as a DPC kind, so a fleet with one of each looked like two
-	// Device Owners. Per-kind support drives the badges on every action card, and the
-	// per-kind split of what cannot run it is what the skip list reads out.
-	liteIDs, _ := h.db.MDMLiteIDs(r.Context(), ids)
+	// Per-kind support drives the badges on every action card, and the per-kind split
+	// of what cannot run it is what the skip list reads out.
 	kindOf := func(d db.Device) string {
-		switch {
-		case liteIDs[d.ID]:
-			return "lite"
-		case d.IsDPC():
+		if d.IsDPC() {
 			return "dpc"
 		}
 		return "fw"
 	}
-	kindCount := map[string]int{"fw": 0, "dpc": 0, "lite": 0}
+	kindCount := map[string]int{"fw": 0, "dpc": 0}
 	kindSup := map[string]map[string]int{}
 	type skipRow struct {
 		Serial string `json:"s"`
@@ -310,7 +304,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 				need = "kiosk_set"
 			}
 			if kindSup[t] == nil {
-				kindSup[t] = map[string]int{"fw": 0, "dpc": 0, "lite": 0}
+				kindSup[t] = map[string]int{"fw": 0, "dpc": 0}
 			}
 			if d.Supports(need) {
 				kindSup[t][k]++
@@ -620,7 +614,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 	}
 	// The access policy decides which of them this user may kiosk-lock.
 	ids, _ = h.access(r).filterDevices("kiosk", ids)
-	// Kiosk only reaches agents that can lock the device (not MDM-lite).
+	// Kiosk only reaches agents that can lock the device.
 	if devs, err := h.db.GetDevicesByIDs(r.Context(), ids); err == nil {
 		kept := ids[:0:0]
 		for _, d := range devs {

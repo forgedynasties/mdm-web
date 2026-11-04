@@ -11,7 +11,7 @@ func TestCommandCatalogueIsCoherent(t *testing.T) {
 		CapKiosk: true, CapInstallAPK: true, CapUninstall: true, CapReboot: true,
 		CapWipe: true, CapConfig: true, CapTelemetry: true, CapScreenCapture: true,
 		CapInput: true, CapLogcat: true, CapShell: true, CapOTA: true,
-		CapUpdateSplash: true, CapMicGain: true, CapWLC: true, CapAppControl: true,
+		CapUpdateSplash: true, CapMicGain: true, CapWLC: true,
 		CapSelfUpdate: true, CapAdbTcp: true, CapUnenroll: true,
 		CapLostMode: true, CapWifiConfig: true, CapApkPull: true, CapMoveServer: true,
 	}
@@ -63,19 +63,6 @@ func TestCatalogueKeepsTheClosedAndProbeTypesClosed(t *testing.T) {
 	}
 }
 
-func TestAppControlCommands(t *testing.T) {
-	got := AppControlCommands()
-	want := []string{"app_reload", "app_restart", "app_clear_cache", "app_update_check"}
-	if len(got) != len(want) {
-		t.Fatalf("AppControlCommands() = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("AppControlCommands() = %v, want %v", got, want)
-		}
-	}
-}
-
 func TestCommandNeeds(t *testing.T) {
 	// A device's capability gate reads this: it must keep answering for the types
 	// the agents advertise, and stay additive (an unknown type needs nothing).
@@ -100,7 +87,7 @@ func TestCommandNeeds(t *testing.T) {
 // a command — so they must not quietly appear here.
 func TestAPICommandTypes(t *testing.T) {
 	api := APICommandTypes()
-	for _, want := range []string{"install_apk", "uninstall", "reboot", "screenshot", "shell", "ota", "update_splash", "wipe", "app_update", "app_reload", "app_restart", "app_clear_cache", "app_update_check"} {
+	for _, want := range []string{"install_apk", "uninstall", "reboot", "screenshot", "shell", "ota", "update_splash", "wipe", "app_update"} {
 		if !api[want] {
 			t.Errorf("the admin API no longer accepts %q", want)
 		}

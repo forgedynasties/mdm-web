@@ -114,9 +114,7 @@
       var sy = card.querySelector('.dl-synced');
       if (sy) {
         // Last seen: "Online" while the WebSocket is live, else how long ago ("3 min ago").
-        // MDM Lite (data-always) has no live connection: its last check-in is always shown.
-        var always = sy.dataset.always === '1';
-        var live = d.online && !always;
+        var live = d.online;
         if (isCard) {
           // Cards: hidden while the WebSocket is live (the Online badge says it), else "3 min ago".
           sy.textContent = d.time_since;

@@ -19,7 +19,7 @@ import (
 func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	// The offline-family rules must not page a device that is still present, so pass
 	// the present set (see offlineHitsQuery / the alerts-offline design note): live
-	// sockets, and MDM-lite devices that checked in recently (they never hold one).
+	// sockets plus the display grace.
 	connSet := h.hub.ConnectedIDsForDisplay()
 	connected := make([]uuid.UUID, 0, len(connSet))
 	for id := range connSet {

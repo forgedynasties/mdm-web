@@ -394,7 +394,7 @@
 .ddc-kv.mdm-move .muted.small{margin-top:5px;}
 
 /* ── Client pill (device hero) ───────────────────────────────────────────────
-   One pill for firmware / DPC / Lite: kind, client version, and a dot saying
+   One pill for firmware / DPC: kind, client version, and a dot saying
    whether that is the hosted build. Click opens every client plus this one's
    changelog, so nobody has to leave the device to answer "which client is this,
    and is it current?". */

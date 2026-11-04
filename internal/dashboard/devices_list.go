@@ -24,9 +24,8 @@ const pageSize = 25
 
 // connectedSlice returns the device IDs shown as present, as a slice, for DB queries
 // that compute online counts and filters from real presence (the ws.Hub) instead of
-// check-in recency: live sockets, plus the display grace and MDM-lite check-in
-// presence (ConnectedIDsForDisplay), so a counter never says "0 of 1 online" beside
-// a card that says Reporting. Empty slice = nobody online.
+// check-in recency: live sockets plus the display grace (ConnectedIDsForDisplay).
+// Empty slice = nobody online.
 func (h *Handler) connectedSlice() []uuid.UUID {
 	set := h.hub.ConnectedIDsForDisplay()
 	out := make([]uuid.UUID, 0, len(set))

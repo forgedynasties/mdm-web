@@ -232,7 +232,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         .cmdch-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.55;color:var(--text-2)}
         .cmdch-ban .t b{color:var(--text)}
         </style>{{end}}
-        {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
+        {{$on := "Online"}}{{$off := "Offline"}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}
         {{/* Hardware model, as reported by the agent (e.g. "samsung SM-S146VL"); legacy
              clients don't report it so the tag simply doesn't render for them. */}}
         {{$model := extraField .Device.LatestExtra "model"}}{{$manu := extraField .Device.LatestExtra "manufacturer"}}
@@ -249,7 +249,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <style>.ddc-aid{cursor:pointer;font:inherit}.ddc-aid .mono{font-family:var(--mono);font-size:11px}.ai-copy{border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:6px;font:inherit;font-size:11px;font-weight:650;padding:1px 8px;margin-left:6px;cursor:pointer}</style>
     <div class="ddc-actions cc-actions">
-      {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
+      {{if and .RemoteEnabled (supports .Device "remote")}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
            Placed per the chosen "Identity Ribbon" layout. */}}
       {{/* The pill reports what the DEVICE is doing, not only what the server asked
@@ -280,15 +280,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <div class="ddc-mcap">Device</div>
           {{if and .ShellEnabled .CanShell (supports .Device "shell")}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"{{if degraded .Device "shell"}} title="Unprivileged shell on Standard MDM"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
           {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-mi{{if not (canSupport .Role)}} role-locked{{end}} danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
-          {{if supports .Device "app_reload"}}
-          {{/* MDM Lite: control the app that hosts it (the menu board). */}}
-          <div class="ddc-msep"></div>
-          <div class="ddc-mcap">App</div>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_reload"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Reload page</button></form>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_clear_cache"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m7 21-4-4 11-11 4 4z"/><path d="M11 21h10"/></svg>Clear web cache</button></form>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="app_update_check"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>Check for update</button></form>
-          <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Restart the app on {{.Device.SerialNumber}}? The screen goes blank for a few seconds."><input type="hidden" name="type" value="app_restart"><button type="submit" class="ddc-mi{{if not (canOperate .Role)}} role-locked{{end}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v8"/><path d="M7.5 6.3a7 7 0 1 0 9 0"/></svg>Restart app</button></form>
-          {{end}}
           {{if .AgentUpdate}}{{if .AgentUpdate.Hosted}}{{if supports .Device "self_update"}}
           {{/* Agent OTA: the APK is always the build this server hosts, so the form
                sends no URL — DeviceCommandCreate fills it in and attaches the digest
@@ -3342,14 +3333,14 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
       <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></span><h2>Software</h2></div>
       <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
-      {{/* The MDM client itself. Shown for every agent kind — firmware, DPC and Lite —
+      {{/* The MDM client itself. Shown for every agent kind — firmware and DPC —
            because "which client is on it" decides what the device can be told to do.
            A client that reports no version predates version reporting and cannot be
            updated over the air; it needs a firmware OTA. */}}
       {{$cv := extraField .Device.LatestExtra "agent_version"}}{{$cc := extraField .Device.LatestExtra "agent_version_code"}}{{$cp := extraField .Device.LatestExtra "agent_package"}}
       <div class="ddc-kv"><span class="k">MDM client</span><span class="v"{{if and $cp (ne $cp "—")}} title="{{$cp}}"{{end}}>
         {{if and $cv (ne $cv "—")}}{{if misreportedVersion $cv $cp}}<span class="muted">pre-1.0.2</span> <span class="muted small">· reported the platform release ({{$cv}}), not its own — fixed in client 1.0.2</span>{{else}}<span class="mono">{{$cv}}</span>{{if and $cc (ne $cc "—")}} <span class="muted small">({{$cc}})</span>{{end}}{{end}}
-          <span class="muted small">· {{if .Device.IsMDMLite}}MDM Lite{{else if .IsDPC}}Standard MDM{{else}}Firmware MDM{{end}}</span>
+          <span class="muted small">· {{if .IsDPC}}Standard MDM{{else}}Firmware MDM{{end}}</span>
         {{else}}<span class="muted">not reported</span> <span class="muted small">· predates client OTA</span>{{end}}
       </span></div>
       <div class="ddc-kv"><span class="k">Locked app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
@@ -3404,15 +3395,13 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
     {{end}}{{end}}
     {{/* Summary line: what manages this device, before any row is read. */}}
     <div class="en-hero">
-      <span class="en-hero-t">{{if .Device.IsMDMLite}}MDM Lite{{else}}{{.Device.KindLabel}}{{end}}</span>
+      <span class="en-hero-t">{{.Device.KindLabel}}</span>
       {{$hv := extraField .Device.LatestExtra "agent_version"}}{{$hp := extraField .Device.LatestExtra "agent_package"}}
       {{if and $hv (ne $hv "—")}}{{if misreportedVersion $hv $hp}}<span class="mono en-hero-v muted" title="Reported the platform release as its own version — the pre-1.0.2 client bug.">pre-1.0.2</span>{{else}}<span class="mono en-hero-v">{{$hv}}</span>{{end}}{{end}}
-      <span class="cc-tag">{{if .Device.IsMDMLite}}in app, no device owner{{else if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
+      <span class="cc-tag">{{if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
     </div>
 
     <div class="en-grp">Identity</div>
-    {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
-    {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
     <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if and .IsDPC .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
     {{/* Who enrolled it: recorded by AIO Enroll (devices.enrolled_by). Older devices and ones
          moved by hand have nothing, which must read as "not recorded", not as a blank. */}}
@@ -3563,7 +3552,7 @@ window.mdmChartReady.then(mdmBootCharts).then(function () {
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
         <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose(); installOptimistic();" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
-          {{/* MDM Lite can't install other apps, only update itself (app_update). */}}
+          {{/* A client that can't install other apps can still update itself (app_update). */}}
           <input type="hidden" name="type" value="{{if and (not (supports $.Device "install_apk")) (supports $.Device "app_update")}}app_update{{else}}install_apk{{end}}">
           <input type="hidden" name="target_type" value="devices">
           <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">

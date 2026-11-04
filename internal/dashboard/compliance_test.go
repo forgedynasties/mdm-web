@@ -153,7 +153,6 @@ func TestComplianceP2Checks(t *testing.T) {
 		{"device_owner", dpc(`{"device_owner":false}`), db.ComplianceFail},
 		{"device_owner", dpc(`{}`), db.ComplianceUnknown},
 		{"device_owner", dev(`{"device_owner":false}`), db.ComplianceNA},
-		{"device_owner", dpc(`{"agent_type":"mdm-lite"}`), db.ComplianceNA},
 	}
 	for _, tc := range cases {
 		if got, detail := compState(t, tc.check, s, tc.d); got != tc.want {

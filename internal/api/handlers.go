@@ -933,7 +933,7 @@ type checkinRequest struct {
 }
 
 // isDPCPayload reports whether a check-in or telemetry frame came from a stock-device
-// agent: the DPC agent (agent_type "dpc") or the MDM-lite library in an app ("mdm-lite").
+// agent: the DPC agent (agent_type "dpc").
 // Every frame either sends carries extra.agent_type, so this
 // answers from the payload without a database lookup — which is the point, since
 // the caller uses it to skip all storage work.
@@ -947,28 +947,7 @@ func isDPCPayload(extra json.RawMessage) bool {
 	if err := json.Unmarshal(extra, &ident); err != nil {
 		return false
 	}
-	return ident.AgentType == "dpc" || ident.AgentType == "mdm-lite"
-}
-
-// isMDMLitePayload reports whether a check-in came from the MDM-lite library.
-// mdmLiteForeground reports whether an MDM-lite check-in came from the host app in the
-// foreground (its 30 s loop) rather than the 15-minute background job. A payload
-// without the field counts as foreground (older libraries only checked in from it).
-func mdmLiteForeground(extra json.RawMessage) bool {
-	var probe struct {
-		AppForeground *bool `json:"app_foreground"`
-	}
-	if json.Unmarshal(extra, &probe) != nil || probe.AppForeground == nil {
-		return true
-	}
-	return *probe.AppForeground
-}
-
-func isMDMLitePayload(extra json.RawMessage) bool {
-	var ident struct {
-		AgentType string `json:"agent_type"`
-	}
-	return len(extra) > 0 && json.Unmarshal(extra, &ident) == nil && ident.AgentType == "mdm-lite"
+	return ident.AgentType == "dpc"
 }
 
 // readsHTTPCommands reports whether this client runs commands handed back in a check-in
@@ -1002,10 +981,6 @@ const (
 // this take a day to find on AT070AABU00077 rather than a minute: nothing anywhere said
 // "this device is reporting and cannot be commanded". Now something does.
 func (h *Handler) noteCommandChannel(ctx context.Context, deviceID uuid.UUID, serial string, extra json.RawMessage) {
-	// MDM-lite has no socket by design — HTTP is its command channel, not a fallback.
-	if isMDMLitePayload(extra) {
-		return
-	}
 	if h.hub.IsConnected(deviceID) {
 		_ = h.db.SetCommandChannel(ctx, deviceID, "ws")
 		cleared, err := h.db.ClearWSMissing(ctx, deviceID)
@@ -1149,10 +1124,6 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 	// History — samples, state transitions, crash and reboot events — goes to the queue:
 	// nothing below or in the reply reads it, and batching it is most of the write cost.
 	h.queueHistory(ctx, historyJob{Shaped: shaped, BuildID: req.BuildID, Extra: req.Extra})
-	if isMDMLitePayload(req.Extra) {
-		// MDM-lite has no live connection; its check-ins are its presence.
-		h.hub.MarkCheckinPresence(deviceID, mdmLiteForeground(req.Extra))
-	}
 	if isNew {
 		// A device must already exist to open its WS, so over that transport this is
 		// rare — but onboarding must not depend on which one it used.
@@ -1272,7 +1243,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 
 		// Pending commands ride the response whenever this device has no socket and its
 		// client reads them: the firmware client from 1.9.5 (extra.http_commands), older
-		// firmware when legacy check-in is on, and MDM-lite, which never holds one. This
+		// firmware when legacy check-in is on. This
 		// is the backup command channel — the only path to a device whose WebSocket is
 		// gone, at check-in latency instead of instantly.
 		//
@@ -1281,7 +1252,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		// over POST /commands/{id}/ack), so a response lost in flight comes back on the
 		// next check-in rather than wedging at 'delivered' forever.
 		if !h.hub.IsConnected(deviceID) &&
-			(readsHTTPCommands(req.Extra) || h.cfg.LegacyCheckin() || isMDMLitePayload(req.Extra)) {
+			(readsHTTPCommands(req.Extra) || h.cfg.LegacyCheckin()) {
 			if cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID); err == nil {
 				for _, cmd := range cmds {
 					out.Commands = append(out.Commands, map[string]any{
@@ -1290,7 +1261,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 						// straight into the same handler it uses for a pushed frame. "type"
 						// is kept because the DPC agent reads either key
 						// (CommandExecutor.kt: optString("command_type") else "type") and
-						// the old lite/legacy branches of the gate above only know "type".
+						// the old legacy branch of the gate above only knows "type".
 						"type":         deviceCommandType(cmd.Type),
 						"command_type": deviceCommandType(cmd.Type),
 						"apk_url":      cmd.ApkURL,

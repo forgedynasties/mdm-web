@@ -14,7 +14,7 @@ func TestWithDerivedStateHostApp(t *testing.T) {
 	cases := map[string]string{
 		`{"host_app":{"package":"aio.app.nugget","variants":[{"package":"aio.app.nugget.qa","foreground":true},{"package":"aio.app.nugget","foreground":false}]}}`: "false",
 		`{"host_app":{"package":"aio.app.nugget","variants":[{"package":"aio.app.nugget","foreground":true}]}}`:                                                    "true",
-		`{"host_app":{"package":"aio.app.nugget"}}`: "", // MDM-lite's shape: no variants, no bit
+		`{"host_app":{"package":"aio.app.nugget"}}`: "", // no variants, no bit
 		`{"host_app":{"package":"","variants":[]}}`: "",
 		`{"charging":true}`:                         "",
 	}

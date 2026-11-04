@@ -34,7 +34,6 @@ var accessActions = []accessAction{
 	{Key: "install_apk", Label: "Install app", Group: "Commands"},
 	{Key: "uninstall", Label: "Uninstall app", Group: "Commands"},
 	{Key: "reboot", Label: "Reboot", Group: "Commands"},
-	{Key: "app_control", Label: "App control (reload, restart, clear cache, update check)", Group: "Commands", Help: "MDM Lite devices: control the menu board app itself."},
 	{Key: "query", Label: "Collect logs", Group: "Commands", Help: "Pull a log bundle (logcat, dumpsys, getprop, OTA log) from the device."}, // key kept: stored rules name it
 	{Key: "logcat", Label: "Request logcat", Group: "Commands"},
 	{Key: "kiosk", Label: "Lock settings", Group: "Device"},
@@ -167,7 +166,7 @@ func grantableActions(role string) []accessAction {
 var actionLevel = map[string]int{
 	"view": db.LevelView, "screenshot": db.LevelView, "query": db.LevelView, "logcat": db.LevelView,
 	"reboot": db.LevelOperate, "kiosk": db.LevelOperate, "lost_mode": db.LevelOperate, "install_apk": db.LevelOperate,
-	"uninstall": db.LevelOperate, "app_control": db.LevelOperate, "notes": db.LevelOperate, "queue": db.LevelOperate,
+	"uninstall": db.LevelOperate, "notes": db.LevelOperate, "queue": db.LevelOperate,
 	"alerts": db.LevelOperate,
 	"remote": db.LevelManage, "wifi": db.LevelManage, "groups": db.LevelManage, "deploy": db.LevelManage,
 	"shell": db.LevelManage, "ota": db.LevelManage,

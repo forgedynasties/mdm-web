@@ -26,8 +26,8 @@ func TestHostAppView(t *testing.T) {
 	if len(v.Others) != 1 || v.Others[0].Env != "Production" || v.Others[0].Note != "3 crashes" || v.Others[0].NoteTone != "danger" {
 		t.Errorf("others: %+v", v.Others)
 	}
-	// MDM-lite's host_app has no variants: no card.
+	// A host_app with no variants: no card.
 	if hostAppView(json.RawMessage(`{"host_app":{"package":"x","version_name":"1"}}`)) != nil {
-		t.Error("MDM-lite host_app drew a card")
+		t.Error("a host_app with no variants drew a card")
 	}
 }

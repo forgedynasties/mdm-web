@@ -58,7 +58,7 @@ Response `200`:
   "config": {
     "kiosk_enabled": false, "kiosk_package": "string",
     "kiosk_features": 0, "checkin_interval_seconds": 0,
-    "guest": {                       // firmware clients only (not DPC / MDM-lite)
+    "guest": {                       // firmware clients only (not DPC)
       "restaurant_name": "string",
       "wifi_ssid": "string", "wifi_password": "string",
       "wifi_security": "WPA|WEP|nopass|",   // "" when no network is set
@@ -268,9 +268,8 @@ every device inheriting this token picks up:
 }
 ```
 Response `201`: `{ "profile": { "id", "name", "token", "active", … } }`. The token is
-minted server-side and never taken from the request. It is what an MDM-lite host app
-bakes into `BuildConfig.MDM_ENROLL_TOKEN` at compile time, which is why this exists as
-an API rather than a dashboard-only form.
+minted server-side and never taken from the request. It exists as an API so a build
+machine can mint one without the dashboard.
 
 `POST /commands` request:
 ```json

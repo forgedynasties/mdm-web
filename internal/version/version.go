@@ -113,7 +113,6 @@ var Changelog = []Entry{
 		Version: "1.53.0",
 		Date:    "2026-09-19",
 		Changes: []string{
-			"MDM-lite devices are first-class. An app carrying the MDM-lite library reports in like any other device, with its power state, what manages it, and the versions of the library, the host app and its WebView on the device page. The app can be reloaded, restarted, have its web cache cleared and be updated remotely, from the device page or Actions. Background check-ins keep a device reporting even when its app is in the background.",
 			"Menu boards have their own device class, so a TV stick is no longer filed as a tablet.",
 			"The Fleet page has been rebuilt: products are tabs above the list, devices are two-line cards with type and power icons and a status dot, ranges can be selected with shift-click, and the filters panel fits properly on smaller screens. A switch lets you go back to the classic layout.",
 			"Every venue can get a weekly report — printable, downloadable as a real PDF, and emailed in the same shape as the page.",

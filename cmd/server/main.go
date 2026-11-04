@@ -619,8 +619,7 @@ func main() {
 	mux.Handle("POST /api/v1/releases/{id}/packages", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.AddReleasePackage))))
 	mux.Handle("POST /api/v1/releases/{id}/publish", adminAuth(http.HandlerFunc(apiHandler.PublishRelease)))
 
-	// Enrollment profiles — how a build machine mints the token an MDM-lite host app
-	// bakes in at compile time (see internal/api/enrollment_profiles.go).
+	// Enrollment profiles over the admin API (see internal/api/enrollment_profiles.go).
 	mux.Handle("GET /api/v1/enrollment-profiles", adminAuth(http.HandlerFunc(apiHandler.ListEnrollmentProfiles)))
 	mux.Handle("POST /api/v1/enrollment-profiles", adminAuth(middleware.MaxBytes(16<<10, http.HandlerFunc(apiHandler.CreateEnrollmentProfile))))
 	mux.Handle("POST /api/v1/devices/enrolled-by", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.SetEnrolledBy))))

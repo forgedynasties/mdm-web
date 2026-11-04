@@ -294,9 +294,9 @@ func evalVerifiedBoot(_ *compSnapshot, d *db.Device, _ int) (string, string) {
 }
 
 // evalDeviceOwner applies to the standard (DPC) client only: the firmware client is a
-// system app and MDM-lite is a host-app library, neither of which holds Device Owner.
+// system app, which does not hold Device Owner.
 func evalDeviceOwner(_ *compSnapshot, d *db.Device, _ int) (string, string) {
-	if !d.IsDPC() || d.IsMDMLite() {
+	if !d.IsDPC() {
 		return db.ComplianceNA, "Not a standard client"
 	}
 	on, ok := extraTri(d.LatestExtra, "device_owner")

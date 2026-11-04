@@ -297,7 +297,7 @@
         .cmdch-ban .t{flex:1;min-width:240px;font-size:13px;line-height:1.55;color:var(--text-2)}
         .cmdch-ban .t b{color:var(--text)}
         </style>{{end}}
-        {{$on := "Online"}}{{$off := "Offline"}}{{if .Device.IsMDMLite}}{{$on = "Reporting"}}{{$off = "Not reporting"}}{{end}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}<span class="isl-dup">{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}</span>
+        {{$on := "Online"}}{{$off := "Offline"}}{{if eq .Device.EnrollmentStatus "unenrolled"}}{{$on = "Unenrolled"}}{{$off = "Unenrolled"}}{{end}}<span class="isl-dup">{{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$on}}</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite" data-label-on="{{$on}}" data-label-off="{{$off}}"><i></i>{{$off}}</span>{{end}}</span>
         {{/* Hardware model, as reported by the agent (e.g. "samsung SM-S146VL"); legacy
              clients don't report it so the tag simply doesn't render for them. */}}
         {{$model := extraField .Device.LatestExtra "model"}}{{$manu := extraField .Device.LatestExtra "manufacturer"}}
@@ -314,7 +314,7 @@
     {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <style>.ddc-aid{cursor:pointer;font:inherit}.ddc-aid .mono{font-family:var(--mono);font-size:11px}.ai-copy{border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:6px;font:inherit;font-size:11px;font-weight:650;padding:1px 8px;margin-left:6px;cursor:pointer}</style>
     <div class="ddc-actions cc-actions">
-      {{if and .RemoteEnabled (supports .Device "remote") (not .Device.IsMDMLite)}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="isl-dup ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
+      {{if and .RemoteEnabled (supports .Device "remote")}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="isl-dup ddc-btn ddc-btn-prim cc-btn primary{{if not .CanRemote}} role-locked{{end}}"{{if not .CanRemote}} title="Remote control needs a rule that names this device" data-role-need="remote control rule"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
            Placed per the chosen "Identity Ribbon" layout. */}}
       {{/* The pill reports what the DEVICE is doing, not only what the server asked
@@ -382,7 +382,7 @@
     {{/* Wireless adb (D2, picked 17 Oct): a live pill — off / the step it is on / ready — that
          opens #adbp-pop with the steps and the adb connect lines (static/js/device/adb-pill.js). */}}
     {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}<button type="button" class="adbp{{if .Security.AdbOn}} on{{end}}" aria-haspopup="dialog" aria-expanded="false" onclick="window.adbPillOpen && adbPillOpen(this)" title="Wireless adb"><span class="adbp-i"></span><span class="adbp-t">adb: {{if .Security.AdbOn}}on{{else}}off{{end}}</span></button>{{end}}{{end}}
-    {{if and .RemoteEnabled .CanRemote (supports .Device "remote") (not .Device.IsMDMLite)}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</a>{{end}}
+    {{if and .RemoteEnabled .CanRemote (supports .Device "remote")}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</a>{{end}}
     {{if and .LockApp (supports .Device "kiosk_set")}}{{template "lock-host" .}}{{end}}
     {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
@@ -1329,16 +1329,14 @@ window.DEVICE_VITALS = {
     {{end}}{{end}}
     {{/* Summary line: what manages this device, before any row is read. */}}
     <div class="en-hero">
-      <span class="en-hero-t">{{if .Device.IsMDMLite}}MDM Lite{{else}}{{.Device.KindLabel}}{{end}}</span>
+      <span class="en-hero-t">{{.Device.KindLabel}}</span>
       {{$hv := extraField .Device.LatestExtra "agent_version"}}{{$hp := extraField .Device.LatestExtra "agent_package"}}
       {{if and $hv (ne $hv "—")}}{{if misreportedVersion $hv $hp}}<span class="mono en-hero-v muted" title="Reported the platform release as its own version — the pre-1.0.2 client bug.">pre-1.0.2</span>{{else}}<span class="mono en-hero-v">{{$hv}}</span>{{end}}{{end}}
-      <span class="cc-tag">{{if .Device.IsMDMLite}}in app, no device owner{{else if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
+      <span class="cc-tag">{{if .IsDPC}}Device Owner{{else}}system app{{end}}</span>
     </div>
     {{/* Build and timezone join the device's facts (device tabs plan, 27 Oct 2026). */}}
     <div class="ddc-kv"><span class="k">Build</span><span class="v mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
-    {{if .Device.IsMDMLite}}{{$hv := extraSub .Device.LatestExtra "host_app" "version_name"}}{{if $hv}}<div class="ddc-kv"><span class="k">App</span><span class="v">{{with extraSub .Device.LatestExtra "host_app" "package"}}<span class="mono small">{{.}}</span> {{end}}<span class="mono">{{$hv}}</span>{{with extraSub .Device.LatestExtra "host_app" "version_code"}} <span class="muted small">({{.}})</span>{{end}}</span></div>{{end}}
-    {{with extraSub .Device.LatestExtra "webview" "version"}}<div class="ddc-kv"><span class="k">WebView</span><span class="v mono">{{.}}</span></div>{{end}}{{end}}
     <div class="ddc-kv"><span class="k">{{if .IsDPC}}Enrolled{{else}}First seen{{end}}</span><span class="v">{{shortDate .Device.EnrolledAt}}{{if and .IsDPC .Device.KeyRotatedAt}} <span class="muted small" title="Re-enrolled (factory reset); the device key was rotated">· key rotated {{timeSince .Device.KeyRotatedAt}}</span>{{end}}</span></div>
     {{/* Who enrolled it: recorded by AIO Enroll (devices.enrolled_by). Older devices and ones
          moved by hand have nothing, which must read as "not recorded", not as a blank. */}}
@@ -1521,7 +1519,7 @@ window.DEVICE_VITALS = {
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
         <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose(); installOptimistic();" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
-          {{/* MDM Lite can't install other apps, only update itself (app_update). */}}
+          {{/* A client that can't install other apps can still update itself (app_update). */}}
           <input type="hidden" name="type" value="{{if and (not (supports $.Device "install_apk")) (supports $.Device "app_update")}}app_update{{else}}install_apk{{end}}">
           <input type="hidden" name="target_type" value="devices">
           <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">

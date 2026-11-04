@@ -256,9 +256,8 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			items = append(items, cmdItem{payload: json.RawMessage(b)})
 		}
 	case "app_update":
-		// Fleet-wide agent update: every target gets the build this server hosts.
-		// MDM-lite hosts pick their own APK from the app library, so a URL supplied
-		// by the form still wins.
+		// Fleet-wide agent update: every target gets the build this server hosts,
+		// unless the form supplies a URL.
 		if u := strings.TrimSpace(r.FormValue("apk_url")); u != "" {
 			items = []cmdItem{{apkURL: u, payload: buildPayload(cmdType, r)}}
 			break

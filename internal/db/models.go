@@ -97,17 +97,6 @@ func (d Device) IsDPC() bool { return d.AgentKind == prod.KindDPC }
 // serial_raw). The fleet lists these so they can be found and re-flashed.
 func (d Device) SerialCorrupt() bool { return strings.HasPrefix(d.SerialNumber, "msm-") }
 
-// IsMDMLite reports whether a stock device is reported by the MDM-lite library
-// embedded in an app, rather than by the DPC agent. See prod.AgentTypeMDMLite. Such a
-// device never holds a live connection, so it shows Reporting / Not reporting (from
-// check-in recency) where others show Online / Offline.
-func (d Device) IsMDMLite() bool {
-	var probe struct {
-		AgentType string `json:"agent_type"`
-	}
-	return d.IsDPC() && json.Unmarshal(d.LatestExtra, &probe) == nil && probe.AgentType == prod.AgentTypeMDMLite
-}
-
 // Class is the device's category: the stored class when set, else the category its
 // product belongs to (T7 → t7, Kiosk 18/22/27 → kiosk), else "" (a stock device
 // whose type nobody has assigned and whose model told us nothing).
@@ -162,8 +151,6 @@ func (d Device) ClassLabel() string { return prod.ClassLabel(d.Class()) }
 // KindLabel is the display label for the agent kind.
 func (d Device) KindLabel() string {
 	switch {
-	case d.IsMDMLite():
-		return "MDM Lite"
 	case d.IsDPC():
 		return "Standard MDM"
 	}
@@ -289,21 +276,7 @@ func (d Device) ProductKey() string {
 // Caps returns the hardware capabilities of the device's product. Gate wlc/charging
 // UI and telemetry on these instead of checking whether a telemetry key is present.
 func (d Device) Caps() prod.Caps {
-	c := prod.CapsForDevice(d.Product, d.DeviceClass)
-	// MDM-lite runs on arbitrary stock hardware whose product key says nothing, and
-	// it sends battery_present only when a pack exists; without it the device is on
-	// mains (TV boxes), not a phone at 0%.
-	if d.IsMDMLite() && !d.batteryPresent() {
-		c.HasBattery, c.HasCharging, c.HasWLC = false, false, false
-	}
-	return c
-}
-
-func (d Device) batteryPresent() bool {
-	var probe struct {
-		BatteryPresent bool `json:"battery_present"`
-	}
-	return json.Unmarshal(d.LatestExtra, &probe) == nil && probe.BatteryPresent
+	return prod.CapsForDevice(d.Product, d.DeviceClass)
 }
 
 // HasWLC / HasCharging / HasBattery are template-friendly capability shortcuts.
@@ -314,12 +287,7 @@ func (d Device) HasBattery() bool  { return d.Caps().HasBattery }
 // hasBatteryD is the SQL form of HasBattery for the devices table aliased "d". Every
 // battery-percentage count and filter must AND it in: battery-less devices (kiosks,
 // dongles) still carry a latest_battery_pct, usually 0, and would read as "low".
-var hasBatteryD = "(" + prod.BatteryPredicateSQL("d") + " AND NOT (" + mdmLiteNoBatterySQL + "))"
-
-// mdmLiteNoBatterySQL is the SQL twin of Caps' MDM-lite rule: an MDM-lite device
-// that has not reported battery_present has no battery.
-const mdmLiteNoBatterySQL = "d.agent_kind = '" + prod.KindDPC + "' AND COALESCE(d.latest_extra->>'agent_type', '') = '" + prod.AgentTypeMDMLite + "'" +
-	" AND COALESCE(d.latest_extra->>'battery_present', '') <> 'true'"
+var hasBatteryD = "(" + prod.BatteryPredicateSQL("d") + ")"
 
 // BatteryCycles converts the lifetime cumulative discharge into equivalent full
 // battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
@@ -606,7 +574,7 @@ type DeviceFilter struct {
 	Temp                string    // "hot" (danger level), "warm" (warn level or above), or "" (no filter)
 	Timezone            string    // exact timezone match (latest_extra->>'timezone'), or "" (no filter)
 	Hidden              string    // "include" (show all), "only" (hidden only), or "" (active only)
-	AgentKind           string    // "firmware" | "dpc" (DPC agent) | "mdm-lite" | "" (no filter)
+	AgentKind           string    // "firmware" | "dpc" (DPC agent) | "" (no filter)
 	Class               string    // device class; firmware devices match on their product default. "" = no filter
 	Onboarding          string    // "pending" (in the inbox), "done", or "" (no filter)
 	State               string    // "lab" | "setting_up" | "in_service" (setup_visits.go), or "" (no filter)
