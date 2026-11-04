@@ -239,3 +239,21 @@ func (d *DB) FleetProducts(ctx context.Context) ([]ProductCount, error) {
 	}
 	return out, rows.Err()
 }
+
+// OverviewFacts are the Overview's (B1, 5 Nov 2026) counts that its other reads lack:
+// devices at a venue and how many of them are locked, and devices waiting to be placed.
+type OverviewFacts struct {
+	AtVenue, Locked, ToPlace int
+}
+
+func (d *DB) GetOverviewFacts(ctx context.Context) (OverviewFacts, error) {
+	var f OverviewFacts
+	err := d.pool.QueryRow(ctx, `
+		SELECT count(*) FILTER (WHERE restaurant_id IS NOT NULL),
+		       count(*) FILTER (WHERE restaurant_id IS NOT NULL AND kiosk_enabled),
+		       count(*) FILTER (WHERE restaurant_id IS NULL AND placement = 'queue')
+		FROM devices
+		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`).
+		Scan(&f.AtVenue, &f.Locked, &f.ToPlace)
+	return f, err
+}

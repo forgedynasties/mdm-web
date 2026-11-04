@@ -125,6 +125,25 @@ func (h *Handler) sneakPeekOverview(r *http.Request, s *sneakPeekSample, activeS
 	data["OvStats"] = buildOvStats(tr, devs, sc, s.now)
 	data["OvPills"] = buildOvPills(devs, alerts, sc)
 	data["OvRollouts"] = buildOvRollouts(s.RolloutBars(), s.now, false)
+	// B1 (5 Nov 2026) from the same sample.
+	in := ovBentoIn{Devs: devs, Active: alerts, CompPct: -1, ClassOn: classOn, Todos: data["OvBanner"].(ovBanner).All,
+		Venues: venues.Rows, Rollouts: data["OvRollouts"].(ovRollouts), Crashes: tr.Crashes24h, CrashesPrv: tr.CrashesPrev, Now: s.now}
+	if c := s.Compliance(); c != nil && c.InScope > 0 {
+		in.CompPct = c.Pct
+	}
+	in.Score, _ = data["Score"].(int)
+	in.ScoreClass, _ = data["ScoreClass"].(string)
+	sdevs, _ := s.Devices()
+	for _, d := range sdevs {
+		if d.RestaurantID != nil {
+			in.Facts.AtVenue++
+			if d.KioskEnabled {
+				in.Facts.Locked++
+			}
+		}
+	}
+	in.Facts.ToPlace = s.Inbox()
+	data["Bento"] = buildOvBento(in)
 	if summary.Total > 0 {
 		data["OnlinePct"] = fmt.Sprintf("%.1f", float64(summary.RecentlyActive)*100/float64(summary.Total))
 	}

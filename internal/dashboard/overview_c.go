@@ -760,6 +760,7 @@ func sIfN(n int) string {
 // ── Banner: a short to-do list (W3) ─────────────────────────────────────────
 
 type ovTodo struct {
+	Tone         string // r critical | o warning | y watch | g info (Overview B1's tag)
 	Title, Sub   string
 	Action, Href string
 	// Post, when set, makes Action a button posting Fields to Post (relative to the
@@ -775,6 +776,7 @@ type ovBanner struct {
 	Todos    []ovTodo // at most three
 	More     int      // items past the three, in Needs attention
 	Calm     string   // the line under "Everything is running"
+	All      []ovTodo // every item, for Overview B1's "Needs you" card (at most 15)
 }
 
 const ovTodoRows = 3
@@ -803,7 +805,11 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 		if !a.Since.IsZero() {
 			bits = append(bits, "since "+agoShort(a.Since))
 		}
-		return ovTodo{Title: a.Issue, Sub: strings.Join(bits, " · "), Action: "Open", Href: a.Href}
+		tone := map[string]string{"critical": "r", "warning": "o"}[a.Severity]
+		if tone == "" {
+			tone = "g"
+		}
+		return ovTodo{Tone: tone, Title: a.Issue, Sub: strings.Join(bits, " · "), Action: "Open", Href: a.Href}
 	}
 	for _, a := range att {
 		switch a.Severity {
@@ -815,7 +821,7 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 		default:
 			t := alertTodo(a)
 			if a.Issue == "Waiting for a restaurant" {
-				t = ovTodo{Title: fmt.Sprintf("%d new device%s waiting for a venue", a.Devices, sIfN(a.Devices)),
+				t = ovTodo{Tone: "g", Title: fmt.Sprintf("%d new device%s waiting for a venue", a.Devices, sIfN(a.Devices)),
 					Sub: "no lock rule, service hours or venue alerts until placed", Action: "Assign",
 					Href: "/devices?onboarding=pending"}
 			}
@@ -853,7 +859,11 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 		if g.ScoreClass == "warn" {
 			word = "Watch"
 		}
-		venue = append(venue, ovTodo{Title: g.Name + ": " + strings.Join(bits, ", "),
+		tone := "o"
+		if g.ScoreClass == "danger" {
+			tone = "r"
+		}
+		venue = append(venue, ovTodo{Tone: tone, Title: g.Name + ": " + strings.Join(bits, ", "),
 			Sub:    fmt.Sprintf("%s · health %d · %d of %d online", word, g.Score, g.DeviceCount-g.OfflineCount, g.DeviceCount),
 			Action: "Open venue", Href: "/restaurants/" + g.GroupID.String()})
 		break
@@ -861,12 +871,16 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 
 	var spike []ovTodo
 	if tr.Crashes24h >= 5 && tr.Crashes24h > tr.CrashesPrev {
-		spike = append(spike, ovTodo{Title: fmt.Sprintf("%d crashes in the last 24 h", tr.Crashes24h),
+		spike = append(spike, ovTodo{Tone: "o", Title: fmt.Sprintf("%d crashes in the last 24 h", tr.Crashes24h),
 			Sub: fmt.Sprintf("up from %d the day before", tr.CrashesPrev), Action: "See crashes", Href: "/fleet-health"})
 	}
 
 	all := append(append(append(append(crit, venue...), spike...), warn...), info...)
 	b := ovBanner{Tone: "calm"}
+	b.All = all
+	if len(b.All) > 15 {
+		b.All = b.All[:15]
+	}
 	n := len(all) + hidden
 	switch {
 	case len(crit) > 0:

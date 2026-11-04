@@ -227,6 +227,77 @@
 .ovd-intro-ok{font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-ink);background:var(--accent-fill);border:0;border-radius:7px;padding:7px 14px;cursor:pointer}
 .ovd-intro-ok:hover{background:var(--accent-fill-h)}
 
+/* ── Overview B1 (5 Nov 2026): bento ─────────────────────────────────────── */
+.ovd{--ovb-g:#1f9d60;--ovb-o:#ef7d31;--ovb-y:#d9a70a;--ovb-r:#d64432;--ovb-page:#efeff2}
+html[data-theme="dark"] .ovd{--ovb-page:#141318}
+@media (prefers-color-scheme:dark){html:not([data-theme="light"]) .ovd{--ovb-page:#141318}}
+.ovd{background:var(--ovb-page);border-radius:24px;padding:16px}
+.ovb{display:grid;grid-template-columns:minmax(300px,330px) minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:1100px){.ovb{grid-template-columns:1fr 1fr}.ovb-hero{grid-column:1/-1}}
+@media (max-width:720px){.ovb{grid-template-columns:1fr}}
+.ovb-c{background:var(--surface);border-radius:22px;padding:18px 20px;min-width:0}
+.ovb-ch{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ovb-ch h2{margin:0;font-size:15px;font-weight:600}
+.ovb-ch .sp{flex:1}
+.ovb-ib{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);flex:none}
+.ovb-ib:hover{background:var(--surface2)}
+.ovb-ib svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+.ovb-pill{font-size:11.5px;font-weight:700;border-radius:99px;padding:3px 9px;min-width:34px;text-align:center;color:#fff;text-decoration:none}
+.ovb-pill.g{background:var(--ovb-g)}.ovb-pill.y{background:var(--ovb-y)}.ovb-pill.o{background:var(--ovb-o)}.ovb-pill.r{background:var(--ovb-r)}
+.ovb-tag{font-size:10.5px;font-weight:800;letter-spacing:.04em;border-radius:99px;padding:3px 9px;text-transform:uppercase;color:#fff;background:var(--ovb-g)}
+.ovb-tag.y{background:var(--ovb-y)}.ovb-tag.o{background:var(--ovb-o)}.ovb-tag.r{background:var(--ovb-r)}
+.ovb-radar{display:block;width:100%;max-width:260px;margin:0 auto}
+.ovb-radar .g{fill:none;stroke:var(--border);stroke-width:1}
+.ovb-radar .a{fill:rgba(31,157,96,.18);stroke:var(--ovb-g);stroke-width:2}
+.ovb-radar .d{fill:var(--ovb-g)}
+.ovb-radar text{font:600 11px Poppins,system-ui;fill:var(--text-2)}
+.ovb-parts{list-style:none;margin:8px 0 0;padding:0}
+.ovb-parts a{display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;color:var(--text);text-decoration:none}
+.ovb-parts a:hover{color:var(--accent-text)}
+.ovb-parts .k{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-size:10.5px;color:var(--text-2);flex:none}
+.ovb-parts .lead{flex:1;border-bottom:1px dashed var(--border);margin:0 4px;transform:translateY(-3px)}
+.ovb-hero{grid-column:span 2;display:flex;flex-direction:column}
+.ovb-seg{display:inline-flex;background:var(--ovb-page);border-radius:99px;padding:3px;gap:2px;flex-wrap:wrap}
+.ovb-seg button{font:inherit;font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2);background:none;border:0;cursor:pointer}
+.ovb-seg button.on{background:var(--text);color:var(--surface)}
+.ovb-hb{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;flex:1}
+@media (max-width:900px){.ovb-hb{grid-template-columns:1fr}}
+.ovb-feat{border-radius:18px;background:var(--ovb-page);padding:22px 24px;min-height:240px;display:flex}
+.ovb-pane{flex:1;display:flex}
+.ovb-pane[hidden],.ovb-item[hidden]{display:none}
+.ovb-item{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:18px}
+.ovb-cnt{font-size:12px;color:var(--muted);margin-left:10px}
+.ovb-big{font-size:34px;line-height:1.1;font-weight:650;letter-spacing:-.02em;margin:14px 0 0;max-width:640px;overflow-wrap:anywhere}
+.ovb-sub{font-size:13.5px;color:var(--text-2);margin:8px 0 0;max-width:560px}
+.ovb-acts{display:flex;gap:8px;flex-wrap:wrap}
+.ovb-btn{border:0;border-radius:99px;padding:9px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--text);color:var(--surface);text-decoration:none;display:inline-block}
+.ovb-btn.l{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.ovb-side{display:flex;flex-direction:column;gap:10px}
+.ovb-mini{border:1px solid var(--border-soft);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;color:var(--text);text-decoration:none}
+.ovb-mini:hover{border-color:var(--border)}
+.ovb-mini .t{font-size:12.5px;color:var(--text-2);display:flex;align-items:center;gap:8px;justify-content:space-between}
+.ovb-mini .v{font-size:34px;font-weight:600;letter-spacing:-.02em;text-align:right;line-height:1.15}
+.ovb-mini .n{font-size:11.5px;color:var(--text-2);margin-top:4px}
+.ovb-promo{background:var(--accent-fill);color:#fff;border-radius:22px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:150px;position:relative;overflow:hidden;text-decoration:none}
+.ovb-promo b{font-size:24px;font-weight:600;line-height:1.15;position:relative}
+.ovb-promo .ovb-btn.w{background:#fff;color:var(--accent-fill);align-self:flex-start;position:relative}
+.ovb-promo .big{position:absolute;right:16px;bottom:6px;font-size:84px;font-weight:700;opacity:.22;line-height:1}
+.ovb-rings{display:flex;justify-content:space-around;gap:10px;flex-wrap:wrap}
+.ovb-ring{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--text-2);text-decoration:none}
+.ovb-ring svg{width:82px;height:82px}
+.ovb-ring .bg{fill:none;stroke:var(--border-soft);stroke-width:7;stroke-dasharray:2 3}
+.ovb-ring .fg{fill:none;stroke-width:7;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
+.ovb-ring .fg.g{stroke:var(--ovb-g)}.ovb-ring .fg.o{stroke:var(--ovb-o)}.ovb-ring .fg.r{stroke:var(--ovb-r)}
+.ovb-ring text{font:700 13px Poppins,system-ui;fill:var(--text)}
+.ovb-split .lbls{display:flex;gap:6px}
+.ovb-split .lbls span{font-size:12px;color:var(--text-2);min-width:80px}
+.ovb-split .lbls b{display:block;font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--text);margin-top:2px}
+.ovb-split .lbls b.r{color:var(--ovb-r)}
+.ovb-split .bars{display:flex;gap:4px;height:34px;margin-top:10px}
+.ovb-split .bars i{border-radius:9px;display:block;min-width:4px}
+.ovb-split .bars .g{background:var(--ovb-g)}.ovb-split .bars .r{background:var(--ovb-r)}
+.ovb-split .bars .h{background:repeating-linear-gradient(135deg,var(--border) 0 5px,transparent 5px 10px)}
+
 </style>
 
 <div class="ovd">
@@ -237,11 +308,11 @@
   {{if not .ShowTour}}
   <div class="ovd-intro" id="ovd-intro" role="dialog" aria-labelledby="ovd-intro-t" hidden>
     <div class="ovd-intro-k">New look</div>
-    <h2 id="ovd-intro-t">The Overview has been redesigned</h2>
+    <h2 id="ovd-intro-t">A calmer Overview</h2>
     <ul>
-      <li><b>Filters</b> at the top narrow the page to one device type, one venue, or both.</li>
-      <li><b>The banner</b> is a short to-do list, each item with its own button, and three cards show what changed since yesterday.</li>
-      <li><b>Devices by type</b> as a chart, and <b>Rollouts</b>: every firmware push, client update and app install of the last seven days.</li>
+      <li><b>Fleet health</b> shows its seven parts; each one opens the page behind it.</li>
+      <li><b>Today</b> shows one thing at a time: what needs you, venues, rollouts or crashes. <b>Next</b> goes through them.</li>
+      <li>Trends, the venue strip and the rollout timeline now live on Fleet health, Venues and Jobs.</li>
     </ul>
     <div class="ovd-intro-b"><button type="button" class="ovd-intro-ok" id="ovd-intro-ok">Got it</button></div>
   </div>
@@ -255,169 +326,77 @@
        days' rollouts; clean up. The rail stays from O2 (20 Oct). Rollouts, Clean up and the
        rail's ring, greeting and bars are fleet-wide; the rest follows the filters. */}}
   {{$prob := .AttentionTotal}}
-  <div class="ov2">
-    <div class="ov2-main">
-      {{with .Scope}}
-      <div class="oc-bar" role="group" aria-label="Filter the Overview">
-        <span class="lbl">{{$.DateLine}}{{if .On}} · <b>{{.Label}}</b>{{end}}</span>
-        {{if .On}}<a class="oc-clear" href="{{.ClearHref}}">Clear filters</a>{{end}}
-        <div class="oc-f"><button class="oc-fb{{if .Class}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .Class}}{{.ClassLabel}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu" hidden>{{range .Types}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-        <div class="oc-f"><button class="oc-fb{{if .Venue}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .Venue}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Window: <b>{{.WindowLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu" hidden>{{range .Windows}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-      </div>
+  {{with .Bento}}
+  {{/* B1 (picked 5 Nov 2026): white cards on a soft page. Fleet health as a radar of its
+       seven parts, Today as one big card showing one thing at a time, two figures beside
+       it, then waiting to place, devices by type and the online split. */}}
+  <div class="ovb">
+    <section class="ovb-c ovb-health" aria-labelledby="ovb-h">
+      <div class="ovb-ch"><h2 id="ovb-h">Fleet health</h2><span class="sp"></span><a class="ovb-pill {{if eq .ScoreClass "ok"}}g{{else if eq .ScoreClass "warn"}}o{{else}}r{{end}}" href="/fleet-health" title="Why {{.Score}}?">{{.Score}}</a></div>
+      {{if .Radar.Area}}
+      <svg class="ovb-radar" viewBox="-125 -112 250 230" role="img" aria-label="Fleet health by part">
+        {{range .Radar.Rings}}<polygon class="g" points="{{.}}"/>{{end}}
+        {{range .Radar.Axes}}<line class="g" x1="0" y1="0" x2="{{index . 0}}" y2="{{index . 1}}"/>{{end}}
+        <polygon class="a" points="{{.Radar.Area}}"/>
+        {{range .Radar.Dots}}<circle class="d" cx="{{index . 0}}" cy="{{index . 1}}" r="3.5"/>{{end}}
+        {{range .Radar.Labels}}<text x="{{.X}}" y="{{.Y}}" text-anchor="middle">{{.N}}</text>{{end}}
+      </svg>
       {{end}}
+      <ol class="ovb-parts">{{range .Parts}}
+        <li><a href="{{.Href}}" title="{{.Why}}"><span class="k">{{.N}}</span>{{.Name}}<span class="lead"></span><span class="ovb-pill {{.Tone}}">{{.Pct}}%</span></a></li>{{end}}
+      </ol>
+    </section>
 
-      {{with .OvBanner}}
-      <div class="ov2-ban is-{{.Tone}}">
-        {{if $.Scope.On}}<div class="oc-scope">Showing {{$.Scope.Label}} only <a href="{{$.Scope.ClearHref}}" aria-label="Clear filters">×</a></div>{{end}}
-        <div class="ov2-ban-k">Fleet health · {{$.Score}} · {{$.StatusWord}}</div>
-        <h2>{{.Headline}}</h2>
-        {{if .Todos}}
-        <ol class="oc-todo">
-          {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
-        </ol>
-        {{if .More}}<a class="oc-more" href="/alerts">{{.More}} more in Needs attention <i aria-hidden="true">→</i></a>{{end}}
-        {{else}}
-        <p>{{.Calm}}</p>
-        <a class="ov2-go" href="/devices">Open the fleet<i aria-hidden="true">→</i></a>
-        {{end}}
-      </div>
-      {{end}}
-
-      {{with .OvStats}}
-      <div class="oc-stats">
-        {{range .}}
-        <div class="oc-st">
-          <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a>
-            <span class="oc-cm"><button class="oc-dots" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More about {{.Title}}">···</button>
-              <div class="cc-menu" hidden>{{range .Links}}<a class="cc-mi" href="{{.Href}}">{{.Label}}</a>{{end}}</div></span></div>
-          {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
-          <a class="oc-stm" href="{{.Href}}">
-            {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-            {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-          </a>
-          {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/>{{with .LineB}}<path class="b" d="{{.}}"/>{{end}}</svg>{{end}}
+    <section class="ovb-c ovb-hero" aria-labelledby="ovb-t" data-ovb-hero>
+      <div class="ovb-ch"><h2 id="ovb-t">Today</h2><span class="sp"></span>
+        <span class="ovb-seg" role="tablist">{{range $i, $t := .Tabs}}<button type="button" role="tab" data-ovb-tab="{{$t.Key}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"{{if eq $i 0}} class="on"{{end}}>{{$t.Label}}{{if $t.Items}} · {{len $t.Items}}{{end}}</button>{{end}}</span>
+        <span class="sp"></span><a class="ovb-ib" href="/alerts" aria-label="All alerts"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></a></div>
+      <div class="ovb-hb">
+        <div class="ovb-feat">
+          {{range $i, $t := .Tabs}}
+          <div class="ovb-pane" data-ovb-pane="{{$t.Key}}"{{if ne $i 0}} hidden{{end}}>
+            {{range $j, $h := $t.Items}}
+            <div class="ovb-item" data-ovb-item="{{$j}}"{{if ne $j 0}} hidden{{end}}>
+              <div><span class="ovb-tag {{$h.Tone}}">{{$h.Tag}}</span>{{if gt (len $t.Items) 1}}<span class="ovb-cnt">{{add $j 1}} of {{len $t.Items}}</span>{{end}}
+                <p class="ovb-big">{{$h.Title}}</p>
+                {{with $h.Sub}}<p class="ovb-sub">{{.}}</p>{{end}}</div>
+              <div class="ovb-acts">{{if $h.Href}}<a class="ovb-btn" href="{{$h.Href}}">{{$h.Action}}</a>{{end}}{{if gt (len $t.Items) 1}}<button type="button" class="ovb-btn l" data-ovb-next>Next ›</button>{{end}}</div>
+            </div>
+            {{else}}
+            <div class="ovb-item"><div><span class="ovb-tag g">All clear</span><p class="ovb-big">{{$t.Empty}}</p></div></div>
+            {{end}}
+          </div>
           {{end}}
         </div>
-        {{end}}
-      </div>
-      {{end}}
-
-      {{with .Venues}}
-      <div class="ov2-sec"><h2>Venues <span>{{.Total}}{{if .NeedLook}} · {{.NeedLook}} need{{if eq .NeedLook 1}}s{{end}} a look{{end}}</span></h2>
-        <span class="ov2-nav"><button type="button" aria-label="Scroll venues left" data-ov2-strip="-1">‹</button><button type="button" aria-label="Scroll venues right" data-ov2-strip="1">›</button><a href="/restaurants">All venues</a></span></div>
-      {{if or .Rows .Unplaced}}
-      <div class="ov2-strip" id="ov2-strip">
-        {{range .Rows}}
-        <a class="ov2-v s-{{.Class}}" href="{{.Href}}">
-          <span class="cov">{{venueIcon .ID .Name "md"}}</span>
-          <span class="bd">
-            <span class="ov2-st s-{{.Class}}">{{if and .Devices .HasH}}{{if eq .Class "danger"}}At risk{{else if eq .Class "warn"}}Watch{{else}}Healthy{{end}} · {{.H.Score}}{{else}}No devices{{end}}</span>
-            <b>{{.Name}}</b>
-            <small>{{if .Devices}}{{.Online}} of {{.Devices}} online{{if .Offline}} · {{.Offline}} offline{{end}}{{if .HasH}}{{if .H.OpenCritical}} · {{.H.OpenCritical}} critical{{end}}{{end}}{{else}}no devices yet{{end}}</small>
-            <span class="pips" aria-hidden="true">{{range .Pips}}<i class="{{.}}"></i>{{end}}{{if .More}}<em>+{{.More}}</em>{{end}}</span>
-            {{if and .Devices .HasH}}<span class="hb"><i style="width:{{.H.Score}}%"></i></span>{{end}}
-          </span>
-        </a>
-        {{end}}
-        {{if .More}}<a class="ov2-v ov2-v-more" href="/restaurants"><span class="bd"><b>{{.More}} more venue{{if ne .More 1}}s{{end}}</b><small>All venues →</small></span></a>{{end}}
-        {{if .Unplaced}}<a class="ov2-v ov2-v-more" href="/devices?onboarding=pending"><span class="bd"><b>Not at a venue</b><small>{{.Unplaced}} device{{if ne .Unplaced 1}}s{{end}} waiting for a site</small></span></a>{{end}}
-      </div>
-      {{else}}
-      <div class="cc-card"><div class="ovd-empty"><b>{{if $.Scope.On}}No venues match these filters.{{else}}No venues yet.{{end}}</b></div></div>
-      {{end}}
-      {{end}}
-
-      {{$pills := .OvPills}}{{$ro := .OvRollouts}}
-      {{if or $pills.Cols $ro.Bars}}
-      <div class="oc-two{{if not (and $pills.Cols $ro.Bars)}} solo{{end}}">
-        {{if $pills.Cols}}
-        <div class="oc-card">
-          <div class="oc-ch"><h2>Devices <span>by type</span></h2>
-            <span class="oc-cm"><button class="oc-dots" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More about devices by type">···</button>
-              <div class="cc-menu" hidden><a class="cc-mi" href="/devices">Open Fleet</a><a class="cc-mi" href="/lineup">Lineup</a></div></span></div>
-          <div class="oc-pc" style="grid-template-columns:repeat({{len $pills.Cols}},minmax(0,1fr))">
-            {{range $pills.Cols}}
-            <a class="oc-pcol" href="{{.Href}}" title="{{.Label}}: {{.Online}} online, {{.Offline}} offline{{if .Alerts}}, {{.Alerts}} with alerts{{end}}">
-              {{if .Alerts}}<span class="oc-pill al" style="height:{{.HAl}}px">{{.Alerts}}</span><span class="oc-pdot"></span>{{end}}
-              {{if .Offline}}<span class="oc-pill off" style="height:{{.HOff}}px">{{.Offline}}</span><span class="oc-pdot"></span>{{end}}
-              <span class="oc-pill on" style="height:{{.HOn}}px">{{.Online}}</span>
-              <span class="lb">{{.Short}}</span>
-            </a>
-            {{end}}
-          </div>
-          <div class="oc-foot"><span><i class="k-on"></i>Online</span><span><i class="k-off"></i>Offline</span><span><i class="k-al"></i>Alerts</span><span class="tot">Total: <b>{{$pills.Total}}</b></span></div>
+        <div class="ovb-side">
+          <a class="ovb-mini" href="/devices?status=offline"><span class="t">Devices online <span class="ovb-tag {{.OnlineTone}}">{{if eq .OnlineTone "g"}}Good{{else}}Attention{{end}}</span></span><span class="v">{{.OnlinePct}}%</span><span class="n">{{.Online}} of {{.Total}} · {{sub .Total .Online}} offline</span></a>
+          <a class="ovb-mini" href="/alerts?view=crashes"><span class="t">Crashes · 24 h <span class="ovb-tag {{.CrashTone}}">{{.CrashTag}}</span></span><span class="v">{{.Crashes}}</span><span class="n">{{.CrashesPrv}} the day before</span></a>
         </div>
-        {{end}}
-        {{if $ro.Bars}}
-        <div class="oc-card">
-          <div class="oc-ch"><h2>Rollouts <span>last 7 days{{if $ro.Running}} · {{$ro.Running}} running{{end}}{{if $ro.Stalled}} · {{$ro.Stalled}} stalled{{end}}</span></h2>
-            <span class="oc-cm"><button class="oc-dots" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More about rollouts">···</button>
-              <div class="cc-menu" hidden><a class="cc-mi" href="/releases">Releases</a><a class="cc-mi" href="/clients">Clients</a><a class="cc-mi" href="/jobs">Jobs</a></div></span></div>
-          <div class="oc-tl" style="--now:{{$ro.NowPct}}%">
-            {{range $ro.Bars}}
-            <div class="oc-tl-l"><b title="{{.Name}}">{{.Name}}</b><small>{{.Sub}}</small></div>
-            <div class="oc-tl-r"><a class="oc-tb {{.Tone}}" href="{{.Href}}" title="{{.Title}}" style="left:min({{.Left}}%, calc(100% - 104px));width:{{.Width}}%"><span class="ic">{{.Icon}}</span>{{if .Initials}}<span class="av" style="background:hsl({{.Hue}} 45% 46%)">{{.Initials}}</span>{{end}}<span class="n">{{.Count}}</span></a></div>
-            {{end}}
-            <div class="oc-tl-ax">{{range $ro.Days}}<span>{{.}}</span>{{end}}</div>
-          </div>
-          <div class="oc-foot"><span><i class="k-on"></i>Done</span><span><i class="k-run"></i>Running</span><span><i class="k-al"></i>Stalled</span><span><i class="k-off"></i>Scheduled</span><span class="tot">Total: <b>{{$ro.Devices}} devices</b></span></div>
-        </div>
-        {{end}}
       </div>
-      {{end}}
+    </section>
 
+    {{if .ToPlace}}
+    <a class="ovb-promo" href="/visits"><b>{{.ToPlace}} device{{if ne .ToPlace 1}}s are{{else}} is{{end}}<br>waiting to be placed</b><span class="ovb-btn w">Open Setup</span><span class="big" aria-hidden="true">{{.ToPlace}}</span></a>
+    {{else}}
+    <a class="ovb-promo" href="/restaurants/new"><b>Every device<br>is placed</b><span class="ovb-btn w">Add a venue</span><span class="big" aria-hidden="true">✓</span></a>
+    {{end}}
 
-    </div>
-
-    <aside class="ov2-rail" aria-label="Fleet health and what needs attention">
-      <a class="ov2-ring s-{{.ScoreClass}}" href="/fleet-health" title="Why {{.Score}}?">
-        <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{ringOffset .Score 326.7}}" transform="rotate(-90 60 60)"/></svg>
-        <span><b>{{.Score}}</b><small>fleet health</small></span>
-      </a>
-      <div class="ov2-hi"><b>{{.Greeting}}{{with .FirstName}}, {{.}}{{end}}</b>
-        <small>{{.Summary.RecentlyActive}} of {{.Summary.Total}} online{{if .Crashes24h}} · {{.Crashes24h}} crash{{if ne .Crashes24h 1}}es{{end}} today{{end}}{{if .Hot}} · {{.Hot}} hot{{end}}</small>
-        {{if ne .ScoreDelta 0}}<small class="{{if lt .ScoreDelta 0}}down{{else}}up{{end}}">{{if lt .ScoreDelta 0}}↘ {{.ScoreDelta}}{{else}}↗ +{{.ScoreDelta}}{{end}} on last week</small>{{end}}</div>
-
-      {{if .ActivityBars}}
-      <div class="ov2-bars" role="img" aria-label="Devices active each of the last seven days">
-        {{range .ActivityBars}}<div title="{{.Val}} devices active"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+    <section class="ovb-c" aria-labelledby="ovb-ty">
+      <div class="ovb-ch"><h2 id="ovb-ty">By type</h2><span class="sp"></span><a class="ovb-ib" href="/devices" aria-label="Fleet"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></a></div>
+      <div class="ovb-rings">{{range .Types}}
+        <a class="ovb-ring" href="{{.Href}}"><svg viewBox="0 0 82 82" role="img" aria-label="{{.Label}}: {{.Online}} of {{.Total}} online"><circle class="bg" cx="41" cy="41" r="33"/><circle class="fg {{.Tone}}" cx="41" cy="41" r="33" stroke-dasharray="{{.Dash}} {{.Circ}}"/><text x="41" y="45" text-anchor="middle">{{.Online}}/{{.Total}}</text></svg>{{.Label}}</a>{{end}}
       </div>
-      {{end}}
+    </section>
 
-      <div class="ov2-rh"><h2>Needs attention{{if $prob}} <span>{{$prob}}</span>{{end}}</h2><a href="/alerts">Alerts</a></div>
-      {{if .AttentionRows}}
-      <ul class="ov2-att">
-        {{range $i, $r := .AttentionRows}}{{if lt $i 5}}
-        <li>
-          <span class="ovd-dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{end}}"></span>
-          <span class="t"><a href="{{.Href}}">{{.Issue}}</a><small>{{if .Serial}}<span class="ser">{{.Serial}}</span>{{else}}{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{end}}{{if .Restaurant}} · {{.Restaurant}}{{end}}{{if not .Since.IsZero}} · <span class="reltime" data-ts="{{.Since.Unix}}"></span>{{end}}</small></span>
-          <a class="cc-btn sm" href="{{.Href}}">Open</a>
-        </li>
-        {{end}}{{end}}
-      </ul>
-      <a class="ov2-all" href="/alerts">{{if gt $prob 5}}All {{$prob}} problems{{else}}All alerts{{end}}</a>
-      {{else}}
-      <div class="ovd-empty"><b>Nothing needs attention.</b> No active alerts and every device has a venue.</div>
-      {{end}}
-
-      {{with .Compliance}}{{if .InScope}}
-      <a class="ov2-comp" href="/compliance">
-        <svg class="ovc-ring" viewBox="0 0 80 80" role="img" aria-label="{{.Pct}}% compliant">
-          <circle cx="40" cy="40" r="34" class="ovc-track"/>
-          {{if .Compliant}}<circle cx="40" cy="40" r="34" class="ovc-arc ok" stroke-dasharray="{{.OkDash}}" stroke-dashoffset="{{.OkOff}}"/>{{end}}
-          {{if .Unknown}}<circle cx="40" cy="40" r="34" class="ovc-arc unk" stroke-dasharray="{{.UnkDash}}" stroke-dashoffset="{{.UnkOff}}"/>{{end}}
-          {{if .Failing}}<circle cx="40" cy="40" r="34" class="ovc-arc fail" stroke-dasharray="{{.FailDash}}" stroke-dashoffset="{{.FailOff}}"/>{{end}}
-          <text x="40" y="45" text-anchor="middle" class="ovc-pct">{{.Pct}}%</text>
-        </svg>
-        <span><b>Compliance</b><small>{{.Compliant}} compliant{{if .Failing}} · <em>{{.Failing}} failing</em>{{end}}</small>{{with .Top}}<small>Most failed: {{(index . 0).Name}}</small>{{end}}</span>
-      </a>
-      {{end}}{{end}}
-    </aside>
+    <section class="ovb-c" aria-labelledby="ovb-rn">
+      <div class="ovb-ch"><h2 id="ovb-rn">Right now</h2><span class="sp"></span><a class="ovb-ib" href="/devices?status=offline" aria-label="Offline devices"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/></svg></a></div>
+      <div class="ovb-split">
+        <div class="lbls"><span style="flex:{{.SplitOn}}">Online<b>{{.SplitOn}}</b></span><span style="flex:{{.SplitOffVenue}}">Offline at a venue<b class="r">{{.SplitOffVenue}}</b></span><span style="flex:{{.SplitOffLab}}">Offline in Lab<b>{{.SplitOffLab}}</b></span></div>
+        <div class="bars"><i class="g" style="flex:{{.SplitOn}}"></i><i class="r" style="flex:{{.SplitOffVenue}}"></i><i class="h" style="flex:{{.SplitOffLab}}"></i></div>
+      </div>
+    </section>
   </div>
+  {{end}}
 
 </div>
 

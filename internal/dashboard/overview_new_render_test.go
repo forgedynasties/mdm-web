@@ -86,42 +86,39 @@ func TestOverviewNewRenders(t *testing.T) {
 		"Hygiene": hygieneRows(db.FleetHygiene{Fleet: 181, Silent: 86, PlacedSilent: 10, PlacedSilentAt: []string{"Huanchaco Peruvian 6", "Flights Vegas 4"},
 			DeadPad: 9, Builds: 19, OddBuilds: []string{"A15-v1.62-user", "old-key", "clean-build", "4.0.87"}}),
 	}
+	data["Bento"] = buildOvBento(ovBentoIn{Devs: devs, Active: alerts, CompPct: 75,
+		Facts: db.OverviewFacts{AtVenue: 3, Locked: 2, ToPlace: 1}, ClientUp: 3, ClientBhd: 1,
+		ClassOn: []db.ClassOnline{{Class: "t7", Total: 2, Online: 2}, {Class: "kiosk", Total: 1, Online: 1}},
+		Todos: data["OvBanner"].(ovBanner).All, Venues: data["Venues"].(overviewVenues).Rows,
+		Rollouts: data["OvRollouts"].(ovRollouts), Crashes: 2, CrashesPrv: 5, Score: 81, ScoreClass: "warn", Now: now})
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "overview_new.html", data); err != nil {
 		t.Fatalf("overview_new.html failed to render: %v", err)
 	}
 	out := buf.String()
 	for _, want := range []string{
-		// C (21 Oct): filter pills, a to-do banner, delta cards, pill chart, rollouts.
-		`Type: <b>All</b>`, `Venue: <b>All</b>`, `Window: <b>24 h</b>`,
-		`href="/?type=kiosk"`, `href="/?window=7d"`,
-		`class="ov2-ban is-warn"`,  // one warning problem, none critical
-		`2 things to look at today`, // the overheating device and the unassigned one
-		`1 new device waiting for a venue`,
-		`href="/devices?onboarding=pending">Assign</a>`,
-		`Fleet health · 81 · Healthy`,
-		`>Devices</a>`, `>Stability</a>`, `>Battery</a>`,
-		`75%</b><small>online · vs yesterday</small>`,
-		`▼ 3</span><b>2</b><small>crashes · 24 h</small>`, // crashes down is good
-		`<span class="lb">TSAI</span>`, `<span class="lb">Kiosk</span>`, `Total: <b>3</b>`, // the untyped one is left out
-		`Firmware MDM 1.13.10`, `Firmware v2.1.034`, `href="/releases/7/deployments/11"`, `1 running`,
-		`class="oc-tb run"`, `>A</span>`,
-		// O2 (20 Oct): venue cards, clean-up table, and the rail.
-		`1 needs a look`,
-		`<b>Pho 88</b>`,
-		`2 of 3 online · 1 offline`,
-		`<i class="off"></i><i class="on"></i><i class="on"></i>`,
-		`At risk · 42`,
-		`1 device waiting for a site`, // devices at no venue
-		`<b>Compliance</b>`,
-		`>75%</text>`,
-		`<em>1 failing</em>`,
-		`Most failed: Wireless adb off`,
+		// B1 (5 Nov 2026): health radar with its parts, Today one thing at a time, figures,
+		// waiting to place, type dials, the online split.
+		`class="ovb"`, `>Fleet health</h2>`, `title="Why 81?">81</a>`,
+		`<polygon class="a" points=`, `Online<span class="lead"></span><span class="ovb-pill g">75%</span>`,
+		`Compliance<span class="lead"></span><span class="ovb-pill g">75%</span>`,
+		`Locked<span class="lead"></span><span class="ovb-pill y">67%</span>`,
+		`Clients current<span class="lead"></span><span class="ovb-pill g">75%</span>`,
+		`data-ovb-tab="needs"`, `Needs you · 2`, `1 new device waiting for a venue`,
+		`data-ovb-pane="venues"`, `<p class="ovb-big">Pho 88</p>`, `2 of 3 online · health 42`,
+		`Firmware v2.1.034`, `data-ovb-next`,
+		`<span class="v">75%</span>`, `3 of 4 · 1 offline`, `5 the day before`,
+		`1 device is<br>waiting to be placed`, `href="/visits"`,
+		`aria-label="TSAI: 2 of 2 online"`, `Offline at a venue`,
 		`id="ovd-intro"`, // the first-visit intro
-		`class="ov2-rail"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)
+		}
+	}
+	for _, gone := range []string{`class="ov2-rail"`, `class="ov2-ban`, `Type: <b>All</b>`} {
+		if strings.Contains(out, gone) {
+			t.Errorf("the old Overview is still there: %q", gone)
 		}
 	}
 	if strings.Contains(out, `id="ovd-map"`) {

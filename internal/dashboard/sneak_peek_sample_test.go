@@ -111,14 +111,11 @@ func TestSneakPeekOverviewRenders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		// The C layout (21 Oct): filters, to-do banner, delta cards, pill chart, rollouts;
-		// venue cards, clean-up table and the rail from O2.
-		`class="ov2-ban`, `<b>Bluefin Sushi Bar</b>`, `2 need a look`, `3 devices waiting for a site`,
-		`<b>Compliance</b>`, `>84%</text>`,
-		`href="/sneak-peek?type=kds"`, `to look at today`, `class="oc-todo"`,
-		`<span class="lb">TSAI</span>`, `<span class="lb">Menu</span>`, `<span class="lb">KDS</span>`,
-		`Firmware MDM 1.13.10`, `>Stability</a>`,
-		`Needs attention`, `class="ov2-rail"`,
+		// B1 (5 Nov 2026) from the sample.
+		`class="ovb"`, `>Fleet health</h2>`, `<polygon class="a" points=`,
+		`Compliance<span class="lead"></span><span class="ovb-pill`, `>84%</span>`,
+		`Needs you · `, `<p class="ovb-big">Bluefin Sushi Bar</p>`, `waiting to be placed`,
+		`aria-label="TSAI: `, `Firmware MDM 1.13.10`, `Offline at a venue`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("sneak peek Overview is missing %q", want)

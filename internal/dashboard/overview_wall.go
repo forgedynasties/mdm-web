@@ -144,7 +144,8 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 		}
 	}
 	data["Scope"] = sc
-	data["OvBanner"] = buildOvBanner(att, attN, scopedGroups, crashStats.ByRestaurant, ovHotVenues(devs), trend, sc, online, total)
+	banner := buildOvBanner(att, attN, scopedGroups, crashStats.ByRestaurant, ovHotVenues(devs), trend, sc, online, total)
+	data["OvBanner"] = banner
 	data["OvStats"] = buildOvStats(trend, devs, sc, now)
 	data["OvPills"] = buildOvPills(devs, active, sc)
 	data["OvRollouts"] = buildOvRollouts(rollouts, now, roleCanAppLibrary(h.role(r)))
@@ -153,8 +154,34 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	if u, err := h.db.GetUserByUsername(ctx, h.currentUsername(r)); err == nil && u != nil {
 		data["FirstName"] = u.FirstName
 	}
-	data["Venues"] = h.overviewVenueData(r, wallDevs, sc)
-	data["Compliance"] = h.overviewCompliance(r)
+	venues := h.overviewVenueData(r, wallDevs, sc)
+	data["Venues"] = venues
+	comp := h.overviewCompliance(r)
+	data["Compliance"] = comp
+
+	// B1 (5 Nov 2026): the bento page reads all of the above plus three counts and the
+	// MDM clients' standing.
+	in := ovBentoIn{Devs: devs, Active: active, CompPct: -1, ClassOn: classOn, Todos: banner.All,
+		Venues: venues.Rows, Rollouts: data["OvRollouts"].(ovRollouts), Crashes: trend.Crashes24h,
+		CrashesPrv: trend.CrashesPrev, Now: now}
+	if comp != nil && comp.InScope > 0 {
+		in.CompPct = comp.Pct
+	}
+	in.Score, _ = data["Score"].(int)
+	in.ScoreClass, _ = data["ScoreClass"].(string)
+	if f, err := h.db.GetOverviewFacts(ctx); err == nil {
+		in.Facts = f
+	} else {
+		log.Printf("[overview] facts: %v", err)
+	}
+	if all, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 100000, "serial", "asc"); err == nil {
+		slots, _ := h.clientSlotSummaries(r, acc.keepVisible(all))
+		for _, v := range slots {
+			in.ClientUp += v.UpToDate
+			in.ClientBhd += v.Behind
+		}
+	}
+	data["Bento"] = buildOvBento(in)
 }
 
 // classShort is the tile text for a device class on the Overview's type chips.
