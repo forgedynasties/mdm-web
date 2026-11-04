@@ -60,6 +60,13 @@ body{background:var(--bg);color:var(--text);margin:0}
 .tool i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .tool.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}
 .tools .sep{width:1px;height:22px;background:var(--border);margin:0 4px}
+.tools-end{margin-left:auto;display:inline-flex;gap:6px;align-items:center}
+.tool.ic{padding:6px 9px;font-size:14px;line-height:1}
+.tool:disabled{opacity:.45;cursor:default}
+.pl-menu{position:fixed;z-index:1000;min-width:210px}
+.pl-menu .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.pl-menu .cc-mi:disabled{opacity:.45;cursor:default}
+.pl-menu .cc-msep{border:0;border-top:1px solid var(--border-soft);margin:5px 4px}
 .canvas{flex:1;min-height:0;overflow:auto;padding:14px;display:grid;place-items:center}
 svg.plan{background:#fff;border:1px solid var(--border);border-radius:14px;touch-action:none;cursor:default;max-width:100%;height:auto}
 svg.plan.drawing,svg.plan.drawing .room{cursor:crosshair}
@@ -72,6 +79,7 @@ svg.plan.drawing,svg.plan.drawing .room{cursor:crosshair}
 svg.plan.dragging,svg.plan.dragging *{cursor:grabbing!important}
 .hdl{fill:#fff;stroke:#cf4529;stroke-width:2}
 .h-nw,.h-se{cursor:nwse-resize}.h-ne,.h-sw{cursor:nesw-resize}.h-n,.h-s{cursor:ns-resize}.h-e,.h-w{cursor:ew-resize}
+.room.swapto rect:first-child{stroke:#cf4529!important;stroke-dasharray:6 4}
 .ghost{fill:rgba(207,69,41,.07);stroke:#cf4529;stroke-width:2;stroke-dasharray:7 5;pointer-events:none}
 .dev.lift{filter:drop-shadow(0 4px 6px rgba(0,0,0,.3))}
 .tg{pointer-events:none}
@@ -390,7 +398,7 @@ body{min-height:100vh}
       b.onclick = function () {
         box.remove();
         if (x[0] === 'tpl') { me('Change the layout'); layouts(true); }
-        if (x[0] === 'dev') { me('Place the devices again'); suggest(true); ai('Done: placed again from the rooms you have now. ' + devs.length + ' devices.', null, function () { actions(true); }); }
+        if (x[0] === 'dev') { me('Place the devices again'); remember(); suggest(true); ai('Done: placed again from the rooms you have now. ' + devs.length + ' devices.', null, function () { actions(true); }); }
         if (x[0] === 'ok') { me('Looks right'); done(); }
       };
       box.appendChild(b);
@@ -435,6 +443,7 @@ body{min-height:100vh}
     return out;
   }
   function buildPlanner() {
+    var prev = svg && rooms.length ? snapState() : null;
     S.pkg = S.service === 'counter' ? 'counter' : S.service === 'both' ? 'both' : 'full';
     var bar = S.extras.indexOf('Bar') >= 0, patio = S.extras.indexOf('Patio') >= 0;
     var dw = S.tables > 24 ? 440 : S.tables > 10 ? 380 : 300, tpl = S.tpl || 'full';
@@ -461,17 +470,43 @@ body{min-height:100vh}
     rooms = rooms.filter(function (r) { return r.w > 0; });
     var card = stage.querySelector('.found'); card.classList.add('sm');
     stage.innerHTML = card.outerHTML +
-      '<div class="planner"><div class="pl-main"><div class="tools" id="tools"></div><div class="canvas"><svg class="plan" id="plan" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '"></svg></div><div class="hint" id="hint">Drag a room to move it: it settles in the nearest free spot · drag a selected room&rsquo;s handles to resize · pick a room tool, then drag to draw one · arrow keys nudge, Delete removes</div></div><div class="side" id="side"></div></div>';
+      '<div class="planner"><div class="pl-main"><div class="tools" id="tools"></div><div class="canvas"><svg class="plan" id="plan" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '"></svg></div><div class="hint" id="hint">Drag a room to move it: it settles in the nearest free spot, or drop it on another room to swap them · drag a selected room&rsquo;s handles to resize · pick a room tool, then drag to draw one · arrow keys nudge, Delete removes · right-click for more · Ctrl+Z undoes</div></div><div class="side" id="side"></div></div>';
     svg = document.getElementById('plan');
     var tb = document.getElementById('tools');
-    tb.innerHTML = '<button class="tool on" data-t="move">↖ Move</button><span class="sep"></span>' + Object.keys(T).map(function (k) { return '<button class="tool" data-t="' + k + '"><i style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n + '</button>'; }).join('') + '<span class="sep"></span><button class="tool" data-t="tables">⊕ Tables</button>';
+    tb.innerHTML = '<button class="tool on" data-t="move">↖ Move</button><span class="sep"></span>' + Object.keys(T).map(function (k) { return '<button class="tool" data-t="' + k + '"><i style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n + '</button>'; }).join('') + '<span class="sep"></span><button class="tool" data-x="tables">⊕ Tables</button>' +
+      '<span class="tools-end"><button class="tool ic" data-x="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button><button class="tool ic" data-x="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button><span class="sep"></span><button class="tool" data-x="reset" title="Back to the plan as it was first drafted">Reset</button><button class="tool" data-x="scratch">Start from scratch</button></span>';
+    tool = 'move';
     tb.addEventListener('click', function (e) {
       var b = e.target.closest('.tool'); if (!b) return;
-
-      if (b.dataset.t === 'tables') { fillTables(); suggest(false); return; }
-      tool = b.dataset.t; tb.querySelectorAll('.tool').forEach(function (x) { x.classList.toggle('on', x === b); }); svg.classList.toggle('drawing', tool !== 'move');
+      if (b.dataset.x) { act(b.dataset.x); return; }
+      setTool(b.dataset.t);
     });
     fillTables(); suggest(true); wire(); side();
+    first = snapState(); fut = [];
+    if (prev) hist.push(prev);
+    toolsState();
+  }
+  // ── history: Ctrl+Z / Ctrl+Shift+Z, Reset and Start from scratch (user, 4 Nov 2026) ──
+  var hist = [], fut = [], first = null;
+  function snapState() { return JSON.stringify({ r: rooms, t: tables, d: devs, p: S.pkg }); }
+  function remember(before) { hist.push(before || snapState()); if (hist.length > 80) hist.shift(); fut = []; toolsState(); }
+  function restore(js) { var o = JSON.parse(js); rooms = o.r; tables = o.t; devs = o.d; S.pkg = o.p; sel = -1; draw(false); side(); toolsState(); }
+  function toolsState() {
+    var u = document.querySelector('#tools [data-x="undo"]'), r = document.querySelector('#tools [data-x="redo"]'), z = document.querySelector('#tools [data-x="reset"]');
+    if (u) u.disabled = !hist.length; if (r) r.disabled = !fut.length; if (z) z.disabled = !first || snapState() === first;
+  }
+  function setTool(t) {
+    tool = t;
+    document.querySelectorAll('#tools [data-t]').forEach(function (x) { x.classList.toggle('on', x.dataset.t === t); });
+    if (svg) svg.classList.toggle('drawing', t !== 'move');
+  }
+  function act(x) {
+    if (x === 'undo') { if (!hist.length) return; fut.push(snapState()); restore(hist.pop()); return; }
+    if (x === 'redo') { if (!fut.length) return; hist.push(snapState()); restore(fut.pop()); return; }
+    if (x === 'reset') { if (!first || snapState() === first) return; remember(); restore(first); return; }
+    if (x === 'scratch') { if (!rooms.length && !devs.length) return; remember(); rooms = []; tables = []; devs = []; sel = -1; draw(false); side(); toolsState(); setTool('dining'); ai('Cleared. Pick a room type at the top and drag on the grid to draw it; I\'ll add tables and devices as you go. <b>Ctrl+Z</b> brings the old plan back.'); return; }
+    if (x === 'tables') { remember(); fillTables(); suggest(false); return; }
+    if (x === 'devices') { remember(); suggest(true); return; }
   }
   function fillTables() {
     tables = []; var no = 0;
@@ -512,7 +547,7 @@ body{min-height:100vh}
     tables.forEach(function (t) { h += '<g class="tg" data-room="' + t.room + '">' + (t.bar ? '<circle class="tbl" cx="' + t.x + '" cy="' + (t.y + (t.side ? 0 : 12)) + '" r="5"/>' : '<circle class="tbl" cx="' + t.x + '" cy="' + t.y + '" r="' + t.r + '"/><text class="tno" x="' + t.x + '" y="' + (t.y + t.r + 9) + '">' + t.no + '</text>') + '</g>'; });
     devs.forEach(function (d, i) { var dd = D[d.t]; h += '<g class="dev' + (animate ? ' pop' : '') + '" data-d="' + i + '" style="transform-origin:' + d.x + 'px ' + d.y + 'px;animation-delay:' + (animate ? i * 18 : 0) + 'ms"><circle cx="' + d.x + '" cy="' + d.y + '" r="10" fill="' + dd.c + '"/><text x="' + d.x + '" y="' + d.y + '">' + dd.k + '</text><title>' + dd.n + ' · ' + dd.hw + (d.at ? ' · on ' + d.at : '') + '</title></g>'; });
     h += '<rect class="ghost" id="ghost" rx="10" visibility="hidden"/>';
-    svg.innerHTML = h;
+    svg.innerHTML = h; toolsState();
   }
   // Resize handles on the selected room: corners and edge midpoints.
   function handles(r) {
@@ -529,6 +564,7 @@ body{min-height:100vh}
     h += '<div class="why"><span class="spark" style="width:18px;height:18px;font-size:10px;vertical-align:-3px">✦</span> <b>Why:</b> ' + (n ? n + ' Tableside AI tablets: one on each table, one per three seats at the bar, so guests order and pay without waiting. ' : '') + (counts.kds ? counts.kds + ' kitchen screens along the kitchen wall, about one per 10 tables. ' : '') + (counts.pos ? counts.pos + ' POS at the ' + (rooms.some(function (r) { return r.t === 'bar'; }) ? 'counter and the bar. ' : 'counter. ') : '') + (counts.mpos ? counts.mpos + ' handhelds for servers, parked at the counter. ' : '') + (counts.kiosk ? counts.kiosk + ' kiosks by the entrance for walk-ins. ' : '') + (counts.menu ? counts.menu + ' menu boards above the counter.' : '') + '</div>';
     el.innerHTML = h;
     el.onclick = function (e) {
+      if (e.target.closest('[data-p],[data-a],[data-m]')) remember();
       var p = e.target.closest('[data-p]'); if (p) { S.pkg = p.dataset.p; if (S.pkg !== 'custom') suggest(true); else side(); return; }
       var a = e.target.closest('[data-a]'), m = e.target.closest('[data-m]');
       if (a) { S.pkg = 'custom'; var r = rooms[0]; devs.push({ t: a.dataset.a, x: r.x + 30 + Math.random() * (r.w - 60), y: r.y + 30 + Math.random() * (r.h - 60) }); draw(false); side(); }
@@ -538,14 +574,17 @@ body{min-height:100vh}
   // Rooms never overlap (user, 4 Nov 2026: "rooms auto dropping and placing since one room cannot
   // override the other"): a room follows the pointer freely, a dashed outline shows the nearest
   // free spot on the grid, and on release it glides there. Handles resize it up to its neighbours.
-  function hits(a, b) { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
-  function free(r, skip) {
-    if (r.x < 0 || r.y < 0 || r.x + r.w > W || r.y + r.h > H) return false;
-    return rooms.every(function (o, j) { return j === skip || !hits(r, o); });
+  // One grid square between rooms and around the edge, as the starting layouts have it (user,
+  // 4 Nov 2026: "starting gaps between rooms to make it look good then why can i do this").
+  var M = G;
+  function hits(a, b) { return a.x < b.x + b.w + M && b.x < a.x + a.w + M && a.y < b.y + b.h + M && b.y < a.y + a.h + M; }
+  function free(r, skip, skip2) {
+    if (r.x < M || r.y < M || r.x + r.w > W - M || r.y + r.h > H - M) return false;
+    return rooms.every(function (o, j) { return j === skip || j === skip2 || !hits(r, o); });
   }
   function settle(r, skip) {
     var best = null, bd = Infinity;
-    for (var y = 0; y + r.h <= H; y += G) for (var x = 0; x + r.w <= W; x += G) {
+    for (var y = M; y + r.h <= H - M; y += G) for (var x = M; x + r.w <= W - M; x += G) {
       var d = (x - r.x) * (x - r.x) + (y - r.y) * (y - r.y);
       if (d < bd && free({ x: x, y: y, w: r.w, h: r.h }, skip)) { bd = d; best = { x: x, y: y }; }
     }
@@ -566,25 +605,42 @@ body{min-height:100vh}
     })(t0);
   }
   function inRoom(d, r) { return d.x > r.x && d.x < r.x + r.w && d.y > r.y && d.y < r.y + r.h; }
-  // Moves a room with its tables and the devices in it.
-  function moveRoom(i, dx, dy) {
-    var r = rooms[i];
-    devs.forEach(function (d) { if (inRoom(d, r)) { d.x += dx; d.y += dy; } });
-    tables.forEach(function (t) { if (t.room === i) { t.x += dx; t.y += dy; } });
-    r.x += dx; r.y += dy;
+  // Moves rooms with their tables and the devices in them (all picked before any moves, so a
+  // swap doesn't carry one room's devices into the other).
+  function moveRooms(list) {
+    var sets = list.map(function (m) { var r = rooms[m.i]; return devs.filter(function (d) { return inRoom(d, r); }); });
+    list.forEach(function (m, k) {
+      sets[k].forEach(function (d) { d.x += m.dx; d.y += m.dy; });
+      tables.forEach(function (t) { if (t.room === m.i) { t.x += m.dx; t.y += m.dy; } });
+      rooms[m.i].x += m.dx; rooms[m.i].y += m.dy;
+    });
+  }
+  function moveRoom(i, dx, dy) { moveRooms([{ i: i, dx: dx, dy: dy }]); }
+  // Dropping a room on another swaps them (user, 4 Nov 2026: "if i drag counter up it should be
+  // switched with kitchen"). Stacked rooms trade order within the span they share; otherwise
+  // they trade corners. Null when the two don't both fit that way.
+  function swapPlan(i, j) {
+    var a = rooms[i], b = rooms[j], na = { x: a.x, y: a.y, w: a.w, h: a.h }, nb = { x: b.x, y: b.y, w: b.w, h: b.h };
+    var stacked = a.y >= b.y + b.h || b.y >= a.y + a.h, sideBy = a.x >= b.x + b.w || b.x >= a.x + a.w;
+    if (stacked) { var top = Math.min(a.y, b.y); if (a.y > b.y) { na.y = top; nb.y = top + a.h + M; } else { nb.y = top; na.y = top + b.h + M; } }
+    else if (sideBy) { var left = Math.min(a.x, b.x); if (a.x > b.x) { na.x = left; nb.x = left + a.w + M; } else { nb.x = left; na.x = left + b.w + M; } }
+    else { na.x = b.x; na.y = b.y; nb.x = a.x; nb.y = a.y; }
+    if (!free(na, i, j) || !free(nb, i, j) || hits(na, nb)) return null;
+    return { j: j, a: na, b: nb };
   }
   function wire() {
     var drag = null, last = null, queued = false;
     function pt(e) { var r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
     svg.addEventListener('pointerdown', function (e) {
-      if (drag) return;
+      if (drag || e.button === 2) return;
+      closeMenu();
       var p = pt(e), hd = e.target.closest('.hdl'), dv = e.target.closest('.dev'), rm = e.target.closest('.room');
       svg.setPointerCapture(e.pointerId);
-      if (hd) { var r0 = rooms[sel]; drag = { k: 'size', i: sel, h: hd.dataset.h, o: { x: r0.x, y: r0.y, w: r0.w, h: r0.h } }; svg.classList.add('sizing'); return; }
+      if (hd) { var r0 = rooms[sel]; drag = { k: 'size', before: snapState(), i: sel, h: hd.dataset.h, o: { x: r0.x, y: r0.y, w: r0.w, h: r0.h } }; svg.classList.add('sizing'); return; }
       if (tool === 'move' && dv) {
         var di = +dv.dataset.d; dv.classList.remove('pop'); dv.classList.add('lift');
-        drag = { k: 'dev', i: di, el: dv, ox: p.x - devs[di].x, oy: p.y - devs[di].y, dx: 0, dy: 0 }; return;
+        drag = { k: 'dev', before: snapState(), i: di, el: dv, ox: p.x - devs[di].x, oy: p.y - devs[di].y, dx: 0, dy: 0 }; return;
       }
       if (tool === 'move' && rm) {
         var i = +rm.dataset.r, r = rooms[i]; sel = i; draw(false);
@@ -593,11 +649,11 @@ body{min-height:100vh}
         devs.forEach(function (d, j) { if (inRoom(d, r)) els.push(svg.querySelector('.dev[data-d="' + j + '"]')); });
         var gh = document.getElementById('ghost'); els.forEach(function (el) { svg.insertBefore(el, gh); }); // lifted above the other rooms
         els[0].classList.add('lift'); svg.classList.add('dragging');
-        drag = { k: 'room', i: i, els: els, ox: p.x - r.x, oy: p.y - r.y, dx: 0, dy: 0, to: { x: r.x, y: r.y } }; return;
+        drag = { k: 'room', before: snapState(), i: i, els: els, ox: p.x - r.x, oy: p.y - r.y, dx: 0, dy: 0, to: { x: r.x, y: r.y } }; return;
       }
       if (tool === 'move') { if (sel >= 0) { sel = -1; draw(false); } return; }
-      var n = { t: tool, x: snap(p.x), y: snap(p.y), w: 40, h: 40 }; rooms.push(n); sel = rooms.length - 1;
-      drag = { k: 'new', i: sel, x0: n.x, y0: n.y }; draw(false);
+      var b0 = snapState(), n = { t: tool, x: snap(p.x), y: snap(p.y), w: 40, h: 40 }; rooms.push(n); sel = rooms.length - 1;
+      drag = { k: 'new', before: b0, i: sel, x0: n.x, y0: n.y }; draw(false);
     });
     function frame() {
       queued = false; if (!drag || !last) return; var p = last;
@@ -608,14 +664,19 @@ body{min-height:100vh}
       if (drag.k === 'room') {
         var r = rooms[drag.i], nx = clamp(p.x - drag.ox, 0, W - r.w), ny = clamp(p.y - drag.oy, 0, H - r.h);
         drag.dx = nx - r.x; drag.dy = ny - r.y; shift(drag.els, drag.dx, drag.dy);
-        drag.to = settle({ x: snap(nx), y: snap(ny), w: r.w, h: r.h }, drag.i); ghost(drag.to, r);
+        var over = -1; rooms.forEach(function (o, j) { if (j !== drag.i && p.x > o.x && p.x < o.x + o.w && p.y > o.y && p.y < o.y + o.h) over = j; });
+        drag.swap = over >= 0 ? swapPlan(drag.i, over) : null;
+        svg.querySelectorAll('.room.swapto').forEach(function (el) { el.classList.remove('swapto'); });
+        if (drag.swap) { svg.querySelector('.room[data-r="' + over + '"]').classList.add('swapto'); drag.to = { x: drag.swap.a.x, y: drag.swap.a.y }; }
+        else drag.to = settle({ x: snap(nx), y: snap(ny), w: r.w, h: r.h }, drag.i);
+        ghost(drag.to, r);
       }
       if (drag.k === 'size') {
         var o = drag.o, x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h, sx = snap(p.x), sy = snap(p.y), MIN = 60, h = drag.h;
-        if (/w/.test(h)) x1 = clamp(sx, 0, x2 - MIN);
-        if (/e/.test(h)) x2 = clamp(sx, x1 + MIN, W);
-        if (/n/.test(h)) y1 = clamp(sy, 0, y2 - MIN);
-        if (/s/.test(h)) y2 = clamp(sy, y1 + MIN, H);
+        if (/w/.test(h)) x1 = clamp(sx, M, x2 - MIN);
+        if (/e/.test(h)) x2 = clamp(sx, x1 + MIN, W - M);
+        if (/n/.test(h)) y1 = clamp(sy, M, y2 - MIN);
+        if (/s/.test(h)) y2 = clamp(sy, y1 + MIN, H - M);
         // Grow up to the neighbours: step a growing edge back until the room fits.
         var c = { x: x1, y: o.y, w: x2 - x1, h: o.h }, n = 0;
         while (!free(c, drag.i) && n++ < 80) { if (c.x < o.x) { c.x += G; c.w -= G; } else if (c.x + c.w > o.x + o.w) c.w -= G; else break; }
@@ -628,9 +689,9 @@ body{min-height:100vh}
         }
       }
       if (drag.k === 'new') {
-        var rr = rooms[drag.i], ex = clamp(snap(p.x), 0, W), ey = clamp(snap(p.y), 0, H);
+        var rr = rooms[drag.i], ex = clamp(snap(p.x), M, W - M), ey = clamp(snap(p.y), M, H - M);
         rr.x = Math.min(drag.x0, ex); rr.y = Math.min(drag.y0, ey); rr.w = Math.max(40, Math.abs(ex - drag.x0)); rr.h = Math.max(40, Math.abs(ey - drag.y0));
-        if (rr.x + rr.w > W) rr.x = W - rr.w; if (rr.y + rr.h > H) rr.y = H - rr.h;
+        if (rr.x + rr.w > W - M) rr.x = W - M - rr.w; if (rr.y + rr.h > H - M) rr.y = H - M - rr.h;
         draw(false);
         var bad = !free(rr, drag.i); svg.querySelector('.room[data-r="' + drag.i + '"]').classList.toggle('bad', bad);
         drag.to = bad ? settle(rr, drag.i) : null; ghost(drag.to, rr);
@@ -641,36 +702,112 @@ body{min-height:100vh}
       if (!queued) { queued = true; requestAnimationFrame(frame); }
     });
     function end() {
-      if (!drag) return; var dr = drag; drag = null; last = null;
+      if (!drag) return; if (queued && last) frame();
+      var dr = drag; drag = null; last = null;
+      var keep = function () { if (snapState() !== dr.before) remember(dr.before); };
       svg.classList.remove('dragging', 'sizing'); ghost(null);
-      if (dr.k === 'dev') { var d = devs[dr.i]; d.x += dr.dx; d.y += dr.dy; draw(false); return; }
+      if (dr.k === 'dev') { var d = devs[dr.i]; d.x += dr.dx; d.y += dr.dy; draw(false); keep(); return; }
       if (dr.k === 'room') {
-        var r = rooms[dr.i], to = dr.to || { x: r.x, y: r.y };
-        glide(dr.els, dr.dx, dr.dy, to.x - r.x, to.y - r.y, function () { moveRoom(dr.i, to.x - r.x, to.y - r.y); draw(false); });
+        var r = rooms[dr.i], to = dr.to || { x: r.x, y: r.y }, sw = dr.swap;
+        if (sw) {
+          var b = rooms[sw.j], bels = [svg.querySelector('.room[data-r="' + sw.j + '"]')];
+          svg.querySelectorAll('.tg[data-room="' + sw.j + '"]').forEach(function (el) { bels.push(el); });
+          devs.forEach(function (d, k) { if (inRoom(d, b)) bels.push(svg.querySelector('.dev[data-d="' + k + '"]')); });
+          glide(bels, 0, 0, sw.b.x - b.x, sw.b.y - b.y, function () {});
+        }
+        glide(dr.els, dr.dx, dr.dy, to.x - r.x, to.y - r.y, function () {
+          var list = [{ i: dr.i, dx: to.x - r.x, dy: to.y - r.y }];
+          if (sw) list.push({ i: sw.j, dx: sw.b.x - rooms[sw.j].x, dy: sw.b.y - rooms[sw.j].y });
+          moveRooms(list); draw(false); keep();
+        });
         return;
       }
-      if (dr.k === 'size') { fillTables(); suggest(false); return; }
+      if (dr.k === 'size') { fillTables(); suggest(false); keep(); return; }
       if (dr.k === 'new') {
+        setTool('move'); // one room per pick (user, 4 Nov 2026)
         var nr = rooms[dr.i];
         if (!free(nr, dr.i)) {
           var to2 = settle(nr, dr.i);
           if (!to2) { rooms.splice(dr.i, 1); sel = -1; draw(false); ai('There is no free space for a <b>' + T[nr.t].n.toLowerCase() + '</b> that size. Make a room smaller first (drag its handles).'); return; }
           nr.x = to2.x; nr.y = to2.y;
         }
-        if (nr.t === 'dining' || nr.t === 'patio' || nr.t === 'bar') fillTables(); suggest(true);
+        if (nr.t === 'dining' || nr.t === 'patio' || nr.t === 'bar') fillTables(); suggest(true); keep();
         ai('Added a <b>' + T[nr.t].n.toLowerCase() + '</b> (' + Math.round(nr.w / 20) + ' × ' + Math.round(nr.h / 20) + ' squares) and placed devices for it.');
       }
     }
     svg.addEventListener('pointerup', end);
     svg.addEventListener('pointercancel', end);
+    svg.addEventListener('contextmenu', function (e) { e.preventDefault(); if (!drag) openMenu(e, pt(e)); });
+    if (keysWired) return; keysWired = true;
     document.addEventListener('keydown', function (e) {
-      if (sel < 0 || document.activeElement !== document.body) return;
-      if (e.key === 'Delete' || e.key === 'Backspace') { rooms.splice(sel, 1); sel = -1; fillTables(); suggest(false); return; }
+      if (!svg || !document.getElementById('plan')) return;
+      var a = document.activeElement; if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) return;
+      if (e.key === 'Escape') { closeMenu(); return; }
+      var k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); act(e.shiftKey ? 'redo' : 'undo'); return; }
+      if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); act('redo'); return; }
+      if (sel < 0 || !rooms[sel]) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); remember(); rooms.splice(sel, 1); sel = -1; fillTables(); suggest(false); return; }
       var mv = { ArrowLeft: [-G, 0], ArrowRight: [G, 0], ArrowUp: [0, -G], ArrowDown: [0, G] }[e.key]; if (!mv) return;
       e.preventDefault(); var r = rooms[sel];
-      if (free({ x: r.x + mv[0], y: r.y + mv[1], w: r.w, h: r.h }, sel)) { moveRoom(sel, mv[0], mv[1]); draw(false); }
+      if (free({ x: r.x + mv[0], y: r.y + mv[1], w: r.w, h: r.h }, sel)) { remember(); moveRoom(sel, mv[0], mv[1]); draw(false); }
     });
   }
+  var keysWired = false;
+  // Right-click opens the MDM's own menu (.cc-menu) for what is under the pointer: a room, a
+  // device, or the empty plan (user, 4 Nov 2026).
+  var menu = null;
+  function closeMenu() { if (menu) { menu.remove(); menu = null; } }
+  function openMenu(e, p) {
+    closeMenu();
+    var rm = e.target.closest('.room'), dv = e.target.closest('.dev'), items = [], head = '';
+    var mi = function (x, label, extra) { return '<button type="button" class="cc-mi" role="menuitem" data-x="' + x + '"' + (extra || '') + '>' + label + '</button>'; };
+    var hist2 = '<hr class="cc-msep">' + mi('undo', 'Undo', hist.length ? '' : ' disabled') + mi('redo', 'Redo', fut.length ? '' : ' disabled');
+    if (dv) {
+      var d = devs[+dv.dataset.d], dd = D[d.t];
+      head = '<div class="cc-mh">' + dd.n + '<span class="sub">' + dd.hw + '</span></div>';
+      items.push(mi('rmdev:' + dv.dataset.d, 'Remove this device'));
+    } else if (rm) {
+      var i = +rm.dataset.r, r = rooms[i]; sel = i; draw(false);
+      head = '<div class="cc-mh">' + T[r.t].n + '<span class="sub">' + Math.round(r.w / G) + ' × ' + Math.round(r.h / G) + '</span></div>';
+      items.push('<div class="cc-msec">Change to</div>');
+      Object.keys(T).forEach(function (k) { if (k !== r.t) items.push(mi('type:' + i + ':' + k, '<i class="sw" style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n)); });
+      items.push('<hr class="cc-msep">', mi('dup:' + i, 'Duplicate'), mi('del:' + i, 'Delete room'));
+    } else {
+      head = '<div class="cc-mh">Floor plan</div>';
+      items.push('<div class="cc-msec">Draw a room</div>');
+      Object.keys(T).forEach(function (k) { items.push(mi('draw:' + k, '<i class="sw" style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n)); });
+      items.push('<hr class="cc-msep">', mi('tables', '⊕ Fill tables'), mi('devices', '✦ Place devices again'), mi('reset', 'Reset to the first draft', first && snapState() !== first ? '' : ' disabled'), mi('scratch', 'Start from scratch'));
+    }
+    menu = document.createElement('div'); menu.className = 'cc-menu pl-menu'; menu.setAttribute('role', 'menu');
+    menu.innerHTML = head + items.join('') + hist2;
+    document.body.appendChild(menu);
+    var w = menu.offsetWidth, h = menu.offsetHeight;
+    menu.style.left = Math.min(e.clientX, innerWidth - w - 8) + 'px'; menu.style.top = Math.min(e.clientY, innerHeight - h - 8) + 'px';
+    var f = menu.querySelector('.cc-mi:not([disabled])'); if (f) f.focus();
+    menu.addEventListener('click', function (ev) {
+      var b = ev.target.closest('.cc-mi'); if (!b || b.disabled) return;
+      var x = b.dataset.x.split(':'); closeMenu();
+      if (x[0] === 'rmdev') { remember(); S.pkg = 'custom'; devs.splice(+x[1], 1); draw(false); side(); return; }
+      if (x[0] === 'type') { remember(); rooms[+x[1]].t = x[2]; fillTables(); suggest(false); return; }
+      if (x[0] === 'del') { remember(); rooms.splice(+x[1], 1); sel = -1; fillTables(); suggest(false); return; }
+      if (x[0] === 'dup') {
+        var src = rooms[+x[1]], to = settle({ x: src.x + G, y: src.y + G, w: src.w, h: src.h }, -1);
+        if (!to) { ai('There is no free space for another <b>' + T[src.t].n.toLowerCase() + '</b> that size. Make a room smaller first.'); return; }
+        remember(); rooms.push({ t: src.t, x: to.x, y: to.y, w: src.w, h: src.h }); sel = rooms.length - 1; fillTables(); suggest(false); return;
+      }
+      if (x[0] === 'draw') { setTool(x[1]); return; }
+      act(x[0]);
+    });
+    menu.addEventListener('keydown', function (ev) {
+      var list = Array.prototype.slice.call(menu.querySelectorAll('.cc-mi:not([disabled])')), k = list.indexOf(document.activeElement);
+      if (ev.key === 'ArrowDown') { ev.preventDefault(); list[(k + 1) % list.length].focus(); }
+      if (ev.key === 'ArrowUp') { ev.preventDefault(); list[(k - 1 + list.length) % list.length].focus(); }
+      if (ev.key === 'Escape') { closeMenu(); }
+    });
+  }
+  document.addEventListener('pointerdown', function (e) { if (menu && !menu.contains(e.target)) closeMenu(); }, true);
+  window.addEventListener('resize', closeMenu);
 })();
 
 </script>
