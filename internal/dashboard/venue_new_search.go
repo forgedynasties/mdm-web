@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"encoding/json"
 	"hash/fnv"
 	"log"
 	"math"
@@ -425,4 +426,93 @@ func (h *Handler) fillVenueIcon(venue uuid.UUID, env string, rid int64, website 
 			}
 		}
 	}()
+}
+
+// New venue S1 (picked 4 Nov 2026): under the search, the backend restaurants that list the
+// viewer's devices but have no venue (one click fills the card, as a search pick does), and
+// the venues added lately (so one isn't added twice).
+type vnStartRow struct {
+	Hit     vnHit
+	JSON    string
+	Initial string
+	Where   string
+	InMDM   int // the backend's devices that are in the MDM
+	Free    int // of those, at no venue
+}
+
+type vnStart struct {
+	Waiting []vnStartRow
+	Recent  []db.Restaurant
+}
+
+func (h *Handler) venueNewStart(r *http.Request) vnStart {
+	var out vnStart
+	s, err := h.loadVenueSearchSources(r)
+	if err != nil {
+		log.Printf("[venue-new] start: %v", err)
+		return out
+	}
+	ign, _ := h.db.BackendIgnores(r.Context())
+	for _, br := range s.rests {
+		k := bkKey(br.Env, br.ID)
+		devs := s.devs[k]
+		if len(devs) == 0 || ign[k] {
+			continue
+		}
+		if _, linked := s.linked[k]; linked {
+			continue
+		}
+		hit := vnHit{Name: br.Name, Address: trimUSA(br.FullAddress()), Lat: br.Latitude, Lng: br.Longitude, TZ: br.Timezone,
+			Backend: s.backendOf(br), Test: testRestaurantRe.MatchString(br.Name), Color: vnColor(br.Name)}
+		row := vnStartRow{Hit: hit, InMDM: len(devs), Initial: vnInitial(br.Name)}
+		for _, d := range devs {
+			if d.Venue == "" {
+				row.Free++
+			}
+		}
+		row.Where = strings.TrimSpace(strings.Trim(br.City+", "+usStateAbbr(br.State), ", "))
+		if b, err := json.Marshal(hit); err == nil {
+			row.JSON = string(b)
+		}
+		out.Waiting = append(out.Waiting, row)
+	}
+	sort.SliceStable(out.Waiting, func(i, j int) bool {
+		a, b := out.Waiting[i], out.Waiting[j]
+		if a.Hit.Test != b.Hit.Test {
+			return !a.Hit.Test
+		}
+		if a.InMDM != b.InMDM {
+			return a.InMDM > b.InMDM
+		}
+		return a.Hit.Name < b.Hit.Name
+	})
+	if len(out.Waiting) > 6 {
+		out.Waiting = out.Waiting[:6]
+	}
+	recent := append([]db.Restaurant{}, s.venues...)
+	sort.Slice(recent, func(i, j int) bool { return recent[i].CreatedAt.After(recent[j].CreatedAt) })
+	if len(recent) > 4 {
+		recent = recent[:4]
+	}
+	out.Recent = recent
+	return out
+}
+
+func vnInitial(name string) string {
+	for _, r := range name {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return strings.ToUpper(string(r))
+		}
+	}
+	return "?"
+}
+
+// usStateAbbr shortens a full US state name ("California" → "CA"); anything else is kept.
+func usStateAbbr(s string) string {
+	for ab, name := range usStates {
+		if strings.EqualFold(name, s) {
+			return ab
+		}
+	}
+	return s
 }

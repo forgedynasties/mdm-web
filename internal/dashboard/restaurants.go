@@ -234,6 +234,7 @@ func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 		"Timezones":  restaurantTimezones,
 		"Back":       back,
 		"ForSerials": serials,
+		"VnStart":    h.venueNewStart(r),
 	})
 }
 

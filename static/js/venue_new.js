@@ -64,6 +64,10 @@
     pick(hits[+b.dataset.i]);
     res.querySelectorAll('.vn-ri').forEach(function (r) { r.classList.toggle('on', r === b); });
   });
+  // S1: a backend restaurant waiting for a venue fills the card like a search pick.
+  box.querySelectorAll('.vn-add').forEach(function (b) {
+    b.addEventListener('click', function () { try { var h = JSON.parse(b.getAttribute('data-hit')); q.value = h.name; pick(h); } catch (e) {} });
+  });
   $('vn-hand').addEventListener('click', function () { pick(null); box.classList.add('manual'); openForm(); if (name) name.focus(); });
 
   function set(id, v) { var el = $(id); if (el) el.value = v == null ? '' : v; }

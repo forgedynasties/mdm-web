@@ -47,6 +47,22 @@
    4 Nov 2026: "first there will be only the search bar"). */
 .vn1.start{grid-template-columns:1fr;max-width:760px;margin:32px auto 16px;}
 .vn1.start .vn-card{display:none;}
+.vn1:not(.start) .vn-hero,.vn1:not(.start) .vn-lists{display:none;}
+.vn-hero{text-align:center;margin:0 0 18px}
+.vn-hero h2{font-size:24px;font-weight:700;margin:0 0 4px}
+.vn-hero p{font-size:14px;color:var(--text-2);margin:0}
+.vn1.start .vn-srch input{font-size:17px;padding:17px 16px 17px 48px;border-radius:14px;box-shadow:0 10px 30px -18px rgba(0,0,0,.25)}
+.vn1.start .vn-srch svg{left:17px}
+.vn-sec{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:26px 2px 8px;display:flex;align-items:center;gap:8px}
+.vn-sec .n{font-size:11px;background:var(--hover);border-radius:99px;padding:1px 7px;letter-spacing:0}
+.vn-list{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.vn-lrow{display:flex;gap:12px;align-items:center;padding:11px 14px;border-top:1px solid var(--border-soft);font-size:13.5px;color:var(--text);text-decoration:none}
+.vn-lrow:first-child{border-top:0}
+a.vn-lrow:hover{background:var(--hover)}
+.vn-lrow .vn-ic{width:34px;height:34px}
+.vn-lrow .vn-tx b{display:block;font-weight:600}
+.vn-lrow .vn-tx small{color:var(--muted);font-size:12px}
+.vn-lrow .cc-btn{flex:none}
 .vn-manual{display:inline-flex;align-items:center;gap:6px;margin-left:4px}
 .vn1.manual{grid-template-columns:1fr;}.vn1.manual .vn-card{display:none;}
 #rf-manual[hidden]{display:none;}
@@ -119,12 +135,26 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
        form below opens only for "Add manually" or "Edit details". */}}
   <div class="vn1 start" id="vn1" data-search="/restaurants/new/search">
     <div class="vn-find">
+      <div class="vn-hero"><h2>Add a venue</h2><p>Find the restaurant: its address, pin, timezone and hours come with it.</p></div>
       <div class="vn-srch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <input id="vn-q" type="search" placeholder="Search a restaurant: name, street or city" autocomplete="off" autofocus
                role="combobox" aria-expanded="false" aria-controls="vn-res" aria-label="Search a restaurant"></div>
       <div class="vn-hint" id="vn-hint">Searches Google Maps and the AIO backend together.</div>
       <div class="vn-res" id="vn-res" role="listbox" aria-label="Restaurants found" hidden></div>
       <div class="vn-foot">Not listed? <button type="button" class="vn-link vn-manual" id="vn-hand"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add manually</button></div>
+      {{with .VnStart}}<div class="vn-lists">
+        {{if .Waiting}}<div class="vn-sec">In the AIO backend, with your devices, no venue yet <span class="n">{{len .Waiting}}</span></div>
+        <div class="vn-list">{{range .Waiting}}
+          <div class="vn-lrow"><span class="vn-ic" style="background:{{.Hit.Color}}">{{.Initial}}</span>
+            <span class="vn-tx"><b>{{.Hit.Name}}<span class="vn-bdg aio"><i></i>{{.Hit.Backend.EnvLabel}} #{{.Hit.Backend.ID}}</span>{{if .Hit.Test}}<span class="vn-bdg test">test</span>{{end}}</b>
+            <small>{{if .Where}}{{.Where}} · {{end}}{{.InMDM}} device{{if ne .InMDM 1}}s{{end}} in the MDM{{if .Free}}{{if eq .Free .InMDM}}, at no venue{{else}}, {{.Free}} at no venue{{end}}{{end}}</small></span>
+            <button type="button" class="cc-btn{{if not .Hit.Test}} primary{{end}} vn-add" data-hit="{{.JSON}}">Add</button></div>{{end}}
+        </div>{{end}}
+        {{if .Recent}}<div class="vn-sec">Added lately</div>
+        <div class="vn-list">{{range .Recent}}
+          <a class="vn-lrow" href="/restaurants/{{.ID}}">{{venueIcon .ID .Name "sm"}}<span class="vn-tx"><b>{{.Name}}</b><small>{{shortDate .CreatedAt}} · {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</small></span><span class="vn-open">Open ↗</span></a>{{end}}
+        </div>{{end}}
+      </div>{{end}}
     </div>
     <aside class="card vn-card" id="vn-card" aria-live="polite"><div class="vn-ph">Pick a restaurant on the left: its details land here, ready to create.</div></aside>
   </div>
