@@ -39,7 +39,7 @@ func buildCSP() string {
 		// scripts, image tiles/sprites, fonts, and connect telemetry).
 		"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; " +
 		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-		"img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com" + s3 + "; " +
+		"img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com https://*.googleusercontent.com" + s3 + "; " +
 		"media-src 'self' blob:" + s3 + "; " +
 		"font-src 'self' https://fonts.gstatic.com; " +
 		connect + "; " +
