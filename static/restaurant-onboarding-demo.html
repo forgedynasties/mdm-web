@@ -66,6 +66,11 @@ body{background:var(--bg);color:var(--text);margin:0}
 .pl-menu{position:fixed;z-index:1000;min-width:210px}
 .pl-menu .sw{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
 .pl-menu .cc-mi:disabled{opacity:.45;cursor:default}
+.pl-menu .pl-tables{display:flex;align-items:center;gap:8px;padding:6px 10px 8px;font-size:13px;font-weight:600}
+.pl-menu .pl-tables span{flex:1}
+.pl-menu .pl-tables button{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;font-size:15px;cursor:pointer}
+.pl-menu .pl-tables button:hover{background:var(--hover)}
+.pl-menu .pl-tables b{min-width:22px;text-align:center}
 .pl-menu .cc-msep{border:0;border-top:1px solid var(--border-soft);margin:5px 4px}
 .canvas{flex:1;min-height:0;overflow:auto;padding:14px;display:grid;place-items:center}
 svg.plan{background:#fff;border:1px solid var(--border);border-radius:14px;touch-action:none;cursor:default;max-width:100%;height:auto}
@@ -517,8 +522,9 @@ body{min-height:100vh}
         else { for (var x = r.x + 30; x < r.x + r.w - 20; x += 34) tables.push({ x: x, y: r.y + 30, r: 9, room: ri, bar: true, no: 'Bar ' + (++no) }); }
         return;
       }
-      var want = r.t === 'dining' ? S.tables : Math.round(S.tables / 3), cols = Math.max(2, Math.round(Math.sqrt(want * r.w / r.h))), rows = Math.max(1, Math.ceil(want / cols));
+      var want = r.tables != null ? r.tables : r.t === 'dining' ? S.tables : Math.round(S.tables / 3), cols = Math.max(2, Math.round(Math.sqrt(want * r.w / r.h))), rows = Math.max(1, Math.ceil(want / cols));
       var dx = r.w / cols, dy = r.h / rows, n = 0;
+      if (want <= 0) return;
       for (var j = 0; j < rows; j++) for (var i = 0; i < cols; i++) { if (n++ >= want) break; tables.push({ x: r.x + dx * (i + .5), y: r.y + dy * (j + .5), r: Math.min(16, Math.min(dx, dy) / 3.2), room: ri, no: 'T' + (++no) }); }
     });
   }
@@ -567,9 +573,59 @@ body{min-height:100vh}
       if (e.target.closest('[data-p],[data-a],[data-m]')) remember();
       var p = e.target.closest('[data-p]'); if (p) { S.pkg = p.dataset.p; if (S.pkg !== 'custom') suggest(true); else side(); return; }
       var a = e.target.closest('[data-a]'), m = e.target.closest('[data-m]');
-      if (a) { S.pkg = 'custom'; var r = rooms[0]; devs.push({ t: a.dataset.a, x: r.x + 30 + Math.random() * (r.w - 60), y: r.y + 30 + Math.random() * (r.h - 60) }); draw(false); side(); }
-      if (m) { S.pkg = 'custom'; for (var i = devs.length - 1; i >= 0; i--) if (devs[i].t === m.dataset.m) { devs.splice(i, 1); break; } draw(false); side(); }
+      if (a) { S.pkg = 'custom'; addDevice(a.dataset.a); draw(false); side(); }
+      if (m) { S.pkg = 'custom'; for (var i = devs.length - 1; i >= 0; i--) if (devs[i].t === m.dataset.m) { devs.splice(i, 1); break; } if (m.dataset.m !== 'nugget') respread(m.dataset.m); draw(false); side(); }
     };
+  }
+  // One more device of a kind goes where the rules put that kind (user, 4 Nov 2026: "when i
+  // increase kds or pos it should go to proper location"): a tablet on the next table without
+  // one, the others re-spread along their wall with the new one among them.
+  function nuggetSpot(t) { return { t: 'nugget', x: t.x + (t.side ? 26 : 0), y: t.y - (t.bar && !t.side ? 16 : 0), at: t.no }; }
+  function addDevice(k) {
+    if (k === 'nugget') {
+      var taken = {}; devs.forEach(function (d) { if (d.t === 'nugget' && d.at) taken[d.at] = 1; });
+      var free = tables.filter(function (t) { return !taken[t.no] && !t.bar; })[0] || tables.filter(function (t) { return !taken[t.no]; })[0];
+      if (free) { devs.push(nuggetSpot(free)); return; }
+      var t0 = tables[devs.filter(function (d) { return d.t === 'nugget'; }).length % Math.max(1, tables.length)];
+      if (t0) { devs.push({ t: 'nugget', x: t0.x + 14, y: t0.y + 14, at: t0.no }); return; }
+    }
+    devs.push({ t: k, x: 0, y: 0 });
+    respread(k);
+  }
+  // Puts every device of kind k on its rule's spots: KDS along the kitchen's far wall, POS at
+  // the counter's front then the bar, handhelds parked in a row at the counter, kiosks across
+  // the entrance, menu boards above the counter. No such room: the middle of the plan.
+  function respread(k) {
+    var mine = devs.filter(function (d) { return d.t === k; }), n = mine.length; if (!n) return;
+    var find = function (t) { return rooms.filter(function (r) { return r.t === t; }); };
+    var spots = [];
+    function along(rs, yOf, count) { rs.forEach(function (r, ri) { var c = Math.floor(count / rs.length) + (ri < count % rs.length ? 1 : 0); for (var i = 0; i < c; i++) spots.push({ x: r.x + r.w * (i + 1) / (c + 1), y: yOf(r) }); }); }
+    if (k === 'kds') along(find('kitchen'), function (r) { return r.y + 18; }, n);
+    if (k === 'kiosk') along(find('entrance'), function (r) { return r.y + r.h / 2; }, n);
+    if (k === 'menu') along(find('counter'), function (r) { return r.y + 14; }, n);
+    if (k === 'pos') {
+      var bars = find('bar'), atBar = bars.length && n > 1 ? Math.min(bars.length, n - 1) : 0;
+      along(find('counter'), function (r) { return r.y + r.h - 22; }, n - atBar);
+      for (var b = 0; b < atBar; b++) spots.push({ x: bars[b].x + bars[b].w - 24, y: bars[b].y + bars[b].h - 22 });
+    }
+    if (k === 'mpos') find('counter').slice(0, 1).forEach(function (c) { for (var j = 0; j < n; j++) spots.push({ x: c.x + 20 + (j % Math.max(1, Math.floor((c.w - 30) / 24))) * 24, y: c.y + c.h / 2 - 4 + Math.floor(j / Math.max(1, Math.floor((c.w - 30) / 24))) * 22 }); });
+    mine.forEach(function (d, i) {
+      var sp = spots[i] || { x: W / 2 + (i % 6) * 22 - 55, y: H / 2 + Math.floor(i / 6) * 22 };
+      d.x = sp.x; d.y = sp.y;
+    });
+  }
+  // A dining room's or patio's table count (right-click, user 4 Nov 2026), with a tablet per
+  // table when the package has them.
+  function setTables(i, n) {
+    var r = rooms[i]; if (!r) return;
+    r.tables = Math.max(0, Math.min(60, n));
+    var hadNugget = devs.some(function (d) { return d.t === 'nugget'; }) || (PK[S.pkg].on || []).indexOf('nugget') >= 0;
+    fillTables();
+    if (hadNugget) {
+      devs = devs.filter(function (d) { return d.t !== 'nugget'; });
+      var seat = 0; tables.forEach(function (t) { if (t.bar && (seat++ % 3)) return; devs.push(nuggetSpot(t)); });
+    }
+    draw(false); side();
   }
   // Rooms never overlap (user, 4 Nov 2026: "rooms auto dropping and placing since one room cannot
   // override the other"): a room follows the pointer freely, a dashed outline shows the nearest
@@ -770,6 +826,10 @@ body{min-height:100vh}
     } else if (rm) {
       var i = +rm.dataset.r, r = rooms[i]; sel = i; draw(false);
       head = '<div class="cc-mh">' + T[r.t].n + '<span class="sub">' + Math.round(r.w / G) + ' × ' + Math.round(r.h / G) + '</span></div>';
+      if (r.t === 'dining' || r.t === 'patio') {
+        var tn = tables.filter(function (t) { return t.room === i; }).length;
+        items.push('<div class="pl-tables"><span>Tables</span><button type="button" data-tb="-1" aria-label="One table fewer">−</button><b>' + tn + '</b><button type="button" data-tb="1" aria-label="One table more">+</button></div>');
+      }
       items.push('<div class="cc-msec">Change to</div>');
       Object.keys(T).forEach(function (k) { if (k !== r.t) items.push(mi('type:' + i + ':' + k, '<i class="sw" style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n)); });
       items.push('<hr class="cc-msep">', mi('dup:' + i, 'Duplicate'), mi('del:' + i, 'Delete room'));
@@ -786,6 +846,13 @@ body{min-height:100vh}
     menu.style.left = Math.min(e.clientX, innerWidth - w - 8) + 'px'; menu.style.top = Math.min(e.clientY, innerHeight - h - 8) + 'px';
     var f = menu.querySelector('.cc-mi:not([disabled])'); if (f) f.focus();
     menu.addEventListener('click', function (ev) {
+      var tb = ev.target.closest('[data-tb]');
+      if (tb && rm) {
+        var ri = +rm.dataset.r, cur = tables.filter(function (t) { return t.room === ri; }).length;
+        remember(); setTables(ri, cur + (+tb.dataset.tb));
+        var lb = menu.querySelector('.pl-tables b'); if (lb) lb.textContent = tables.filter(function (t) { return t.room === ri; }).length;
+        return; // the menu stays open for more clicks
+      }
       var b = ev.target.closest('.cc-mi'); if (!b || b.disabled) return;
       var x = b.dataset.x.split(':'); closeMenu();
       if (x[0] === 'rmdev') { remember(); S.pkg = 'custom'; devs.splice(+x[1], 1); draw(false); side(); return; }
