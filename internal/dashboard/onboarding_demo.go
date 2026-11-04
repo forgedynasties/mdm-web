@@ -18,7 +18,7 @@ import (
 // concierge" with O3's layout choice, picked 4 Nov 2026), open to anyone with the link: no
 // sign-in (user: "no sign in gate"). A static page; nothing is saved. The restaurant search is
 // Google Places (New) through the two endpoints below, so the key stays on the server
-// (GOOGLE_PLACES_API_KEY); without a key the page falls back to a sample list.
+// (GOOGLE_PLACES_API_KEY, else the geocoding key); without a key the page falls back to a sample list.
 func (h *Handler) OnboardingDemo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Robots-Tag", "noindex")
@@ -32,7 +32,14 @@ var (
 
 const placesPerMinute = 60
 
-func placesKey() string { return strings.TrimSpace(os.Getenv("GOOGLE_PLACES_API_KEY")) }
+// placesKey is GOOGLE_PLACES_API_KEY, else the geocoding key (user, 4 Nov 2026: "use the same
+// geocoding api key", which has Places (New) on it).
+func placesKey() string {
+	if k := strings.TrimSpace(os.Getenv("GOOGLE_PLACES_API_KEY")); k != "" {
+		return k
+	}
+	return strings.TrimSpace(os.Getenv("GOOGLE_GEOCODING_API_KEY"))
+}
 
 // placesGate answers 404 without a key (the page then uses its sample list) and 429 past
 // placesPerMinute calls a minute from one address: the endpoints are public.
