@@ -44,8 +44,10 @@ func launchableOnly(pkgs []db.DevicePackage) []db.DevicePackage {
 // next check-in reconciles it in the DB).
 func pendingInstallRows(commands []db.DeviceCommand, apps []db.App, installedPkgs []db.DevicePackage, apkPkg map[string]string) []map[string]string {
 	name := make(map[string]string, len(apps))
+	version := make(map[string]string, len(apps))
 	for _, a := range apps {
 		name[a.ApkURL] = a.Name
+		version[a.ApkURL] = a.VersionName
 	}
 	have := make(map[string]bool, len(installedPkgs))
 	for _, p := range installedPkgs {
@@ -86,7 +88,7 @@ func pendingInstallRows(commands []db.DeviceCommand, apps []db.App, installedPkg
 			}
 			phase, pct := label(c.Status, c.Progress)
 			idx[c.ApkURL] = len(out)
-			out = append(out, map[string]string{"Name": n, "ApkURL": c.ApkURL, "Count": "1", "Phase": phase, "Progress": pct})
+			out = append(out, map[string]string{"Name": n, "ApkURL": c.ApkURL, "Count": "1", "Phase": phase, "Progress": pct, "Version": version[c.ApkURL]})
 		}
 	}
 	return out

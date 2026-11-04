@@ -352,8 +352,8 @@ window.installOptimistic = function () {
     tile.className = 'app-row app-tile app-installing';
     tile.setAttribute('data-optimistic', '1');
     if (iconEl) { var ic = iconEl.cloneNode(true); ic.classList.remove('on'); tile.appendChild(ic); }
-    var nm = document.createElement('div'); nm.className = 'app-tname'; nm.textContent = name; tile.appendChild(nm);
-    var sub = document.createElement('div'); sub.className = 'app-tsub'; sub.textContent = 'installing'; tile.appendChild(sub);
+    var nm = document.createElement('div'); nm.className = 'app-tname'; nm.textContent = name;
+    var st = document.createElement('div'); st.className = 'app-inst-st'; st.textContent = 'Installing…'; nm.appendChild(st); tile.appendChild(nm);
     table.insertBefore(tile, table.firstChild);
   });
 };
@@ -491,6 +491,23 @@ window.installPane = function (btn) {
   }
   var pkg = btn.getAttribute('data-pkg'), ch = chs.filter(function (c) { return c.pkg === pkg; })[0] || chs[0];
   var url = btn.getAttribute('data-url'), vi = Math.max(0, ch.urls.indexOf(url));
+  // Channels and following are for AIO's own apps (user, 4 Nov 2026: "channel tracking prod
+  // stage etc is only for aio apps"); any other app picks a build and installs it.
+  if (btn.getAttribute('data-aio') !== '1') {
+    btn.setAttribute('data-follow', '0'); btn.setAttribute('data-ch', ''); btn.setAttribute('data-ver', ch.vers[vi] || '');
+    var have = inst[ch.pkg];
+    pane.dataset.tile = btn.getAttribute('data-family');
+    pane.innerHTML = '<div class="inst-ph">' + (icon ? icon.outerHTML : '') + '<span><b>' + instEsc(name) + '</b><small>' + (have ? 'On this device: ' + instEsc(have) : 'Not on this device') + '</small></span></div>' +
+      '<div class="inst-lbl">Build</div><div class="inst-rows"><div class="inst-ch on"><span class="inst-cn"><small class="mono">' + instEsc(ch.pkg) + '</small></span>' +
+      '<select class="inst-bsel" aria-label="Build of ' + instEsc(name) + '">' + ch.vers.slice(0, 12).map(function (v, j) { return '<option value="' + j + '"' + (j === vi ? ' selected' : '') + '>' + instEsc(v || 'unversioned') + (j === 0 ? ' · newest' : '') + '</option>'; }).join('') + '</select></div></div>' + instDrop(pane);
+    var bs = pane.querySelector('.inst-bsel');
+    bs.addEventListener('change', function () {
+      var j = +bs.value; instSet(btn, ch.urls[j] || ch.urls[0], ch.pkg); btn.setAttribute('data-ver', ch.vers[j] || '');
+      var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = ch.vers[j] || ''; installLabel();
+    });
+    installLabel();
+    return;
+  }
   if (btn.getAttribute('data-follow') === null) btn.setAttribute('data-follow', ch.label === 'prod' ? '0' : '1');
   btn.setAttribute('data-ch', instChName(ch.label)); btn.setAttribute('data-ver', ch.vers[vi] || '');
   var follow = btn.getAttribute('data-follow') === '1';

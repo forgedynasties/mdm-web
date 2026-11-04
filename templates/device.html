@@ -1539,9 +1539,9 @@ window.DEVICE_VITALS = {
             {{if $first}}{{$first = false}}{{if hasPrefix .BasePackage "aio.app."}}<div class="inst-sep first">Role apps</div>{{end}}{{end}}
             {{if and (not $other) (not (hasPrefix .BasePackage "aio.app."))}}{{$other = true}}<div class="inst-sep">Other apps</div>{{end}}
             <div class="install-tile-wrap">
-            <button type="button" class="install-tile inst-row{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" data-channels="{{index $.InstallChannels .ID}}" data-installed="{{index $.InstallInstalled .ID}}" title="{{.Name}}" onclick="installToggle(this)">
+            <button type="button" class="install-tile inst-row{{range .Variants}}{{if index $.InstalledSet .Package}} install-installed{{end}}{{end}}" data-app="{{.Name}}" data-url="{{$prod.Latest.ApkURL}}" data-pkg="{{$prod.Package}}" data-family="{{.ID}}" data-channels="{{index $.InstallChannels .ID}}" data-installed="{{index $.InstallInstalled .ID}}"{{if or (hasPrefix .BasePackage "aio.app.") (hasPrefix .BasePackage "com.aioapp.") (hasPrefix .BasePackage "com.manageaio.")}} data-aio="1"{{end}} title="{{.Name}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{$prod.Latest.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
-              <span class="inr-t"><b>{{.Name}}</b><span class="app-tver">{{if .Grouped}}{{$prod.Label}} {{end}}{{$prod.Latest.VersionName}}{{if .Grouped}} · {{len .Variants}} channel{{if ne (len .Variants) 1}}s{{end}}{{end}}</span></span>
+              <span class="inr-t"><b>{{.Name}}</b><span class="app-tver">{{if and .Grouped (or (hasPrefix .BasePackage "aio.app.") (hasPrefix .BasePackage "com.aioapp.") (hasPrefix .BasePackage "com.manageaio."))}}{{$prod.Label}} {{end}}{{$prod.Latest.VersionName}}{{if and .Grouped (or (hasPrefix .BasePackage "aio.app.") (hasPrefix .BasePackage "com.aioapp.") (hasPrefix .BasePackage "com.manageaio."))}} · {{len .Variants}} channel{{if ne (len .Variants) 1}}s{{end}}{{end}}</span></span>
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
             </div>
@@ -2011,8 +2011,10 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
   {{range .PendingInstalls}}
   <div class="app-row app-tile app-installing" data-app="{{.Name}} {{.ApkURL}}" data-cmd-id="inst:{{.ApkURL}}" title="Installing…">
     <div class="app-mono app-mono-inst"><span class="app-spin"></span></div>
-    <div class="app-tname">{{.Name}}</div>
-    <div class="app-tsub">{{if and (eq .Phase "downloading") .Progress}}{{.Progress}}%{{else}}{{.Phase}}{{end}}</div>
+    {{/* The state sits under the name with a bar; the Version column keeps the build being
+         installed (user, 4 Nov 2026: "version shows progress"). */}}
+    <div class="app-tname">{{.Name}}<div class="app-inst-st">{{if eq .Phase "downloading"}}Downloading{{if .Progress}} {{.Progress}}%{{end}}{{else}}Installing…{{end}}{{if and (eq .Phase "downloading") .Progress}}<span class="app-inst-bar"><i style="width:{{.Progress}}%"></i></span>{{end}}</div></div>
+    <div class="app-tsub apl-v">{{.Version}}</div>
     {{if canOperate $.Role}}
     {{/* Cancel the in-flight install: delete the command + push cancel_command so a
          device mid-download aborts. */}}

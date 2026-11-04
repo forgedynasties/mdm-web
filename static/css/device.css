@@ -801,3 +801,9 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
   .install-drawer.inst-list{max-height:34vh}
   .inst-ch{flex-wrap:wrap}.inst-bsel{max-width:100%}
 }
+
+/* An install in flight: its state and download bar under the name, the build in Version. */
+.app-list .app-installing .app-inst-st{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:600;color:var(--accent-text);margin-top:3px}
+.app-inst-bar{flex:0 1 160px;height:4px;border-radius:99px;background:var(--border-soft);overflow:hidden}
+.app-inst-bar i{display:block;height:100%;background:var(--accent);border-radius:inherit;transition:width .4s}
+.app-list .app-installing .app-x-form{grid-column:-2}
