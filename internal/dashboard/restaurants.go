@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"mdm/internal/aiobackend"
 	"mdm/internal/db"
 	"mdm/internal/product"
 
@@ -265,6 +266,24 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.create", rest.ID.String(), name)
+	// New venue N1 (4 Nov 2026): a row picked in the search links the venue to its AIO backend
+	// restaurant (hours, address and pin follow it) and brings an icon.
+	benv := r.FormValue("backend_env")
+	bid, _ := strconv.ParseInt(r.FormValue("backend_id"), 10, 64)
+	if aiobackend.Env(benv).Valid() && bid > 0 {
+		links, _ := h.db.VenueBackendLinks(r.Context())
+		taken := false
+		for _, l := range links {
+			taken = taken || (l.Env == benv && l.RestaurantID == bid)
+		}
+		if br, ok, err := h.db.BackendRestaurantOf(r.Context(), benv, bid); err == nil && ok && !taken {
+			h.linkAndFill(r, rest.ID, benv, bid, nil)
+			h.audit(r, "restaurant.backend_link", rest.ID.String(), fmt.Sprintf("%s · %s #%d", br.Name, aiobackend.Env(benv).Label(), bid))
+		} else {
+			benv, bid = "", 0
+		}
+	}
+	h.fillVenueIcon(rest.ID, benv, bid, strings.TrimSpace(r.FormValue("website")))
 	// Deploy any devices staged in the creation picker (moves them to this venue).
 	if serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"])); len(serials) > 0 {
 		if err := h.db.AssignDevicesToRestaurant(r.Context(), serials, rest.ID); err != nil {

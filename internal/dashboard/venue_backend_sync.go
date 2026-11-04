@@ -255,6 +255,7 @@ func (h *Handler) syncLinkedVenues(ctx context.Context, env aiobackend.Env) {
 		} else if len(changed) > 0 {
 			log.Printf("[backend-sync] %s: %s from the backend", id, strings.Join(changed, ", "))
 		}
+		h.fillVenueIcon(id, l.Env, l.RestaurantID, "")
 	}
 }
 

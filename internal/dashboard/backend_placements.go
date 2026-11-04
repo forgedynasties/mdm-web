@@ -361,6 +361,7 @@ func (h *Handler) linkAndFill(r *http.Request, venue uuid.UUID, env string, rid 
 	if _, err := h.applyBackendToVenue(ctx, venue); err != nil {
 		log.Printf("[backend-place] apply: %v", err)
 	}
+	h.fillVenueIcon(venue, env, rid, "")
 	return h.assignToVenue(r, serials, venue)
 }
 

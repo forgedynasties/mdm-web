@@ -312,6 +312,25 @@ func (c *Client) Hours(ctx context.Context, env Env, businessID, restaurantID in
 	return out, nil
 }
 
+// Logo returns the picture the backend keeps for a restaurant: its own image, else its
+// business's logo (both https URLs on the backend's CDN), "" when it has neither.
+func (c *Client) Logo(ctx context.Context, env Env, restaurantID int64) (string, error) {
+	if restaurantID <= 0 {
+		return "", errors.New("aiobackend: no restaurant id")
+	}
+	rows, err := c.Query(ctx, env, fmt.Sprintf(`SELECT r.image AS image, b.logo AS logo
+	FROM public.restaurant r LEFT JOIN public.business b ON b.id = r."businessId" WHERE r.id = %d`, restaurantID))
+	if err != nil || len(rows) == 0 {
+		return "", err
+	}
+	for _, k := range []string{"image", "logo"} {
+		if u := strings.TrimSpace(str(rows[0][k])); strings.HasPrefix(u, "https://") {
+			return u, nil
+		}
+	}
+	return "", nil
+}
+
 func str(v any) string {
 	switch t := v.(type) {
 	case string:

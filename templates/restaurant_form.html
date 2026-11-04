@@ -40,6 +40,54 @@
 .pv-line{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px;margin-top:7px;}
 .pv-line svg{width:14px;height:14px;color:var(--text-faint);flex:none;}
 .rf-bottom{display:flex;gap:12px;align-items:center;border-top:1px solid var(--border-soft);margin-top:14px;}
+/* New venue N1: search first */
+.vn1{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start;margin-bottom:16px;}
+@media (max-width:1024px){.vn1{grid-template-columns:1fr;}}
+.vn-srch{position:relative}
+.vn-srch input{width:100%;box-sizing:border-box;font:inherit;font-size:15px;padding:13px 14px 13px 42px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text)}
+.vn-srch input:focus{outline:2px solid var(--accent-edge);border-color:var(--accent)}
+.vn-srch svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;pointer-events:none}
+.vn-hint{font-size:12px;color:var(--muted);margin:6px 2px 0}
+.vn-res{border:1px solid var(--border);border-radius:12px;background:var(--surface);margin-top:10px;overflow:hidden}
+.vn-ri{display:flex;gap:12px;align-items:center;width:100%;box-sizing:border-box;padding:11px 14px;border:0;border-top:1px solid var(--border-soft);background:none;text-align:left;font:inherit;color:var(--text);cursor:pointer;text-decoration:none}
+.vn-ri:first-child{border-top:0}
+.vn-ri:hover,.vn-ri.act{background:var(--hover)}
+.vn-ri.on{background:var(--accent-soft)}
+.vn-ic{width:36px;height:36px;border-radius:10px;flex:none;display:grid;place-items:center;color:#fff;font-weight:700;font-size:14px}
+.vn-tx{flex:1;min-width:0}
+.vn-nm{font-weight:600;font-size:14px}
+.vn-ad{font-size:12.5px;color:var(--muted);margin-top:1px}
+.vn-why{font-size:11.5px;color:var(--text-2);margin-top:3px}
+.vn-go{font-size:13px;color:var(--muted);flex:none}
+.vn-open{font-size:12.5px;font-weight:600;color:var(--accent-text);flex:none;white-space:nowrap}
+.vn-bdg{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:650;border-radius:99px;padding:2px 8px;white-space:nowrap;margin:4px 4px 0 0;border:1px solid}
+.vn-bdg i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.vn-bdg.aio{color:#5b32c8;border-color:#d8ccf6;background:#f3effd}.vn-bdg.aio i{background:#6a3fd0}
+.vn-bdg.gm{color:#1d6b3a;border-color:#c5e3cf;background:#eef8f1}.vn-bdg.gm i{background:#2b9c55}
+.vn-bdg.ven{color:var(--text-2);border-color:var(--border);background:var(--surface)}
+.vn-bdg.test{color:#8a5a00;border-color:#f0dca8;background:#fff8e6}
+html[data-theme="dark"] .vn-bdg.aio{background:rgba(106,63,208,.18);border-color:rgba(106,63,208,.4);color:#c8b6ff}
+html[data-theme="dark"] .vn-bdg.gm{background:rgba(43,156,85,.15);border-color:rgba(43,156,85,.4);color:#9fdcb5}
+html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-color:rgba(240,180,40,.35);color:#f3d28a}
+@media (prefers-color-scheme:dark){html:not([data-theme="light"]) .vn-bdg.aio{background:rgba(106,63,208,.18);border-color:rgba(106,63,208,.4);color:#c8b6ff}html:not([data-theme="light"]) .vn-bdg.gm{background:rgba(43,156,85,.15);border-color:rgba(43,156,85,.4);color:#9fdcb5}html:not([data-theme="light"]) .vn-bdg.test{background:rgba(240,180,40,.12);border-color:rgba(240,180,40,.35);color:#f3d28a}}
+.vn-empty{padding:20px 14px;text-align:center;color:var(--muted);font-size:13px}
+.vn-foot{font-size:12.5px;color:var(--muted);margin:10px 2px 0}
+.vn-link{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--accent-text);cursor:pointer}
+.vn-link:hover{text-decoration:underline}
+.vn-card{padding:16px 18px;position:sticky;top:16px}
+.vn-ph{color:var(--muted);font-size:13px;padding:34px 6px;text-align:center}
+.vn-head{display:flex;gap:11px;align-items:center;margin-bottom:8px}
+.vn-head .vn-ic{width:42px;height:42px;border-radius:11px;font-size:16px}
+.vn-title{font-weight:700;font-size:16px}
+.vn-fld{display:grid;grid-template-columns:96px 1fr;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.vn-fld .k{color:var(--muted)}
+.vn-src{font-size:10.5px;font-weight:650;color:var(--muted);border:1px solid var(--border);border-radius:6px;padding:1px 6px;margin-left:6px;white-space:nowrap}
+.vn-devs h3{margin:14px 0 4px;font-size:13px}
+.vn-dv{display:flex;gap:9px;align-items:center;padding:6px 0;font-size:13px;border-top:1px solid var(--border-soft);cursor:pointer}
+.vn-dv .mono{font-size:12px}
+.vn-dv .st{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
+.vn-actions{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.vn-actions .sp{flex:1}
 </style>
 
 {{if not .Embed}}
@@ -61,12 +109,31 @@
 
   {{if not .Restaurant}}
   <div class="rf-steps">
-    <span class="rf-step"><span class="n">1</span>Venue details</span><span class="ln"></span>
+    <span class="rf-step"><span class="n">1</span>Find the restaurant</span><span class="ln"></span>
     <span class="rf-step"><span class="n">2</span>Deploy devices</span>
   </div>
+  {{/* N1 (4 Nov 2026): one search over Google Maps and the AIO backend comes first; the
+       form below opens only for "Enter it by hand" or "Edit details". */}}
+  <div class="vn1" id="vn1" data-search="/restaurants/new/search">
+    <div class="vn-find">
+      <div class="vn-srch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="vn-q" type="search" placeholder="Search a restaurant: name, street or city" autocomplete="off" autofocus
+               role="combobox" aria-expanded="false" aria-controls="vn-res" aria-label="Search a restaurant"></div>
+      <div class="vn-hint" id="vn-hint">Searches Google Maps and the AIO backend together.</div>
+      <div class="vn-res" id="vn-res" role="listbox" aria-label="Restaurants found" hidden></div>
+      <div class="vn-foot">Not listed? <button type="button" class="vn-link" id="vn-hand">Enter it by hand</button></div>
+    </div>
+    <aside class="card vn-card" id="vn-card" aria-live="polite"><div class="vn-ph">Pick a restaurant on the left: its details land here, ready to create.</div></aside>
+  </div>
+  <input type="hidden" name="latitude" id="vn-lat">
+  <input type="hidden" name="longitude" id="vn-lng">
+  <input type="hidden" name="timezone" id="vn-tz">
+  <input type="hidden" name="backend_env" id="vn-benv">
+  <input type="hidden" name="backend_id" id="vn-bid">
+  <input type="hidden" name="website" id="vn-web">
   {{end}}
 
-  <div class="rf-layout{{if .Restaurant}} solo{{end}}">
+  <div class="rf-layout{{if .Restaurant}} solo{{end}}"{{if not .Restaurant}} id="rf-manual" hidden{{end}}>
     <div class="card rf-card">
       <div class="rf-body">
 
@@ -138,6 +205,7 @@
 </form>
 
 <script src="/static/js/restaurant_form.js?v={{assetVer}}"></script>
+{{if not .Restaurant}}<script src="/static/js/venue_new.js?v={{assetVer}}"></script>{{end}}
 
 {{if not .Embed}}</div>{{template "footer" .}}{{end}}
 {{end}}

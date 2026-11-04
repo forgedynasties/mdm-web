@@ -321,6 +321,7 @@ func (h *Handler) RestaurantBackendSave(w http.ResponseWriter, r *http.Request) 
 		if _, err := h.applyBackendToVenue(ctx, id); err != nil {
 			log.Printf("[venue-backend] apply to %s: %v", id, err)
 		}
+		h.fillVenueIcon(id, string(env), rid, "")
 	case "follow":
 		// "Use the backend's" on a field that was set here (B1).
 		f := r.FormValue("field")

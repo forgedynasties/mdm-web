@@ -65,6 +65,19 @@ func Fetch(ctx context.Context, site string) (icon []byte, source string, err er
 	return nil, "", ErrNoIcon
 }
 
+// FetchImage downloads one picture by its https URL (a logo the AIO backend keeps) and
+// normalises it like an uploaded one.
+func FetchImage(ctx context.Context, u string) ([]byte, error) {
+	if !strings.HasPrefix(u, "https://") {
+		return nil, errors.New("not an https URL")
+	}
+	b, err := get(ctx, safehttp.Client(10*time.Second), u, maxImage)
+	if err != nil {
+		return nil, err
+	}
+	return Normalize(b)
+}
+
 // siteURL turns what someone typed into the page to read and its host.
 func siteURL(site string) (string, string, error) {
 	s := strings.TrimSpace(site)
