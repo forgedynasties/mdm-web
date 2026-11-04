@@ -106,6 +106,7 @@ html[data-theme="dark"] svg.plan{background:#1d1b22}
 .tplc{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .acts{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 0;border-top:1px solid var(--border-soft)}
 .acts[hidden]{display:none}
+.tpl-hand{border-style:dashed!important}
 .acts .opt.ai{background:var(--accent-soft)}
 .acts .opt.go{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff;margin-left:auto}
 .tpl-ai{grid-column:1/-1;display:flex;gap:10px;align-items:center;border-color:var(--accent-edge)!important;background:var(--accent-soft)!important}
@@ -295,9 +296,9 @@ body{min-height:100vh}
     bar: { n: 'Bar &amp; grill', d: 'long bar, booths, kitchen', svg: '<rect x="2" y="2" width="70" height="96" fill="#e9f3ec" stroke="#9cc8a8"/><rect x="74" y="2" width="84" height="40" fill="#fff4d6" stroke="#e6c46c"/><rect x="74" y="44" width="84" height="54" fill="#fde9df" stroke="#e9a88a"/>' },
     stall: { n: 'Food court stall', d: 'counter and kitchen only', svg: '<rect x="30" y="20" width="100" height="60" fill="#fde9df" stroke="#e9a88a"/><rect x="30" y="80" width="100" height="16" fill="#ece8f8" stroke="#b3a5e6"/>' }
   };
-  function layouts() {
+  function layouts(again) {
     var rec = S.service === 'counter' ? (S.tables <= 8 ? 'stall' : 'fast') : (S.extras.indexOf('Bar') >= 0 && S.tables <= 16 ? 'bar' : 'full');
-    ai('Which of these <b>looks most like your place</b>? I\'d start from <b>' + TPL[rec].n + '</b>, given what you told me. You can change every room after.', null, function () {
+    ai(again ? 'Sure. <b>Pick another layout</b> and I\'ll redraw the plan from it (your rooms are replaced), or draw it yourself.' : 'Which of these <b>looks most like your place</b>? I\'d start from <b>' + TPL[rec].n + '</b>, given what you told me. You can change every room after.', null, function () {
       var box = document.createElement('div'); box.className = 'opts tplc';
       Object.keys(TPL).forEach(function (k) {
         var b = document.createElement('button'); b.className = 'tplb' + (k === rec ? ' rec' : '');
@@ -305,6 +306,11 @@ body{min-height:100vh}
         b.onclick = function () { box.remove(); me(TPL[k].n.replace('&amp;', '&')); S.tpl = k; draft(); };
         box.appendChild(b);
       });
+      // Start from nothing (user, 4 Nov 2026: "or manual too").
+      var hand = document.createElement('button'); hand.className = 'tplb tpl-hand';
+      hand.innerHTML = '<svg viewBox="0 0 160 100"><rect x="2" y="2" width="156" height="96" rx="6" fill="none" stroke="#c9bfb6" stroke-dasharray="5 4"/><path d="M60 50h40M80 30v40" stroke="#c9bfb6" stroke-width="3"/></svg><b>Draw it myself</b><small>start from an empty plan</small>';
+      hand.onclick = function () { box.remove(); me('I\'ll draw it myself'); S.tpl = 'blank'; draft(); };
+      box.appendChild(hand);
       var auto = document.createElement('button'); auto.className = 'tplb tpl-ai';
       auto.innerHTML = '<span class="spark">✦</span><span><b>Don\'t want to draw it?</b><small>Let our AI assistant do the layout for you</small></span>';
       auto.onclick = function () { box.remove(); me('Let the AI assistant do it'); assistant(rec); };
@@ -344,10 +350,11 @@ body{min-height:100vh}
   }
   function draft(byAI) {
     step(2);
-    ai(byAI ? 'Drawing the rooms, placing ' + S.tables + ' tables and the devices…' : 'Give me a second, I\'m drafting your floor plan from what you told me…', null, function () {
+    ai(S.tpl === 'blank' ? 'Opening an empty plan for you…' : byAI ? 'Drawing the rooms, placing ' + S.tables + ' tables and the devices…' : 'Give me a second, I\'m drafting your floor plan from what you told me…', null, function () {
       setTimeout(function () {
         buildPlanner();
         if (byAI) { rooms = aiRooms(); fillTables(); suggest(true); }
+        if (S.tpl === 'blank') { ai('Here\'s an <b>empty plan</b>. Pick a room type at the top (Dining, Kitchen, Counter…) and drag on the grid to draw it; I\'ll put tables and devices in each room as you go. When it looks right, tell me below.', null, function () { actions(true); }); step(3); return; }
         ai('Here\'s a first draft from the <b>' + TPL[S.tpl || 'full'].n + '</b> layout: ' + rooms.map(function (r) { return '<b>' + T[r.t].n.toLowerCase() + '</b>'; }).join(', ') + (rooms.some(function (r) { return r.t === 'dining'; }) ? ', with ' + S.tables + ' tables' : '') + '. Drag rooms to move them, or pick a room tool and drag on the plan to draw a new one. When it looks right, tell me below. I placed devices for the <b>' + PK[S.pkg].n + '</b> package: hover one to see what it is and where. Switch packages on the right.',
           null, function () { actions(true); });
         step(3);
@@ -359,10 +366,11 @@ body{min-height:100vh}
   function actions(on) {
     var a = document.getElementById('acts'); if (!a) return;
     a.hidden = !on; if (!on) return;
-    a.innerHTML = '<button class="opt ai" data-a="lay">✦ Redo the layout</button><button class="opt ai" data-a="dev">✦ Place devices again</button><button class="opt go" data-a="ok">Looks right →</button>';
+    a.innerHTML = '<button class="opt" data-a="tpl">Change layout</button><button class="opt ai" data-a="lay">✦ Let AI redo it</button><button class="opt ai" data-a="dev">✦ Place devices again</button><button class="opt go" data-a="ok">Looks right →</button>';
     a.onclick = function (e) {
       var b = e.target.closest('[data-a]'); if (!b) return;
-      if (b.dataset.a === 'lay') { me('Redo the layout'); assistant(S.tpl || 'full'); }
+      if (b.dataset.a === 'tpl') { me('Change the layout'); layouts(true); }
+      if (b.dataset.a === 'lay') { me('Let the AI redo the layout'); if (S.tpl === 'blank') S.tpl = ''; assistant(S.tpl || 'full'); }
       if (b.dataset.a === 'dev') { me('Place the devices again'); suggest(true); ai('Done: placed again from the rooms you have now. ' + devs.length + ' devices.'); }
       if (b.dataset.a === 'ok') { me('Looks right'); done(); }
     };
@@ -408,7 +416,9 @@ body{min-height:100vh}
     S.pkg = S.service === 'counter' ? 'counter' : S.service === 'both' ? 'both' : 'full';
     var bar = S.extras.indexOf('Bar') >= 0, patio = S.extras.indexOf('Patio') >= 0;
     var dw = S.tables > 24 ? 440 : S.tables > 10 ? 380 : 300, tpl = S.tpl || 'full';
-    if (tpl === 'stall') {
+    if (tpl === 'blank') {
+      rooms = []; bar = false; patio = false;
+    } else if (tpl === 'stall') {
       rooms = [{ t: 'kitchen', x: 160, y: 20, w: 440, h: 220 }, { t: 'counter', x: 160, y: 260, w: 440, h: 80 }, { t: 'entrance', x: 160, y: 360, w: 440, h: 80 }];
       bar = false;
     } else if (tpl === 'fast') {
