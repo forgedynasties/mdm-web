@@ -21,7 +21,7 @@ function libAddClose(){
 }
 function libUploadApks(files){
   if(!files||!files.length)return;
-  var apks=Array.prototype.filter.call(files,function(f){return /\.apk$/i.test(f.name)||f.type==='application/vnd.android.package-archive';});
+  var apks=Array.prototype.filter.call(files,function(f){return /\.(apk|xapk|apks|apkm)$/i.test(f.name)||f.type==='application/vnd.android.package-archive';});
   var skipped=files.length-apks.length;
   libAddOpen();
   if(skipped){var e=document.getElementById('la-err');e.textContent=skipped+' file'+(skipped===1?' is':'s are')+' not an APK and '+(skipped===1?'was':'were')+' ignored.';e.style.display='block';}
@@ -55,14 +55,16 @@ function libSum(){
 function libProcess(item){
   libUlSet(item,'Reading…',0);
   var r=document.getElementById(item.id);
-  libEnsureParser().then(function(){return new AppInfoParser(item.file).parse();}).then(function(info){
+  // A split APK bundle (.xapk/.apks/.apkm) is read on the server: its base APK is inside.
+  var bundle=/\.(xapk|apks|apkm)$/i.test(item.file.name);
+  (bundle?Promise.reject(new Error('bundle')):libEnsureParser().then(function(){return new AppInfoParser(item.file).parse();})).then(function(info){
     item.pkg=info.package||'';
     var lbl=(info.application&&info.application.label)||info.label||item.pkg; if(Array.isArray(lbl))lbl=lbl[0]; item.name=String(lbl||item.pkg);
     var v=info.versionName||(info.apkInfo&&info.apkInfo.versionName)||''; item.ver=v?String(v):'';
     if(r){ r.querySelector('.la-nm').textContent=item.name; r.querySelector('.la-pk').textContent=item.pkg; r.querySelector('.la-meta').textContent=(item.ver?'v'+item.ver+' · ':'')+libFmt(item.size);
       var have=libExisting(); if(item.pkg&&item.pkg in have){var tag=document.createElement('span');tag.className='la-dup';tag.textContent=have[item.pkg]===item.ver?'already in library':'in library as v'+(have[item.pkg]||'?');r.querySelector('.la-nm').appendChild(tag);} }
     return libIconPng(info.icon).then(function(png){item.icon=png; var ic=r&&r.querySelector('.la-ic'); if(ic&&png)ic.innerHTML='<img src="data:image/png;base64,'+png+'" alt="">';});
-  }).catch(function(){ if(r){r.querySelector('.la-pk').textContent='could not read the manifest; the file still uploads';} })
+  }).catch(function(){ if(r){r.querySelector('.la-pk').textContent=bundle?'split APK bundle · read when added':'could not read the manifest; the file still uploads';} })
   .then(function(){ if(item.state==='cancelled')throw new Error('cancelled'); return fetch('/apps/upload-url',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({filename:item.file.name})}); })
   .then(function(r){if(!r.ok)throw new Error('could not get upload URL');return r.json();})
   .then(function(d){ item.key=d.key; item.state='uploading'; libUlSet(item,'Uploading… 0%',0);

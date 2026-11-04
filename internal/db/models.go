@@ -248,6 +248,15 @@ func extraTrue(extra json.RawMessage, key string) bool {
 // Supports reports whether the device can run a command type (see prod.CommandNeeds).
 // Types with no requirement are always supported. Degraded capabilities count as
 // supported; check Degraded() to add a "works with limits" note.
+// CanInstall is Supports("install_apk") for one URL: a split APK bundle also needs a client
+// that installs bundles.
+func (d Device) CanInstall(apkURL string) bool {
+	if !d.Supports("install_apk") {
+		return false
+	}
+	return !prod.IsBundleURL(apkURL) || d.CapSet()[prod.CapApkBundle]
+}
+
 func (d Device) Supports(cmdType string) bool {
 	need := prod.CommandNeeds(cmdType)
 	if need == "" {

@@ -58,6 +58,10 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if cmdType == "install_apk" && apkURL != "" && !device.CanInstall(apkURL) {
+		http.Error(w, "This app is a split APK bundle (XAPK). This device's MDM client can't install one yet: update the client first.", http.StatusBadRequest)
+		return
+	}
 	if cmdType == "install_apk" && apkURL == "" {
 		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 		return

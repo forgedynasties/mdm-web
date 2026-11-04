@@ -2621,7 +2621,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		if devs, err := h.db.GetDevicesByIDs(r.Context(), targetIDs); err == nil {
 			kept := targetIDs[:0:0]
 			for _, d := range devs {
-				if d.Supports(body.Type) {
+				if d.Supports(body.Type) && (body.Type != "install_apk" || d.CanInstall(body.ApkURL)) {
 					kept = append(kept, d.ID)
 				} else {
 					unsupported = append(unsupported, d.SerialNumber)

@@ -79,24 +79,33 @@ func (h *Handler) VenueNewSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	var places []gPlace
-	google := "off"
-	if placesKey() != "" {
-		google = "ok"
-		if n, _ := vnSearchHits.Hit(h.currentUsername(r)); n > 90 {
-			google = "busy"
-		} else if ps, err := searchPlaces(ctx, q); err != nil {
-			log.Printf("[venue-search] places: %v", err)
-			google = "error"
-		} else {
-			places = ps
-		}
-	}
 	src, err := h.loadVenueSearchSources(r)
 	if err != nil {
 		log.Printf("[venue-search] sources: %v", err)
 		http.Error(w, "search failed", http.StatusInternalServerError)
 		return
+	}
+	var places []gPlace
+	google := "off"
+	if placesKey() != "" {
+		google = "ok"
+		// Google ranks the whole country; when the backend knows a restaurant by that name,
+		// look around it first so the two can meet ("ole ole" → Oakland, not Ithaca).
+		var near *db.BackendRestaurant
+		for _, br := range src.byName(q) {
+			if br.Latitude != nil && br.Longitude != nil && !testRestaurantRe.MatchString(br.Name) {
+				near = &br
+				break
+			}
+		}
+		if n, _ := vnSearchHits.Hit(h.currentUsername(r)); n > 90 {
+			google = "busy"
+		} else if ps, err := searchPlaces(ctx, q, near); err != nil {
+			log.Printf("[venue-search] places: %v", err)
+			google = "error"
+		} else {
+			places = ps
+		}
 	}
 	writeJSONResp(w, map[string]any{"results": src.match(q, places), "google": google})
 }
@@ -121,11 +130,15 @@ type gPlace struct {
 	WebsiteURI          string  `json:"websiteUri"`
 }
 
-func searchPlaces(ctx context.Context, q string) ([]gPlace, error) {
+func searchPlaces(ctx context.Context, q string, near *db.BackendRestaurant) ([]gPlace, error) {
 	var res struct {
 		Places []gPlace `json:"places"`
 	}
 	body := map[string]any{"textQuery": q, "maxResultCount": 6, "includedType": "restaurant"}
+	if near != nil {
+		body["locationBias"] = map[string]any{"circle": map[string]any{
+			"center": map[string]float64{"latitude": *near.Latitude, "longitude": *near.Longitude}, "radius": 50000.0}}
+	}
 	mask := "places.id,places.displayName,places.formattedAddress,places.location,places.timeZone,places.rating,places.userRatingCount,places.nationalPhoneNumber,places.websiteUri"
 	if err := placesCall(ctx, "POST", "https://places.googleapis.com/v1/places:searchText", body, mask, &res); err != nil {
 		return nil, err
@@ -210,7 +223,7 @@ func (s *vnSources) match(q string, places []gPlace) []vnHit {
 	out := []vnHit{}
 	used := map[string]bool{}
 	for _, p := range places {
-		hit := vnHit{Name: p.DisplayName.Text, Address: strings.TrimSuffix(p.FormattedAddress, ", USA"), TZ: p.TimeZone.ID,
+		hit := vnHit{Name: p.DisplayName.Text, Address: trimUSA(p.FormattedAddress), TZ: p.TimeZone.ID,
 			Google: &vnGoogle{ID: p.ID, Rating: p.Rating, Reviews: p.UserRatingCount, Phone: p.NationalPhoneNumber, Website: p.WebsiteURI}}
 		if p.Location != nil {
 			lat, lng := p.Location.Latitude, p.Location.Longitude
@@ -232,18 +245,14 @@ func (s *vnSources) match(q string, places []gPlace) []vnHit {
 		out = append(out, hit)
 	}
 	// Backend restaurants whose name (or city) matches what was typed, not already joined.
-	nq := vnNorm(q)
 	var extra []vnHit
-	for _, br := range s.rests {
+	for _, br := range s.byName(q) {
 		k := bkKey(br.Env, br.ID)
-		if used[k] || nq == "" {
-			continue
-		}
-		if !strings.Contains(vnNorm(br.Name), nq) && !strings.Contains(vnNorm(br.BusinessName), nq) && vnNorm(br.City) != nq {
+		if used[k] {
 			continue
 		}
 		used[k] = true
-		hit := vnHit{Name: br.Name, Address: br.FullAddress(), Lat: br.Latitude, Lng: br.Longitude, TZ: br.Timezone,
+		hit := vnHit{Name: br.Name, Address: trimUSA(br.FullAddress()), Lat: br.Latitude, Lng: br.Longitude, TZ: br.Timezone,
 			Backend: s.backendOf(br), Test: testRestaurantRe.MatchString(br.Name)}
 		if len(places) > 0 {
 			hit.Why = "Not found on Google Maps under this name."
@@ -266,6 +275,25 @@ func (s *vnSources) match(q string, places []gPlace) []vnHit {
 		out[i].Color = vnColor(out[i].Name)
 	}
 	return out
+}
+
+// byName lists the backend restaurants whose name, business or city matches q.
+func (s *vnSources) byName(q string) []db.BackendRestaurant {
+	nq := vnNorm(q)
+	var out []db.BackendRestaurant
+	if nq == "" {
+		return out
+	}
+	for _, br := range s.rests {
+		if strings.Contains(vnNorm(br.Name), nq) || strings.Contains(vnNorm(br.BusinessName), nq) || vnNorm(br.City) == nq {
+			out = append(out, br)
+		}
+	}
+	return out
+}
+
+func trimUSA(a string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(strings.TrimSpace(a), ", USA"), ", United States")
 }
 
 // sameAs finds the backend restaurant that is the same place as a Google result.

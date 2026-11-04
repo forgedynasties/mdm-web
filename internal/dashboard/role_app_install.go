@@ -163,7 +163,7 @@ func pickRoleAppInstalls(devices []db.Device, p roleAppPick, seenWithin time.Dur
 			}
 			pkg := p.target[d.ID]
 			app := p.lib[pkg]
-			if pkg == "" || app == nil || !d.Supports("install_apk") || p.recent[d.ID][app.ApkURL] {
+			if pkg == "" || app == nil || !d.CanInstall(app.ApkURL) || p.recent[d.ID][app.ApkURL] {
 				continue
 			}
 			if pass == 0 {

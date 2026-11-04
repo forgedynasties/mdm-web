@@ -202,7 +202,11 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		if devs, err := h.db.GetDevicesByIDs(r.Context(), targetIDs); err == nil {
 			can := make(map[uuid.UUID]bool, len(devs))
 			for _, d := range devs {
-				if d.Supports(cmdType) {
+				ok := d.Supports(cmdType)
+				for _, u := range installURLs {
+					ok = ok && (cmdType != "install_apk" || d.CanInstall(u))
+				}
+				if ok {
 					can[d.ID] = true
 				} else {
 					unsupSkipped[d.SerialNumber] = true

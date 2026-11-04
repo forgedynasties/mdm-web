@@ -67,6 +67,9 @@ func (d *DB) GetApp(ctx context.Context, id uuid.UUID) (*App, error) {
 func (d *DB) CreateS3App(ctx context.Context, name, packageName, versionName, s3Key, baseURL string) (*App, error) {
 	id := uuid.New()
 	apkURL := fmt.Sprintf("%s/apps/%s/apk", strings.TrimRight(baseURL, "/"), id)
+	if strings.HasSuffix(strings.ToLower(s3Key), ".xapk") { // a split APK bundle (apkstore/bundle.go)
+		apkURL = fmt.Sprintf("%s/apps/%s/xapk", strings.TrimRight(baseURL, "/"), id)
+	}
 	var a App
 	err := d.pool.QueryRow(ctx,
 		`INSERT INTO apps (id, name, apk_url, package_name, version_name, s3_key) VALUES ($1, $2, $3, $4, $5, $6)

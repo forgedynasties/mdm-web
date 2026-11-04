@@ -314,6 +314,10 @@ func (s *Store) Get(ctx context.Context, key, rangeHeader string) (body io.ReadC
 // Parse extracts package/label/version/icon WITHOUT downloading the whole APK: it
 // range-reads the object from S3 (ZIP directory + AndroidManifest + icon only).
 func (s *Store) Parse(ctx context.Context, key string) (*Meta, error) {
+	if IsBundleKey(key) {
+		m, _, err := s.BundleMeta(ctx, key)
+		return m, err
+	}
 	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(s.bucket), Key: aws.String(key),
 	})

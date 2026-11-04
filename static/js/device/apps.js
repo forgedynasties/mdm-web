@@ -474,7 +474,7 @@ function instEmpty(pane) {
   pane.innerHTML = '<div class="inst-empty"><b>Pick an app on the left</b><span>Its channels (prod, UAT, stage, QA…) and their builds show here.</span></div>' + instDrop(pane);
 }
 function instDrop(pane) {
-  return pane.hasAttribute('data-apk-drop') ? '<label class="inst-drop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span>Drop an APK here, or <u>pick one</u>: it goes into the library and installs on this device</span><input type="file" accept=".apk" hidden onchange="dropApkInstall(this.files[0])"></label>' : '';
+  return pane.hasAttribute('data-apk-drop') ? '<label class="inst-drop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span>Drop an APK here, or <u>pick one</u>: it goes into the library and installs on this device</span><input type="file" accept=".apk,.xapk,.apks,.apkm" hidden onchange="dropApkInstall(this.files[0])"></label>' : '';
 }
 function instChName(l) { return { prod: 'Prod', uatv2: 'UAT', uat: 'UAT', stagev2: 'Stage', staging: 'Stage', qa: 'QA', internal: 'Internal' }[l] || (l ? l.charAt(0).toUpperCase() + l.slice(1) : ''); }
 // I1 (picked 3 Nov 2026): the picked app's channels as rows (newest build, a menu for older
@@ -561,7 +561,7 @@ window.installFollows = function (form) {
 // with the server's reason.
 window.dropApkInstall = function (file) {
   if (!file) return;
-  if (!/\.apk$/i.test(file.name)) { if (window.showToast) showToast('That is not an .apk file', 'error'); return; }
+  if (!/\.(apk|xapk|apks|apkm)$/i.test(file.name)) { if (window.showToast) showToast('That is not an .apk or .xapk file', 'error'); return; }
   var serial = decodeURIComponent((location.pathname.split('/')[2] || ''));
   var toast = function (t, typ) { if (window.showToast) showToast(t, typ || 'info'); };
   var meta = { pkg: '', name: '', icon: '' };

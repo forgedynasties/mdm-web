@@ -79,7 +79,7 @@ func pickFollowInstalls(devices []db.Device, p followPick, seenWithin time.Durat
 		}
 		for _, pkg := range pkgs {
 			app := p.lib[pkg]
-			if app == nil || p.recent[d.ID][app.ApkURL] {
+			if app == nil || p.recent[d.ID][app.ApkURL] || !d.CanInstall(app.ApkURL) {
 				continue
 			}
 			cur, has := p.have[d.ID][pkg]

@@ -32,6 +32,14 @@ const (
 // SignerSHA256 is the hex SHA-256 of the first signer's certificate of a stored APK,
 // read with range requests (the end of the ZIP and the signing block only).
 func (s *Store) SignerSHA256(ctx context.Context, key string) (string, error) {
+	if IsBundleKey(key) {
+		cert, err := s.bundleSigner(ctx, key)
+		if err != nil {
+			return "", err
+		}
+		sum := sha256.Sum256(cert)
+		return hex.EncodeToString(sum[:]), nil
+	}
 	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
 	if err != nil {
 		return "", fmt.Errorf("s3 head: %w", err)
@@ -160,6 +168,13 @@ func isAndroidDebugCert(der []byte) bool {
 
 // SignedWithDebugKey reports whether the APK at key is signed with the Android debug key.
 func (s *Store) SignedWithDebugKey(ctx context.Context, key string) (bool, error) {
+	if IsBundleKey(key) {
+		cert, err := s.bundleSigner(ctx, key)
+		if err != nil {
+			return false, err
+		}
+		return isAndroidDebugCert(cert), nil
+	}
 	head, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
 	if err != nil {
 		return false, fmt.Errorf("s3 head: %w", err)

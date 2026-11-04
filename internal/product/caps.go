@@ -178,6 +178,9 @@ const (
 	// CapMoveServer: the DPC agent moves itself to another MDM (move_server; 0.13.4,
 	// 29 Oct 2026). The firmware client moves by setprop + reboot instead.
 	CapMoveServer = "move_server"
+	// CapApkBundle: installs a split APK bundle (.xapk: base + splits in one session;
+	// Standard client 0.15.0 lists it, firmware client 1.22.4 sends apk_bundle_cmd; 4 Nov 2026).
+	CapApkBundle = "apk_bundle"
 )
 
 // FirmwareCapFlags map the extra flags the firmware client sends (it reports no
@@ -193,6 +196,8 @@ var FirmwareCapFlags = map[string]string{
 	"ble_beacon": CapBLEBeacon,
 	// Save to library (26 Oct): firmware client 1.21.0 runs pull_apk.
 	"apk_pull_cmd": CapApkPull,
+	// Split APK bundles (4 Nov 2026): firmware client 1.22.4.
+	"apk_bundle_cmd": CapApkBundle,
 }
 
 // The command types themselves, and the capability each one requires, live in
@@ -240,4 +245,13 @@ func CapSet(caps []string) map[string]bool {
 		}
 	}
 	return m
+}
+
+// IsBundleURL says whether an install URL is a library split APK bundle: those are served
+// at /apps/{id}/xapk (CreateS3App), so every install path can tell without a lookup.
+func IsBundleURL(u string) bool {
+	if i := strings.IndexAny(u, "?#"); i >= 0 {
+		u = u[:i]
+	}
+	return strings.HasSuffix(u, "/xapk")
 }

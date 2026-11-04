@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"mdm/internal/apkstore"
 )
 
 // AppLibraryPage renders /apps: the library with upload, for admin, dev and super op.
@@ -112,7 +114,15 @@ func (h *Handler) AppUploadURL(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusServiceUnavailable, "APK upload is not configured")
 		return
 	}
-	key := h.apk.Key(uuid.NewString() + ".apk")
+	var req struct {
+		Filename string `json:"filename"`
+	}
+	_ = json.NewDecoder(io.LimitReader(r.Body, 4096)).Decode(&req)
+	ext := ".apk"
+	if apkstore.IsBundleName(req.Filename) { // .xapk / .apks / .apkm: kept whole (bundle.go)
+		ext = apkstore.BundleExt
+	}
+	key := h.apk.Key(uuid.NewString() + ext)
 	url, err := h.apk.PresignPut(r.Context(), key, "application/vnd.android.package-archive", 15*time.Minute)
 	if err != nil {
 		log.Printf("presign put: %v", err)
@@ -153,15 +163,19 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 	// Who may add a prod build (QA builds, 30 Oct 2026): someone limited to channel builds
 	// gets the package read from the APK itself, not taken from the browser's word.
 	role := h.role(r)
-	if !roleAtLeast(role, "fleet_manager") {
-		pkg = ""
+	if !roleAtLeast(role, "fleet_manager") || apkstore.IsBundleKey(req.Key) {
+		pkg = "" // a bundle is always read here: the browser can't open the base inside it
 	}
 	if pkg == "" {
 		// Fallback: no client metadata — parse the object server-side (slower).
 		meta, err := h.apk.Parse(r.Context(), req.Key)
 		if err != nil {
 			log.Printf("apk parse %s: %v", req.Key, err)
-			writeJSONError(w, http.StatusBadRequest, "could not parse APK — is it a valid .apk?")
+			msg := "could not parse APK — is it a valid .apk?"
+			if apkstore.IsBundleKey(req.Key) {
+				msg = "could not read the bundle: " + err.Error()
+			}
+			writeJSONError(w, http.StatusBadRequest, msg)
 			return
 		}
 		pkg, version, name, icon = meta.Package, meta.VersionName, meta.Label, meta.IconPNGB64
@@ -245,7 +259,11 @@ func (h *Handler) AppAPK(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+app.PackageName+".apk\"")
+	if apkstore.IsBundleKey(app.S3Key) {
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+apkstore.BundleFileName(app.PackageName)+"\"")
+	} else {
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+app.PackageName+".apk\"")
+	}
 	// Prefer the local cache: serving from disk is LAN-fast and http.ServeFile supports
 	// Range/resume, so a device that lost its connection can continue where it left off.
 	// (S3 here is ~0.2 MB/s, far too slow to stream a large APK within the device's

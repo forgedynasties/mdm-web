@@ -497,6 +497,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /apps/families/{id}/ungroup", h.requireAppLibrary(h.AppFamilyUngroup))
 	post("POST /apps/package/assign", h.requireAppLibrary(h.AppPackageAssign))
 	mux.HandleFunc("GET /apps/{id}/apk", h.AppAPK) // open: device installer fetches by URL
+	mux.HandleFunc("GET /apps/{id}/xapk", h.AppAPK) // the same, for a split APK bundle
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp)) // removing an APK stays admin-only
 
