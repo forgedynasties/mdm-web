@@ -190,8 +190,9 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	if err = tx.QueryRow(ctx, `
 		UPDATE devices SET latest_extra = latest_extra - 'battery_temp_c'
 		WHERE id = $1 AND agent_kind = 'dpc' AND device_class = ANY($2) AND latest_extra ? 'battery_temp_c'
+		  AND NOT (COALESCE(product, '') ~* $3) -- a battery model's battery is real (prod.BatteryModelPattern)
 		RETURNING latest_extra
-	`, deviceID, prod.MainsOnlyClassList()).Scan(&merged); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	`, deviceID, prod.MainsOnlyClassList(), prod.BatteryModelPattern).Scan(&merged); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}
 

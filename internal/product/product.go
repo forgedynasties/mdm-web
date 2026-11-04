@@ -21,6 +21,7 @@
 package product
 
 import (
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -136,9 +137,23 @@ var mainsOnlyClasses = map[string]bool{
 	ClassPOS:    true,
 }
 
-// CapsForDevice is CapsFor with the device's class applied — see [mainsOnlyClasses].
+// BatteryModelPattern matches the product keys (ro.product.name) of models that have a
+// battery whatever role they are given (4 Nov 2026; user: "that's not class dependant but
+// model dependant": a Galaxy Tab A9+ set up as a kiosk or POS still runs on its battery).
+// Samsung Galaxy Tab (gta…, gts…) and Galaxy A phones (a14…, a16…), Infinix (x1101b, x6835),
+// onn tablets (100135925). The mains units (Sunmi, Rockchip boards, the C8G, HK1 boxes)
+// don't match. Case-insensitive; the same text is used in SQL (~*).
+const BatteryModelPattern = `^(gta|gts|a[0-9]{2}|x[0-9]{4}|100[0-9]{6})`
+
+var batteryModelRE = regexp.MustCompile(`(?i)` + BatteryModelPattern)
+
+// ModelHasBattery reports whether a product key is a known battery model.
+func ModelHasBattery(key string) bool { return batteryModelRE.MatchString(strings.TrimSpace(key)) }
+
+// CapsForDevice is CapsFor with the device's class applied — see [mainsOnlyClasses] — unless
+// the model is a known battery model ([BatteryModelPattern]).
 func CapsForDevice(key, class string) Caps {
-	if mainsOnlyClasses[class] {
+	if mainsOnlyClasses[class] && !ModelHasBattery(key) {
 		return Caps{}
 	}
 	return CapsFor(key)
@@ -177,7 +192,7 @@ func BatteryPredicateSQL(alias string) string {
 		mainsClasses = append(mainsClasses, "'"+c+"'")
 	}
 	sort.Strings(mainsClasses) // stable SQL text across calls
-	pred := alias + ".device_class NOT IN (" + strings.Join(mainsClasses, ", ") + ")"
+	pred := "(" + alias + ".device_class NOT IN (" + strings.Join(mainsClasses, ", ") + ") OR " + alias + ".product ~* '" + BatteryModelPattern + "')"
 	if len(none) > 0 {
 		// An empty product resolves to the default (T7), which has a battery.
 		pred += " AND COALESCE(NULLIF(" + alias + ".product, ''), '" + DefaultKey + "') NOT IN (" + strings.Join(none, ", ") + ")"
