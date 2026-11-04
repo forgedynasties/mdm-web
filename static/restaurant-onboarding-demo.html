@@ -258,8 +258,11 @@ body{min-height:100vh}
       .then(function (d) { pick({ n: d.n || p.n, a: d.a || p.a, c: colorOf(d.n || p.n), r: d.r ? d.r.toFixed(1) + (d.rc ? ' (' + d.rc + ')' : '') : '', t: d.t || 'Restaurant', h: d.h || '', p: d.p || '', w: d.w, photo: d.photo, lat: d.lat, lng: d.lng }, true); })
       .catch(function () { pick({ n: p.n, a: p.a, c: colorOf(p.n), r: '', t: 'Restaurant', h: '', p: '' }, true); });
   }
+  // A typed answer replaces the tap-able ones still on screen for that question.
+  function clearChoices() { log.querySelectorAll('.opts').forEach(function (o) { o.remove(); }); }
   document.getElementById('send').onclick = function () {
     var t = q.value.trim(); if (!t) return;
+    if (!S.area || (S.place && S.awaitText)) clearChoices();
     if (!S.area) { q.value = ''; where(t); return; }
     if (S.place) { if (S.awaitText) { var f = S.awaitText; S.awaitText = null; q.value = ''; me(t); f(t); } return; }
     var first = sugg.querySelector('[data-i]'); if (first) first.click();
