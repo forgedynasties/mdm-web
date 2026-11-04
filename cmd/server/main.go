@@ -239,17 +239,10 @@ func main() {
 	// summary pill on the Actions page stayed "in progress" until a reload
 	// re-derived it fresh. Mirrors the same ack the WS "command_ack" path applies
 	// for every other command type.
-	// Set once the API handler exists (below): a finished shell command may be a
-	// legacy-install progress probe, and on some devices its output arrives ONLY as
-	// stream frames — their ack carries none — so this is where it gets read.
-	var onShellOutput func(deviceID, commandID uuid.UUID, output string)
 	shellMgr.OnCommandDone = func(deviceID, commandID uuid.UUID, exitCode int) {
 		ctx := context.Background()
 		out := shellMgr.CommandOutput(commandID, deviceID)
 		if out != "" {
-			if onShellOutput != nil {
-				onShellOutput(deviceID, commandID, out)
-			}
 			// Persist the streamed output as the command's result. The firmware client
 			// also acks over HTTP with what it collected (that write lands later and wins),
 			// but the standard client only ever streams — so without this a DPC shell
@@ -405,16 +398,7 @@ func main() {
 		apiHandler.FlushPendingCommands(context.Background(), deviceID)
 		// The venue, table and guest Wi-Fi the tablet shows its guests.
 		apiHandler.PushGuest(context.Background(), deviceID)
-		// A legacy install that started while this device was offline has no progress
-		// source until its socket is back — pick the update_engine log up now.
-		apiHandler.ResumeLegacyWatch(context.Background(), deviceID)
 	})
-	onShellOutput = func(deviceID, commandID uuid.UUID, output string) {
-		apiHandler.LegacyProbeOutput(context.Background(), commandID, output)
-	}
-	// Watchers live in memory: pick up any legacy install that was running when this
-	// process started (a deploy mid-install, a crash, a restart).
-	go apiHandler.ResumeLegacyWatches(context.Background())
 	// Packages added before the wipe flag existed, or whose zip could not be read when
 	// they were added: read each once (a few KB of range requests) so a factory-reset
 	// image is never mistaken for a safe fallback. Off the start path, one at a time.
@@ -822,10 +806,6 @@ func main() {
 	// Periodic housekeeping: daily-stats rollup + retention pruning (hourly, and at start).
 	jobs.Default.EveryNow(bgCtx, "housekeeping", time.Hour, 10*time.Minute, dash.RunHousekeeping)
 
-	// Legacy OTA discovery config: republish ota_config.json when the rolling reboot
-	// window moves, so otautil never reboots a device the MDM is about to reboot itself.
-	jobs.Default.EveryNow(bgCtx, "ota-config-publish", time.Hour, time.Minute, dash.PublishOTAConfig)
-
 	// The minute jobs (scalability plan W2a, 29 Oct 2026). Until then all of these ran one
 	// after another in one ticker: a slow job delayed the rest, and once the loop passed a
 	// minute the ticker dropped ticks for every job. Now each runs on its own ticker
@@ -974,25 +954,6 @@ func main() {
 		}
 	}()
 
-	// Legacy OTA listener: the otautil system app on pre-agent builds has this host
-	// and port baked in. Only its routes live here (internal/api/legacy_ota.go).
-	var legacyServer *http.Server
-	if lp := getEnv("LEGACY_OTA_PORT", ""); lp != "" {
-		apiHandler.SetLegacyOTAUpstream(getEnv("LEGACY_OTA_UPSTREAM", "http://host.docker.internal:8001"))
-		legacyServer = &http.Server{
-			Addr:              ":" + lp,
-			Handler:           middleware.AccessLog(apiHandler.LegacyOTAMux()),
-			ReadHeaderTimeout: 10 * time.Second,
-			IdleTimeout:       120 * time.Second,
-		}
-		go func() {
-			log.Printf("Legacy OTA listening on :%s (mode %s)", lp, cfg.LegacyOTAMode())
-			if err := legacyServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("legacy OTA server error: %v", err)
-			}
-		}()
-	}
-
 	<-shutCtx.Done()
 
 	// Close what never closes itself, FIRST. Shutdown waits for active requests to
@@ -1013,9 +974,6 @@ func main() {
 	// backstop for a genuinely stuck handler, not the expected path.
 	sdCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if legacyServer != nil {
-		_ = legacyServer.Shutdown(sdCtx)
-	}
 	if err := server.Shutdown(sdCtx); err != nil {
 		log.Printf("shutdown: %v", err)
 	}

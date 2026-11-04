@@ -29,7 +29,6 @@ type dp1Row struct {
 	InFleet                 bool
 	From                    string // the build it is coming from
 	Full                    bool   // takes the full image
-	Legacy                  bool   // updated over otautil
 	Key                     string // look | failed | dl | reboot | wait | ok | canceled
 	LookOf                  string // for look: the step it is stuck at (dl | reboot)
 	Word                    string
@@ -100,7 +99,6 @@ type dp1Inputs struct {
 	Version     string
 	Targets     []db.UpdateTarget
 	Progress    map[uuid.UUID]otaRowView
-	Legacy      []db.LegacyDeploymentDevice
 	Incremental map[string]bool // source builds an active incremental covers
 	HasFull     bool
 	Rebootable  int
@@ -298,30 +296,6 @@ func buildDeployD1(in dp1Inputs) dp1View {
 		}
 		v.Rows = append(v.Rows, r)
 	}
-	for _, dv := range in.Legacy {
-		r := dp1Row{Serial: dv.Serial, Venue: "No venue", InFleet: dv.InFleet, From: dv.BuildID, Legacy: true}
-		switch dv.Status {
-		case "installed", "updated":
-			r.Key, r.Word, r.Tone, r.Detail = "ok", "Installed", "ok", dp1Ago(now, dv.UpdatedAt)
-		case "awaiting_reboot":
-			r.Key, r.Word, r.Tone, r.Detail, r.Reboot = "reboot", "Installed, needs a reboot", "run", "reboot it to apply the update", dv.InFleet
-		case "failed":
-			r.Key, r.Word, r.Tone, r.Detail, r.Retry = "failed", "Failed", "bad", dv.Error, true
-		case "offered", "downloading", "installing", "verifying", "finalizing":
-			r.Key, r.Word, r.Tone, r.Bar, r.Pct = "dl", "Downloading", "run", true, dv.Percent
-			if dv.Status != "offered" && dv.Status != "downloading" {
-				r.Word = "Installing"
-			}
-			if dv.Status == "installing" && dv.Percent >= 100 {
-				r.Key, r.Word, r.Bar, r.Detail, r.Reboot = "reboot", "Installed, needs a reboot", false, "reboot it to apply the update", dv.InFleet
-			} else {
-				r.Detail = strconv.Itoa(dv.Percent) + "%"
-			}
-		default:
-			r.Key, r.Word, r.Tone, r.Detail = "wait", "Waiting", "q", "offered over the legacy path"
-		}
-		v.Rows = append(v.Rows, r)
-	}
 	order := map[string]int{"look": 0, "failed": 1, "dl": 2, "reboot": 3, "wait": 4, "ok": 5, "canceled": 6}
 	for i := range v.Rows {
 		v.Rows[i].order = order[v.Rows[i].Key]
@@ -419,7 +393,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 		for _, r := range v.Rows {
 			if r.Key == "failed" {
 				t := dp1Todo{Title: r.Serial + " failed", Sub: r.Venue + " · " + otaErrorShort(r.ErrorCode), Action: "Open device", Href: "/devices/" + r.Serial}
-				if in.CanOperate && !r.Legacy {
+				if in.CanOperate {
 					t.Action, t.Href, t.Post = "Retry", "", in.Base+"/devices/"+r.Serial+"/retry"
 				}
 				todos = append(todos, t)
@@ -595,7 +569,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	incN, fullN := 0, 0
 	fromInc, fromFull := map[string]int{}, map[string]int{}
 	for _, r := range v.Rows {
-		if r.Legacy || r.From == "" {
+		if r.From == "" {
 			continue
 		}
 		if r.Full {

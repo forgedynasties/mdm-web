@@ -163,9 +163,6 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, migrationSQL); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, legacyOTASchema); err != nil {
-		return err
-	}
 	if _, err := tx.Exec(ctx, appFamilySchema); err != nil {
 		return err
 	}

@@ -60,31 +60,6 @@ func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 	return out, rows.Err()
 }
 
-// GetOTAPayloadMeta returns the cached payload location for a package (what the
-// legacy otautil client is told), ok=false when it was never computed.
-//
-// payload_size alone does not mean computed: publishing fills it with the whole zip's
-// size and leaves offset 0 and no headers. Served as-is, otautil hands update_engine
-// offset 0 — the zip's "PK" header, not "CrAU" — and the whole download is thrown away
-// with kDownloadInvalidMetadataMagicString (27 Oct: AT070AABU00848, 1.9 GB, package 112).
-// A computed location always has the payload's offset inside the zip and its headers.
-func (d *DB) GetOTAPayloadMeta(ctx context.Context, id int) (offset, size int64, headers []string, ok bool, err error) {
-	err = d.pool.QueryRow(ctx, `SELECT payload_offset, payload_size, payload_headers FROM ota_packages WHERE id = $1`, id).Scan(&offset, &size, &headers)
-	if err != nil {
-		return 0, 0, nil, false, err
-	}
-	return offset, size, headers, offset > 0 && size > 0 && len(headers) > 0, nil
-}
-
-// SetOTAPayloadMeta caches the payload location computed from the package zip.
-func (d *DB) SetOTAPayloadMeta(ctx context.Context, id int, offset, size int64, headers []string) error {
-	if headers == nil {
-		headers = []string{}
-	}
-	_, err := d.pool.Exec(ctx, `UPDATE ota_packages SET payload_offset = $2, payload_size = $3, payload_headers = $4 WHERE id = $1`, id, offset, size, headers)
-	return err
-}
-
 func (d *DB) GetOTAPackage(ctx context.Context, id int) (*OTAPackage, error) {
 	var p OTAPackage
 	err := d.pool.QueryRow(ctx, `
@@ -475,8 +450,7 @@ func (d *DB) ActiveOTADevices(ctx context.Context) ([]OTAInProgress, error) {
 
 // RebootBlockedFor reports whether a device is mid-OTA, so an operator's reboot must be
 // refused: rebooting during a download throws the bytes away, and rebooting mid-install
-// can leave a half-written slot. Covers both fleets — agent OTA (update_devices) and
-// legacy otautil (legacy_ota_deployment_devices).
+// can leave a half-written slot.
 //
 // "awaiting_reboot" deliberately does NOT block: that state is waiting for exactly this
 // reboot. Nor does this gate the MDM's own post-OTA reboot, which does not call it.
@@ -491,21 +465,6 @@ func (d *DB) RebootBlockedFor(ctx context.Context, deviceID uuid.UUID) (bool, st
 		LIMIT 1`, deviceID).Scan(&phase)
 	if err == nil {
 		return true, "a system update is " + phase, nil
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return false, "", err
-	}
-	// Legacy fleet: keyed by serial, and only for a device that also has a device row.
-	err = d.pool.QueryRow(ctx, `
-		SELECT t.status
-		FROM legacy_ota_deployment_devices t
-		JOIN legacy_ota_deployments p ON p.id = t.deployment_id AND p.status = 'active'
-		JOIN devices dv ON dv.serial_number = t.serial
-		WHERE dv.id = $1
-		  AND t.status IN ('offered', 'downloading', 'installing', 'verifying', 'finalizing')
-		LIMIT 1`, deviceID).Scan(&phase)
-	if err == nil {
-		return true, "a legacy OTA is " + phase, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return false, "", err

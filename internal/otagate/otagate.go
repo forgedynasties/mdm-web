@@ -122,7 +122,7 @@ func ReportedExtra(extra json.RawMessage) (v Verdict, ok bool) {
 	if *probe.OTASupported {
 		return Verdict{OK: true, Source: "device"}, true
 	}
-	return Verdict{Reason: "the client reports no MDM OTA — legacy OTA only", Source: "device"}, true
+	return Verdict{Reason: "the client reports no MDM OTA", Source: "device"}, true
 }
 
 // Reported answers from a capability list a device just sent, when it sent one.
@@ -136,7 +136,7 @@ func Reported(caps []string) (v Verdict, ok bool) {
 			return Verdict{OK: true, Source: "device"}, true
 		}
 	}
-	return Verdict{Reason: "this build's client has no MDM OTA — legacy OTA only", Source: "device"}, true
+	return Verdict{Reason: "this build's client has no MDM OTA", Source: "device"}, true
 }
 
 // Build answers for a (build, product) pair, for callers that only have the strings.
@@ -203,7 +203,7 @@ func (g *Gate) load(ctx context.Context) map[string]Verdict {
 			continue
 		}
 		if rel.CreatedAt.Before(at) {
-			out[key(pk, rel.Version)] = Verdict{Reason: "no MDM OTA on this build — legacy OTA only", Source: "cutoff"}
+			out[key(pk, rel.Version)] = Verdict{Reason: "no MDM OTA on this build", Source: "cutoff"}
 		} else {
 			out[key(pk, rel.Version)] = Verdict{OK: true, Source: "cutoff"}
 		}
@@ -214,7 +214,7 @@ func (g *Gate) load(ctx context.Context) map[string]Verdict {
 	for _, r := range rows {
 		v := Verdict{OK: r.Supported, Source: r.Source}
 		if !r.Supported {
-			v.Reason = "no MDM OTA on this build — legacy OTA only"
+			v.Reason = "no MDM OTA on this build"
 			if r.Note != "" {
 				v.Reason = r.Note
 			}

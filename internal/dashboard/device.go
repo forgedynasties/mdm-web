@@ -589,8 +589,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// anyone comparing the two expects.
 		"CycleSeries": dischargeSeriesJSON(h.db.DeviceDischargeSeries(r.Context(), device.ID)),
 		"Custody":     deviceCustodyOrEmpty(h.db.DeviceCustody(r.Context(), device.ID)),
-		// Which update path this device is on: a build whose client can't apply an
-		// MDM OTA still updates, over the legacy otautil listener.
+		// Whether this device's build can take an MDM OTA.
 		"OTAGate": h.otaGate.Device(r.Context(), *device),
 		// Servers to offer when moving a device: this one first, then any peer named
 		// in MDM_PEER_URLS (comma separated) — a stage box, usually.

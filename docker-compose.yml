@@ -57,11 +57,6 @@ services:
       # port and forwards to this container over the compose network. That is what
       # lets a restart of this service show a "deploying" page instead of the ALB's
       # raw 502: the proxy stays up while this container is recreated.
-      # Legacy OTA listener (otautil on pre-agent builds has host:8000 baked in).
-      # Only the /device/* routes answer here; see internal/api/legacy_ota.go.
-      # Default 8010 so a stage instance never collides with the old ota-server on
-      # 8000; the live cutover sets LEGACY_OTA_PORT=8000 in .env.
-      - "${LEGACY_OTA_PORT:-8010}:${LEGACY_OTA_PORT:-8010}"
       # adb tunnels (internal/adbtunnel): the server binds one port per session inside
       # ADB_TUNNEL_PORTS, so the range is published 1:1 — the dashboard tells admins
       # the port the server bound. Set it in .env (a different range per stack on a
@@ -82,7 +77,6 @@ services:
       # Persist the settings/config file on the data volume so all settings
       # survive container restarts and rebuilds (default config/ is not mounted).
       CONFIG_PATH: ${CONFIG_PATH:-/app/data/config.json}
-      LEGACY_OTA_PORT: ${LEGACY_OTA_PORT:-8010}
       # Go sizes its heap against the HOST's RAM (3.9GB here), not the cgroup limit
       # below, so it grew straight through the old 512m cap and the kernel OOM-killed
       # it — twice, at ~520MB, during the 2026-09-23 deploy, while steady state is
@@ -96,9 +90,6 @@ services:
       # stacks. 400MiB is ~6x the steady state with room for the startup burst; the
       # hard limit below sits above it for stacks and other non-heap memory.
       GOMEMLIMIT: ${GOMEMLIMIT:-400MiB}
-      # Pass-through target for the legacy routes: the old ota-server, republished on
-      # host port 8001 (host.docker.internal resolves to the docker host below).
-      LEGACY_OTA_UPSTREAM: ${LEGACY_OTA_UPSTREAM:-http://host.docker.internal:8001}
       # How the other server copy reaches this one (scale plan W5/W6: remote, shell and
       # logcat sessions run on the copy holding the device).
       CLUSTER_ADDR: http://server:${PORT:-8082}
@@ -119,7 +110,7 @@ services:
     # 25s Shutdown that always ran to its timeout, and that wait WAS the deploy outage.
     stop_grace_period: 15s
     # "app" is both copies: nginx spreads requests and device sockets across them.
-    # "server" alone is the primary, which publishes the legacy OTA and adb tunnel ports.
+    # "server" alone is the primary, which publishes the adb tunnel ports.
     networks:
       default:
         aliases: [app]
@@ -136,7 +127,7 @@ services:
 
 
   # The second copy (scale plan W6, 29 Oct 2026): same image and settings, no host ports
-  # (the legacy OTA listener and adb tunnels stay on the primary), its own CLUSTER_ADDR.
+  # (adb tunnels stay on the primary), its own CLUSTER_ADDR.
   # Deploys replace server2, then server, so one copy is always up; CLUSTER=1 in .env
   # lets the two share the fleet (internal/cluster).
   server2:
@@ -147,9 +138,7 @@ services:
       DB_HOST: ${DB_HOST:-postgres}
       TZ: UTC
       CONFIG_PATH: ${CONFIG_PATH:-/app/data/config.json}
-      LEGACY_OTA_PORT: ${LEGACY_OTA_PORT:-8010}
       GOMEMLIMIT: ${GOMEMLIMIT:-400MiB}
-      LEGACY_OTA_UPSTREAM: ${LEGACY_OTA_UPSTREAM:-http://host.docker.internal:8001}
       CLUSTER_ADDR: http://server2:${PORT:-8082}
       # adb tunnels bind host ports only the primary publishes: none here.
       ADB_TUNNEL_PORTS: ""

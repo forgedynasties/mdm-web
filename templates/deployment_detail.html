@@ -63,15 +63,11 @@
       <tbody>
       {{range $d.Rows}}
       <tr class="dp1-r" data-state="{{.Key}}" data-venue="{{.Venue}}" data-serial="{{.Serial}}">
-        <td>{{if .InFleet}}<a class="sn" href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}<span class="sn">{{.Serial}}</span>{{end}}{{if .Legacy}}<span class="dp1-tag" title="Updated over the legacy otautil path: this build has no MDM OTA">legacy</span>{{end}}{{if .From}}<small>from {{.From}}{{if .Full}} · full image{{end}}</small>{{end}}</td>
+        <td>{{if .InFleet}}<a class="sn" href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}<span class="sn">{{.Serial}}</span>{{end}}{{if .From}}<small>from {{.From}}{{if .Full}} · full image{{end}}</small>{{end}}</td>
         <td>{{if .VenueKey}}<a class="dp1-v" href="/restaurants/{{.VenueKey}}">{{.Venue}}</a>{{else}}<span class="dp1-mut">{{.Venue}}</span>{{end}}</td>
         <td><span class="dp1-st {{.Tone}}"><i></i>{{.Word}}</span><small class="dp1-sub">{{if .Bar}}<span class="dp1-pb"><i style="width:{{.Pct}}%"></i></span>{{end}}{{if and (eq .Key "failed") .ErrorCode}}{{otaErrorText .ErrorCode}}{{else}}{{.Detail}}{{end}}</small></td>
         <td class="dp1-acts">
           {{if canOperate $.Role}}
-          {{if .Legacy}}
-            {{if and .Reboot $.LegacyDep}}<form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" hx-confirm="Reboot {{.Serial}} now to apply the installed update?"><button type="submit" class="cc-btn xs primary">Reboot to apply</button></form>{{end}}
-            {{if and .Retry $.LegacyDep}}<form action="/updates/legacy/deployments/{{$.LegacyDep.ID}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-btn xs">Retry</button></form>{{end}}
-          {{else}}
             {{/* One button per row, the rest under ···: three side by side ran past the card. */}}
             {{if .Open}}<a class="cc-btn xs" href="/devices/{{.Serial}}">Open</a>
             {{else if or .Retry .RetryStalled}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-btn xs" title="Send it again the same way (incremental if it qualifies, else full)">Retry</button></form>
@@ -89,7 +85,6 @@
               </div>
             </div>
             {{end}}
-          {{end}}
           {{end}}
         </td>
       </tr>

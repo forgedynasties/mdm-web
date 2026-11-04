@@ -17,7 +17,6 @@ import (
 
 	"mdm/internal/db"
 	"mdm/internal/shell"
-	"mdm/internal/ota"
 	"mdm/internal/product"
 	"mdm/internal/safehttp"
 
@@ -357,27 +356,11 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Split by transport rather than dropping: a build that cannot apply an MDM OTA
-	// still updates, over the legacy otautil path. Both halves belong to one rollout.
-	eligible, legacyIDs := h.splitOTACapable(r.Context(), eligible)
-	legacySerials, err := h.db.SerialsForDeviceIDs(r.Context(), legacyIDs)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	// Serials the picker offered that are not in the fleet at all: otautil devices,
-	// which only ever had the legacy path. They come straight from the form.
-	// The same OTA check the enrolled targets get (security audit, 26 Oct 2026): these
-	// came straight from the form, so a push could reach legacy devices outside the policy.
-	acc := h.access(r)
-	for _, s := range h.legacyOnlySerials(r, rel) {
-		if h.legacySerialAllowed(r, acc, s, "ota") {
-			legacySerials = append(legacySerials, s)
-		}
-	}
-	legacySerials = dedupeStrings(legacySerials)
+	// A build that cannot apply an MDM OTA is dropped (the legacy otautil path left the
+	// MDM on 4 Nov 2026).
+	eligible, _ = h.filterOTACapable(r.Context(), eligible)
 
-	if len(eligible) == 0 && len(legacySerials) == 0 {
+	if len(eligible) == 0 {
 		http.Error(w, "No eligible devices — everything selected is already on this build or newer, has no applicable package, or is mid-update on another deployment.", http.StatusBadRequest)
 		return
 	}
@@ -398,16 +381,6 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible, forceFull); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
-		}
-	}
-	// The legacy half: same release, same rollout, offered on each device's next
-	// otautil poll instead of pushed as a command.
-	if len(legacySerials) > 0 {
-		legacyID, err := h.db.CreateLegacyDeployment(r.Context(), relID, legacySerials, h.currentUsername(r))
-		if err != nil {
-			log.Printf("[ota] legacy half of deployment %d: %v", deployment.ID, err)
-		} else if err := h.db.LinkLegacyDeployment(r.Context(), legacyID, deployment.ID); err != nil {
-			log.Printf("[ota] linking legacy rollout %d to deployment %d: %v", legacyID, deployment.ID, err)
 		}
 	}
 	// Deliver to connected targets right now, the same way every other command
@@ -663,91 +636,14 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// deployment-detail hero — precomputed here since templates have no multiply func.
 	ringOffset := 276.5 * float64(100-pct) / 100
 
-	// The legacy half of this rollout, if it has one: devices whose build cannot
-	// apply an MDM OTA were served the same release over the otautil path, and this
-	// page is where the whole push is accounted for.
-	legacyDep, _ := h.db.LegacyDeploymentForUpdate(r.Context(), did)
-	legacyRows := []db.LegacyDeploymentDevice{}
-	legacyDone := 0
-	if legacyDep != nil {
-		for i := range legacyDep.Devices {
-			dv := &legacyDep.Devices[i]
-			if st, ok := ota.Legacy.Get(dv.Serial); ok && (dv.Status == "downloading" || dv.Status == "installing" || dv.Status == "offered") {
-				dv.Percent = st.Percent
-				if st.Phase != "" {
-					dv.Status = st.Phase
-				}
-			}
-			switch {
-			case dv.Status == "installed", dv.Status == "awaiting_reboot",
-				dv.Status == "installing" && dv.Percent >= 100:
-				legacyDone++
-			}
-		}
-		legacyRows = legacyDep.Devices
-		if acc := h.access(r); acc.hidesDevices() {
-			serials := make([]string, len(legacyRows))
-			for j, dv := range legacyRows {
-				serials[j] = dv.Serial
-			}
-			ok := map[string]bool{}
-			for _, sn := range h.keepVisibleSerials(r, serials) {
-				ok[sn] = true
-			}
-			kept := legacyRows[:0:0]
-			for _, dv := range legacyRows {
-				if ok[dv.Serial] {
-					kept = append(kept, dv)
-				}
-			}
-			legacyRows = kept
-		}
-	}
-	totalTargets := len(targets) + len(legacyRows)
+	totalTargets := len(targets)
 	if totalTargets > 0 {
-		pct = (done + legacyDone) * 100 / totalTargets
+		pct = done * 100 / totalTargets
 		ringOffset = 276.5 * float64(100-pct) / 100
 	}
 
-	// The legacy devices count towards the same status chips. Without this the hero read
-	// "18 / 19 installed" next to a lone "7 installed" chip, because the chips only knew
-	// about the agent-managed half — and nothing on the page said which device was still
-	// going, or why the ring was short of 100%.
-	for _, dv := range legacyRows {
-		switch dv.Status {
-		case "offered":
-			counts["pending"]++
-		case "downloading", "installing", "verifying", "finalizing":
-			counts["installing"]++
-		case "installed", "updated":
-			counts["installed"]++
-		// Its own bucket, not "installed". Folding it into installed is what made
-		// "Reboot all installed (N)" quietly exclude the legacy half: the button reads
-		// the awaiting_reboot count, so every otautil device waiting on a reboot was
-		// invisible to it.
-		case "awaiting_reboot":
-			counts["awaiting_reboot"]++
-		case "failed":
-			counts["failed"]++
-		default:
-			counts[dv.Status]++
-		}
-	}
-	// What "Reboot all" can actually reach. The chips count every device awaiting a
-	// reboot, which is the truth about the rollout; the button must instead count only
-	// the ones a reboot can be delivered to. otautil has no reboot of its own, so a
-	// legacy device is only rebootable remotely if the same serial also runs the agent
-	// — and a button offering to reboot devices it cannot reach is worse than one that
-	// admits the number is smaller.
+	// What "Reboot all" can reach: every device awaiting a reboot.
 	rebootable := counts["awaiting_reboot"]
-	for _, dv := range legacyRows {
-		if dv.Status == "awaiting_reboot" && !dv.InFleet {
-			rebootable--
-		}
-	}
-	if rebootable < 0 {
-		rebootable = 0
-	}
 
 	// Ordered, non-zero status buckets for the rollup line (map iteration order
 	// is unstable, so build a fixed-order slice for the template).
@@ -765,21 +661,19 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		"OTAProgress":  otaProgress,
 		"Summary":      summary,
 		"Rebootable":   rebootable,
-		"SummaryDone":  done + legacyDone,
+		"SummaryDone":  done,
 		"SummaryTotal": totalTargets,
 		"SummaryPct":   pct,
 		"RingOffset":   ringOffset,
 		"AvgDuration":  avgDuration, // seconds, or -1 if no device finished yet
 		"DoneCount":    durCount,    // devices with a measured duration
-		"LegacyDep":    legacyDep,
-		"LegacyRows":   legacyRows,
 	}
 	version := ""
 	if upd.Release != nil {
 		version = upd.Release.Version
 	}
 	data["D1"] = buildDeployD1(dp1Inputs{
-		Dep: upd, Version: version, Targets: targets, Progress: progressByID, Legacy: legacyRows,
+		Dep: upd, Version: version, Targets: targets, Progress: progressByID,
 		Incremental: incremental, HasFull: hasFullPkg, Rebootable: rebootable,
 		CanOperate: roleCanOperate(h.role(r)), Base: fmt.Sprintf("/releases/%d/deployments/%d", relID, did),
 		SeenSecs: h.cfg.CheckinInterval() * 3, Now: time.Now(),
@@ -848,7 +742,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		if !hasFull && !sourceBuilds[d.BuildID] {
 			continue
 		}
-		if !h.otaGate.Device(r.Context(), d).OK { // legacy-OTA-only build
+		if !h.otaGate.Device(r.Context(), d).OK { // a build with no MDM OTA
 			continue
 		}
 		eligible = append(eligible, d)
@@ -956,11 +850,6 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.CancelDeployment(r.Context(), did); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
-	}
-	// One rollout, both halves: cancelling the deployment cancels the legacy targets
-	// it was pushed with, or they would keep being offered on every poll.
-	if legacy, err := h.db.LegacyDeploymentForUpdate(r.Context(), did); err == nil && legacy != nil {
-		_ = h.db.CancelLegacyDeployment(r.Context(), legacy.ID)
 	}
 	h.audit(r, "deployment.cancel", strconv.Itoa(did), "")
 	h.hub.PublishDeploymentUpdate()
@@ -1181,37 +1070,9 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 		h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
 		h.hub.PublishDeviceUpdate(deviceID)
 	}
-	// One rollout, both halves — the same rule cancelling already follows. The legacy
-	// devices installed the same build over otautil and are waiting on the same reboot;
-	// leaving them out meant "reboot all" rebooted some of them and said nothing.
-	legacyN := 0
-	legacyAwaiting, lerr := h.db.ListLegacyAwaitingRebootForUpdate(r.Context(), did)
-	if lerr != nil {
-		log.Printf("[deployment-reboot-all] list legacy awaiting: %v", lerr)
-	}
-	for _, la := range legacyAwaiting {
-		if !acc.canDevice("reboot", la.DeviceID) {
-			continue
-		}
-		// Same guard the per-device legacy reboot uses: never reboot a device that is
-		// still taking an OTA.
-		if blocked, why, err := h.db.RebootBlockedFor(r.Context(), la.DeviceID); err == nil && blocked {
-			log.Printf("[deployment-reboot-all] skipped legacy %s: %s", la.Serial, why)
-			continue
-		}
-		cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{la.DeviceID}, h.currentUsername(r))
-		if err != nil {
-			log.Printf("[deployment-reboot-all] create reboot error legacy=%s: %v", la.Serial, err)
-			continue
-		}
-		h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{la.DeviceID})
-		_ = h.db.SetLegacyDeploymentReboot(r.Context(), la.DeploymentID, la.Serial, cmd.ID)
-		h.hub.PublishDeviceUpdate(la.DeviceID)
-		legacyN++
-	}
 	h.hub.PublishDeploymentUpdate()
 	h.audit(r, "deployment.reboot_all", strconv.Itoa(did),
-		fmt.Sprintf("%d fleet, %d legacy", len(ids), legacyN))
+		fmt.Sprintf("%d fleet", len(ids)))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 

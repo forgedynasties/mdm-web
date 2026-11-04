@@ -126,7 +126,7 @@ func (h *Handler) RunRoleFirmware(ctx context.Context) {
 		if eligible, err = h.db.RemoveInapplicableTargets(ctx, rel.ID, eligible, false); err != nil {
 			continue
 		}
-		eligible, _ = h.splitOTACapable(ctx, eligible) // legacy-path builds are a manual rollout
+		eligible, _ = h.filterOTACapable(ctx, eligible) // builds with no MDM OTA are skipped
 		if len(eligible) == 0 {
 			continue
 		}

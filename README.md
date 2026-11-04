@@ -85,7 +85,7 @@ Every endpoint, with request and response shapes:
 ```
 cmd/server/          Entry point, routing
 internal/
-  api/               Device + admin REST API, WebSocket, legacy OTA routes
+  api/               Device + admin REST API, WebSocket
   dashboard/         Web UI handlers + HTMX partials
   db/                Schema, migrations, queries
   middleware/        API key auth, sessions, CSRF, limits

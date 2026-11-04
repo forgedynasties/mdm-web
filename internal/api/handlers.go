@@ -85,9 +85,8 @@ type Handler struct {
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
-	legacy      *legacyOTA         // legacy otautil protocol on the second listener (legacy_ota.go)
-	logs        *logstream.Manager // live logcat, used to follow legacy installs (legacy_watch.go)
-	otaGate     *otagate.Gate      // which builds can take an MDM OTA (the rest go legacy)
+	logs        *logstream.Manager // live logcat
+	otaGate     *otagate.Gate      // which builds can take an MDM OTA
 	peers       *peers.Service     // tells neighbouring MDMs when a device turns up here
 
 	// Check-in history, written in batches off the request, and the cap on check-ins
@@ -1223,13 +1222,6 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 		}
 	}
 
-	if src == sourceHTTP {
-		// A device that also updates over the legacy path may just have booted into the
-		// build that rollout offered — settle it here rather than waiting up to fifteen
-		// minutes for its next otautil poll. Legacy devices only ever speak HTTP.
-		h.SettleLegacyAtBuild(ctx, req.SerialNumber, req.BuildID)
-	}
-
 	// OTA check: resolve the update from the update_devices table.
 	if upd, err := h.db.ResolveUpdateForDevice(ctx, deviceID); err != nil {
 		log.Printf("[%s] ResolveUpdateForDevice error: %v", tag, err)
@@ -1643,9 +1635,6 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
-		// Same probe hook as the HTTP ack path: a device with a socket answers here
-		// instead, and its progress probe would otherwise be read by nobody.
-		h.LegacyProbeOutput(ctx, body.CommandID, body.Output)
 	}
 	if err := h.db.AckCommand(ctx, body.CommandID, deviceID, body.Status); err != nil {
 		log.Printf("[ws-ack] AckCommand error: %v", err)
@@ -1698,9 +1687,6 @@ func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
 	}
 	h.hub.PublishDeviceUpdate(deviceID)
 	h.hub.PublishLogcatUpdate(deviceID)
-	if dev, err := h.db.GetDeviceByID(ctx, deviceID); err == nil && dev != nil {
-		h.legacyProgressFromLogcat(ctx, dev.SerialNumber, body.Content)
-	}
 }
 
 // otaVerdict answers whether this check-in's device can take an MDM OTA: what the
@@ -2197,9 +2183,6 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishLogcatUpdate(device.ID)
-	// A device mid legacy install with no live socket is followed through these
-	// dumps — see pollLegacyInstall.
-	h.legacyProgressFromLogcat(r.Context(), body.SerialNumber, body.Content)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -2855,9 +2838,6 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
-		// A progress probe this server issued for a legacy install on a device with no
-		// socket — read update_engine's own numbers out of it.
-		h.LegacyProbeOutput(r.Context(), cmdID, body.Output)
 	}
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
 		if errors.Is(err, db.ErrCommandNotTargeted) {

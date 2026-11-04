@@ -90,13 +90,6 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			filter.ProductionID = id
 		}
 	}
-	// ?source=legacy: rows come from the otautil devices instead of the fleet.
-	// They are not in the devices table by design, so they get their own path here
-	// and the same markup, which is what lets one picker serve both.
-	if r.URL.Query().Get("source") == "legacy" {
-		h.browseLegacyDevices(w, r)
-		return
-	}
 	// ?product=<key>: the hardware chosen on the push screen, before a release is
 	// named. A ?release= below overrides it — the release's own product is the truth.
 	if pk := strings.TrimSpace(r.URL.Query().Get("product")); pk != "" {
@@ -154,29 +147,14 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	// picker needs it; every other caller leaves the maps empty and the rows render
 	// exactly as before.
 	blocked, artifact := map[string]string{}, map[string]string{}
-	var legacyRows []legacyPickerRow
-	// A scoped request ("every device in this restaurant/group/production") is
-	// answered by the picker with "select all of these", so it must contain only
-	// devices that really are in that scope. Legacy-only devices are not in the
-	// fleet at all and so belong to no restaurant or group — including them here
-	// made a restaurant of 8 devices select 10.
-	scoped := filter.RestaurantID != uuid.Nil || filter.GroupID != uuid.Nil || filter.ProductionID != uuid.Nil
 	if pushRel != nil {
 		blocked, artifact = h.releaseEligibility(r.Context(), pushRel, devices)
-		// Devices that are not in the fleet at all but do poll the legacy listener:
-		// one push covers both kinds now, so they belong in the same list.
-		if !scoped {
-			legacyRows = h.legacyPickerRows(r, pushRel, blocked, artifact, r.URL.Query().Get("q"), r.URL.Query().Get("status"))
-		}
 		// What can be pushed comes first. A blocked row still belongs in the list —
 		// "why can't I pick this one" is the next question — but scrolling past a
 		// screenful of up-to-date devices to reach the three that need the build is
 		// the picker failing at its one job.
 		sort.SliceStable(devices, func(i, j int) bool {
 			return blocked[devices[i].SerialNumber] == "" && blocked[devices[j].SerialNumber] != ""
-		})
-		sort.SliceStable(legacyRows, func(i, j int) bool {
-			return blocked[legacyRows[i].Device.Serial] == "" && blocked[legacyRows[j].Device.Serial] != ""
 		})
 	}
 	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
@@ -185,7 +163,6 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 		"DPC":        dpc,
 		"Blocked":    blocked,
 		"Artifact":   artifact,
-		"LegacyRows": legacyRows,
 	})
 }
 
@@ -214,11 +191,7 @@ func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devic
 	newer, _ := h.db.SerialsOnNewerRelease(ctx, relID)
 	for _, d := range devices {
 		s := d.SerialNumber
-		// A build with no MDM OTA is not blocked any more — it is served the same
-		// release over the legacy path, in the same rollout. Only a full image can
-		// reach one, since the legacy client has no incremental story.
 		verdict := h.otaGate.Device(ctx, d)
-		legacy := verdict.Legacy()
 		switch {
 		case verdict.Source == otagate.SourceDPC:
 			blocked[s] = "DPC device — OTA is firmware-only"
@@ -228,10 +201,8 @@ func (h *Handler) releaseEligibility(ctx context.Context, rel *db.Release, devic
 			blocked[s] = "newer installed (" + newer[s] + ")"
 		case updating[s] != "":
 			blocked[s] = "already updating"
-		case legacy && !hasFull:
-			blocked[s] = "legacy OTA needs a full image"
-		case legacy:
-			artifact[s] = "legacy"
+		case !verdict.OK:
+			blocked[s] = "this build has no MDM OTA"
 		case !hasFull && !sourceBuilds[d.BuildID]:
 			blocked[s] = "no update for this build"
 		case sourceBuilds[d.BuildID]:

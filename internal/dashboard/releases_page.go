@@ -30,7 +30,6 @@ type rolloutView struct {
 	Status                               string
 	CreatedAt                            time.Time
 	CreatedBy                            string
-	Legacy                               bool
 	Total, Installed, Installing, Failed int
 	// NotBack: rebooted to apply it 15+ minutes ago and not confirmed on the new build. A
 	// device waiting for or in its applying reboot otherwise counts as installing, not
@@ -139,15 +138,9 @@ func deploymentView(d db.Update) rolloutView {
 	return v
 }
 
-func legacyView(d db.LegacyDeployment) rolloutView {
-	return rolloutView{URL: fmt.Sprintf("/updates/legacy/deployments/%d", d.ID), ID: d.ID, Version: d.ReleaseVersion, Status: d.Status,
-		CreatedAt: d.CreatedAt, CreatedBy: d.CreatedBy, Legacy: true, Total: d.Total, Installed: d.Installed,
-		Installing: d.Installing, Failed: d.Failed}
-}
-
 // mergeRollouts groups every rollout by release and picks the running ones for the
-// pinned strip. A legacy half of a fleet rollout is folded into that rollout's row.
-func mergeRollouts(deployments []db.Update, legacy []db.LegacyDeployment, productMatches func(string) bool) (byRelease map[int][]rolloutView, active []rolloutView) {
+// pinned strip.
+func mergeRollouts(deployments []db.Update, productMatches func(string) bool) (byRelease map[int][]rolloutView, active []rolloutView) {
 	byRelease = map[int][]rolloutView{}
 	for _, d := range deployments {
 		if !productMatches(d.Product) {
@@ -155,39 +148,7 @@ func mergeRollouts(deployments []db.Update, legacy []db.LegacyDeployment, produc
 		}
 		byRelease[d.ReleaseID] = append(byRelease[d.ReleaseID], deploymentView(d))
 	}
-	// A legacy half of a fleet rollout is that rollout's own devices: fold it into its row.
-	where := map[int][2]int{} // update id → (release id, index in byRelease)
-	for rid, rs := range byRelease {
-		for i, v := range rs {
-			if !v.Legacy {
-				where[v.ID] = [2]int{rid, i}
-			}
-		}
-	}
-	for _, d := range legacy {
-		if d.UpdateID != nil {
-			if at, ok := where[*d.UpdateID]; ok {
-				v := &byRelease[at[0]][at[1]]
-				v.Total += d.Total
-				v.Installed += d.Installed
-				v.Installing += d.Installing
-				v.Failed += d.Failed
-				v.Legacy = true
-				// A rollout whose devices are all on the legacy path never leaves 'pending'
-				// (only an MDM send activates it), so it is running while its legacy half
-				// still has devices on the way (#424, 22 Oct 2026).
-				if d.Status == "active" && d.Total > d.Installed+d.Failed && (v.Status == "pending" || v.Status == "complete") {
-					v.Status = "active"
-				}
-			}
-			continue
-		}
-		if !productMatches(d.ReleaseProduct) {
-			continue
-		}
-		byRelease[d.ReleaseID] = append(byRelease[d.ReleaseID], legacyView(d))
-	}
-	// The pinned strip, after the fold so it carries both halves' counts.
+	// The pinned strip.
 	for _, rs := range byRelease {
 		for _, v := range rs {
 			if v.Status == "active" {
@@ -224,8 +185,7 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 	// its own.
 	deployments, _ := h.db.ListDeployments(ctx)
 	deployments = visibleDeployments(h.role(r), deployments)
-	legacy, _ := h.db.ListLegacyDeployments(ctx)
-	byRelease, active := mergeRollouts(deployments, legacy, productMatches)
+	byRelease, active := mergeRollouts(deployments, productMatches)
 	h.markStuck(ctx, active)
 
 	// The selection: ?release=<id>, or ?build=<version> for a reported build, else the
