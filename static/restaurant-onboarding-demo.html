@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Set up your restaurant · AIO</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg);color:var(--text);margin:0}
+.frame{border:1px solid var(--border);border-radius:20px;background:var(--surface);overflow:hidden;box-shadow:0 18px 50px -24px rgba(0,0,0,.25)}
+.bar{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border-soft)}
+.brand{font-size:18px;color:var(--muted)}.brand b{color:var(--accent)}
+.bar .steps{display:flex;gap:6px;margin-left:auto}
+.bar .steps span{font-size:12px;padding:4px 10px;border-radius:99px;color:var(--muted);border:1px solid var(--border)}
+.bar .steps span.on{background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent-edge);font-weight:650}
+.bar .steps span.done{color:var(--ok);border-color:transparent;background:var(--ok-bg)}
+.spark{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#7b4bd6,#e0623f);color:#fff;font-size:12px;flex:none}
+.btn{border:1px solid var(--border);border-radius:99px;padding:8px 15px;font:inherit;font-size:13px;font-weight:600;background:var(--surface);color:var(--text);cursor:pointer}
+.btn.p{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
+.btn.sm{padding:5px 11px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:default}
+.mut{color:var(--muted)}
+/* ── O1 chat + live canvas ─────────────────────────────────────────────── */
+.o1{display:grid;grid-template-columns:400px minmax(0,1fr);height:720px}
+.chat{border-right:1px solid var(--border-soft);display:flex;flex-direction:column;min-height:0;background:linear-gradient(180deg,var(--surface),var(--bg))}
+.log{flex:1;overflow:auto;padding:18px 16px 10px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:9px;align-items:flex-start;max-width:100%}
+.msg .bub{background:var(--surface);border:1px solid var(--border);border-radius:14px 14px 14px 4px;padding:9px 12px;font-size:13.5px;line-height:1.5}
+.msg.me{justify-content:flex-end}.msg.me .bub{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff;border-radius:14px 14px 4px 14px}
+.typing span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--muted);margin:0 2px;animation:tp 1s infinite}
+.typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+@keyframes tp{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+.opts{display:flex;flex-wrap:wrap;gap:6px;padding-left:31px}
+.opt{border:1px solid var(--accent-edge);color:var(--accent-text);background:var(--surface);border-radius:99px;padding:6px 12px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+.opt:hover{background:var(--accent-soft)}
+.compose{border-top:1px solid var(--border-soft);padding:10px 12px;display:flex;gap:8px;position:relative}
+.compose input{flex:1;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font:inherit;font-size:13.5px;background:var(--surface);color:var(--text)}
+.sugg{position:absolute;left:12px;right:12px;bottom:58px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 14px 40px -12px rgba(0,0,0,.25);overflow:hidden}
+.sugg[hidden]{display:none}
+.sugg .pl{display:flex;gap:10px;align-items:center;padding:9px 12px;cursor:pointer;font-size:13px}
+.sugg .pl:hover{background:var(--hover)}
+.sugg .pl i{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-style:normal;font-weight:800;flex:none}
+.sugg .pl small{display:block;color:var(--muted);font-size:11.5px}
+.sugg .src{font-size:10.5px;color:var(--muted);padding:6px 12px;border-top:1px solid var(--border-soft);text-align:right}
+.stage{position:relative;min-width:0;display:flex;flex-direction:column;background:var(--bg)}
+.found{margin:18px;border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:16px;display:flex;gap:14px;align-items:flex-start}
+.found .pic{width:84px;height:84px;border-radius:14px;flex:none;display:grid;place-items:center;font-size:30px;font-weight:800;color:#fff}
+.found h3{margin:0 0 2px;font-size:18px}
+.found .facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.found .facts span{font-size:12px;border:1px solid var(--border);border-radius:99px;padding:3px 9px;color:var(--text-2)}
+.idle{flex:1;display:grid;place-items:center;color:var(--muted);font-size:13.5px;text-align:center;padding:30px}
+/* planner */
+.planner{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 270px;min-height:0}
+.pl-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border-soft);background:var(--surface)}
+.tool{border:1px solid var(--border);border-radius:10px;padding:6px 10px;font:inherit;font-size:12.5px;font-weight:600;background:var(--surface);color:var(--text-2);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.tool i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.tool.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}
+.tools .sep{width:1px;height:22px;background:var(--border);margin:0 4px}
+.canvas{flex:1;min-height:0;overflow:auto;padding:14px;display:grid;place-items:center}
+svg.plan{background:#fff;border:1px solid var(--border);border-radius:14px;touch-action:none;cursor:crosshair;max-width:100%;height:auto}
+html[data-theme="dark"] svg.plan{background:#1d1b22}
+.room rect{stroke-width:2}
+.room text{font:600 12px Poppins,system-ui;fill:#3b3540;pointer-events:none}
+.room.sel rect{stroke:#cf4529!important;stroke-width:3}
+.dev{cursor:grab}
+.dev circle{stroke:#fff;stroke-width:2}
+.dev text{font:700 9px Poppins,system-ui;fill:#fff;pointer-events:none;text-anchor:middle;dominant-baseline:central}
+.dev.pop{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+.tbl{fill:#f0ece8;stroke:#c9bfb6;stroke-width:1.5}
+.side{border-left:1px solid var(--border-soft);background:var(--surface);overflow:auto;padding:14px}
+.side h4{margin:0 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pkgs{display:grid;gap:6px;margin-bottom:14px}
+.pkg{border:1px solid var(--border);border-radius:12px;padding:9px 11px;cursor:pointer;font-size:13px;text-align:left;background:var(--surface);font-family:inherit;color:var(--text)}
+.pkg b{display:block}.pkg small{color:var(--muted);font-size:11.5px}
+.pkg.on{border-color:var(--accent);background:var(--accent-soft)}
+.dl{display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.dl:first-child{border-top:0}
+.dl .ic{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:9px;font-weight:800;flex:none}
+.dl .n{margin-left:auto;font-family:var(--mono);font-weight:700}
+.dl .stp{display:flex;gap:2px}.dl .stp button{width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text);font:inherit;font-size:13px;line-height:1}
+.why{font-size:12px;color:var(--text-2);line-height:1.5;background:var(--surface2);border-radius:12px;padding:10px 12px;margin-top:12px}
+.why b{color:var(--text)}
+.hint{font-size:12px;color:var(--muted);padding:6px 14px;border-top:1px solid var(--border-soft);background:var(--surface)}
+/* ── O2 / O3 screens ───────────────────────────────────────────────────── */
+.scr{padding:28px 32px}
+.wz{max-width:760px;margin:0 auto}
+.wz h2{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+.big{width:100%;border:1.5px solid var(--border);border-radius:16px;padding:16px 18px;font:inherit;font-size:16px;background:var(--surface);color:var(--text)}
+.qcard{border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:14px;background:var(--surface)}
+.qcard .q{font-weight:650;margin-bottom:10px}
+.seg{display:flex;flex-wrap:wrap;gap:8px}.seg span{border:1px solid var(--border);border-radius:12px;padding:9px 14px;font-size:13.5px;cursor:pointer}.seg span.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+.ai{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:14px;padding:10px 12px;margin-top:14px;font-size:13px}
+.tpls{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.tpl{border:1px solid var(--border);border-radius:16px;padding:10px;background:var(--surface);cursor:pointer}
+.tpl.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tpl b{display:block;font-size:13px;margin-top:6px}.tpl small{color:var(--muted);font-size:11.5px}
+.pk3{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.pk3 .c{border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--surface)}
+.pk3 .c.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.pk3 ul{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--text-2);line-height:1.6}
+.tplc{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tpl-ai{grid-column:1/-1;display:flex;gap:10px;align-items:center;border-color:var(--accent-edge)!important;background:var(--accent-soft)!important}
+.tpl-ai .spark{width:28px;height:28px;border-radius:9px}
+.tplb{border:1px solid var(--border);border-radius:14px;padding:8px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:var(--text)}
+.tplb:hover{border-color:var(--accent-edge)}.tplb.rec{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.tplb svg{width:100%;height:auto;display:block;border-radius:8px;background:#fff}
+.tplb b{display:block;font-size:12.5px;margin-top:5px}.tplb small{font-size:11px;color:var(--muted)}
+.found .facts a{color:var(--accent-text)}
+.q2{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:12px 14px;margin-top:18px;font-size:13.5px;line-height:1.55;color:var(--text-2)}
+.q2 h2{margin:0 0 6px;font-size:15px;color:var(--text)}.q2 ol{margin:0;padding-left:20px}.q2 li{margin:5px 0}.q2 b{color:var(--text)}
+@media(max-width:1000px){.o1{grid-template-columns:1fr;height:auto}.chat{height:520px}.planner{grid-template-columns:1fr}.tpls,.pk3{grid-template-columns:1fr 1fr}}
+
+.tno{font:600 8px Poppins,system-ui;fill:#8a8178;text-anchor:middle;pointer-events:none}
+.dl .dn{display:flex;flex-direction:column;line-height:1.25}.dl .dn small{font-size:11px;color:var(--muted)}
+body{min-height:100vh}
+.wrap{max-width:1440px;margin:0 auto;padding:18px 20px 40px}
+.demo-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin:0 0 10px}
+.demo-tag b{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;background:var(--warn-bg);color:var(--warn);padding:2px 8px;border-radius:99px}
+</style>
+</head>
+<body>
+<!-- Restaurant onboarding, a public demo (4 Nov 2026; user: "implement the demo on
+     /restaurant-onboarding-demo no sign in gate"). O1 "AI concierge": find the restaurant
+     (Places, mocked here), a short survey, an AI-drafted floor plan with devices placed by rule,
+     packages. Nothing is saved and no API is called. Served by OnboardingDemo. -->
+<div class="wrap">
+<div class="demo-tag"><b>Demo</b> nothing here is saved · the restaurant search is a sample list</div>
+<div class="frame">
+      <div class="bar"><span class="brand"><b>AIO</b> · Set up your restaurant</span><div class="steps" id="o1-steps"><span class="on">Find</span><span>About you</span><span>Floor plan</span><span>Devices</span><span>Account</span></div></div>
+      <div class="o1">
+        <div class="chat">
+          <div class="log" id="log"></div>
+          <div class="compose">
+            <div class="sugg" id="sugg" hidden></div>
+            <input id="q" placeholder="Your restaurant's name…" autocomplete="off">
+            <button class="btn p" id="send">Send</button>
+          </div>
+        </div>
+        <div class="stage" id="stage">
+          <div class="idle" id="idle"><div><span class="spark" style="width:44px;height:44px;border-radius:14px;font-size:22px">✦</span><p style="margin:12px 0 0">Your restaurant will appear here.<br>Start by typing its name on the left.</p></div></div>
+        </div>
+      </div>
+    </div>
+  
+</div>
+<script>
+// ─── O1: the concierge ────────────────────────────────────────────────────────
+(function () {
+  var PLACES = [
+    { n: 'Flights Vegas', a: '3726 Planet Hollywood Way, Las Vegas, NV', c: '#e0623f', r: '4.5', t: 'American · sports bar', h: 'Open 11:00 – 02:00', p: '(702) 555-0142' },
+    { n: 'Flights Restaurant Phoenix', a: '2501 E Camelback Rd, Phoenix, AZ', c: '#6a3fd0', r: '4.4', t: 'American', h: 'Open 11:00 – 22:00', p: '(602) 555-0110' },
+    { n: "Huanchaco Peruvian Food", a: '6101 Lone Tree Way, Brentwood, CA', c: '#1d7a43', r: '4.7', t: 'Peruvian', h: 'Open 11:00 – 21:00', p: '(925) 555-0188' },
+    { n: "Mom's Biryani", a: '41 Main St, Fremont, CA', c: '#b7791f', r: '4.6', t: 'Indian', h: 'Open 11:30 – 22:30', p: '(510) 555-0175' },
+    { n: 'Tacos El Compa', a: '980 E Santa Clara St, San Jose, CA', c: '#c53030', r: '4.5', t: 'Mexican · counter', h: 'Open 09:00 – 23:00', p: '(408) 555-0101' },
+    { n: 'Ah Huevo - Pleasanton', a: '4515 Rosewood Dr, Pleasanton, CA', c: '#d69e2e', r: '4.3', t: 'Breakfast · counter', h: 'Open 07:00 – 15:00', p: '(925) 555-0120' }
+  ];
+  var log = document.getElementById('log'), q = document.getElementById('q'), sugg = document.getElementById('sugg');
+  var stage = document.getElementById('stage'), steps = document.getElementById('o1-steps').children;
+  var S = { place: null, service: null, tables: 16, extras: [], kitchens: 2 };
+  function step(i) { for (var k = 0; k < steps.length; k++) { steps[k].className = k < i ? 'done' : k === i ? 'on' : ''; if (k < i) steps[k].textContent = '✓ ' + steps[k].textContent.replace('✓ ', ''); } }
+  function scroll() { log.scrollTop = log.scrollHeight; }
+  function me(t) { var m = document.createElement('div'); m.className = 'msg me'; m.innerHTML = '<div class="bub"></div>'; m.firstChild.textContent = t; log.appendChild(m); scroll(); }
+  // The assistant "types" for a moment, then streams its line in.
+  function ai(html, opts, then) {
+    var m = document.createElement('div'); m.className = 'msg'; m.innerHTML = '<span class="spark">✦</span><div class="bub"><span class="typing"><span></span><span></span><span></span></span></div>';
+    log.appendChild(m); scroll();
+    setTimeout(function () {
+      var bub = m.querySelector('.bub'); bub.innerHTML = '';
+      var tmp = document.createElement('div'); tmp.innerHTML = html; var text = tmp.innerHTML, i = 0;
+      var iv = setInterval(function () {
+        i = Math.min(text.length, i + 4); while (text[i - 1] === '<') { i = text.indexOf('>', i) + 1; }
+        bub.innerHTML = text.slice(0, i); scroll();
+        if (i >= text.length) { clearInterval(iv); if (opts) choices(opts); if (then) then(); }
+      }, 16);
+    }, 650);
+  }
+  function choices(opts) {
+    var box = document.createElement('div'); box.className = 'opts';
+    opts.forEach(function (o) { var b = document.createElement('button'); b.className = 'opt'; b.textContent = o.t; b.onclick = function () { box.remove(); me(o.t); o.f(); }; box.appendChild(b); });
+    log.appendChild(box); scroll();
+  }
+  // ── 1. find it ──
+  ai("Hi! I'll set up AIO for your restaurant in about two minutes. <b>What's it called?</b> I'll find it on Google.");
+  // Google Places through the server (/restaurant-onboarding-demo/places and /place); the
+  // key never reaches the page. Without a key on the server (404) the sample list stands in.
+  var SESSION = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)), live = true, seq = 0, timer = null, shown = [];
+  var COLORS = ['#e0623f', '#6a3fd0', '#1d7a43', '#b7791f', '#c53030', '#2f6db5', '#0f5c4c'];
+  function colorOf(n) { var h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return COLORS[h % COLORS.length]; }
+  function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function list(items, src) {
+    shown = items;
+    sugg.innerHTML = items.map(function (p, i) { return '<div class="pl" data-i="' + i + '"><i style="background:' + (p.c || colorOf(p.n)) + '">' + esc(p.n[0] || '?') + '</i><span><b>' + esc(p.n) + '</b><small>' + esc(p.a) + '</small></span></div>'; }).join('') +
+      (items.length ? '<div class="src">' + src + '</div>' : '<div class="pl" data-manual="1"><span><b>Not listed?</b><small>Add it by hand: name and address</small></span></div>');
+    sugg.hidden = false;
+  }
+  function sample(t) { list(PLACES.filter(function (p) { return p.n.toLowerCase().indexOf(t) >= 0 || p.a.toLowerCase().indexOf(t) >= 0; }).slice(0, 5), 'sample list (no Places key on this server)'); }
+  q.addEventListener('input', function () {
+    var t = q.value.trim().toLowerCase();
+    if (S.place || t.length < 2) { sugg.hidden = true; return; }
+    if (!live) { sample(t); return; }
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      var my = ++seq;
+      fetch('/restaurant-onboarding-demo/places?q=' + encodeURIComponent(q.value.trim()) + '&s=' + SESSION)
+        .then(function (r) { if (r.status === 404) { live = false; throw 0; } if (!r.ok) throw 0; return r.json(); })
+        .then(function (d) { if (my === seq && !S.place) list(d.places || [], 'from Google Maps'); })
+        .catch(function () { if (my === seq && !S.place) sample(t); });
+    }, 220);
+  });
+  sugg.addEventListener('click', function (e) {
+    var r = e.target.closest('[data-i]');
+    if (r) { var p = shown[+r.dataset.i]; if (p.id) details(p); else pick(p); return; }
+    if (e.target.closest('[data-manual]')) { var n = q.value.trim(); pick({ n: n, a: 'Address to add', c: colorOf(n), r: '', t: 'Restaurant', h: '', p: '' }); }
+  });
+  function details(p) {
+    sugg.hidden = true; q.value = ''; me(p.n);
+    fetch('/restaurant-onboarding-demo/place?id=' + encodeURIComponent(p.id) + '&s=' + SESSION)
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) { pick({ n: d.n || p.n, a: d.a || p.a, c: colorOf(d.n || p.n), r: d.r ? d.r.toFixed(1) + (d.rc ? ' (' + d.rc + ')' : '') : '', t: d.t || 'Restaurant', h: d.h || '', p: d.p || '', w: d.w, photo: d.photo, lat: d.lat, lng: d.lng }, true); })
+      .catch(function () { pick({ n: p.n, a: p.a, c: colorOf(p.n), r: '', t: 'Restaurant', h: '', p: '' }, true); });
+  }
+  document.getElementById('send').onclick = function () {
+    var t = q.value.trim(); if (!t) return;
+    if (S.place) { if (S.awaitText) { var f = S.awaitText; S.awaitText = null; q.value = ''; me(t); f(t); } return; }
+    var first = sugg.querySelector('[data-i]'); if (first) first.click();
+  };
+  q.addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('send').click(); });
+  function pick(p, said) {
+    S.place = p; sugg.hidden = true; q.value = ''; q.placeholder = 'Type an answer, or tap one above…';
+    if (!said) me(p.n);
+    var facts = [p.r && '★ ' + esc(p.r) + ' on Google', p.t && esc(p.t), p.h && esc(p.h), p.p && esc(p.p), (p.lat || p.c) && '📍 pin set', p.w && '<a href="' + esc(p.w) + '" target="_blank" rel="noopener">website</a>'].filter(Boolean);
+    var pic = p.photo ? '<div class="pic" style="background:#ddd url(' + esc(p.photo) + ') center/cover"></div>' : '<div class="pic" style="background:' + (p.c || colorOf(p.n)) + '">' + esc(p.n[0] || '?') + '</div>';
+    stage.innerHTML = '<div class="found">' + pic + '<div><h3>' + esc(p.n) + '</h3><div class="mut" style="font-size:13px">' + esc(p.a) + '</div><div class="facts">' + facts.map(function (f) { return '<span>' + f + '</span>'; }).join('') + '</div></div></div><div class="idle" id="idle2"><div class="mut">Your floor plan will be drafted here.</div></div>';
+    ai('Found it: <b>' + esc(p.n) + '</b>' + (p.a ? ' on ' + esc(p.a.split(',')[0]) : '') + (p.t || p.h ? ' (' + [p.t, p.h && p.h.toLowerCase()].filter(Boolean).map(esc).join(', ') + ')' : '') + '. I filled in what Google knows. <b>How do your guests order?</b>',
+      [{ t: 'At the table, with servers', f: function () { S.service = 'table'; q2(); } }, { t: 'At a counter', f: function () { S.service = 'counter'; q2(); } }, { t: 'Both', f: function () { S.service = 'both'; q2(); } }]);
+    step(1);
+  }
+  function q2() {
+    ai(S.service === 'counter' ? 'Got it, counter service. <b>How many seats or tables in the dining area?</b>' : 'Nice. <b>How many tables?</b> A rough number is fine.',
+      [{ t: 'Up to 10', f: function () { S.tables = 8; q3(); } }, { t: '10 – 20', f: function () { S.tables = 16; q3(); } }, { t: '20 – 40', f: function () { S.tables = 28; q3(); } }, { t: 'More than 40', f: function () { S.tables = 44; q3(); } }]);
+  }
+  function q3() {
+    ai('<b>Anything else I should know about?</b> Tap all that apply, then Done.', null, function () {
+      var box = document.createElement('div'); box.className = 'opts';
+      ['Bar', 'Patio', 'Drive-thru', 'Takeout counter'].forEach(function (x) { var b = document.createElement('button'); b.className = 'opt'; b.textContent = x; b.onclick = function () { var on = b.classList.toggle('on'); b.style.background = on ? 'var(--accent-soft)' : ''; }; box.appendChild(b); });
+      var d = document.createElement('button'); d.className = 'opt'; d.style.background = 'var(--accent-fill)'; d.style.color = '#fff'; d.textContent = 'Done';
+      d.onclick = function () { S.extras = Array.prototype.slice.call(box.querySelectorAll('.opt')).filter(function (b) { return b.style.background && b !== d; }).map(function (b) { return b.textContent; }); box.remove(); me(S.extras.length ? S.extras.join(', ') : 'Nothing else'); layouts(); };
+      box.appendChild(d); log.appendChild(box); scroll();
+    });
+  }
+  // O3 merged in (user, 4 Nov 2026: "i liked that layout choice"): the four layouts as small
+  // plans, the assistant's pick marked; the draft starts from the one tapped.
+  var TPL = {
+    fast: { n: 'Fast casual', d: 'counter, small dining, kitchen', svg: '<rect x="2" y="2" width="96" height="96" fill="#e9f3ec" stroke="#9cc8a8"/><rect x="100" y="2" width="58" height="60" fill="#fde9df" stroke="#e9a88a"/><rect x="100" y="64" width="58" height="34" fill="#ece8f8" stroke="#b3a5e6"/>' },
+    full: { n: 'Full service', d: 'dining hall, kitchen, bar', svg: '<rect x="2" y="2" width="110" height="96" fill="#e9f3ec" stroke="#9cc8a8"/><rect x="114" y="2" width="44" height="58" fill="#fde9df" stroke="#e9a88a"/><rect x="114" y="62" width="44" height="36" fill="#fff4d6" stroke="#e6c46c"/><circle cx="25" cy="25" r="6" fill="#cfc6bd"/><circle cx="55" cy="25" r="6" fill="#cfc6bd"/><circle cx="85" cy="25" r="6" fill="#cfc6bd"/><circle cx="25" cy="60" r="6" fill="#cfc6bd"/><circle cx="55" cy="60" r="6" fill="#cfc6bd"/><circle cx="85" cy="60" r="6" fill="#cfc6bd"/>' },
+    bar: { n: 'Bar &amp; grill', d: 'long bar, booths, kitchen', svg: '<rect x="2" y="2" width="70" height="96" fill="#e9f3ec" stroke="#9cc8a8"/><rect x="74" y="2" width="84" height="40" fill="#fff4d6" stroke="#e6c46c"/><rect x="74" y="44" width="84" height="54" fill="#fde9df" stroke="#e9a88a"/>' },
+    stall: { n: 'Food court stall', d: 'counter and kitchen only', svg: '<rect x="30" y="20" width="100" height="60" fill="#fde9df" stroke="#e9a88a"/><rect x="30" y="80" width="100" height="16" fill="#ece8f8" stroke="#b3a5e6"/>' }
+  };
+  function layouts() {
+    var rec = S.service === 'counter' ? (S.tables <= 8 ? 'stall' : 'fast') : (S.extras.indexOf('Bar') >= 0 && S.tables <= 16 ? 'bar' : 'full');
+    ai('Which of these <b>looks most like your place</b>? I\'d start from <b>' + TPL[rec].n + '</b>, given what you told me. You can change every room after.', null, function () {
+      var box = document.createElement('div'); box.className = 'opts tplc';
+      Object.keys(TPL).forEach(function (k) {
+        var b = document.createElement('button'); b.className = 'tplb' + (k === rec ? ' rec' : '');
+        b.innerHTML = '<svg viewBox="0 0 160 100">' + TPL[k].svg + '</svg><b>' + TPL[k].n + '</b><small>' + (k === rec ? '✦ suggested · ' : '') + TPL[k].d + '</small>';
+        b.onclick = function () { box.remove(); me(TPL[k].n.replace('&amp;', '&')); S.tpl = k; draft(); };
+        box.appendChild(b);
+      });
+      var auto = document.createElement('button'); auto.className = 'tplb tpl-ai';
+      auto.innerHTML = '<span class="spark">✦</span><span><b>Don\'t want to draw it?</b><small>Let our AI assistant do the layout for you</small></span>';
+      auto.onclick = function () { box.remove(); me('Let the AI assistant do it'); assistant(rec); };
+      box.appendChild(auto);
+      log.appendChild(box); scroll();
+    });
+  }
+  // The assistant does the layout: from a few words the owner types ("long room, 14 tables,
+  // kitchen at the back, bar on the left, a small patio"), or by itself from the answers.
+  // Here it reads the words with simple rules; the real page asks Claude.
+  function assistant(rec) {
+    ai('Happy to. <b>Describe your place in a sentence or two</b> (where the kitchen is, a bar, a patio, how many tables), or tap <b>Just do it</b> and I\'ll use what you told me.',
+      [{ t: 'Just do it', f: function () { S.tpl = rec; autoLayout(''); } }]);
+    S.awaitText = function (t) { var o = log.querySelector('.opts:last-child'); if (o) o.remove(); autoLayout(t); };
+    q.placeholder = 'e.g. long room, 14 tables, kitchen at the back, bar on the left';
+    q.focus();
+  }
+  function autoLayout(text) {
+    var t = (text || '').toLowerCase(), m = t.match(/(\d+)\s*(tables|tops|booths|seats)?/);
+    if (m) { var n = +m[1]; S.tables = m[2] === 'seats' ? Math.max(4, Math.round(n / 4)) : Math.max(2, Math.min(60, n)); }
+    if (/\bbar\b/.test(t) && S.extras.indexOf('Bar') < 0) S.extras.push('Bar');
+    if (/patio|terrace|outdoor|outside/.test(t) && S.extras.indexOf('Patio') < 0) S.extras.push('Patio');
+    if (/counter|order at|fast casual|quick service/.test(t)) S.service = S.service === 'table' ? 'both' : (S.service || 'counter');
+    if (/food court|stall|kiosk only/.test(t)) S.tpl = 'stall';
+    else if (/\bbar\b/.test(t) && /grill|pub|sports/.test(t)) S.tpl = 'bar';
+    else if (!S.tpl) S.tpl = S.service === 'counter' ? 'fast' : 'full';
+    S.kitchenSide = /kitchen[^,.]*\b(left)\b/.test(t) ? 'left' : 'back';
+    S.barSide = /\bbar\b[^,.]*\b(left)\b/.test(t) ? 'left' : '';
+    q.placeholder = 'Type an answer, or tap one above…';
+    var said = [];
+    if (m) said.push(S.tables + ' tables');
+    if (/kitchen/.test(t)) said.push('kitchen ' + (S.kitchenSide === 'left' ? 'on the left' : 'at the back'));
+    if (S.barSide) said.push('bar on the left');
+    var ex = S.extras.filter(function (e) { return !(S.barSide && e === 'Bar'); });
+    if (ex.length) said.push(ex.join(' and ').toLowerCase());
+    ai(said.length ? 'Got it: ' + said.join(', ') + '. Laying it out now…' : 'Laying it out from your answers…', null, function () { draft(true); });
+  }
+  function draft(byAI) {
+    step(2);
+    ai(byAI ? 'Drawing the rooms, placing ' + S.tables + ' tables and the devices…' : 'Give me a second, I\'m drafting your floor plan from what you told me…', null, function () {
+      setTimeout(function () {
+        buildPlanner();
+        if (byAI) { rooms = aiRooms(); fillTables(); suggest(true); }
+        ai('Here\'s a first draft from the <b>' + TPL[S.tpl || 'full'].n + '</b> layout: ' + rooms.map(function (r) { return '<b>' + T[r.t].n.toLowerCase() + '</b>'; }).join(', ') + (rooms.some(function (r) { return r.t === 'dining'; }) ? ', with ' + S.tables + ' tables' : '') + '. Drag rooms to move them, or pick a room tool and drag on the plan to draw a new one. I placed devices for the <b>' + PK[S.pkg].n + '</b> package: hover one to see what it is and where. Switch packages on the right.',
+          [{ t: 'Looks right', f: done }, { t: 'Suggest devices again', f: function () { suggest(true); ai('Done: placed again from the rooms you have now.'); } }]);
+        step(3);
+      }, 600);
+    });
+  }
+  function done() {
+    step(4);
+    ai('Last step: <b>your account</b>. I\'ll send the plan to the AIO team, and we\'ll confirm the devices with you before anything ships. What\'s your email?', [{ t: 'Use my Google account', f: function () { ai('That\'s it! This is a demo, so nothing was saved. The real page will create your venue, your account and a request for our team with this plan. 🎉'); } }]);
+  }
+
+  // ── the planner ──────────────────────────────────────────────────────────
+  var T = { dining: { n: 'Dining', c: '#e9f3ec', s: '#9cc8a8' }, kitchen: { n: 'Kitchen', c: '#fde9df', s: '#e9a88a' }, bar: { n: 'Bar', c: '#fff4d6', s: '#e6c46c' }, counter: { n: 'Counter', c: '#ece8f8', s: '#b3a5e6' }, entrance: { n: 'Entrance', c: '#e6f0fb', s: '#94b8e3' }, patio: { n: 'Patio', c: '#eef6e2', s: '#a9cf7c' } };
+  // The AIO lineup: what each spot on the plan is, and the hardware it is.
+  var D = { nugget: { n: 'Tableside AI', hw: 'T7 tablet · Nugget', k: 'T7', c: '#e0623f' }, kds: { n: 'Kitchen display', hw: 'Sunmi D2s', k: 'K', c: '#6a3fd0' }, pos: { n: 'POS', hw: 'Sunmi D3 Pro', k: 'P', c: '#0f5c4c' }, mpos: { n: 'Handheld', hw: 'Galaxy A14 5G', k: 'H', c: '#2f6db5' }, kiosk: { n: 'Self-order kiosk', hw: 'Kiosk 22', k: 'Ki', c: '#c2410c' }, menu: { n: 'Menu board', hw: 'HK1 TV box', k: 'M', c: '#2f9e8f' } };
+  var PK = {
+    full: { n: 'Full service', d: 'Nugget on every table, POS, handhelds, KDS', on: ['nugget', 'pos', 'mpos', 'kds'] },
+    counter: { n: 'Counter', d: 'POS, kiosks, KDS, menu boards', on: ['pos', 'kiosk', 'kds', 'menu'] },
+    both: { n: 'Everything', d: 'Table service and counter', on: ['nugget', 'pos', 'mpos', 'kds', 'kiosk', 'menu'] },
+    custom: { n: 'Custom', d: 'Choose each device', on: null }
+  };
+  var W = 760, H = 460, G = 20, rooms = [], tables = [], devs = [], tool = 'move', sel = -1, svg;
+  function snap(v) { return Math.round(v / G) * G; }
+  // The assistant's own layout: no overlaps, every room where the owner said. Kitchen along the
+  // back (or down the left), the bar down the left (or along the front), counter and entrance
+  // on the right, a patio along the front, the dining room in what is left.
+  function aiRooms() {
+    var bar = S.extras.indexOf('Bar') >= 0, patio = S.extras.indexOf('Patio') >= 0, x0 = 20, y0 = 20, x1 = W - 20, y1 = H - 20, out = [];
+    if (S.tpl === 'stall') return [{ t: 'kitchen', x: 160, y: 20, w: 440, h: 220 }, { t: 'counter', x: 160, y: 260, w: 440, h: 80 }, { t: 'entrance', x: 160, y: 360, w: 440, h: 80 }];
+    if (S.kitchenSide === 'left') { out.push({ t: 'kitchen', x: x0, y: y0, w: 140, h: y1 - y0 }); x0 += 160; }
+    else { out.push({ t: 'kitchen', x: x0, y: y0, w: x1 - x0, h: 110 }); y0 += 130; }
+    if (bar && S.barSide === 'left') { out.push({ t: 'bar', x: x0, y: y0, w: 110, h: y1 - y0 }); x0 += 130; }
+    var cw = 150, ch = Math.round((y1 - y0) * .55);
+    out.push({ t: 'counter', x: x1 - cw, y: y0, w: cw, h: ch }, { t: 'entrance', x: x1 - cw, y: y0 + ch + 20, w: cw, h: y1 - y0 - ch - 20 });
+    x1 -= cw + 20;
+    var strips = []; if (patio) strips.push('patio'); if (bar && S.barSide !== 'left') strips.push('bar');
+    var sh = strips.length ? 80 : 0, sw = strips.length ? (x1 - x0 - 20 * (strips.length - 1)) / strips.length : 0;
+    strips.forEach(function (t, i) { out.push({ t: t, x: x0 + i * (sw + 20), y: y1 - sh, w: sw, h: sh }); });
+    out.push({ t: 'dining', x: x0, y: y0, w: x1 - x0, h: y1 - y0 - (sh ? sh + 20 : 0) });
+    out.forEach(function (r) { r.x = snap(r.x); r.y = snap(r.y); r.w = snap(r.w); r.h = snap(r.h); });
+    return out;
+  }
+  function buildPlanner() {
+    S.pkg = S.service === 'counter' ? 'counter' : S.service === 'both' ? 'both' : 'full';
+    var bar = S.extras.indexOf('Bar') >= 0, patio = S.extras.indexOf('Patio') >= 0;
+    var dw = S.tables > 24 ? 440 : S.tables > 10 ? 380 : 300, tpl = S.tpl || 'full';
+    if (tpl === 'stall') {
+      rooms = [{ t: 'kitchen', x: 160, y: 20, w: 440, h: 220 }, { t: 'counter', x: 160, y: 260, w: 440, h: 80 }, { t: 'entrance', x: 160, y: 360, w: 440, h: 80 }];
+      bar = false;
+    } else if (tpl === 'fast') {
+      rooms = [{ t: 'counter', x: 20, y: 20, w: 420, h: 120 }, { t: 'dining', x: 20, y: 160, w: 420, h: 280 }, { t: 'kitchen', x: 460, y: 20, w: 280, h: 240 }, { t: 'entrance', x: 460, y: 280, w: 280, h: 160 }];
+    } else if (tpl === 'bar') {
+      rooms = [{ t: 'dining', x: 20, y: 20, w: 300, h: 420 }, { t: 'bar', x: 340, y: 20, w: 400, h: 120 }, { t: 'kitchen', x: 340, y: 160, w: 260, h: 180 }, { t: 'counter', x: 620, y: 160, w: 120, h: 180 }, { t: 'entrance', x: 340, y: 360, w: 400, h: 80 }];
+      bar = false; // the template has it
+    } else {
+      rooms = [
+        { t: 'dining', x: 20, y: 20, w: dw, h: 300 },
+        { t: 'kitchen', x: dw + 40, y: 20, w: W - dw - 60, h: 180 },
+        { t: 'counter', x: dw + 40, y: 220, w: W - dw - 60, h: 100 },
+        { t: 'entrance', x: 20, y: 340, w: 160, h: 100 }
+      ];
+    }
+    if (bar) rooms.push({ t: 'bar', x: 200, y: 340, w: 260, h: 100 });
+    if (patio && tpl !== 'stall') rooms.push({ t: 'patio', x: tpl === 'full' ? (bar ? 480 : 200) : 20, y: tpl === 'full' ? 340 : 0, w: tpl === 'full' ? (bar ? 260 : 540) : 0, h: 100 });
+    rooms = rooms.filter(function (r) { return r.w > 0; });
+    stage.innerHTML = stage.querySelector('.found').outerHTML.replace('class="found"', 'class="found" style="margin:12px 14px 0;padding:10px 12px"').replace(/width:84px;height:84px/, 'width:44px;height:44px') +
+      '<div class="planner"><div class="pl-main"><div class="tools" id="tools"></div><div class="canvas"><svg class="plan" id="plan" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '"></svg></div><div class="hint" id="hint">Drag a room to move it · pick a room tool, then drag on the plan to draw one · drag a device to move it · Delete removes the selected room</div></div><div class="side" id="side"></div></div>';
+    svg = document.getElementById('plan');
+    var tb = document.getElementById('tools');
+    tb.innerHTML = '<button class="tool on" data-t="move">↖ Move</button><span class="sep"></span>' + Object.keys(T).map(function (k) { return '<button class="tool" data-t="' + k + '"><i style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n + '</button>'; }).join('') + '<span class="sep"></span><button class="tool" data-t="tables">⊕ Tables</button><button class="tool" id="ai-btn" style="border-color:var(--accent-edge);color:var(--accent-text)">✦ Suggest devices</button><button class="tool" id="ai-lay" style="border-color:var(--accent-edge);color:var(--accent-text)">✦ Let AI do the layout</button>';
+    tb.addEventListener('click', function (e) {
+      var b = e.target.closest('.tool'); if (!b) return;
+      if (b.id === 'ai-btn') { suggest(true); return; }
+      if (b.id === 'ai-lay') { me('Let the AI assistant do the layout'); assistant(S.tpl || 'full'); return; }
+      if (b.dataset.t === 'tables') { fillTables(); suggest(false); return; }
+      tool = b.dataset.t; tb.querySelectorAll('.tool').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+    fillTables(); suggest(true); wire(); side();
+  }
+  function fillTables() {
+    tables = []; var no = 0;
+    rooms.forEach(function (r, ri) {
+      if (r.t !== 'dining' && r.t !== 'patio' && r.t !== 'bar') return;
+      if (r.t === 'bar') {
+        if (r.h > r.w) { for (var yy = r.y + 30; yy < r.y + r.h - 20; yy += 34) tables.push({ x: r.x + 26, y: yy, r: 9, room: ri, bar: true, side: true, no: 'Bar ' + (++no) }); }
+        else { for (var x = r.x + 30; x < r.x + r.w - 20; x += 34) tables.push({ x: x, y: r.y + 30, r: 9, room: ri, bar: true, no: 'Bar ' + (++no) }); }
+        return;
+      }
+      var want = r.t === 'dining' ? S.tables : Math.round(S.tables / 3), cols = Math.max(2, Math.round(Math.sqrt(want * r.w / r.h))), rows = Math.max(1, Math.ceil(want / cols));
+      var dx = r.w / cols, dy = r.h / rows, n = 0;
+      for (var j = 0; j < rows; j++) for (var i = 0; i < cols; i++) { if (n++ >= want) break; tables.push({ x: r.x + dx * (i + .5), y: r.y + dy * (j + .5), r: Math.min(16, Math.min(dx, dy) / 3.2), room: ri, no: 'T' + (++no) }); }
+    });
+  }
+  // The AI's placement rules: one Nugget per table, KDS along the kitchen's far wall (one per
+  // ~10 tables, at least 2), POS at the counter, handhelds parked at the counter, kiosks by the
+  // entrance, menu boards over the counter.
+  function suggest(animate) {
+    var on = PK[S.pkg].on || Object.keys(D).filter(function (k) { return devs.some(function (d) { return d.t === k; }); });
+    devs = [];
+    var find = function (t) { return rooms.filter(function (r) { return r.t === t; }); };
+    // One Tableside AI per table; along a bar, one per three seats (guests share).
+    if (on.indexOf('nugget') >= 0) { var seat = 0; tables.forEach(function (t) { if (t.bar && (seat++ % 3)) return; devs.push({ t: 'nugget', x: t.x + (t.side ? 26 : 0), y: t.y - (t.bar && !t.side ? 16 : 0), at: t.no }); }); }
+    find('kitchen').forEach(function (k) { if (on.indexOf('kds') < 0) return; var n = Math.max(2, Math.round(S.tables / 10)); for (var i = 0; i < n; i++) devs.push({ t: 'kds', x: k.x + k.w * (i + 1) / (n + 1), y: k.y + 18 }); });
+    find('counter').forEach(function (c) {
+      if (on.indexOf('pos') >= 0) { var n = S.tables > 20 ? 2 : 1; for (var i = 0; i < n; i++) devs.push({ t: 'pos', x: c.x + c.w * (i + 1) / (n + 1), y: c.y + c.h - 22 }); }
+      if (on.indexOf('mpos') >= 0) { var m = Math.max(2, Math.round(S.tables / 6)); for (var j = 0; j < m; j++) devs.push({ t: 'mpos', x: c.x + 20 + j * 24, y: c.y + c.h / 2 - 4 }); }
+      if (on.indexOf('menu') >= 0) for (var k2 = 0; k2 < 2; k2++) devs.push({ t: 'menu', x: c.x + c.w * (k2 + 1) / 3, y: c.y + 14 });
+    });
+    find('bar').forEach(function (b) { if (on.indexOf('pos') >= 0) devs.push({ t: 'pos', x: b.x + b.w - 24, y: b.y + b.h - 22 }); });
+    find('entrance').forEach(function (e) { if (on.indexOf('kiosk') >= 0) { var n = S.tables > 20 ? 2 : 1; for (var i = 0; i < n; i++) devs.push({ t: 'kiosk', x: e.x + e.w * (i + 1) / (n + 1), y: e.y + e.h / 2 }); } });
+    draw(animate); side();
+  }
+  function draw(animate) {
+    var h = '<defs><pattern id="g" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="rgba(0,0,0,.05)"/></pattern></defs><rect width="' + W + '" height="' + H + '" fill="url(#g)"/>';
+    rooms.forEach(function (r, i) { h += '<g class="room' + (i === sel ? ' sel' : '') + '" data-r="' + i + '"><rect x="' + r.x + '" y="' + r.y + '" width="' + r.w + '" height="' + r.h + '" rx="10" fill="' + T[r.t].c + '" stroke="' + T[r.t].s + '"/><text x="' + (r.x + 10) + '" y="' + (r.y + r.h - 10) + '">' + T[r.t].n + '</text></g>'; });
+    tables.forEach(function (t) { h += t.bar ? '<circle class="tbl" cx="' + t.x + '" cy="' + (t.y + (t.side ? 0 : 12)) + '" r="5"/>' : '<circle class="tbl" cx="' + t.x + '" cy="' + t.y + '" r="' + t.r + '"/><text class="tno" x="' + t.x + '" y="' + (t.y + t.r + 9) + '">' + t.no + '</text>'; });
+    devs.forEach(function (d, i) { var dd = D[d.t]; h += '<g class="dev' + (animate ? ' pop' : '') + '" data-d="' + i + '" style="transform-origin:' + d.x + 'px ' + d.y + 'px;animation-delay:' + (animate ? i * 18 : 0) + 'ms"><circle cx="' + d.x + '" cy="' + d.y + '" r="10" fill="' + dd.c + '"/><text x="' + d.x + '" y="' + d.y + '">' + dd.k + '</text><title>' + dd.n + ' · ' + dd.hw + (d.at ? ' · on ' + d.at : '') + '</title></g>'; });
+    svg.innerHTML = h;
+  }
+  function side() {
+    var el = document.getElementById('side'); if (!el) return;
+    var counts = {}; devs.forEach(function (d) { counts[d.t] = (counts[d.t] || 0) + 1; });
+    var h = '<h4>Package</h4><div class="pkgs">' + Object.keys(PK).map(function (k) { return '<button class="pkg' + (S.pkg === k ? ' on' : '') + '" data-p="' + k + '"><b>' + PK[k].n + '</b><small>' + PK[k].d + '</small></button>'; }).join('') + '</div>';
+    h += '<h4>Devices · ' + devs.length + '</h4>' + Object.keys(D).map(function (k) { return '<div class="dl"><span class="ic" style="background:' + D[k].c + '">' + D[k].k + '</span>' + D[k].n + '<span class="n">' + (counts[k] || 0) + '</span><span class="stp"><button data-m="' + k + '">−</button><button data-a="' + k + '">+</button></span></div>'; }).join('');
+    var n = counts.nugget || 0;
+    h += '<div class="why"><span class="spark" style="width:18px;height:18px;font-size:10px;vertical-align:-3px">✦</span> <b>Why:</b> ' + (n ? n + ' Tableside AI tablets: one on each table, one per three seats at the bar, so guests order and pay without waiting. ' : '') + (counts.kds ? counts.kds + ' kitchen screens along the kitchen wall, about one per 10 tables. ' : '') + (counts.pos ? counts.pos + ' POS at the ' + (rooms.some(function (r) { return r.t === 'bar'; }) ? 'counter and the bar. ' : 'counter. ') : '') + (counts.mpos ? counts.mpos + ' handhelds for servers, parked at the counter. ' : '') + (counts.kiosk ? counts.kiosk + ' kiosks by the entrance for walk-ins. ' : '') + (counts.menu ? counts.menu + ' menu boards above the counter.' : '') + '</div>';
+    el.innerHTML = h;
+    el.onclick = function (e) {
+      var p = e.target.closest('[data-p]'); if (p) { S.pkg = p.dataset.p; if (S.pkg !== 'custom') suggest(true); else side(); return; }
+      var a = e.target.closest('[data-a]'), m = e.target.closest('[data-m]');
+      if (a) { S.pkg = 'custom'; var r = rooms[0]; devs.push({ t: a.dataset.a, x: r.x + 30 + Math.random() * (r.w - 60), y: r.y + 30 + Math.random() * (r.h - 60) }); draw(false); side(); }
+      if (m) { S.pkg = 'custom'; for (var i = devs.length - 1; i >= 0; i--) if (devs[i].t === m.dataset.m) { devs.splice(i, 1); break; } draw(false); side(); }
+    };
+  }
+  function wire() {
+    var drag = null;
+    function pt(e) { var r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+    svg.addEventListener('pointerdown', function (e) {
+      var p = pt(e), dv = e.target.closest('.dev'), rm = e.target.closest('.room');
+      svg.setPointerCapture(e.pointerId);
+      if (tool === 'move' && dv) { drag = { k: 'dev', i: +dv.dataset.d, ox: p.x - devs[+dv.dataset.d].x, oy: p.y - devs[+dv.dataset.d].y }; return; }
+      if (tool === 'move' && rm) { var i = +rm.dataset.r; sel = i; drag = { k: 'room', i: i, ox: p.x - rooms[i].x, oy: p.y - rooms[i].y, sx: rooms[i].x, sy: rooms[i].y }; draw(false); return; }
+      if (tool !== 'move') { var r = { t: tool, x: snap(p.x), y: snap(p.y), w: 20, h: 20 }; rooms.push(r); sel = rooms.length - 1; drag = { k: 'new', i: sel, x0: r.x, y0: r.y }; draw(false); }
+    });
+    svg.addEventListener('pointermove', function (e) {
+      if (!drag) return; var p = pt(e);
+      if (drag.k === 'dev') { devs[drag.i].x = p.x - drag.ox; devs[drag.i].y = p.y - drag.oy; draw(false); }
+      if (drag.k === 'room') {
+        var r = rooms[drag.i], nx = snap(p.x - drag.ox), ny = snap(p.y - drag.oy), dx = nx - r.x, dy = ny - r.y;
+        r.x = nx; r.y = ny;
+        tables.forEach(function (t) { if (t.room === drag.i) { t.x += dx; t.y += dy; } });
+        devs.forEach(function (d) { if (d.x > r.x - dx && d.x < r.x - dx + r.w && d.y > r.y - dy && d.y < r.y - dy + r.h) { d.x += dx; d.y += dy; } });
+        draw(false);
+      }
+      if (drag.k === 'new') { var rr = rooms[drag.i], x1 = snap(p.x), y1 = snap(p.y); rr.x = Math.min(drag.x0, x1); rr.y = Math.min(drag.y0, y1); rr.w = Math.max(40, Math.abs(x1 - drag.x0)); rr.h = Math.max(40, Math.abs(y1 - drag.y0)); draw(false); }
+    });
+    svg.addEventListener('pointerup', function () {
+      if (drag && drag.k === 'new') { var r = rooms[drag.i]; if (r.t === 'dining' || r.t === 'patio' || r.t === 'bar') fillTables(); suggest(true);
+        ai('Added a <b>' + T[r.t].n.toLowerCase() + '</b> (' + Math.round(r.w / 20) + ' × ' + Math.round(r.h / 20) + ' squares) and placed devices for it.'); }
+      drag = null;
+    });
+    document.addEventListener('keydown', function (e) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && sel >= 0 && document.activeElement === document.body) { rooms.splice(sel, 1); sel = -1; fillTables(); suggest(false); }
+    });
+  }
+})();
+
+</script>
+</body>
+</html>
