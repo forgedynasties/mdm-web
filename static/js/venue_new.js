@@ -92,17 +92,14 @@
     html += '<div class="vn-fld"><span class="k">Hours</span><span>' + (b ? 'The backend\'s, kept in step' + src('backend') : 'Set them in Venue settings') + '</span></div>';
     html += '<div class="vn-fld"><span class="k">Icon</span><span>' + (b ? 'The backend\'s logo' + (h.google && h.google.website ? ', else the website\'s icon' : '') : h.google && h.google.website ? 'The website\'s icon' : 'Its initial') + '</span></div>';
     html += '<div class="vn-fld"><span class="k">AIO backend</span><span>' + (b ? 'Linked to ' + esc(b.env_label) + ' #' + b.id + (b.name !== h.name ? ' ("' + esc(b.name) + '")' : '') + (h.google ? ' <button type="button" class="vn-link" id="vn-unlink" style="font-size:12px">Not the same place?</button>' : '') : 'Not listed there · link it later in Venue settings') + '</span></div>';
-    if (b && b.devices && b.devices.length) {
-      html += '<div class="vn-devs"><h3>Devices the backend lists here</h3>' + b.devices.map(function (d) {
-        return '<label class="vn-dv"><input type="checkbox" name="serials" value="' + esc(d.serial) + '"' + (d.venue ? '' : ' checked') + '><span class="mono">' + esc(d.serial) + '</span>' + esc(d.label) + '<span class="st">' + (d.venue ? 'at ' + esc(d.venue) + ' · moves here' : 'no venue yet') + '</span></label>';
-      }).join('') + (b.total > b.devices.length ? '<div class="vn-dv" style="cursor:default;color:var(--muted)">' + (b.total - b.devices.length) + ' more the backend lists aren\'t in the MDM yet</div>' : '') + '</div>';
-    } else if (b && b.total) {
-      html += '<div class="vn-fld"><span class="k">Devices</span><span>The backend lists ' + b.total + ', none in the MDM yet</span></div>';
+    if (b && b.total) {
+      // Devices are placed from Setup (4 Nov 2026), not here: say what is waiting.
+      var inMdm = (b.devices || []).length;
+      html += '<div class="vn-fld"><span class="k">Devices</span><span>The backend lists ' + b.total + (inMdm ? ', ' + inMdm + ' in the MDM' : '') + '. Place them from Setup once the venue exists.</span></div>';
     }
     html += '<div class="vn-actions"><button type="button" class="cc-btn" id="vn-edit">Edit details</button><span class="sp"></span><button type="submit" class="cc-btn primary" id="vn-create"></button></div>';
     card.innerHTML = html;
-    label();
-    card.querySelectorAll('input[name=serials]').forEach(function (c) { c.addEventListener('change', label); });
+    $('vn-create').textContent = 'Create venue';
     $('vn-edit').addEventListener('click', function () { openForm(); if (name) name.focus(); });
     var ul = $('vn-unlink');
     if (ul) ul.addEventListener('click', function () {
@@ -111,10 +108,6 @@
       if (!g.google.website) g.google = h.google;
       pick(g);
     });
-  }
-  function label() {
-    var n = card.querySelectorAll('input[name=serials]:checked').length, b = $('vn-create');
-    if (b) b.textContent = n ? 'Create venue and deploy ' + n : 'Create venue';
   }
   // The search box sits inside the create form: an Enter there must never submit it.
   q.form && q.form.addEventListener('submit', function (e) {

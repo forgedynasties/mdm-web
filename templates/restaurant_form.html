@@ -46,7 +46,7 @@
 /* Until something is picked or "Add manually" is pressed, the page is only the search (user,
    4 Nov 2026: "first there will be only the search bar"). */
 .vn1.start{grid-template-columns:1fr;max-width:760px;margin:32px auto 16px;}
-.vn1.start .vn-card,form.vn-start .rf-steps,form.vn-start #rf-deploy{display:none;}
+.vn1.start .vn-card{display:none;}
 .vn-manual{display:inline-flex;align-items:center;gap:6px;margin-left:4px}
 .vn1.manual{grid-template-columns:1fr;}.vn1.manual .vn-card{display:none;}
 #rf-manual[hidden]{display:none;}
@@ -115,10 +115,6 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
   {{with .ForSerials}}<div class="rf-for">Opened from Setup for {{range $i, $s := .}}{{if $i}}, {{end}}<b class="mono">{{$s}}</b>{{end}}: {{if eq (len .) 1}}it is{{else}}they are{{end}} deployed to the new venue, and you go back to Setup.</div>{{end}}
 
   {{if not .Restaurant}}
-  <div class="rf-steps">
-    <span class="rf-step"><span class="n">1</span>Find the restaurant</span><span class="ln"></span>
-    <span class="rf-step"><span class="n">2</span>Deploy devices</span>
-  </div>
   {{/* N1 (4 Nov 2026): one search over Google Maps and the AIO backend comes first; the
        form below opens only for "Add manually" or "Edit details". */}}
   <div class="vn1 start" id="vn1" data-search="/restaurants/new/search">
@@ -179,6 +175,13 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
           <button type="submit" class="btn-primary">Save changes</button>
           <a href="/restaurants/{{.Restaurant.ID}}" class="btn-outline">Cancel</a>
         </div>
+        {{else}}
+        {{/* No device picker here (user, 4 Nov 2026: "deploy devices flow is through setup
+             page"): a new venue is created empty, its devices are placed from Setup. */}}
+        <div class="rf-actions">
+          <button type="submit" class="btn-primary" id="rf-create-btn" disabled>Create venue</button>
+          <a href="{{if .Back}}{{.Back}}{{else}}/restaurants{{end}}" class="btn-outline">Cancel</a>
+        </div>
         {{end}}
       </div>
     </div>
@@ -189,26 +192,11 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
       <div class="pv-name" id="pv-name">New venue</div>
       <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg><span id="pv-addr">No address yet</span></div>
       <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="pv-tz">Per-device timezone</span></div>
-      <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span><span data-dp-count>0</span> device<span data-dp-s>s</span> to deploy</span></div>
+      <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Devices are placed from Setup</span></div>
     </aside>
     {{end}}
   </div>
 
-  {{if not .Restaurant}}
-  <div class="card" id="rf-deploy">
-    <div class="card-header"><h2>Deploy devices</h2><span class="muted small">optional · a device lives at one venue, so adding moves it here</span></div>
-    <div style="padding:14px 20px 0;">
-      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Prompt" "Search serial, restaurant, group — or paste serials")}}
-    
-    <div class="rf-bottom" style="padding:16px 20px;">
-      <span class="muted small">Creating <b id="rf-sum-name" style="color:var(--text);">a new venue</b> · deploying <b data-dp-count style="color:var(--text);">0</b> device<span data-dp-s>s</span></span>
-      <span style="flex:1;"></span>
-      <a href="/restaurants" class="btn-outline">Cancel</a>
-      <button type="submit" class="btn-primary" id="rf-create-btn" disabled>Create restaurant</button>
-    </div>
-  </div>
-  <script src="/static/picker.js?v={{.AssetVer}}"></script>
-  {{end}}
 </form>
 
 <script src="/static/js/restaurant_form.js?v={{assetVer}}"></script>
