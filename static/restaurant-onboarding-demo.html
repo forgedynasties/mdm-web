@@ -104,7 +104,13 @@ html[data-theme="dark"] svg.plan{background:#1d1b22}
 .pk3 .c.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .pk3 ul{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--text-2);line-height:1.6}
 .tplc{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.acts{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 0;border-top:1px solid var(--border-soft)}
+.acts{display:flex;flex-wrap:nowrap;gap:5px;padding:8px 12px 0;border-top:1px solid var(--border-soft);overflow-x:auto}
+.acts .opt{padding:5px 10px;font-size:12px;white-space:nowrap;flex:none}
+.stage{overflow:auto}
+.found.sm{margin:10px 14px 0;padding:8px 12px;align-items:center}
+.found.sm .pic{width:40px;height:40px;border-radius:10px;font-size:16px}
+.found.sm h3{font-size:15px}
+.found.sm .facts{margin-top:4px}.found.sm .facts span{font-size:11px;padding:2px 7px}
 .acts[hidden]{display:none}
 .tpl-hand{border-style:dashed!important}
 .acts .opt.ai{background:var(--accent-soft)}
@@ -316,7 +322,7 @@ body{min-height:100vh}
       box.appendChild(hand);
       var auto = document.createElement('button'); auto.className = 'tplb tpl-ai';
       auto.innerHTML = '<span class="spark">✦</span><span><b>Don\'t want to draw it?</b><small>Let our AI assistant do the layout for you</small></span>';
-      auto.onclick = function () { box.remove(); me('Let the AI assistant do it'); assistant(rec); };
+      auto.onclick = function () { box.remove(); me('Let the AI assistant do it'); if (S.tpl === 'blank') S.tpl = ''; assistant(rec); };
       box.appendChild(auto);
       log.appendChild(box); scroll();
     });
@@ -369,11 +375,13 @@ body{min-height:100vh}
   function actions(on) {
     var a = document.getElementById('acts'); if (!a) return;
     a.hidden = !on; if (!on) return;
-    a.innerHTML = '<button class="opt" data-a="tpl">Change layout</button><button class="opt ai" data-a="lay">✦ Let AI redo it</button><button class="opt ai" data-a="dev">✦ Place devices again</button><button class="opt go" data-a="ok">Looks right →</button>';
+    // Change layout shows the layouts again, with Draw it myself and the AI assistant among them
+    // (user, 4 Nov 2026: one button, not "Change layout" and "Let AI redo it" side by side).
+    a.innerHTML = '<button class="opt" data-a="tpl">Change layout</button><button class="opt ai" data-a="dev">✦ Place devices again</button><button class="opt go" data-a="ok">Looks right →</button>';
     a.onclick = function (e) {
       var b = e.target.closest('[data-a]'); if (!b) return;
       if (b.dataset.a === 'tpl') { me('Change the layout'); layouts(true); }
-      if (b.dataset.a === 'lay') { me('Let the AI redo the layout'); if (S.tpl === 'blank') S.tpl = ''; assistant(S.tpl || 'full'); }
+
       if (b.dataset.a === 'dev') { me('Place the devices again'); suggest(true); ai('Done: placed again from the rooms you have now. ' + devs.length + ' devices.'); }
       if (b.dataset.a === 'ok') { me('Looks right'); done(); }
     };
@@ -440,7 +448,8 @@ body{min-height:100vh}
     if (bar) rooms.push({ t: 'bar', x: 200, y: 340, w: 260, h: 100 });
     if (patio && tpl !== 'stall') rooms.push({ t: 'patio', x: tpl === 'full' ? (bar ? 480 : 200) : 20, y: tpl === 'full' ? 340 : 0, w: tpl === 'full' ? (bar ? 260 : 540) : 0, h: 100 });
     rooms = rooms.filter(function (r) { return r.w > 0; });
-    stage.innerHTML = stage.querySelector('.found').outerHTML.replace('class="found"', 'class="found" style="margin:12px 14px 0;padding:10px 12px"').replace(/width:84px;height:84px/, 'width:44px;height:44px') +
+    var card = stage.querySelector('.found'); card.classList.add('sm');
+    stage.innerHTML = card.outerHTML +
       '<div class="planner"><div class="pl-main"><div class="tools" id="tools"></div><div class="canvas"><svg class="plan" id="plan" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '"></svg></div><div class="hint" id="hint">Drag a room to move it · pick a room tool, then drag on the plan to draw one · drag a device to move it · Delete removes the selected room</div></div><div class="side" id="side"></div></div>';
     svg = document.getElementById('plan');
     var tb = document.getElementById('tools');
