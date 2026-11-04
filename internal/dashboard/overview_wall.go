@@ -174,6 +174,19 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	} else {
 		log.Printf("[overview] facts: %v", err)
 	}
+	// Locked the way the Lock page counts it (lockedNow), among devices at a venue.
+	if _, kdevs, err := h.kioskSnapshot(ctx); err == nil {
+		in.Facts.AtVenue, in.Facts.Locked = 0, 0
+		for _, k := range kdevs {
+			if k.Dev.RestaurantID == nil || k.Dev.Hidden || k.Dev.Retired() || !acc.visible(k.Dev.ID) {
+				continue
+			}
+			in.Facts.AtVenue++
+			if lockedNow(k) {
+				in.Facts.Locked++
+			}
+		}
+	}
 	if all, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 100000, "serial", "asc"); err == nil {
 		slots, _ := h.clientSlotSummaries(r, acc.keepVisible(all))
 		for _, v := range slots {
