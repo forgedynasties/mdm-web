@@ -43,6 +43,12 @@
 /* New venue N1: search first */
 .vn1{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start;margin-bottom:16px;}
 @media (max-width:1024px){.vn1{grid-template-columns:1fr;}}
+/* Until something is picked or "Add manually" is pressed, the page is only the search (user,
+   4 Nov 2026: "first there will be only the search bar"). */
+.vn1.start{grid-template-columns:1fr;max-width:760px;margin:32px auto 16px;}
+.vn1.start .vn-card,form.vn-start .rf-steps,form.vn-start #rf-deploy{display:none;}
+.vn-manual{display:inline-flex;align-items:center;gap:6px;margin-left:4px}
+.vn1.manual{grid-template-columns:1fr;}.vn1.manual .vn-card{display:none;}
 .vn-srch{position:relative}
 .vn-srch input{width:100%;box-sizing:border-box;font:inherit;font-size:15px;padding:13px 14px 13px 42px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text)}
 .vn-srch input:focus{outline:2px solid var(--accent-edge);border-color:var(--accent)}
@@ -101,7 +107,7 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
 {{end}}
 
 {{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
-<form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST">
+<form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST"{{if not .Restaurant}} class="vn-start"{{end}}>
   {{if .RedirectTo}}<input type="hidden" name="redirect" value="{{.RedirectTo}}">{{end}}
   {{if .Back}}<input type="hidden" name="back" value="{{.Back}}">{{end}}
   {{range .ForSerials}}<input type="hidden" name="serials" value="{{.}}">{{end}}
@@ -113,15 +119,15 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
     <span class="rf-step"><span class="n">2</span>Deploy devices</span>
   </div>
   {{/* N1 (4 Nov 2026): one search over Google Maps and the AIO backend comes first; the
-       form below opens only for "Enter it by hand" or "Edit details". */}}
-  <div class="vn1" id="vn1" data-search="/restaurants/new/search">
+       form below opens only for "Add manually" or "Edit details". */}}
+  <div class="vn1 start" id="vn1" data-search="/restaurants/new/search">
     <div class="vn-find">
       <div class="vn-srch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <input id="vn-q" type="search" placeholder="Search a restaurant: name, street or city" autocomplete="off" autofocus
                role="combobox" aria-expanded="false" aria-controls="vn-res" aria-label="Search a restaurant"></div>
       <div class="vn-hint" id="vn-hint">Searches Google Maps and the AIO backend together.</div>
       <div class="vn-res" id="vn-res" role="listbox" aria-label="Restaurants found" hidden></div>
-      <div class="vn-foot">Not listed? <button type="button" class="vn-link" id="vn-hand">Enter it by hand</button></div>
+      <div class="vn-foot">Not listed? <button type="button" class="vn-link vn-manual" id="vn-hand"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add manually</button></div>
     </div>
     <aside class="card vn-card" id="vn-card" aria-live="polite"><div class="vn-ph">Pick a restaurant on the left: its details land here, ready to create.</div></aside>
   </div>
@@ -188,7 +194,7 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
   </div>
 
   {{if not .Restaurant}}
-  <div class="card">
+  <div class="card" id="rf-deploy">
     <div class="card-header"><h2>Deploy devices</h2><span class="muted small">optional · a device lives at one venue, so adding moves it here</span></div>
     <div style="padding:14px 20px 0;">
       {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Prompt" "Search serial, restaurant, group — or paste serials")}}

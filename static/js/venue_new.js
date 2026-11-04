@@ -28,7 +28,7 @@
   }
   function render(google) {
     res.hidden = false; q.setAttribute('aria-expanded', 'true');
-    res.innerHTML = hits.length ? hits.map(row).join('') : '<div class="vn-empty">Nothing in Google Maps or the AIO backend for that. Try the street or the city, or enter it by hand.</div>';
+    res.innerHTML = hits.length ? hits.map(row).join('') : '<div class="vn-empty">Nothing in Google Maps or the AIO backend for that. Try the street or the city, or add it manually.</div>';
     hint.textContent = google === 'off' ? 'Google Maps search is not set up on this server: only the AIO backend was searched.'
       : google === 'error' ? 'Google Maps did not answer: only the AIO backend was searched.'
       : google === 'busy' ? 'Too many searches in a minute: only the AIO backend was searched.'
@@ -44,7 +44,7 @@
     fetch(url + '?q=' + encodeURIComponent(v), { credentials: 'same-origin', signal: ctl ? ctl.signal : undefined })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) { hits = d.results || []; render(d.google); })
-      .catch(function (e) { if (e && e.name === 'AbortError') return; hint.textContent = 'The search failed. Try again, or enter it by hand.'; });
+      .catch(function (e) { if (e && e.name === 'AbortError') return; hint.textContent = 'The search failed. Try again, or add it manually.'; });
   }
   q.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(search, 300); });
   q.addEventListener('keydown', function (e) {
@@ -64,10 +64,13 @@
     pick(hits[+b.dataset.i]);
     res.querySelectorAll('.vn-ri').forEach(function (r) { r.classList.toggle('on', r === b); });
   });
-  $('vn-hand').addEventListener('click', function () { pick(null); openForm(); if (name) name.focus(); });
+  $('vn-hand').addEventListener('click', function () { pick(null); box.classList.add('manual'); openForm(); if (name) name.focus(); });
 
   function set(id, v) { var el = $(id); if (el) el.value = v == null ? '' : v; }
-  function openForm() { if (manual) manual.hidden = false; if (window.rfPrev) rfPrev(); }
+  // Leaves the search-only start: the card (a pick) or the form (Add manually), the steps and
+  // the Deploy devices card come in.
+  function unfold() { box.classList.remove('start'); if (q.form) q.form.classList.remove('vn-start'); }
+  function openForm() { unfold(); if (manual) manual.hidden = false; if (window.rfPrev) rfPrev(); }
   function pick(h) {
     picked = h;
     set('vn-lat', h && h.lat); set('vn-lng', h && h.lng); set('vn-tz', h && h.tz);
@@ -76,7 +79,8 @@
     if (name) name.value = h ? h.name : name.value;
     if (addr) addr.value = h ? h.address : addr.value;
     if (window.rfPrev) rfPrev();
-    if (!h) { card.innerHTML = '<div class="vn-ph">Entering it by hand: fill in the form below. You can link it to the AIO backend later in Venue settings.</div>'; return; }
+    if (!h) { card.innerHTML = '<div class="vn-ph">Adding it manually: fill in the form below. You can link it to the AIO backend later in Venue settings.</div>'; return; }
+    unfold(); box.classList.remove('manual');
     drawCard(h);
   }
   function src(s) { return '<span class="vn-src">' + s + '</span>'; }
