@@ -104,6 +104,10 @@ html[data-theme="dark"] svg.plan{background:#1d1b22}
 .pk3 .c.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .pk3 ul{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--text-2);line-height:1.6}
 .tplc{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acts{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px 0;border-top:1px solid var(--border-soft)}
+.acts[hidden]{display:none}
+.acts .opt.ai{background:var(--accent-soft)}
+.acts .opt.go{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff;margin-left:auto}
 .tpl-ai{grid-column:1/-1;display:flex;gap:10px;align-items:center;border-color:var(--accent-edge)!important;background:var(--accent-soft)!important}
 .tpl-ai .spark{width:28px;height:28px;border-radius:9px}
 .tplb{border:1px solid var(--border);border-radius:14px;padding:8px;background:var(--surface);cursor:pointer;text-align:left;font:inherit;color:var(--text)}
@@ -135,6 +139,7 @@ body{min-height:100vh}
       <div class="o1">
         <div class="chat">
           <div class="log" id="log"></div>
+          <div class="acts" id="acts" hidden></div>
           <div class="compose">
             <div class="sugg" id="sugg" hidden></div>
             <input id="q" placeholder="City or ZIP, e.g. Las Vegas" autocomplete="off">
@@ -343,13 +348,27 @@ body{min-height:100vh}
       setTimeout(function () {
         buildPlanner();
         if (byAI) { rooms = aiRooms(); fillTables(); suggest(true); }
-        ai('Here\'s a first draft from the <b>' + TPL[S.tpl || 'full'].n + '</b> layout: ' + rooms.map(function (r) { return '<b>' + T[r.t].n.toLowerCase() + '</b>'; }).join(', ') + (rooms.some(function (r) { return r.t === 'dining'; }) ? ', with ' + S.tables + ' tables' : '') + '. Drag rooms to move them, or pick a room tool and drag on the plan to draw a new one. I placed devices for the <b>' + PK[S.pkg].n + '</b> package: hover one to see what it is and where. Switch packages on the right.',
-          [{ t: 'Looks right', f: done }, { t: 'Suggest devices again', f: function () { suggest(true); ai('Done: placed again from the rooms you have now.'); } }]);
+        ai('Here\'s a first draft from the <b>' + TPL[S.tpl || 'full'].n + '</b> layout: ' + rooms.map(function (r) { return '<b>' + T[r.t].n.toLowerCase() + '</b>'; }).join(', ') + (rooms.some(function (r) { return r.t === 'dining'; }) ? ', with ' + S.tables + ' tables' : '') + '. Drag rooms to move them, or pick a room tool and drag on the plan to draw a new one. When it looks right, tell me below. I placed devices for the <b>' + PK[S.pkg].n + '</b> package: hover one to see what it is and where. Switch packages on the right.',
+          null, function () { actions(true); });
         step(3);
       }, 600);
     });
   }
+  // The assistant's actions on the plan (user, 4 Nov 2026: "the ai button or the cta buttons
+  // should have been in chat instead of top"): a row above the box while the plan is open.
+  function actions(on) {
+    var a = document.getElementById('acts'); if (!a) return;
+    a.hidden = !on; if (!on) return;
+    a.innerHTML = '<button class="opt ai" data-a="lay">✦ Redo the layout</button><button class="opt ai" data-a="dev">✦ Place devices again</button><button class="opt go" data-a="ok">Looks right →</button>';
+    a.onclick = function (e) {
+      var b = e.target.closest('[data-a]'); if (!b) return;
+      if (b.dataset.a === 'lay') { me('Redo the layout'); assistant(S.tpl || 'full'); }
+      if (b.dataset.a === 'dev') { me('Place the devices again'); suggest(true); ai('Done: placed again from the rooms you have now. ' + devs.length + ' devices.'); }
+      if (b.dataset.a === 'ok') { me('Looks right'); done(); }
+    };
+  }
   function done() {
+    actions(false);
     step(4);
     ai('Last step: <b>your account</b>. I\'ll send the plan to the AIO team, and we\'ll confirm the devices with you before anything ships. What\'s your email?', [{ t: 'Use my Google account', f: function () { ai('That\'s it! This is a demo, so nothing was saved. The real page will create your venue, your account and a request for our team with this plan. 🎉'); } }]);
   }
@@ -412,11 +431,10 @@ body{min-height:100vh}
       '<div class="planner"><div class="pl-main"><div class="tools" id="tools"></div><div class="canvas"><svg class="plan" id="plan" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '"></svg></div><div class="hint" id="hint">Drag a room to move it · pick a room tool, then drag on the plan to draw one · drag a device to move it · Delete removes the selected room</div></div><div class="side" id="side"></div></div>';
     svg = document.getElementById('plan');
     var tb = document.getElementById('tools');
-    tb.innerHTML = '<button class="tool on" data-t="move">↖ Move</button><span class="sep"></span>' + Object.keys(T).map(function (k) { return '<button class="tool" data-t="' + k + '"><i style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n + '</button>'; }).join('') + '<span class="sep"></span><button class="tool" data-t="tables">⊕ Tables</button><button class="tool" id="ai-btn" style="border-color:var(--accent-edge);color:var(--accent-text)">✦ Suggest devices</button><button class="tool" id="ai-lay" style="border-color:var(--accent-edge);color:var(--accent-text)">✦ Let AI do the layout</button>';
+    tb.innerHTML = '<button class="tool on" data-t="move">↖ Move</button><span class="sep"></span>' + Object.keys(T).map(function (k) { return '<button class="tool" data-t="' + k + '"><i style="background:' + T[k].c + ';box-shadow:inset 0 0 0 1px ' + T[k].s + '"></i>' + T[k].n + '</button>'; }).join('') + '<span class="sep"></span><button class="tool" data-t="tables">⊕ Tables</button>';
     tb.addEventListener('click', function (e) {
       var b = e.target.closest('.tool'); if (!b) return;
-      if (b.id === 'ai-btn') { suggest(true); return; }
-      if (b.id === 'ai-lay') { me('Let the AI assistant do the layout'); assistant(S.tpl || 'full'); return; }
+
       if (b.dataset.t === 'tables') { fillTables(); suggest(false); return; }
       tool = b.dataset.t; tb.querySelectorAll('.tool').forEach(function (x) { x.classList.toggle('on', x === b); });
     });
