@@ -129,7 +129,7 @@ body{min-height:100vh}
      (Places, mocked here), a short survey, an AI-drafted floor plan with devices placed by rule,
      packages. Nothing is saved and no API is called. Served by OnboardingDemo. -->
 <div class="wrap">
-<div class="demo-tag"><b>Demo</b> nothing here is saved · the restaurant search is a sample list</div>
+<div class="demo-tag"><b>Demo</b> nothing here is saved</div>
 <div class="frame">
       <div class="bar"><span class="brand"><b>AIO</b> · Set up your restaurant</span><div class="steps" id="o1-steps"><span class="on">Find</span><span>About you</span><span>Floor plan</span><span>Devices</span><span>Account</span></div></div>
       <div class="o1">
@@ -137,7 +137,7 @@ body{min-height:100vh}
           <div class="log" id="log"></div>
           <div class="compose">
             <div class="sugg" id="sugg" hidden></div>
-            <input id="q" placeholder="Your restaurant's name…" autocomplete="off">
+            <input id="q" placeholder="City or ZIP, e.g. Las Vegas" autocomplete="off">
             <button class="btn p" id="send">Send</button>
           </div>
         </div>
@@ -159,6 +159,7 @@ body{min-height:100vh}
     { n: 'Tacos El Compa', a: '980 E Santa Clara St, San Jose, CA', c: '#c53030', r: '4.5', t: 'Mexican · counter', h: 'Open 09:00 – 23:00', p: '(408) 555-0101' },
     { n: 'Ah Huevo - Pleasanton', a: '4515 Rosewood Dr, Pleasanton, CA', c: '#d69e2e', r: '4.3', t: 'Breakfast · counter', h: 'Open 07:00 – 15:00', p: '(925) 555-0120' }
   ];
+  function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var log = document.getElementById('log'), q = document.getElementById('q'), sugg = document.getElementById('sugg');
   var stage = document.getElementById('stage'), steps = document.getElementById('o1-steps').children;
   var S = { place: null, service: null, tables: 16, extras: [], kitchens: 2 };
@@ -185,13 +186,40 @@ body{min-height:100vh}
     log.appendChild(box); scroll();
   }
   // ── 1. find it ──
-  ai("Hi! I'll set up AIO for your restaurant in about two minutes. <b>What's it called?</b> I'll find it on Google.");
+  // First where (user, 4 Nov 2026: "we should ask where restaurant is so that the search is
+  // narrow"): a city or ZIP, or the browser's location; the name search then stays within
+  // about 40 km of it (the server's /where and /places).
+  function askWhere() {
+    ai("Hi! I'll set up AIO for your restaurant in about two minutes. First, <b>where is it?</b> A city or ZIP is enough.",
+      [{ t: '📍 Use my location', f: useMyLocation }, { t: 'Skip', f: function () { S.area = { name: '' }; askName(); } }]);
+  }
+  function useMyLocation() {
+    if (!navigator.geolocation) { ai("Your browser won't share its location. Type a city or ZIP instead."); return; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      S.area = { name: 'near you', lat: pos.coords.latitude, lng: pos.coords.longitude }; askName();
+    }, function () { ai("I couldn't get your location. Type a city or ZIP instead."); }, { timeout: 8000 });
+  }
+  function where(t) {
+    me(t);
+    fetch('/restaurant-onboarding-demo/where?q=' + encodeURIComponent(t))
+      .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .then(function (d) {
+        if (!d.found) { ai("I couldn't find <b>" + esc(t) + "</b>. Try a city name or a ZIP."); return; }
+        S.area = { name: d.name, lat: d.lat, lng: d.lng }; askName();
+      })
+      .catch(function () { S.area = { name: t }; askName(); });
+  }
+  function askName() {
+    var o = log.querySelector('.opts:last-child'); if (o) o.remove();
+    q.placeholder = "Your restaurant's name…"; q.value = ''; q.focus();
+    ai((S.area.name ? 'Got it, <b>' + esc(S.area.name) + '</b>. ' : '') + "<b>What's your restaurant called?</b> I'll look " + (S.area.lat ? 'around there' : 'for it') + ' on Google.');
+  }
+  askWhere();
   // Google Places through the server (/restaurant-onboarding-demo/places and /place); the
   // key never reaches the page. Without a key on the server (404) the sample list stands in.
   var SESSION = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)), live = true, seq = 0, timer = null, shown = [];
   var COLORS = ['#e0623f', '#6a3fd0', '#1d7a43', '#b7791f', '#c53030', '#2f6db5', '#0f5c4c'];
   function colorOf(n) { var h = 0; for (var i = 0; i < n.length; i++) h = (h * 31 + n.charCodeAt(i)) >>> 0; return COLORS[h % COLORS.length]; }
-  function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function list(items, src) {
     shown = items;
     sugg.innerHTML = items.map(function (p, i) { return '<div class="pl" data-i="' + i + '"><i style="background:' + (p.c || colorOf(p.n)) + '">' + esc(p.n[0] || '?') + '</i><span><b>' + esc(p.n) + '</b><small>' + esc(p.a) + '</small></span></div>'; }).join('') +
@@ -201,12 +229,12 @@ body{min-height:100vh}
   function sample(t) { list(PLACES.filter(function (p) { return p.n.toLowerCase().indexOf(t) >= 0 || p.a.toLowerCase().indexOf(t) >= 0; }).slice(0, 5), 'sample list (no Places key on this server)'); }
   q.addEventListener('input', function () {
     var t = q.value.trim().toLowerCase();
-    if (S.place || t.length < 2) { sugg.hidden = true; return; }
+    if (S.place || !S.area || t.length < 2) { sugg.hidden = true; return; }
     if (!live) { sample(t); return; }
     clearTimeout(timer);
     timer = setTimeout(function () {
       var my = ++seq;
-      fetch('/restaurant-onboarding-demo/places?q=' + encodeURIComponent(q.value.trim()) + '&s=' + SESSION)
+      fetch('/restaurant-onboarding-demo/places?q=' + encodeURIComponent(q.value.trim()) + '&s=' + SESSION + (S.area && S.area.lat ? '&lat=' + S.area.lat + '&lng=' + S.area.lng : ''))
         .then(function (r) { if (r.status === 404) { live = false; throw 0; } if (!r.ok) throw 0; return r.json(); })
         .then(function (d) { if (my === seq && !S.place) list(d.places || [], 'from Google Maps'); })
         .catch(function () { if (my === seq && !S.place) sample(t); });
@@ -226,6 +254,7 @@ body{min-height:100vh}
   }
   document.getElementById('send').onclick = function () {
     var t = q.value.trim(); if (!t) return;
+    if (!S.area) { q.value = ''; where(t); return; }
     if (S.place) { if (S.awaitText) { var f = S.awaitText; S.awaitText = null; q.value = ''; me(t); f(t); } return; }
     var first = sugg.querySelector('[data-i]'); if (first) first.click();
   };

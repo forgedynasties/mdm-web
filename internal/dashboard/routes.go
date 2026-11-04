@@ -23,6 +23,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurant-onboarding-demo", h.OnboardingDemo)
 	mux.HandleFunc("GET /restaurant-onboarding-demo/places", h.OnboardingPlacesSearch)
 	mux.HandleFunc("GET /restaurant-onboarding-demo/place", h.OnboardingPlaceDetails)
+	mux.HandleFunc("GET /restaurant-onboarding-demo/where", h.OnboardingWhere)
 	post("POST /login", h.LoginSubmit)
 	post("POST /logout", h.Logout)
 	mux.HandleFunc("GET /signup", h.SignupPage)

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -100,6 +101,14 @@ func (h *Handler) OnboardingPlacesSearch(w http.ResponseWriter, r *http.Request)
 	}
 	if s := r.URL.Query().Get("s"); s != "" && len(s) <= 64 {
 		body["sessionToken"] = s
+	}
+	// Where the restaurant is (asked first, 4 Nov 2026: "we should ask where restaurant is so
+	// that the search is narrow"): only places within about 40 km of it.
+	if lat, err1 := strconv.ParseFloat(r.URL.Query().Get("lat"), 64); err1 == nil {
+		if lng, err2 := strconv.ParseFloat(r.URL.Query().Get("lng"), 64); err2 == nil && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 {
+			body["locationRestriction"] = map[string]any{"circle": map[string]any{
+				"center": map[string]float64{"latitude": lat, "longitude": lng}, "radius": 40000.0}}
+		}
 	}
 	var res struct {
 		Suggestions []struct {
@@ -196,4 +205,24 @@ func writeJSONResp(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// OnboardingWhere: GET /restaurant-onboarding-demo/where?q=, the town or ZIP the owner typed,
+// as a name and a point (Google Geocoding, the server's key), so the restaurant search can be
+// kept to that area.
+func (h *Handler) OnboardingWhere(w http.ResponseWriter, r *http.Request) {
+	if !placesGate(w, r) {
+		return
+	}
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if h.geocoder == nil || len([]rune(q)) < 2 || len(q) > 120 {
+		writeJSONResp(w, map[string]any{"found": false})
+		return
+	}
+	ps, err := h.geocoder.Forward(r.Context(), q)
+	if err != nil || len(ps) == 0 {
+		writeJSONResp(w, map[string]any{"found": false})
+		return
+	}
+	writeJSONResp(w, map[string]any{"found": true, "name": ps[0].Address, "lat": ps[0].Lat, "lng": ps[0].Lon})
 }
