@@ -13,6 +13,13 @@
   function init(root) {
     if (!root || root.dataset.clReady) return;
     root.dataset.clReady = '1';
+    // Lean toolbar (5 Nov 2026, user: "make this also lean"): the chip row joins the search row.
+    var bar = root.querySelector('.fleet-bar'), chips = root.querySelector('.fl-fchips');
+    if (bar && chips && chips.parentNode !== bar && chips.previousElementSibling === bar) {
+      var srch = bar.querySelector('.fleet-search');
+      bar.insertBefore(chips, srch ? srch.nextSibling : bar.firstChild);
+      bar.classList.add('cl-lean');
+    }
     // [data-cl-body] names the table the views filter when the root holds more than one
     // (Alerts: the hidden Crashes pane comes first).
     var tbody = root.querySelector('[data-cl-body]') || root.querySelector('tbody');
