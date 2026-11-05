@@ -294,7 +294,8 @@
   // inserts the new <main> before it removes the old one and runs this in between, so
   // apply() found the old page's split, thought the work was done, and the new page
   // came up without one. Wait for the swap to finish when the old page is still here.
-  if (document.querySelectorAll('.ddc-main').length > 1) setTimeout(apply, 0); else apply();
+  function ready() { var d = document.querySelector('.device-detail'); if (d) d.classList.add('dd-ready'); }
+  if (document.querySelectorAll('.ddc-main').length > 1) setTimeout(function () { apply(); ready(); }, 0); else { apply(); ready(); }
 })();
 
 // Scroll cue (19 Oct): in the fitted split the right pane scrolls on its own and nothing

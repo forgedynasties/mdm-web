@@ -260,7 +260,12 @@
   else document.addEventListener('htmx:afterSettle',show,{once:true});
   setTimeout(show,6000);
 })();</script>
+{{/* While the page is still arriving, a wide window would show it unsplit (hero, tabs, full-width
+     graph) until split.js, near its end, arranges it (5 Nov 2026, user: "sometimes during device
+     page loading ui is like this"). Hidden until split.js marks it ready; 4 s fallback. */}}
+<style>@media (min-width:1100px){.device-detail:not(.dd-ready){visibility:hidden}}</style>
 <div class="device-detail cc-wrap dd-cc"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
+<script>(function(){var d=document.currentScript.parentElement;setTimeout(function(){if(d)d.classList.add('dd-ready');},4000);})();</script>
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero ddc-hero--ribbon">
