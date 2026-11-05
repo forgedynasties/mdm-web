@@ -42,13 +42,14 @@
     {{end}}
   </div>
   {{end}}
-  <div data-cl data-one="app" data-many="apps">
+  <div data-cl data-one="app" data-many="apps" data-start="role">
   <div class="fleet-md dv-rise-1">
     <aside class="fleet-rail" aria-label="App views">
       <div class="fleet-rail-cap"><span>Apps</span></div>
-      <button type="button" class="fleet-rail-item on" data-clf="" data-title="All apps" aria-pressed="true"><span class="dot ok"></span><span class="nm">All apps</span><span class="ct">{{len $a.Rows}}</span></button>
+      {{/* No "All apps" entry; Role apps opens first (5 Nov 2026, user: "no need to add all apps
+           to side rail in apps page, role apps should be selected by default"). */}}
+      <button type="button" class="fleet-rail-item on" data-clf="role" data-title="Role apps" aria-pressed="true"><span class="dot ok"></span><span class="nm">Role apps</span><span class="ct">{{$a.RoleN}}</span></button>
       {{if .CanShowAll}}
-      <button type="button" class="fleet-rail-item" data-clf="role" aria-pressed="false"><span class="dot ok"></span><span class="nm">Role apps</span><span class="ct">{{$a.RoleN}}</span></button>
       <button type="button" class="fleet-rail-item" data-clf="other" aria-pressed="false"><span class="dot muted"></span><span class="nm">Other apps</span><span class="ct">{{$a.OtherN}}</span></button>
       {{end}}
       {{if $a.Products}}
@@ -57,7 +58,7 @@
       {{end}}
     </aside>
     <div class="fleet-roster">
-      <div class="fleet-pane-head"><span class="t" data-cl-title>All apps</span><span class="c" data-cl-count>{{len $a.Rows}} app{{if ne (len $a.Rows) 1}}s{{end}}</span>{{if $lib}}<span class="ap-hact"><button type="button" class="cc-btn primary sm" onclick="libAddOpen()">Add APK</button></span>{{end}}</div>
+      <div class="fleet-pane-head"><span class="t" data-cl-title>Role apps</span><span class="c" data-cl-count>{{$a.RoleN}} app{{if ne $a.RoleN 1}}s{{end}}</span>{{if $lib}}<span class="ap-hact"><button type="button" class="cc-btn primary sm" onclick="libAddOpen()">Add APK</button></span>{{end}}</div>
       <div class="fleet-bar">
         <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search apps, packages, versions…" aria-label="Search apps"></div>
         <div class="fleet-fwrap">
