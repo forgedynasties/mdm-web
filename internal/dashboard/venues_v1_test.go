@@ -159,7 +159,7 @@ func TestVenuesListRenders(t *testing.T) {
 	}
 	out = buf.String()
 	for _, want := range []string{
-		`data-cl data-one="venue"`, `data-clf="look"`, `data-clf="st-CA"`, `>California<`, `data-clp="t7"`, `data-clc="pin"`,
+		`data-cl data-one="venue"`, `data-clf="look"`, `data-clf="st-CA"`, `>California<`, `data-clc="pin"`,
 		`data-cls="health" data-dir="asc"`, `class="ft cl-ft"`, `data-flags="look offline open hot st-CA"`, `Sunnyvale, CA · New York`,
 		`<span class="cl-now on">Open</span>`, `class="cc-tag bad">1 running hot`, `/static/js/coll_list.js`,
 		`<use href="#dk-kds">`,
@@ -167,6 +167,9 @@ func TestVenuesListRenders(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("table view is missing %q", want)
 		}
+	}
+	if strings.Contains(out, `data-clp=`) {
+		t.Error("Venues has no product tabs (5 Nov 2026)")
 	}
 	if strings.Contains(out, `id="vc1-grid"`) {
 		t.Error("the card grid should only render in the cards view")

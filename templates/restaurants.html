@@ -167,10 +167,7 @@
   </aside>
   <div class="fleet-roster">
     <div class="fleet-pane-head"><span class="t" data-cl-title>All venues</span><span class="c" data-cl-count data-extra=" · {{$s.Devices}} device{{if ne $s.Devices 1}}s{{end}}">{{len $v.Cards}} venues · {{$s.Devices}} devices</span></div>
-    {{if $v.Types}}<div class="ptabs" role="tablist" aria-label="Product">
-      <button type="button" class="ptab on" role="tab" aria-selected="true" data-clp="">All products</button>
-      {{range $v.Types}}<button type="button" class="ptab" role="tab" aria-selected="false" data-clp="{{.Key}}" title="Venues with a {{.Label}}"><span class="ptab-ic dl-ic {{.Key}}"><svg><use href="#dk-{{.Key}}"></use></svg></span>{{.Label}} <span class="n">{{.Venues}}</span></button>{{end}}
-    </div>{{end}}
+    {{/* No product tabs on Venues (5 Nov 2026, user: "no need for this on venues page"). */}}
     <div class="fleet-bar">
       <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search venue, address or city…" aria-label="Search venues" autocomplete="off"></div>
       {{template "cl-sort" "Health ↑"}}

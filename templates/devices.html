@@ -297,8 +297,14 @@
 </div>
 {{end}}
 
-{{if gt .TotalPages 1}}
-<div class="pagination">
+
+{{/* One lean row (5 Nov 2026, user: "this has to be lean also"): the count, the pager, Per page. */}}
+<div class="table-footer fl-foot">
+  <span class="fl-foot-n">
+    {{len .Devices}} of {{.Total}} device{{if ne .Total 1}}s{{end}}
+    {{if .Query}}matching "{{.Query}}"{{end}}{{if gt .TotalPages 1}} · page {{.Page}} of {{.TotalPages}}{{end}}
+  </span>
+{{if gt .TotalPages 1}}<div class="pagination">
   {{if gt .Page 1}}
     <button type="button" class="page-btn page-nav" data-page="{{sub .Page 1}}">&#8592; Prev</button>
   {{else}}
@@ -325,12 +331,6 @@
 </div>
 {{end}}
 
-<div class="table-footer" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-  <span>
-    Showing {{len .Devices}} of {{.Total}} device{{if ne .Total 1}}s{{end}}
-    {{if .Query}}matching "{{.Query}}"{{end}}
-    — page {{.Page}} of {{.TotalPages}}
-  </span>
   <label class="muted small" style="display:flex;align-items:center;gap:6px;">
     Per page
     <select class="form-input" style="width:auto;padding:2px 6px;font-size:12px;" onchange="navigateDevices({page_size: this.value, page: '1'})">
@@ -501,6 +501,13 @@ a.fleet-rail-item{min-height:40px}
 .fq-car{width:12px;height:12px;flex:none;opacity:.7}
 .fl-fchips{position:relative;z-index:39;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px}
 .fl-chip-list{display:contents}
+.fl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 8px 6px 16px;text-align:left}
+.fl-foot .fl-foot-n{flex:1 1 0;white-space:nowrap}
+.fl-foot .pagination{flex:none;padding:0;border:0;gap:4px}
+.fl-foot .page-numbers{gap:3px;flex-wrap:nowrap}
+.fl-foot .page-num,.fl-foot .page-btn{height:28px;min-width:28px;padding:0 9px;font-size:12px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center}
+.fl-foot label{flex:1 1 0;justify-content:flex-end}
+.fl-foot select.form-input{height:28px;border-radius:99px}
 /* Lean toolbar (5 Nov 2026): product tabs as one short row, then search, chips, Sort and
    List · Map on one row, so the table gets the height. */
 .ptabs{margin:0 0 8px;padding-bottom:0;border-bottom:0}
