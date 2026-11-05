@@ -15,11 +15,11 @@ func TestDeviceNeedsOf(t *testing.T) {
 		t.Fatalf("got %d needs: %+v", len(got), got)
 	}
 	for i, w := range want {
-		if got[i].Title != w || got[i].Why == "" {
+		if got[i].Title != w || (got[i].Why == "") != (i == 1) { // unknown sources is title only (5 Nov 2026)
 			t.Errorf("need %d = %+v, want %q", i, got[i], w)
 		}
 	}
-	if got[0].Tone != "bad" || got[0].Action != "adb" || got[1].Why != "aio.app.nugget may install apps outside the MDM" || got[4].Action != "" {
+	if got[0].Tone != "bad" || got[0].Action != "adb" || got[1].Why != "" || got[4].Action != "" {
 		t.Errorf("details: %+v", got)
 	}
 	if n := deviceNeedsOf(deviceSecurity{USBDebugging: "Off", DevOptions: "—"}, &db.Device{BatteryPct: 80}, true, false); len(n) != 0 {

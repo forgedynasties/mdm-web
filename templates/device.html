@@ -1901,6 +1901,10 @@ html[data-theme="dark"] .ddc-gtag{color:var(--text-2)}
 #dd-tab-activity{max-width:180px;overflow:hidden;transition:max-width .45s cubic-bezier(.22,1,.36,1),opacity .3s ease,padding .45s cubic-bezier(.22,1,.36,1),background var(--dur) var(--ease),color var(--dur) var(--ease)}
 body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-left:0;padding-right:0;margin-left:-2px;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.dd-recent,#dd-tab-activity{transition:none}}
+/* The device card first in the Overview (5 Nov 2026, user: "the model card deserves to be at top"). */
+.about-grid>#dd-hw{order:-1}
+/* Where the tabs pane cuts a card off at its foot, the cut is rounded like the cards. */
+html.dd-fit .dd-split-r{clip-path:inset(0 14px 0 10px round 0 0 20px 20px)}
 /* A2 · Apps tab (picked 5 Nov 2026): the host app as a card with three figures, then the
    other apps as lean rows (name, version · package, one figure and a bar). */
 .apl2-host{padding:16px;margin-bottom:12px}

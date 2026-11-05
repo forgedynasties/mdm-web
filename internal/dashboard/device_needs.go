@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"fmt"
-	"strings"
 
 	"mdm/internal/db"
 )
@@ -32,11 +31,9 @@ func deviceNeedsOf(sec deviceSecurity, d *db.Device, showBattery, flapping bool)
 		out = append(out, deviceNeed{Tone: "bad", Title: "Wireless adb open", Why: "Anyone on the venue Wi-Fi can try to connect", Action: "adb", Label: "Turn off"})
 	}
 	if sec.UnknownSources == "On" {
-		why := "An app may install other apps outside the MDM"
-		if len(sec.UnknownApps) > 0 {
-			why = strings.Join(sec.UnknownApps, ", ") + " may install apps outside the MDM"
-		}
-		out = append(out, deviceNeed{Tone: "warn", Title: "Installs from unknown sources allowed", Why: why, Action: "health", Label: "Details"})
+		// The title alone (5 Nov 2026, user: "keep this truncated only says Installs from
+		// unknown sources allowed"); the apps are listed under Health's compliance checks.
+		out = append(out, deviceNeed{Tone: "warn", Title: "Installs from unknown sources allowed", Action: "health", Label: "Details"})
 	}
 	if sec.USBDebugging == "On" {
 		out = append(out, deviceNeed{Tone: "warn", Title: "USB debugging on", Why: "A cable gets full access to the device", Action: "health", Label: "Details"})
