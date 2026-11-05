@@ -52,3 +52,32 @@ document.addEventListener('click', function (e) {
     }
   });
 })();
+
+// B1 fitted (5 Nov 2026): on a wide window at least 640 px tall the Overview fills the space
+// between the header and the dock and the page does not scroll; smaller screens scroll as
+// before. The class is dropped as soon as the page is left.
+(function () {
+  var ovd = document.querySelector('.ovd'); if (!ovd || !ovd.querySelector('.ovb')) return;
+  var root = document.documentElement;
+  function fit() {
+    if (!document.body.contains(ovd)) return off();
+    var dock = document.querySelector('nav.dock');
+    var bottom = dock && dock.getBoundingClientRect().height ? dock.getBoundingClientRect().top - 12 : innerHeight - 16;
+    var top = ovd.getBoundingClientRect().top + (root.classList.contains('ov-fit') ? 0 : scrollY);
+    var h = Math.floor(bottom - top);
+    if (innerWidth >= 1101 && innerHeight >= 640 && h >= 520) {
+      root.style.setProperty('--ovd-h', h + 'px'); root.classList.add('ov-fit'); scrollTo(0, 0);
+    } else {
+      root.classList.remove('ov-fit');
+    }
+  }
+  function off() {
+    root.classList.remove('ov-fit'); root.style.removeProperty('--ovd-h');
+    removeEventListener('resize', fit); document.removeEventListener('htmx:beforeSwap', leaving);
+  }
+  // Only a swap that replaces the Overview itself ends it (the bell and the island swap too).
+  function leaving(e) { var t = e.detail && e.detail.target; if (!t || t.contains(ovd)) off(); }
+  addEventListener('resize', fit);
+  document.addEventListener('htmx:beforeSwap', leaving);
+  fit(); requestAnimationFrame(fit);
+})();
