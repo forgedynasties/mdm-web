@@ -19,6 +19,9 @@
 .av-when{white-space:nowrap;color:var(--muted)}
 .cl-ft td.av-what{white-space:normal}
 .av-src{margin-bottom:12px}
+/* the job summary keeps its full height; only the log below scrolls in the app shell */
+html.shell .fleet-roster .card.av-src{flex:none!important;display:block}
+html.shell .fleet-roster .card.av-src > .ft-wrap{overflow:visible!important}
 .av-bar{display:block;height:6px;border-radius:3px;background:var(--canvas,var(--surface2));overflow:hidden;max-width:140px}.av-bar i{display:block;height:100%;border-radius:3px;background:var(--text-2)}
 </style>
 <div class="cl-page">

@@ -126,7 +126,7 @@
   <div class="dtl-list">{{template "dtl-rows" .}}</div>
   {{if .More}}<button type="button" class="app-more" hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}&n={{.Next}}" hx-target="#device-timeline" hx-swap="outerHTML">Show more</button>{{end}}
   {{else}}
-  <div class="muted small" style="padding:10px 14px">{{if ne .Track "people"}}Nothing from {{if eq .Track "auto"}}the server's jobs{{else}}the API or the QA rig{{end}} on this device.{{else if eq .Show "changes"}}No changes made from this page yet: locking, wireless charging, placement and naming show here with who did them.{{else if eq .Show "commands"}}No commands sent to this device yet.{{else}}Nothing done to this device yet.{{end}}</div>
+  <div class="muted small" style="padding:10px 14px">{{if ne .Track "people"}}Nothing from {{if eq .Track "auto"}}the server's jobs{{else}}the API or the QA rig{{end}} on this device.{{else if and .TrackN (or (index .TrackN "auto") (index .TrackN "api"))}}Nothing done by people yet; the server's jobs and the API are on their own chips above.{{else if eq .Show "changes"}}No changes made from this page yet: locking, wireless charging, placement and naming show here with who did them.{{else if eq .Show "commands"}}No commands sent to this device yet.{{else}}Nothing done to this device yet.{{end}}</div>
   {{end}}
 </div>
 {{end}}
