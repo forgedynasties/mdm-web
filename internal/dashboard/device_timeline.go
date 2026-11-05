@@ -79,6 +79,8 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 		show = "all"
 	}
 	probe := r.URL.Query().Get("probe") == "1"
+	// T1 (5 Nov 2026): People by default; Automations and API & QA on their own chips.
+	track := normTrack(r.URL.Query().Get("track"))
 	n, _ := strconv.Atoi(r.URL.Query().Get("n"))
 	if n < timelinePage {
 		n = timelinePage
@@ -114,6 +116,7 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 	}
 	var items []timelineItem
 	nCmd, nProbe, pending := 0, 0, false
+	trackCount := map[string]int{}
 	for i := range cmds {
 		c := &cmds[i]
 		if timelineIsProbe(*c) {
@@ -121,6 +124,11 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 			if !probe {
 				continue
 			}
+		}
+		ct := actorTrack(c.CreatedBy)
+		trackCount[ct]++
+		if ct != track {
+			continue
 		}
 		nCmd++
 		if c.Status == "pending" || c.Status == "delivered" || c.Status == "running" || c.Status == "downloading" || c.Status == "installing" {
@@ -132,6 +140,11 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 	}
 	if show != "commands" {
 		for i := range changes {
+			ct := actorTrack(changes[i].ActorKey)
+			trackCount[ct]++
+			if ct != track {
+				continue
+			}
 			items = append(items, timelineItem{At: changes[i].At, Change: &changes[i]})
 		}
 	}
@@ -153,5 +166,7 @@ func (h *Handler) DeviceTimelinePartial(w http.ResponseWriter, r *http.Request) 
 		"Pending": pending,
 		"Queue":   queue,
 		"Online":  h.hub.IsConnectedForDisplay(device.ID),
+		"Track":   track,
+		"TrackN":  trackCount,
 	}))
 }

@@ -18,20 +18,28 @@
 .av-what{color:var(--text-2)}
 .av-when{white-space:nowrap;color:var(--muted)}
 .cl-ft td.av-what{white-space:normal}
+.av-src{margin-bottom:12px}
+.av-bar{display:block;height:6px;border-radius:3px;background:var(--canvas,var(--surface2));overflow:hidden;max-width:140px}.av-bar i{display:block;height:100%;border-radius:3px;background:var(--text-2)}
 </style>
 <div class="cl-page">
 <div class="cc-top"><div><h1 class="cc-h1">Activity</h1></div></div>
 {{template "users-tabs" .}}
 <div class="fleet-md dv-rise-1">
   <aside class="fleet-rail" aria-label="Kinds of activity">
-    <div class="fleet-rail-cap"><span>Activity</span></div>
-    <a class="fleet-rail-item{{if not .Kind}} on{{end}}" href="/activity?{{.BaseQS}}"><span class="dot ok"></span><span class="nm">Everything</span><span class="ct">{{index .KindCount ""}}</span></a>
-    {{range .Kinds}}<a class="fleet-rail-item{{if eq $.Kind .Key}} on{{end}}" href="/activity?{{$.BaseQS}}&amp;kind={{.Key}}"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $.KindCount .Key}}</span></a>{{end}}
+    {{/* T1 (picked 5 Nov 2026): three tracks, People first; the kinds narrow the track. */}}
+    <div class="fleet-rail-cap"><span>Who</span></div>
+    <a class="fleet-rail-item{{if eq .Track "people"}} on{{end}}" href="/activity?{{.BaseQS}}"><span class="dot ok"></span><span class="nm">People</span><span class="ct">{{with .TrackCount}}{{index . "people"}}{{end}}</span></a>
+    <a class="fleet-rail-item{{if eq .Track "auto"}} on{{end}}" href="/activity?{{.BaseQS}}&amp;track=auto"><span class="dot" style="background:#8f86f0"></span><span class="nm">Automations</span><span class="ct">{{with .TrackCount}}{{index . "auto"}}{{end}}</span></a>
+    <a class="fleet-rail-item{{if eq .Track "api"}} on{{end}}" href="/activity?{{.BaseQS}}&amp;track=api"><span class="dot warn"></span><span class="nm">API &amp; QA</span><span class="ct">{{with .TrackCount}}{{index . "api"}}{{end}}</span></a>
+    <div class="fleet-rail-cap" style="margin-top:10px"><span>What</span></div>
+    <a class="fleet-rail-item{{if not .Kind}} on{{end}}" href="/activity?{{.BaseQS}}&amp;track={{.Track}}"><span class="dot muted"></span><span class="nm">Everything</span><span class="ct">{{index .KindCount ""}}</span></a>
+    {{range .Kinds}}<a class="fleet-rail-item{{if eq $.Kind .Key}} on{{end}}" href="/activity?{{$.BaseQS}}&amp;track={{$.Track}}&amp;kind={{.Key}}"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $.KindCount .Key}}</span></a>{{end}}
   </aside>
   <div class="fleet-roster">
     <div class="fleet-pane-head"><span class="t">{{if .Kind}}{{range .Kinds}}{{if eq $.Kind .Key}}{{.Label}}{{end}}{{end}}{{else}}Everything{{end}}</span><span class="c">{{.Total}} action{{if ne .Total 1}}s{{end}}</span></div>
     <form method="GET" action="/activity" class="av-f">
       {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+      {{if ne .Track "people"}}<input type="hidden" name="track" value="{{.Track}}">{{end}}
       <select name="actor" aria-label="Person" onchange="this.form.submit()">
         <option value="">Everyone</option>
         {{range .Actors}}<option value="{{.Username}}"{{if eq $.Actor .Username}} selected{{end}}>{{.Name}}</option>{{end}}
@@ -48,6 +56,17 @@
       <noscript><button type="submit" class="cc-btn sm">Filter</button></noscript>
       {{if or .Actor .Device .Kind}}<a href="/activity?days={{.Days}}" class="muted small">Clear</a>{{end}}
     </form>
+    {{if .Sources}}
+    {{/* One row per job or key: what it sent, how much failed, when it last ran. */}}
+    <div class="card cl-card av-src">
+      <div class="ft-wrap"><table class="ft cl-ft">
+        <thead><tr><th scope="col">{{if eq .Track "auto"}}Job{{else}}Key{{end}}</th><th scope="col" style="width:120px">Commands</th><th scope="col" style="width:120px">Failed</th><th scope="col" style="width:160px">Went through</th><th scope="col" style="width:110px">Last</th></tr></thead>
+        <tbody>{{range .Sources}}
+        <tr class="ft-row"><td><b>{{.Name}}</b>{{if .About}}<div class="muted small">{{.About}}</div>{{end}}</td><td>{{.Sent}}</td><td>{{if .Failed}}<span class="cc-tag bad">{{.Failed}} failed</span>{{else}}<span class="muted">0</span>{{end}}</td><td><span class="av-bar"><i style="width:{{.OkPct}}%"></i></span></td><td class="av-when">{{timeSince .Last}}</td></tr>
+        {{end}}</tbody>
+      </table></div>
+    </div>
+    {{end}}
     <div class="card cl-card dv-rise-2">
     {{if .Entries}}
     <div class="ft-wrap"><table class="ft cl-ft">
@@ -68,9 +87,9 @@
     {{end}}
     {{if gt .TotalPages 1}}
     <div class="pagination" style="padding:10px 14px">
-      {{if gt .Page 1}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;kind={{.Kind}}&amp;page={{sub .Page 1}}">&#8592; Prev</a>{{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
+      {{if gt .Page 1}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;track={{.Track}}&amp;kind={{.Kind}}&amp;page={{sub .Page 1}}">&#8592; Prev</a>{{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
       <span class="muted small">Page {{.Page}} of {{.TotalPages}}</span>
-      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;kind={{.Kind}}&amp;page={{add .Page 1}}">Next &#8594;</a>{{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
+      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;track={{.Track}}&amp;kind={{.Kind}}&amp;page={{add .Page 1}}">Next &#8594;</a>{{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
     </div>
     {{end}}
     </div>

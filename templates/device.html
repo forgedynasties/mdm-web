@@ -102,12 +102,19 @@
       </div>
 {{end}}{{end}}
 
-{{define "device-timeline"}}{{$q := printf "show=%s%s" .Show (or (and .Probe "&probe=1") "")}}
+{{define "device-timeline"}}{{$q := printf "show=%s%s&track=%s" .Show (or (and .Probe "&probe=1") "") .Track}}
 <div class="ddc-card" id="device-timeline" data-diff-guard data-morph
   {{if .Pending}}hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}" hx-select="unset" hx-target="this" hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML"{{end}}>
   <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Activity</h2><span class="m muted small">{{.NCmd}} command{{if ne .NCmd 1}}s{{end}} · {{.NChange}} change{{if ne .NChange 1}}s{{end}}{{if and .NChange (canManageUsers .Role)}} · <a href="/activity?device={{.Device.SerialNumber}}" class="link-detail">all activity</a>{{end}}</span></div>
+  {{$base := printf "/devices/%s/timeline" .Device.SerialNumber}}
+  {{/* T1 (5 Nov 2026): who did it, People first; the pills under it narrow the kind. */}}
+  <div class="dtl-pills dtl-tracks">
+    <button type="button" class="dtl-pill{{if eq .Track "people"}} on{{end}}" hx-get="{{$base}}?show={{.Show}}&track=people" hx-target="#device-timeline" hx-swap="outerHTML">People <span class="n">{{with .TrackN}}{{index . "people"}}{{end}}</span></button>
+    <button type="button" class="dtl-pill{{if eq .Track "auto"}} on{{end}}" hx-get="{{$base}}?show={{.Show}}&track=auto" hx-target="#device-timeline" hx-swap="outerHTML">Automations <span class="n">{{with .TrackN}}{{index . "auto"}}{{end}}</span></button>
+    <button type="button" class="dtl-pill{{if eq .Track "api"}} on{{end}}" hx-get="{{$base}}?show={{.Show}}&track=api" hx-target="#device-timeline" hx-swap="outerHTML">API &amp; QA <span class="n">{{with .TrackN}}{{index . "api"}}{{end}}</span></button>
+  </div>
   <div class="dtl-pills">
-    {{$base := printf "/devices/%s/timeline" .Device.SerialNumber}}{{$pq := or (and .Probe "&probe=1") ""}}
+    {{$pq := printf "%s&track=%s" (or (and .Probe "&probe=1") "") .Track}}
     <button type="button" class="dtl-pill{{if eq .Show "all"}} on{{end}}" hx-get="{{$base}}?show=all{{$pq}}" hx-target="#device-timeline" hx-swap="outerHTML">All</button>
     <button type="button" class="dtl-pill{{if eq .Show "commands"}} on{{end}}" hx-get="{{$base}}?show=commands{{$pq}}" hx-target="#device-timeline" hx-swap="outerHTML">Commands</button>
     <button type="button" class="dtl-pill{{if eq .Show "changes"}} on{{end}}" hx-get="{{$base}}?show=changes{{$pq}}" hx-target="#device-timeline" hx-swap="outerHTML">Changes</button>
@@ -119,7 +126,7 @@
   <div class="dtl-list">{{template "dtl-rows" .}}</div>
   {{if .More}}<button type="button" class="app-more" hx-get="/devices/{{.Device.SerialNumber}}/timeline?{{$q}}&n={{.Next}}" hx-target="#device-timeline" hx-swap="outerHTML">Show more</button>{{end}}
   {{else}}
-  <div class="muted small" style="padding:10px 14px">{{if eq .Show "changes"}}No changes made from this page yet: locking, wireless charging, placement and naming show here with who did them.{{else if eq .Show "commands"}}No commands sent to this device yet.{{else}}Nothing done to this device yet.{{end}}</div>
+  <div class="muted small" style="padding:10px 14px">{{if ne .Track "people"}}Nothing from {{if eq .Track "auto"}}the server's jobs{{else}}the API or the QA rig{{end}} on this device.{{else if eq .Show "changes"}}No changes made from this page yet: locking, wireless charging, placement and naming show here with who did them.{{else if eq .Show "commands"}}No commands sent to this device yet.{{else}}Nothing done to this device yet.{{end}}</div>
   {{end}}
 </div>
 {{end}}
@@ -152,7 +159,7 @@
   {{if .Pending}}hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-select="unset" hx-target="this" hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML"{{end}}>
   <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Recent on this device</h2><span class="m muted small"><a href="?tab=activity" class="link-detail" onclick="var t=document.getElementById('dd-tab-activity');if(t&&window.setDeviceTab){window.setDeviceTab('activity',t);window.scrollTo({top:0,behavior:'smooth'});return false}">All activity</a></span></div>
   {{if .Items}}<div class="dtl-list">{{template "dtl-rows" .}}</div>
-  {{else}}<div class="muted small" style="padding:10px 14px">Nothing done to this device yet.</div>{{end}}
+  {{else}}<div class="muted small" style="padding:10px 14px">Nothing done by people lately. The server's jobs and the API are under Activity.</div>{{end}}
 </div>
 {{end}}
 
@@ -1925,6 +1932,8 @@ html.dd-fit .dd-split-r .dd-tabrow{top:0}
 /* Where the tabs pane cuts a card off at its foot, the cut is rounded like the cards. */
 /* (not clip-path: it would clip the pane's dialogs too, Install app's among them) */
 html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
+.dtl-tracks{margin-bottom:2px}
+.dtl-pill .n{font-weight:500;opacity:.7;margin-left:3px;font-variant-numeric:tabular-nums}
 /* A2 · Apps tab (picked 5 Nov 2026): the host app as a card with three figures, then the
    other apps as lean rows (name, version · package, one figure and a bar). */
 .apl2-host{padding:16px;margin-bottom:12px}

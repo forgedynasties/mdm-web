@@ -92,6 +92,15 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	if dn, ok := nameByUsername[actor]; ok {
 		actorName = dn
 	}
+	// Each entry's track (T1), from the raw actor, before display names are swapped in.
+	trackOf := make(map[int64]string, len(entries))
+	for _, e := range entries {
+		t := actorTrack(e.Actor)
+		if _, ok := nameByUsername[e.Actor]; ok {
+			t = trackPeople
+		}
+		trackOf[e.ID] = t
+	}
 	for i := range entries {
 		if dn, ok := nameByUsername[entries[i].Actor]; ok {
 			entries[i].Actor = dn
@@ -124,6 +133,42 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		entries = kept
+	}
+	// The track (T1): People by default; Automations and API & QA also lead with one row
+	// per job or key, from the commands they sent in the window.
+	track := normTrack(r.URL.Query().Get("track"))
+	trackCount := map[string]int{}
+	for _, e := range entries {
+		trackCount[trackOf[e.ID]]++
+	}
+	{
+		kept := entries[:0:0]
+		for _, e := range entries {
+			if trackOf[e.ID] == track {
+				kept = append(kept, e)
+			}
+		}
+		entries = kept
+	}
+	since := time.Now().Add(-7 * 24 * time.Hour)
+	if days == "1" {
+		since = time.Now().Add(-24 * time.Hour)
+	} else if days == "30" || days == "all" {
+		since = time.Now().Add(-30 * 24 * time.Hour)
+	}
+	autoSrc, apiSrc := h.trackSources(r.Context(), trackAuto, since), h.trackSources(r.Context(), trackAPI, since)
+	for _, x := range autoSrc {
+		trackCount[trackAuto] += x.Sent
+	}
+	for _, x := range apiSrc {
+		trackCount[trackAPI] += x.Sent
+	}
+	var sources []trackSource
+	switch track {
+	case trackAuto:
+		sources = autoSrc
+	case trackAPI:
+		sources = apiSrc
 	}
 	kindCount := map[string]int{"": len(entries)}
 	for _, e := range entries {
@@ -216,6 +261,9 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"Kind":          kind,
 		"KindCount":     kindCount,
 		"Kinds":         activityKindOrder,
+		"Track":         track,
+		"TrackCount":    trackCount,
+		"Sources":       sources,
 	})
 }
 

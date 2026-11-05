@@ -213,3 +213,34 @@ func (d *DB) ListAuditActors(ctx context.Context) ([]string, error) {
 }
 
 
+
+// SenderCount is how many commands one sender queued since a time, how many failed on a
+// device, and its latest. The Activity page's Automations and API & QA tracks (5 Nov 2026).
+type SenderCount struct {
+	By           string
+	Sent, Failed int
+	Last         time.Time
+}
+
+func (d *DB) CommandsBySender(ctx context.Context, since time.Time) ([]SenderCount, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT COALESCE(c.created_by, ''), COUNT(DISTINCT c.id),
+		       COUNT(cs.command_id) FILTER (WHERE cs.status = 'failed'), MAX(c.created_at)
+		FROM commands c
+		LEFT JOIN command_status cs ON cs.command_id = c.id
+		WHERE c.created_at > $1
+		GROUP BY 1`, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SenderCount
+	for rows.Next() {
+		var s SenderCount
+		if err := rows.Scan(&s.By, &s.Sent, &s.Failed, &s.Last); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
