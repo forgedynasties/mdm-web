@@ -31,10 +31,21 @@ document.addEventListener('click', function (e) {
   s.scrollBy({ left: step * (+b.getAttribute('data-ov2-strip')), behavior: 'smooth' });
 });
 
-// Overview B1 (5 Nov 2026): Today's tabs (Needs you · Venues · Rollouts · Crashes) and Next,
-// which steps through the open tab's items one at a time and wraps round.
+// Overview B1 (5 Nov 2026): Today's tabs (Needs you · Venues · Rollouts · Crashes); T2: a
+// row in the tab's list shows its detail on the right; arrow keys move along the list.
 (function () {
   if (window.__ovbWired) return; window.__ovbWired = true;
+  function ovbPick(li) {
+    var pane = li.closest('[data-ovb-pane]'), j = li.getAttribute('data-ovb-pick');
+    pane.querySelectorAll('[data-ovb-pick]').forEach(function (b) { var on = b === li; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    pane.querySelectorAll('[data-ovb-det]').forEach(function (d) { d.hidden = d.getAttribute('data-ovb-det') !== j; });
+  }
+  document.addEventListener('keydown', function (e) {
+    var li = e.target.closest && e.target.closest('[data-ovb-pick]');
+    if (!li || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    var sib = e.key === 'ArrowDown' ? li.nextElementSibling : li.previousElementSibling;
+    if (sib) { e.preventDefault(); sib.focus(); ovbPick(sib); }
+  });
   document.addEventListener('click', function (e) {
     var tab = e.target.closest('[data-ovb-tab]');
     if (tab) {
@@ -43,13 +54,8 @@ document.addEventListener('click', function (e) {
       hero.querySelectorAll('[data-ovb-pane]').forEach(function (p) { p.hidden = p.getAttribute('data-ovb-pane') !== key; });
       return;
     }
-    var next = e.target.closest('[data-ovb-next]');
-    if (next) {
-      var pane = next.closest('[data-ovb-pane]'), items = pane.querySelectorAll('[data-ovb-item]'), i = 0;
-      items.forEach(function (it, k) { if (!it.hidden) i = k; });
-      items[i].hidden = true; items[(i + 1) % items.length].hidden = false;
-      var b = items[(i + 1) % items.length].querySelector('[data-ovb-next]'); if (b) b.focus();
-    }
+    var pick = e.target.closest('[data-ovb-pick]');
+    if (pick) ovbPick(pick);
   });
 })();
 

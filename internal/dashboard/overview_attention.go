@@ -19,6 +19,7 @@ type attentionRow struct {
 	Restaurant string
 	Since      time.Time // oldest member's fired_at; zero when unknown
 	Href       string
+	Serials    []string // the problem's devices, for Overview T2's detail (at most 20)
 }
 
 // overviewAttentionLimit is how many rows the Overview shows before "View all".
@@ -48,6 +49,13 @@ func buildAttention(alerts []db.Alert, inboxN int) (rows []attentionRow, total, 
 		if p.Devices == 1 && p.Serial != "" {
 			row.Serial = p.Serial
 			row.Href = "/alerts?device=" + p.Serial
+		}
+		seen := map[string]bool{}
+		for _, m := range p.Members {
+			if m.Serial != "" && !seen[m.Serial] && len(row.Serials) < 20 {
+				seen[m.Serial] = true
+				row.Serials = append(row.Serials, m.Serial)
+			}
 		}
 		if p.Severity == "critical" {
 			critical++

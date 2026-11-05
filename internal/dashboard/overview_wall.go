@@ -162,8 +162,8 @@ func (h *Handler) overviewNewData(r *http.Request, data map[string]any, summary 
 	// B1 (5 Nov 2026): the bento page reads all of the above plus three counts and the
 	// MDM clients' standing.
 	in := ovBentoIn{Devs: devs, Active: active, CompPct: -1, ClassOn: classOn, Todos: banner.All,
-		Venues: venues.Rows, Rollouts: data["OvRollouts"].(ovRollouts), Crashes: trend.Crashes24h,
-		CrashesPrv: trend.CrashesPrev, Now: now}
+		Venues: venues.Rows, Rollouts: rollouts, AppLibrary: roleCanAppLibrary(h.role(r)), CrashTop: crashStats.ByDevice,
+		Crashes: trend.Crashes24h, CrashesPrv: trend.CrashesPrev, Now: now}
 	if comp != nil && comp.InScope > 0 {
 		in.CompPct = comp.Pct
 	}

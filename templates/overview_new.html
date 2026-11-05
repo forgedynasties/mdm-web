@@ -258,24 +258,11 @@ html[data-theme="dark"] .ovd{--ovb-page:#141318}
 .ovb-seg{display:inline-flex;background:var(--ovb-page);border-radius:99px;padding:3px;gap:2px;flex-wrap:wrap}
 .ovb-seg button{font:inherit;font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2);background:none;border:0;cursor:pointer}
 .ovb-seg button.on{background:var(--text);color:var(--surface)}
-.ovb-hb{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;flex:1}
-@media (max-width:900px){.ovb-hb{grid-template-columns:1fr}}
-.ovb-feat{border-radius:18px;background:var(--ovb-page);padding:22px 24px;min-height:240px;display:flex}
-.ovb-pane{flex:1;display:flex}
-.ovb-pane[hidden],.ovb-item[hidden]{display:none}
-.ovb-item{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:18px}
-.ovb-cnt{font-size:12px;color:var(--muted);margin-left:10px}
 .ovb-big{font-size:34px;line-height:1.1;font-weight:650;letter-spacing:-.02em;margin:14px 0 0;max-width:640px;overflow-wrap:anywhere}
 .ovb-sub{font-size:13.5px;color:var(--text-2);margin:8px 0 0;max-width:560px}
 .ovb-acts{display:flex;gap:8px;flex-wrap:wrap}
 .ovb-btn{border:0;border-radius:99px;padding:9px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--text);color:var(--surface);text-decoration:none;display:inline-block}
 .ovb-btn.l{background:var(--surface);color:var(--text);border:1px solid var(--border)}
-.ovb-side{display:flex;flex-direction:column;gap:10px}
-.ovb-mini{border:1px solid var(--border-soft);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;color:var(--text);text-decoration:none}
-.ovb-mini:hover{border-color:var(--border)}
-.ovb-mini .t{font-size:12.5px;color:var(--text-2);display:flex;align-items:center;gap:8px;justify-content:space-between}
-.ovb-mini .v{font-size:34px;font-weight:600;letter-spacing:-.02em;text-align:right;line-height:1.15}
-.ovb-mini .n{font-size:11.5px;color:var(--text-2);margin-top:4px}
 .ovb-promo{background:var(--accent-fill);color:#fff;border-radius:22px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:150px;position:relative;overflow:hidden;text-decoration:none}
 .ovb-promo b{font-size:24px;font-weight:600;line-height:1.15;position:relative}
 .ovb-promo .ovb-btn.w{background:#fff;color:var(--accent-fill);align-self:flex-start;position:relative}
@@ -295,6 +282,48 @@ html[data-theme="dark"] .ovd{--ovb-page:#141318}
 .ovb-split .bars i{border-radius:9px;display:block;min-width:4px}
 .ovb-split .bars .g{background:var(--ovb-g)}.ovb-split .bars .r{background:var(--ovb-r)}
 .ovb-split .bars .h{background:repeating-linear-gradient(135deg,var(--border) 0 5px,transparent 5px 10px)}
+/* Today T2: list + detail */
+.ovb-t2{flex:1;min-height:360px;display:flex}
+.ovb-pane{flex:1;display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:12px;min-height:0}
+.ovb-pane[hidden]{display:none}
+.ovb-list{overflow:auto;border:1px solid var(--border-soft);border-radius:16px;padding:4px;min-height:0;max-height:460px}
+.ovb-li{display:flex;gap:10px;align-items:flex-start;width:100%;padding:9px 10px;border-radius:11px;border:0;background:none;font:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer}
+.ovb-li:hover{background:var(--surface2)}
+.ovb-li.on{background:var(--ovb-page)}
+.ovb-li .tx{flex:1;min-width:0}
+.ovb-li b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovb-li small{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovb-dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block;background:var(--ovb-g);margin-top:5px}
+.ovb-dot.y{background:var(--ovb-y)}.ovb-dot.o{background:var(--ovb-o)}.ovb-dot.r{background:var(--ovb-r)}.ovb-dot.c{background:none;border:1.5px solid var(--muted);width:6px;height:6px}
+.ovb-dets{background:var(--ovb-page);border-radius:16px;padding:16px 18px;overflow:auto;min-height:0;display:flex}
+.ovb-det{flex:1;display:flex;flex-direction:column;min-width:0}
+.ovb-det[hidden]{display:none}
+.ovb-det .ovb-big{font-size:26px;margin-top:10px}
+.ovb-det .ovb-acts{margin-top:auto;padding-top:14px}
+.ovb-facts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ovb-fact{background:var(--surface);border:1px solid var(--border-soft);border-radius:12px;padding:8px 12px;min-width:84px}
+.ovb-fact b{display:block;font-size:19px;font-weight:650;white-space:nowrap}
+.ovb-fact span{font-size:11.5px;color:var(--text-2)}
+.ovb-mini{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:12px}
+.ovb-mini th{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+.ovb-mini td{padding:6px 8px;border-bottom:1px solid var(--border-soft)}
+.ovb-mini tr:last-child td{border-bottom:0}
+.ovb-mini td.w{width:40%}
+.ovb-mini .mono{font-family:var(--mono);font-size:12px;color:var(--text);text-decoration:none}
+.ovb-mini .mono:hover{color:var(--accent-text)}
+.ovb-mini .mut{color:var(--muted)}
+.ovb-pb{display:block;height:8px;border-radius:99px;background:var(--border-soft);overflow:hidden}
+.ovb-pb i{display:block;height:100%;border-radius:inherit;background:var(--ovb-g)}
+.ovb-pb i.o{background:var(--ovb-o)}.ovb-pb i.r{background:var(--ovb-r)}
+.ovb-sbar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--border-soft);margin-top:14px;gap:2px}
+.ovb-sbar i{display:block}
+.ovb-sbar .g{background:var(--ovb-g)}.ovb-sbar .y{background:var(--ovb-y)}.ovb-sbar .r{background:var(--ovb-r)}.ovb-sbar .c{background:var(--border)}
+.ovb-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin-top:8px}
+.ovb-legend > span{display:inline-flex;align-items:center;gap:6px}
+.ovb-legend .ovb-dot{margin-top:0}
+.ovb-emptyc{grid-column:1/-1;background:var(--ovb-page);border-radius:16px;padding:22px 24px}
+html.ov-fit .ovb-t2{min-height:0}
+html.ov-fit .ovb-list{max-height:none}
 /* Fitted (user, 5 Nov 2026: "the navbar covers it and also this page should not be
    scrollable"): on a wide, tall-enough window overview_new.js sizes .ovd to the space
    between the header and the dock (--ovd-h) and the page stops scrolling; the top row
@@ -307,8 +336,6 @@ html.ov-fit .ovb-radar{flex:1 1 0;min-height:0;height:100%;width:100%;max-width:
 html.ov-fit .ovb-parts{flex:none}
 html.ov-fit .ovb-parts a{padding:3px 0}
 html.ov-fit .ovb-hero{min-height:0;overflow:hidden}
-html.ov-fit .ovb-hb{min-height:0}
-html.ov-fit .ovb-feat{min-height:0;overflow:hidden}
 html.ov-fit .ovb-c{padding:14px 18px}
 html.ov-fit .ovb-ch{margin-bottom:8px}
 html.ov-fit .ovb-ring svg{width:66px;height:66px}
@@ -329,6 +356,8 @@ html.ov-fit .ovb-radar{min-height:150px}
   .ovb-seg{flex-wrap:nowrap;overflow-x:auto;max-width:100%;order:3;flex-basis:100%}
   .ovb-seg button{white-space:nowrap}
   .ovb-big{font-size:26px}
+  .ovb-pane{grid-template-columns:minmax(0,1fr)}
+  .ovb-list{max-height:220px}
   .ovb-split .lbls span{min-width:0;flex:1 1 0 !important}
 }
 
@@ -385,27 +414,35 @@ html.ov-fit .ovb-radar{min-height:150px}
       <div class="ovb-ch"><h2 id="ovb-t">Today</h2><span class="sp"></span>
         <span class="ovb-seg" role="tablist">{{range $i, $t := .Tabs}}<button type="button" role="tab" data-ovb-tab="{{$t.Key}}" aria-selected="{{if eq $i 0}}true{{else}}false{{end}}"{{if eq $i 0}} class="on"{{end}}>{{$t.Label}}{{if $t.Items}} · {{len $t.Items}}{{end}}</button>{{end}}</span>
         <span class="sp"></span><a class="ovb-ib" href="/alerts" aria-label="All alerts"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></a></div>
-      <div class="ovb-hb">
-        <div class="ovb-feat">
-          {{range $i, $t := .Tabs}}
-          <div class="ovb-pane" data-ovb-pane="{{$t.Key}}"{{if ne $i 0}} hidden{{end}}>
+      {{/* T2 (picked 5 Nov 2026): the tab's items as a list on the left, the picked one
+           explained on the right in a layout made for its kind. */}}
+      <div class="ovb-t2">
+        {{range $i, $t := .Tabs}}
+        <div class="ovb-pane" data-ovb-pane="{{$t.Key}}"{{if ne $i 0}} hidden{{end}}>
+          {{if $t.Items}}
+          <div class="ovb-list" role="listbox" aria-label="{{$t.Label}}">
+            {{range $j, $h := $t.Items}}<button type="button" class="ovb-li{{if eq $j 0}} on{{end}}" data-ovb-pick="{{$j}}" role="option" aria-selected="{{if eq $j 0}}true{{else}}false{{end}}"><span class="ovb-dot {{$h.Tone}}"></span><span class="tx"><b>{{$h.List}}</b>{{with $h.ListS}}<small>{{.}}</small>{{end}}</span></button>{{end}}
+          </div>
+          <div class="ovb-dets">
             {{range $j, $h := $t.Items}}
-            <div class="ovb-item" data-ovb-item="{{$j}}"{{if ne $j 0}} hidden{{end}}>
-              <div><span class="ovb-tag {{$h.Tone}}">{{$h.Tag}}</span>{{if gt (len $t.Items) 1}}<span class="ovb-cnt">{{add $j 1}} of {{len $t.Items}}</span>{{end}}
-                <p class="ovb-big">{{$h.Title}}</p>
-                {{with $h.Sub}}<p class="ovb-sub">{{.}}</p>{{end}}</div>
-              <div class="ovb-acts">{{if $h.Href}}<a class="ovb-btn" href="{{$h.Href}}">{{$h.Action}}</a>{{end}}{{if gt (len $t.Items) 1}}<button type="button" class="ovb-btn l" data-ovb-next>Next ›</button>{{end}}</div>
+            <div class="ovb-det" data-ovb-det="{{$j}}"{{if ne $j 0}} hidden{{end}}>
+              <div><span class="ovb-tag {{.Tone}}">{{.Tag}}</span></div>
+              <p class="ovb-big">{{.Title}}</p>
+              {{with .Sub}}<p class="ovb-sub">{{.}}</p>{{end}}
+              {{with .Facts}}<div class="ovb-facts">{{range .}}<div class="ovb-fact"><b>{{.V}}</b><span>{{.L}}</span></div>{{end}}</div>{{end}}
+              {{with .Split}}<div class="ovb-sbar">{{range .}}<i class="{{.Tone}}" style="flex:{{.N}}"></i>{{end}}</div>
+              <div class="ovb-legend">{{range .}}<span><span class="ovb-dot {{.Tone}}"></span>{{.N}} {{.Label}}</span>{{end}}</div>{{end}}
+              {{with .Bars}}<table class="ovb-mini"><thead><tr><th>Type</th><th>Online</th><th></th></tr></thead><tbody>{{range .}}<tr><td>{{.Label}}</td><td>{{.Online}} / {{.Total}}</td><td class="w"><span class="ovb-pb"><i class="{{.Tone}}" style="width:{{.Pct}}%"></i></span></td></tr>{{end}}</tbody></table>{{end}}
+              {{if .Devs}}<table class="ovb-mini"><thead><tr><th>{{.DevsHead}}</th><th></th><th>Last seen</th><th></th></tr></thead><tbody>{{range .Devs}}<tr><td><a class="mono" href="{{.Href}}">{{.Serial}}</a></td><td>{{.Type}}</td><td>{{.Seen}}</td><td class="mut">{{.Extra}}</td></tr>{{end}}{{if .MoreDevs}}<tr><td colspan="4" class="mut">and {{.MoreDevs}} more</td></tr>{{end}}</tbody></table>{{end}}
+              <div class="ovb-acts">{{if .Href}}<a class="ovb-btn" href="{{.Href}}">{{.Action}}</a>{{end}}{{if .AltHref}}<a class="ovb-btn l" href="{{.AltHref}}">{{.Alt}}</a>{{end}}</div>
             </div>
-            {{else}}
-            <div class="ovb-item"><div><span class="ovb-tag g">All clear</span><p class="ovb-big">{{$t.Empty}}</p></div></div>
             {{end}}
           </div>
+          {{else}}
+          <div class="ovb-emptyc"><span class="ovb-tag g">All clear</span><p class="ovb-big">{{$t.Empty}}</p></div>
           {{end}}
         </div>
-        <div class="ovb-side">
-          <a class="ovb-mini" href="/devices?status=offline"><span class="t">Devices online <span class="ovb-tag {{.OnlineTone}}">{{if eq .OnlineTone "g"}}Good{{else}}Attention{{end}}</span></span><span class="v">{{.OnlinePct}}%</span><span class="n">{{.Online}} of {{.Total}} · {{sub .Total .Online}} offline</span></a>
-          <a class="ovb-mini" href="/alerts?view=crashes"><span class="t">Crashes · 24 h <span class="ovb-tag {{.CrashTone}}">{{.CrashTag}}</span></span><span class="v">{{.Crashes}}</span><span class="n">{{.CrashesPrv}} the day before</span></a>
-        </div>
+        {{end}}
       </div>
     </section>
 

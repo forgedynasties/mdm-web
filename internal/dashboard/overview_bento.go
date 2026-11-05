@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,10 +42,39 @@ type ovRadar struct {
 	Labels []ovRadarLabel
 }
 
+// ovHero is one item of a Today tab: a row in the list (Title, Sub) and its detail
+// (T2, picked 5 Nov 2026: list on the left, the picked item explained on the right).
 type ovHero struct {
 	Tag, Tone    string // Critical / Warning / Info / Running …; r | o | g | y
+	List, ListS  string // the list row (defaults to Title / Sub)
 	Title, Sub   string
 	Action, Href string
+	Alt, AltHref string
+	Facts        []ovFact
+	Devs         []ovHeroDev
+	MoreDevs     int
+	DevsHead     string // the device table's heading
+	Bars         []ovTypeBar
+	Split        []ovSplitPart
+}
+
+type ovFact struct{ V, L string }
+
+type ovHeroDev struct {
+	Serial, Type, Seen, Extra, Href string
+	Online                          bool
+}
+
+type ovTypeBar struct {
+	Label         string
+	Online, Total int
+	Pct           int
+	Tone          string
+}
+
+type ovSplitPart struct {
+	N           int
+	Tone, Label string
 }
 
 type ovHeroTab struct {
@@ -87,7 +117,9 @@ type ovBentoIn struct {
 	ClassOn             []db.ClassOnline
 	Todos               []ovTodo
 	Venues              []venueRow
-	Rollouts            ovRollouts
+	Rollouts            []db.Rollout
+	AppLibrary          bool
+	CrashTop            []db.DeviceCrash
 	Crashes, CrashesPrv int
 	Score               int
 	ScoreClass          string
@@ -170,15 +202,152 @@ func buildOvBento(in ovBentoIn) ovBento {
 		b.Radar = ovRadarOf(b.Parts)
 	}
 
-	// Today's tabs.
+	// Today's tabs (T2): each item is a list row and a detail made for its kind.
+	bySerial := make(map[string]ovDev, len(in.Devs))
+	for _, d := range in.Devs {
+		bySerial[d.Serial] = d
+	}
+	devRow := func(d ovDev) ovHeroDev {
+		r := ovHeroDev{Serial: d.Serial, Type: ovPillShort(d.Class), Online: d.Online, Href: "/devices/" + d.Serial}
+		if r.Type == "" {
+			r.Type = "—"
+		}
+		if d.Online {
+			r.Seen = "online"
+		} else if !d.SeenAt.IsZero() {
+			r.Seen = agoShort(d.SeenAt)
+		}
+		if d.HasBatt {
+			r.Extra = strconv.Itoa(d.Battery) + " %"
+		} else {
+			r.Extra = "mains"
+		}
+		return r
+	}
+	venueDetail := func(h *ovHero, venue uuid.UUID) {
+		types := map[string]*ovTypeBar{}
+		var order []string
+		var off []ovDev
+		for _, d := range in.Devs {
+			if d.Venue == nil || *d.Venue != venue {
+				continue
+			}
+			l := ovPillShort(d.Class)
+			if l == "" {
+				l = "No role"
+			}
+			if types[l] == nil {
+				types[l] = &ovTypeBar{Label: l}
+				order = append(order, l)
+			}
+			types[l].Total++
+			if d.Online {
+				types[l].Online++
+			} else {
+				off = append(off, d)
+			}
+		}
+		for _, l := range order {
+			t := types[l]
+			t.Pct = pctOf(t.Online, t.Total)
+			t.Tone = map[bool]string{true: "g", false: "o"}[t.Pct >= 55]
+			if t.Pct < 30 {
+				t.Tone = "r"
+			}
+			h.Bars = append(h.Bars, *t)
+		}
+		sort.Slice(off, func(i, j int) bool { return off[i].SeenAt.Before(off[j].SeenAt) })
+		for i, d := range off {
+			if i == 6 {
+				h.MoreDevs = len(off) - 6
+				break
+			}
+			h.Devs = append(h.Devs, devRow(d))
+		}
+		if len(off) > 0 {
+			h.DevsHead = "Offline here"
+		}
+	}
+	crashDetail := func(h *ovHero) {
+		h.Facts = []ovFact{{strconv.Itoa(in.Crashes), "crashes · 24 h"}, {strconv.Itoa(in.CrashesPrv), "the day before"}}
+		if len(in.CrashTop) > 0 && in.Crashes > 0 {
+			top := in.CrashTop[0]
+			h.Facts = append(h.Facts, ovFact{fmt.Sprintf("%d %%", pctOf(top.Count, in.Crashes)), "from " + top.Serial})
+			if top.Count*2 > in.Crashes {
+				where := top.Restaurant
+				if where == "" {
+					where = "Lab"
+				}
+				h.Sub = fmt.Sprintf("%d of them come from one device: %s (%s)", top.Count, top.Serial, where)
+			}
+		}
+		for _, c := range in.CrashTop {
+			where := c.Restaurant
+			if where == "" {
+				where = "Lab"
+			}
+			h.Devs = append(h.Devs, ovHeroDev{Serial: c.Serial, Type: where, Seen: agoShort(c.LatestAt), Extra: strconv.Itoa(c.Count) + " crashes", Href: "/devices/" + c.Serial})
+		}
+		if len(h.Devs) > 0 {
+			h.DevsHead = "Most crashes"
+		}
+	}
+
 	needs := ovHeroTab{Key: "needs", Label: "Needs you", Empty: "Nothing needs you right now."}
 	for _, t := range in.Todos {
 		tag := map[string]string{"r": "Critical", "o": "Warning", "y": "Watch", "g": "Info"}[t.Tone]
 		if tag == "" {
 			tag, t.Tone = "Info", "g"
 		}
-		needs.Items = append(needs.Items, ovHero{Tag: tag, Tone: t.Tone, Title: t.Title, Sub: t.Sub, Action: t.Action, Href: t.Href})
+		h := ovHero{Tag: tag, Tone: t.Tone, Title: t.Title, Sub: t.Sub, Action: t.Action, Href: t.Href}
+		switch t.Kind {
+		case "alert":
+			if t.Devices > 1 {
+				h.Title = fmt.Sprintf("%s · %d devices", t.Title, t.Devices)
+			}
+			if t.Where != "" {
+				h.Title += " at " + t.Where
+			}
+			h.Facts = append(h.Facts, ovFact{strconv.Itoa(max(t.Devices, len(t.Serials))), "device" + sIfN(max(t.Devices, len(t.Serials)))})
+			if !t.Since.IsZero() {
+				h.Facts = append(h.Facts, ovFact{agoShort(t.Since), "since"})
+			}
+			where := t.Where
+			if where == "" {
+				where = "Lab"
+			}
+			h.Facts = append(h.Facts, ovFact{where, "where"})
+			for i, sn := range t.Serials {
+				if i == 6 {
+					h.MoreDevs = len(t.Serials) - 6
+					break
+				}
+				if d, ok := bySerial[sn]; ok {
+					h.Devs = append(h.Devs, devRow(d))
+				} else {
+					h.Devs = append(h.Devs, ovHeroDev{Serial: sn, Type: "—", Href: "/devices/" + sn})
+				}
+			}
+			if len(h.Devs) > 0 {
+				h.DevsHead = "Affected"
+			}
+		case "venue":
+			if t.VenueID != nil {
+				venueDetail(&h, *t.VenueID)
+			}
+		case "spike":
+			crashDetail(&h)
+			h.Alt, h.AltHref = "Fleet health", "/fleet-health"
+		case "waiting":
+			h.Facts = []ovFact{{strconv.Itoa(t.Devices), "waiting for a venue"}}
+			if in.Facts.ToPlace > 0 {
+				h.Alt, h.AltHref = "Open Setup", "/visits"
+			}
+		}
+		h.List, h.ListS = t.Title, t.Sub
+		needs.Items = append(needs.Items, h)
 	}
+
 	venues := ovHeroTab{Key: "venues", Label: "Venues", Empty: "Every venue is healthy."}
 	vs := append([]venueRow(nil), in.Venues...)
 	sort.SliceStable(vs, func(i, j int) bool { return vs[i].H.Score < vs[j].H.Score })
@@ -190,28 +359,60 @@ func buildOvBento(in ovBentoIn) ovBento {
 		if v.Class == "danger" {
 			tag, tone = "At risk", "r"
 		}
-		sub := fmt.Sprintf("%d of %d online", v.Online, v.Devices)
+		h := ovHero{Tag: tag, Tone: tone, Title: v.Name, Action: "Open venue", Href: v.Href,
+			ListS: fmt.Sprintf("%d of %d online", v.Online, v.Devices)}
+		h.Facts = []ovFact{{fmt.Sprintf("%d/%d", v.Online, v.Devices), "online"}}
 		if v.HasH {
-			sub += " · health " + strconv.Itoa(v.H.Score)
+			h.Facts = append(h.Facts, ovFact{strconv.Itoa(v.H.Score), "health"})
+			if v.H.OpenCritical > 0 {
+				h.Facts = append(h.Facts, ovFact{strconv.Itoa(v.H.OpenCritical), "critical alert" + sIfN(v.H.OpenCritical)})
+			}
 		}
-		venues.Items = append(venues.Items, ovHero{Tag: tag, Tone: tone, Title: v.Name, Sub: sub, Action: "Open venue", Href: v.Href})
-		if len(venues.Items) == 8 {
+		h.Sub = v.Sub
+		if id, err := uuid.Parse(v.ID); err == nil {
+			venueDetail(&h, id)
+			h.Alt, h.AltHref = "Show devices", "/devices?restaurant="+v.ID
+		}
+		venues.Items = append(venues.Items, h)
+		if len(venues.Items) == 10 {
 			break
 		}
 	}
+
 	rolls := ovHeroTab{Key: "rollouts", Label: "Rollouts", Empty: "No rollouts in the last seven days."}
-	for _, r := range in.Rollouts.Bars {
-		tag, tone := "Done", "g"
-		switch r.Tone {
-		case "warn":
-			tag, tone = "Stalled", "o"
-		case "run":
-			tag, tone = "Running", "y"
-		case "q":
-			tag, tone = "Scheduled", "y"
+	rs := append([]db.Rollout(nil), in.Rollouts...)
+	sort.SliceStable(rs, func(i, j int) bool { return rs[i].Start.After(rs[j].Start) })
+	for _, r := range rs {
+		name, _ := ovRolloutName(r)
+		who, _, _ := ovWho(r.Who)
+		waiting := r.Total - r.Done - r.InFlight - r.Failed
+		if waiting < 0 {
+			waiting = 0
 		}
-		rolls.Items = append(rolls.Items, ovHero{Tag: tag, Tone: tone, Title: r.Name, Sub: r.Sub + " · " + r.Count, Action: "Open", Href: r.Href})
+		tag, tone := "Done", "g"
+		switch {
+		case r.Failed > 0 && r.Done+r.Failed >= r.Total:
+			tag, tone = "Failed some", "o"
+		case r.Done >= r.Total:
+		case r.InFlight == 0 && in.Now.Sub(r.Start) > 24*time.Hour:
+			tag, tone = "Stalled", "o"
+		default:
+			tag, tone = "Running", "y"
+		}
+		h := ovHero{Tag: tag, Tone: tone, Title: name, Action: "Open", Href: ovRolloutHref(r, in.AppLibrary),
+			Sub:   fmt.Sprintf("%s · started %s", who, agoShort(r.Start)),
+			ListS: fmt.Sprintf("%d / %d", r.Done, r.Total)}
+		h.Facts = []ovFact{{strconv.Itoa(r.Total), "devices"}, {fmt.Sprintf("%d %%", pctOf(r.Done, r.Total)), "done"}}
+		if r.Failed > 0 {
+			h.Facts = append(h.Facts, ovFact{strconv.Itoa(r.Failed), "failed"})
+		}
+		h.Split = []ovSplitPart{{r.Done, "g", "installed"}, {r.InFlight, "y", "in flight"}, {r.Failed, "r", "failed"}, {waiting, "c", "waiting"}}
+		rolls.Items = append(rolls.Items, h)
+		if len(rolls.Items) == 10 {
+			break
+		}
 	}
+
 	crash := ovHeroTab{Key: "crashes", Label: "Crashes", Empty: "No crashes in the last 24 h."}
 	b.CrashTag, b.CrashTone = "Steady", "g"
 	if in.Crashes > in.CrashesPrv && in.Crashes >= 5 {
@@ -224,9 +425,43 @@ func buildOvBento(in ovBentoIn) ovBento {
 		if in.Crashes < in.CrashesPrv {
 			dir = "down"
 		}
-		crash.Items = append(crash.Items, ovHero{Tag: b.CrashTag, Tone: b.CrashTone,
+		h := ovHero{Tag: b.CrashTag, Tone: b.CrashTone,
 			Title: fmt.Sprintf("%d crash%s in 24 h", in.Crashes, map[bool]string{true: "", false: "es"}[in.Crashes == 1]),
-			Sub:   fmt.Sprintf("%s from %d the day before", dir, in.CrashesPrv), Action: "See crashes", Href: "/alerts?view=crashes"})
+			Sub:   fmt.Sprintf("%s from %d the day before", dir, in.CrashesPrv), Action: "See crashes", Href: "/alerts?view=crashes",
+			List: "All crashes", ListS: fmt.Sprintf("%d · 24 h", in.Crashes)}
+		crashDetail(&h)
+		crash.Items = append(crash.Items, h)
+		for _, c := range in.CrashTop {
+			where := c.Restaurant
+			if where == "" {
+				where = "Lab"
+			}
+			ch := ovHero{Tag: "Device", Tone: "o", Title: fmt.Sprintf("%d crashes on %s", c.Count, c.Serial),
+				Sub: where + " · latest " + agoShort(c.LatestAt), Action: "Open device", Href: "/devices/" + c.Serial,
+				List: c.Serial, ListS: fmt.Sprintf("%d · %s", c.Count, where)}
+			ch.Facts = []ovFact{{strconv.Itoa(c.Count), "crashes · 24 h"}, {fmt.Sprintf("%d %%", pctOf(c.Count, in.Crashes)), "of the fleet's"}}
+			if c.Kind != "" {
+				ch.Facts = append(ch.Facts, ovFact{strings.ReplaceAll(strings.ToLower(c.Kind), "_", " "), "latest kind"})
+			}
+			if c.BuildID != "" {
+				ch.Facts = append(ch.Facts, ovFact{c.BuildID, "build"})
+			}
+			if d, ok := bySerial[c.Serial]; ok {
+				ch.Devs = []ovHeroDev{devRow(d)}
+				ch.DevsHead = "Device"
+			}
+			crash.Items = append(crash.Items, ch)
+		}
+	}
+	for _, t := range []*ovHeroTab{&needs, &venues, &rolls, &crash} {
+		for i := range t.Items {
+			if t.Items[i].List == "" {
+				t.Items[i].List = t.Items[i].Title
+			}
+			if t.Items[i].ListS == "" {
+				t.Items[i].ListS = t.Items[i].Sub
+			}
+		}
 	}
 	b.Tabs = []ovHeroTab{needs, venues, rolls, crash}
 

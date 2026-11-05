@@ -27,6 +27,7 @@ import (
 // sneak-peek sample.
 type ovDev struct {
 	ID       uuid.UUID
+	Serial   string
 	Class    string
 	Venue    *uuid.UUID
 	Online   bool
@@ -40,7 +41,7 @@ type ovDev struct {
 func ovDevsFromWall(wall []db.WallDevice, connected map[uuid.UUID]bool) []ovDev {
 	out := make([]ovDev, 0, len(wall))
 	for _, w := range wall {
-		out = append(out, ovDev{ID: w.ID, Class: w.Class, Venue: w.RestaurantID, Online: connected[w.ID],
+		out = append(out, ovDev{ID: w.ID, Serial: w.Serial, Class: w.Class, Venue: w.RestaurantID, Online: connected[w.ID],
 			SeenAt: w.LastSeenAt, Battery: w.BatteryPct, HasBatt: w.HasBattery, TempC: w.TempC,
 			Unplaced: w.RestaurantID == nil})
 	}
@@ -760,7 +761,15 @@ func sIfN(n int) string {
 // ── Banner: a short to-do list (W3) ─────────────────────────────────────────
 
 type ovTodo struct {
-	Tone         string // r critical | o warning | y watch | g info (Overview B1's tag)
+	Tone string // r critical | o warning | y watch | g info (Overview B1's tag)
+	// What Overview T2's detail needs: the kind (alert | venue | spike | waiting), the
+	// devices, how many, since when, and the venue a venue row is about.
+	Kind         string
+	Serials      []string
+	Devices      int
+	Since        time.Time
+	Where        string
+	VenueID      *uuid.UUID
 	Title, Sub   string
 	Action, Href string
 	// Post, when set, makes Action a button posting Fields to Post (relative to the
@@ -809,7 +818,8 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 		if tone == "" {
 			tone = "g"
 		}
-		return ovTodo{Tone: tone, Title: a.Issue, Sub: strings.Join(bits, " · "), Action: "Open", Href: a.Href}
+		return ovTodo{Tone: tone, Title: a.Issue, Sub: strings.Join(bits, " · "), Action: "Open", Href: a.Href,
+			Kind: "alert", Serials: a.Serials, Devices: a.Devices, Since: a.Since, Where: a.Restaurant}
 	}
 	for _, a := range att {
 		switch a.Severity {
@@ -821,7 +831,7 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 		default:
 			t := alertTodo(a)
 			if a.Issue == "Waiting for a restaurant" {
-				t = ovTodo{Tone: "g", Title: fmt.Sprintf("%d new device%s waiting for a venue", a.Devices, sIfN(a.Devices)),
+				t = ovTodo{Kind: "waiting", Devices: a.Devices, Tone: "g", Title: fmt.Sprintf("%d new device%s waiting for a venue", a.Devices, sIfN(a.Devices)),
 					Sub: "no lock rule, service hours or venue alerts until placed", Action: "Assign",
 					Href: "/devices?onboarding=pending"}
 			}
@@ -863,7 +873,8 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 		if g.ScoreClass == "danger" {
 			tone = "r"
 		}
-		venue = append(venue, ovTodo{Tone: tone, Title: g.Name + ": " + strings.Join(bits, ", "),
+		gid := g.GroupID
+		venue = append(venue, ovTodo{Kind: "venue", VenueID: &gid, Where: g.Name, Tone: tone, Title: g.Name + ": " + strings.Join(bits, ", "),
 			Sub:    fmt.Sprintf("%s · health %d · %d of %d online", word, g.Score, g.DeviceCount-g.OfflineCount, g.DeviceCount),
 			Action: "Open venue", Href: "/restaurants/" + g.GroupID.String()})
 		break
@@ -871,7 +882,7 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 
 	var spike []ovTodo
 	if tr.Crashes24h >= 5 && tr.Crashes24h > tr.CrashesPrev {
-		spike = append(spike, ovTodo{Tone: "o", Title: fmt.Sprintf("%d crashes in the last 24 h", tr.Crashes24h),
+		spike = append(spike, ovTodo{Kind: "spike", Tone: "o", Title: fmt.Sprintf("%d crashes in the last 24 h", tr.Crashes24h),
 			Sub: fmt.Sprintf("up from %d the day before", tr.CrashesPrev), Action: "See crashes", Href: "/fleet-health"})
 	}
 

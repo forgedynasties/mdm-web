@@ -90,7 +90,7 @@ func TestOverviewNewRenders(t *testing.T) {
 		Facts: db.OverviewFacts{AtVenue: 3, Locked: 2, ToPlace: 1}, ClientUp: 3, ClientBhd: 1,
 		ClassOn: []db.ClassOnline{{Class: "t7", Total: 2, Online: 2}, {Class: "kiosk", Total: 1, Online: 1}},
 		Todos: data["OvBanner"].(ovBanner).All, Venues: data["Venues"].(overviewVenues).Rows,
-		Rollouts: data["OvRollouts"].(ovRollouts), Crashes: 2, CrashesPrv: 5, Score: 81, ScoreClass: "warn", Now: now})
+		Rollouts: rollouts, AppLibrary: true, Crashes: 2, CrashesPrv: 5, Score: 81, ScoreClass: "warn", Now: now})
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "overview_new.html", data); err != nil {
 		t.Fatalf("overview_new.html failed to render: %v", err)
@@ -105,9 +105,11 @@ func TestOverviewNewRenders(t *testing.T) {
 		`Locked<span class="lead"></span><span class="ovb-pill y">67%</span>`,
 		`Clients current<span class="lead"></span><span class="ovb-pill g">75%</span>`,
 		`data-ovb-tab="needs"`, `Needs you · 2`, `1 new device waiting for a venue`,
-		`data-ovb-pane="venues"`, `<p class="ovb-big">Pho 88</p>`, `2 of 3 online · health 42`,
-		`Firmware v2.1.034`, `data-ovb-next`,
-		`<span class="v">75%</span>`, `3 of 4 · 1 offline`, `5 the day before`,
+		// T2: a list per tab, the picked item's detail beside it.
+		`data-ovb-pick="0"`, `class="ovb-det"`,
+		`data-ovb-pane="venues"`, `<p class="ovb-big">Pho 88</p>`, `<small>2 of 3 online</small>`,
+		`<b>2/3</b><span>online</span>`, `<b>42</b><span>health</span>`, `>Offline here<`,
+		`Firmware v2.1.034`, `<small>1 / 2</small>`, `1 in flight`, `href="/releases/7/deployments/11"`,
 		`1 device is<br>waiting to be placed`, `href="/visits"`,
 		`aria-label="TSAI: 2 of 2 online"`, `Offline at a venue`,
 		`id="ovd-intro"`, // the first-visit intro

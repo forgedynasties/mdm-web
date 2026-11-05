@@ -127,7 +127,7 @@ func (h *Handler) sneakPeekOverview(r *http.Request, s *sneakPeekSample, activeS
 	data["OvRollouts"] = buildOvRollouts(s.RolloutBars(), s.now, false)
 	// B1 (5 Nov 2026) from the same sample.
 	in := ovBentoIn{Devs: devs, Active: alerts, CompPct: -1, ClassOn: classOn, Todos: data["OvBanner"].(ovBanner).All,
-		Venues: venues.Rows, Rollouts: data["OvRollouts"].(ovRollouts), Crashes: tr.Crashes24h, CrashesPrv: tr.CrashesPrev, Now: s.now}
+		Venues: venues.Rows, Rollouts: s.RolloutBars(), CrashTop: s.CrashStats().ByDevice, Crashes: tr.Crashes24h, CrashesPrv: tr.CrashesPrev, Now: s.now}
 	if c := s.Compliance(); c != nil && c.InScope > 0 {
 		in.CompPct = c.Pct
 	}
