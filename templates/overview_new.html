@@ -269,6 +269,12 @@ html[data-theme="dark"] .ovd{--ovb-g:#1a8a55;--ovb-o:#cc6a2b;--ovb-y:#b08a0d;--o
 .ovb-btn.l{background:var(--surface);color:var(--text);border:1px solid var(--border)}
 .ovb-promo{background:var(--accent-fill);color:#fff;border-radius:22px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:150px;position:relative;overflow:hidden;text-decoration:none}
 .ovb-promo b{font-size:24px;font-weight:600;line-height:1.15;position:relative}
+/* Hover darkens the card itself, and its text stays white on it (5 Nov 2026, user: "hover should
+   change accent color too only text is changed and accent and text should contrast"). */
+.ovb-promo{transition:background .15s ease}
+.ovb-promo:hover,.ovb-promo:focus-visible{background:var(--accent-fill-h);color:#fff}
+.ovb-promo:hover b{color:#fff}
+.ovb-promo:hover .ovb-btn.w{background:#fff;color:var(--accent-fill-h)}
 .ovb-promo .ovb-btn.w{background:#fff;color:var(--accent-fill);align-self:flex-start;position:relative}
 .ovb-promo .big{position:absolute;right:16px;bottom:6px;font-size:84px;font-weight:700;opacity:.22;line-height:1}
 .ovb-rings{display:flex;justify-content:space-around;gap:10px;flex-wrap:wrap}

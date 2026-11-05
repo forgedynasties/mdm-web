@@ -768,7 +768,7 @@ const TransientInstallSQL = `(COALESCE(cr.output, '') = '' OR cr.output ~* '(une
 
 // RecentInstallsOf returns, per device, which of these APKs it was sent within the
 // window, whatever became of it, except a transient failure (TransientInstallSQL) older
-// than retrySoon: that one may be tried again.
+// than retrySoon: that one may be tried again, unless it failed three times in a day.
 func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []string, within, retrySoon time.Duration) (map[uuid.UUID]map[string]bool, error) {
 	out := map[uuid.UUID]map[string]bool{}
 	if len(ids) == 0 || len(urls) == 0 {
@@ -785,7 +785,21 @@ func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []strin
 		  AND c.apk_url = ANY($2)
 		  AND c.created_at > now() - make_interval(secs => $3)
 		  AND NOT (cs.status = 'failed' AND `+TransientInstallSQL+`
-		           AND cs.updated_at <= now() - make_interval(secs => $4))`, ids, urls, within.Seconds(), retrySoon.Seconds())
+		           AND cs.updated_at <= now() - make_interval(secs => $4))
+		UNION
+		-- Back-off (5 Nov 2026): an APK that failed three times on a device in a day is not
+		-- sent there again until the day has passed, transient or not. A device whose
+		-- verifier silently blocks a build (XVRATNDHIG, KDS 2.0.1) was sent it 179 times in 3 days.
+		SELECT cs.device_id, c.apk_url
+		FROM commands c
+		JOIN command_status cs ON cs.command_id = c.id
+		WHERE c.type = 'install_apk'
+		  AND cs.device_id = ANY($1)
+		  AND c.apk_url = ANY($2)
+		  AND cs.status = 'failed'
+		  AND c.created_at > now() - interval '24 hours'
+		GROUP BY cs.device_id, c.apk_url
+		HAVING count(*) >= 3`, ids, urls, within.Seconds(), retrySoon.Seconds())
 	if err != nil {
 		return nil, err
 	}

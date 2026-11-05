@@ -8110,9 +8110,10 @@ html[data-theme="dark"] .dock.dock-s { box-shadow: 0 0 0 1px rgba(255, 255, 255,
   border: 0; border-radius: 40px; padding: 5px 5px 5px 16px; min-height: 0; background: linear-gradient(90deg, #f9674e, #7a80f6); color: #fff;
   font-weight: 600; text-decoration: none; cursor: pointer; box-shadow: none; }
 .cta-g.cta-g:hover { background: linear-gradient(90deg, #f9674e, #7a80f6); color: #fff; }
-.cta-g.cta-g::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #fff; z-index: -1;
-  clip-path: circle(0px at calc(100% - 18px) 50%); transition: clip-path .4s cubic-bezier(.4, 0, .2, 1); }
-.cta-g.cta-g:hover::before, .cta-g.cta-g:focus-visible::before { clip-path: circle(150% at calc(100% - 18px) 50%); transition: clip-path .8s cubic-bezier(.4, 0, .2, 1); }
+.cta-g.cta-g::before { content: ""; position: absolute; inset: -2px; border-radius: inherit; background: #fff; z-index: -1;
+  clip-path: circle(0px at calc(100% - 20px) 50%); transition: clip-path .4s cubic-bezier(.4, 0, .2, 1); }
+/* inset -2px: the flood reaches past the edge, so no hairline of the gradient stays on the left */
+.cta-g.cta-g:hover::before, .cta-g.cta-g:focus-visible::before { clip-path: circle(150% at calc(100% - 20px) 50%); transition: clip-path .8s cubic-bezier(.4, 0, .2, 1); }
 .cta-g .cta-t { white-space: nowrap; transition: color .4s ease-in-out, -webkit-text-fill-color .4s ease-in-out; }
 .cta-g:hover .cta-t, .cta-g:focus-visible .cta-t { background: linear-gradient(90deg, #f9674e, #7a80f6); -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent; transition: color .1s ease-in-out .1s, -webkit-text-fill-color .8s ease-in-out .15s; }
