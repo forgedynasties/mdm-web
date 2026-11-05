@@ -30,7 +30,7 @@
     return order.map(function (k) {
       var s = by[k], f = s.devs[0];
       s.n = s.devs.length; s.lat /= s.n; s.lon /= s.n;
-      s.name = f.restaurant || (s.n === 1 ? f.serial : f.name) || f.serial; s.rid = f.restaurant_id || ''; s.addr = f.address || '';
+      s.name = f.restaurant || (s.n === 1 ? f.serial : 'Lab' + (f.address ? ' · ' + f.address.split(',')[0] : '')); s.rid = f.restaurant_id || ''; s.addr = f.address || '';
       s.away = s.n === 1 && !!f.away;
       return s;
     });
@@ -177,6 +177,8 @@
       paint: { 'line-color': cv('--warn') || '#d97706', 'line-width': 2, 'line-dasharray': [2, 2] } });
     map.addLayer({ id: 'away-venue', type: 'circle', source: 'away', filter: ['==', '$type', 'Point'],
       paint: { 'circle-radius': 6, 'circle-color': cv('--text') || '#111', 'circle-stroke-color': '#fff', 'circle-stroke-width': 2 } });
+    // Zoomed out to countries the lines would cross oceans; they show with the venue pills.
+    ['away-line', 'away-venue'].forEach(function (id) { map.setLayerZoomRange(id, REGION_ZOOM, 24); });
   }
   window.flAwayToggle = function () { awayOnly = !awayOnly; syncChips(); draw(); };
   // The list's filter chips (plus the rail's venue/group) above the map.
@@ -222,10 +224,33 @@
     if (!keepView || !fitted) { fitAll(); fitted = true; }
     draw();
   }
+  // Open, the map fills the window down to the dock and the page does not scroll (5 Nov 2026,
+  // user: "the map shouldnt be hidden by nav dock. and it should not be scrollable").
+  function fitPane() {
+    var root = document.documentElement, box = pane.querySelector('.fl-map');
+    if (!active()) { root.classList.remove('fl-map-on'); box.style.height = ''; return; }
+    root.classList.add('fl-map-on');
+    if (window.innerWidth <= 720) { box.style.height = ''; return; }
+    window.scrollTo(0, 0);
+    var dock = document.querySelector('nav.dock'), dr = dock && dock.getBoundingClientRect();
+    var bottom = dr && dr.height ? dr.top - 14 : window.innerHeight - 16;
+    box.style.height = Math.max(320, Math.floor(bottom - box.getBoundingClientRect().top)) + 'px';
+    if (map) map.resize();
+  }
+  window.addEventListener('resize', function () { if (active()) fitPane(); });
+  // The loading veil over the map area: a line saying what is happening, gone once drawn.
+  function loadState(t) {
+    var el = document.getElementById('fl-map-load'); if (!el) return;
+    if (t) { document.getElementById('fl-map-load-t').textContent = t; el.classList.remove('done'); }
+    else el.classList.add('done');
+  }
+  var waiters = null;
   function initMap(cb) {
-    if (map) { cb(); return; }
+    if (map && !waiters) { cb(); return; }
+    if (waiters) { waiters.push(cb); return; }
+    waiters = [cb];
     map = mdmMap.create(document.getElementById('fl-map'), { nav: true });
-    map.on('load', cb);
+    map.on('load', function () { var q = waiters; waiters = null; q.forEach(function (f) { f(); }); });
     map.on('style.load', function () { drawAway(); });
     map.on('moveend', draw);
   }
@@ -236,14 +261,20 @@
     loading = true;
     var vals = (typeof getFilterVals === 'function') ? getFilterVals() : {};
     var qs = new URLSearchParams(vals); qs.delete('page'); qs.delete('page_size');
-    var keep = !!map;
+    var keep = !!map, ready = null, data = null;
+    if (!keep) loadState('Loading the map…');
+    function go() {
+      if (!ready || !data) return;
+      if (!keep) loadState('Placing ' + (data.points || []).length + ' devices…');
+      render(data.points || [], data.total || 0, keep);
+      map.once('idle', function () { loadState(''); });
+    }
+    // The map draws while the devices load, rather than after.
+    mdmMap.load(function () { initMap(function () { map.resize(); ready = true; go(); }); });
     fetch('/devices/map.json?' + qs.toString(), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (r) { return r.json(); })
-      .then(function (d) {
-        awayLimit = d.away_limit_m || 300;
-        mdmMap.load(function () { initMap(function () { map.resize(); render(d.points || [], d.total || 0, keep); }); });
-      })
-      .catch(function () { document.getElementById('fl-map-count').textContent = 'Could not load map data'; })
+      .then(function (d) { awayLimit = d.away_limit_m || 300; data = d; if (!ready && !keep) loadState('Drawing the map…'); go(); })
+      .catch(function () { document.getElementById('fl-map-count').textContent = 'Could not load map data'; loadState(''); })
       .then(function () { loading = false; if (pending) { pending = false; load(); } });
   }
   window.flToggleMap = function (force) {
@@ -255,8 +286,15 @@
       b.classList.toggle('on', me); b.setAttribute('aria-pressed', String(me));
     });
     try { localStorage.setItem('mdm-fleet-view', on ? 'map' : 'list'); } catch (e) {}
-    if (on) { fitted = false; load(); if (map) setTimeout(function () { map.resize(); }, 0); }
+    fitPane();
+    if (on) { fitted = false; load(); }
   };
+  // Leaving Fleet (htmx swap) frees the page again.
+  document.addEventListener('htmx:beforeSwap', function (e) {
+    var t = e.detail && e.detail.target; if (t && t.contains(pane)) document.documentElement.classList.remove('fl-map-on');
+  });
+  // MapLibre is big: fetch it while the list is on screen, so the map opens quickly.
+  (window.requestIdleCallback || function (f) { setTimeout(f, 1500); })(function () { if (window.mdmMap) mdmMap.load(function () {}); });
   // Re-fetch when the roster re-renders (filter, quick view, rail scope, live poll).
   document.body.addEventListener('htmx:afterSwap', function (evt) {
     if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') load();

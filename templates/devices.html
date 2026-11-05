@@ -914,6 +914,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 <div class="card fl-map-pane" id="fl-map-pane" hidden>
   <div class="fl-map-bar" id="fl-map-bar" hidden><div class="fleet-chips" id="fl-map-chips"></div><span class="fl-map-un" id="fl-map-un"></span></div>
   <div class="fl-map"><div id="fl-map"></div>
+    <div class="fl-map-load" id="fl-map-load" aria-live="polite"><div class="b"><span class="sp" aria-hidden="true"></span><span id="fl-map-load-t">Loading the map…</span></div></div>
     <div class="fl-mapl" id="fl-mapl">
       <div class="h"><span id="fl-mapl-h">On the map</span><span class="c" id="fl-map-count">Loading…</span></div>
       <div id="fl-mapl-rows"></div>
@@ -923,7 +924,9 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 </div>
 <style>
 .fl-map-pane{overflow:hidden;border-radius:22px}
-.fl-map{position:relative;height:calc(100vh - 330px);min-height:440px}
+.fl-map{position:relative;height:calc(100vh - 330px);min-height:320px}
+html.fl-map-on,html.fl-map-on body{overflow:hidden}
+@media(max-width:720px){html.fl-map-on,html.fl-map-on body{overflow:auto}}
 #fl-map{position:absolute;inset:0}
 .fl-map-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--border)}
 .fl-map-bar .fleet-chips{margin:0;padding:0;border:0;flex:1 1 auto;min-width:0}
@@ -955,6 +958,14 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 .fm-acts .p{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
 .fl-map-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;background:var(--surface);z-index:3;text-align:center;padding:20px}
 .fl-map-empty b{color:var(--text);font-weight:650}
+/* loading: a shimmer over the map area with what is happening; fades out once the pills are on */
+.fl-map-load{position:absolute;inset:0;z-index:4;display:grid;place-items:center;background:linear-gradient(100deg,var(--canvas,var(--surface2)) 30%,color-mix(in srgb,var(--canvas,var(--surface2)) 70%,var(--surface)) 50%,var(--canvas,var(--surface2)) 70%);background-size:250% 100%;animation:flmap-sh 1.6s linear infinite;transition:opacity .35s ease}
+.fl-map-load.done{opacity:0;pointer-events:none}
+.fl-map-load .b{display:inline-flex;align-items:center;gap:10px;background:var(--surface);border-radius:99px;padding:9px 16px 9px 12px;font-size:12.5px;font-weight:600;color:var(--text-2);box-shadow:0 10px 24px -14px rgba(0,0,0,.4)}
+.fl-map-load .sp{width:16px;height:16px;border-radius:50%;border:2px solid color-mix(in srgb,var(--accent-fill) 25%,transparent);border-top-color:var(--accent-fill);animation:flmap-spin .7s linear infinite}
+@keyframes flmap-sh{from{background-position:100% 0}to{background-position:-150% 0}}
+@keyframes flmap-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.fl-map-load,.fl-map-load .sp{animation:none}}
 /* the floating card: what is on screen, and the places off it */
 .fl-mapl{position:absolute;left:14px;top:14px;z-index:3;width:262px;background:var(--surface);border-radius:18px;padding:8px;box-shadow:0 20px 40px -20px rgba(0,0,0,.35);font-size:12.5px}
 .fl-mapl .h{display:flex;align-items:baseline;gap:8px;padding:4px 8px 6px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
@@ -979,7 +990,7 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 .mm-pill:hover .mm-ring::after{background:var(--accent-fill)}
 .fl-mapl .mm-ring{width:14px;height:14px}.fl-mapl .mm-ring::after{width:7px;height:7px}
 .fl-mapl .r:hover .mm-ring::after{background:var(--accent-fill)}
-.mm-dot{width:14px;height:14px;border-radius:50%;border:2.5px solid #fff;background:var(--ok);box-shadow:0 2px 6px rgba(0,0,0,.35);padding:0;cursor:pointer}
+.mm-dot{width:14px;height:14px;border-radius:50%;border:2.5px solid var(--surface);background:var(--ok);box-shadow:0 2px 6px rgba(0,0,0,.35);padding:0;cursor:pointer}
 .mm-dot.off{background:#9a9aa5}.mm-dot.away{background:var(--warn);width:18px;height:18px}
 /* MapLibre's popup and controls in our look */
 .fm-pop .maplibregl-popup-content{padding:0;background:var(--surface);border-radius:16px;box-shadow:0 20px 44px -18px rgba(0,0,0,.45)}

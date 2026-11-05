@@ -229,6 +229,8 @@
 
 /* ── Overview B1 (5 Nov 2026): bento ─────────────────────────────────────── */
 .ovd{--ovb-g:#1f9d60;--ovb-o:#ef7d31;--ovb-y:#d9a70a;--ovb-r:#d64432}
+/* a shade down in dark mode, so the pills and rings don't glare (5 Nov 2026) */
+html[data-theme="dark"] .ovd{--ovb-g:#1a8a55;--ovb-o:#cc6a2b;--ovb-y:#b08a0d;--ovb-r:#b83e2e}
 .ovd{--ovb-page:var(--canvas,#efeff2)} /* H1: the whole app is the canvas now */
 .ovb{display:grid;grid-template-columns:minmax(300px,330px) minmax(0,1fr) minmax(0,1fr);gap:14px}
 .ovb-c{background:var(--surface);border-radius:22px;padding:18px 20px;min-width:0}

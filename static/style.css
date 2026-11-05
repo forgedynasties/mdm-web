@@ -8124,3 +8124,11 @@ html[data-theme="dark"] .dock.dock-s { box-shadow: 0 0 0 1px rgba(255, 255, 255,
 .cta-g.plus:hover::after, .cta-g.plus:focus-visible::after { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 10' fill='none'%3E%3Cpath d='M5.5 .8v8.4M1.3 5h8.4' stroke='%23fff' stroke-width='1.41334' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 11px 10px no-repeat, linear-gradient(135deg, #f9674e, #7a80f6); }
 .cta-g .ui-icon { display: none; }
 @media (prefers-reduced-motion: reduce) { .cta-g.cta-g::before, .cta-g .cta-t, .cta-g.cta-g::after { transition: none; } }
+
+/* ══ Dark mode: the bright fills step down a shade (5 Nov 2026, user: "bright colors need to
+   be adjusted accordingly in dark mode"). The coral fill, the gradient pill and its hover
+   flood (dark, not white), and white rims on map dots. */
+html[data-theme="dark"] { --accent-fill: #b8432c; --accent-fill-h: #a33b26; }
+html[data-theme="dark"] .cta-g.cta-g, html[data-theme="dark"] .cta-g.cta-g:hover { background: linear-gradient(90deg, #c9543f, #6268cf); }
+html[data-theme="dark"] .cta-g.cta-g::before { background: #24242c; }
+html[data-theme="dark"] .cta-g.cta-g::after { background-color: #e9e9ee; }
