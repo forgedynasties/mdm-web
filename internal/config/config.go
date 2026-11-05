@@ -562,7 +562,8 @@ func (c *Config) KioskAllowlist() []string {
 
 // defaultMDMServers is where a device can be pointed when nothing is configured:
 // the live server and the stage one, which is the move people actually make.
-var defaultMDMServers = []string{"https://mdm.dev.aioapp.com", "https://mdm-stage.dev.aioapp.com"}
+// mdm.aioapp.com joined 5 Nov 2026 (user), ahead of the domain going live.
+var defaultMDMServers = []string{"https://mdm.dev.aioapp.com", "https://mdm-stage.dev.aioapp.com", "https://mdm.aioapp.com"}
 
 // MDMServers returns the servers offered when moving a device, a copy.
 func (c *Config) MDMServers() []string {
