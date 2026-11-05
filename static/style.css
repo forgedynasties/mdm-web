@@ -8154,3 +8154,8 @@ html.shell .fleet-roster .ft-wrap thead th { position: sticky; top: 0; z-index: 
 /* What stuck under the old scrolling header now sticks at the top of the page area. */
 html.shell :is(.ua-side, .i1-pv, .fleet-bar.is-sel, .bt-list, .dd-split-l, .dd-tabrow, .settings-nav, .cl-side, .ro-list, .pl-side) { top: 0; }
 html.shell .fleet-roster .device-inspector { overflow-y: auto; }
+
+/* Cards sit flat on the canvas (5 Nov 2026, user: "the border radius has a darker grey around
+   it than the rest of the page"): the old --shadow-lg showed as a grey halo round every corner.
+   Floating things (menus, popups, dock, island, the map's card) keep their shadows. */
+html body :is(.card, .cc-card, .ddc-card, .fleet-rail, .cl-card, .dd-needs) { box-shadow: none; }
