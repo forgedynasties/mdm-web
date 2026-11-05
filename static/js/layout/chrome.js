@@ -1013,7 +1013,7 @@
     function iconFor(it) {
       var k = it.type === 'device'
         ? (it.dev && SCREEN_CLASSES[it.dev.class_key] ? 'screen' : 'device')
-        : it.browse ? 'browse' : (it.recent && it.type === 'page') ? 'recent' : it.type;
+        : (it.browse || it.fleet) ? 'browse' : (it.recent && it.type === 'page') ? 'recent' : it.type;
       var span = document.createElement('span');
       span.className = 'cmdk-ic';
       span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICONS[k] || ICONS.page) + '</svg>';
@@ -1070,24 +1070,41 @@
         var k = document.createElement('span');
         k.className = 'cmdk-kind';
         // Recents sit under their own heading, so the label stays the kind.
-        k.textContent = it.browse ? it.sub + ' ›' : (KIND[it.type] || '');
+        // K1: the group heading names the kind, so only a section row says anything here.
+        if (!it.browse) return rt;
+        k.textContent = it.sub + ' ›';
         rt.appendChild(k);
       }
       return rt;
     }
 
     var rows = []; // option <li> per item, by index (headers are not options)
+    // K1 (picked 5 Nov 2026): each heading opens a white card on the palette's grey canvas
+    // (role=group inside the listbox); the main pages open it as tiles.
     function render() {
       list.innerHTML = '';
       rows = [];
       var q = current();
+      var box = null;
       items.forEach(function (it, i) {
-        if (it.head) {
-          var h = document.createElement('li');
-          h.className = 'cmdk-head';
-          h.setAttribute('role', 'presentation');
-          h.textContent = it.head;
-          list.appendChild(h);
+        if (!box || it.head || (it.tile && !box.__tiles) || (!it.tile && box.__tiles)) {
+          var g = document.createElement('li');
+          g.setAttribute('role', 'presentation');
+          g.className = 'cmdk-grp' + (it.tile ? ' cmdk-tiles' : '');
+          box = document.createElement('ul');
+          box.setAttribute('role', 'group');
+          box.__tiles = !!it.tile;
+          if (it.head) {
+            var h = document.createElement('li');
+            h.className = 'cmdk-head';
+            h.setAttribute('role', 'presentation');
+            h.id = 'cmdk-h-' + i;
+            h.textContent = it.head;
+            box.appendChild(h);
+            box.setAttribute('aria-labelledby', h.id);
+          }
+          g.appendChild(box);
+          list.appendChild(g);
         }
         var li = document.createElement('li');
         li.id = 'cmdk-opt-' + i;
@@ -1099,8 +1116,15 @@
           var pl = document.createElement('span'); pl.className = 'cmdk-l1';
           pl.textContent = pendingEnter ? 'Searching devices… Enter opens the top match' : 'Searching devices…';
           li.appendChild(pl);
+        } else if (it.tile) {
+          li.className = 'cmdk-item cmdk-tile' + (i === active ? ' active' : '');
+          var ti = document.createElement('span'); ti.className = 'cmdk-ic';
+          ti.innerHTML = it.svg || '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS.page + '</svg>';
+          li.appendChild(ti);
+          var tl = document.createElement('span'); tl.className = 'cmdk-l1'; tl.textContent = it.label;
+          li.appendChild(tl);
         } else {
-          li.className = 'cmdk-item cmdk-rich' + (i === active ? ' active' : '');
+          li.className = 'cmdk-item cmdk-rich' + (it.fleet ? ' cmdk-fleet' : '') + (i === active ? ' active' : '');
           li.appendChild(iconFor(it));
           var tx = document.createElement('span'); tx.className = 'cmdk-tx';
           var l1 = document.createElement('span'); l1.className = 'cmdk-l1';
@@ -1119,7 +1143,7 @@
         }
         li.addEventListener('mousemove', function () { setActive(i); });
         li.addEventListener('click', function (e) { choose(i, true, e.shiftKey || e.metaKey || e.ctrlKey); });
-        list.appendChild(li);
+        box.appendChild(li);
         rows.push(li);
       });
       empty.hidden = items.length > 0;
@@ -1211,6 +1235,33 @@
         .map(function (o) { return o.it; });
     }
 
+    // K1: a search's results in groups by kind, the group of the best hit first, each in
+    // rank order. Devices fold to four (plus "Show all in Fleet") when other kinds matched
+    // too; a serial search lists every device the server sent.
+    var GROUP = { device: 'Devices', Restaurant: 'Venues', Group: 'Groups', User: 'People', Build: 'Builds', page: 'Pages' };
+    var DEV_FOLD = 4;
+    function grouped(list, q) {
+      var order = [], by = {};
+      list.forEach(function (it) {
+        var g = GROUP[it.type] || 'Pages';
+        if (!by[g]) { by[g] = []; order.push(g); }
+        by[g].push(it);
+      });
+      var out = [];
+      order.forEach(function (g) {
+        var rows = by[g], n = rows.length;
+        if (g === 'Devices' && order.length > 1 && n > DEV_FOLD + 1) {
+          rows = rows.slice(0, DEV_FOLD).concat([{ label: (n - DEV_FOLD) + ' more · Show all in Fleet', url: '/devices?q=' + encodeURIComponent(q), type: 'browse-fleet', fleet: true, browse: '' }]);
+        }
+        rows.forEach(function (it, i) {
+          var c = {}; for (var k in it) c[k] = it[k];
+          c.head = i === 0 ? (g === 'Devices' ? 'Devices · ' + n : g) : '';
+          out.push(c);
+        });
+      });
+      return out;
+    }
+
     function deviceItem(d, recent) {
       var l2 = [];
       if (d.nickname) l2.push(d.serial);
@@ -1276,16 +1327,23 @@
         return !(it.type === 'device' && recentDevs[it.serial] === null);
       });
       if (!pagesOnly) {
+        // K1: the dock's first four pages as tiles, then what was opened lately, then
+        // every page.
+        var tiles = [];
+        document.querySelectorAll('.dock a.nav-link.js-dest').forEach(function (a) {
+          if (tiles.length >= 4) return;
+          var ic = a.querySelector('svg.ic-o') || a.querySelector('svg');
+          tiles.push({ label: a.getAttribute('data-cmdk-label') || (a.textContent || '').trim(), url: a.getAttribute('href'), type: 'page', tile: true, svg: ic ? ic.outerHTML : '' });
+        });
         var rec = {}; out.forEach(function (it) { rec[it.url] = true; });
+        var rest = [];
         dests.forEach(function (d, i) {
           if (rec[d.url]) return;
-          var it = { label: d.label, sub: d.sub, url: d.url, type: 'page' };
-          out.push(it);
+          rest.push({ label: d.label, sub: d.sub, url: d.url, type: 'page' });
         });
-        var first = out.filter(function (it) { return !it.recent; })[0];
-        if (first && out[0] !== first) first.head = 'All pages';
-        if (out[0] && out[0].recent) out[0].head = 'Recent';
-        return out;
+        if (out[0]) out[0].head = 'Recently opened';
+        if (rest[0]) rest[0].head = 'All pages';
+        return tiles.concat(out, rest);
       }
       var secs = [], counts = {};
       dests.forEach(function (d) {
@@ -1337,8 +1395,8 @@
         devTimer = dev.state === 'wait' ? setTimeout(fetchDevices, 120) : null;
       }
       var prev = keep && items[active] && items[active].url;
-      items = rank(q, dev.hits);
-      if (dev.state === 'wait') items.push({ label: '', type: 'pending' });
+      items = grouped(rank(q, dev.hits), q);
+      if (dev.state === 'wait') items.push({ label: '', type: 'pending', head: items.some(function (it) { return it.type === 'device'; }) ? '' : 'Devices' });
       active = 0;
       if (keep && picked && prev) {
         for (var i = 0; i < items.length; i++) if (items[i].url === prev) { active = i; break; }

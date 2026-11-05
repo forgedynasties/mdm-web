@@ -32,7 +32,8 @@
       tabrow.parentNode.insertBefore(facts, split);
       facts.classList.add('is-split');
       l.appendChild(card);
-      var lg = document.getElementById('vt-legend'); if (lg) l.appendChild(lg);
+      // DV1 (picked 5 Nov 2026): the legend is the graph card's last row, not a card of its own.
+      var lg = document.getElementById('vt-legend'); if (lg) { lg.classList.add('in-card'); card.appendChild(lg); }
       r.appendChild(tabrow);
       // Pad and Notes join the end of the facts line, so the tabs keep one row.
       var chips = tabrow.querySelector('.dd-tabrow-r'); if (chips) facts.appendChild(chips);
@@ -48,7 +49,7 @@
       facts.classList.remove('is-split');
       if (tabrow.__home) tabrow.parentNode.insertBefore(facts, tabrow.nextSibling);
       if (card.__home) card.__home.parentNode.insertBefore(card, card.__home);
-      var lg2 = document.getElementById('vt-legend'); if (lg2) card.parentNode.insertBefore(lg2, card.nextSibling);
+      var lg2 = document.getElementById('vt-legend'); if (lg2) { lg2.classList.remove('in-card'); card.parentNode.insertBefore(lg2, card.nextSibling); }
       split.remove();
     } else return;
     aboutIntoOverview(on);
@@ -153,14 +154,42 @@
     showRecent(avail - split.getBoundingClientRect().height >= RECENT_ROOM);
   }
   var RECENT_ROOM = 180;
+  // DV1 (picked 5 Nov 2026, user: "if that is shown then activity tab should disappear, but
+  // this transition should be smooth"): Recent slides open under the split while the
+  // Activity tab folds out of the tab row, and the reverse when the room goes. The tab
+  // stays while it is the open one, and comes back with "All activity".
   function showRecent(on) {
     var el = document.getElementById('dd-recent');
     if (!el) return;
-    on = on && !!document.getElementById('dd-split') && el.previousElementSibling === document.getElementById('dd-split');
-    el.hidden = !on;
-    // This runs before htmx has processed the page, so attach its trigger first.
-    if (on && window.htmx && !el.dataset.asked) { el.dataset.asked = '1'; window.htmx.process(el); window.htmx.trigger(el, 'dd-show'); }
+    var split = document.getElementById('dd-split');
+    on = on && !!split && el.previousElementSibling === split;
+    el.hidden = !split;
+    el.dataset.want = on ? '1' : '';
+    // This runs before htmx has processed the page, so attach its trigger first. The card
+    // opens once its rows are in, so it slides open rather than jumping.
+    if (on && window.htmx && !el.dataset.asked) {
+      el.dataset.asked = '1';
+      el.addEventListener('htmx:afterSwap', function () { if (el.dataset.want) requestAnimationFrame(function () { recentOpen(true); }); });
+      window.htmx.process(el); window.htmx.trigger(el, 'dd-show');
+      return;
+    }
+    if (!on || el.dataset.asked) recentOpen(on && !!el.firstElementChild);
   }
+  function recentOpen(on) {
+    var el = document.getElementById('dd-recent');
+    if (el) el.classList.toggle('on', on);
+    document.body.classList.toggle('dd-recent-on', on);
+    var t = document.getElementById('dd-tab-activity');
+    if (t) {
+      var folded = on && !t.classList.contains('active');
+      t.setAttribute('aria-hidden', folded ? 'true' : 'false');
+      t.tabIndex = folded ? -1 : 0;
+    }
+  }
+  // A tab change (a tab, or Recent's "All activity") refolds or unfolds it.
+  document.addEventListener('click', function () {
+    if (document.body.classList.contains('dd-recent-on')) setTimeout(function () { recentOpen(true); }, 0);
+  });
   // The graph's tabs (Battery, Temp, RAM, Network) differ in what sits under the plot.
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('.dd-split-l')) setTimeout(fitLater, 30);
@@ -170,7 +199,7 @@
     var el = document.getElementById('dd-recent');
     if (!el) return;
     if (on && split) split.parentNode.insertBefore(el, split.nextSibling);
-    else el.hidden = true;
+    else { el.hidden = true; recentOpen(false); }
   }
   // The divider: the graph pane's share of the width, 30-75 %, kept per person on the
   // server (window.DD_SPLIT from the page; POST /profile/device-split). The graph never

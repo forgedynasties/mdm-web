@@ -8010,3 +8010,38 @@ html[data-theme="dark"] .dock.dock-s { box-shadow: 0 0 0 1px rgba(255, 255, 255,
 .dock .nav-link.active { background: var(--text); color: var(--surface); }
 .dock-s .dock-search { border-radius: 15px; background: var(--canvas); border: 0; }
 .dock.dock-s .dock-island { border-radius: 22px; }
+
+/* ══ K1 · Ctrl+K as grouped cards on the canvas (picked 5 Nov 2026) ══════════════════
+   The palette is the grey canvas with the search as a white pill, each kind of result a
+   white card under its own heading, the row you'd open the dark pill (like the dock),
+   state as a dot; opened empty it starts with the main pages as tiles. */
+.cmdk-panel { background: var(--canvas); border: 0; border-radius: 24px; padding: 10px; }
+.cmdk-panel.cmdk-pages { max-width: 460px; }
+.cmdk-input-row { background: var(--surface); border: 0; border-radius: 99px; padding: 8px 14px; }
+.cmdk-esc { background: var(--surface); }
+.cmdk-list { padding: 0; max-height: 58vh; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.cmdk-grp { list-style: none; }
+.cmdk-grp > ul { list-style: none; margin: 0; padding: 6px; background: var(--surface); border-radius: 18px; }
+.cmdk-tiles > ul { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 0; background: none; }
+.cmdk-head, .cmdk-head:first-child { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 6px 10px 4px; }
+.cmdk-item { border-radius: 13px; }
+.cmdk-item.cmdk-rich { gap: 10px; padding: 8px 10px; }
+.cmdk-ic { width: 30px; height: 30px; border-radius: 10px; background: var(--canvas); }
+.cmdk-item.active { background: var(--text); color: var(--surface); }
+.cmdk-item.active .cmdk-l1 { color: var(--surface); }
+.cmdk-item.active .cmdk-l2, .cmdk-item.active .cmdk-rt { color: color-mix(in srgb, var(--surface) 70%, transparent); }
+.cmdk-item.active .cmdk-ic { background: color-mix(in srgb, var(--surface) 14%, transparent); color: var(--surface); }
+.cmdk-item.active .cmdk-ent { color: var(--surface); border-color: color-mix(in srgb, var(--surface) 40%, transparent); }
+.cmdk-item.active .cmdk-kind { color: color-mix(in srgb, var(--surface) 70%, transparent); }
+.cmdk-list mark { color: inherit; font-weight: 700; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; text-decoration-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.cmdk-kind { text-transform: none; letter-spacing: 0; font-size: 11px; color: var(--muted); }
+.cmdk-dot.on { box-shadow: none; }
+.cmdk-item.cmdk-pending.active { background: none; color: var(--muted); }
+.cmdk-fleet .cmdk-l1 { font-size: 12px; color: var(--text-2); }
+.cmdk-tile { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 6px; padding: 12px 10px; background: var(--surface); border-radius: 16px; font-size: 12px; font-weight: 600; }
+.cmdk-tile .cmdk-ic { width: 28px; height: 28px; border-radius: 9px; }
+.cmdk-tile .cmdk-ic svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.cmdk-tile .cmdk-l1 { font-size: 12px; }
+.cmdk-foot { border: 0; padding: 9px 8px 2px; color: var(--text-2); }
+.cmdk-foot kbd { background: var(--surface); }
+@media (max-width: 720px) { .cmdk-tiles > ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

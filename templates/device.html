@@ -1713,7 +1713,7 @@ body.dd-resizing iframe,body.dd-resizing canvas{pointer-events:none}
 .dd-split-l{position:sticky;top:76px;min-width:0}
 /* Fitted to the window: the page stays put, the panes scroll. */
 /* The page scrolls again in the split (G3, 26 Oct 2026): Recent on this device sits under it. */
-.dd-recent{margin-top:16px}.dd-recent .ddc-card{margin:0}
+.dd-recent .ddc-card{margin:0}
 .dd-recent .dtl-list{columns:2 420px;column-gap:28px;padding-top:4px}
 .dd-recent .ddc-tl{break-inside:avoid}
 html.dd-fit .dd-split{align-items:stretch}
@@ -1844,6 +1844,49 @@ body.dd-pane-facts #dd-panel-summary .dd-tabrow-r{display:none}
 .dd-facts.is-split .dd-pad-chip:not([data-st="flapping"]):not([data-st="bad"]) #pad-chip-t{display:none}
 .dd-facts.is-split .dfc-wide .dfm{display:none}
 .dd-facts.is-split .dd-tabrow-r .cc-btn{padding-left:9px;padding-right:9px}
+
+/* ══ DV1 · the Overview's language (picked 5 Nov 2026) ══ Same layout; dark pills for what
+   is selected, figures as grey tiles, the legend inside the graph card, calm grey tags. */
+.dd-tabs{background:var(--surface);border:0;border-radius:99px;padding:3px;gap:2px}
+.dd-tab{border-radius:99px;padding:6px 14px;font-size:13px;color:var(--text-2)}
+.dd-tab:hover{color:var(--text)}
+.dd-tab.active{background:var(--text);color:var(--surface);box-shadow:none}
+.dd-tab.active .dd-tab-n{background:color-mix(in srgb,var(--surface) 18%,transparent);color:var(--surface)}
+.dd-split-r .dd-tab{padding:6px 12px}
+.vt-tabs{background:var(--canvas,var(--surface2));border-radius:99px;padding:3px}
+.vt-tab{border-radius:99px;padding:5px 12px;color:var(--text-2)}
+.vt-tab.active{background:var(--text);color:var(--surface);box-shadow:none}
+.vt-range{border-radius:99px;background:var(--canvas,var(--surface2));color:var(--text)}
+.vt-ib{border-radius:50%}
+.vt-pre{border:0;background:var(--canvas,var(--surface2));padding:3px;gap:2px}
+.vt-pre button{border:0;border-radius:99px;padding:3px 10px}
+.vt-pre button:hover{background:var(--surface)}
+.vt-pre button.on{background:var(--text);color:var(--surface)}
+.vt-legend.in-card{margin:0;border:0;border-radius:0;box-shadow:none;background:none;height:auto;min-height:44px;padding:4px 16px 14px;flex:none}
+.vt-legend.in-card .vt-lg-k{color:var(--muted)}
+.wlc-seg{border:0;border-radius:99px;background:var(--canvas,var(--surface2))}
+.wlc-seg button{border-radius:99px}
+.wlc-seg button[aria-pressed=true],.wlc-seg button[value="1"][aria-pressed=true]{background:var(--text);color:var(--surface);box-shadow:none}
+.ddc-gtag{background:var(--canvas,var(--surface2));color:var(--text-2);border-radius:99px}
+html[data-theme="dark"] .ddc-gtag{color:var(--text-2)}
+.dd-hw-st .cc-tag{border-radius:99px}
+/* The vitals as tiles: no tube, the value large on a grey tile. */
+.vc-row{gap:8px;align-items:stretch;flex-wrap:wrap}
+.vc-row>.vc,.vc{display:block;background:var(--canvas,var(--surface2));border-radius:14px;padding:10px 12px;flex:1 1 0;min-width:96px}
+.vc-tube{display:none}
+.vc-row .vc-v,.vc-v{font-size:20px;letter-spacing:-.02em}
+.vc.t-ok .vc-v{color:var(--text)}
+.vc[role=button]{margin:0;padding:10px 12px}
+.vc[role=button]:hover,.vc[role=button]:focus-visible{background:color-mix(in srgb,var(--canvas,var(--surface2)) 70%,var(--border))}
+.vc-up{margin-top:6px}
+/* Recent on this device slides open under the split as the Activity tab folds away. */
+.dd-recent{display:grid;grid-template-rows:0fr;opacity:0;margin-top:0;transition:grid-template-rows .5s cubic-bezier(.22,1,.36,1),opacity .35s ease .1s,margin-top .5s cubic-bezier(.22,1,.36,1)}
+.dd-recent[hidden]{display:none}
+.dd-recent>*{min-height:0;overflow:hidden}
+.dd-recent.on{grid-template-rows:1fr;opacity:1;margin-top:16px}
+#dd-tab-activity{max-width:180px;overflow:hidden;transition:max-width .45s cubic-bezier(.22,1,.36,1),opacity .3s ease,padding .45s cubic-bezier(.22,1,.36,1),background var(--dur) var(--ease),color var(--dur) var(--ease)}
+body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-left:0;padding-right:0;margin-left:-2px;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.dd-recent,#dd-tab-activity{transition:none}}
 
 </style>
 {{/* The divider's position for this person (null = the default). split.js */}}
