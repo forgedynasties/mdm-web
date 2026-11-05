@@ -231,6 +231,18 @@
 .ovd{--ovb-g:#1f9d60;--ovb-o:#ef7d31;--ovb-y:#d9a70a;--ovb-r:#d64432}
 /* a shade down in dark mode, so the pills and rings don't glare (5 Nov 2026) */
 html[data-theme="dark"] .ovd{--ovb-g:#1a8a55;--ovb-o:#cc6a2b;--ovb-y:#b08a0d;--ovb-r:#b83e2e}
+/* Dark mode: solid status fills become tinted chips with coloured text, and the coral "waiting
+   to be placed" card a deep coral tint (5 Nov 2026, user: "fix bright colors in dark mode"). */
+html[data-theme="dark"] .ovd .ovb-pill.g,html[data-theme="dark"] .ovd .ovb-tag{background:color-mix(in srgb,var(--ovb-g) 26%,transparent);color:#7fd3a6}
+html[data-theme="dark"] .ovd .ovb-tag.y{background:color-mix(in srgb,var(--ovb-y) 28%,transparent);color:#e6c867}
+html[data-theme="dark"] .ovd .ovb-tag.o{background:color-mix(in srgb,var(--ovb-o) 28%,transparent);color:#f0a777}
+html[data-theme="dark"] .ovd .ovb-tag.r{background:color-mix(in srgb,var(--ovb-r) 30%,transparent);color:#f19a8d}
+html[data-theme="dark"] .ovd .ovb-pill.y{background:color-mix(in srgb,var(--ovb-y) 28%,transparent);color:#e6c867}
+html[data-theme="dark"] .ovd .ovb-pill.o{background:color-mix(in srgb,var(--ovb-o) 28%,transparent);color:#f0a777}
+html[data-theme="dark"] .ovd .ovb-pill.r{background:color-mix(in srgb,var(--ovb-r) 30%,transparent);color:#f19a8d}
+html[data-theme="dark"] .ovd .ovb-promo{background:color-mix(in srgb,var(--accent-fill) 34%,#16161c)}
+html[data-theme="dark"] .ovd .ovb-promo:hover{background:color-mix(in srgb,var(--accent-fill) 46%,#16161c)}
+html[data-theme="dark"] .ovd .ovb-promo .ovb-btn.w{background:color-mix(in srgb,#fff 90%,transparent);color:#a83d28}
 .ovd{--ovb-page:var(--canvas,#efeff2)} /* H1: the whole app is the canvas now */
 .ovb{display:grid;grid-template-columns:minmax(300px,330px) minmax(0,1fr) minmax(0,1fr);gap:14px}
 .ovb-c{background:var(--surface);border-radius:22px;padding:18px 20px;min-width:0}
