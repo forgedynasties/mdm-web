@@ -306,6 +306,8 @@ func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
 		"K1Banner":  buildK1Banner(checks, rules, fixesWeek, sc, pct, failingN, inScope, partly),
 		"K1Cards":   buildK1Cards(trend, fixesDaily, autoFixOn, pct, failingN, inScope, partly, sc),
 		"K1Groups":  buildK1Groups(checks, rules, fixesWeek, sc),
+		"K1Flat":    k1Flat(buildK1Groups(checks, rules, fixesWeek, sc)),
+		"K1Radar":   k1Radar(checks),
 		"K1Rail":    buildK1Rail(pct, compliant, inScope, partly, trend, venues, h.cfg.ComplianceReportsCustomers(), now),
 		"Title":     "Compliance",
 		"Tab":       tab,

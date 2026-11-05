@@ -2,6 +2,8 @@ package dashboard
 
 import (
 	"fmt"
+	"html/template"
+	"math"
 	"net/url"
 	"sort"
 	"strings"
@@ -431,6 +433,7 @@ func buildK1Cards(trend []k1Day, fixesDaily []int, autoFixOn, pct, failing, inSc
 
 type k1Row struct {
 	compCheckView
+	GroupName    string
 	AutoFix      bool // has a fix and it is on
 	HasFix       bool
 	FixedWeek    int
@@ -471,7 +474,7 @@ func buildK1Groups(checks []compCheckView, rules compRules, fixesWeek map[string
 		if sc.Level != "" && c.Level != sc.Level {
 			continue
 		}
-		r := k1Row{compCheckView: c, HasFix: c.Fix != "", AutoFix: rules.autoFix(c.compCheck), FixedWeek: fixesWeek[c.ID],
+		r := k1Row{compCheckView: c, GroupName: k1GroupLabel(c.Group), HasFix: c.Fix != "", AutoFix: rules.autoFix(c.compCheck), FixedWeek: fixesWeek[c.ID],
 			MoreHref: sc.q("devices", "show", "all", "check", c.ID)}
 		if c.Counts.Fail > 0 {
 			switch c.ID {
@@ -621,4 +624,96 @@ func (s k1Scope) DevHref(show, check string) string {
 		extra = append(extra, "check", check)
 	}
 	return s.q("devices", extra...)
+}
+
+// ── CP1 (picked 5 Nov 2026): the checks as one list, failing first, and a spider graph ──
+
+// k1Flat is every check row in one list, most failing first (then the registry's order).
+func k1Flat(groups []k1Group) []k1Row {
+	var out []k1Row
+	for _, g := range groups {
+		out = append(out, g.Rows...)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Counts.Fail > out[j].Counts.Fail })
+	return out
+}
+
+var k1Short = map[string]string{
+	"checked_in": "Checked in", "client_current": "Client", "own_key": "Own key", "firmware_approved": "Firmware",
+	"locked": "Locked", "device_owner": "Owner", "dev_options_off": "Dev options", "release_build": "Release build",
+	"adb_off": "USB debug", "wireless_adb_off": "Wi-Fi adb", "security_patch_recent": "Patch",
+	"unknown_sources_off": "Unknown src", "verified_boot": "Boot", "selinux_enforcing": "SELinux", "not_rooted": "Root",
+	"encrypted": "Encrypted", "play_protect": "Play Protect",
+}
+
+// k1Radar draws the spider: one spoke per check that some device answered, the point as far
+// out as the share of those devices that pass; a red dot under 85 %.
+func k1Radar(checks []compCheckView) template.HTML {
+	type spoke struct {
+		label, name string
+		v           float64
+	}
+	var sp []spoke
+	for _, c := range checks {
+		m := c.Counts.Pass + c.Counts.Fail
+		if m == 0 {
+			continue
+		}
+		l := k1Short[c.ID]
+		if l == "" {
+			l = c.Name
+			if len(l) > 12 {
+				l = l[:11] + "…"
+			}
+		}
+		sp = append(sp, spoke{l, c.Name, float64(c.Counts.Pass) / float64(m)})
+	}
+	if len(sp) < 3 {
+		return ""
+	}
+	const w, h, r = 230.0, 210.0, 64.0
+	cx, cy := w/2, h/2+2
+	var b strings.Builder
+	fmt.Fprintf(&b, `<svg class="cp1-radar" viewBox="0 0 %.0f %.0f" role="img" aria-label="Share of devices passing each check">`, w, h)
+	n := float64(len(sp))
+	at := func(i int, k float64) (float64, float64) {
+		a := -math.Pi/2 + float64(i)*2*math.Pi/n
+		return cx + math.Cos(a)*r*k, cy + math.Sin(a)*r*k
+	}
+	for _, k := range []float64{.25, .5, .75, 1} {
+		b.WriteString(`<polygon class="g" points="`)
+		for i := range sp {
+			x, y := at(i, k)
+			fmt.Fprintf(&b, "%.1f,%.1f ", x, y)
+		}
+		b.WriteString(`"/>`)
+	}
+	for i, s := range sp {
+		x, y := at(i, 1)
+		fmt.Fprintf(&b, `<line class="g" x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f"/>`, cx, cy, x, y)
+		lx, ly := at(i, 1.18)
+		anchor := "middle"
+		if lx > cx+8 {
+			anchor = "start"
+		} else if lx < cx-8 {
+			anchor = "end"
+		}
+		fmt.Fprintf(&b, `<text x="%.1f" y="%.1f" text-anchor="%s" dominant-baseline="middle">%s</text>`, lx, ly, anchor, template.HTMLEscapeString(s.label))
+	}
+	b.WriteString(`<polygon class="a" points="`)
+	for i, s := range sp {
+		x, y := at(i, s.v)
+		fmt.Fprintf(&b, "%.1f,%.1f ", x, y)
+	}
+	b.WriteString(`"/>`)
+	for i, s := range sp {
+		x, y := at(i, s.v)
+		cls := "ok"
+		if s.v < .85 {
+			cls = "bad"
+		}
+		fmt.Fprintf(&b, `<circle class="%s" cx="%.1f" cy="%.1f" r="3"><title>%s: %d%% pass</title></circle>`, cls, x, y, template.HTMLEscapeString(s.name), int(s.v*100+.5))
+	}
+	b.WriteString(`</svg>`)
+	return template.HTML(b.String())
 }

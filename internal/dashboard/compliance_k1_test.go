@@ -212,6 +212,8 @@ func TestCompliancePageRendersK1(t *testing.T) {
 		"K1Banner": buildK1Banner(checks, rules, map[string]int{"wireless_adb_off": 4}, sc, 78, 34, 152, 84),
 		"K1Cards":  buildK1Cards(trend, make([]int, 14), 1, 78, 34, 152, 84, sc),
 		"K1Groups": buildK1Groups(checks, rules, map[string]int{"wireless_adb_off": 4}, sc),
+		"K1Flat":   k1Flat(buildK1Groups(checks, rules, map[string]int{"wireless_adb_off": 4}, sc)),
+		"K1Radar":  k1Radar(checks),
 		"K1Rail":   buildK1Rail(78, 118, 152, 84, trend, venues, false, now),
 	}
 	var buf bytes.Buffer
@@ -221,13 +223,12 @@ func TestCompliancePageRendersK1(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		`id="page-island"`, `class="cc-btn sm isl-dup" href="/compliance/rules"`,
-		`aria-current="page">Checks</a>`, `Level: <b>All</b>`, `Venue: <b>All</b>`, `Type: <b>All</b>`,
-		`4 to fix first`, `<span class="k1-who">a rollout</span>`, `href="/releases">Releases</a>`, `1 more in the table`,
-		`>Compliant</a>`, `>Auto-fix</a>`, `>Measurable</a>`,
-		`<div class="k1-grp">Setup</div>`, `<div class="k1-grp">Debugging</div>`, `<div class="k1-grp">Intact</div>`,
+		// CP1 (5 Nov 2026): the rail carries the score, the spider and the views; no banner, cards or old rail.
+		`class="cp-wrap cl-page"`, `class="fleet-rail cp1-rail"`, `<b>78%</b>`, `class="cp1-radar"`,
+		`<span class="nm">Checks</span>`, `<span class="nm">Venues</span>`, `Venues behind`, `Mom&#39;s Biryani`,
+		`Venue: <b>All</b>`, `Type: <b>All</b>`, `most failing first`, `class="cp1-grp">Setup</small>`,
 		`auto-fix on · 4 this week`, `AT070AABU00455`, `href="/compliance?check=firmware_approved&amp;show=all&amp;tab=devices"`,
-		`78%</b><small>compliant</small>`, `% compliant each day, last 14 days`, `Venues behind`, `Mom&#39;s Biryani`,
-		`customer reports are off (Compliance rules)`, `/compliance.pdf`, `/static/js/oc-menus.js`,
+		`/static/js/oc-menus.js`,
 		`Unknown (not reported by its client`,
 	} {
 		if !strings.Contains(out, want) {

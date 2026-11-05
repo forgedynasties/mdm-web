@@ -86,13 +86,26 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
 .k1-rep .cc-btn{margin-left:auto;flex:none}
 .k1-cap{margin-top:-6px}
 .k1-trend-empty{font-size:12px;color:var(--muted);padding:8px 0}
+/* CP1 */
+.cp1-md{align-items:start}
+.cp1-rail{padding:10px 8px}
+.cp1-score{display:flex;align-items:center;gap:10px;padding:6px 10px 2px}
+.cp1-score b{font-size:32px;font-weight:650;letter-spacing:-.02em}
+.cp1-score span{font-size:12px;color:var(--text-2);line-height:1.3}
+.cp1-score small{display:block;color:var(--muted);font-size:11px}
+.cp1-radar{display:block;width:100%;height:auto;margin:2px 0 4px}
+.cp1-radar .g{fill:none;stroke:var(--border-soft)}
+.cp1-radar text{font-size:9.5px;fill:var(--text-2)}
+.cp1-radar .a{fill:color-mix(in srgb,var(--accent-fill) 16%,transparent);stroke:var(--accent-fill);stroke-width:2}
+.cp1-radar circle.ok{fill:var(--ok)}.cp1-radar circle.bad{fill:var(--danger)}
+.cp-nm .cp1-grp{display:block;font-size:11px;color:var(--muted);font-weight:500}
 </style>
 <template id="page-island">
   <span class="isl-dot {{if ge .Pct 90}}on{{else}}warn{{end}}"></span><span class="isl-t">Compliance</span>
   <span class="isl-s"><b>{{.Pct}}%</b> of {{.InScope}} meet every required check{{if .Failing}} · {{.Failing}} failing{{end}}{{if .Scope.On}} · {{if .Scope.VenueName}}{{.Scope.VenueName}}{{end}}{{if and .Scope.VenueName .Scope.ClassName}} · {{end}}{{if .Scope.ClassName}}{{.Scope.ClassName}}{{end}}{{end}}</span>
   <span class="isl-acts"><a class="cc-btn" href="/compliance/rules">Rules</a></span>
 </template>
-<div class="cp-wrap">
+<div class="cp-wrap cl-page">
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Control</div>
@@ -105,15 +118,8 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
   {{/* K1 (21 Oct 2026): tabs left, the Venue and Type pills (and Level on Checks) right.
        Venue and Type scope every number on the page. */}}
   <div class="oc-bar k1-bar">
-    <nav class="cp-tabs" aria-label="Compliance views">
-      <a href="{{.Scope.TabHref "checks"}}"{{if eq .Tab "checks"}} class="on" aria-current="page"{{end}}>Checks</a>
-      <a href="{{.Scope.TabHref "venues"}}"{{if eq .Tab "venues"}} class="on" aria-current="page"{{end}}>Venues</a>
-      <a href="{{.Scope.TabHref "devices"}}"{{if eq .Tab "devices"}} class="on" aria-current="page"{{end}}>Devices</a>
-    </nav>
     <div class="k1-pills">
       {{with .Scope}}
-      {{if eq $.Tab "checks"}}<div class="oc-f"><button class="oc-fb{{if .Level}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Level: <b>{{if eq .Level "required"}}Required{{else if eq .Level "recommended"}}Recommended{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-        <div class="cc-menu" hidden>{{range .Levels}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>{{end}}
       <div class="oc-f"><button class="oc-fb{{if .Venue}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
         <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
       <div class="oc-f"><button class="oc-fb{{if .Class}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .ClassName}}{{.ClassName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
@@ -122,46 +128,33 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
     </div>
   </div>
 
-  <div class="ov2">
-  <div class="ov2-main">
-  {{with .K1Banner}}
-  <div class="ov2-ban is-{{.Tone}} k1-ban">
-    <div class="ov2-ban-k">{{.Kicker}}</div>
-    <h2>{{.Headline}}</h2>
-    {{if .Todos}}
-    <ol class="oc-todo">
-      {{range .Todos}}<li><span class="t">{{.Title}}<span class="k1-who">{{.Who}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</span><a href="{{.Href}}">{{.Action}}</a></li>{{end}}
-    </ol>
-    {{if .More}}<a class="oc-more" href="#checks">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
-    {{else}}<p>{{.Calm}}</p>{{end}}
-  </div>
-  {{end}}
-
-  <div class="oc-stats">
-    {{range .K1Cards}}
-    <div class="oc-st">
-      <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
-      <a class="oc-stm" href="{{.Href}}">
-        {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-        {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
-      </a>
-      {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/></svg>{{else}}<div style="height:16px"></div>{{end}}
-    </div>
-    {{end}}
-  </div>
-
+  <div class="fleet-md cp1-md">
+  {{/* CP1 (picked 5 Nov 2026, user: "the main banner goes, i would want a spider graph, maybe make
+       it fleets twin"): the rail carries the score, the spider (one spoke per check, the point
+       as far out as the share passing) and the views; the page is one list. */}}
+  <aside class="fleet-rail cp1-rail" aria-label="Compliance">
+    <div class="cp1-score"><b>{{.Pct}}%</b><span>meet every required check<small>{{.InScope}} device{{if ne .InScope 1}}s{{end}} at a venue{{if .Failing}} · {{.Failing}} failing{{end}}</small></span></div>
+    {{.K1Radar}}
+    <div class="fleet-rail-cap"><span>View</span></div>
+    <a class="fleet-rail-item{{if eq .Tab "checks"}} on{{end}}" href="{{.Scope.TabHref "checks"}}"><span class="dot ok"></span><span class="nm">Checks</span><span class="ct">{{len .K1Flat}}</span></a>
+    <a class="fleet-rail-item{{if eq .Tab "venues"}} on{{end}}" href="{{.Scope.TabHref "venues"}}"><span class="dot muted"></span><span class="nm">Venues</span><span class="ct">{{len .Venues}}</span></a>
+    <a class="fleet-rail-item{{if eq .Tab "devices"}} on{{end}}" href="{{.Scope.TabHref "devices"}}"><span class="dot muted"></span><span class="nm">Devices</span><span class="ct">{{.InScope}}</span></a>
+    {{if eq .Tab "checks"}}<div class="fleet-rail-cap"><span>Level</span></div>
+    {{range .Scope.Levels}}<a class="fleet-rail-item{{if .Active}} on{{end}}" href="{{.Href}}"><span class="dot muted"></span><span class="nm">{{.Label}}</span></a>{{end}}{{end}}
+    {{with .K1Rail}}{{if .Behind}}<div class="fleet-rail-cap"><span>Venues behind</span></div>
+    {{range .Behind}}<a class="fleet-rail-item" href="/restaurants/{{.ID}}"><span class="dot warn"></span><span class="nm">{{.Name}}</span><span class="ct">{{.Pct}}%</span></a>{{end}}{{end}}{{end}}
+  </aside>
+  <div class="fleet-roster">
   {{if eq .Tab "checks"}}
   <section class="oc-card" id="checks">
-    <div class="oc-ch"><h2>Checks <span>failing first{{if .Scope.Level}} · {{if eq .Scope.Level "required"}}required only{{else}}recommended only{{end}}{{end}}</span></h2></div>
-    {{if .K1Groups}}
+    <div class="oc-ch"><h2>Checks <span>most failing first{{if .Scope.Level}} · {{if eq .Scope.Level "required"}}required only{{else}}recommended only{{end}}{{end}}</span></h2></div>
+    {{if .K1Flat}}
     <div class="k1-tbl">
       <div class="k1-th"><span>Check</span><span>Level</span><span>Pass · fail · unknown</span><span class="n">Failing</span><span></span><span></span></div>
-      {{range .K1Groups}}
-      <div class="k1-grp">{{.Name}}</div>
-      {{range .Rows}}
+      {{range .K1Flat}}
       <details class="k1-row">
         <summary>
-          <span class="cp-nm"><b>{{.Name}}</b>{{if .AutoFix}}<span class="k1-af" title="Auto-fix {{.Fix}}">auto-fix on{{if .FixedWeek}} · {{.FixedWeek}} this week{{end}}</span>{{else if .HasFix}}<span class="k1-af off">auto-fix off</span>{{end}}<small>{{if .Help}}{{.Help}}{{else if .Device}}Reported by the device{{else}}Known to the server{{end}}</small></span>
+          <span class="cp-nm"><b>{{.Name}}</b><small class="cp1-grp">{{.GroupName}}</small>{{if .AutoFix}}<span class="k1-af" title="Auto-fix {{.Fix}}">auto-fix on{{if .FixedWeek}} · {{.FixedWeek}} this week{{end}}</span>{{else if .HasFix}}<span class="k1-af off">auto-fix off</span>{{end}}<small>{{if .Help}}{{.Help}}{{else if .Device}}Reported by the device{{else}}Known to the server{{end}}</small></span>
           <span class="cp-lv {{.Level}}">{{if eq .Level "required"}}Required{{else if eq .Level "recommended"}}Recommended{{else}}Off{{end}}</span>
           <span class="cp-bar" aria-hidden="true">{{if .Counts.Pass}}<i class="p" style="flex:{{.Counts.Pass}}"></i>{{end}}{{if .Counts.Fail}}<i class="f" style="flex:{{.Counts.Fail}}"></i>{{end}}{{if .Counts.Unknown}}<i class="u" style="flex:{{.Counts.Unknown}}"></i>{{end}}{{if .Counts.NA}}<i class="n" style="flex:{{.Counts.NA}}"></i>{{end}}</span>
           <span class="cp-cnt">{{if .Counts.Fail}}<span class="{{if eq .Level "required"}}cp-bad{{else}}cp-wa{{end}}">{{.Counts.Fail}}</span>{{else if .Counts.Pass}}<span class="cp-ok">0</span>{{else if .Counts.Unknown}}<span class="cp-mu">{{.Counts.Unknown}} unknown</span>{{else}}<span class="cp-mu">n/a</span>{{end}}</span>
@@ -179,7 +172,6 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
           {{end}}
         </div>
       </details>
-      {{end}}
       {{end}}
     </div>
     {{else}}<div class="cp-empty">{{if .Scope.Level}}No check at this level.{{else}}No device has been scored yet: results appear within a minute of the server starting.{{end}}</div>{{end}}
@@ -235,31 +227,6 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
   </section>
   {{end}}
   </div>
-
-  {{with .K1Rail}}
-  <aside class="ov2-rail" aria-label="Compliance over time and the venues behind">
-    <a class="ov2-ring s-{{.Tone}}" href="{{$.Scope.TabHref "devices"}}" title="{{.Compliant}} of {{.InScope}} meet every required check">
-      <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
-      <span><b>{{.Pct}}%</b><small>compliant</small></span>
-    </a>
-    <div class="ov2-hi"><b>{{.Compliant}} of {{.InScope}} device{{if ne .InScope 1}}s{{end}}</b><small>meet every required check{{if .Partly}} · {{.Partly}} measured on server checks only{{end}}</small></div>
-    {{if .HasTrend}}
-    <div class="ov2-bars" role="img" aria-label="Percent compliant each of the last fourteen days">
-      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
-    </div>
-    <div class="ov2-hi k1-cap"><small>% compliant each day, last 14 days</small></div>
-    {{else}}<div class="k1-trend-empty">No history yet: the trend fills in as checks change state.</div>{{end}}
-    <div class="ov2-rh"><h2>Venues behind</h2><a href="{{$.Scope.TabHref "venues"}}">All venues</a></div>
-    {{if .Behind}}
-    <ul class="k1-ven">
-      {{range .Behind}}<li><span><a href="/restaurants/{{.ID}}">{{.Name}}</a><small>{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Worst}} · {{.Worst}}{{end}}</small></span><span class="p {{if ge .Pct 90}}cp-ok{{else if ge .Pct 70}}cp-wa{{else}}cp-bad{{end}}">{{.Pct}}%</span></li>{{end}}
-    </ul>
-    {{else}}<div class="ovd-empty"><b>None.</b> Every scored venue meets its required checks.</div>{{end}}
-    {{with .Report}}
-    <div class="k1-rep"><span class="ic">PDF</span><span><b>Venue report</b><small>{{if .On}}monthly to owners · next {{.Next}} · {{.Venues}} venue{{if ne .Venues 1}}s{{end}}{{else}}not sent to owners: customer reports are off (Compliance rules){{end}}</small></span>{{if .VenueID}}<a class="cc-btn xs" href="/restaurants/{{.VenueID}}/compliance.pdf" hx-boost="false" title="This month's report for {{.VenueName}}">Preview</a>{{end}}</div>
-    {{end}}
-  </aside>
-  {{end}}
   </div>
 </div>
 <script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
