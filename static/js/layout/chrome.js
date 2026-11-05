@@ -1875,3 +1875,40 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', later); else later();
   window.addEventListener('load', later);
 })();
+
+// ── Rounded cuts (5 Nov 2026; user: "make sure on every page whatever the zoom dont hard cut
+// bottom, always keep rounded corners"). In the app shell <main> scrolls inside, so a card
+// running past its bottom edge would end in a straight cut. Each outer card crossing that
+// edge is clipped to its visible part with its own corner radius, so it reads as rounded.
+(function () {
+  var SEL = '.card, .cc-card, .ddc-card, .fleet-rail, .ovb-c, .ro-list';
+  var raf = 0, clipped = [];
+  function run() {
+    raf = 0;
+    var main = document.getElementById('main');
+    clipped.forEach(function (el) { el.style.clipPath = ''; });
+    clipped = [];
+    if (!main || !document.documentElement.classList.contains('shell')) return;
+    var line = main.getBoundingClientRect().bottom;
+    Array.prototype.forEach.call(main.querySelectorAll(SEL), function (el) {
+      if (el.parentElement && el.parentElement.closest(SEL)) return; // only the outermost card
+      var r = el.getBoundingClientRect();
+      if (r.top >= line - 8 || r.bottom <= line + 1 || !r.width) return;
+      var rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 20;
+      el.style.clipPath = 'inset(0 0 ' + Math.ceil(r.bottom - line) + 'px 0 round ' + rad + 'px)';
+      clipped.push(el);
+    });
+  }
+  function later() { if (!raf) raf = requestAnimationFrame(run); }
+  document.addEventListener('scroll', later, true);
+  window.addEventListener('resize', later);
+  document.addEventListener('htmx:afterSettle', later);
+  window.addEventListener('load', later);
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(later);
+    var watch = function () { var m = document.getElementById('main'); if (m) { ro.disconnect(); ro.observe(m); Array.prototype.forEach.call(m.children, function (c) { ro.observe(c); }); } };
+    document.addEventListener('htmx:afterSettle', watch);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
+  }
+  later();
+})();

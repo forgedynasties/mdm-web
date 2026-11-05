@@ -8146,6 +8146,10 @@ html.shell .fleet-md > .fleet-rail { position: static; align-self: start; max-he
 html.shell .fleet-md > .fleet-roster { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 html.shell .fleet-roster > * { flex: none; }
 html.shell .fleet-roster > :has(.ft-wrap) { flex: 0 1 auto; min-height: 0; }
+/* Only the last table on the page is the one that scrolls; tables above it (an app's Versions
+   above its Devices) keep their height. */
+html.shell .fleet-roster > :has(.ft-wrap):has(~ :has(.ft-wrap)) { flex: none; }
+html.shell .fleet-roster > :has(.ft-wrap):has(~ :has(.ft-wrap)) .ft-wrap { overflow: visible; }
 html.shell .fleet-roster > :has(.ft-wrap):not(.card) { align-items: stretch; overflow: hidden; }
 html.shell .fleet-roster > :has(.ft-wrap):not(.card) > * { max-height: 100%; min-height: 0; }
 html.shell .fleet-roster .card:has(> .ft-wrap) { display: flex; flex-direction: column; min-height: 0; }

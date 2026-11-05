@@ -91,6 +91,17 @@ function scopeRoster(anchor, u) {
 
   // Instant heading + rail highlight from the clicked item (before data lands).
   var item = anchor.closest('.fleet-rail-item');
+  // The picked entry's × (its link to "every device") clears the pick: nothing stays on, and
+  // every entry's link goes back to picking it (5 Nov 2026, user: "clicking cross here doesnt work").
+  var clearing = !ov.restaurant && !ov.group && !ov.build && !ov.product;
+  document.querySelectorAll('.fleet-rail a.ri-main[data-pick]').forEach(function (x) {
+    x.setAttribute('href', (!clearing && x === anchor) ? (x.dataset.clear || '/devices') : x.dataset.pick);
+  });
+  if (clearing) {
+    document.querySelectorAll('.fleet-rail-item').forEach(function (x) { x.classList.remove('on'); });
+    var rt0 = document.getElementById('roster-title'); if (rt0) rt0.textContent = 'All devices';
+    item = null;
+  }
   if (item) {
     document.querySelectorAll('.fleet-rail-item').forEach(function (x) { x.classList.remove('on'); });
     item.classList.add('on');
