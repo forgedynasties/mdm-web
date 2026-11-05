@@ -577,6 +577,7 @@
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-activity" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-activity" data-dd-tab="activity" onclick="setDeviceTab('activity', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Activity{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n" title="Queued">{{len .Queue}}</span>{{end}}</button>{{end}}
   {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-health" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-health" data-dd-tab="health" onclick="setDeviceTab('health', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-9.3-9A5.2 5.2 0 0 1 12 6.6 5.2 5.2 0 0 1 21.3 12C19 16.6 12 21 12 21z"/></svg>Health{{if .Health.Count}} <span class="dd-tab-n warn" title="Open alerts and failing required checks">{{.Health.Count}}</span>{{end}}</button>{{end}}
   <button class="dd-tab" id="dd-tab-network" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-network" data-dd-tab="network" onclick="setDeviceTab('network', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg>Network</button>
+  <button class="dd-tab" id="dd-tab-location" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-location" data-dd-tab="location" onclick="setDeviceTab('location', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>Location</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)"><svg class="dd-tab-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5h.01"/></svg>About</button>
 </div>
 <div class="dd-tabrow-r">
@@ -1311,8 +1312,6 @@ window.DEVICE_VITALS = {
       <div class="ddc-kv"><span class="k">Build</span><span class="v mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
       <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
     </div>{{end}}
-    {{/* The lost-device report leads About while the device is lost (it renders nothing otherwise). */}}
-    {{template "lost-report-card" .}}
     {{if not .IsOwner}}
     {{/* Enrollment facts: how this device got here. Its actions (key, server, retire,
          unenroll, wipe, wireless adb) are in the ⋯ menu. */}}
@@ -1368,6 +1367,13 @@ window.DEVICE_VITALS = {
 
     </div>
     {{end}}
+  </div>
+</section><!-- /about -->
+
+<section class="dd-panel" data-dd-panel="location" id="dd-panel-location" role="tabpanel" aria-labelledby="dd-tab-location" tabindex="0" hidden>
+  {{/* Location has its own tab again (5 Nov 2026, user: "give location its own tab"): the
+       lost-device report while the device is lost, then the map with its address. */}}
+  {{template "lost-report-card" .}}
     <div id="about-location">
 {{/* Location map (MP1 "Canvas", picked 5 Nov 2026): our own MapLibre map with the device
      as a pin named by its serial and venue; shown when the device has a Wi-Fi position. */}}
@@ -1395,8 +1401,8 @@ window.DEVICE_VITALS = {
   <div class="ddc-kv"><span class="k">Restaurant</span><span class="v">{{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}—{{end}}</span></div>
 </div>{{end}}
     </div>
-  </div>
-</section><!-- /about -->
+</section><!-- /location -->
+
 
 {{if canAdmin .Role}}
 {{/* Device-page dialogs for admins (E3, picked 16 Oct: no Settings tab). The ⋯ menu opens
@@ -1897,6 +1903,13 @@ html[data-theme="dark"] .ddc-gtag{color:var(--text-2)}
 #dd-tab-activity{max-width:180px;overflow:hidden;transition:max-width .45s cubic-bezier(.22,1,.36,1),opacity .3s ease,padding .45s cubic-bezier(.22,1,.36,1),background var(--dur) var(--ease),color var(--dur) var(--ease)}
 body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-left:0;padding-right:0;margin-left:-2px;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.dd-recent,#dd-tab-activity{transition:none}}
+/* The tab row stays on screen while its pane scrolls (5 Nov 2026, user: "make these tabs sticky"). */
+.dd-tabrow{position:sticky;top:76px;z-index:6;background:var(--canvas,var(--bg));padding:4px 0 8px;margin-bottom:4px}
+html.dd-fit .dd-split-r .dd-tabrow{top:0}
+@media(max-width:720px){.dd-tabrow{top:62px}}
+/* One corner radius for every card in the tabs, the graph card's (5 Nov 2026, user: "all the
+   panes should have same border radius"). */
+.dd-panel :is(.card,.ddc-card,.dd-needs,.cc-card,.apl2-host,.dev-map-card,.dd-facts),.dd-recent .ddc-card{border-radius:var(--r-4,24px)}
 /* The device card first in the Overview (5 Nov 2026, user: "the model card deserves to be at top"). */
 .about-grid>#dd-hw{order:-1}
 /* Where the tabs pane cuts a card off at its foot, the cut is rounded like the cards. */
