@@ -7,10 +7,13 @@
 // offline, labelled by last seen; the coral window is what is on screen. Drag or click it to
 // jump; hover names the device there. Phones and the Cards view keep the pager.
 (function () {
+  var tl = window.flTL = { on: false, start: 0, fit: 30 };
+  // The script sits above the list in the page: start once the list is parsed.
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  function init() {
   var C = document.getElementById('device-table-container');
   if (!C) return;
   var root = document.documentElement;
-  var tl = window.flTL = { on: false, start: 0, fit: 30 };
   var top = 0, chunk = { start: 0, n: 0 }, total = 0, vis = 1, loading = false, again = null;
   var line = null, lineAt = 0, rail = null, tip = null;
 
@@ -199,4 +202,5 @@
   // The shell class arrives from chrome.js after layout; start once it is there.
   if (document.readyState === 'complete') setTimeout(sync, 60); else window.addEventListener('load', function () { setTimeout(sync, 60); });
   document.addEventListener('htmx:afterSettle', function () { if (!tl.on) sync(); });
+  }
 })();
