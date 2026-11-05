@@ -7976,8 +7976,8 @@ html[data-theme="dark"] .cc-card { background: var(--surface); }
   background: linear-gradient(var(--canvas) 70%, color-mix(in srgb, var(--canvas) 0%, transparent)); }
 html[data-theme="dark"] .appbar, html[data-theme="dark"] .appbar.is-scrolled { box-shadow: none; border-bottom: 0;
   background: linear-gradient(var(--canvas) 70%, color-mix(in srgb, var(--canvas) 0%, transparent)); }
-.appbar-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 21px; }
-.appbar-brand::before { content: ""; width: 34px; height: 34px; border-radius: 10px; flex: none;
+.appbar-brand { display: inline-flex; align-items: center; gap: 0; font-size: 21px; white-space: pre; }
+.appbar-brand::before { content: ""; width: 34px; height: 34px; border-radius: 10px; flex: none; margin-right: 10px;
   background: url(/static/favicon.svg) center / cover no-repeat; }
 .appbar-brand .brand-aio, .appbar-brand .brand-hub { background: none; -webkit-text-fill-color: currentColor; color: var(--text); font-weight: 650; }
 .appbar .appbar-icon { width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--surface); }
