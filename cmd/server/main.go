@@ -883,7 +883,8 @@ func main() {
 		runJob(ctx, "lock-rules", time.Minute, dash.RunLockRules)
 		runJob(ctx, "role-alerts", time.Minute, dash.RunRoleAlerts)
 	})
-	jobs.Default.Every(bgCtx, "apk-auto-pull", time.Minute, 5*time.Minute, dash.RunAPKAutoPull)
+	// No auto-pull from devices into the library (5 Nov 2026, user: "remove the role app pulling
+	// from devices, only manual upload"). RunAPKAutoPull stays in the code, unscheduled.
 	jobs.Default.Every(bgCtx, "backend-sync", time.Minute, 5*time.Minute, dash.RunBackendSync)
 	// Record when each device goes online and offline, for the network graph's
 	// online strip (dashboard/presence_record.go).
