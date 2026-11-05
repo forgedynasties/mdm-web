@@ -472,6 +472,7 @@
           if (!only) g.forEach(function (n) { c.appendChild(n); });
           if (c.querySelector('.d') || c.classList.contains('d')) c.classList.add('bad');
           else if (c.querySelector('.w') || c.classList.contains('w')) c.classList.add('warn');
+          else if (/\bonline\b/i.test(c.textContent)) c.classList.add('ok'); // H1: green dot for "N online"
           if (c.firstChild && c.firstChild.nodeType === 3) c.firstChild.nodeValue = c.firstChild.nodeValue.replace(/^\s+/, '');
           if (c.lastChild && c.lastChild.nodeType === 3) c.lastChild.nodeValue = c.lastChild.nodeValue.replace(/\s+$/, '');
           box.appendChild(c);

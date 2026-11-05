@@ -7955,3 +7955,57 @@ body .cc-top:has(.cc-actions:not(.isl-dup) > *) { margin-bottom: 14px; }
 .appbar-island .isl-chip .w, .appbar-island .isl-chip .d { color: inherit; font-weight: 650; }
 .appbar-island .isl-chip.info { background: var(--info-bg); border-color: transparent; color: var(--info); }
 @media (max-width: 1100px) { .appbar-island .isl-chips .isl-chip:nth-child(n+3) { display: none; } }
+
+/* ══ H1 · One canvas (picked 5 Nov 2026) ══════════════════════════════════════════
+   User: "i really like the page design … the navbar and the header seems incoherent".
+   Every page sits on the Overview's soft grey canvas; the header, its island and the dock
+   are white rounded shapes like the cards, the dock's selected item is the same dark pill
+   as a selected tab, and state colour lives in dots. Last in the file on purpose: it
+   overrides the header glass and its scroll morph, the coral dock ring (D2), the body's
+   colour washes and the island chips' tints above. */
+:root { --canvas: #efeff2; --bg: #efeff2; }
+html[data-theme="dark"] { --canvas: #0d0d12; }
+body { background: var(--canvas); }
+body::before { display: none; }
+.cc-card { background: var(--surface); }
+html[data-theme="dark"] .cc-card { background: var(--surface); }
+
+/* Header: no bar. The canvas fades in behind the pills once the page scrolls under them. */
+.appbar, .appbar.is-scrolled { --ph: 0; top: 0; width: 100%; border-radius: 0; border-bottom: 0;
+  padding-left: 24px; padding-right: 24px; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: linear-gradient(var(--canvas) 70%, color-mix(in srgb, var(--canvas) 0%, transparent)); }
+html[data-theme="dark"] .appbar, html[data-theme="dark"] .appbar.is-scrolled { box-shadow: none; border-bottom: 0;
+  background: linear-gradient(var(--canvas) 70%, color-mix(in srgb, var(--canvas) 0%, transparent)); }
+.appbar-brand { display: inline-flex; align-items: center; gap: 10px; font-size: 21px; }
+.appbar-brand::before { content: ""; width: 34px; height: 34px; border-radius: 10px; flex: none;
+  background: url(/static/favicon.svg) center / cover no-repeat; }
+.appbar-brand .brand-aio, .appbar-brand .brand-hub { background: none; -webkit-text-fill-color: currentColor; color: var(--text); font-weight: 650; }
+.appbar .appbar-icon { width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--surface); }
+.appbar .appbar-icon:hover { background: var(--surface2); }
+.appbar .appbar-icon .nav-badge { border-color: var(--canvas); }
+.appbar .appbar-acct { height: 42px; border: 0; border-radius: 99px; background: var(--surface); padding: 0 5px 0 14px; }
+.appbar .appbar-acct:hover { background: var(--surface2); }
+
+/* The island: one white pill; its status chips are grey pills with a coloured dot. */
+.appbar-island.always, .appbar.is-scrolled .appbar-island { background: var(--surface); border-radius: 99px;
+  min-height: 44px; padding: 0 6px 0 16px; margin: 0 12px; }
+.appbar-island::before { display: none; }
+.appbar-island .isl-chip { background: var(--canvas); border: 0; color: var(--text-2); gap: 6px; }
+.appbar-island .isl-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--text-faint); }
+.appbar-island .isl-chip.ok::before { background: #1f9d60; }
+.appbar-island .isl-chip.warn, .appbar-island .isl-chip.bad, .appbar-island .isl-chip.info { background: var(--canvas); color: var(--text-2); }
+.appbar-island .isl-chip.warn::before { background: #ef7d31; }
+.appbar-island .isl-chip.bad::before { background: #d64432; }
+.appbar-island .isl-chip.info::before { background: var(--info); }
+.appbar-island .isl-chip.warn b, .appbar-island .isl-chip.bad b, .appbar-island .isl-chip .w, .appbar-island .isl-chip .d { color: var(--text); }
+.appbar-island a.isl-chip:hover { background: var(--surface2); }
+
+/* The dock: a white rounded card; the selected page is the dark pill. */
+.dock.dock-s, html[data-theme="dark"] .dock.dock-s { border-radius: 22px; background: var(--surface);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .03), 0 14px 34px -18px rgba(0, 0, 0, .35); }
+html[data-theme="dark"] .dock.dock-s { box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 14px 34px -14px rgba(0, 0, 0, .7); }
+.dock-s > .nav-link { border-radius: 15px; }
+.dock .nav-link.active { background: var(--text); color: var(--surface); }
+.dock-s .dock-search { border-radius: 15px; background: var(--canvas); border: 0; }
+.dock.dock-s .dock-island { border-radius: 22px; }

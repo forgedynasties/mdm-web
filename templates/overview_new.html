@@ -228,10 +228,8 @@
 .ovd-intro-ok:hover{background:var(--accent-fill-h)}
 
 /* ── Overview B1 (5 Nov 2026): bento ─────────────────────────────────────── */
-.ovd{--ovb-g:#1f9d60;--ovb-o:#ef7d31;--ovb-y:#d9a70a;--ovb-r:#d64432;--ovb-page:#efeff2}
-html[data-theme="dark"] .ovd{--ovb-page:#141318}
-@media (prefers-color-scheme:dark){html:not([data-theme="light"]) .ovd{--ovb-page:#141318}}
-.ovd{background:var(--ovb-page);border-radius:24px;padding:16px}
+.ovd{--ovb-g:#1f9d60;--ovb-o:#ef7d31;--ovb-y:#d9a70a;--ovb-r:#d64432}
+.ovd{--ovb-page:var(--canvas,#efeff2)} /* H1: the whole app is the canvas now */
 .ovb{display:grid;grid-template-columns:minmax(300px,330px) minmax(0,1fr) minmax(0,1fr);gap:14px}
 .ovb-c{background:var(--surface);border-radius:22px;padding:18px 20px;min-width:0}
 .ovb-ch{display:flex;align-items:center;gap:10px;margin-bottom:12px}
@@ -349,7 +347,6 @@ html.ov-fit .ovb-radar{min-height:150px}
 /* Narrower screens last, so they win over the rules above. */
 @media (max-width:1100px){.ovb{grid-template-columns:1fr 1fr}.ovb-hero{grid-column:1/-1}}
 @media (max-width:720px){
-  .ovd{padding:10px;border-radius:18px}
   .ovb{grid-template-columns:minmax(0,1fr)}
   .ovb-hero{grid-column:auto}
   .ovb-ch{flex-wrap:wrap}
