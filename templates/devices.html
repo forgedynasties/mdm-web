@@ -501,6 +501,18 @@ a.fleet-rail-item{min-height:40px}
 .fq-car{width:12px;height:12px;flex:none;opacity:.7}
 .fl-fchips{position:relative;z-index:39;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px}
 .fl-chip-list{display:contents}
+/* Lean toolbar (5 Nov 2026): product tabs as one short row, then search, chips, Sort and
+   List · Map on one row, so the table gets the height. */
+.ptabs{margin:0 0 8px;padding-bottom:0;border-bottom:0}
+.ptab{height:30px;font-size:12.5px;padding:0 11px 0 8px}
+.ptab-ic{width:18px;height:18px}
+.fleet-bar{gap:8px;margin-bottom:10px}
+.fleet-bar .fleet-search{flex:0 1 280px;min-width:170px;height:34px;border-radius:99px}
+.fleet-bar .fl-fchips{flex:1 1 auto;min-width:0;margin:0;gap:6px}
+.fleet-bar .fq,.fleet-bar .fl-fadd{height:30px;padding:0 11px;font-size:12px}
+.fleet-bar #sort-btn{height:34px}
+.fl-lm button{padding:5px 12px}
+@media(max-width:720px){.fleet-bar .fleet-search{flex:1 1 100%}.fleet-bar .fl-fchips{flex-basis:100%}}
 .fl-fchips .fchip{padding-left:0}
 .fchip-b{display:inline-flex;align-items:center;gap:5px;height:100%;padding:0 2px 0 11px;border:0;border-radius:999px 0 0 999px;background:none;font:inherit;color:inherit;cursor:pointer}
 .fchip-b.is-static{cursor:default}
@@ -656,6 +668,25 @@ a.fleet-rail-item{min-height:40px}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
     <input type="search" id="search-input" name="q" value="{{.Query}}" placeholder="Search name, serial, venue…" aria-label="Search devices by name, serial, venue or group">
   </div>
+  {{/* The chips share the search row (5 Nov 2026, user: "make this area very lean so that the
+       table rows can get most of the height"). */}}
+  <div class="fl-fchips" id="fl-fchips">
+  <span class="fl-quick" id="fl-quick" role="group" aria-label="Quick filters"></span>
+  <span class="fl-chip-list" id="fl-chip-list"></span>
+  <button type="button" class="fl-fadd" id="ff-add" onclick="ffOpen(event, this)" aria-haspopup="menu" aria-expanded="false">More<svg class="fq-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
+  <button type="button" class="fchip-clear" id="ff-clear" hidden onclick="clearFilters()">Clear</button>
+  <div class="cc-menu fl-menu fl-ffmenu" id="ff-menu" role="menu" hidden>
+    <div class="fl-mpane" data-pane="fields">
+      <div class="fl-mfind"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="ff-find" placeholder="Filter by…" autocomplete="off" aria-label="Find a filter or a value" oninput="ffFind(this.value)" onkeydown="ffFindKey(event)"></div>
+      <div id="ff-fields"></div>
+    </div>
+    <div class="fl-mpane" data-pane="values" hidden>
+      <button type="button" class="cc-mi fl-mback" id="ff-back" onclick="ffBack()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg><span id="ff-vtitle"></span></button>
+      <div class="cc-msep"></div>
+      <div id="ff-values"></div>
+    </div>
+  </div>
+</div>
 
   {{/* ── Selection bar (B1, picked 16 Oct): while devices are ticked it takes this row's
        place — count, "select all N", the three verbs used most, and one ⋯ menu with the
@@ -751,23 +782,7 @@ a.fleet-rail-item{min-height:40px}
      Chips for a "More" filter that is set follow the quick ones. Rendered from the URL
      (ffRender), so pasted links work as they always did. The class filter is the product
      tabs' job and has no chip here. ── */}}
-<div class="fl-fchips" id="fl-fchips">
-  <span class="fl-quick" id="fl-quick" role="group" aria-label="Quick filters"></span>
-  <span class="fl-chip-list" id="fl-chip-list"></span>
-  <button type="button" class="fl-fadd" id="ff-add" onclick="ffOpen(event, this)" aria-haspopup="menu" aria-expanded="false">More<svg class="fq-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>
-  <button type="button" class="fchip-clear" id="ff-clear" hidden onclick="clearFilters()">Clear</button>
-  <div class="cc-menu fl-menu fl-ffmenu" id="ff-menu" role="menu" hidden>
-    <div class="fl-mpane" data-pane="fields">
-      <div class="fl-mfind"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="ff-find" placeholder="Filter by…" autocomplete="off" aria-label="Find a filter or a value" oninput="ffFind(this.value)" onkeydown="ffFindKey(event)"></div>
-      <div id="ff-fields"></div>
-    </div>
-    <div class="fl-mpane" data-pane="values" hidden>
-      <button type="button" class="cc-mi fl-mback" id="ff-back" onclick="ffBack()"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg><span id="ff-vtitle"></span></button>
-      <div class="cc-msep"></div>
-      <div id="ff-values"></div>
-    </div>
-  </div>
-</div>
+
 
 <script>
 // The filter fields, their groups and the values each can take. Lists that come from the
