@@ -321,7 +321,7 @@
 .ovb-legend .ovb-dot{margin-top:0}
 .ovb-emptyc{grid-column:1/-1;background:var(--ovb-page);border-radius:16px;padding:22px 24px}
 /* The fit is CSS, so the first frame already has the right height (5 Nov 2026, user: "it
-   should be correct height from the start"): 100vh less the header and the dock (188 px),
+   should be correct height from the start"): 100vh less the header and the dock (192 px),
    refined by overview_new.js (--ovd-h); ov-nofit when the room it measures is too small. */
 @media (min-width:1101px) and (min-height:708px){
 html:not(.ov-nofit):has(.ovd .ovb) .ovb-t2{min-height:0}
@@ -331,7 +331,7 @@ html:not(.ov-nofit):has(.ovd .ovb) .ovb-list{max-height:none}
    between the header and the dock (--ovd-h) and the page stops scrolling; the top row
    takes what is left after the bottom row, the radar and the hero shrink with it. */
 html:not(.ov-nofit):has(.ovd .ovb),html:not(.ov-nofit):has(.ovd .ovb) body{overflow:hidden}
-html:not(.ov-nofit):has(.ovd .ovb) .ovd{height:var(--ovd-h,calc(100vh - 188px));box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+html:not(.ov-nofit):has(.ovd .ovb) .ovd{height:var(--ovd-h,calc(100vh - 192px));box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
 html:not(.ov-nofit):has(.ovd .ovb) .ovb{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) auto}
 html:not(.ov-nofit):has(.ovd .ovb) .ovb-health{display:flex;flex-direction:column;min-height:0;overflow:hidden}
 html:not(.ov-nofit):has(.ovd .ovb) .ovb-radar{flex:1 1 0;min-height:0;height:100%;width:100%;max-width:none}

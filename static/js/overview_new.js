@@ -65,7 +65,7 @@ document.addEventListener('click', function (e) {
 (function () {
   var ovd = document.querySelector('.ovd'); if (!ovd || !ovd.querySelector('.ovb')) return;
   var root = document.documentElement;
-  // The template's CSS already fits the page from the first frame (100vh less 188 px);
+  // The template's CSS already fits the page from the first frame (100vh less 192 px);
   // this only measures the exact room, or says ov-nofit when there is too little.
   function fit() {
     if (!document.body.contains(ovd)) return off();

@@ -1455,26 +1455,41 @@ window.DEVICE_VITALS = {
 
 {{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
-  {{/* One Apps card (device tabs plan A1, 27 Oct 2026): the host app as one line with its
-       detail folded under it, then every other app as a ranked row (device-apps-list).
-       The Top apps card is gone: the list is the ranking. */}}
+  {{/* A2 (picked 5 Nov 2026): the host app first, as its own card with its figures (the
+       Overview's hero), its full detail folded under it; then every other app as a lean
+       ranked row with one figure and a bar (device-apps-list). */}}
+  {{$hostCard := false}}{{with .HostApp}}{{if .Count}}{{$hostCard = true}}
+  <div class="card apl2-host">
+    <div class="apl2-hrow">
+      {{$ic := ""}}{{range $.InstalledPackages}}{{if eq .PackageName $.HostApp.Active.Package}}{{$ic = .Icon}}{{end}}{{end}}
+      <span class="apl2-hic">{{if $ic}}<img class="app-icon" src="{{iconSrc $ic}}" alt="">{{else}}<span class="app-mono" data-seed="{{.Active.Package}}">{{if .Active.Name}}{{slice .Active.Name 0 1}}{{end}}</span>{{end}}</span>
+      <div class="apl2-ht">
+        <div class="apl2-hn"><b>{{.Active.Name}}</b><span class="apl2-st {{.Active.Dot}}"><i></i>{{.State}}</span></div>
+        <small><span class="mono">{{.Active.Package}}</span> · {{.Active.Version}} · {{.Active.Env}}</small>
+      </div>
+      {{if and (canOperate $.Role) (supports $.Device "install_apk") (not $.Restricted)}}<button type="button" class="cc-btn sm" onclick="followModalOpen()">Follow a channel</button>{{end}}
+    </div>
+    <div class="apl2-figs">
+      <div class="apl2-fg"><b>{{.Today}}</b><span>on screen today</span></div>
+      <div class="apl2-fg"><b>{{if .Memory}}{{.Memory}}{{else}}—{{end}}</b><span>memory</span></div>
+      <div class="apl2-fg"><b{{if .Problems}} class="bad"{{end}}>{{.Problems}}</b><span>{{if .Problems}}{{if .ProbLabel}}{{.ProbLabel}}{{else}}problems{{end}}{{else}}problems{{end}} in 24 h</span></div>
+    </div>
+    <details class="apl2-det"><summary>Details{{if .Others}} · {{len .Others}} more build{{if ne (len .Others) 1}}s{{end}} installed{{end}}</summary>
+      {{template "dd-host-app" .}}
+    </details>
+  </div>
+  {{end}}{{end}}
   <div class="card apl-card">
     <div class="card-header cc-ch">
       <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
-      <h2>Apps</h2>
+      <h2>{{if $hostCard}}Other apps{{else}}Apps{{end}}</h2>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
+{{if and (not $hostCard) (not .Follows) (canOperate .Role) (supports .Device "install_apk") (not .Restricted)}}<button type="button" class="cc-btn sm" onclick="followModalOpen()">Follow an app</button>{{end}}
 {{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/lineup/apps?app={{.Device.Class}}">its product's app</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="{{if $.LookOnly}}{{$.Look.Lock}}{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
         Install app</button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
-    {{with .HostApp}}{{if .Count}}
-    <details class="apl-host"><summary>
-      <span class="ha-dot {{.Active.Dot}}"></span><b>{{.Active.Name}}</b><span class="cc-tag {{.Active.EnvTone}}">{{.Active.Env}}</span><span class="mono small">{{.Active.Version}}</span>
-      <span class="muted small">· {{.State}} · {{.Today}} on screen today · {{.Problems}} problem{{if ne .Problems 1}}s{{end}} in 24 h{{if .Others}} · {{len .Others}} more installed{{end}}</span>
-      <span class="apl-more">Details</span></summary>
-      {{template "dd-host-app" .}}
-    </details>{{end}}{{end}}
     {{if canOperate .Role}}
     {{/* Install picker — an app-drawer-style popup: pick a repository app from the grid
          (monogram tiles for now) and it queues an install. */}}
@@ -1590,6 +1605,7 @@ window.DEVICE_VITALS = {
     <div class="appinfo-body">
       <div class="appinfo-row"><span class="k">Type</span><span class="v" id="ai-type"></span></div>
       <div class="appinfo-row"><span class="k">Version</span><span class="v" id="ai-ver"></span></div>
+      <div class="appinfo-row" id="ai-use-row" hidden><span class="k">Use</span><span class="v" id="ai-use"></span></div>
       <div class="appinfo-row"><span class="k">Package</span><span class="v mono" id="ai-pkg2"></span></div>
       <div class="appinfo-row" id="ai-aid-row" hidden><span class="k">Android ID</span><span class="v mono"><span id="ai-aid"></span> <button type="button" class="ai-copy" onclick="aidCopy(this,document.getElementById('ai-aid').textContent)" title="Copy">Copy</button></span></div>
     </div>
@@ -1885,6 +1901,42 @@ html[data-theme="dark"] .ddc-gtag{color:var(--text-2)}
 #dd-tab-activity{max-width:180px;overflow:hidden;transition:max-width .45s cubic-bezier(.22,1,.36,1),opacity .3s ease,padding .45s cubic-bezier(.22,1,.36,1),background var(--dur) var(--ease),color var(--dur) var(--ease)}
 body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-left:0;padding-right:0;margin-left:-2px;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.dd-recent,#dd-tab-activity{transition:none}}
+/* A2 · Apps tab (picked 5 Nov 2026): the host app as a card with three figures, then the
+   other apps as lean rows (name, version · package, one figure and a bar). */
+.apl2-host{padding:16px;margin-bottom:12px}
+.apl2-hrow{display:flex;align-items:center;gap:12px}
+.apl2-hic{flex:none}
+.apl2-hic .app-icon,.apl2-hic .app-mono{width:48px;height:48px;border-radius:14px;font-size:20px;display:grid;place-items:center;object-fit:cover}
+.apl2-ht{flex:1;min-width:0}
+.apl2-hn{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.apl2-hn b{font-size:15px;font-weight:650}
+.apl2-ht small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.apl2-st{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;background:var(--canvas,var(--surface2));border-radius:99px;padding:3px 10px;color:var(--text-2)}
+.apl2-st i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.apl2-st.on i{background:var(--ok)}.apl2-st.run i{background:var(--info)}
+.apl2-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.apl2-fg{background:var(--canvas,var(--surface2));border-radius:14px;padding:10px 12px;min-width:0}
+.apl2-fg b{display:block;font-size:20px;font-weight:650;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apl2-fg b.bad{color:var(--danger)}
+.apl2-fg span{font-size:11px;color:var(--text-2)}
+.apl2-det{margin-top:8px}
+.apl2-det>summary{list-style:none;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text-2);padding:4px 2px;display:inline-block}
+.apl2-det>summary::-webkit-details-marker{display:none}
+.apl2-det>summary::after{content:" ▾"}.apl2-det[open]>summary::after{content:" ▴"}
+.apl2-det .ha-card{margin:8px 0 0;box-shadow:none}
+#dd-panel-apps .btn-primary{background:var(--text);color:var(--surface);border-color:var(--text);border-radius:99px}
+.apl-win{background:var(--canvas,var(--surface2));border-radius:99px;padding:3px;gap:2px}
+.apl-pill{border:0;background:none;padding:4px 11px;color:var(--text-2)}
+.apl-pill.on{background:var(--text);color:var(--surface);border:0}
+.apl-bar{border-top:0}
+.apl-bar .form-input{border-radius:99px;background:var(--canvas,var(--surface2));border-color:transparent}
+.app-list .app-tile{grid-template-columns:28px minmax(0,1fr) 72px 84px 30px}
+.app-list .app-icon,.app-list .app-mono{width:28px;height:28px;border-radius:9px}
+.app-list .apl-pkg{font-family:inherit;white-space:nowrap}
+.app-list .apl-fig{text-align:right;font-variant-numeric:tabular-nums;color:var(--text)}
+.apl-bar2{height:6px;border-radius:3px;background:var(--canvas,var(--surface2));overflow:hidden}
+.apl-bar2 i{display:block;height:100%;border-radius:3px;background:var(--text-2)}
+.app-list .app-installing>.app-tsub{grid-column:3/5}
+.apl-sys>summary{padding:12px 16px;border-top:1px solid var(--border-soft)}
 
 </style>
 {{/* The divider's position for this person (null = the default). split.js */}}
@@ -1998,13 +2050,12 @@ body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-le
 {{/* One app row in the Apps list (A1). .R is a deviceAppRow, .Root the list's data. */}}
 {{define "dd-app-row"}}{{$p := .R}}{{$r := .Root}}{{$isUn := index $r.Uninstalling $p.PackageName}}
   <div class="app-row app-tile{{if .Sys}} sys{{end}}{{if $isUn}} app-uninstalling{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}"
-       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="{{if .Sys}}1{{else}}0{{end}}"{{with index $r.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
+       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="{{if .Sys}}1{{else}}0{{end}}" data-use="{{$p.Use}}"{{with index $r.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
-    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}{{if $r.FollowSet}}{{with index $r.FollowSet $p.PackageName}}{{if .Package}} <span class="dd-fchip {{.State}}" title="{{.Title}}">follows {{.Channel}}</span>{{end}}{{end}}{{end}}<small class="apl-pkg">{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
-    <span class="apl-c mono apl-v">{{if $p.VersionName}}{{$p.VersionName}}{{else}}—{{end}}</span>
-    {{if not $r.AppList.Limited}}<span class="apl-c apl-m">{{$p.Mem}}</span><span class="apl-c apl-cpu">{{$p.CPU}}</span>{{end}}<span class="apl-c apl-scr">{{$p.Screen}}</span>
+    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}{{if $r.FollowSet}}{{with index $r.FollowSet $p.PackageName}}{{if .Package}} <span class="dd-fchip {{.State}}" title="{{.Title}}">follows {{.Channel}}</span>{{end}}{{end}}{{end}}<small class="apl-pkg">{{if $p.VersionName}}{{$p.VersionName}} · {{end}}{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
+    <span class="apl-c apl-fig">{{$p.Fig}}</span><span class="apl-bar2" aria-hidden="true"><i style="width:{{$p.Pct}}%"></i></span>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
     {{if and (not .Sys) (canOperate $r.Role) (not $isUn) (supports $r.Device "uninstall") (not $r.Restricted)}}
     <div class="app-x-form" onclick="event.stopPropagation()">
@@ -2019,9 +2070,8 @@ body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-le
      × stops following. Then the drop zone: an APK dropped here goes into the library and
      installs on this device. app_follows.go */}}
 {{define "dd-follows"}}
-{{if or .Follows (and (canOperate .Role) (supports .Device "install_apk"))}}<div class="dd-follows" aria-label="Follows">
+{{if .Follows}}<div class="dd-follows" aria-label="Follows">
   <span class="dd-fk">Follows</span>
-  {{if not .Follows}}<span class="dd-fnone">nothing yet · pick an app and a channel to keep this device on its newest build</span>{{end}}
   {{range .Follows}}<span class="dd-fpill" title="{{.Package}} · {{.Title}}">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}{{.Name}} <b>{{.Channel}}</b><i class="dd-fdot {{.State}}"></i>{{if ge .Pct 0}}<small>{{.Pct}} %</small>{{end}}{{if canOperate $.Role}}<button type="button" class="dd-fx" hx-post="/devices/{{$.Device.SerialNumber}}/follows" hx-vals='{"action":"unfollow","package":"{{.Package}}"}' hx-swap="none" hx-confirm="Stop following {{.Package}}? The app stays installed." aria-label="Stop following {{.Package}}" title="Stop following">&times;</button>{{end}}</span>{{end}}
   {{if canOperate .Role}}<button type="button" class="dd-fedit" onclick="followModalOpen()">{{if .Follows}}Edit{{else}}+ Follow an app{{end}}</button>{{end}}
 </div>{{end}}
@@ -2046,7 +2096,6 @@ body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-le
   <span class="apl-win">{{range $L.Windows}}<button type="button" class="apl-pill{{if eq . $L.Window}} on{{end}}" hx-get="/devices/{{$.Device.SerialNumber}}/apps-list?window={{.}}" hx-target="#apps-live" hx-swap="innerHTML">{{.}}</button>{{end}}</span>
 </div>
 <div class="app-list{{if $L.Limited}} apl-lim{{end}}" id="apps-table">
-  <div class="apl-head"><span></span><span>App</span><span class="apl-v">Version</span>{{if not $L.Limited}}<span class="apl-m">Memory</span><span class="apl-cpu">CPU</span>{{end}}<span class="apl-scr">Screen</span><span></span></div>
   {{range .PendingInstalls}}
   <div class="app-row app-tile app-installing" data-app="{{.Name}} {{.ApkURL}}" data-cmd-id="inst:{{.ApkURL}}" title="Installing…">
     <div class="app-mono app-mono-inst"><span class="app-spin"></span></div>
@@ -2066,9 +2115,8 @@ body.dd-recent-on #dd-tab-activity:not(.active){max-width:0;opacity:0;padding-le
   {{end}}
   {{range $L.User}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" false)}}{{end}}
   {{if $L.System}}
-  {{/* Open by default, with its own column headings (user, 27 Oct 2026). */}}
-  <details class="apl-sys" id="apps-sys" open><summary id="apps-sys-sep">{{len $L.System}} system app{{if ne (len $L.System) 1}}s{{end}}</summary>
-  <div class="apl-head"><span></span><span>App</span><span class="apl-v">Version</span>{{if not $L.Limited}}<span class="apl-m">Memory</span><span class="apl-cpu">CPU</span>{{end}}<span class="apl-scr">Screen</span><span></span></div>
+  {{/* Folded into one line (A2, 5 Nov 2026); a search opens it. */}}
+  <details class="apl-sys" id="apps-sys"><summary id="apps-sys-sep">System apps <span class="muted">{{len $L.System}}</span></summary>
   {{range $L.System}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" true)}}{{end}}
   </details>
   {{end}}

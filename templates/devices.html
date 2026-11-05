@@ -227,7 +227,6 @@
     <span class="isl-t">Fleet · {{if eq .View "restaurants"}}Restaurants{{else if eq .View "groups"}}Groups{{else if eq .View "releases"}}Releases{{else}}{{.SelectedCollection}}{{end}}</span>
     <span class="isl-s"><b>{{$onCount}}</b> of {{.Summary.Total}} online · {{.SelectedCount}} in view{{if gt $offCount 0}} · <a class="w" href="/devices?status=offline">{{$offCount}} offline</a>{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}}{{end}}{{if .RefusedSerials}} · <span class="w">{{len .RefusedSerials}} unidentified</span>{{end}}</span>
     <span class="isl-acts">
-      {{if canAdmin .Role}}<a class="cc-btn primary" href="/enrollment" hx-boost="false">Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}} · {{.FleetCounts.Inbox}} new{{end}}{{end}}</a>{{end}}
       <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
         <div class="isl-menu cc-menu" role="menu">
           {{if .MapsEmbedKey}}<button type="button" class="cc-mi" data-fl-map aria-pressed="false" onclick="this.closest('details').open=false; window.flToggleMap && flToggleMap()">Map view</button>{{end}}
@@ -522,7 +521,6 @@ a.fleet-rail-item{min-height:40px}
       <div id="fl-headline">{{template "fleet-headline" .}}</div>
     </div>
     <div class="cc-actions fl-actions">
-      {{if canAdmin .Role}}<a class="cc-btn" href="/enrollment" hx-boost="false" title="Onboarding inbox and enrollment profiles"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>Enroll{{if .FleetCounts}}{{if gt .FleetCounts.Inbox 0}}<span class="n warn">{{.FleetCounts.Inbox}}</span>{{end}}{{end}}</a>{{end}}
       {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg class="i-map" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><svg class="i-list" viewBox="0 0 24 24" hidden><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Map view</span></button>{{end}}
       <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>

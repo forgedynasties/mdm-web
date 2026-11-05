@@ -1081,7 +1081,10 @@
     var rows = []; // option <li> per item, by index (headers are not options)
     // K1 (picked 5 Nov 2026): each heading opens a white card on the palette's grey canvas
     // (role=group inside the listbox); the main pages open it as tiles.
-    function render() {
+    // still: the same list re-ranked in place (the index or the device answer arrived), so
+    // the rows don't play their arrival a second time.
+    function render(still) {
+      list.classList.toggle('cmdk-still', !!still);
       list.innerHTML = '';
       rows = [];
       var q = current();
@@ -1385,7 +1388,7 @@
       if (!q) {
         dev = { q: '', state: 'idle', hits: [] };
         if (devTimer) { clearTimeout(devTimer); devTimer = null; }
-        items = emptyState(); active = 0; render();
+        items = emptyState(); active = 0; render(keep);
         return;
       }
       if (dev.q !== q) {
@@ -1401,7 +1404,7 @@
       if (keep && picked && prev) {
         for (var i = 0; i < items.length; i++) if (items[i].url === prev) { active = i; break; }
       }
-      render();
+      render(keep);
     }
 
     // Fuzzy device search: the server subsequence-matches the serial (so "866" or
@@ -1451,7 +1454,7 @@
       var it = items[active];
       if (dev.state === 'wait' && dev.q === current() && !(picked && it && it.type !== 'pending')) {
         pendingEnter = true;
-        render();
+        render(true);
         if (devTimer) { clearTimeout(devTimer); fetchDevices(); }
         return;
       }

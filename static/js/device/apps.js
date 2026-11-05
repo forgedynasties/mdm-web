@@ -13,8 +13,13 @@ function appsShowAll() {
 }
 // After the apps list live-refreshes (device check-in), re-apply the active search
 // filter (the input is hx-preserved) and refresh the package count.
+// System apps start folded (A2); a fold someone opened stays open across live refreshes.
+document.addEventListener('toggle', function (e) {
+  if (e.target && e.target.id === 'apps-sys') window.__appsSysOpen = e.target.open;
+}, true);
 function appsAfterRefresh() {
   colorizeApps();
+  var sd = document.getElementById('apps-sys'); if (sd && window.__appsSysOpen) sd.open = true;
   var f = document.getElementById('apps-filter');
   filterInstalledApps(f ? f.value : '');
   var c = document.getElementById('apps-count-n');
@@ -150,6 +155,8 @@ window.appInfoOpen = function (el) {
   byId('ai-pkg').textContent = pkg;
   byId('ai-pkg2').textContent = pkg;
   byId('ai-ver').textContent = ver ? ('v' + ver) : '—';
+  var use = el.getAttribute('data-use') || '', ur = byId('ai-use-row');
+  if (ur) { ur.hidden = !use; byId('ai-use').textContent = use; }
   var aid = el.getAttribute('data-aid') || '';
   byId('ai-aid').textContent = aid; byId('ai-aid-row').hidden = !aid;
   byId('ai-type').innerHTML = sys ? '<span class="ai-badge ai-sys">System app</span>' : '<span class="ai-badge ai-user">User app</span>';

@@ -8045,3 +8045,33 @@ html[data-theme="dark"] .dock.dock-s { box-shadow: 0 0 0 1px rgba(255, 255, 255,
 .cmdk-foot { border: 0; padding: 9px 8px 2px; color: var(--text-2); }
 .cmdk-foot kbd { background: var(--surface); }
 @media (max-width: 720px) { .cmdk-tiles > ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cmdk-still .cmdk-item { animation: none; }
+
+/* ══ K1 for the bell and the account menu (5 Nov 2026, user: "make top right alert
+   dropdown and profile dropdown also consistent with this design") ══ The grey canvas,
+   white groups, the dark pill under the pointer, like Ctrl+K. */
+#alerts-pop, #acct-pop { background: var(--canvas); border: 0; border-radius: 22px; padding: 8px; box-shadow: 0 30px 70px -30px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.08); backdrop-filter: none; -webkit-backdrop-filter: none; will-change: auto; }
+#acct-pop { width: 264px; }
+#acct-pop .nbar-mhead { background: var(--surface); border: 0; border-radius: 16px; padding: 10px 12px; margin: 0 0 8px; }
+#acct-pop .nbar-mi { position: relative; isolation: isolate; background: var(--surface); border-radius: 0; padding: 9px 14px; }
+#acct-pop .nbar-mi::before { content: ""; position: absolute; inset: 2px 6px; border-radius: 12px; z-index: -1; transition: background .12s; }
+#acct-pop .nbar-mi:hover, #acct-pop .nbar-mi:focus-visible { background: var(--surface); color: var(--surface); outline: none; }
+#acct-pop .nbar-mi:hover::before, #acct-pop .nbar-mi:focus-visible::before { background: var(--text); }
+#acct-pop .nbar-mi:hover .ui-icon, #acct-pop .nbar-mi:hover .ui-icon svg, #acct-pop .nbar-mi:hover .nbar-mi-rt { color: color-mix(in srgb, var(--surface) 75%, transparent); }
+#acct-pop .nbar-mi.danger:hover::before { background: var(--danger); }
+#acct-pop .nbar-mi.danger:hover, #acct-pop .nbar-mi.danger:hover .ui-icon { color: #fff; }
+#acct-pop :is(.nbar-mhead, .nbar-sep) + .nbar-mi, #acct-pop .nbar-sep + form .nbar-mi { border-top-left-radius: 16px; border-top-right-radius: 16px; padding-top: 11px; }
+#acct-pop .nbar-mi:has(+ .nbar-sep), #acct-pop .nbar-mi:last-child, #acct-pop form:last-child .nbar-mi { border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; padding-bottom: 11px; }
+#acct-pop .nbar-sep { height: 8px; background: none; margin: 0; }
+#acct-pop .nbar-mi-rt { background: var(--canvas); border-radius: 99px; padding: 1px 8px; }
+#acct-pop .nbar-mi:hover .nbar-mi-rt { background: color-mix(in srgb, var(--surface) 14%, transparent); }
+#alerts-pop .nbar-pop-h { padding: 4px 6px 8px 10px; align-items: center; color: var(--muted); }
+#alerts-pop .nbar-al-top { background: var(--surface); color: var(--text); border-radius: 99px; padding: 4px 11px; font-size: 11.5px; }
+#alerts-pop .nbar-al-top:hover { text-decoration: none; background: var(--text); color: var(--surface); }
+#alerts-pop .nbar-al-list { background: var(--surface); border-radius: 18px; padding: 6px; }
+#alerts-pop .nbar-al { border-radius: 13px; padding: 9px 10px; }
+#alerts-pop .nbar-al:hover { background: var(--text); }
+#alerts-pop .nbar-al:hover .nbar-al-t { color: var(--surface); }
+#alerts-pop .nbar-al:hover .nbar-al-s { color: color-mix(in srgb, var(--surface) 70%, transparent); }
+#alerts-pop .nbar-al-sec { color: var(--muted); padding: 8px 10px 4px; }
+#alerts-pop .nbar-al-dot { width: 7px; height: 7px; }

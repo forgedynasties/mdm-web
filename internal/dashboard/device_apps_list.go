@@ -20,7 +20,12 @@ import (
 type deviceAppRow struct {
 	db.DevicePackage
 	Mem, CPU, Screen string
-	rank             float64
+	// A2 (picked 5 Nov 2026): a row shows one figure with a bar, memory (screen time on the
+	// Standard client), the bar against the heaviest app; Use has all three for the popup.
+	Fig  string
+	Pct  int
+	Use  string
+	rank float64
 }
 
 type deviceAppsView struct {
@@ -86,6 +91,42 @@ func (h *Handler) deviceAppsOf(ctx context.Context, d *db.Device, pkgs []db.Devi
 	}
 	rank(v.User)
 	rank(v.System)
+	top := 0.0
+	for _, rows := range [][]deviceAppRow{v.User, v.System} {
+		for _, r := range rows {
+			if r.rank > top {
+				top = r.rank
+			}
+		}
+	}
+	fill := func(rows []deviceAppRow) {
+		for i := range rows {
+			r := &rows[i]
+			r.Fig = r.Mem
+			if v.Limited {
+				r.Fig = r.Screen
+			}
+			if top > 0 && r.rank > 0 {
+				r.Pct = int(r.rank*100/top + 0.5)
+				if r.Pct < 2 {
+					r.Pct = 2
+				}
+			}
+			var use []string
+			if !v.Limited && r.Mem != "—" {
+				use = append(use, r.Mem)
+			}
+			if !v.Limited && r.CPU != "—" {
+				use = append(use, r.CPU+" CPU")
+			}
+			if r.Screen != "—" && r.Screen != "" {
+				use = append(use, r.Screen+" on screen")
+			}
+			r.Use = strings.Join(use, " · ")
+		}
+	}
+	fill(v.User)
+	fill(v.System)
 	return v
 }
 

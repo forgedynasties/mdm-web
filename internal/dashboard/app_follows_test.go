@@ -176,14 +176,15 @@ func TestFollowsRender(t *testing.T) {
 	if err := tm.ExecuteTemplate(&buf, "dd-follows", map[string]any{"Device": d, "Role": "engineer"}); err != nil {
 		t.Fatal(err)
 	}
-	// Demo C (30 Oct 2026): the strip is always there for someone who may install, so a
-	// device that follows nothing still offers "+ Follow an app".
-	if out := buf.String(); !strings.Contains(out, "nothing yet") || !strings.Contains(out, "+ Follow an app") {
-		t.Errorf("empty strip: %s", out)
+	// A2 (5 Nov 2026): a device that follows nothing has no strip; "Follow a channel" /
+	// "Follow an app" sits in the host app card or the Apps header instead.
+	if out := strings.TrimSpace(buf.String()); out != "" {
+		t.Errorf("empty strip should render nothing: %s", out)
 	}
 	buf.Reset()
 	row := map[string]any{"R": struct {
-		PackageName, AppName, VersionName, Icon, Mem, CPU, Screen string
+		PackageName, AppName, VersionName, Icon, Mem, CPU, Screen, Fig, Use string
+		Pct                                                         int
 	}{PackageName: "aio.app.kiosk.qa", AppName: "KIOSK"}, "Root": map[string]any{
 		"Uninstalling": map[string]bool{}, "NuggetIDByPackage": map[string]string{}, "AppList": struct{ Limited bool }{true},
 		"FollowSet": followSet(fs), "Role": "engineer", "Device": d}, "Sys": false}
@@ -195,7 +196,8 @@ func TestFollowsRender(t *testing.T) {
 	}
 	buf.Reset()
 	row["R"] = struct {
-		PackageName, AppName, VersionName, Icon, Mem, CPU, Screen string
+		PackageName, AppName, VersionName, Icon, Mem, CPU, Screen, Fig, Use string
+		Pct                                                         int
 	}{PackageName: "com.android.chrome", AppName: "Chrome"}
 	if err := tm.ExecuteTemplate(&buf, "dd-app-row", row); err != nil {
 		t.Fatal(err)
