@@ -8145,9 +8145,12 @@ html.shell .fleet-md > .fleet-rail { position: static; align-self: start; max-he
 html.shell .fleet-md > .fleet-roster { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 html.shell .fleet-roster > * { flex: none; }
 html.shell .fleet-roster > :has(.ft-wrap) { flex: 0 1 auto; min-height: 0; }
+html.shell .fleet-roster > :has(.ft-wrap):not(.card) { align-items: stretch; overflow: hidden; }
+html.shell .fleet-roster > :has(.ft-wrap):not(.card) > * { max-height: 100%; min-height: 0; }
 html.shell .fleet-roster .card:has(> .ft-wrap) { display: flex; flex-direction: column; min-height: 0; }
 html.shell .fleet-roster .card:has(> .ft-wrap) > * { flex: none; }
 html.shell .fleet-roster .card > .ft-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; }
 html.shell .fleet-roster .ft-wrap thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); }
 /* What stuck under the old scrolling header now sticks at the top of the page area. */
 html.shell :is(.ua-side, .i1-pv, .fleet-bar.is-sel, .bt-list, .dd-split-l, .dd-tabrow, .settings-nav, .cl-side, .ro-list, .pl-side) { top: 0; }
+html.shell .fleet-roster .device-inspector { overflow-y: auto; }
