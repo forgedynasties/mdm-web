@@ -13,8 +13,8 @@
 # `sha` (rollback). If ECR has no image for that commit yet (stage commits, which
 # build.yml does not publish), this workflow builds and pushes it first.
 #
-# The box runs a compose stack — the server needs the Postgres container on the same
-# compose network (DB_HOST=postgres), two published ports and the splashdata volume — so
+# The box runs a compose stack — two server copies, the nginx proxy, published ports and
+# the splashdata volume (the database is RDS, DB_HOST in .env) — so
 # this pulls the image and brings the service up through compose rather than `docker run`.
 name: Deploy
 
