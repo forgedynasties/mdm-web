@@ -953,7 +953,8 @@ function closeBulkKioskModal(event) {
 // The saved table density is applied on load by the inline script before this file's tag.
 document.body.addEventListener('htmx:afterSwap', function(evt) {
   var density = localStorage.getItem('mdm-density') || window.FLEET_DENSITY;
-  if (evt.detail.target.id === 'device-table-container' && density === 'compact') {
+  // (htmx.swap, used by fitpages.js for instant flips, fires this with no target)
+  if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container' && density === 'compact') {
     evt.detail.target.classList.add('compact');
   }
 });
