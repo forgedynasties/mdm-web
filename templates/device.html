@@ -1452,7 +1452,7 @@ window.DEVICE_VITALS = {
         {{if .IsDPC}}<p class="muted small">The device enrolls with the new server, then stops checking in here. It does not reboot. If the server or token is wrong it stays here.</p>
         {{else}}<p class="muted small">The device reboots into the new server and stops checking in here. Servers are set in <a href="/settings#devices">Settings</a>.</p>{{end}}
         <select name="server_url" class="form-input" required>
-          {{range .MDMServers}}<option value="{{.}}">{{.}}{{if eq . $.ThisServer}} (this server){{else if eq . "https://mdm.aioapp.com"}} (not live yet){{end}}</option>{{end}}
+          {{range .MDMServers}}<option value="{{.}}">{{.}}{{if eq . $.ThisServer}} (this server){{end}}</option>{{end}}
         </select>
         {{if .IsDPC}}<label class="small" style="display:block;margin-top:10px">Enrollment token from that server
           <input name="enroll_token" class="form-input" required autocomplete="off" spellcheck="false" placeholder="enr_…">
