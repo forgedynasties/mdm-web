@@ -158,6 +158,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	pageSize := h.effectiveDisplay(r).PageSize // the viewer's own, else the fleet default
+	// P1 (picked 5 Nov 2026): Fleet pages hold exactly the rows that fit the window; the page
+	// asks with ?fit=N, which sizes this request only and is never saved.
+	if f, err := strconv.Atoi(r.URL.Query().Get("fit")); err == nil && f > 0 && f <= 200 {
+		pageSize = f
+	}
 	q := r.URL.Query().Get("q")
 	sort := r.URL.Query().Get("sort")
 	dir := r.URL.Query().Get("dir")
@@ -176,6 +181,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		page = p
 	}
 	offset := (page - 1) * pageSize
+	// The timeline (T1) asks for rows from any device on, not a page: ?start=K.
+	if st, err := strconv.Atoi(r.URL.Query().Get("start")); err == nil && st >= 0 {
+		offset = st
+		page = st/pageSize + 1
+	}
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
@@ -596,6 +606,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"TotalPages":           totalPages,
 		"Query":                q,
 		"PageSize":             pageSize,
+		"RangeFrom":            offset + 1,
 		"Summary":              summary,
 		"Sort":                 sort,
 		"SortDir":              dir,
@@ -697,3 +708,43 @@ func sparkPoints(vals []float64) string {
 }
 
 // ── Saved fleet views ─────────────────────────────────────────────────────────
+
+// DeviceTimeline is Fleet's timeline (T1, picked 5 Nov 2026; user: "scroll wheel in pane
+// scrolls one device at a time, and instead of pagination there is a continous timeline"):
+// every device the roster's filters match, in the roster's order, with only what the strip
+// draws and its tooltip says. The rows themselves still come from DeviceList (?start=&fit=).
+func (h *Handler) DeviceTimeline(w http.ResponseWriter, r *http.Request) {
+	filter := h.deviceFilterFromRequest(r)
+	h.access(r).applyFilter(&filter)
+	sort, dir := r.URL.Query().Get("sort"), r.URL.Query().Get("dir")
+	if sort == "" {
+		sort = h.effectiveDisplay(r).Sort
+		if dir == "" {
+			dir = defaultSortDir(sort)
+		}
+	}
+	devs, err := h.db.ListDevices(r.Context(), filter, 0, 5000, sort, dir)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	online := h.hub.ConnectedIDsForDisplay()
+	type point struct {
+		S  string `json:"s"`
+		On bool   `json:"on,omitempty"`
+		V  string `json:"v,omitempty"`
+		T  int64  `json:"t,omitempty"`
+	}
+	out := make([]point, 0, len(devs))
+	for _, d := range devs {
+		_, on := online[d.ID]
+		p := point{S: d.SerialNumber, On: on, V: d.RestaurantName}
+		if !d.LastSeenAt.IsZero() {
+			p.T = d.LastSeenAt.Unix()
+		}
+		out = append(out, p)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{"sort": sort, "dir": dir, "now": time.Now().Unix(), "devices": out})
+}

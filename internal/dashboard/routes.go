@@ -164,6 +164,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /map", h.requireAuth(h.fleetWide(h.MapPage)))
 	mux.HandleFunc("GET /devices/map.json", h.requireAuth(h.DeviceMapData))
+	mux.HandleFunc("GET /devices/timeline.json", h.requireAuth(h.DeviceTimeline))
 	post("POST /overview/layout", h.requireAuth(h.OverviewLayoutSave))
 	post("POST /overview/layout/reset", h.requireAuth(h.OverviewLayoutReset))
 	post("POST /tour/done", h.requireAuth(h.TourDone))

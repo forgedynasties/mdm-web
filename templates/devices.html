@@ -299,7 +299,7 @@
 
 
 {{/* One lean row (5 Nov 2026, user: "this has to be lean also"): the count, the pager, Per page. */}}
-<div class="table-footer fl-foot">
+<div class="table-footer fl-foot" data-start="{{.RangeFrom}}" data-total="{{.Total}}" data-n="{{len .Devices}}">
   <span class="fl-foot-n">
     {{len .Devices}} of {{.Total}} device{{if ne .Total 1}}s{{end}}
     {{if .Query}}matching "{{.Query}}"{{end}}{{if gt .TotalPages 1}} · page {{.Page}} of {{.TotalPages}}{{end}}
@@ -501,6 +501,22 @@ a.fleet-rail-item{min-height:40px}
 .fq-car{width:12px;height:12px;flex:none;opacity:.7}
 .fl-fchips{position:relative;z-index:39;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px}
 .fl-chip-list{display:contents}
+/* Timeline (T1, picked 5 Nov 2026): on a desktop window the list has no pages; the wheel moves
+   one device at a time and a strip down the right edge stands for every device in the view
+   (green online, grey offline), the coral window being what is on screen. timeline.js */
+html.fl-tl #dv-split{flex:1 1 auto}
+html.fl-tl #device-table-container{position:relative}
+html.fl-tl #device-table-container .ft-wrap{overflow:hidden!important;margin-right:40px}
+html.fl-tl #device-table-container .pagination,html.fl-tl #device-table-container .fl-foot label{display:none}
+.fl-tl-rail{position:absolute;right:8px;width:26px;cursor:pointer;touch-action:none;z-index:3}
+.fl-tl-rail .trk{position:absolute;left:9px;width:8px;top:0;bottom:0;border-radius:6px;overflow:hidden;background:var(--canvas,var(--surface2))}
+.fl-tl-rail .trk i{position:absolute;left:0;right:0}
+.fl-tl-rail .trk i.on{background:var(--ok)}
+.fl-tl-rail .trk i.off{background:color-mix(in srgb,var(--text-faint) 45%,var(--canvas,#eee))}
+.fl-tl-rail .win{position:absolute;left:3px;right:3px;min-height:10px;border:2px solid var(--accent-fill);border-radius:8px;background:color-mix(in srgb,var(--accent-fill) 10%,transparent);transition:top .18s cubic-bezier(.22,1,.36,1),height .18s;box-sizing:border-box}
+.fl-tl-rail .lbl{position:absolute;right:28px;font-size:10px;color:var(--muted);white-space:nowrap;transform:translateY(-50%);pointer-events:none}
+.fl-tl-tip{position:absolute;right:46px;z-index:6;background:var(--surface);color:var(--text);box-shadow:0 8px 20px -8px rgba(0,0,0,.35);font-size:11.5px;font-weight:600;border-radius:9px;padding:5px 9px;pointer-events:none;white-space:nowrap;opacity:0;transition:opacity .12s}
+.fl-foot-n b{color:var(--text)}
 .fl-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 8px 6px 16px;text-align:left}
 .fl-foot .fl-foot-n{flex:1 1 0;white-space:nowrap}
 .fl-foot .pagination{flex:none;padding:0;border:0;gap:4px}
@@ -1029,6 +1045,7 @@ html[data-theme="dark"] .maplibregl-ctrl-attrib-button{filter:invert(1)}
 .fl-lm button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .fl-lm button.on{background:var(--accent-fill);color:#fff}
 </style>
+<script src="/static/js/devices/timeline.js?v={{assetVer}}"></script>
 <script src="/static/js/map-canvas.js?v={{assetVer}}"></script>
 <script src="/static/js/devices/map.js?v={{assetVer}}"></script>
 

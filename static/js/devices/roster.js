@@ -14,6 +14,14 @@ function getFilterVals(overrides) {
   if (overrides) {
     for (var k in overrides) vals[k] = overrides[k];
   }
+  // The timeline (timeline.js) asks for rows from a device on, sized to the window; a filter
+  // or page change (overrides naming page) starts again from the first device.
+  var tl = window.flTL;
+  if (tl && tl.on) {
+    var st = overrides && ('page' in overrides) ? 0 : tl.start;
+    if (st === 0) tl.start = 0;
+    vals.page = '1'; vals.fit = String(tl.fit); vals.start = st > 0 ? String(st) : '';
+  }
   return vals;
 }
 
@@ -32,7 +40,7 @@ function fleetURL(vals) {
 function filterSig(vals) {
   vals = vals || getFilterVals();
   var o = Object.assign({}, vals);
-  delete o.page; delete o.page_size;
+  delete o.page; delete o.page_size; delete o.start; delete o.fit;
   return JSON.stringify(o);
 }
 
