@@ -470,8 +470,7 @@ func buildOvBento(in ovBentoIn) ovBento {
 	}
 	b.Tabs = []ovHeroTab{needs, venues, rolls, crash}
 
-	// Devices by type: every class as a dial, biggest first (user, 5 Nov 2026: MPOS and the
-	// menu boards were cut off at four).
+	// Devices by type: the four biggest classes as dials.
 	cs := append([]db.ClassOnline(nil), in.ClassOn...)
 	sort.SliceStable(cs, func(i, j int) bool { return cs[i].Total > cs[j].Total })
 	circ := 2 * math.Pi * 33
@@ -488,6 +487,9 @@ func buildOvBento(in ovBentoIn) ovBento {
 		}
 		b.Types = append(b.Types, ovTypeRing{Label: ovPillShort(c.Class), Online: c.Online, Total: c.Total,
 			Dash: fmt.Sprintf("%.1f", circ*f), Circ: fmt.Sprintf("%.1f", circ), Tone: tone, Href: "/devices?class=" + c.Class})
+		if len(b.Types) == 4 {
+			break
+		}
 	}
 	return b
 }
