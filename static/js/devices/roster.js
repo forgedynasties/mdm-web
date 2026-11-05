@@ -14,8 +14,8 @@ function getFilterVals(overrides) {
   if (overrides) {
     for (var k in overrides) vals[k] = overrides[k];
   }
-  // The timeline (timeline.js) asks for rows from a device on, sized to the window; a filter
-  // or page change (overrides naming page) starts again from the first device.
+  // Pages that fit (fitpages.js) ask for rows from a device on, sized to the window; a filter
+  // change (overrides naming page) starts again from the first device.
   var tl = window.flTL;
   if (tl && tl.on) {
     var st = overrides && ('page' in overrides) ? 0 : tl.start;
