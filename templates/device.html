@@ -1918,7 +1918,8 @@ html.dd-fit .dd-split-r .dd-tabrow{top:0}
 /* The device card first in the Overview (5 Nov 2026, user: "the model card deserves to be at top"). */
 .about-grid>#dd-hw{order:-1}
 /* Where the tabs pane cuts a card off at its foot, the cut is rounded like the cards. */
-html.dd-fit .dd-split-r{clip-path:inset(0 14px 0 10px round 0 0 20px 20px)}
+/* (not clip-path: it would clip the pane's dialogs too, Install app's among them) */
+html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
 /* A2 · Apps tab (picked 5 Nov 2026): the host app as a card with three figures, then the
    other apps as lean rows (name, version · package, one figure and a bar). */
 .apl2-host{padding:16px;margin-bottom:12px}
