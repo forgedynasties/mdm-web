@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -115,6 +116,11 @@ func main() {
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPass, dbName)
+	// DB_POOL_MAX_CONNS caps each copy's pool (default 60, see db.New). A small database
+	// instance pays ~30 MB per open backend, so a server on one sizes it down here.
+	if n, err := strconv.Atoi(getEnv("DB_POOL_MAX_CONNS", "")); err == nil && n > 0 {
+		connStr += fmt.Sprintf(" pool_max_conns=%d", n)
+	}
 
 	var database *db.DB
 	var lastErr error
