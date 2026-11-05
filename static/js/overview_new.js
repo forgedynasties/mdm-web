@@ -65,20 +65,22 @@ document.addEventListener('click', function (e) {
 (function () {
   var ovd = document.querySelector('.ovd'); if (!ovd || !ovd.querySelector('.ovb')) return;
   var root = document.documentElement;
+  // The template's CSS already fits the page from the first frame (100vh less 188 px);
+  // this only measures the exact room, or says ov-nofit when there is too little.
   function fit() {
     if (!document.body.contains(ovd)) return off();
     var dock = document.querySelector('nav.dock');
     var bottom = dock && dock.getBoundingClientRect().height ? dock.getBoundingClientRect().top - 12 : innerHeight - 16;
-    var top = ovd.getBoundingClientRect().top + (root.classList.contains('ov-fit') ? 0 : scrollY);
+    var top = ovd.getBoundingClientRect().top + (root.classList.contains('ov-nofit') ? scrollY : 0);
     var h = Math.floor(bottom - top);
     if (innerWidth >= 1101 && innerHeight >= 640 && h >= 520) {
-      root.style.setProperty('--ovd-h', h + 'px'); root.classList.add('ov-fit'); scrollTo(0, 0);
+      root.style.setProperty('--ovd-h', h + 'px'); root.classList.remove('ov-nofit'); scrollTo(0, 0);
     } else {
-      root.classList.remove('ov-fit');
+      root.classList.add('ov-nofit');
     }
   }
   function off() {
-    root.classList.remove('ov-fit'); root.style.removeProperty('--ovd-h');
+    root.classList.remove('ov-nofit'); root.style.removeProperty('--ovd-h');
     removeEventListener('resize', fit); document.removeEventListener('htmx:beforeSwap', leaving);
   }
   // Only a swap that replaces the Overview itself ends it (the bell and the island swap too).
