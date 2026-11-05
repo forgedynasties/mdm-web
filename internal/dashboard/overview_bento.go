@@ -368,7 +368,10 @@ func buildOvBento(in ovBentoIn) ovBento {
 				h.Facts = append(h.Facts, ovFact{strconv.Itoa(v.H.OpenCritical), "critical alert" + sIfN(v.H.OpenCritical)})
 			}
 		}
-		h.Sub = v.Sub
+		h.Sub = fmt.Sprintf("%d of %d online · %d offline", v.Online, v.Devices, v.Offline)
+		if v.Sub != "" && v.Sub != "no address" {
+			h.Sub = v.Sub + " · " + h.Sub
+		}
 		if id, err := uuid.Parse(v.ID); err == nil {
 			venueDetail(&h, id)
 			h.Alt, h.AltHref = "Show devices", "/devices?restaurant="+v.ID
@@ -391,6 +394,8 @@ func buildOvBento(in ovBentoIn) ovBento {
 		}
 		tag, tone := "Done", "g"
 		switch {
+		case r.Failed > 0 && r.Done == 0 && r.Failed >= r.Total:
+			tag, tone = "Failed", "r"
 		case r.Failed > 0 && r.Done+r.Failed >= r.Total:
 			tag, tone = "Failed some", "o"
 		case r.Done >= r.Total:
