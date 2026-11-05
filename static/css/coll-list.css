@@ -99,7 +99,10 @@
 .cl-page .fleet-pane-head{margin-bottom:8px}
 .cl-page .fleet-bar.cl-lean{gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .cl-page .fleet-bar.cl-lean .fleet-search{flex:0 1 280px;min-width:170px;height:34px;border-radius:99px}
-.cl-page .fleet-bar.cl-lean .fl-fchips{flex:1 1 auto;min-width:0;margin:0;gap:6px}
+.cl-page .fleet-bar.cl-lean{flex-wrap:nowrap}
+.cl-page .fleet-bar.cl-lean .fl-fchips{flex:1 1 0;min-width:0;margin:0;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.cl-page .fleet-bar.cl-lean .fl-fchips > *{flex:none}
+.cl-page .fleet-bar.cl-lean > :not(.fleet-search):not(.fl-fchips){flex:none}
 .cl-page .fleet-bar.cl-lean .fq{height:30px;padding:0 11px;font-size:12px}
 .cl-page .fleet-bar.cl-lean .fleet-fbtn{height:34px}
-@media(max-width:720px){.cl-page .fleet-bar.cl-lean .fleet-search,.cl-page .fleet-bar.cl-lean .fl-fchips{flex-basis:100%}}
+@media(max-width:720px){.cl-page .fleet-bar.cl-lean{flex-wrap:wrap}.cl-page .fleet-bar.cl-lean .fleet-search,.cl-page .fleet-bar.cl-lean .fl-fchips{flex-basis:100%}}
