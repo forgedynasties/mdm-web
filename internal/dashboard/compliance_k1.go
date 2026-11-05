@@ -674,7 +674,8 @@ func k1Radar(checks []compCheckView) template.HTML {
 	const w, h, r = 230.0, 210.0, 64.0
 	cx, cy := w/2, h/2+2
 	var b strings.Builder
-	fmt.Fprintf(&b, `<svg class="cp1-radar" viewBox="0 0 %.0f %.0f" role="img" aria-label="Share of devices passing each check">`, w, h)
+	// 34 px of room either side for the labels.
+	fmt.Fprintf(&b, `<svg class="cp1-radar" viewBox="-34 0 %.0f %.0f" role="img" aria-label="Share of devices passing each check">`, w+68, h)
 	n := float64(len(sp))
 	at := func(i int, k float64) (float64, float64) {
 		a := -math.Pi/2 + float64(i)*2*math.Pi/n
