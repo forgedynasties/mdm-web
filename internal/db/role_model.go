@@ -799,7 +799,21 @@ func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []strin
 		  AND cs.status = 'failed'
 		  AND c.created_at > now() - interval '24 hours'
 		GROUP BY cs.device_id, c.apk_url
-		HAVING count(*) >= 3`, ids, urls, within.Seconds(), retrySoon.Seconds())
+		HAVING count(*) >= 3
+		UNION
+		-- A refusal that a retry can't change is final for that build on that device (a newer
+		-- build is still tried): a downgrade by version code (KDS QA: 166 tries on 61 devices
+		-- in a week), a test-only APK, no matching ABI, the package verifier saying no.
+		SELECT cs.device_id, c.apk_url
+		FROM commands c
+		JOIN command_status cs ON cs.command_id = c.id
+		JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = cs.device_id
+		WHERE c.type = 'install_apk'
+		  AND cs.device_id = ANY($1)
+		  AND c.apk_url = ANY($2)
+		  AND cs.status = 'failed'
+		  AND cr.output ~ '(INSTALL_FAILED_VERSION_DOWNGRADE|INSTALL_FAILED_TEST_ONLY|INSTALL_FAILED_NO_MATCHING_ABIS|INSTALL_FAILED_VERIFICATION_FAILURE)'
+		  AND c.created_at > now() - interval '30 days'`, ids, urls, within.Seconds(), retrySoon.Seconds())
 	if err != nil {
 		return nil, err
 	}
