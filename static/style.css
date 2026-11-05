@@ -8132,3 +8132,24 @@ html[data-theme="dark"] { --accent-fill: #b8432c; --accent-fill-h: #a33b26; }
 html[data-theme="dark"] .cta-g.cta-g, html[data-theme="dark"] .cta-g.cta-g:hover { background: linear-gradient(90deg, #c9543f, #6268cf); }
 html[data-theme="dark"] .cta-g.cta-g::before { background: #24242c; }
 html[data-theme="dark"] .cta-g.cta-g::after { background-color: #e9e9ee; }
+
+/* ══ App shell (5 Nov 2026; user: "no pages are scrollable", "navbar should not hide") ══
+   chrome.js sets html.shell on a desktop window: the window never scrolls, <main> ends 12 px
+   above the dock (--shell-h) and scrolls inside. A Fleet-style list page (main.shell-list) does
+   not scroll at all: its .fleet-md is sized by chrome.js, the rail and the toolbar stay, and
+   only the table scrolls under its sticky header row. */
+html.shell, html.shell body { overflow: hidden; }
+html.shell main#main { height: var(--shell-h); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 0; scrollbar-width: thin; }
+html.shell main#main > :last-child { margin-bottom: 4px; }
+html.shell main.shell-list { overflow: hidden; }
+html.shell .fleet-md { align-items: stretch; }
+html.shell .fleet-md > .fleet-rail { position: static; align-self: start; max-height: 100%; overflow-y: auto; }
+html.shell .fleet-md > .fleet-roster { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+html.shell .fleet-roster > * { flex: none; }
+html.shell .fleet-roster > :has(.ft-wrap) { flex: 0 1 auto; min-height: 0; }
+html.shell .fleet-roster .card:has(> .ft-wrap) { display: flex; flex-direction: column; min-height: 0; }
+html.shell .fleet-roster .card:has(> .ft-wrap) > * { flex: none; }
+html.shell .fleet-roster .card > .ft-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; }
+html.shell .fleet-roster .ft-wrap thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+/* What stuck under the old scrolling header now sticks at the top of the page area. */
+html.shell :is(.ua-side, .i1-pv, .fleet-bar.is-sel, .bt-list, .dd-split-l, .dd-tabrow, .settings-nav, .cl-side, .ro-list, .pl-side) { top: 0; }

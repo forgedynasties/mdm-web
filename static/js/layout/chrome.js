@@ -1837,3 +1837,41 @@
     };
   })();
   
+
+// ── App shell (5 Nov 2026; user: "navbar should not hide. and page should not be scrollable.
+// can we do these on all pages"). On a desktop window the page itself never scrolls: <main>
+// ends just above the dock and scrolls inside, so the dock never covers anything. A page in
+// Fleet's list layout (.fleet-md: rail + one table) is sized to what is left, and only its
+// table scrolls (style.css "App shell"). Phones and short windows scroll as before.
+(function () {
+  var root = document.documentElement, raf = 0;
+  function fit() {
+    raf = 0;
+    var main = document.getElementById('main'), dock = document.querySelector('nav.dock');
+    var dr = dock && dock.getBoundingClientRect();
+    var on = !!(main && dr && dr.height) && window.innerWidth >= 1101 && window.innerHeight >= 640;
+    root.classList.toggle('shell', on);
+    var mds = main ? main.querySelectorAll('.fleet-md') : [];
+    if (!on) {
+      root.style.removeProperty('--shell-h');
+      Array.prototype.forEach.call(mds, function (md) { md.style.height = ''; });
+      if (main) main.classList.remove('shell-list');
+      return;
+    }
+    var top = main.getBoundingClientRect().top;
+    root.style.setProperty('--shell-h', Math.max(300, Math.floor(dr.top - 12 - top)) + 'px');
+    var list = Array.prototype.filter.call(mds, function (md) { return md.offsetParent !== null; })[0];
+    main.classList.toggle('shell-list', !!list);
+    if (list) {
+      main.scrollTop = 0;
+      list.style.height = Math.max(320, Math.floor(main.getBoundingClientRect().bottom - list.getBoundingClientRect().top)) + 'px';
+    }
+  }
+  function later() { if (!raf) raf = requestAnimationFrame(fit); }
+  window.mdmShellFit = later;
+  window.addEventListener('resize', later);
+  document.addEventListener('htmx:afterSettle', later);
+  document.addEventListener('htmx:load', later);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', later); else later();
+  window.addEventListener('load', later);
+})();
