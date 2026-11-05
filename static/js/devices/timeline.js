@@ -121,7 +121,7 @@
     trk.innerHTML = html;
     // Last seen reads as time down the strip: now, 1 h, 1 d, 1 w, the oldest.
     if (line && line.sort === 'last_seen' && ds.length > 1) {
-      var marks = [[0, 'now']], want = [[3600, '1 h'], [86400, '1 d'], [604800, '1 w']], desc = line.dir !== 'asc';
+      var marks = [[0, ds[0].t ? ago(line.now - ds[0].t) : 'now']], want = [[3600, '1 h'], [86400, '1 d'], [604800, '1 w']], desc = line.dir !== 'asc';
       if (desc) {
         want.forEach(function (w) { for (var k = 0; k < ds.length; k++) if (ds[k].t && line.now - ds[k].t >= w[0]) { marks.push([k, w[1]]); break; } });
         var last = ds[ds.length - 1]; if (last.t) marks.push([ds.length - 1, ago(line.now - last.t)]);

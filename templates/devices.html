@@ -507,7 +507,7 @@ a.fleet-rail-item{min-height:40px}
 html.fl-tl #dv-split{flex:1 1 auto}
 html.fl-tl #device-table-container{position:relative}
 html.fl-tl #device-table-container .ft-wrap{overflow:hidden!important;margin-right:40px}
-html.fl-tl #device-table-container .pagination,html.fl-tl #device-table-container .fl-foot label{display:none}
+html.fl-tl #device-table-container .pagination,html.fl-tl #device-table-container .fl-foot label{display:none!important}
 .fl-tl-rail{position:absolute;right:8px;width:26px;cursor:pointer;touch-action:none;z-index:3}
 .fl-tl-rail .trk{position:absolute;left:9px;width:8px;top:0;bottom:0;border-radius:6px;overflow:hidden;background:var(--canvas,var(--surface2))}
 .fl-tl-rail .trk i{position:absolute;left:0;right:0}
@@ -526,7 +526,8 @@ html.fl-tl #device-table-container .pagination,html.fl-tl #device-table-containe
 .fl-foot select.form-input{height:28px;border-radius:99px}
 /* Lean toolbar (5 Nov 2026): product tabs as one short row, then search, chips, Sort and
    List · Map on one row, so the table gets the height. */
-.ptabs{margin:0 0 8px;padding-bottom:0;border-bottom:0}
+.ptabs{margin:0;padding-bottom:0;border-bottom:0;flex:1 1 auto;min-width:0}
+.fl-row1{display:flex;align-items:center;gap:10px;margin:0 0 8px}
 .ptab{height:30px;font-size:12.5px;padding:0 11px 0 8px}
 .ptab-ic{width:18px;height:18px}
 .fleet-bar{gap:8px;margin-bottom:10px}
@@ -682,7 +683,13 @@ html.fl-tl #device-table-container .pagination,html.fl-tl #device-table-containe
 
     {{/* ── Product tabs. The old All/Online/Offline quick views are values of Status
          in "+ Filter" now (F2, picked 16 Oct). ── */}}
+    <div class="fl-row1">
     <div class="ptabs" id="fleet-ptabs" role="tablist" aria-label="Product">{{template "fleet-product-tabs" .}}</div>
+  <div class="fl-lm" role="group" aria-label="Show devices as">
+    <button type="button" class="on" data-fl-view="list" aria-pressed="true" onclick="flToggleMap(false)"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>List</button>
+    <button type="button" data-fl-view="map" aria-pressed="false" onclick="flToggleMap(true)"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Map</button>
+  </div>
+    </div>
 
 
 <div class="fleet-bar dv-rise-1">
@@ -792,10 +799,6 @@ html.fl-tl #device-table-container .pagination,html.fl-tl #device-table-containe
         <button type="button" data-dir="asc" role="radio" aria-checked="false" onclick="sortDir('asc')"></button>
       </div>
     </div>
-  </div>
-  <div class="fl-lm" role="group" aria-label="Show devices as">
-    <button type="button" class="on" data-fl-view="list" aria-pressed="true" onclick="flToggleMap(false)"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>List</button>
-    <button type="button" data-fl-view="map" aria-pressed="false" onclick="flToggleMap(true)"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Map</button>
   </div>
 </div>
 
