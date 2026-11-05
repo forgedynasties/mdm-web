@@ -8102,3 +8102,8 @@ html[data-theme="dark"] .dock.dock-s { box-shadow: 0 0 0 1px rgba(255, 255, 255,
   background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cf4529' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center / 13px no-repeat; }
 #dd-panel-apps .btn-primary .ui-icon { display: none; }
 #dd-panel-apps .btn-primary::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cf4529' stroke-width='2.8' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E"); }
+/* The gradient pill (user's second reference, 5 Nov 2026) for a page's hero action: the
+   brand's coral into violet, the arrow in the violet. Install app on the device page. */
+#dd-panel-apps .btn-primary { background: linear-gradient(90deg, #ee5f45, #8b78f0); }
+#dd-panel-apps .btn-primary:hover { background: linear-gradient(90deg, #e2523a, #7d69ea); }
+#dd-panel-apps .btn-primary::after { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237d69ea' stroke-width='2.8' stroke-linecap='round'%3E%3Cpath d='M12 6v12M6 12h12'/%3E%3C/svg%3E"); }
