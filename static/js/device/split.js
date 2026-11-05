@@ -311,9 +311,6 @@
       var fitted = document.documentElement.classList.contains('dd-fit');
       var more = pane.scrollHeight - pane.scrollTop - pane.clientHeight > 24;
       wrap.classList.toggle('on', fitted && more);
-      // The pane's last pixels fade out while there is more below, instead of cutting the
-      // content off with a hard line (27 Oct 2026); at the end the fade goes.
-      pane.classList.toggle('dd-fade', fitted && more);
     }
     function later() { if (!raf) raf = requestAnimationFrame(sync); }
     btn.addEventListener('click', function () {
