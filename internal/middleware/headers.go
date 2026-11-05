@@ -22,7 +22,7 @@ var contentSecurityPolicy = buildCSP()
 func buildCSP() string {
 	// APK uploads: the browser fetches (PUT) directly to the presigned S3 URL, so the
 	// bucket's virtual-hosted + regional endpoints must be allowed in connect-src.
-	connect := "connect-src 'self' https://maps.googleapis.com"
+	connect := "connect-src 'self' https://maps.googleapis.com https://tiles.openfreemap.org"
 	// Training videos + posters on the landing page stream straight from the bucket
 	// via presigned GET URLs, so the same hosts go into img-src and media-src.
 	s3 := ""

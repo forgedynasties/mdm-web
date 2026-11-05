@@ -807,3 +807,11 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .app-inst-bar{flex:0 1 160px;height:4px;border-radius:99px;background:var(--border-soft);overflow:hidden}
 .app-inst-bar i{display:block;height:100%;background:var(--accent);border-radius:inherit;transition:width .4s}
 .app-list .app-installing .app-x-form{grid-column:-2}
+/* Location map pin (MP1, 5 Nov 2026): a white label with the serial and venue over a dot. */
+.dev-map{height:260px}
+.mm-pin{display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.mm-pin b{background:var(--surface);color:var(--text);border-radius:12px;padding:6px 10px;font:600 12px var(--font);white-space:nowrap;box-shadow:0 8px 18px -8px rgba(0,0,0,.5)}
+.mm-pin i{width:14px;height:14px;border-radius:50%;background:var(--ok);border:3px solid #fff;margin-top:6px;box-shadow:0 0 0 6px color-mix(in srgb,var(--ok) 18%,transparent)}
+.mm-pin.off i{background:#9a9aa5;box-shadow:0 0 0 6px rgba(154,154,165,.18)}
+.dev-map-card .maplibregl-ctrl-attrib.maplibregl-compact{background:color-mix(in srgb,var(--surface) 80%,transparent)}
+html[data-theme="dark"] .dev-map-card .maplibregl-ctrl-attrib-button{filter:invert(1)}

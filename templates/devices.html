@@ -229,7 +229,7 @@
     <span class="isl-acts">
       <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
         <div class="isl-menu cc-menu" role="menu">
-          {{if .MapsEmbedKey}}<button type="button" class="cc-mi" data-fl-map aria-pressed="false" onclick="this.closest('details').open=false; window.flToggleMap && flToggleMap()">Map view</button>{{end}}
+          
           <button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.mdmRefreshDevices && window.mdmRefreshDevices()">Refresh</button>
           <a class="cc-mi" href="/export">Export…</a>
         </div>
@@ -521,7 +521,7 @@ a.fleet-rail-item{min-height:40px}
       <div id="fl-headline">{{template "fleet-headline" .}}</div>
     </div>
     <div class="cc-actions fl-actions">
-      {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg class="i-map" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><svg class="i-list" viewBox="0 0 24 24" hidden><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Map view</span></button>{{end}}
+      
       <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>
   </div>
@@ -739,6 +739,10 @@ a.fleet-rail-item{min-height:40px}
       </div>
     </div>
   </div>
+  <div class="fl-lm" role="group" aria-label="Show devices as">
+    <button type="button" class="on" data-fl-view="list" aria-pressed="true" onclick="flToggleMap(false)"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>List</button>
+    <button type="button" data-fl-view="map" aria-pressed="false" onclick="flToggleMap(true)"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Map</button>
+  </div>
 </div>
 
 {{/* ── Filters (F3, picked 19 Oct): the everyday filters are quick chips — Online,
@@ -904,41 +908,30 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 </script>
 <script src="/static/js/devices/roster.js?v={{assetVer}}"></script>
 
-{{if .MapsEmbedKey}}
-{{/* ── Map view: the roster's current scope + filters as markers (toggled by the
-     header's Map button; the roster stays in the DOM, hidden, so the live poll
-     and selection keep working). ── */}}
+{{/* ── Map view (MP1 "Canvas", picked 5 Nov 2026): our own MapLibre map of the roster's
+     scope + filters (static/js/devices/map.js). The roster stays in the DOM, hidden, so the
+     live poll and selection keep working. ── */}}
 <div class="card fl-map-pane" id="fl-map-pane" hidden>
   <div class="fl-map-bar" id="fl-map-bar" hidden><div class="fleet-chips" id="fl-map-chips"></div><span class="fl-map-un" id="fl-map-un"></span></div>
   <div class="fl-map"><div id="fl-map"></div>
-    <div class="fl-map-count" id="fl-map-count">Loading…</div>
-    <div class="fl-map-legend"><span><i class="ok"></i>All online</span><span><i class="bad"></i>Some offline</span><span><i class="warn"></i>Away from venue</span><span class="dim">ring = share online · number = devices</span><a href="/map">Full map →</a></div>
+    <div class="fl-mapl" id="fl-mapl">
+      <div class="h"><span id="fl-mapl-h">On the map</span><span class="c" id="fl-map-count">Loading…</span></div>
+      <div id="fl-mapl-rows"></div>
+      <div class="away" id="fl-mapl-away" hidden></div>
+    </div>
   </div>
 </div>
 <style>
-.fl-map-pane{overflow:hidden}
-.fl-map{position:relative;height:calc(100vh - 420px);min-height:440px}
+.fl-map-pane{overflow:hidden;border-radius:22px}
+.fl-map{position:relative;height:calc(100vh - 330px);min-height:440px}
 #fl-map{position:absolute;inset:0}
-.fl-map-count{position:absolute;right:12px;top:12px;z-index:2;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px 11px;font-size:11.5px;font-weight:650;color:var(--text-2);box-shadow:var(--shadow-md)}
-.fl-map-legend{position:absolute;left:12px;bottom:12px;z-index:2;display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:6px 12px;font-size:11.5px;color:var(--muted);box-shadow:var(--shadow-md)}
-.fl-map-legend span{display:inline-flex;align-items:center;gap:6px}
-.fl-map-legend i{width:9px;height:9px;border-radius:50%;background:var(--rule-2);display:inline-block}
-.fl-map-legend i.ok{background:var(--ok)}.fl-map-legend i.cl{background:var(--accent)}
-.fl-map-legend a{color:var(--accent-text);text-decoration:none;font-weight:650;margin-left:4px}
-/* the filters in force, mirrored from the list so the map says what it is showing */
 .fl-map-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--border)}
 .fl-map-bar .fleet-chips{margin:0;padding:0;border:0;flex:1 1 auto;min-width:0}
 .fl-map-un{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
 .fl-map-un button{border:0;background:transparent;font:inherit;font-weight:650;color:var(--accent-text);cursor:pointer;padding:0;margin-left:4px}
-.fl-map-legend i.bad{background:var(--danger)}.fl-map-legend i.warn{background:var(--warn)}.fl-map-legend .dim{color:var(--text-faint)}
 .fchip.fl-away{cursor:pointer;font:inherit}.fchip.fl-away b{font-variant-numeric:tabular-nums}
 .fchip.fl-away.has{border-color:var(--warn);color:var(--warn)}
 .fchip.fl-away.on{background:color-mix(in srgb,var(--warn) 14%,var(--surface));border-color:var(--warn);color:var(--warn)}
-/* the popup: Google's info window restyled to a card (the markup is ours) */
-.fl-map .gm-style .gm-style-iw-c{padding:0!important;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);max-width:300px!important}
-.fl-map .gm-style .gm-style-iw-d{overflow:auto!important;max-height:340px!important;color:var(--text)}
-.fl-map .gm-style .gm-style-iw-tc::after{background:var(--surface)}
-.fl-map .gm-style-iw-chr,.fl-map .gm-ui-hover-effect{display:none!important}
 .fm-card{width:280px;font-size:12.5px;color:var(--text)}
 .fm-h{display:flex;align-items:flex-start;gap:8px;padding:12px 12px 6px 14px}
 .fm-h b{font-size:14px;display:block}
@@ -962,12 +955,49 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 .fm-acts .p{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
 .fl-map-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;background:var(--surface);z-index:3;text-align:center;padding:20px}
 .fl-map-empty b{color:var(--text);font-weight:650}
-#fl-map-btn[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
-@media(max-width:640px){.fl-map{height:60vh;min-height:360px}}
+/* the floating card: what is on screen, and the places off it */
+.fl-mapl{position:absolute;left:14px;top:14px;z-index:3;width:262px;background:var(--surface);border-radius:18px;padding:8px;box-shadow:0 20px 40px -20px rgba(0,0,0,.35);font-size:12.5px}
+.fl-mapl .h{display:flex;align-items:baseline;gap:8px;padding:4px 8px 6px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.fl-mapl .h .c{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:500}
+.fl-mapl .r{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;border:0;border-radius:12px;background:none;font:inherit;color:var(--text);cursor:pointer;text-align:left}
+.fl-mapl .r:hover{background:var(--accent-fill);color:#fff}.fl-mapl .r:hover small{color:rgba(255,255,255,.85)}
+.fl-mapl .r b{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fl-mapl .r small{color:var(--muted);font-size:11.5px;white-space:nowrap}
+.fl-mapl .more{padding:4px 8px;color:var(--muted);font-size:11.5px}
+.fl-mapl .away{display:flex;gap:6px;flex-wrap:wrap;padding:8px 8px 4px;border-top:1px solid var(--border-soft);margin-top:4px}
+.fl-mapl .away[hidden]{display:none}
+.fl-mapl .away button{border:0;font:inherit;font-size:11.5px;font-weight:600;background:var(--canvas,var(--surface2));border-radius:99px;padding:3px 10px;color:var(--text-2);cursor:pointer}
+.fl-mapl .away button:hover{background:var(--accent-fill);color:#fff}
+@media(max-width:720px){.fl-mapl{display:none}.fl-map{height:62vh;min-height:360px}}
+/* markers: a venue pill (online ring, count, name), a lone device a dot */
+.mm-pill{display:inline-flex;align-items:center;gap:6px;border:0;background:var(--surface);color:var(--text);border-radius:99px;padding:5px 11px 5px 6px;font:600 12.5px var(--font);box-shadow:0 6px 16px -6px rgba(0,0,0,.45);white-space:nowrap;cursor:pointer}
+.mm-pill span{font-weight:500;color:var(--text-2)}
+.mm-pill:hover{background:var(--accent-fill);color:#fff}.mm-pill:hover span{color:rgba(255,255,255,.85)}
+.mm-ring{width:18px;height:18px;border-radius:50%;background:conic-gradient(var(--ok) var(--p),color-mix(in srgb,var(--text-faint) 55%,transparent) 0);display:grid;place-items:center;flex:none}
+.mm-ring.bad{background:conic-gradient(var(--ok) var(--p),var(--danger) 0)}
+.mm-ring::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--surface)}
+.mm-pill:hover .mm-ring::after{background:var(--accent-fill)}
+.fl-mapl .mm-ring{width:14px;height:14px}.fl-mapl .mm-ring::after{width:7px;height:7px}
+.fl-mapl .r:hover .mm-ring::after{background:var(--accent-fill)}
+.mm-dot{width:14px;height:14px;border-radius:50%;border:2.5px solid #fff;background:var(--ok);box-shadow:0 2px 6px rgba(0,0,0,.35);padding:0;cursor:pointer}
+.mm-dot.off{background:#9a9aa5}.mm-dot.away{background:var(--warn);width:18px;height:18px}
+/* MapLibre's popup and controls in our look */
+.fm-pop .maplibregl-popup-content{padding:0;background:var(--surface);border-radius:16px;box-shadow:0 20px 44px -18px rgba(0,0,0,.45)}
+.fm-pop .maplibregl-popup-tip{border-top-color:var(--surface);border-bottom-color:var(--surface)}
+.fm-pop .fm-list{max-height:280px;overflow:auto}
+.fl-map .maplibregl-ctrl-group{border-radius:14px;overflow:hidden;box-shadow:0 6px 14px -8px rgba(0,0,0,.4)!important;background:var(--surface)}
+.fl-map .maplibregl-ctrl-group button{width:34px;height:34px}
+html[data-theme="dark"] .fl-map .maplibregl-ctrl-group button .maplibregl-ctrl-icon{filter:invert(1)}
+.maplibregl-ctrl-attrib.maplibregl-compact{background:color-mix(in srgb,var(--surface) 80%,transparent)}
+html[data-theme="dark"] .maplibregl-ctrl-attrib-button{filter:invert(1)}
+/* the List · Map switch beside the search */
+.fl-lm{display:inline-flex;background:var(--surface);border-radius:99px;padding:3px;gap:2px;flex:none}
+.fl-lm button{display:inline-flex;align-items:center;gap:6px;border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--text-2);padding:6px 13px;border-radius:99px;cursor:pointer}
+.fl-lm button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.fl-lm button.on{background:var(--accent-fill);color:#fff}
 </style>
-<script>window.FLEET_MAPS_KEY = {{.MapsEmbedKey}};</script>
+<script src="/static/js/map-canvas.js?v={{assetVer}}"></script>
 <script src="/static/js/devices/map.js?v={{assetVer}}"></script>
-{{end}}
 
 <div class="dv-split" id="dv-split">
   <div class="card dv-rise-2"
