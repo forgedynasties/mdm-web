@@ -107,7 +107,7 @@ func (d *DB) DevicesWithPendingInstall(ctx context.Context, apkURL string, devic
 			  AND NOT EXISTS (
 				SELECT 1 FROM command_status cs
 				WHERE cs.command_id = c.id AND cs.device_id = dev.id
-				  AND cs.status IN ('installed','failed','completed'))
+				  AND cs.status IN ('installed','failed','completed','cancelled','expired'))
 		)
 	`, installExpiry), apkURL, deviceIDs)
 	if err != nil {
