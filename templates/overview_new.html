@@ -261,10 +261,6 @@
 .ovb-acts{display:flex;gap:8px;flex-wrap:wrap}
 .ovb-btn{border:0;border-radius:99px;padding:5px 5px 5px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent-fill);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:10px}
 .ovb-btn:hover{background:var(--accent-fill-h)}
-/* The hero's action is the gradient pill (user's reference, 5 Nov 2026). */
-.ovb-hero .ovb-btn:not(.l):not(.w){background:linear-gradient(90deg,#ee5f45,#8b78f0)}
-.ovb-hero .ovb-btn:not(.l):not(.w):hover{background:linear-gradient(90deg,#e2523a,#7d69ea)}
-.ovb-hero .ovb-btn:not(.l):not(.w)::after{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237d69ea' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E")}
 .ovb-btn::after{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cf4529' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center/13px no-repeat}
 .ovb-btn.l,.ovb-promo .ovb-btn.w{padding:9px 16px}.ovb-btn.l::after,.ovb-promo .ovb-btn.w::after{display:none}
 .ovb-btn.l:hover{background:var(--surface2)}.ovb-promo .ovb-btn.w:hover{background:#fff}
@@ -444,7 +440,7 @@ html:not(.ov-nofit):has(.ovd .ovb) .ovb-radar{min-height:150px}
               <div class="ovb-legend">{{range .}}<span><span class="ovb-dot {{.Tone}}"></span>{{.N}} {{.Label}}</span>{{end}}</div>{{end}}
               {{with .Bars}}<table class="ovb-mini"><thead><tr><th>Type</th><th>Online</th><th></th></tr></thead><tbody>{{range .}}<tr><td>{{.Label}}</td><td>{{.Online}} / {{.Total}}</td><td class="w"><span class="ovb-pb"><i class="{{.Tone}}" style="width:{{.Pct}}%"></i></span></td></tr>{{end}}</tbody></table>{{end}}
               {{if .Devs}}<table class="ovb-mini"><thead><tr><th>{{.DevsHead}}</th><th></th><th>Last seen</th><th></th></tr></thead><tbody>{{range .Devs}}<tr><td><a class="mono" href="{{.Href}}">{{.Serial}}</a></td><td>{{.Type}}</td><td>{{.Seen}}</td><td class="mut">{{.Extra}}</td></tr>{{end}}{{if .MoreDevs}}<tr><td colspan="4" class="mut">and {{.MoreDevs}} more</td></tr>{{end}}</tbody></table>{{end}}
-              <div class="ovb-acts">{{if .Href}}<a class="ovb-btn" href="{{.Href}}">{{.Action}}</a>{{end}}{{if .AltHref}}<a class="ovb-btn l" href="{{.AltHref}}">{{.Alt}}</a>{{end}}</div>
+              <div class="ovb-acts">{{if .Href}}<a class="ovb-btn cta-g" href="{{.Href}}"><span class="cta-t">{{.Action}}</span></a>{{end}}{{if .AltHref}}<a class="ovb-btn l" href="{{.AltHref}}">{{.Alt}}</a>{{end}}</div>
             </div>
             {{end}}
           </div>
