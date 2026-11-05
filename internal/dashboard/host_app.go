@@ -1,11 +1,14 @@
 package dashboard
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
+
+	"mdm/internal/db"
 )
 
 // The host app card on the device page (App card, A — picked 16 Oct): the app a device is
@@ -67,6 +70,11 @@ type HostAppView struct {
 	LastDesc  string
 	Installed string
 	Updated   string
+
+	// Derived: drawn by the server from the role's app and app usage, for a device whose
+	// client reports no host app (the Standard client); Launches is then its third figure.
+	Derived  bool
+	Launches int
 }
 
 // HostAppLine is one variant as a single line.
@@ -386,4 +394,91 @@ func hostAppPlural(s string, n int) string {
 		return s + "es"
 	}
 	return s + "s"
+}
+
+// hostAppOf is the device's host app card. The firmware client reports one (extra.host_app);
+// for any other device (the Standard client) it is drawn from what the server knows (5 Nov
+// 2026, user: "why no role app card?"): the role's app on Lineup, its builds installed here
+// (the one it is locked to, else prod, leads) and today's app usage. Nil when the role has no
+// app or none of it is installed.
+func (h *Handler) hostAppOf(ctx context.Context, d *db.Device, pkgs []db.DevicePackage, locked string) *HostAppView {
+	if v := hostAppView(d.LatestExtra); v != nil {
+		return v
+	}
+	base := h.db.RoleAppBase(ctx, d.Class())
+	if base == "" {
+		return nil
+	}
+	var vs []db.DevicePackage
+	for _, p := range pkgs {
+		if p.PackageName == base || strings.HasPrefix(p.PackageName, base+".") {
+			vs = append(vs, p)
+		}
+	}
+	if len(vs) == 0 {
+		return nil
+	}
+	ai := -1
+	for i, p := range vs {
+		if locked != "" && p.PackageName == locked {
+			ai = i
+		}
+	}
+	if ai < 0 {
+		ai = 0
+		for i, p := range vs {
+			if p.PackageName == base {
+				ai = i
+			}
+		}
+	}
+	line := func(p db.DevicePackage) HostAppLine {
+		env, tone := hostAppEnv(strings.TrimPrefix(strings.TrimPrefix(p.PackageName, base), "."))
+		name := p.AppName
+		if name == "" {
+			name = hostAppName(base)
+		}
+		l := HostAppLine{Package: p.PackageName, Name: name, Env: env, EnvTone: tone, Version: p.VersionName, Dot: "off", Note: "installed"}
+		if l.Version == "" {
+			l.Version = "—"
+		}
+		return l
+	}
+	v := &HostAppView{Pattern: base + "," + base + ".*", Count: len(vs), Derived: true, Today: "—", Memory: "—", State: "Installed"}
+	v.Active = line(vs[ai])
+	for i, p := range vs {
+		if i != ai {
+			v.Others = append(v.Others, line(p))
+		}
+	}
+	if locked != "" && vs[ai].PackageName == locked {
+		v.State, v.StateTone, v.Active.Dot = "Locked to it", "ok", "on"
+	}
+	// Today in the device's own timezone, as the firmware card counts it.
+	loc := time.UTC
+	var tz struct {
+		Timezone string `json:"timezone"`
+	}
+	if json.Unmarshal(d.LatestExtra, &tz) == nil && tz.Timezone != "" {
+		if l, err := time.LoadLocation(tz.Timezone); err == nil {
+			loc = l
+		}
+	}
+	now := time.Now().In(loc)
+	since := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	if rows, err := h.db.AppUsage(ctx, d.ID, since); err == nil {
+		for _, r := range rows {
+			if r.Package != vs[ai].PackageName {
+				continue
+			}
+			if r.FgMs > 0 {
+				v.Today = fmtMinutes(r.FgMs)
+			}
+			if r.PssAvgMB != nil {
+				v.Memory = fmt.Sprintf("%.0f MB", *r.PssAvgMB)
+			}
+			v.Launches = r.Launches
+		}
+	}
+	return v
 }

@@ -502,6 +502,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Applications list can show them as "installing" until the device reports them
 	// (skipping any whose app the device already has present).
 	pendingInstalls := pendingInstallRows(commands, apps, installedPkgs, apkPkg)
+	lockedPkg := ""
+	if kioskCfg != nil && kioskCfg.KioskEnabled {
+		lockedPkg = kioskCfg.KioskPackage
+	}
+	hostApp := h.hostAppOf(r.Context(), device, installedPkgs, lockedPkg)
 
 	// Count a Maps Embed load whenever this render will actually emit the map iframe
 	// (key configured + resolved coordinates present). Browser embed loads are free,
@@ -569,7 +574,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"AgentUpdate": h.agentUpdateFor(r, device),
 		"KeyCred":     h.keyCredentialFor(r.Context(), device),
 		// The app this device is there to run, reported from outside it (host_app.go).
-		"HostApp": hostAppView(device.LatestExtra),
+		"HostApp": hostApp,
 		// Resource use (A1): the Apps tab's ranking, 24 h by default.
 		"AppUsage": h.appUsageView(r.Context(), device, "24h", "", false),
 		// Wi-Fi card (W1) on the Overview.
@@ -644,7 +649,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"FollowSet":           followSet(follows),
 		"FollowRows":          h.followRows(r.Context(), devFams, follows),
 		"InstalledPackages":   launchableOnly(installedPkgs),
-		"AppList":             h.deviceAppsOf(r.Context(), device, installedPkgs, hostAppView(device.LatestExtra), ""),
+		"AppList":             h.deviceAppsOf(r.Context(), device, installedPkgs, hostApp, ""),
 		"ClientPill":          h.clientPillFor(device),
 		"KioskApps":           kioskApps,
 		"LockApp":             lockAppFor(*device, h.db.RoleAppBase(r.Context(), device.Class()), installedPkgs, kioskCfg, h.cfg.KioskAppAllowed),

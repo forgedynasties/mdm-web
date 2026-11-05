@@ -8140,8 +8140,6 @@ html[data-theme="dark"] .cta-g.cta-g::after { background-color: #e9e9ee; }
    only the table scrolls under its sticky header row. */
 html.shell, html.shell body { overflow: hidden; }
 html.shell main#main { height: var(--shell-h); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 0; scrollbar-width: thin; }
-html.shell main#main > :last-child { margin-bottom: 4px; }
-html.shell main.shell-list { overflow: hidden; }
 html.shell .fleet-md { align-items: stretch; }
 html.shell .fleet-md > .fleet-rail { position: static; align-self: start; max-height: 100%; overflow-y: auto; }
 html.shell .fleet-md > .fleet-roster { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: thin; }

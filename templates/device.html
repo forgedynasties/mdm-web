@@ -1475,11 +1475,15 @@ window.DEVICE_VITALS = {
     <div class="apl2-figs">
       <div class="apl2-fg"><b>{{.Today}}</b><span>on screen today</span></div>
       <div class="apl2-fg"><b>{{if .Memory}}{{.Memory}}{{else}}—{{end}}</b><span>memory</span></div>
-      <div class="apl2-fg"><b{{if .Problems}} class="bad"{{end}}>{{.Problems}}</b><span>{{if .Problems}}{{if .ProbLabel}}{{.ProbLabel}}{{else}}problems{{end}}{{else}}problems{{end}} in 24 h</span></div>
+      {{if .Derived}}<div class="apl2-fg"><b>{{.Launches}}</b><span>opened today</span></div>
+      {{else}}<div class="apl2-fg"><b{{if .Problems}} class="bad"{{end}}>{{.Problems}}</b><span>{{if .Problems}}{{if .ProbLabel}}{{.ProbLabel}}{{else}}problems{{end}}{{else}}problems{{end}} in 24 h</span></div>{{end}}
     </div>
-    <details class="apl2-det"><summary>Details{{if .Others}} · {{len .Others}} more build{{if ne (len .Others) 1}}s{{end}} installed{{end}}</summary>
+    {{if .Derived}}{{if .Others}}<details class="apl2-det"><summary>{{len .Others}} more build{{if ne (len .Others) 1}}s{{end}} installed</summary>
+      <div class="apl2-others">{{range .Others}}<div><b>{{.Name}}</b> <span class="cc-tag {{.EnvTone}}">{{.Env}}</span> <span class="mono small">{{.Version}}</span> <span class="muted small mono">{{.Package}}</span></div>{{end}}</div>
+    </details>{{end}}
+    {{else}}<details class="apl2-det"><summary>Details{{if .Others}} · {{len .Others}} more build{{if ne (len .Others) 1}}s{{end}} installed{{end}}</summary>
       {{template "dd-host-app" .}}
-    </details>
+    </details>{{end}}
   </div>
   {{end}}{{end}}
   <div class="card apl-card">
@@ -1732,6 +1736,7 @@ body.dd-resizing iframe,body.dd-resizing canvas{pointer-events:none}
 /* Fitted to the window: the page stays put, the panes scroll. */
 /* The page scrolls again in the split (G3, 26 Oct 2026): Recent on this device sits under it. */
 .dd-recent .ddc-card{margin:0}
+html.shell .dd-recent .ddc-card{max-height:var(--dd-recent-max,none);overflow:auto;scrollbar-width:thin}
 .dd-recent .dtl-list{columns:2 420px;column-gap:28px;padding-top:4px}
 .dd-recent .ddc-tl{break-inside:avoid}
 html.dd-fit .dd-split{align-items:stretch}
@@ -1936,6 +1941,7 @@ html.dd-fit .dd-split-r{clip-path:inset(0 14px 0 10px round 0 0 20px 20px)}
 .apl2-det>summary::-webkit-details-marker{display:none}
 .apl2-det>summary::after{content:" ▾"}.apl2-det[open]>summary::after{content:" ▴"}
 .apl2-det .ha-card{margin:8px 0 0;box-shadow:none}
+.apl2-others{display:grid;gap:6px;margin-top:8px;font-size:12.5px}
 .apl-win{background:var(--canvas,var(--surface2));border-radius:99px;padding:3px;gap:2px}
 .apl-pill{border:0;background:none;padding:4px 11px;color:var(--text-2)}
 .apl-pill.on{background:var(--accent-fill);color:#fff;border:0}

@@ -131,6 +131,9 @@
     split.style.height = '';
     var top = split.getBoundingClientRect().top + (window.scrollY || 0);
     var avail = window.innerHeight - top - 100;        // clear of the floating dock
+    // In the app shell (chrome.js) the page area already ends above the dock: fill it exactly.
+    var main = document.getElementById('main');
+    if (document.documentElement.classList.contains('shell') && main) avail = main.getBoundingClientRect().bottom - split.getBoundingClientRect().top - 6;
     var ok = avail >= 420;
     root.classList.toggle('dd-fit', ok);
     if (!ok) { showRecent(false); return; }
@@ -151,7 +154,10 @@
     // Recent on this device only where the window has room for it above the dock
     // (26 Oct 2026, user: "only on screens which support"); on a laptop it stays hidden
     // rather than peeking out under the dock.
-    showRecent(avail - split.getBoundingClientRect().height >= RECENT_ROOM);
+    var rest = avail - split.getBoundingClientRect().height;
+    // Recent never runs past the page area: it scrolls inside what is left.
+    document.documentElement.style.setProperty('--dd-recent-max', Math.max(0, Math.floor(rest - 18)) + 'px');
+    showRecent(rest >= RECENT_ROOM);
   }
   var RECENT_ROOM = 180;
   // DV1 (picked 5 Nov 2026, user: "if that is shown then activity tab should disappear, but
