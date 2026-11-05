@@ -255,11 +255,15 @@
 .ovb-hero{grid-column:span 2;display:flex;flex-direction:column}
 .ovb-seg{display:inline-flex;background:var(--ovb-page);border-radius:99px;padding:3px;gap:2px;flex-wrap:wrap}
 .ovb-seg button{font:inherit;font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2);background:none;border:0;cursor:pointer}
-.ovb-seg button.on{background:var(--text);color:var(--surface)}
+.ovb-seg button.on{background:var(--accent-fill);color:#fff}
 .ovb-big{font-size:34px;line-height:1.1;font-weight:650;letter-spacing:-.02em;margin:14px 0 0;max-width:640px;overflow-wrap:anywhere}
 .ovb-sub{font-size:13.5px;color:var(--text-2);margin:8px 0 0;max-width:560px}
 .ovb-acts{display:flex;gap:8px;flex-wrap:wrap}
-.ovb-btn{border:0;border-radius:99px;padding:9px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--text);color:var(--surface);text-decoration:none;display:inline-block}
+.ovb-btn{border:0;border-radius:99px;padding:5px 5px 5px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent-fill);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:10px}
+.ovb-btn:hover{background:var(--accent-fill-h)}
+.ovb-btn::after{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cf4529' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center/13px no-repeat}
+.ovb-btn.l,.ovb-promo .ovb-btn.w{padding:9px 16px}.ovb-btn.l::after,.ovb-promo .ovb-btn.w::after{display:none}
+.ovb-btn.l:hover{background:var(--surface2)}.ovb-promo .ovb-btn.w:hover{background:#fff}
 .ovb-btn.l{background:var(--surface);color:var(--text);border:1px solid var(--border)}
 .ovb-promo{background:var(--accent-fill);color:#fff;border-radius:22px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:150px;position:relative;overflow:hidden;text-decoration:none}
 .ovb-promo b{font-size:24px;font-weight:600;line-height:1.15;position:relative}
