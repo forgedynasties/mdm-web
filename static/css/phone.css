@@ -54,12 +54,7 @@
   .rc-body { padding: 0 10px 12px !important; }
 
   /* ── Cards and wide content ───────────────────────────────────────────────── */
-  /* A table wider than the phone scrolls inside its card instead of being cut off. */
   .cc-card, .oc-card, .card { min-width: 0 !important; }
-  /* phone-tables.js wraps a table that is wider than its card in this box. */
-  .ph-tscroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; position: relative; } /* holds sr-only cells, which otherwise widen the page */
-  .ph-tscroll > table { min-width: 100%; }
-  .ph-tscroll > table.ph-wide { min-width: 600px; }
   /* Header action rows wrap instead of running off the edge. */
   .cc-actions, .ddc-actions, .oc-bar, .card-header, .cc-ch, .oc-ch { flex-wrap: wrap !important; }
   /* Tab strips scroll sideways (they already may; this keeps them from clipping). */
@@ -137,4 +132,148 @@
   .rc-screen canvas { max-width: calc(100vw - 48px) !important; max-height: 72dvh !important; }
   .rc-stage:has(.rc-remote) .rc-screen canvas { max-width: calc(100vw - 48px) !important; }
   .rc-rail { overflow: visible !important; }
+
+  /* ── Tables become cards (phone-tables.js, 7 Nov 2026) ───────────────────── */
+  table.ph-cards, table.ph-cards > tbody, table.ph-cards > tfoot { display: block; width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+  table.ph-cards > caption { display: block; }
+  table.ph-cards > colgroup { display: none; }
+  table.ph-cards > thead { display: none; }
+  table.ph-cards tr.ph-row[hidden] { display: none !important; }
+  table.ph-cards tr.ph-row {
+    position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px; padding: 12px 14px; height: auto !important;
+    border-bottom: 1px solid var(--border-soft, var(--border)); box-sizing: border-box;
+  }
+  table.ph-cards > tbody > tr.ph-row:last-child { border-bottom: 0; }
+  /* One tint per row, not a patch per cell. */
+  table.ph-cards tr.ph-row > td, table.ph-cards tr.ph-row > th, table.ph-cards tr.ph-row:hover > td { background: transparent !important; }
+  table.ph-cards tr.ph-row:has(.ph-cb input:checked) { background: var(--accent-soft); }
+  table.ph-cards tr.ph-row.ph-has-cb { padding-left: 44px; }
+  table.ph-cards tr.ph-row > td, table.ph-cards tr.ph-row > th {
+    display: block; width: auto !important; min-width: 0 !important; max-width: none !important; height: auto !important;
+    padding: 0 !important; border: 0 !important; background: none; text-align: left !important;
+    white-space: normal !important; overflow: visible !important; overflow-wrap: break-word; font-size: 13px; line-height: 1.35;
+  }
+  table.ph-cards tr.ph-row > td[data-ph-l]::before, table.ph-cards tr.ph-row > th[data-ph-l]::before {
+    content: attr(data-ph-l); display: block; margin-bottom: 2px;
+    font-size: 10.5px; font-weight: 600; letter-spacing: .03em; color: var(--text-faint, var(--muted));
+  }
+  table.ph-cards tr.ph-row > .ph-blank { display: none !important; }
+  table.ph-cards tr.ph-row > .ph-main { grid-column: 1 / -1; font-size: 14px; }
+  table.ph-cards tr.ph-row.ph-has-corner > .ph-main { padding-right: 34px !important; }
+  table.ph-cards tr.ph-row > .ph-full { grid-column: 1 / -1; }
+  table.ph-cards tr.ph-row > .ph-cb { position: absolute !important; left: 14px; top: 12px; }
+  table.ph-cards tr.ph-row > .ph-cb input { width: 20px !important; height: 20px !important; }
+  table.ph-cards tr.ph-row > .ph-corner { position: absolute !important; right: 8px; top: 8px; z-index: 1; }
+  table.ph-cards tr.ph-row > .ph-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+  table.ph-cards .ft-ell, table.ph-cards .ft-sn, table.ph-cards .ft-l1, table.ph-cards .ft-vn { overflow: visible !important; text-overflow: clip !important; max-width: none !important; }
+  /* Page styles keep a cell's text on one line for a table column; in a card it wraps. */
+  table.ph-cards tr.ph-row > td span, table.ph-cards tr.ph-row > td a:not(.cc-btn), table.ph-cards tr.ph-row > td small, table.ph-cards tr.ph-row > td div, table.ph-cards tr.ph-row > td b { white-space: normal !important; min-width: 0; }
+  table.ph-cards tr.ph-row > .ph-span { grid-column: 1 / -1; }
+  table.ph-cards tr.ph-row select { width: 100%; max-width: 100%; }
+  /* The header's select-all checkbox stays, on a line of its own. */
+  table.ph-cards > thead:has(.ph-sel-all) { display: block; }
+  table.ph-cards > thead .ph-sel-all { display: flex !important; align-items: center; height: auto; padding: 10px 14px; border-bottom: 1px solid var(--border-soft, var(--border)); }
+  table.ph-cards > thead .ph-sel-all > th { display: none !important; }
+  table.ph-cards > thead .ph-sel-all > th.ph-th-cb { display: flex !important; align-items: center; gap: 10px; width: auto !important; height: auto; padding: 0 !important; border: 0 !important; background: none; font-size: 12px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); }
+  table.ph-cards > thead .ph-sel-all > th.ph-th-cb input { width: 20px !important; height: 20px !important; }
+  table.ph-cards > thead .ph-sel-all > th.ph-th-cb::after { content: "Select all"; }
+  .ft-wrap { overflow-x: visible !important; }
+
+  /* ── Rails fold to one line (phone-rails.js, 7 Nov 2026) ──────────────────── */
+  .fleet-rail, .cl-page .fleet-rail {
+    position: static !important; display: block !important; max-height: none !important; overflow: visible !important;
+    padding: 0 !important; margin: 0 0 10px !important; min-height: 44px; box-sizing: border-box;
+  }
+  .fleet-rail:not(.ph-open) > :not(.ph-rail-btn) { display: none !important; }
+  .fleet-rail.ph-open { padding: 0 8px 8px !important; }
+  .fleet-rail.ph-open > .ph-rail-btn { margin: 0 -8px 4px; width: calc(100% + 16px); }
+  .ph-rail-btn {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 14px; box-sizing: border-box;
+    border: 0; background: none; color: var(--text); font: inherit; font-size: 14px; font-weight: 650; text-align: left; cursor: pointer; border-radius: inherit;
+  }
+  .ph-rail-k { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+  .ph-rail-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ph-rail-ct { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .ph-rail-btn svg { flex: none; color: var(--muted); transition: transform .15s; }
+  .fleet-rail.ph-open .ph-rail-btn svg { transform: rotate(180deg); }
+  /* Open, it is the desktop list again, not pills. */
+  .cl-page .fleet-rail .fleet-rail-cap { display: flex; }
+  .cl-page button.fleet-rail-item { width: 100%; flex: initial; min-height: 40px; white-space: normal; }
+  .fleet-rail.ph-open .fleet-rail-item { min-height: 40px; }
+  .fleet-rail.ph-open .fleet-rail-list { display: block !important; max-height: 55dvh; overflow: hidden auto !important; }
+  .fleet-rail.ph-open .fleet-rail-list[hidden] { display: none !important; }
+  .fleet-rail.ph-open .fleet-rail-list > .fleet-rail-item { width: 100%; box-sizing: border-box; }
+
+  /* Fleet's device rows: three short figures a line. */
+  table.ft.ph-cards:has(.ft-bat) tr.ph-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 10px; }
+  table.ft.ph-cards tr.ph-row > .ft-venue { grid-column: span 2; }
+  table.ft.ph-cards tr.ph-row > .ft-build .dl-buildid { font-size: 12px; }
+  /* List toolbars: search, then one sideways row of filters and Sort. */
+  .fl-fchips { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; margin: 0 -12px !important; padding: 0 12px; flex-basis: auto !important; width: calc(100% + 24px); box-sizing: border-box; }
+  .fl-fchips::-webkit-scrollbar { display: none; }
+  .fl-fchips > * { flex: none; }
+  .fleet-bar { gap: 8px !important; }
+  .fleet-md { gap: 8px !important; }
+  .fleet-md > .fleet-rail { margin-bottom: 0 !important; }
+  main .fleet-md, main .cl-page .fleet-md { grid-template-columns: minmax(0, 1fr) !important; }
+  .fleet-rail.ph-open { width: 100%; box-sizing: border-box; overflow: hidden !important; }
+  .fleet-rail.ph-open .rail-tabs { min-width: 0; }
+  .fleet-rail.ph-open .rail-tabs > * { min-width: 0; }
+
+  /* Nothing may widen the page: the dock is sized from it. */
+  main div, main section, main aside, main form, main nav, main article { max-width: 100%; }
+  main [class*="-grid"] > *, .ps-grid > *, .settings-wrap, .settings-tab { min-width: 0 !important; }
+  .ps-grid, .sv-two { grid-template-columns: minmax(0, 1fr) !important; }
+  main input:not([type=checkbox]):not([type=radio]), main select, main textarea { max-width: 100%; min-width: 0; box-sizing: border-box; }
+  .form-row { flex-wrap: wrap; }
+  .form-row > * { min-width: 0; }
+
+  /* ── Dock: labels fit, a long page name ends in dots ─────────────────────── */
+  .dock-s { max-width: calc(100vw - 16px); box-sizing: border-box; }
+  .dock-s > .nav-link { flex: 1 1 0; min-width: 0 !important; max-width: 96px; padding: 0 !important; }
+  .dock-s > .nav-link .dock-lbl { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 9.5px; letter-spacing: -.01em; }
+  .dock-s > .dock-search { flex: none; }
+
+  /* ── Device page header: the serial stays whole and the tabs come sooner ─── */
+  .ddc-hero--ribbon .ddc-ribbon { padding: 14px !important; }
+  .ddc-idw { display: flex !important; align-items: flex-start; gap: 12px; }
+  .ddc-id { flex: 1; min-width: 0; }
+  .ddc-pic { width: 48px !important; height: 48px !important; }
+  .ddc-id > .cc-eyebrow { display: none !important; }
+  .dd-title-row { display: block !important; }
+  .dd-title-row h1.cc-h1 { position: static !important; width: auto !important; height: auto !important; margin: 0 0 6px !important; clip: auto !important; overflow: visible !important; white-space: normal !important; font-size: 20px !important; line-height: 1.2; }
+  .dd-title-row h1.cc-h1 > .muted { display: inline-block; max-width: 100%; margin: 3px 8px 0 0; font-size: 13px !important; white-space: normal; overflow-wrap: anywhere; }
+  .dd-title-row > :not(h1) { margin-left: 0; margin-right: 4px; }
+  .ddc-id .cc-sub { font-size: 12px; margin-top: 6px; }
+  .dd-tabs .dd-tab svg { display: none; }
+  .ddc-top { gap: 10px !important; }
+
+  /* ── Remote control header ────────────────────────────────────────────────── */
+  .rc-bar { flex-wrap: wrap !important; height: auto !important; padding: 8px 12px !important; gap: 6px 10px !important; }
+  .rc-bar .rc-back { flex: 1 1 100%; white-space: normal; min-width: 0; }
+  .rc-bar .rc-meta, .rc-bar .rc-opt, .rc-bar-spacer { display: none !important; }
+
+  /* ── Compliance ───────────────────────────────────────────────────────────── */
+  details.k1-row > summary { grid-template-columns: auto minmax(0, 1fr) auto 12px !important; gap: 8px !important; }
+  details.k1-row > summary > .cp-nm { grid-column: 1 / -1; }
+  details.k1-row > summary > .cp-bar { display: none !important; }
+  details.k1-row > summary > .cp-cnt { justify-self: start; text-align: left; }
+  .k1-th { display: none !important; }
+  .co-row { grid-template-columns: minmax(0, 1fr) !important; gap: 6px !important; }
+
+  /* ── Long lists that sit above what they control ─────────────────────────── */
+  .ro-list { max-height: 260px; overflow-y: auto; }
+
+  /* A row laid out inline wraps instead of squeezing its text to one word a line. */
+  main div[style*="display:flex"], main div[style*="display: flex"] { flex-wrap: wrap; }
+  main div[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+  .acc-give { display: flex !important; flex-wrap: wrap !important; grid-template-columns: none !important; }
+  .acc-give > label { min-width: 0; max-width: 100%; }
+  .acc-give > label:has(select) { flex: 1 1 100%; }
+  .acc-give select { width: 100% !important; }
+  .pagination, .page-numbers, .fl-foot, .fl-foot .pagination, .fl-foot .page-numbers { flex-wrap: wrap !important; }
+  .fl-foot .pagination { flex: 1 1 100% !important; }
+  /* Export's submit bar sits above the dock, not under it. */
+  .export-submit-bar { bottom: 76px !important; }
 }

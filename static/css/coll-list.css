@@ -86,12 +86,6 @@
   .cl-page .fleet-rail{position:static;max-height:none;margin-bottom:14px}
 }
 @media(max-width:720px){
-  .cl-page .fleet-rail{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:8px!important;scrollbar-width:none}
-  .cl-page .fleet-rail .fleet-rail-cap{display:none}
-  .cl-page button.fleet-rail-item{width:auto;flex:none;min-height:34px;padding:6px 10px;white-space:nowrap}
-  .cl-page .fleet-rail-item .nm{overflow:visible}
-  .cl-card .ft-wrap{overflow-x:auto;position:relative}
-  .cl-card .cl-ft{min-width:760px}
   .cl-page .fleet-search{min-width:0}
 }
 
