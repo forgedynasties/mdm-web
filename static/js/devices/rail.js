@@ -1,28 +1,17 @@
 // Loaded by templates/devices.html.
   (function () {
-    // Rail sections show their busiest rows (restaurants 10, user 30 Oct 2026; others 5);
-    // "Show all N" reveals the rest and the choice is remembered per section. The active
-    // row is always kept visible.
+    // Busiest rows first. Every row is on the list since the rail runs the pane's height and
+    // has a search (S2, 10 Nov 2026); the selected one is scrolled into view once it is sized.
     document.querySelectorAll('.fleet-rail-list').forEach(function (list) {
-      var CAP = 20; // one list at a time since the Restaurants | Groups tabs (2 Nov 2026)
       var items = Array.prototype.slice.call(list.querySelectorAll('.fleet-rail-item'));
-      if (items.length <= CAP) return;
       items.sort(function (a, b) { return (+b.dataset.ct || 0) - (+a.dataset.ct || 0); });
       items.forEach(function (el) { list.appendChild(el); });
-      var key = 'mdm-rail-open-' + list.dataset.sec, open = false;
-      try { open = localStorage.getItem(key) === '1'; } catch (e) {}
-      var btn = document.createElement('button'); btn.type = 'button'; btn.className = 'fleet-rail-more';
-      function apply() {
-        var hidden = 0;
-        items.forEach(function (el, i) {
-          var hide = !open && i >= CAP && !el.classList.contains('on');
-          el.hidden = hide; if (hide) hidden++;
-        });
-        btn.textContent = open ? 'Show less' : 'Show all ' + items.length;
-        btn.hidden = !open && hidden === 0;
-      }
-      btn.addEventListener('click', function () { open = !open; try { localStorage.setItem(key, open ? '1' : '0'); } catch (e) {} apply(); });
-      list.appendChild(btn); apply();
+      setTimeout(function () {
+        var on = list.querySelector('.fleet-rail-item.on');
+        if (!on || list.scrollHeight <= list.clientHeight) return;
+        var top = on.getBoundingClientRect().top - list.getBoundingClientRect().top;
+        if (top < 0 || top + on.offsetHeight > list.clientHeight) list.scrollTop += top - (list.clientHeight - on.offsetHeight) / 2;
+      }, 200);
     });
   })();
   

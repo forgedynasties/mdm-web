@@ -45,7 +45,7 @@
     if (!mq.matches) return;
     document.querySelectorAll('.fleet-rail').forEach(setup);
   }
-  // Picking something folds the rail; its tabs and "show more" keep it open. On the window,
+  // Picking something folds the rail; its tabs and search keep it open. On the window,
   // in capture: Fleet's rail links stop the click before it reaches the rail.
   window.addEventListener('click', function (e) {
     if (!mq.matches || !e.target.closest) return;

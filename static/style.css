@@ -4585,9 +4585,25 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
   font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
 .fleet-rail-cap:first-child { margin-top: 4px; }
 .fleet-rail-item[hidden] { display: none; }
-.fleet-rail-more { display: block; width: 100%; margin: 2px 0 0; padding: 5px 10px; border: 0; background: transparent; color: var(--accent-text); font: inherit; font-size: 11.5px; font-weight: 600; text-align: left; border-radius: 9px; cursor: pointer; }
-.fleet-rail-more:hover { background: var(--accent-soft); }
-.fleet-rail-more[hidden] { display: none; }
+/* Rail search (S2, 10 Nov 2026; rail-search.js). Under the tabs on Fleet; elsewhere on top, where
+   it stays put while the rail scrolls. */
+.fleet-rail > .rail-find { position: sticky; top: -10px; z-index: 2; margin: -10px -8px 0; padding: 10px 8px 8px; background: var(--surface); }
+.fleet-rail > .rail-tabs + .rail-find, .fleet-rail > .ph-rail-btn + .rail-find { position: static; margin: 0; padding: 0 0 8px; background: none; }
+.rail-find + .rail-none + .fleet-rail-cap { margin-top: 4px; }
+.rail-find-box { display: flex; align-items: center; gap: 7px; height: 34px; padding: 0 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--muted); }
+.rail-find-box:focus-within { border-color: var(--accent-edge); box-shadow: var(--ring); }
+.rail-find-box svg { width: 14px; height: 14px; flex: none; }
+.rail-find-box input { flex: 1; min-width: 0; height: auto; padding: 0; border: 0; background: none; outline: none; box-shadow: none; font: inherit; font-size: 12.5px; color: var(--text); }
+.rail-find-box input:focus, .rail-find-box input:focus-visible { outline: none; box-shadow: none; }
+.rail-find-box input::-webkit-search-cancel-button { display: none; }
+.rail-find-x { flex: none; width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: var(--hover); color: var(--text-2); font-size: 12px; line-height: 1; cursor: pointer; }
+.rail-find-x[hidden] { display: none; }
+.fleet-rail .rail-out { display: none !important; }
+.fleet-rail.rail-q .fleet-rail-empty { display: none; }
+.rail-none { padding: 12px 9px; font-size: 12.5px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+.rail-none[hidden] { display: none; }
+.rail-none button { display: block; margin-top: 6px; padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--accent-text); cursor: pointer; }
+::highlight(rail-hit) { background-color: var(--accent-soft); color: var(--accent-text); }
 .fleet-rail-cap a:first-child { color: var(--text-faint); }
 .fleet-rail-cap a:first-child:hover, .fleet-rail-cap a:first-child.on { color: var(--accent-text); }
 .fleet-rail-cap .add { margin-left: auto; width: 18px; height: 18px; display: inline-flex; align-items: center;
@@ -8142,7 +8158,11 @@ html[data-theme="dark"] .cta-g.cta-g::after { background-color: #e9e9ee; }
 html.shell, html.shell body { overflow: hidden; }
 html.shell main#main { height: var(--shell-h); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 0; scrollbar-width: thin; }
 html.shell .fleet-md { align-items: stretch; }
-html.shell .fleet-md > .fleet-rail { position: static; align-self: start; max-height: 100%; overflow-y: auto; }
+html.shell .fleet-md > .fleet-rail { position: static; align-self: stretch; max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
+/* Fleet: tabs and search stay, only the open list scrolls. */
+html.shell .fleet-md > .fleet-rail:has(> .rail-tabs) { display: flex; flex-direction: column; overflow: hidden; }
+html.shell .fleet-md > .fleet-rail:has(> .rail-tabs) > * { flex: none; }
+html.shell .fleet-md > .fleet-rail:has(> .rail-tabs) > .fleet-rail-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 html.shell .fleet-md > .fleet-roster { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
 html.shell .fleet-roster > * { flex: none; }
 html.shell .fleet-roster > :has(.ft-wrap) { flex: 0 1 auto; min-height: 0; }
