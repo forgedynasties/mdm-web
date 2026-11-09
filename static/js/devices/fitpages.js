@@ -8,7 +8,8 @@
 // DeviceList with ?start=&fit= (fit sizes one request and is never saved). Phones and the
 // Cards view keep the old pager.
 (function () {
-  var fp = window.flTL = { on: false, start: 0, fit: 25 };
+  // A reload stays on its page: the address bar carries ?start=.
+  var fp = window.flTL = { on: false, start: Math.max(0, parseInt(new URLSearchParams(location.search).get('start'), 10) || 0), fit: 25 };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
   function init() {
   var C = document.getElementById('device-table-container');
@@ -178,7 +179,10 @@
     if (want && !fp.on) {
       fp.on = true; readFoot();
       // The first rows tell the height of a row; ask again for exactly what fits.
-      size(); htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' });
+      size();
+      // On a page boundary for this window's size, and not past a list that has since shrunk.
+      fp.start = Math.floor(Math.min(fp.start, Math.max(0, total - 1)) / fp.fit) * fp.fit;
+      htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' });
     } else if (!want && fp.on) { fp.on = false; cache = {}; }
   }
   document.addEventListener('htmx:afterSwap', function (e) {
