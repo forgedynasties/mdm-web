@@ -503,7 +503,14 @@ a.fleet-rail-item{min-height:40px}
 /* Pages that fit (P1, picked 5 Nov 2026): on a desktop window a page holds exactly the rows that
    fit, the table stays full with empty lines, no Per page. fitpages.js */
 html.fl-tl #dv-split{flex:1 1 auto}
-html.fl-tl #device-table-container .ft-wrap{overflow:hidden!important}
+html.fl-tl #device-table-container .ft-wrap{overflow:hidden!important;position:relative}
+.fl-cue{position:absolute;right:3px;width:4px;border-radius:4px;background:var(--hover);z-index:3;pointer-events:none}
+.fl-cue[hidden]{display:none}
+.fl-cue-bar{position:absolute;left:0;right:0;border-radius:4px;background:var(--accent-fill);transition:top .16s ease-out}
+.fl-fade{position:absolute;left:0;right:0;height:30px;z-index:1;pointer-events:none;opacity:0;transition:opacity .16s;background:linear-gradient(to bottom,transparent,var(--surface))}
+.fl-fade.top{height:16px;background:linear-gradient(to top,transparent,var(--surface))}
+.fl-fade.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.fl-cue-bar,.fl-fade{transition:none}}
 html.fl-tl #device-table-container .fl-foot label{display:none!important}
 .ft-fill td{border-bottom:1px dashed var(--border-soft);background:none!important}
 .ft-fill:hover td{background:none!important}
