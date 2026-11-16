@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.7",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Alerts: \"Key reset automatically\" is raised only for devices at a venue. Lab devices are reflashed all the time and still get back in by themselves, without an alert; ones left open on Lab devices are resolved.",
+		},
+	},
+	{
 		Version: "1.62.6",
 		Date:    "2026-11-16",
 		Changes: []string{
