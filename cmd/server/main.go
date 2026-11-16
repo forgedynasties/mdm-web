@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"expvar"
@@ -344,6 +346,10 @@ func main() {
 			"APK_DIRECT_S3":       os.Getenv("APK_DIRECT_S3") == "1",
 			"DB_POOL_MAX_CONNS":   os.Getenv("DB_POOL_MAX_CONNS"),
 			"DB_HOST_SET":         os.Getenv("DB_HOST") != "",
+			// Whether two servers hold the same device keys (a device moved between them
+			// must be let in by both), without showing them: 8 hex of a salted SHA-256.
+			"DEVICE_API_KEY_FP":    keyFingerprint(deviceAPIKey),
+			"DEVICE_ENROLL_KEY_FP": keyFingerprint(deviceEnrollKey),
 		}
 	}))
 	// Every periodic job: runs, last/max duration, timeouts, panics, overruns (jobs.Run).
@@ -648,6 +654,14 @@ func main() {
 	// export anywhere, import only behind the fleet reset's lock.
 	mux.Handle("GET /api/v1/admin/sync/people-lineup", adminAuth(http.HandlerFunc(apiHandler.ExportPeopleLineup)))
 	mux.Handle("POST /api/v1/admin/sync/people-lineup", adminAuth(middleware.MaxBytes(64<<20, http.HandlerFunc(apiHandler.ImportPeopleLineup))))
+	// Device moves to prod, device by device (api/device_move.go): export and import, and
+	// on mdm.dev a standing move per device that the "device-moves" job sends and follows.
+	mux.Handle("GET /api/v1/admin/move/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.MoveExport)))
+	mux.Handle("POST /api/v1/admin/move/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.MoveDevice)))
+	mux.Handle("POST /api/v1/admin/move/devices/{serial}/cancel", adminAuth(http.HandlerFunc(apiHandler.MoveCancel)))
+	mux.Handle("POST /api/v1/admin/move/venues/{id}", adminAuth(http.HandlerFunc(apiHandler.MoveVenue)))
+	mux.Handle("GET /api/v1/admin/move/status", adminAuth(http.HandlerFunc(apiHandler.MoveStatus)))
+	mux.Handle("POST /api/v1/admin/move/import", adminAuth(middleware.MaxBytes(8<<20, http.HandlerFunc(apiHandler.MoveImport))))
 	// The fleet adb key (internal/api/fleet_adb_key.go): upload / metadata / remove.
 	mux.Handle("PUT /api/v1/fleet-adb-key", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.PutFleetAdbKey))))
 	mux.Handle("GET /api/v1/fleet-adb-key", adminAuth(http.HandlerFunc(apiHandler.GetFleetAdbKey)))
@@ -914,6 +928,7 @@ func main() {
 	// Record when each device goes online and offline, for the network graph's
 	// online strip (dashboard/presence_record.go).
 	every("presence", time.Minute, dash.RunPresenceRecord)
+	every("device-moves", time.Minute, apiHandler.RunDeviceMoves)
 	// Give every device at a venue the venue's Wi-Fi networks, and have them
 	// forget removed ones (venue_wifi.go).
 	every("venue-wifi", time.Minute, dash.RunVenueWifi)
@@ -1038,4 +1053,13 @@ func safego(name string, fn func()) {
 // /debug/vars publishes as "jobs".
 func runJob(ctx context.Context, name string, timeout time.Duration, fn func(context.Context)) {
 	jobs.Default.Run(ctx, name, timeout, fn)
+}
+
+// keyFingerprint tells two servers' keys apart without revealing them ("" = no key).
+func keyFingerprint(k string) string {
+	if k == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("aio-mdm key fingerprint:" + k))
+	return hex.EncodeToString(sum[:4])
 }

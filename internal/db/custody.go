@@ -146,6 +146,9 @@ func (d *DB) ExpireStaleCustody(ctx context.Context) (int64, error) {
 		UPDATE devices SET custody_server = '', custody_url = '', custody_seen_at = NULL,
 		       custody_source = '', custody_set_at = NULL
 		 WHERE custody_server <> ''
+		   -- A device moved to prod (or waiting here for one) stays filed there until it
+		   -- checks in: it is not missing, and nobody refreshes the claim.
+		   AND custody_source <> '`+CustodyMigrate+`'
 		   AND COALESCE(custody_seen_at, custody_set_at) < NOW() - $1::interval`, CustodyStaleAfter)
 	if err != nil {
 		return 0, err
