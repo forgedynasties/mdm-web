@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.5",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Admin: devices move from mdm.dev.aioapp.com to mdm.aioapp.com one by one or a venue at a time, through the admin API. Each device's record and settings are copied to mdm.aioapp.com first, where it waits without offline alerts; the move then goes out when the device is online (a firmware device at a venue reboots into it, so only while the venue is closed), and mdm.dev follows it until it checks in there. History stays on mdm.dev.",
+			"Admin: /debug/vars shows a fingerprint of each shared device key, so two servers can be checked for the same keys without showing them.",
+		},
+	},
+	{
 		Version: "1.62.4",
 		Date:    "2026-11-16",
 		Changes: []string{
