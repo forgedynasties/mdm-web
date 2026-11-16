@@ -32,6 +32,23 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.0",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Roles that match the work: Super admin, Engineer, Ops lead, Support, Field, Viewer, Owner and Staff, each with its own home and a dock of only its pages. A device is in the Lab, waiting to be placed, being set up or in service, and that decides who sees it. Access is given in three levels (View, Operate, Manage) on groups, venues and device states, and a page you can't open says why and who can give you access.",
+			"Setup: enrolled devices wait in a queue until the Ops lead gives them a role and a venue (or creates the venue on the spot); placing a device puts it in service. Field people see every device being set up, and the devices they enrolled themselves. Enrollment lives inside Setup, and AIO Enroll for Android asks where a new device is going.",
+			"A new look: one grey canvas with white cards, header, island and dock; coral for what is selected. The Overview is one screen: a fleet health score and what makes it up, Today with one item explained at a time, and the biggest device types as dials. The island shows where you are, your messages, new critical alerts and the progress of jobs you started.",
+			"Every list works like Fleet: Venues, Groups, Apps, Alerts, Lineup, Compliance, MDM clients, Wireless adb and Setup have a side list, search, sort, quick filters and one table. Right-click a device, venue, group, app or person for its actions. Long side lists have a search of their own and run the full height of the page.",
+			"Fleet: on a computer a page holds exactly the rows that fit and one scroll turns one page, with a bar that shows where you are in the list; a reload keeps your page. Our own map (light and dark) shows venues and devices, on Fleet and the device page. A new filter finds devices by MDM client version.",
+			"Device page: a cleaner layout with a Location tab again. Install app picks the app, then its channel (prod, UAT, stage…) and build, and a device can follow a channel so it always gets that channel's newest build. Standard-client devices get the host app card too. One model can serve several roles, and a Standard device's role can be set one by one. Handheld is now called MPOS.",
+			"Venues: a new venue starts with one search of Google Maps and the AIO backend, and fills in its address, hours and icon. A venue's page lists its settings down the side, and shows its devices by type with a button that opens them in Fleet.",
+			"Apps: the library takes split APK bundles (.xapk) and installs them on clients that can. Builds come in by upload only; the library no longer pulls apps off devices. An install that fails three times in a day stops being retried, and every library build has a download button.",
+			"Phones: every page works on a phone. Wide tables turn into cards and side lists fold into one line.",
+			"More devices, no downtime: the server runs as two copies that share the fleet, so an update of the MDM restarts one at a time and devices barely notice. Device readings keep full detail for 14 days and a thinned history for good. A device that loses its key gets back in by itself, and Standard-client devices can be moved to another MDM server.",
+			"Retired: the legacy OTA updater, MDM Lite, the link between MDM servers, setup visits, View as, and the \"Possible impersonation\" and \"Host app not on screen\" alerts.",
+		},
+	},
+	{
 		Version: "1.61.0",
 		Date:    "2026-10-27",
 		Changes: []string{
