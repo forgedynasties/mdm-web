@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.2",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Admin: mdm.aioapp.com can be emptied of its old fleet copy (devices, venues, groups and their history; people, Lineup, the app library and releases stay) before devices move to it one by one. Only there, only through the admin API, after a dry run, and never while a device is talking to it.",
+		},
+	},
+	{
 		Version: "1.62.1",
 		Date:    "2026-11-16",
 		Changes: []string{
