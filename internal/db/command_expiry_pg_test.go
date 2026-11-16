@@ -95,4 +95,39 @@ func TestShortLivedCommandsExpireInEveryView(t *testing.T) {
 			}
 		}
 	}
+
+	// An uninstall sent while the device was offline: never delivered, and after its first
+	// hour it never will be. The device page must stop calling it pending (it drew the app
+	// as "Uninstalling…" for good), while one the device did receive stays delivered.
+	un, err := d.CreateCommandBy(ctx, "uninstall", "", []byte(`{"package":"aio.app.test"}`), "devices", []uuid.UUID{reached, missed}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.MarkCommandsDelivered(ctx, reached, []uuid.UUID{un.ID}); err != nil {
+		t.Fatal(err)
+	}
+	statusOn := func(dev uuid.UUID) string {
+		cs, err := d.GetDeviceCommands(ctx, dev, 300)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range cs {
+			if c.ID == un.ID {
+				return c.Status
+			}
+		}
+		return "(missing)"
+	}
+	if s := statusOn(missed); s != "pending" {
+		t.Errorf("fresh uninstall, never delivered: %q, want pending", s)
+	}
+	if _, err := d.pool.Exec(ctx, `UPDATE commands SET created_at = NOW() - INTERVAL '2 hours' WHERE id = $1`, un.ID); err != nil {
+		t.Fatal(err)
+	}
+	if s := statusOn(missed); s != "expired" {
+		t.Errorf("two-hour-old uninstall, never delivered: %q, want expired", s)
+	}
+	if s := statusOn(reached); s != "delivered" {
+		t.Errorf("two-hour-old uninstall the device got: %q, want delivered", s)
+	}
 }
