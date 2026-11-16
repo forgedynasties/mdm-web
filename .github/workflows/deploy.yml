@@ -1,7 +1,11 @@
-# Deploy the MDM to the EC2 box: live or stage, picked from a dropdown.
+# Deploy the MDM: live, stage or prod, picked from a dropdown.
 #
-#   live  = the `main` branch   -> /home/ubuntu/mdm        (the restaurant fleet)
+#   live  = the `main` branch   -> /home/ubuntu/mdm        (mdm.dev.aioapp.com, the restaurant fleet)
 #   stage = the `stage` branch  -> /home/ubuntu/stage-mdm  (mdm-stage.dev.aioapp.com)
+#   prod  = the `main` branch   -> /home/mdm on the prod account (mdm.aioapp.com, run by devops)
+#
+# Live and stage use the GitHub environment `dev`, prod the environment `prod`; each holds
+# its account's AWS_DEPLOY_ROLE_ARN, ECR_REGISTRY, ECR_REPOSITORY and EC2_INSTANCE_ID.
 #
 # Each target is tied to its branch and directory here, so a run can no longer put
 # `main` into the stage directory (or anything into live by mistyping a path).
@@ -25,12 +29,13 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Where to deploy: live (main branch) or stage (stage branch)"
+        description: "Where to deploy: live (main branch), stage (stage branch) or prod (main branch, prod account)"
         required: true
         type: choice
         options:
           - stage
           - live
+          - prod
         default: stage
       sha:
         description: "Optional: an older commit of that branch to deploy (rollback). Empty = the branch's latest commit."
@@ -55,7 +60,7 @@ jobs:
   build:
     name: Build ${{ github.event_name == 'push' && 'stage' || inputs.target }}
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
     permissions:
       id-token: write
       contents: read
@@ -70,6 +75,7 @@ jobs:
           case "$TARGET" in
             live)  echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/mdm"       >> "$GITHUB_OUTPUT" ;;
             stage) echo "branch=stage" >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/stage-mdm" >> "$GITHUB_OUTPUT" ;;
+            prod)  echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/mdm"              >> "$GITHUB_OUTPUT" ;;
             *) echo "::error::Unknown target"; exit 1 ;;
           esac
 
@@ -162,10 +168,12 @@ jobs:
           context: .
           file: Dockerfile.ci
           push: true
+          # The moving branch tag only on the dev account: prod's repository may refuse
+          # overwriting a tag, and nothing deploys by it.
           tags: |
             ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ steps.sha.outputs.sha }}
             ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:tree-${{ steps.sha.outputs.tree }}
-            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ steps.t.outputs.branch }}
+            ${{ inputs.target != 'prod' && format('{0}/{1}:{2}', vars.ECR_REGISTRY, vars.ECR_REPOSITORY, steps.t.outputs.branch) || '' }}
           cache-from: type=gha,scope=runtime
           cache-to: type=gha,scope=runtime,mode=max
 
@@ -175,7 +183,7 @@ jobs:
     name: Test
     if: inputs.sha == ''
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
     permissions:
       id-token: write
       contents: read
@@ -184,7 +192,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.sha || (inputs.target == 'live' && 'main' || 'stage') }}
+          ref: ${{ github.event_name == 'push' && github.sha || (inputs.target == 'stage' && 'stage' || 'main') }}
       - id: sha
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
@@ -220,7 +228,7 @@ jobs:
       always() && needs.build.result == 'success' &&
       (needs.test.result == 'success' || (needs.test.result == 'skipped' && inputs.sha != ''))
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
     permissions:
       id-token: write
       contents: read
@@ -321,9 +329,9 @@ jobs:
           # the server is replaced.
           #
           # --force-recreate is required, not optional: compose does NOT recreate this
-          # container when only the inline `configs:` content changes. Its service hash
+          # container when only the inline 'configs:' content changes. Its service hash
           # does not cover config content, and the file is bind-mounted at create time.
-          # Plain `up -d` left the proxy running its original config across three
+          # Plain 'up -d' left the proxy running its original config across three
           # deploys while reporting success, so every nginx fix shipped but none loaded.
           #
           # It runs AFTER the server on purpose. The server is healthy again by now, so
