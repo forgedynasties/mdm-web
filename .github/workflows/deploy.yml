@@ -44,7 +44,6 @@ on:
 
 env:
   AWS_REGION: us-west-2
-  GO_VERSION: "1.26"
   # A push is always a stage deploy; a manual run uses the dropdown.
   TARGET: ${{ github.event_name == 'push' && 'stage' || inputs.target }}
 
@@ -55,20 +54,17 @@ concurrency:
   cancel-in-progress: ${{ (github.event_name == 'push' && 'stage' || inputs.target) == 'stage' }}
 
 jobs:
-  # Resolve the target and make sure ECR has an image for the commit. Compiles the
-  # server here (warm Go cache) and wraps it in the runtime-only Dockerfile.ci.
-  build:
-    name: Build ${{ github.event_name == 'push' && 'stage' || inputs.target }}
+  # Pick the target's branch, directory and commit once. Test and build both take this
+  # commit, so a push landing mid-run can't make them look at different code.
+  resolve:
+    name: Resolve ${{ github.event_name == 'push' && 'stage' || inputs.target }}
     runs-on: ubuntu-latest
-    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
-    permissions:
-      id-token: write
-      contents: read
     outputs:
       branch: ${{ steps.t.outputs.branch }}
       app_dir: ${{ steps.t.outputs.app_dir }}
       sha: ${{ steps.sha.outputs.sha }}
       tree: ${{ steps.sha.outputs.tree }}
+      go: ${{ steps.go.outputs.version }}
     steps:
       - id: t
         run: |
@@ -87,7 +83,7 @@ jobs:
 
       - id: sha
         # A given sha must be on the target's branch: a rollback cannot smuggle another
-        # branch's commit into live or stage.
+        # branch's commit into live, stage or prod.
         run: |
           if [ -n "${{ inputs.sha }}" ]; then
             full=$(git rev-parse --verify "${{ inputs.sha }}^{commit}")
@@ -103,6 +99,25 @@ jobs:
           echo "tree=$(git rev-parse "$full^{tree}")" >> "$GITHUB_OUTPUT"
           echo "Deploying $TARGET: ${{ steps.t.outputs.branch }} @ $full"
 
+      - id: go
+        # Go's minor version from go.mod (1.26), so setup-go takes its newest patch.
+        run: echo "version=$(awk '/^go /{print $2}' go.mod | cut -d. -f1,2)" >> "$GITHUB_OUTPUT"
+
+  # Make sure ECR has an image for the commit. Compiles the server here (warm Go cache)
+  # and wraps it in the runtime-only Dockerfile.ci.
+  build:
+    name: Build ${{ github.event_name == 'push' && 'stage' || inputs.target }}
+    needs: resolve
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -115,8 +130,8 @@ jobs:
         # image is byte for byte what stage built and deployed.
         env:
           REPO: ${{ vars.ECR_REPOSITORY }}
-          SHA: ${{ steps.sha.outputs.sha }}
-          TREE: ${{ steps.sha.outputs.tree }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+          TREE: ${{ needs.resolve.outputs.tree }}
         run: |
           if aws ecr describe-images --repository-name "$REPO" --image-ids imageTag="$SHA" --region "$AWS_REGION" >/dev/null 2>&1; then
             echo "found=true" >> "$GITHUB_OUTPUT"; echo "Image already in ECR"
@@ -135,7 +150,7 @@ jobs:
       - if: steps.exists.outputs.found != 'true'
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.resolve.outputs.go }}
           # setup-go's cache is keyed on go.sum only and never re-saved on a hit, so it
           # would keep the test job's (CGO) build cache, useless for this static build.
           cache: false
@@ -171,9 +186,9 @@ jobs:
           # The moving branch tag only on the dev account: prod's repository may refuse
           # overwriting a tag, and nothing deploys by it.
           tags: |
-            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ steps.sha.outputs.sha }}
-            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:tree-${{ steps.sha.outputs.tree }}
-            ${{ inputs.target != 'prod' && format('{0}/{1}:{2}', vars.ECR_REGISTRY, vars.ECR_REPOSITORY, steps.t.outputs.branch) || '' }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ needs.resolve.outputs.sha }}
+            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:tree-${{ needs.resolve.outputs.tree }}
+            ${{ inputs.target != 'prod' && format('{0}/{1}:{2}', vars.ECR_REGISTRY, vars.ECR_REPOSITORY, needs.resolve.outputs.branch) || '' }}
           cache-from: type=gha,scope=runtime
           cache-to: type=gha,scope=runtime,mode=max
 
@@ -181,22 +196,17 @@ jobs:
   # an older commit skips it (that commit already passed when it was first deployed).
   test:
     name: Test
+    needs: resolve
     if: inputs.sha == ''
     runs-on: ubuntu-latest
     environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
     permissions:
       id-token: write
       contents: read
-    outputs:
-      sha: ${{ steps.sha.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.sha || (inputs.target == 'stage' && 'stage' || 'main') }}
-      - id: sha
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+          ref: ${{ needs.resolve.outputs.sha }}
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -207,13 +217,13 @@ jobs:
       - id: done
         run: |
           if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}" \
-               --image-ids imageTag="tested-${{ steps.sha.outputs.tree }}" --region "$AWS_REGION" >/dev/null 2>&1; then
-            echo "tested=true" >> "$GITHUB_OUTPUT"; echo "This code already passed the tests (tree ${{ steps.sha.outputs.tree }})"
+               --image-ids imageTag="tested-${{ needs.resolve.outputs.tree }}" --region "$AWS_REGION" >/dev/null 2>&1; then
+            echo "tested=true" >> "$GITHUB_OUTPUT"; echo "This code already passed the tests (tree ${{ needs.resolve.outputs.tree }})"
           fi
       - if: steps.done.outputs.tested != 'true'
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: ${{ needs.resolve.outputs.go }}
           cache: true
       - name: Test
         if: steps.done.outputs.tested != 'true'
@@ -222,10 +232,10 @@ jobs:
 
   deploy:
     name: Deploy to ${{ github.event_name == 'push' && 'stage' || inputs.target }}
-    needs: [build, test]
+    needs: [resolve, build, test]
     # Run when the image is ready and the tests passed (or were skipped for a rollback).
     if: >-
-      always() && needs.build.result == 'success' &&
+      always() && needs.resolve.result == 'success' && needs.build.result == 'success' &&
       (needs.test.result == 'success' || (needs.test.result == 'skipped' && inputs.sha != ''))
     runs-on: ubuntu-latest
     environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
@@ -237,17 +247,9 @@ jobs:
       # matches the image. The box has its own (now stale) git checkout, and relying on
       # it meant compose read an old file with no `image:` line, ignored MDM_IMAGE and
       # restarted the locally built image while reporting success.
-      - name: Tests covered this commit
-        # Build and test check out the branch independently; refuse to ship if a push
-        # landed between them and they looked at different commits.
-        if: needs.test.result == 'success'
-        run: |
-          [ "${{ needs.test.outputs.sha }}" = "${{ needs.build.outputs.sha }}" ] || {
-            echo "::error::tested ${{ needs.test.outputs.sha }} but built ${{ needs.build.outputs.sha }}; re-run"; exit 1; }
-
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.build.outputs.sha }}
+          ref: ${{ needs.resolve.outputs.sha }}
           sparse-checkout: docker-compose.yml
           sparse-checkout-cone-mode: false
 
@@ -259,9 +261,9 @@ jobs:
 
       - name: Deploy via SSM
         env:
-          IMAGE: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ needs.build.outputs.sha }}
+          IMAGE: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ needs.resolve.outputs.sha }}
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-          APP_DIR: ${{ needs.build.outputs.app_dir }}
+          APP_DIR: ${{ needs.resolve.outputs.app_dir }}
           REGISTRY: ${{ vars.ECR_REGISTRY }}
         run: |
           set -euo pipefail
@@ -424,7 +426,7 @@ jobs:
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --comment "Deploy MDM ${{ needs.build.outputs.sha }}" \
+            --comment "Deploy MDM ${{ needs.resolve.outputs.sha }}" \
             --parameters "$PARAMS" \
             --region "$AWS_REGION" \
             --query "Command.CommandId" --output text)
@@ -463,19 +465,19 @@ jobs:
         env:
           REPO: ${{ vars.ECR_REPOSITORY }}
         run: |
-          M=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="${{ needs.build.outputs.sha }}" --region "$AWS_REGION" \
+          M=$(aws ecr batch-get-image --repository-name "$REPO" --image-ids imageTag="${{ needs.resolve.outputs.sha }}" --region "$AWS_REGION" \
                 --accepted-media-types application/vnd.oci.image.index.v1+json application/vnd.docker.distribution.manifest.list.v2+json \
                   application/vnd.oci.image.manifest.v1+json application/vnd.docker.distribution.manifest.v2+json \
                 --query 'images[0].[imageManifestMediaType,imageManifest]' --output json)
-          for tag in "tested-${{ needs.build.outputs.tree }}" "tree-${{ needs.build.outputs.tree }}"; do
+          for tag in "tested-${{ needs.resolve.outputs.tree }}" "tree-${{ needs.resolve.outputs.tree }}"; do
             aws ecr put-image --repository-name "$REPO" --region "$AWS_REGION" --image-tag "$tag" \
               --image-manifest-media-type "$(echo "$M" | jq -r '.[0]')" --image-manifest "$(echo "$M" | jq -r '.[1]')" >/dev/null 2>&1 \
               || echo "($tag already there)"
           done
-          echo "tested-${{ needs.build.outputs.tree }}"
+          echo "tested-${{ needs.resolve.outputs.tree }}"
 
       - name: Summary
         if: always()
         run: |
-          echo "Deployed **$TARGET**: \`${{ needs.build.outputs.branch }}\` @ \`${{ needs.build.outputs.sha }}\` to \`${{ needs.build.outputs.app_dir }}\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed **$TARGET**: \`${{ needs.resolve.outputs.branch }}\` @ \`${{ needs.resolve.outputs.sha }}\` to \`${{ needs.resolve.outputs.app_dir }}\`." >> "$GITHUB_STEP_SUMMARY"
           echo "Roll back by re-running with an earlier commit of that branch in **sha**." >> "$GITHUB_STEP_SUMMARY"

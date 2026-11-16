@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.26-alpine AS builder
+# Go's minor version; CI passes the one in go.mod.
+ARG GO_VERSION=1.26
+FROM golang:${GO_VERSION}-alpine AS builder
 
 WORKDIR /app
 
@@ -42,7 +44,8 @@ EXPOSE 8082
 
 # Fail the container health check if the server stops answering /health. --start-period
 # gives the process time to run migrations and bind before the first probe counts.
-HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+# Probes every 2 s while starting, so a deploy sees "healthy" in seconds.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --start-interval=2s --retries=3 \
     CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-8082}/health" || exit 1
 
 CMD ["./server"]
