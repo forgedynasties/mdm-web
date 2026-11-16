@@ -7997,6 +7997,9 @@ html[data-theme="dark"] .appbar, html[data-theme="dark"] .appbar.is-scrolled { b
 .appbar-brand::before { content: ""; width: 34px; height: 34px; border-radius: 10px; flex: none; margin-right: 10px;
   background: url(/static/favicon.svg) center / cover no-repeat; }
 .appbar-brand .brand-aio, .appbar-brand .brand-hub { background: none; -webkit-text-fill-color: currentColor; color: var(--text); font-weight: 650; }
+/* E1 (16 Nov 2026): the server's label after the wordmark on any server that isn't prod. */
+.appbar-brand .brand-env { margin-left: 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em; line-height: 1;
+  color: #fff; -webkit-text-fill-color: #fff; background: var(--accent-fill); border-radius: 99px; padding: 4px 9px; }
 .appbar .appbar-icon { width: 42px; height: 42px; border: 0; border-radius: 50%; background: var(--surface); }
 .appbar .appbar-icon:hover { background: var(--surface2); }
 .appbar .appbar-icon .nav-badge { border-color: var(--canvas); }

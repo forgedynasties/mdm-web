@@ -37,7 +37,7 @@
       };
     })();
   </script>
-  <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
+  <title>{{with envLabel}}{{.}} · {{end}}{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
   <main id="main" class="container" tabindex="-1">
 {{else}}
 <!DOCTYPE html>
@@ -66,7 +66,7 @@
       }
     })();
   </script>
-  <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
+  <title>{{with envLabel}}{{.}} · {{end}}{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
   <link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
@@ -144,7 +144,7 @@
   {{/* Global chrome: a slim top bar (brand + search + alerts + account) and a
        floating bottom-center dock for primary nav. No left sidebar. */}}
   <header class="appbar">
-    <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
+    <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}{{with envLabel}} {{.}}{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}{{with envLabel}}<span class="brand-env" title="This is the {{.}} server, not the production fleet">{{.}}</span>{{end}}</a>
     {{/* The context island (static/chrome-island-demos.html, A): always shown, at the top
          and in the floating pill alike, it carries the page's name, its one-line status and
          its main buttons. A page declares them in <template id="page-island">; a page that
