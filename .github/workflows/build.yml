@@ -16,9 +16,9 @@
 name: Build
 
 on:
-  # Every pull request into main or prod: a release (main -> prod) runs this before merging.
+  # Every pull request into dev or prod: a release (dev -> prod) must pass this to merge.
   pull_request:
-    branches: [main, prod]
+    branches: [dev, prod]
   workflow_dispatch:
 
 env:
