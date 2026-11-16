@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.3",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Admin: people (with their roles and access), Lineup and venues (with their settings and hours, not their devices or groups) can be copied from mdm.dev.aioapp.com to mdm.aioapp.com through the admin API, with a dry run first.",
+		},
+	},
+	{
 		Version: "1.62.2",
 		Date:    "2026-11-16",
 		Changes: []string{
