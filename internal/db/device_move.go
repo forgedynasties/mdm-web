@@ -325,7 +325,7 @@ func (d *DB) ListDeviceMoves(ctx context.Context, states []string, venue *uuid.U
 		  FROM device_moves m
 		  JOIN devices dv ON dv.serial_number = m.serial_number
 		  LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		 WHERE (cardinality($1::text[]) = 0 OR m.state = ANY($1))
+		 WHERE (COALESCE(cardinality($1::text[]), 0) = 0 OR m.state = ANY($1))
 		   AND ($2::uuid IS NULL OR dv.restaurant_id = $2)
 		 ORDER BY m.updated_at DESC`, states, venue)
 	if err != nil {

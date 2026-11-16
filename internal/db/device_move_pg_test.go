@@ -215,6 +215,10 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 	if ok, _ := src.PutDeviceMove(ctx, "MV-STD", "https://new.example", first, "test"); !ok {
 		t.Error("a move that came back can be filed again")
 	}
+	// No state filter lists every move (a nil slice reaches SQL as NULL).
+	if all, err := src.ListDeviceMoves(ctx, nil, nil); err != nil || len(all) == 0 {
+		t.Errorf("unfiltered list = %d moves, %v", len(all), err)
+	}
 	list, err := src.ListDeviceMoves(ctx, []string{MovePending}, &venue.ID)
 	if err != nil || len(list) != 1 || list[0].Serial != "MV-STD" {
 		t.Errorf("list = %+v, %v", list, err)
