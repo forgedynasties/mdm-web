@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.4",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Devices: the admin API's device key reset works on Standard devices too. The server refuses the device from then on, and it enrolls again by itself about 10 minutes later with the token it came with (a device just moved here goes back to the server it came from instead).",
+		},
+	},
+	{
 		Version: "1.62.3",
 		Date:    "2026-11-16",
 		Changes: []string{

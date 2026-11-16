@@ -208,7 +208,7 @@ func (h *Handler) ResetDeviceKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !cleared {
-		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no firmware device with its own key by that serial"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no device with its own key by that serial"})
 		return
 	}
 	forgetOwnKey(serial)

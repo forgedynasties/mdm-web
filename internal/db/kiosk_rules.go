@@ -183,13 +183,16 @@ func (d *DB) ClaimDeviceKey(ctx context.Context, serial, keyHash string) (stored
 	return err == nil, afterReset, err
 }
 
-// ResetDeviceKey forgets a firmware device's own key so it can register a new one (a
-// device that lost its key after a wipe). Until it does, the shared key works for it
-// again. Reports whether a key was cleared.
+// ResetDeviceKey forgets a device's own key. A firmware device registers a new one (a
+// device that lost its key after a wipe), and until it does the shared key works for it
+// again. A Standard device is refused from then on, and its client (0.15.1+) enrolls again
+// with the token it came with after 10 minutes of refusals; during an unconfirmed move
+// (0.15.2) it goes back to the server it came from instead (16 Nov 2026). Reports whether
+// a key was cleared.
 func (d *DB) ResetDeviceKey(ctx context.Context, serial string) (bool, error) {
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE devices SET device_key_hash = NULL, key_reset_at = NOW()
-		WHERE serial_number = $1 AND agent_kind = 'firmware' AND device_key_hash IS NOT NULL`, serial)
+		WHERE serial_number = $1 AND device_key_hash IS NOT NULL`, serial)
 	return tag.RowsAffected() == 1, err
 }
 
@@ -215,11 +218,12 @@ func (d *DB) GetDeviceKeyState(ctx context.Context, id uuid.UUID) (DeviceKeyStat
 const keyResetPendingSQL = `key_reset_at IS NOT NULL AND device_key_hash IS NULL AND last_seen_at > key_reset_at`
 
 // OverdueKeyResets lists devices reset longer ago than age that have checked in since
-// without registering.
+// without registering. Firmware devices only: a Standard device has no shared key to
+// fall back on and enrolls again instead.
 func (d *DB) OverdueKeyResets(ctx context.Context, age time.Duration) (map[uuid.UUID]string, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, serial_number FROM devices
-		WHERE `+keyResetPendingSQL+` AND key_reset_at < NOW() - $1::interval`,
+		WHERE `+keyResetPendingSQL+` AND agent_kind = 'firmware' AND key_reset_at < NOW() - $1::interval`,
 		fmt.Sprintf("%d seconds", int(age.Seconds())))
 	if err != nil {
 		return nil, err
