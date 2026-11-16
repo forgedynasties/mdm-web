@@ -350,6 +350,15 @@ func (d *DB) ResolveOpenAlert(ctx context.Context, typ string, deviceID uuid.UUI
 	return tag.RowsAffected(), nil
 }
 
+// labKeyAlertsCleanup resolves "Key reset automatically" alerts left open on devices at
+// no venue: since 16 Nov 2026 only devices at a venue raise it (user: "limit alerts"), so
+// a Lab device's is clutter. Runs at every start; idempotent.
+const labKeyAlertsCleanup = `
+UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+ WHERE type = 'key_recovered' AND status <> 'resolved'
+   AND device_id IN (SELECT id FROM devices WHERE restaurant_id IS NULL);
+`
+
 // ResolveOpenAlertsOfType resolves every open alert of one type, on any device.
 func (d *DB) ResolveOpenAlertsOfType(ctx context.Context, typ string) (int64, error) {
 	tag, err := d.pool.Exec(ctx, `

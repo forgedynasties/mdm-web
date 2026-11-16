@@ -285,6 +285,12 @@ func (h *Handler) recoverLostKey(ctx context.Context, serial, ip string) bool {
 		if err != nil || dev == nil {
 			return
 		}
+		// Only at a venue (16 Nov 2026; user: "limit alerts"): Lab devices are reflashed
+		// all the time and every reflash is a reset, so their alerts were clutter.
+		if dev.RestaurantID == nil {
+			_, _ = h.db.ResolveOpenAlert(ctx, "identity_conflict", dev.ID)
+			return
+		}
 		summary := fmt.Sprintf("Key reset automatically: the shared key was used for this device from %s, which had its own key. Usually a reflash or cleared data — it is back online and registers a new key at its next check-in. Look into it if nobody touched this device.", ip)
 		detail := map[string]any{"ip": ip, "auto_resets_24h": n + 1}
 		created, err := h.db.CreateAlertIfAbsent(ctx, nil, "key_recovered", dev.ID, "warning", summary, detail)
