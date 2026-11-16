@@ -60,8 +60,9 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 
 	setup := time.Now().Add(-48 * time.Hour).UTC().Truncate(time.Second)
 	var fw, std uuid.UUID
-	if err := src.pool.QueryRow(ctx, `INSERT INTO devices (serial_number, agent_kind, device_key_hash, restaurant_id, device_class, last_seen_at)
-		VALUES ('MV-FW', 'firmware', 'fw-hash', $1, 't7', NOW() - interval '1 minute') RETURNING id`, venue.ID).Scan(&fw); err != nil {
+	if err := src.pool.QueryRow(ctx, `INSERT INTO devices (serial_number, agent_kind, device_key_hash, restaurant_id, device_class, last_seen_at, latest_extra)
+		VALUES ('MV-FW', 'firmware', 'fw-hash', $1, 't7', NOW() - interval '1 minute',
+		        '{"agent_version": "1.22.3", "crash_events": [{"trace": "java.lang.RuntimeException"}]}') RETURNING id`, venue.ID).Scan(&fw); err != nil {
 		t.Fatal(err)
 	}
 	if err := src.pool.QueryRow(ctx, `INSERT INTO devices (serial_number, agent_kind, device_key_hash, restaurant_id, device_class, class_source, last_seen_at)
@@ -111,6 +112,12 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 	var bright int
 	dst.pool.QueryRow(ctx, `SELECT COALESCE(device_key_hash, ''), custody_server, custody_source, handed_over_at, handed_over_by FROM devices WHERE serial_number = 'MV-FW'`).
 		Scan(&hash, &custody, &source, &handed, &by)
+	var ver string
+	var hasCrash bool
+	dst.pool.QueryRow(ctx, `SELECT latest_extra->>'agent_version', latest_extra ? 'crash_events' FROM devices WHERE serial_number = 'MV-FW'`).Scan(&ver, &hasCrash)
+	if ver != "1.22.3" || hasCrash {
+		t.Errorf("latest_extra: version %q, crash reports carried %v; want the version and no crash reports", ver, hasCrash)
+	}
 	if hash != "fw-hash" {
 		t.Errorf("firmware key fingerprint = %q, want it kept", hash)
 	}
@@ -214,6 +221,10 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 	src.SetDeviceMoveState(ctx, "MV-STD", MoveCameBack, "back", nil)
 	if ok, _ := src.PutDeviceMove(ctx, "MV-STD", "https://new.example", first, "test"); !ok {
 		t.Error("a move that came back can be filed again")
+	}
+	// No state filter lists every move (a nil slice reaches SQL as NULL).
+	if all, err := src.ListDeviceMoves(ctx, nil, nil); err != nil || len(all) == 0 {
+		t.Errorf("unfiltered list = %d moves, %v", len(all), err)
 	}
 	list, err := src.ListDeviceMoves(ctx, []string{MovePending}, &venue.ID)
 	if err != nil || len(list) != 1 || list[0].Serial != "MV-STD" {
