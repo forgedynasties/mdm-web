@@ -96,7 +96,7 @@ func (d *DB) ExportDeviceMove(ctx context.Context, serial, from string) (*Device
 	if err != nil {
 		return nil, err
 	}
-	b.Device = raw
+	b.Device = stripMoveExtra(raw)
 	for _, t := range moveTables {
 		var key any = id
 		if t.bySerial {
@@ -123,6 +123,32 @@ func (d *DB) ExportDeviceMove(ctx context.Context, serial, from string) (*Device
 		b.Tables[t.name] = out
 	}
 	return b, nil
+}
+
+// moveDropExtra are latest_extra keys that stay behind: crash reports carry stack traces,
+// which prod's load balancer firewall refuses as a request body (16 Nov 2026: a Flights
+// Vegas kiosk's import answered 403). They are a passing snapshot; the device sends its
+// own again on its first check-in there.
+var moveDropExtra = []string{"crash_events"}
+
+func stripMoveExtra(raw []byte) []byte {
+	var row map[string]json.RawMessage
+	if json.Unmarshal(raw, &row) != nil {
+		return raw
+	}
+	var extra map[string]json.RawMessage
+	if json.Unmarshal(row["latest_extra"], &extra) != nil || extra == nil {
+		return raw
+	}
+	for _, k := range moveDropExtra {
+		delete(extra, k)
+	}
+	row["latest_extra"], _ = json.Marshal(extra)
+	out, err := json.Marshal(row)
+	if err != nil {
+		return raw
+	}
+	return out
 }
 
 // DeviceMoveImport is what an import did.
