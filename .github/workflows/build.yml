@@ -5,7 +5,7 @@
 # a deploy wedged the instance hard enough to need a reboot, three times in one day. The
 # compiler now runs on a GitHub runner and the box only ever pulls an image.
 #
-# NOT triggered by pushes to main. deploy.yml builds and publishes the image itself when
+# NOT triggered by pushes. deploy.yml builds and publishes the image itself when
 # ECR has nothing for the commit being deployed, so a push-triggered build here was a
 # second compile of the same code — most of them for commits nobody deployed. Pull
 # requests still build and test (that is the gate on the code), and this can be run by
@@ -16,8 +16,9 @@
 name: Build
 
 on:
+  # Every pull request into dev or prod: a release (dev -> prod) must pass this to merge.
   pull_request:
-    branches: [main]
+    branches: [dev, prod]
   workflow_dispatch:
 
 env:
@@ -87,10 +88,9 @@ jobs:
           push: true
           build-args: GO_VERSION=${{ steps.go.outputs.version }}
           # The SHA tag is what deploy.yml takes, so every deploy names an exact commit
-          # and a rollback is just an older SHA. `main` floats for convenience.
+          # and a rollback is just an older SHA.
           tags: |
             ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:main
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

@@ -1,22 +1,22 @@
-# Deploy the MDM: stage, dev or prod, picked from a dropdown. Named after the address and
-# AWS account each runs on (16 Nov 2026; "dev" was called "live" before):
+# Deploy the MDM. Two branches, two servers, plus a spare test server (16 Nov 2026, user:
+# "two branches, dev, and prod … we will work in dev and once good we will use PR and
+# deploy to prod"):
 #
-#   stage = the `stage` branch  -> /home/ubuntu/stage-mdm  (mdm-stage.dev.aioapp.com)
-#   dev   = the `main` branch   -> /home/ubuntu/mdm        (mdm.dev.aioapp.com: the restaurant fleet today)
-#   prod  = the `main` branch   -> /home/mdm on the prod account (mdm.aioapp.com, run by devops)
+#   dev   = the `dev` branch   -> /home/ubuntu/mdm        (mdm.dev.aioapp.com: the restaurant fleet today)
+#   prod  = the `prod` branch  -> /home/mdm on the prod account (mdm.aioapp.com, run by devops)
+#   stage = the branch the run is started from -> /home/ubuntu/stage-mdm (mdm-stage.dev.aioapp.com)
+#
+# A push to `dev` deploys dev and a push to `prod` (a merged pull request from dev) deploys
+# prod, each by itself. Stage is manual only, for trying something out: start the run from
+# the branch to try (gh workflow run deploy.yml --ref <branch> -f target=stage). A manual
+# dev or prod run always deploys its own branch, whichever branch it was started from.
 #
 # Stage and dev use the GitHub environment `dev`, prod the environment `prod`; each holds
 # its account's AWS_DEPLOY_ROLE_ARN, ECR_REGISTRY, ECR_REPOSITORY and EC2_INSTANCE_ID.
 #
-# Each target is tied to its branch and directory here, so a run can no longer put
-# `main` into the stage directory (or anything into dev by mistyping a path).
-# Dev and prod are manual only. Stage also deploys itself on every push to `stage`, and a newer
-# stage deploy cancels an older one still in flight, so a burst of pushes ends in one
-# deploy of the latest commit instead of a queue.
-#
 # The image is the one for the branch's latest commit, or for an older commit given in
-# `sha` (rollback). If ECR has no image for that commit yet (stage commits, which
-# build.yml does not publish), this workflow builds and pushes it first.
+# `sha` (rollback). If ECR has no image for that commit yet, this workflow builds and
+# pushes it first.
 #
 # The box runs a compose stack — two server copies, the nginx proxy, published ports and
 # the splashdata volume (the database is RDS, DB_HOST in .env) — so
@@ -25,12 +25,12 @@ name: Deploy
 
 on:
   push:
-    branches: [stage]
+    branches: [dev, prod]
     paths-ignore: ["**.md", "docs/**", "tools/**"]
   workflow_dispatch:
     inputs:
       target:
-        description: "Where to deploy: stage (stage branch, mdm-stage.dev), dev (main branch, mdm.dev, the restaurant fleet) or prod (main branch, mdm.aioapp.com)"
+        description: "Where to deploy: dev (dev branch, mdm.dev, the restaurant fleet), prod (prod branch, mdm.aioapp.com) or stage (the branch this run is started from, mdm-stage.dev)"
         required: true
         type: choice
         options:
@@ -45,22 +45,23 @@ on:
 
 env:
   AWS_REGION: us-west-2
-  # A push is always a stage deploy; a manual run uses the dropdown.
-  TARGET: ${{ github.event_name == 'push' && 'stage' || inputs.target }}
+  # A push deploys its branch (dev or prod); a manual run uses the dropdown.
+  TARGET: ${{ github.event_name == 'push' && github.ref_name || inputs.target }}
 
 # One deploy per target at a time; a stage deploy never waits on a dev or prod one. Stage
 # cancels the older run (it is superseded anyway); dev and prod never cancel a deploy.
 concurrency:
-  group: deploy-${{ github.event_name == 'push' && 'stage' || inputs.target }}
-  cancel-in-progress: ${{ (github.event_name == 'push' && 'stage' || inputs.target) == 'stage' }}
+  group: deploy-${{ github.event_name == 'push' && github.ref_name || inputs.target }}
+  cancel-in-progress: ${{ (github.event_name == 'push' && github.ref_name || inputs.target) == 'stage' }}
 
 jobs:
   # Pick the target's branch, directory and commit once. Test and build both take this
   # commit, so a push landing mid-run can't make them look at different code.
   resolve:
-    name: Resolve ${{ github.event_name == 'push' && 'stage' || inputs.target }}
+    name: Resolve ${{ github.event_name == 'push' && github.ref_name || inputs.target }}
     runs-on: ubuntu-latest
     outputs:
+      target: ${{ steps.t.outputs.target }}
       branch: ${{ steps.t.outputs.branch }}
       app_dir: ${{ steps.t.outputs.app_dir }}
       sha: ${{ steps.sha.outputs.sha }}
@@ -70,11 +71,12 @@ jobs:
       - id: t
         run: |
           case "$TARGET" in
-            dev)   echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/mdm"       >> "$GITHUB_OUTPUT" ;;
-            stage) echo "branch=stage" >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/stage-mdm" >> "$GITHUB_OUTPUT" ;;
-            prod)  echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/mdm"              >> "$GITHUB_OUTPUT" ;;
-            *) echo "::error::Unknown target"; exit 1 ;;
+            dev)   branch=dev;              app_dir=/home/ubuntu/mdm ;;
+            prod)  branch=prod;             app_dir=/home/mdm ;;
+            stage) branch="$GITHUB_REF_NAME"; app_dir=/home/ubuntu/stage-mdm ;;
+            *) echo "::error::Unknown target $TARGET"; exit 1 ;;
           esac
+          { echo "target=$TARGET"; echo "branch=$branch"; echo "app_dir=$app_dir"; } >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         with:
@@ -95,8 +97,8 @@ jobs:
             full=$(git rev-parse HEAD)
           fi
           echo "sha=$full" >> "$GITHUB_OUTPUT"
-          # The tree names the code itself: a merge of stage into main has a new commit
-          # but, usually, exactly the tree stage already built and tested.
+          # The tree names the code itself: merging dev into prod makes a new commit but,
+          # usually, exactly the tree dev already built and tested.
           echo "tree=$(git rev-parse "$full^{tree}")" >> "$GITHUB_OUTPUT"
           echo "Deploying $TARGET: ${{ steps.t.outputs.branch }} @ $full"
 
@@ -107,10 +109,10 @@ jobs:
   # Make sure ECR has an image for the commit. Compiles the server here (warm Go cache)
   # and wraps it in the runtime-only Dockerfile.ci.
   build:
-    name: Build ${{ github.event_name == 'push' && 'stage' || inputs.target }}
+    name: Build ${{ github.event_name == 'push' && github.ref_name || inputs.target }}
     needs: resolve
     runs-on: ubuntu-latest
-    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
+    environment: ${{ needs.resolve.outputs.target == 'prod' && 'prod' || 'dev' }}
     permissions:
       id-token: write
       contents: read
@@ -126,9 +128,9 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - id: exists
-        # An image for this commit, or for the same code under another commit (stage's
-        # commit, when main is a merge of it): then it is re-tagged, not rebuilt. The
-        # image is byte for byte what stage built and deployed.
+        # An image for this commit, or for the same code under another commit (a merge
+        # that changed nothing): then it is re-tagged, not rebuilt. Only within one AWS
+        # account: prod's registry is its own, so a release builds there once.
         env:
           REPO: ${{ vars.ECR_REPOSITORY }}
           SHA: ${{ needs.resolve.outputs.sha }}
@@ -184,12 +186,12 @@ jobs:
           context: .
           file: Dockerfile.ci
           push: true
-          # The moving branch tag only on the dev account: prod's repository may refuse
-          # overwriting a tag, and nothing deploys by it.
+          # The moving :dev tag for dev deploys only: prod's repository may refuse overwriting
+          # a tag, a stage branch name may not be a valid tag, and nothing deploys by it.
           tags: |
             ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ needs.resolve.outputs.sha }}
             ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:tree-${{ needs.resolve.outputs.tree }}
-            ${{ inputs.target != 'prod' && format('{0}/{1}:{2}', vars.ECR_REGISTRY, vars.ECR_REPOSITORY, needs.resolve.outputs.branch) || '' }}
+            ${{ needs.resolve.outputs.target == 'dev' && format('{0}/{1}:{2}', vars.ECR_REGISTRY, vars.ECR_REPOSITORY, needs.resolve.outputs.branch) || '' }}
           cache-from: type=gha,scope=runtime
           cache-to: type=gha,scope=runtime,mode=max
 
@@ -200,7 +202,7 @@ jobs:
     needs: resolve
     if: inputs.sha == ''
     runs-on: ubuntu-latest
-    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
+    environment: ${{ needs.resolve.outputs.target == 'prod' && 'prod' || 'dev' }}
     permissions:
       id-token: write
       contents: read
@@ -214,7 +216,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
       # The same code already passed this gate (deploy tags it tested-<tree> after a
-      # green run): a merge of a tested stage into main is not tested twice.
+      # green run): the same tree is not tested twice in one account.
       - id: done
         run: |
           if aws ecr describe-images --repository-name "${{ vars.ECR_REPOSITORY }}" \
@@ -232,14 +234,14 @@ jobs:
         run: go build ./... && go test ./...
 
   deploy:
-    name: Deploy to ${{ github.event_name == 'push' && 'stage' || inputs.target }}
+    name: Deploy to ${{ github.event_name == 'push' && github.ref_name || inputs.target }}
     needs: [resolve, build, test]
     # Run when the image is ready and the tests passed (or were skipped for a rollback).
     if: >-
       always() && needs.resolve.result == 'success' && needs.build.result == 'success' &&
       (needs.test.result == 'success' || (needs.test.result == 'skipped' && inputs.sha != ''))
     runs-on: ubuntu-latest
-    environment: ${{ inputs.target == 'prod' && 'prod' || 'dev' }}
+    environment: ${{ needs.resolve.outputs.target == 'prod' && 'prod' || 'dev' }}
     permissions:
       id-token: write
       contents: read
@@ -459,8 +461,8 @@ jobs:
           echo "Final SSM status: $STATUS"
           [ "$STATUS" = "Success" ] || exit 1
 
-      # Record that this code passed the gate, so deploying the same tree again (main
-      # after merging a tested stage) re-uses the image and skips the test run.
+      # Record that this code passed the gate, so deploying the same tree again in this
+      # account re-uses the image and skips the test run.
       - name: Mark the code tested
         if: needs.test.result == 'success'
         env:
