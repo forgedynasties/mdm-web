@@ -641,6 +641,9 @@ func main() {
 	mux.Handle("GET /api/v1/enrollment-profiles", adminAuth(http.HandlerFunc(apiHandler.ListEnrollmentProfiles)))
 	mux.Handle("POST /api/v1/enrollment-profiles", adminAuth(middleware.MaxBytes(16<<10, http.HandlerFunc(apiHandler.CreateEnrollmentProfile))))
 	mux.Handle("POST /api/v1/devices/enrolled-by", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.SetEnrolledBy))))
+	// Empty this server's fleet data before moving devices in (internal/api/fleet_reset.go):
+	// 404 unless .env has ALLOW_FLEET_RESET=1, dry run first, the real run names the host.
+	mux.Handle("POST /api/v1/admin/fleet-reset", adminAuth(middleware.MaxBytes(4<<10, http.HandlerFunc(apiHandler.FleetReset))))
 	// The fleet adb key (internal/api/fleet_adb_key.go): upload / metadata / remove.
 	mux.Handle("PUT /api/v1/fleet-adb-key", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.PutFleetAdbKey))))
 	mux.Handle("GET /api/v1/fleet-adb-key", adminAuth(http.HandlerFunc(apiHandler.GetFleetAdbKey)))
