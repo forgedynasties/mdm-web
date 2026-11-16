@@ -872,6 +872,12 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		         WHEN c.type IN ('query', 'mic_gain_read', 'mic_gain_set')
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
+		         -- Nothing is delivered after its first hour (GetPendingCommandsForDevice), so a
+		         -- command the device never got by then never runs: say so. An uninstall sent
+		         -- while the device was offline spun "Uninstalling…" for good (DK19253D40158,
+		         -- 16 Nov 2026). Delivered stays delivered: the device did get it.
+		         WHEN COALESCE(cs.status, 'pending') = 'pending'
+		              AND c.created_at <= NOW() - INTERVAL '1 hour' THEN 'expired'
 		         WHEN cs.status IS NOT NULL THEN cs.status
 		         WHEN c.type IN `+shortLivedCommandsSQL+`
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'

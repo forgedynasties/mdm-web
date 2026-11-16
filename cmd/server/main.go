@@ -334,6 +334,18 @@ func main() {
 	expvar.Publish("db_pool", expvar.Func(func() any { return database.PoolStats() }))
 	expvar.Publish("ws_connected_devices", expvar.Func(func() any { return len(hub.ConnectedIDs()) }))
 	expvar.Publish("goroutines", expvar.Func(func() any { return runtime.NumGoroutine() }))
+	// The .env switches a server must have, so a deploy can be checked from outside
+	// (16 Nov 2026; user: "read .env cluster var … so we can read if .env is set up").
+	// On/off and a number only: never a secret, never a host name.
+	expvar.Publish("env", expvar.Func(func() any {
+		return map[string]any{
+			"CLUSTER":             os.Getenv("CLUSTER") == "1",
+			"PARTITION_TELEMETRY": os.Getenv("PARTITION_TELEMETRY") == "1",
+			"APK_DIRECT_S3":       os.Getenv("APK_DIRECT_S3") == "1",
+			"DB_POOL_MAX_CONNS":   os.Getenv("DB_POOL_MAX_CONNS"),
+			"DB_HOST_SET":         os.Getenv("DB_HOST") != "",
+		}
+	}))
 	// Every periodic job: runs, last/max duration, timeouts, panics, overruns (jobs.Run).
 	expvar.Publish("jobs", expvar.Func(func() any { return jobs.Default.Snapshot() }))
 	// Devices that are reporting and cannot be commanded: checking in, but holding no

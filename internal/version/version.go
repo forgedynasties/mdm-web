@@ -32,6 +32,15 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.1",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Install app: AIO Launcher shows all its channels (Prod, Internal, Main (QA), Stage, UAT) with their builds, and a device can follow one, like the other AIO apps.",
+			"A command sent while a device was offline, and not delivered within its hour, now shows as expired instead of waiting for good. Apps no longer spin \"Uninstalling…\" for an uninstall that will never run.",
+			"Updates of the MDM restart its two server copies one at a time on every server, so the dashboard stays up and devices barely notice.",
+		},
+	},
+	{
 		Version: "1.62.0",
 		Date:    "2026-11-16",
 		Changes: []string{
