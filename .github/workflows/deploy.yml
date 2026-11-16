@@ -1,15 +1,16 @@
-# Deploy the MDM: live, stage or prod, picked from a dropdown.
+# Deploy the MDM: stage, dev or prod, picked from a dropdown. Named after the address and
+# AWS account each runs on (16 Nov 2026; "dev" was called "live" before):
 #
-#   live  = the `main` branch   -> /home/ubuntu/mdm        (mdm.dev.aioapp.com, the restaurant fleet)
 #   stage = the `stage` branch  -> /home/ubuntu/stage-mdm  (mdm-stage.dev.aioapp.com)
+#   dev   = the `main` branch   -> /home/ubuntu/mdm        (mdm.dev.aioapp.com: the restaurant fleet today)
 #   prod  = the `main` branch   -> /home/mdm on the prod account (mdm.aioapp.com, run by devops)
 #
-# Live and stage use the GitHub environment `dev`, prod the environment `prod`; each holds
+# Stage and dev use the GitHub environment `dev`, prod the environment `prod`; each holds
 # its account's AWS_DEPLOY_ROLE_ARN, ECR_REGISTRY, ECR_REPOSITORY and EC2_INSTANCE_ID.
 #
 # Each target is tied to its branch and directory here, so a run can no longer put
-# `main` into the stage directory (or anything into live by mistyping a path).
-# Live is manual only. Stage also deploys itself on every push to `stage`, and a newer
+# `main` into the stage directory (or anything into dev by mistyping a path).
+# Dev and prod are manual only. Stage also deploys itself on every push to `stage`, and a newer
 # stage deploy cancels an older one still in flight, so a burst of pushes ends in one
 # deploy of the latest commit instead of a queue.
 #
@@ -29,12 +30,12 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: "Where to deploy: live (main branch), stage (stage branch) or prod (main branch, prod account)"
+        description: "Where to deploy: stage (stage branch, mdm-stage.dev), dev (main branch, mdm.dev, the restaurant fleet) or prod (main branch, mdm.aioapp.com)"
         required: true
         type: choice
         options:
           - stage
-          - live
+          - dev
           - prod
         default: stage
       sha:
@@ -47,8 +48,8 @@ env:
   # A push is always a stage deploy; a manual run uses the dropdown.
   TARGET: ${{ github.event_name == 'push' && 'stage' || inputs.target }}
 
-# One deploy per target at a time; a stage deploy never waits on a live one. Stage
-# cancels the older run (it is superseded anyway); live never cancels a deploy.
+# One deploy per target at a time; a stage deploy never waits on a dev or prod one. Stage
+# cancels the older run (it is superseded anyway); dev and prod never cancel a deploy.
 concurrency:
   group: deploy-${{ github.event_name == 'push' && 'stage' || inputs.target }}
   cancel-in-progress: ${{ (github.event_name == 'push' && 'stage' || inputs.target) == 'stage' }}
@@ -69,7 +70,7 @@ jobs:
       - id: t
         run: |
           case "$TARGET" in
-            live)  echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/mdm"       >> "$GITHUB_OUTPUT" ;;
+            dev)   echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/mdm"       >> "$GITHUB_OUTPUT" ;;
             stage) echo "branch=stage" >> "$GITHUB_OUTPUT"; echo "app_dir=/home/ubuntu/stage-mdm" >> "$GITHUB_OUTPUT" ;;
             prod)  echo "branch=main"  >> "$GITHUB_OUTPUT"; echo "app_dir=/home/mdm"              >> "$GITHUB_OUTPUT" ;;
             *) echo "::error::Unknown target"; exit 1 ;;
@@ -83,7 +84,7 @@ jobs:
 
       - id: sha
         # A given sha must be on the target's branch: a rollback cannot smuggle another
-        # branch's commit into live, stage or prod.
+        # branch's commit into stage, dev or prod.
         run: |
           if [ -n "${{ inputs.sha }}" ]; then
             full=$(git rev-parse --verify "${{ inputs.sha }}^{commit}")
@@ -356,7 +357,7 @@ jobs:
           # Wait for the container to report healthy rather than declaring success the
           # moment it starts.
           # Ask compose which container it just started — the project name differs
-          # between the live and stage directories, so nothing here is hardcoded.
+          # between the stage, dev and prod directories, so nothing here is hardcoded.
           cid=\$(docker compose ps -q server)
           for i in \$(seq 1 30); do
             state=\$(docker inspect -f '{{.State.Health.Status}}' "\$cid" 2>/dev/null || echo starting)
@@ -385,7 +386,7 @@ jobs:
 
           # Healthy once is not the same as staying up. On 2026-09-23 the container
           # passed its first check, this step went green, and the kernel OOM-killed it
-          # seconds later — live flapped for minutes with a successful deploy on record.
+          # seconds later — the fleet server flapped for minutes with a successful deploy on record.
           # HEALTHCHECK's own --start-period=30s means the first pass can land before
           # the startup peak is even over.
           #
