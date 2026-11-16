@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.62.8",
+		Date:    "2026-11-16",
+		Changes: []string{
+			"Header: mdm.dev.aioapp.com says DEV after the AIO MDM wordmark (and stage says STAGE), and its browser tabs start with \"DEV ·\", so it can't be mistaken for mdm.aioapp.com. Prod is unchanged.",
+		},
+	},
+	{
 		Version: "1.62.7",
 		Date:    "2026-11-16",
 		Changes: []string{

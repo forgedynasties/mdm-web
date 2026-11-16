@@ -805,8 +805,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// assetVer func rather than .AssetVer so partials rendered with their own data (htmx
 	// fragments) can version the scripts they load too.
 	assetVer := assetVersion("static")
+	envLabel := envLabelFor(os.Getenv("PUBLIC_ORIGIN"))
 	funcMap := template.FuncMap{
 		"assetVer": func() string { return assetVer },
+		// envLabel marks a server that is not prod in the header and the tab title (E1).
+		"envLabel": func() string { return envLabel },
 		// isCards: the user draws device lists as cards (fleet_view), safe on pages that never set it.
 		"isCards":           func(v any) bool { s, _ := v.(string); return s == "cards" },
 		"venueIcon":         func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
