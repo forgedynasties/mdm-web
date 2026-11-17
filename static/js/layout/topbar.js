@@ -143,6 +143,9 @@
       // Venues has its own dock entry now, so /restaurants is not Fleet's.
       '/devices': ['/groups', '/enrollment'],
       '/releases': ['/rollouts', '/updates', '/packages'],
+      // People · Access · Activity are Users' pills (17 Nov 2026, UI review: "it should always
+      // stay at users since they are subpages").
+      '/users': ['/activity'],
     };
     function owns(href, path) {
       href = (href || '').split('?')[0]; // Engineers' Lab is /devices?state=lab

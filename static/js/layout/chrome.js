@@ -1851,7 +1851,8 @@
     var dr = dock && dock.getBoundingClientRect();
     var on = !!(main && dr && dr.height) && window.innerWidth >= 1101 && window.innerHeight >= 640;
     root.classList.toggle('shell', on);
-    var mds = main ? main.querySelectorAll('.fleet-md') : [];
+    // Releases' list + detail (.ro-md) is sized like a Fleet-style page (17 Nov 2026, UI review).
+    var mds = main ? main.querySelectorAll('.fleet-md, .ro-md') : [];
     if (!on) {
       root.style.removeProperty('--shell-h');
       Array.prototype.forEach.call(mds, function (md) { md.style.height = ''; });

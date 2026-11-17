@@ -33,17 +33,13 @@
     {{template "oh-view" (dict "Key" "found" "Name" "Found on Wi-Fi" "N" .SightingsReady "Dot" (or (and .SightingsReady "warn") "muted") "Cur" .View)}}
     {{with .Bk}}{{template "oh-view" (dict "Key" "backend" "Name" "From the AIO backend" "N" .Act "Dot" (or (and .Act "warn") "muted") "Cur" $.View)}}{{end}}
     {{end}}
-    {{with .RailVenues}}
-    <div class="fleet-rail-cap">Venues</div>
-    {{range $i, $v := .}}{{if lt $i 8}}<a class="fleet-rail-item" href="/restaurants/{{$v.ID}}"><span class="dot ok"></span><span class="nm">{{$v.Name}}</span><span class="ct">{{$v.DeviceCount}}</span></a>{{end}}{{end}}
-    <a class="fleet-rail-item" href="/restaurants"><span class="nm muted">All venues →</span></a>
-    {{end}}
+
   </aside>
 
   {{/* Only this pane reloads when a view is picked in the left list (user, 3 Nov 2026). */}}
   <div class="fleet-roster" id="oh-pane" style="min-width:0">
     {{if .EnView}}
-    <div id="oh-en-body">
+    <div id="oh-en-body" class="pane-flow">
     {{template "en-style"}}
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">{{if eq .View "recent"}}Enrolled{{else if eq .View "profiles"}}Profiles{{else if eq .View "found"}}Found on Wi-Fi{{else if eq .View "backend"}}From the AIO backend{{else}}How to enroll{{end}}</h1><span class="c">{{if eq .View "recent"}}{{len .Enrollments}} in the last 30 days · standard-client devices{{else if eq .View "profiles"}}{{len .Profiles}} profiles · QR and adb enrolment tokens{{else if eq .View "found"}}{{if .Sightings}}{{.SightingsReady}} ready to enrol{{else}}nothing nearby{{end}}{{else if eq .View "backend"}}{{with .Bk}}{{.ProdIn}} of {{.ProdTotal}} Prod devices in the MDM · {{.ProdLinked}} of {{.Rest}} restaurants linked{{if .Synced}} · synced {{timeSince .Synced}}{{end}}{{end}}{{else}}four paths, one fleet{{end}}</span></div>
     <div class="en-wrap">

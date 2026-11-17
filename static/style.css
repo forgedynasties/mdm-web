@@ -4697,7 +4697,7 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
 .cl-card { border: 1px solid var(--border); border-radius: 14px; padding: 15px; background: var(--surface);
   transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
-.cl-card:hover { border-color: var(--rule-2); box-shadow: var(--shadow-md); }
+/* No hover lift on a whole list card (17 Nov 2026, UI review: "not needed"). */
 .cl-card.alerty { border-color: var(--danger-edge); }
 .cl-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cl-name { font-weight: 700; font-size: 14.5px; color: var(--text); }
@@ -7811,7 +7811,7 @@ html[data-theme="dark"] .appbar-island.always, html[data-theme="dark"] .appbar.i
 .oc-more:hover{text-decoration:underline}.oc-more i{font-style:normal}
 .oc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0 24px}
 .oc-st{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:14px 16px 0;overflow:hidden;display:flex;flex-direction:column;min-width:0}
-.oc-st:hover{border-color:var(--rule-2)}
+/* .oc-st: no hover lift on a container card (17 Nov 2026, UI review) */
 .oc-sth{display:flex;justify-content:space-between;align-items:center}
 .oc-sth>a{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-decoration:none}
 .oc-sth>a:hover{color:var(--text)}
@@ -8129,6 +8129,10 @@ html[data-theme="dark"] .dock.dock-s { box-shadow: 0 0 0 1px rgba(255, 255, 255,
   border: 0; border-radius: 40px; padding: 5px 5px 5px 16px; min-height: 0; background: linear-gradient(90deg, #f9674e, #7a80f6); color: #fff;
   font-weight: 600; text-decoration: none; cursor: pointer; box-shadow: none; }
 .cta-g.cta-g:hover { background: linear-gradient(90deg, #f9674e, #7a80f6); color: #fff; }
+/* Once the white has flooded in, the gradient underneath goes too: its antialiased rounded
+   edge left a 1 px coloured line on the left (17 Nov 2026, UI review). Back at once on leave. */
+.cta-g.cta-g { transition: background-image 0s; transition-behavior: allow-discrete; }
+.cta-g.cta-g:hover, .cta-g.cta-g:focus-visible { background-image: none; background-color: #fff; transition: background-image 0s .75s, background-color 0s .75s; transition-behavior: allow-discrete; }
 .cta-g.cta-g::before { content: ""; position: absolute; inset: -2px; border-radius: inherit; background: #fff; z-index: -1;
   clip-path: circle(0px at calc(100% - 20px) 50%); transition: clip-path .4s cubic-bezier(.4, 0, .2, 1); }
 /* inset -2px: the flood reaches past the edge, so no hairline of the gradient stays on the left */
@@ -8161,6 +8165,13 @@ html[data-theme="dark"] .cta-g.cta-g::after { background-color: #e9e9ee; }
 html.shell, html.shell body { overflow: hidden; }
 html.shell main#main { height: var(--shell-h); overflow-y: auto; overscroll-behavior: contain; padding-bottom: 0; scrollbar-width: thin; }
 html.shell .fleet-md { align-items: stretch; }
+/* Releases: the release list and the detail run to the bottom, each scrolling, level at the
+   top (17 Nov 2026, UI review: "the side rail has to be till the bottom like other pages …
+   right pane starting point y has to be same as left rail"). */
+html.shell .ro-md { align-items: stretch; min-height: 0; }
+html.shell .ro-md > * { margin-top: 0; min-height: 0; }
+html.shell .ro-md > .ro-list { position: static; max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
+html.shell .ro-md > .ro-det { overflow-y: auto; scrollbar-width: thin; }
 html.shell .fleet-md > .fleet-rail { position: static; align-self: stretch; max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
 /* Fleet: tabs and search stay, only the open list scrolls. */
 html.shell .fleet-md > .fleet-rail:has(> .rail-tabs) { display: flex; flex-direction: column; overflow: hidden; }
@@ -8182,6 +8193,12 @@ html.shell .fleet-roster .ft-wrap thead th { position: sticky; top: 0; z-index: 
 /* What stuck under the old scrolling header now sticks at the top of the page area. */
 html.shell :is(.ua-side, .i1-pv, .fleet-bar.is-sel, .bt-list, .dd-split-l, .dd-tabrow, .settings-nav, .cl-side, .ro-list, .pl-side) { top: 0; }
 html.shell .fleet-roster .device-inspector { overflow-y: auto; }
+/* A pane whose tables sit inside sections that can't shrink (Setup's and Enrollment's
+   Enrolled, Profiles…): the whole pane scrolls instead of a clipped table (17 Nov 2026,
+   UI review: "show more … the list is unscrollable"). */
+html.shell .fleet-roster > .pane-flow { flex: none; overflow: visible; max-height: none; }
+html.shell .fleet-roster > .pane-flow .ft-wrap { overflow: visible; max-height: none; }
+html.shell .fleet-roster > .pane-flow .card { min-height: auto; }
 
 /* Cards sit flat on the canvas (5 Nov 2026, user: "the border radius has a darker grey around
    it than the rest of the page"): the old --shadow-lg showed as a grey halo round every corner.
@@ -8197,3 +8214,13 @@ html body :is(.card, .cc-card, .ddc-card, .fleet-rail, .cl-card, .dd-needs) { bo
 .cs .n{width:24px;height:24px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:none}
 .cs.on .n{background:var(--accent-fill);color:#fff}.cs.ok .n{background:var(--ok-bg);color:var(--ok)}
 .cs b{display:block;font-size:12.5px}.cs span{font-size:11.5px;color:var(--muted);line-height:1.45}
+
+/* A pane being swapped by its rail (pane-loading.js): dimmed, with a moving bar on top. */
+.pane-loading { position: relative; }
+.pane-loading > * { opacity: .45; transition: opacity .12s; pointer-events: none; }
+.pane-loading::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 5; border-radius: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent-fill), transparent); background-size: 40% 100%; background-repeat: no-repeat;
+  animation: pane-load 1s linear infinite; }
+@keyframes pane-load { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+@media (prefers-reduced-motion: reduce) { .pane-loading::before { animation: none; background: var(--accent-fill); opacity: .4; } }
+
