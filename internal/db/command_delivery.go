@@ -775,6 +775,7 @@ func (d *DB) ExpireOverdueCommands(ctx context.Context) ([]StalledInstall, error
 		  AND c.created_at <= NOW() - CASE
 				WHEN c.type IN ('shell', 'screenshot', 'query', 'mic_gain_read', 'mic_gain_set')
 					THEN INTERVAL '5 minutes'
+				WHEN c.type IN `+WaitingCommandsSQL+` THEN INTERVAL '7 days'
 				ELSE INTERVAL '24 hours'
 			END
 		RETURNING cs.command_id, cs.device_id

@@ -181,6 +181,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, appWantsSchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, waitingCommandsIndex); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, hiddenGroupsSchema); err != nil {
 		return err
 	}

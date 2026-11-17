@@ -87,7 +87,8 @@ var specs = map[string]Spec{
 	// One go: the token in it is good once, so a second hand-out could only fail.
 	"move_server": {AtMostOnce, LaneDevice, 10 * time.Minute, time.Hour, 1, nil, false},
 	// Showing (or lifting) the lost screen twice is the same screen: safe to repeat.
-	"lost_mode": {AtLeastOnce, LaneDevice, 10 * time.Minute, time.Hour, 0, nil, false},
+	// Waits a week for an offline device (db.WaitingCommandsSQL, 17 Nov 2026).
+	"lost_mode": {AtLeastOnce, LaneDevice, 10 * time.Minute, 7 * 24 * time.Hour, 0, nil, false},
 
 	// ── operator tools: short-lived, answer or nothing ─────────────────────────
 	"shell":         {AtLeastOnce, LaneShell, 5 * time.Minute, 5 * time.Minute, 0, nil, false},
@@ -100,7 +101,8 @@ var specs = map[string]Spec{
 	// ── state pushes ───────────────────────────────────────────────────────────
 	"config": {AtLeastOnce, LaneDefault, 10 * time.Minute, time.Hour, 0, nil, false},
 	// Adding a network that is already there updates it in place, so a repeat is harmless.
-	"wifi_config": {AtLeastOnce, LaneDefault, 10 * time.Minute, time.Hour, 0, nil, false},
+	// Waits a week for an offline device (db.WaitingCommandsSQL, 17 Nov 2026).
+	"wifi_config": {AtLeastOnce, LaneDefault, 10 * time.Minute, 7 * 24 * time.Hour, 0, nil, false},
 	// Needs the system partition, so the DPC agent can only refuse it.
 	"update_splash": {AtLeastOnce, LaneDefault, 20 * time.Minute, time.Hour, 0, []string{"splash"}, false},
 

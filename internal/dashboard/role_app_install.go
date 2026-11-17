@@ -67,9 +67,12 @@ func (h *Handler) roleAppInstallBases(ctx context.Context) (bases map[string]str
 	}
 	bases, install, upgrade = map[string]string{}, map[string]bool{}, map[string]bool{}
 	for _, a := range apps {
-		if a.BasePackage != "" && (a.AutoInstall || a.AutoUpgrade) {
+		// No upgrades since 17 Nov 2026 (user: "we can stop version tracking since all aio
+		// apps have auto updates"): a missing prod app is installed, a present one is left
+		// to update itself. role_apps.auto_upgrade is kept, unused.
+		if a.BasePackage != "" && a.AutoInstall {
 			bases[a.Role] = a.BasePackage
-			install[a.Role], upgrade[a.Role] = a.AutoInstall, a.AutoUpgrade
+			install[a.Role], upgrade[a.Role] = true, false
 		}
 	}
 	return bases, install, upgrade
