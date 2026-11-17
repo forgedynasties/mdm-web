@@ -585,6 +585,11 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 					v.SeenAt = p.ReportAt // last contact of any kind
 				}
 				v.BytesDone, v.BytesTotal = p.BytesDone, p.BytesTotal
+				// The shared "last moved" (every server copy writes it) beats this copy's
+				// memory, which a copy without the device's socket doesn't have.
+				if p.AdvancedAt.After(v.AdvancedAt) {
+					v.AdvancedAt = p.AdvancedAt
+				}
 				if v.Phase == "" || p.Percent > v.Percent {
 					v.Phase, v.Percent = p.Status, p.Percent
 					if v.AdvancedAt.IsZero() {

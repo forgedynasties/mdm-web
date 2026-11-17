@@ -344,6 +344,9 @@ func (h *Handler) markStuck(ctx context.Context, active []rolloutView) {
 				if p.ReportAt.After(last) {
 					last = p.ReportAt
 				}
+				if p.AdvancedAt.After(advanced) {
+					advanced = p.AdvancedAt // shared by every server copy
+				}
 				if advanced.IsZero() {
 					advanced = p.ReportAt
 				}
