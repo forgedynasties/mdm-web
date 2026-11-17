@@ -10,15 +10,22 @@
   <span class="isl-acts"><a class="cc-btn" href="/lineup?view=runs">Factory runs</a></span>
 </template>
 <style>
-  .md-chips{display:flex;gap:6px;flex-wrap:wrap;padding:2px 4px 8px}
-  .md-chip{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:99px;padding:4px 11px;font:inherit;font-size:12.5px;cursor:pointer}
-  .md-chip[aria-pressed="true"]{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
-  .md-it .nm{display:flex;flex-direction:column;min-width:0}.md-it .nm small{color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .md-it.on .nm small{color:inherit;opacity:.85}
-  .md-k{font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:1px;white-space:nowrap}
+  /* F1 (17 Nov 2026): one switch, then the two views as rows, like the other rails. */
+  .md-sw{display:flex;background:var(--surface-3);border-radius:99px;padding:3px;gap:2px;margin:2px 4px 6px}
+  .md-sw button{flex:1;border:0;background:none;color:var(--text);font:inherit;font-size:12.5px;padding:5px 0;border-radius:99px;cursor:pointer}
+  .md-sw button[aria-pressed="true"]{background:var(--surface);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .md-vw[aria-pressed="true"]{background:var(--surface-3)}
+  .md-it.md-off{display:none!important}
+  .md-sep{height:1px;background:var(--border-soft);margin:6px 8px}
+  .md-it .nm{display:flex;flex-direction:column;min-width:0}.md-it .nm>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .md-it .nm small{color:var(--muted);font-size:11.5px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* A1: the kind is the first word of the second line, in its colour. */
+  .md-kd{font-weight:600}.md-kd.fw{color:#3f4bc0}.md-kd.st{color:#1d7a42}
+  html[data-theme="dark"] .md-kd.fw{color:#aab2ff}html[data-theme="dark"] .md-kd.st{color:#8fdcaa}
+  .md-it.on .md-kd{color:inherit}
+  .md-k{font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px;white-space:nowrap}
   .md-k.fw{background:#e6e9ff;color:#3540a8}.md-k.st{background:#e3f4ea;color:#1d6b37}
   html[data-theme="dark"] .md-k.fw{background:#232a5a;color:#b9c0ff}html[data-theme="dark"] .md-k.st{background:#163d24;color:#9be2b3}
-  .md-it.on .md-k{background:rgba(255,255,255,.22);color:#fff}
   .md-warn{color:var(--warn)}
   .md-card{margin-bottom:14px}
   .md-head{display:flex;gap:14px;align-items:center;padding:16px 18px}
@@ -45,15 +52,17 @@
 <div class="fleet-md dv-rise-1">
   <aside class="fleet-rail" aria-label="Models">
     <div class="fleet-rail-cap"><span>Models</span></div>
-    <div class="md-chips" role="group" aria-label="Show">
-      <button type="button" class="md-chip" data-mdf="fw" aria-pressed="false">Firmware</button>
-      <button type="button" class="md-chip" data-mdf="st" aria-pressed="false">Standard</button>
-      <button type="button" class="md-chip" data-mdf="none" aria-pressed="false">Needs a role · {{.NeedsN}}</button>
-      <button type="button" class="md-chip" data-mdf="several" aria-pressed="false">Several roles · {{.SeveralN}}</button>
+    <div class="md-sw" role="group" aria-label="Kind">
+      <button type="button" data-mdk="" aria-pressed="true">All</button>
+      <button type="button" data-mdk="fw" aria-pressed="false">Firmware</button>
+      <button type="button" data-mdk="st" aria-pressed="false">Standard</button>
     </div>
+    {{if .NeedsN}}<button type="button" class="fleet-rail-item md-vw" data-mdv="none" aria-pressed="false"><span class="dot warn"></span><span class="nm">Needs a role</span><span class="ct">{{.NeedsN}}</span></button>{{end}}
+    {{if .SeveralN}}<button type="button" class="fleet-rail-item md-vw" data-mdv="several" aria-pressed="false"><span class="dot muted"></span><span class="nm">Several roles</span><span class="ct">{{.SeveralN}}</span></button>{{end}}
+    {{if or .NeedsN .SeveralN}}<div class="md-sep"></div>{{end}}
     {{range .Models}}<a class="fleet-rail-item md-it{{if and $p (eq .Key $p.M.Key)}} on{{end}}" href="/models?model={{.Key}}" data-kind="{{if .Firmware}}fw{{else}}st{{end}}" data-nroles="{{len .Roles}}"{{if and $p (eq .Key $p.M.Key)}} aria-current="page"{{end}}>
       <span class="dot {{if not .Roles}}warn{{else if .Online}}ok{{else}}muted{{end}}"></span>
-      <span class="nm"><span>{{.Label}}<span class="md-k {{if .Firmware}}fw{{else}}st{{end}}">{{.Kind}}</span></span><small{{if not .Roles}} class="md-warn"{{end}}>{{.RoleText}}</small></span>
+      <span class="nm"><span>{{.Label}}</span><small><span class="md-kd {{if .Firmware}}fw{{else}}st{{end}}">{{.Kind}}</span> · {{if .Roles}}{{.RoleText}}{{else}}<span class="md-warn">Needs a role</span>{{end}}</small></span>
       <span class="ct">{{.Devices}}</span></a>{{end}}
   </aside>
   <div class="fleet-roster">
@@ -118,21 +127,28 @@
 </div>
 <script>
 (function () {
-  // Chips filter the rail (any pressed chip must match).
+  // F1: the kind switch and the two view rows filter the rail together.
   var rail = document.querySelector('.fleet-rail'); if (!rail) return;
-  rail.querySelectorAll('.md-chip').forEach(function (c) {
-    c.addEventListener('click', function () {
-      c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
-      var on = Array.prototype.map.call(rail.querySelectorAll('.md-chip[aria-pressed="true"]'), function (x) { return x.dataset.mdf; });
-      rail.querySelectorAll('.md-it').forEach(function (it) {
-        var k = it.dataset.kind, n = +it.dataset.nroles, ok = true;
-        on.forEach(function (f) {
-          if (f === 'fw' || f === 'st') ok = ok && (on.indexOf('fw') >= 0 && k === 'fw' || on.indexOf('st') >= 0 && k === 'st');
-          if (f === 'none') ok = ok && n === 0;
-          if (f === 'several') ok = ok && n > 1;
-        });
-        it.hidden = !ok;
-      });
+  var kind = '', view = '';
+  function apply() {
+    rail.querySelectorAll('.md-it').forEach(function (it) {
+      var n = +it.dataset.nroles;
+      // A class, not hidden: the rail's search (rail-search.js) toggles hidden on its own.
+      it.classList.toggle('md-off', !!((kind && it.dataset.kind !== kind) || (view === 'none' && n !== 0) || (view === 'several' && n < 2)));
+    });
+  }
+  rail.querySelectorAll('[data-mdk]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      kind = b.dataset.mdk;
+      rail.querySelectorAll('[data-mdk]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      apply();
+    });
+  });
+  rail.querySelectorAll('[data-mdv]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      view = view === b.dataset.mdv ? '' : b.dataset.mdv;
+      rail.querySelectorAll('[data-mdv]').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.mdv === view ? 'true' : 'false'); });
+      apply();
     });
   });
   // The role form: one role picks one chip; several needs two; the note says what changes.

@@ -45,7 +45,7 @@ func TestModelsRenders(t *testing.T) {
 			t.Fatalf("%s: %v", tc.pane.M.Key, err)
 		}
 		out := b.String()
-		for _, w := range append(tc.want, "Galaxy A16", "Needs a role", "Firmware", "Standard") {
+		for _, w := range append(tc.want, "Galaxy A16", "Needs a role", "Firmware", "Standard", `data-mdk="fw"`, `data-mdv="none"`) {
 			if !strings.Contains(out, w) {
 				t.Errorf("%s: missing %q", tc.pane.M.Key, w)
 			}

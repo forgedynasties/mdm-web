@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.1",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"Models: each model's second line starts with Firmware or Standard (nothing is cut off on long names), and the rail's chips became one All · Firmware · Standard switch plus Needs a role and Several roles as rows.",
+		},
+	},
+	{
 		Version: "1.64.0",
 		Date:    "2026-11-17",
 		Changes: []string{
