@@ -1870,6 +1870,24 @@
   }
   function later() { if (!raf) raf = requestAnimationFrame(fit); }
   window.mdmShellFit = later;
+  // Re-fit when what sits above the list settles to another height (an island duplicate
+  // hiding, a late font): the list kept a height 10 px short of the dock (17 Nov 2026).
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(later), seen = null;
+    var watch = function () {
+      var main = document.getElementById('main'); if (!main) return;
+      var kids = Array.prototype.slice.call(main.children);
+      if (seen && seen.length === kids.length && seen.every(function (k, i) { return k === kids[i]; })) return;
+      ro.disconnect(); seen = kids; kids.forEach(function (k) { ro.observe(k); });
+      ro.observe(main); // the page area itself grows when the dock settles lower
+      var dock = document.querySelector('nav.dock'); if (dock) ro.observe(dock);
+      // and whatever sits above it (the header settling moves the page area without resizing it)
+      Array.prototype.forEach.call(document.body.children, function (k) { if (k !== main && k.tagName !== 'SCRIPT') ro.observe(k); });
+      setTimeout(later, 400); setTimeout(later, 1200);
+    };
+    document.addEventListener('htmx:afterSettle', watch);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch); else watch();
+  }
   window.addEventListener('resize', later);
   document.addEventListener('htmx:afterSettle', later);
   document.addEventListener('htmx:load', later);

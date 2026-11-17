@@ -26,7 +26,6 @@ html.shell .fleet-roster .card.av-src > .ft-wrap{overflow:visible!important}
 </style>
 <div class="cl-page">
 <div class="cc-top"><div><h1 class="cc-h1">Activity</h1></div></div>
-{{template "users-tabs" .}}
 <div class="fleet-md dv-rise-1">
   <aside class="fleet-rail" aria-label="Kinds of activity">
     {{/* T1 (picked 5 Nov 2026): three tracks, People first; the kinds narrow the track. */}}
@@ -39,6 +38,7 @@ html.shell .fleet-roster .card.av-src > .ft-wrap{overflow:visible!important}
     {{range .Kinds}}<a class="fleet-rail-item{{if eq $.Kind .Key}} on{{end}}" href="/activity?{{$.BaseQS}}&amp;track={{$.Track}}&amp;kind={{.Key}}"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $.KindCount .Key}}</span></a>{{end}}
   </aside>
   <div class="fleet-roster">
+  {{template "users-tabs" .}}
     <div class="fleet-pane-head"><span class="t">{{if .Kind}}{{range .Kinds}}{{if eq $.Kind .Key}}{{.Label}}{{end}}{{end}}{{else}}Everything{{end}}</span><span class="c">{{.Total}} action{{if ne .Total 1}}s{{end}}</span></div>
     <form method="GET" action="/activity" class="av-f">
       {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}

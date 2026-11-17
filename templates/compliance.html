@@ -117,17 +117,6 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
 
   {{/* K1 (21 Oct 2026): tabs left, the Venue and Type pills (and Level on Checks) right.
        Venue and Type scope every number on the page. */}}
-  <div class="oc-bar k1-bar">
-    <div class="k1-pills">
-      {{with .Scope}}
-      <div class="oc-f"><button class="oc-fb{{if .Venue}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-        <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-      <div class="oc-f"><button class="oc-fb{{if .Class}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .ClassName}}{{.ClassName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-        <div class="cc-menu" hidden>{{range .Types}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-      {{end}}
-    </div>
-  </div>
-
   <div class="fleet-md cp1-md">
   {{/* CP1 (picked 5 Nov 2026, user: "the main banner goes, i would want a spider graph, maybe make
        it fleets twin"): the rail carries the score, the spider (one spoke per check, the point
@@ -145,6 +134,17 @@ details.k1-row[open]>summary{background:var(--surface2);border-radius:8px}
     {{range .Behind}}<a class="fleet-rail-item" href="/restaurants/{{.ID}}"><span class="dot warn"></span><span class="nm">{{.Name}}</span><span class="ct">{{.Pct}}%</span></a>{{end}}{{end}}{{end}}
   </aside>
   <div class="fleet-roster">
+  <div class="oc-bar k1-bar">
+    <div class="k1-pills">
+      {{with .Scope}}
+      <div class="oc-f"><button class="oc-fb{{if .Venue}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+      <div class="oc-f"><button class="oc-fb{{if .Class}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Type: <b>{{if .ClassName}}{{.ClassName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>{{range .Types}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+      {{end}}
+    </div>
+  </div>
+
   {{if eq .Tab "checks"}}
   <section class="oc-card" id="checks">
     <div class="oc-ch"><h2>Checks <span>most failing first{{if .Scope.Level}} · {{if eq .Scope.Level "required"}}required only{{else}}recommended only{{end}}{{end}}</span></h2></div>

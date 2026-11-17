@@ -50,15 +50,16 @@
   {{/* AIO apps | Other apps as the page's top pills, the rail only the products (17 Nov 2026,
        UI review: "top level pills instead of library and resource use … aio apps other apps";
        "in side rail only keep by product … only one list, get rid of search"). */}}
-  <div class="ap-pills" role="group" aria-label="Apps">
-    <button type="button" class="on" data-clf="role" data-title="AIO apps" aria-pressed="true">AIO apps<span>{{$a.RoleN}}</span></button>
-    {{if .CanShowAll}}<button type="button" data-clf="other" data-title="Other apps" aria-pressed="false">Other apps<span>{{$a.OtherN}}</span></button>{{end}}
-  </div>
   <div class="fleet-md dv-rise-1">
     <aside class="fleet-rail" aria-label="Products" data-rail-search="off">
-      {{range $a.Products}}<button type="button" class="fleet-rail-item" data-clf="pc-{{.Role}}" data-title="{{.Label}}" aria-pressed="false">{{if .Icon}}<img class="ap-ic sm" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="dot ok"></span>{{end}}<span class="nm">{{.Label}}</span><span class="ct">{{.Devices}}</span></button>{{end}}
+      {{range $a.Products}}<button type="button" class="fleet-rail-item" data-grp="role" data-clf="pc-{{.Role}}" data-title="{{.Label}}" aria-pressed="false">{{if .Icon}}<img class="ap-ic sm" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="dot ok"></span>{{end}}<span class="nm">{{.Label}}</span><span class="ct">{{.Devices}}</span></button>{{end}}
+      {{if .CanShowAll}}{{range $a.Makers}}<button type="button" class="fleet-rail-item" data-grp="other" data-clf="mk-{{.Key}}" data-title="{{.Label}}" aria-pressed="false" hidden><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{.Apps}}</span></button>{{end}}{{end}}
     </aside>
     <div class="fleet-roster">
+      <div class="ap-pills" role="group" aria-label="Apps">
+        <button type="button" class="on" data-clf="role" data-grp="role" data-title="AIO apps" aria-pressed="true">AIO apps<span>{{$a.RoleN}}</span></button>
+        {{if .CanShowAll}}<button type="button" data-clf="other" data-grp="other" data-title="Other apps" aria-pressed="false">Other apps<span>{{$a.OtherN}}</span></button>{{end}}
+      </div>
       <div class="fleet-pane-head"><span class="t" data-cl-title>AIO apps</span><span class="c" data-cl-count>{{$a.RoleN}} app{{if ne $a.RoleN 1}}s{{end}}</span>{{if $lib}}<span class="ap-hact"><button type="button" class="cc-btn primary sm" onclick="libAddOpen()">Add APK</button></span>{{end}}</div>
       <div class="fleet-bar">
         <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search apps, packages, versions…" aria-label="Search apps"></div>
@@ -83,7 +84,7 @@
           </tr></thead>
           <tbody>
           {{range $a.Rows}}
-          <tr class="ft-row" data-href="{{.Href}}" data-flags="{{if .Role}}role p-{{.Role}}{{else}}other{{end}}" data-text="{{.Search}}" data-s-name="{{.Name}}" data-s-devices="{{.Devices}}">
+          <tr class="ft-row" data-href="{{.Href}}" data-flags="{{if .Role}}role p-{{.Role}}{{else}}other mk-{{.Maker}}{{end}}" data-text="{{.Search}}" data-s-name="{{.Name}}" data-s-devices="{{.Devices}}">
             <td><a class="cl-nm" href="{{.Href}}">{{if .Icon}}<img class="ap-ic" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="ap-ic ini">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}<span class="cl-t"><b>{{.Name}}</b><small>{{if .RoleLabel}}{{.RoleLabel}} · {{end}}{{.Package}}</small></span></a></td>
             <td><span class="muted">{{if .Chans}}{{len .Chans}} channels{{else}}—{{end}}</span></td>
             <td>{{if .InLibrary}}<span class="ap-ver">{{if .LibVersion}}{{.LibVersion}}{{else}}unversioned{{end}}</span>{{else}}<span class="cc-tag warn">not in library</span>{{if $lib}} <button type="button" class="cc-btn xs" onclick="event.stopPropagation();libAddOpen()">Add APK</button>{{end}}{{end}}</td>
@@ -113,6 +114,22 @@
   </div>
 </div>
 {{template "app-library-add" .}}
+<script>
+// AIO apps | Other apps: the rail shows that group's list (products, or makers) and the pill
+// stays on while one of its rail rows is picked (17 Nov 2026, UI review).
+(function () {
+  var root = document.querySelector('.a1-wrap [data-cl]'); if (!root) return;
+  function show(g) {
+    root.querySelectorAll('.fleet-rail [data-grp]').forEach(function (b) { b.hidden = b.dataset.grp !== g; });
+    root.querySelectorAll('.ap-pills [data-grp]').forEach(function (b) { var on = b.dataset.grp === g; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+  }
+  root.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-grp]'); if (!b) return;
+    setTimeout(function () { show(b.dataset.grp); }, 0);
+  });
+  show('role');
+})();
+</script>
 <script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}

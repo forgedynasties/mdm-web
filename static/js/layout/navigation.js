@@ -364,6 +364,37 @@
       // page to load) — mdmSyncDockActive is defined in the footer script.
       var dest = path.split('?')[0].split('#')[0];
       if (window.mdmSyncDockActive) window.mdmSyncDockActive(dest);
+      // A page's own pills and rail open the next page in place (17 Nov 2026, UI review:
+      // "choosing top level pill should only reload the items below not the whole page"):
+      // the page stays, the picked pill or row is marked at once, only the pane dims with
+      // the loading bar, and the next page swaps in at the same spot. No skeleton.
+      var src = d.elt && d.elt.closest && d.elt.closest('[data-pill-nav] a, .fleet-md > .fleet-rail a, .ro-pills a, .ro-list a');
+      if (src) {
+        var bar = src.parentElement;
+        if (bar) Array.prototype.forEach.call(bar.children, function (x) {
+          if (x.tagName !== 'A') return;
+          var on = x === src; x.classList.toggle('on', on);
+          if (x.classList.contains('cc-btn')) x.classList.toggle('primary', on);
+          if (on) x.setAttribute('aria-current', 'page'); else x.removeAttribute('aria-current');
+        });
+        // The next page arrives without its entrance animations or fade: it is the same page
+        // moving on. The new <main> is marked as it lands (removing a mark later would start
+        // the animations then).
+        var still = function (ev) {
+          var t = ev.detail && ev.detail.target;
+          if (!t || t.tagName !== 'MAIN') return;
+          document.removeEventListener('htmx:beforeSwap', still);
+          t.classList.add('nav-still'); // htmx settles the new <main> with the old one's classes first
+          ev.detail.serverResponse = (ev.detail.serverResponse || '').replace(/<main([^>]*?)class="/, '<main$1class="nav-still ');
+        };
+        document.addEventListener('htmx:beforeSwap', still);
+        var pane = main.querySelector('.fleet-md > .fleet-roster, .ro-md > .ro-det') || main.querySelector('.fleet-md, .ro-md');
+        if (pane) { pane.classList.add('pane-loading'); pane.setAttribute('aria-busy', 'true'); }
+        _navActive = true; _navDest = path;
+        mdmClearWatchdog();
+        _navWatchdog = setTimeout(function () { if (_navActive) { _navActive = false; window.location.href = _navDest; } }, 12000);
+        return;
+      }
       // Only reveal the skeleton once the response is clearly slow. On a LAN/local
       // server most pages return in well under this, so a fast nav goes straight
       // content→content (crossfaded) and never flashes a blank/skeleton frame.

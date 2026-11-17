@@ -18,7 +18,6 @@
 </style>
 <div class="cl-page">
 <div class="cc-top"><div><h1 class="cc-h1">Access</h1></div></div>
-{{template "users-tabs" .}}
 <div class="fleet-md dv-rise-1">
   <aside class="fleet-rail" aria-label="Roles">
     <div class="fleet-rail-cap"><span>Roles</span></div>
@@ -27,6 +26,7 @@
     <a class="fleet-rail-item{{if .Who}} on{{end}}" href="/users/access?who=pick"><span class="dot muted"></span><span class="nm">Who can act on…</span></a>
   </aside>
   <div class="fleet-roster">
+  {{template "users-tabs" .}}
   {{if .Who}}
     <div class="fleet-pane-head"><span class="t">Who can act on {{if .WhoName}}{{.WhoName}}{{else}}a group or venue{{end}}</span></div>
     <div class="cc-card acc-card">
