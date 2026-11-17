@@ -1482,7 +1482,6 @@ window.DEVICE_VITALS = {
         <div class="apl2-hn"><b>{{.Active.Name}}</b><span class="apl2-st {{.Active.Dot}}"><i></i>{{.State}}</span></div>
         <small><span class="mono">{{.Active.Package}}</span> · {{.Active.Version}} · {{.Active.Env}}</small>
       </div>
-      {{if and (canOperate $.Role) (supports $.Device "install_apk") (not $.Restricted)}}<button type="button" class="cc-btn sm" onclick="followModalOpen()">Follow a channel</button>{{end}}
     </div>
     <div class="apl2-figs">
       <div class="apl2-fg"><b>{{.Today}}</b><span>on screen today</span></div>
@@ -1504,42 +1503,16 @@ window.DEVICE_VITALS = {
       <h2>{{if $hostCard}}Other apps{{else}}Apps{{end}}</h2>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
-{{if and (not $hostCard) (not .Follows) (canOperate .Role) (supports .Device "install_apk") (not .Restricted)}}<button type="button" class="cc-btn sm" onclick="followModalOpen()">Follow an app</button>{{end}}
-{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/lineup/apps?app={{.Device.Class}}">its product's app</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="cta-g plus btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="{{if $.LookOnly}}{{$.Look.Lock}}{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}><span class="cta-t">Install app</span></button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
+{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/lineup/apps?app={{.Device.Class}}">its product's app</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="cta-g plus btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="{{if $.LookOnly}}{{$.Look.Lock}}{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}><span class="cta-t">Add app</span></button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
     {{if canOperate .Role}}
     {{/* Install picker — an app-drawer-style popup: pick a repository app from the grid
          (monogram tiles for now) and it queues an install. */}}
-    {{/* Follow apps (F2, picked 30 Oct 2026): one list of the role apps, a channel and
-         Follow / Stop per row. app_follows.go followRows. */}}
-    <div class="modal-backdrop" id="follow-modal" data-serial="{{.Device.SerialNumber}}" onclick="if(event.target===this)followModalClose()">
-      <div class="modal-box modal-wide fl-box" role="dialog" aria-modal="true" aria-label="Follow apps">
-        <div class="install-modal-head"><span class="modal-title">Follow apps</span>
-          <span class="install-head-actions"><button type="button" class="modal-close" onclick="followModalClose()" aria-label="Close">&times;</button></span></div>
-        {{if .FollowRows}}
-        <div class="ft-wrap fl-wrap2"><table class="ft fl-t"><thead><tr><th>App</th><th style="width:120px">Channel</th><th style="width:150px">Newest</th><th style="width:170px"><span class="sr-only">Follow</span></th></tr></thead><tbody>
-        {{range .FollowRows}}{{$r := .}}
-        <tr class="ft-row" data-fl-row>
-          <td><span class="fl-nm">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{end}}<span><b>{{.Name}}</b><small>{{.Product}}</small></span></span></td>
-          <td><select class="fl-sel" aria-label="Channel for {{.Name}}" onchange="followPick(this)"{{if .Following}} disabled{{end}}>{{range .Channels}}<option value="{{.Package}}" data-newest="{{.Newest}}"{{if eq .Package $r.Following}} selected{{end}}>{{.Label}}</option>{{end}}</select></td>
-          <td class="mono small fl-new">{{range $i, $c := .Channels}}{{if or (eq $c.Package $r.Following) (and (not $r.Following) (eq $i 0))}}{{$c.Newest}}{{end}}{{end}}</td>
-          <td class="fl-act">{{if .Following}}<span class="fl-on"><i></i>following {{.FollowingLabel}}</span><button type="button" class="cc-btn xs" data-fl-pkg="{{.Following}}" onclick="followSend(this,'unfollow')">Stop</button>{{else}}<button type="button" class="cc-btn sm primary" onclick="followSend(this,'follow')">Follow</button>{{end}}</td>
-        </tr>
-        {{end}}
-        </tbody></table></div>
-        {{else}}<div class="device-action-note" style="padding:18px">No role app has a build in the library yet.</div>{{end}}
-        <div class="install-modal-foot">
-          
-          <span class="muted small" style="margin-left:auto">A followed app installs its channel's newest build, and every newer one by itself.</span>
-          <button type="button" class="cc-btn" onclick="followModalClose()">Done</button>
-        </div>
-      </div>
-    </div>
     <div class="modal-backdrop" id="install-modal" onclick="installModalBackdrop(event)">
-      <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Install app">
+      <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Add app">
         <div class="install-modal-head">
-          <span class="modal-title">Install app</span>
+          <span class="modal-title">Add app</span>
           <span class="install-head-actions">
             {{if canAppLibrary .Role}}<a href="/apps" class="btn-outline btn-sm" title="Upload an APK to the app library, then install it from here"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add app</a>{{end}}
             <button type="button" class="modal-close" onclick="installModalClose()" aria-label="Close">&times;</button>
@@ -1551,7 +1524,8 @@ window.DEVICE_VITALS = {
              without navigating; the server returns 204 + HX-Trigger:device-updated, which
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
-        <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose(); installOptimistic();" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
+        {{/* D1 (17 Nov 2026): Add app records the app on the device (app_wants_view.go); the newest build installs now, or when an offline device is back. A client that can only update itself keeps today's app_update command. */}}
+        <form id="install-form"{{if supports $.Device "install_apk"}} hx-post="/devices/{{$.Device.SerialNumber}}/apps/add" action="/devices/{{$.Device.SerialNumber}}/apps/add" data-add="1" data-online="{{if .Online}}1{{else}}0{{end}}"{{else}} hx-post="/commands" action="/commands"{{end}} hx-swap="none" method="POST" onsubmit="installModalClose(); if(!this.dataset.add){installOptimistic();}" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
           {{/* A client that can't install other apps can still update itself (app_update). */}}
           <input type="hidden" name="type" value="{{if and (not (supports $.Device "install_apk")) (supports $.Device "app_update")}}app_update{{else}}install_apk{{end}}">
           <input type="hidden" name="target_type" value="devices">
@@ -1586,7 +1560,7 @@ window.DEVICE_VITALS = {
           <div class="install-modal-foot">
             
             <span class="small inst-say" id="install-count">Pick one or more apps</span>
-            <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>Install</button>
+            <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>{{if supports $.Device "install_apk"}}Add app{{else}}Install{{end}}</button>
           </div>
         </form>
         {{else}}
@@ -2083,14 +2057,16 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
 {{/* One app row in the Apps list (A1). .R is a deviceAppRow, .Root the list's data. */}}
 {{define "dd-app-row"}}{{$p := .R}}{{$r := .Root}}{{$isUn := index $r.Uninstalling $p.PackageName}}
   <div class="app-row app-tile{{if .Sys}} sys{{end}}{{if $isUn}} app-uninstalling{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}"
-       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="{{if .Sys}}1{{else}}0{{end}}" data-use="{{$p.Use}}"{{with index $r.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
+       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="{{if .Sys}}1{{else}}0{{end}}"{{if inSet $r.RoleAppSet $p.PackageName}} data-roleapp="1"{{end}} data-use="{{$p.Use}}"{{with index $r.NuggetIDByPackage $p.PackageName}} data-aid="{{.}}"{{end}}
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}{{if $r.FollowSet}}{{with index $r.FollowSet $p.PackageName}}{{if .Package}} <span class="dd-fchip {{.State}}" title="{{.Title}}">follows {{.Channel}}</span>{{end}}{{end}}{{end}}<small class="apl-pkg">{{if $p.VersionName}}{{$p.VersionName}} · {{end}}{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
     <span class="apl-c apl-fig">{{$p.Fig}}</span><span class="apl-bar2" aria-hidden="true"><i style="width:{{$p.Pct}}%"></i></span>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
-    {{if and (not .Sys) (canOperate $r.Role) (not $isUn) (supports $r.Device "uninstall") (not $r.Restricted)}}
+    {{if and (not .Sys) (canOperate $r.Role) (not $isUn) (supports $r.Device "uninstall") (not $r.Restricted) (inSet $r.RoleAppSet $p.PackageName)}}
+    <div class="app-x-form" onclick="event.stopPropagation()"><span class="app-x app-x-lock" title="The role app can't be removed" aria-label="The role app can't be removed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></div>
+    {{else if and (not .Sys) (canOperate $r.Role) (not $isUn) (supports $r.Device "uninstall") (not $r.Restricted)}}
     <div class="app-x-form" onclick="event.stopPropagation()">
       <button type="button" class="app-x" title="Uninstall {{$p.PackageName}}" aria-label="Uninstall {{$p.PackageName}}" onclick="doUninstall(this.closest('.app-tile'))"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
     </div>
@@ -2111,6 +2087,24 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
 
 {{end}}
 
+{{/* A2 · On its way (17 Nov 2026): apps being added to or removed from this device that
+     aren't done yet: waiting for an offline device, downloading, couldn't install (Try
+     again), removing. Cancel forgets one. Gone when nothing is pending. app_wants_view.go */}}
+{{define "dd-wants"}}
+{{if .Wants}}<div class="dd-way" aria-label="On its way">
+  <div class="dd-way-h">On its way · {{len .Wants}}</div>
+  {{range .Wants}}<div class="dd-way-r">
+    <span class="dd-way-ic">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.Package}}">{{slice .Name 0 1}}</span>{{end}}</span>
+    <span class="dd-way-n"><b>{{.Name}}{{with .Channel}} · {{.}}{{end}}</b><small class="mono">{{.Package}}</small>{{if ge .Pct 0}}<span class="app-inst-bar"><i style="width:{{.Pct}}%"></i></span>{{end}}</span>
+    <span class="dd-way-st {{.State}}">{{.Text}}</span>
+    {{if canOperate $.Role}}<span class="dd-way-a">
+      {{if .CanRetry}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/retry" hx-vals='{"package":"{{.Package}}"}' hx-swap="none">Try again</button>{{end}}
+      {{if ne .State "installing"}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/cancel" hx-vals='{"package":"{{.Package}}"}' hx-swap="none" hx-confirm="{{if .Remove}}Keep {{.Name}} on this device?{{else}}Stop adding {{.Name}} to this device?{{end}}">Cancel</button>{{end}}
+    </span>{{end}}
+  </div>{{end}}
+</div>{{end}}
+{{end}}
+
 {{define "device-apps-list"}}
 <style>.app-tsub.aid{font-family:var(--mono);font-size:9.5px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}</style>
 {{/* While installs are in flight, self-poll the list every 2s so download/install
@@ -2119,7 +2113,7 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
      polling — once nothing is pending. */}}
 {{if .PendingInstalls}}<div id="apps-install-poller" hidden hx-get="/devices/{{.Device.SerialNumber}}/apps-list{{with .AppList}}?window={{.Window}}{{end}}" hx-target="#apps-live" hx-swap="innerHTML" hx-trigger="every 2s"></div>{{end}}
 {{$L := .AppList}}
-{{template "dd-follows" .}}
+{{template "dd-wants" .}}
 {{if or $L.User $L.System .PendingInstalls}}
 {{/* One ranked list (A1, 27 Oct 2026): a row per app with its icon, version and what it
      used in the window. Rows keep .app-row/.app-tile and their data- attributes, so the

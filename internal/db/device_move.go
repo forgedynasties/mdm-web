@@ -66,7 +66,7 @@ type moveTable struct {
 var moveTables = []moveTable{
 	{name: "device_config", col: "device_id"},
 	{name: "device_nicknames", col: "device_id"},
-	{name: "device_app_follows", col: "device_id"},
+	{name: "device_app_wants", col: "device_id"},
 	{name: "device_adb_key", col: "serial", bySerial: true},
 	{name: "hardware_serials", col: "serial_number", bySerial: true},
 }

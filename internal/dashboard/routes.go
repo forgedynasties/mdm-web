@@ -321,6 +321,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/placement", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DevicePlacementPost)))
 	post("POST /devices/{serial}/handover", h.requireAuth(h.deviceRoute("view", h.DeviceHandOverPost)))
 	post("POST /devices/{serial}/follows", h.requireAuth(h.deviceRoute("install_apk", h.DeviceFollow)))
+	// Apps added to / removed from a device (app_wants_view.go, 17 Nov 2026).
+	post("POST /devices/{serial}/apps/add", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppAdd)))
+	post("POST /devices/{serial}/apps/remove", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRemove)))
+	post("POST /devices/{serial}/apps/cancel", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppCancel)))
+	post("POST /devices/{serial}/apps/retry", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRetry)))
 	mux.HandleFunc("GET /my-visits", h.requireAuth(h.MyVisits))
 	mux.HandleFunc("GET /my-visits/enroll", h.requireAuth(h.EnrollGuide))
 	mux.HandleFunc("GET /visits", h.requireAuth(h.SetupHome))
