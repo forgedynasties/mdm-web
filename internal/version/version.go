@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.2",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"Models: the rail is a search and the list, no filters; picking a model changes only its pane, so the rail keeps its place.",
+		},
+	},
+	{
 		Version: "1.64.1",
 		Date:    "2026-11-17",
 		Changes: []string{

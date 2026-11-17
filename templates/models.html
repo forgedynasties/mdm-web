@@ -10,13 +10,6 @@
   <span class="isl-acts"><a class="cc-btn" href="/lineup?view=runs">Factory runs</a></span>
 </template>
 <style>
-  /* F1 (17 Nov 2026): one switch, then the two views as rows, like the other rails. */
-  .md-sw{display:flex;background:var(--surface-3);border-radius:99px;padding:3px;gap:2px;margin:2px 4px 6px}
-  .md-sw button{flex:1;border:0;background:none;color:var(--text);font:inherit;font-size:12.5px;padding:5px 0;border-radius:99px;cursor:pointer}
-  .md-sw button[aria-pressed="true"]{background:var(--surface);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-  .md-vw[aria-pressed="true"]{background:var(--surface-3)}
-  .md-it.md-off{display:none!important}
-  .md-sep{height:1px;background:var(--border-soft);margin:6px 8px}
   .md-it .nm{display:flex;flex-direction:column;min-width:0}.md-it .nm>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .md-it .nm small{color:var(--muted);font-size:11.5px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* A1: the kind is the first word of the second line, in its colour. */
@@ -50,22 +43,13 @@
 <div class="cl-page">
 <div class="cc-top"><div><h1 class="cc-h1">Models</h1></div></div>
 <div class="fleet-md dv-rise-1">
-  <aside class="fleet-rail" aria-label="Models">
-    <div class="fleet-rail-cap"><span>Models</span></div>
-    <div class="md-sw" role="group" aria-label="Kind">
-      <button type="button" data-mdk="" aria-pressed="true">All</button>
-      <button type="button" data-mdk="fw" aria-pressed="false">Firmware</button>
-      <button type="button" data-mdk="st" aria-pressed="false">Standard</button>
-    </div>
-    {{if .NeedsN}}<button type="button" class="fleet-rail-item md-vw" data-mdv="none" aria-pressed="false"><span class="dot warn"></span><span class="nm">Needs a role</span><span class="ct">{{.NeedsN}}</span></button>{{end}}
-    {{if .SeveralN}}<button type="button" class="fleet-rail-item md-vw" data-mdv="several" aria-pressed="false"><span class="dot muted"></span><span class="nm">Several roles</span><span class="ct">{{.SeveralN}}</span></button>{{end}}
-    {{if or .NeedsN .SeveralN}}<div class="md-sep"></div>{{end}}
-    {{range .Models}}<a class="fleet-rail-item md-it{{if and $p (eq .Key $p.M.Key)}} on{{end}}" href="/models?model={{.Key}}" data-kind="{{if .Firmware}}fw{{else}}st{{end}}" data-nroles="{{len .Roles}}"{{if and $p (eq .Key $p.M.Key)}} aria-current="page"{{end}}>
+  <aside class="fleet-rail" aria-label="Models" data-rail-search="Search models">
+    {{range .Models}}<a class="fleet-rail-item md-it{{if and $p (eq .Key $p.M.Key)}} on{{end}}" href="/models?model={{.Key}}" hx-get="/models?model={{.Key}}" hx-select="#md-pane" hx-target="#md-pane" hx-swap="outerHTML" hx-push-url="true" data-kind="{{if .Firmware}}fw{{else}}st{{end}}" data-nroles="{{len .Roles}}"{{if and $p (eq .Key $p.M.Key)}} aria-current="page"{{end}}>
       <span class="dot {{if not .Roles}}warn{{else if .Online}}ok{{else}}muted{{end}}"></span>
       <span class="nm"><span>{{.Label}}</span><small><span class="md-kd {{if .Firmware}}fw{{else}}st{{end}}">{{.Kind}}</span> · {{if .Roles}}{{.RoleText}}{{else}}<span class="md-warn">Needs a role</span>{{end}}</small></span>
       <span class="ct">{{.Devices}}</span></a>{{end}}
   </aside>
-  <div class="fleet-roster">
+  <div class="fleet-roster" id="md-pane">
   {{with $p}}{{$m := .M}}
     <div class="cc-card md-card">
       <div class="md-head">
@@ -127,32 +111,19 @@
 </div>
 <script>
 (function () {
-  // F1: the kind switch and the two view rows filter the rail together.
-  var rail = document.querySelector('.fleet-rail'); if (!rail) return;
-  var kind = '', view = '';
-  function apply() {
-    rail.querySelectorAll('.md-it').forEach(function (it) {
-      var n = +it.dataset.nroles;
-      // A class, not hidden: the rail's search (rail-search.js) toggles hidden on its own.
-      it.classList.toggle('md-off', !!((kind && it.dataset.kind !== kind) || (view === 'none' && n !== 0) || (view === 'several' && n < 2)));
-    });
-  }
-  rail.querySelectorAll('[data-mdk]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      kind = b.dataset.mdk;
-      rail.querySelectorAll('[data-mdk]').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
-      apply();
-    });
+  // A rail click swaps only the pane (hx-select #md-pane): mark the picked row here.
+  var rail = document.querySelector('.fleet-rail');
+  if (rail) rail.addEventListener('click', function (e) {
+    var it = e.target.closest('.md-it'); if (!it) return;
+    rail.querySelectorAll('.md-it.on').forEach(function (x) { x.classList.remove('on'); x.removeAttribute('aria-current'); });
+    it.classList.add('on'); it.setAttribute('aria-current', 'page');
   });
-  rail.querySelectorAll('[data-mdv]').forEach(function (b) {
-    b.addEventListener('click', function () {
-      view = view === b.dataset.mdv ? '' : b.dataset.mdv;
-      rail.querySelectorAll('[data-mdv]').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.mdv === view ? 'true' : 'false'); });
-      apply();
-    });
-  });
+  document.body.addEventListener('htmx:afterSettle', function () { wireRoles(); });
+  wireRoles();
+  function wireRoles() {
   // The role form: one role picks one chip; several needs two; the note says what changes.
-  var f = document.querySelector('[data-md-roles]'); if (!f) return;
+  var f = document.querySelector('[data-md-roles]'); if (!f || f.dataset.wired) return;
+  f.dataset.wired = '1';
   var say = f.querySelector('[data-md-say]'), save = f.querySelector('[data-md-save]');
   var moving = {}; try { moving = JSON.parse(f.dataset.moving || '{}'); } catch (e) {}
   var start = new FormData(f), startKey = JSON.stringify(Array.from(start.entries()));
@@ -187,6 +158,7 @@
     }
   });
   update(null);
+  }
 })();
 </script>
 {{template "footer" .}}
