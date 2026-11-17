@@ -32,6 +32,15 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.0",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"Models replaces Lineup's product list: every model in one list, biggest first, each tagged Firmware or Standard with its roles; chips show Firmware, Standard, Needs a role or Several roles. A model's page has its role setting, its devices by role, its MDM client, its roles' apps and, for our own boards, firmware with Promote.",
+			"A Standard model has one role (every device of it is that role; AIO Enroll doesn't ask) or several (AIO Enroll asks which). A super admin or an Ops lead changes it; switching to one role says how many devices change first.",
+			"A device picks its role only among its model's roles, on its page; a model with one role wins over a role set on a single device before. Role… left the right-click menu.",
+		},
+	},
+	{
 		Version: "1.63.1",
 		Date:    "2026-11-17",
 		Changes: []string{

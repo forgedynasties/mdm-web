@@ -444,6 +444,18 @@ func (h *Handler) pipelineModels(ctx context.Context, role string, devices []db.
 }
 
 func (h *Handler) pipelineBack(w http.ResponseWriter, r *http.Request, role, flash string) {
+	// Forms on Models (17 Nov 2026) come back to the model they were sent from.
+	if b := r.FormValue("back"); strings.HasPrefix(b, "/models") && !strings.Contains(b, "//") {
+		if flash != "" {
+			sep := "?"
+			if strings.Contains(b, "?") {
+				sep = "&"
+			}
+			b += sep + "flash=" + url.QueryEscape(flash)
+		}
+		http.Redirect(w, r, b, http.StatusSeeOther)
+		return
+	}
 	q := url.Values{}
 	if role != "" {
 		q.Set("role", role)
