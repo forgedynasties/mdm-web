@@ -40,7 +40,8 @@
   function setup(rail) {
     rail._railSearch = true;
     var rows = Array.prototype.slice.call(rail.querySelectorAll('.fleet-rail-item'));
-    if (rows.length <= LONG) return;
+    // data-rail-search: always a search, whatever the length (Models), its value the placeholder.
+    if (rows.length <= LONG && !rail.hasAttribute('data-rail-search')) return;
     var tabs = rail.querySelector(':scope > .rail-tabs');
 
     var box = document.createElement('div');
@@ -60,7 +61,7 @@
 
     function label() {
       var t = tabs && tabs.dataset.tab;
-      var ph = t ? 'Search ' + t : 'Search this list';
+      var ph = t ? 'Search ' + t : (rail.getAttribute('data-rail-search') || 'Search this list');
       input.placeholder = ph;
       input.setAttribute('aria-label', ph);
     }
