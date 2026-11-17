@@ -16,10 +16,12 @@
       elt.classList.add('on'); elt.setAttribute('aria-current', 'page');
     }
     var t = targetOf(elt);
-    if (t) { t.classList.add('pane-loading'); t.setAttribute('aria-busy', 'true'); }
+    // Only once it is clearly not instant (a prefetched view swaps in at once: no flicker).
+    if (t) elt._plT = setTimeout(function () { t.classList.add('pane-loading'); t.setAttribute('aria-busy', 'true'); }, 120);
   });
   function done(e) {
     var elt = e.detail && e.detail.elt; if (!elt || !elt.getAttribute) return;
+    clearTimeout(elt._plT);
     var t = targetOf(elt);
     if (t) { t.classList.remove('pane-loading'); t.removeAttribute('aria-busy'); }
     document.querySelectorAll('.pane-loading').forEach(function (x) { if (!x.isConnected || x === t) x.classList.remove('pane-loading'); });
