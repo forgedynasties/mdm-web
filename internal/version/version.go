@@ -32,6 +32,19 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.63.0",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"Apps: Install app is now Add app. The app is added to the device and installs its newest build whenever the device is online, so an offline device gets it when it's back instead of losing it after an hour. If it disappears later, it's put back. Versions aren't tracked after that: AIO apps update themselves.",
+			"Apps: the Apps tab has an \"On its way\" box for apps still being added or removed: waiting for the device, downloading, couldn't install (with Try again), removing. Cancel takes one back.",
+			"Apps: Remove keeps an app off the device. The role app can't be removed. A successful uninstall takes the app off the device's list at once.",
+			"Apps: Add app works on many devices at once: from ticked Fleet rows, the right-click menu, and a group's or a venue's ⋯ menu. Offline devices get it when they're back.",
+			"Apps: follows are now added apps, and Lineup's auto-upgrade switches are gone; the role app is still installed where it's missing.",
+			"Reboot needs the device online. Pressed on an offline device, a prompt says so and nothing is sent; on several devices, the offline ones are skipped and named. A reboot that never restarted the device reads \"sent · didn't restart\" after 15 minutes.",
+			"A Wi-Fi change made on one device's page, and lost mode, wait a week for an offline device instead of expiring after an hour.",
+		},
+	},
+	{
 		Version: "1.62.9",
 		Date:    "2026-11-17",
 		Changes: []string{

@@ -48,11 +48,11 @@ func (h *Handler) deviceWantsView(ctx context.Context, d *db.Device) []wantRow {
 	var out []wantRow
 	for _, w := range ws {
 		r := wantRow{Package: w.Package, Name: w.Package, Remove: w.Want == db.WantAbsent, Pct: -1}
-		lib := ""
+		inLib := false
 		for _, fam := range fams {
 			for _, vr := range fam.Variants {
 				if vr.Package == w.Package {
-					r.Name, r.Icon, lib = fam.Name, fam.Icon, vr.Latest.VersionName
+					r.Name, r.Icon, inLib = fam.Name, fam.Icon, vr.Latest.ApkURL != ""
 					if len(fam.Variants) > 1 && vr.Label != "prod" {
 						r.Channel = channelName(vr.Label)
 					}
@@ -89,7 +89,7 @@ func (h *Handler) deviceWantsView(ctx context.Context, d *db.Device) []wantRow {
 				r.Pct = p.Percent
 				r.Text = fmt.Sprintf("Downloading · %d %%", p.Percent)
 			}
-		case lib == "":
+		case !inLib:
 			r.State, r.Text = "nolib", "No build of it in the library"
 		case failed && (f.Count >= 3 || online):
 			r.State, r.CanRetry = "failed", true
