@@ -240,4 +240,20 @@ func TestDeviceMoveJob(t *testing.T) {
 	if m := get("JM-STD"); m.State != db.MoveCameBack {
 		t.Errorf("JM-STD: %+v", m)
 	}
+
+	// Move it now: the firmware device at the open venue goes without waiting for closing.
+	if m := get("JM-FW-OPEN"); m.State != db.MovePending {
+		t.Fatalf("JM-FW-OPEN before: %+v", m)
+	}
+	pool.Exec(ctx, `UPDATE devices SET last_seen_at = NOW() WHERE serial_number = 'JM-FW-OPEN'`)
+	if ok, err := d.MoveNow(ctx, "JM-FW-OPEN"); err != nil || !ok {
+		t.Fatalf("move now: %v %v", ok, err)
+	}
+	h.RunDeviceMoves(ctx)
+	if m := get("JM-FW-OPEN"); m.State != db.MoveSent {
+		t.Errorf("moved now: %+v", m)
+	}
+	if got := cmdTypes("JM-FW-OPEN"); len(got) != 2 || got[0] != "shell" || got[1] != "reboot" {
+		t.Errorf("moved now, commands = %v", got)
+	}
 }

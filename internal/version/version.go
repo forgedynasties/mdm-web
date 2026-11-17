@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.63.1",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"Admin: a device's move to mdm.aioapp.com can be sent now (?now=1), so a firmware device at an open venue moves without waiting for closing time; it reboots into the move.",
+		},
+	},
+	{
 		Version: "1.63.0",
 		Date:    "2026-11-17",
 		Changes: []string{

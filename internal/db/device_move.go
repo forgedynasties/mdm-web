@@ -40,6 +40,9 @@ CREATE TABLE IF NOT EXISTS device_moves (
 	arrived_at    TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_device_moves_state ON device_moves(state);
+-- "Move it now" (17 Nov 2026): a firmware device at a venue goes without waiting for the
+-- venue to close (it reboots into the move).
+ALTER TABLE device_moves ADD COLUMN IF NOT EXISTS send_now BOOLEAN NOT NULL DEFAULT false;
 `
 
 // Move states.
@@ -320,6 +323,7 @@ type DeviceMove struct {
 	SentAt     *time.Time `json:"sent_at,omitempty"`
 	ArrivedAt  *time.Time `json:"arrived_at,omitempty"`
 	CommandID  *uuid.UUID `json:"command_id,omitempty"`
+	SendNow    bool       `json:"send_now,omitempty"`
 	// From the device row.
 	DeviceID   uuid.UUID  `json:"device_id"`
 	Kind       string     `json:"agent_kind"`
@@ -333,13 +337,13 @@ type DeviceMove struct {
 func (m DeviceMove) Token() string { return m.token }
 
 const deviceMoveCols = `m.serial_number, m.target, m.state, m.note, m.attempts, m.created_by, m.created_at,
-	m.updated_at, m.imported_at, m.sent_at, m.arrived_at, m.command_id, m.enroll_token,
+	m.updated_at, m.imported_at, m.sent_at, m.arrived_at, m.command_id, m.send_now, m.enroll_token,
 	dv.id, dv.agent_kind, dv.restaurant_id, COALESCE(r.name, ''), dv.last_seen_at`
 
 func scanDeviceMove(row interface{ Scan(...any) error }) (DeviceMove, error) {
 	var m DeviceMove
 	err := row.Scan(&m.Serial, &m.Target, &m.State, &m.Note, &m.Attempts, &m.CreatedBy, &m.CreatedAt,
-		&m.UpdatedAt, &m.ImportedAt, &m.SentAt, &m.ArrivedAt, &m.CommandID, &m.token,
+		&m.UpdatedAt, &m.ImportedAt, &m.SentAt, &m.ArrivedAt, &m.CommandID, &m.SendNow, &m.token,
 		&m.DeviceID, &m.Kind, &m.VenueID, &m.Venue, &m.LastSeenAt)
 	return m, err
 }
@@ -397,7 +401,7 @@ func (d *DB) PutDeviceMove(ctx context.Context, serial, target, token, by string
 		   SET target = EXCLUDED.target, state = 'pending', enroll_token = EXCLUDED.enroll_token,
 		       created_by = EXCLUDED.created_by, created_at = NOW(), updated_at = NOW(),
 		       imported_at = NOW(), sent_at = NULL, arrived_at = NULL, command_id = NULL,
-		       note = '', attempts = 0
+		       note = '', attempts = 0, send_now = false
 		 WHERE device_moves.state NOT IN ('sent', 'arrived')`, serial, target, token, by)
 	if err != nil {
 		return false, err
@@ -477,4 +481,14 @@ func (d *DB) VenueDeviceSerials(ctx context.Context, venue uuid.UUID) ([]string,
 		out = append(out, s)
 	}
 	return out, rows.Err()
+}
+
+// MoveNow lets a pending move go as soon as the device is online, even a firmware device at
+// a venue that is open. Reports whether a pending move was there.
+func (d *DB) MoveNow(ctx context.Context, serial string) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `UPDATE device_moves SET send_now = true, updated_at = NOW() WHERE serial_number = $1 AND state = 'pending'`, serial)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
 }
