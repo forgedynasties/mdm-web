@@ -4578,7 +4578,7 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 /* ════════════════════════════════════════════════════════
    FLEET page · master–detail (L-A) — collections rail + roster
    ════════════════════════════════════════════════════════ */
-.fleet-md { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 20px; align-items: start; }
+.fleet-md { display: grid; grid-template-columns: 302px minmax(0, 1fr); gap: 20px; align-items: start; }
 .fleet-rail { position: sticky; top: 16px; background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 10px 8px; max-height: calc(100vh - 32px); overflow-y: auto; }
 .fleet-rail-cap { display: flex; align-items: center; gap: 6px; margin: 15px 8px 5px; font-size: 10px;
@@ -6578,7 +6578,7 @@ a.hl-row:hover { background: var(--hover); }
 
 /* Fleet nav skeleton: mirrors .fleet-md (collections rail + roster). */
 .skel-w80{width:80%;}
-.skel-fleet-grid{display:grid;grid-template-columns:232px minmax(0,1fr);gap:20px;align-items:start;}
+.skel-fleet-grid{display:grid;grid-template-columns:302px minmax(0,1fr);gap:20px;align-items:start;}
 .skel-fleet-rail{padding:16px 16px 20px;}
 .skel-fleet-roster{min-width:0;}
 .skel-fleet-views{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap;}
