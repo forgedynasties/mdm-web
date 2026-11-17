@@ -207,4 +207,37 @@ func TestDeviceMoveJob(t *testing.T) {
 	if custody != "" {
 		t.Errorf("a failed move keeps custody %q", custody)
 	}
+
+	// Offline when the move went out, it collects it 13 minutes later: its acknowledgement
+	// is heard here then, which is not coming back (ADRB0AAK600022, 16 Nov 2026).
+	add("JM-LATE", "dpc", open.ID, "1 minute")
+	if res := h.startMove(ctx, prod.URL, "JM-LATE", "test"); res.Error != "" {
+		t.Fatal(res.Error)
+	}
+	h.RunDeviceMoves(ctx)
+	late := get("JM-LATE")
+	if late.State != db.MoveSent {
+		t.Fatalf("late: %+v", late)
+	}
+	pool.Exec(ctx, `UPDATE device_moves SET sent_at = NOW() - interval '20 minutes' WHERE serial_number = 'JM-LATE'`)
+	pool.Exec(ctx, `INSERT INTO command_status (command_id, device_id, status, updated_at) VALUES ($1, $2, 'completed', NOW() - interval '10 seconds')`, *late.CommandID, late.DeviceID)
+	pool.Exec(ctx, `UPDATE devices SET last_seen_at = NOW() - interval '7 seconds' WHERE serial_number = 'JM-LATE'`)
+	h.RunDeviceMoves(ctx)
+	if m := get("JM-LATE"); m.State != db.MoveSent {
+		t.Errorf("a late acknowledgement was taken for coming back: %+v", m)
+	}
+
+	// Filed as came back, then the target hears from it more recently than this server: arrived.
+	pool.Exec(ctx, `UPDATE device_moves SET state = 'came_back' WHERE serial_number = 'JM-LATE'`)
+	mu.Lock()
+	seenThere["JM-LATE"] = time.Now().Add(-2 * time.Second)
+	mu.Unlock()
+	h.RunDeviceMoves(ctx)
+	if m := get("JM-LATE"); m.State != db.MoveArrived {
+		t.Errorf("a came-back device the target hears from now: %+v", m)
+	}
+	// One really back here stays so: the target last heard from it before this server did.
+	if m := get("JM-STD"); m.State != db.MoveCameBack {
+		t.Errorf("JM-STD: %+v", m)
+	}
 }

@@ -341,7 +341,7 @@ func (h *Handler) RunDeviceMoves(ctx context.Context) {
 	if target == "" {
 		return
 	}
-	moves, err := h.db.ListDeviceMoves(ctx, []string{db.MovePending, db.MoveSent, db.MoveArrived}, nil)
+	moves, err := h.db.ListDeviceMoves(ctx, []string{db.MovePending, db.MoveSent, db.MoveArrived, db.MoveCameBack}, nil)
 	if err != nil {
 		log.Printf("[move] list: %v", err)
 		return
@@ -365,6 +365,14 @@ func (h *Handler) RunDeviceMoves(ctx context.Context) {
 			if m.LastSeenAt != nil && m.ArrivedAt != nil && m.LastSeenAt.After(m.ArrivedAt.Add(moveCameBackGap)) {
 				log.Printf("[move] %s checks in here again after arriving on %s", m.Serial, m.Target)
 				_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveCameBack, "checked in here again after it arrived", nil)
+			}
+		case db.MoveCameBack:
+			// Taken for back too early (or back, then gone again): once the target has heard
+			// from it more recently than this server has, it is there.
+			if m.SentAt != nil && m.LastSeenAt != nil {
+				if at := h.seenOnTarget(ctx, m); at != nil && at.After(*m.LastSeenAt) {
+					h.markArrived(ctx, m, *at)
+				}
 			}
 		}
 	}
@@ -443,30 +451,45 @@ func (h *Handler) sendMove(ctx context.Context, m db.DeviceMove) bool {
 	return true
 }
 
+// seenOnTarget is the device's last check-in on the target, or nil.
+func (h *Handler) seenOnTarget(ctx context.Context, m db.DeviceMove) *time.Time {
+	var there struct {
+		Device struct {
+			LastSeenAt *time.Time `json:"last_seen_at"`
+		} `json:"device"`
+	}
+	if err := h.moveCall(ctx, http.MethodGet, m.Target, "/api/v1/devices/"+m.Serial, nil, &there); err != nil {
+		return nil
+	}
+	return there.Device.LastSeenAt
+}
+
+func (h *Handler) markArrived(ctx context.Context, m db.DeviceMove, at time.Time) {
+	_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveArrived, "checked in on "+m.Target, nil)
+	if _, err := h.db.SetDeviceCustody(ctx, m.DeviceID, "prod", m.Target, at, db.CustodyMigrate); err != nil {
+		log.Printf("[move] %s: custody: %v", m.Serial, err)
+	}
+	_, _ = h.db.CancelPendingForCustody(ctx, m.DeviceID)
+	_ = h.db.InsertAudit(ctx, "device move", "device.move_arrived", m.Serial, m.Target)
+	log.Printf("[move] %s arrived on %s", m.Serial, m.Target)
+}
+
 // followMove checks a sent move: arrived on the target, failed on the device, back here,
 // or never delivered (pending again).
 func (h *Handler) followMove(ctx context.Context, m db.DeviceMove) {
 	if m.SentAt == nil {
 		return
 	}
-	var there struct {
-		Device struct {
-			LastSeenAt *time.Time `json:"last_seen_at"`
-		} `json:"device"`
-	}
-	if err := h.moveCall(ctx, http.MethodGet, m.Target, "/api/v1/devices/"+m.Serial, nil, &there); err == nil &&
-		there.Device.LastSeenAt != nil && there.Device.LastSeenAt.After(*m.SentAt) {
-		_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveArrived, "checked in on "+m.Target, nil)
-		if _, err := h.db.SetDeviceCustody(ctx, m.DeviceID, "prod", m.Target, *there.Device.LastSeenAt, db.CustodyMigrate); err != nil {
-			log.Printf("[move] %s: custody: %v", m.Serial, err)
-		}
-		_, _ = h.db.CancelPendingForCustody(ctx, m.DeviceID)
-		_ = h.db.InsertAudit(ctx, "device move", "device.move_arrived", m.Serial, m.Target)
-		log.Printf("[move] %s arrived on %s", m.Serial, m.Target)
+	if at := h.seenOnTarget(ctx, m); at != nil && at.After(*m.SentAt) {
+		h.markArrived(ctx, m, *at)
 		return
 	}
+	// When the device left: its acknowledgement of the move, else the send. A device offline
+	// when the move went out collects it later, and its acknowledgement is heard here then
+	// (16 Nov 2026: ADRB0AAK600022 took it 13 minutes late and was taken for back).
+	left := *m.SentAt
 	if m.CommandID != nil {
-		status, out, err := h.db.MoveCommandStatus(ctx, *m.CommandID, m.DeviceID)
+		status, out, at, err := h.db.MoveCommandStatus(ctx, *m.CommandID, m.DeviceID)
 		switch {
 		case err != nil:
 		case status == "failed":
@@ -478,9 +501,11 @@ func (h *Handler) followMove(ctx context.Context, m db.DeviceMove) {
 			_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MovePending, "the move was never delivered, trying again", nil)
 			_ = h.db.ClearDeviceCustody(ctx, m.DeviceID)
 			return
+		case status != "" && at.After(left):
+			left = at
 		}
 	}
-	if m.LastSeenAt != nil && m.LastSeenAt.After(m.SentAt.Add(moveCameBackGap)) {
+	if m.LastSeenAt != nil && m.LastSeenAt.After(left.Add(moveCameBackGap)) {
 		why := "still checks in here after the move"
 		if m.Kind == "firmware" {
 			why += " (its client may not read the server setting)"

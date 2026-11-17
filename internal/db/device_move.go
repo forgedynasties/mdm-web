@@ -444,16 +444,17 @@ func (d *DB) CancelDeviceMove(ctx context.Context, serial string) (bool, error) 
 }
 
 // MoveCommandStatus is the move command's delivery to the device: its status ("" = not
-// delivered yet) and output.
-func (d *DB) MoveCommandStatus(ctx context.Context, cmd, device uuid.UUID) (status, output string, err error) {
+// delivered yet), output, and when the device last reported on it (its acknowledgement).
+func (d *DB) MoveCommandStatus(ctx context.Context, cmd, device uuid.UUID) (status, output string, at time.Time, err error) {
 	err = d.pool.QueryRow(ctx, `
-		SELECT cs.status, COALESCE((SELECT output FROM command_results cr WHERE cr.command_id = cs.command_id AND cr.device_id = cs.device_id), '')
+		SELECT cs.status, COALESCE((SELECT output FROM command_results cr WHERE cr.command_id = cs.command_id AND cr.device_id = cs.device_id), ''),
+		       cs.updated_at
 		  FROM command_status cs WHERE cs.command_id = $1 AND cs.device_id = $2`,
-		cmd, device).Scan(&status, &output)
+		cmd, device).Scan(&status, &output, &at)
 	if err == pgx.ErrNoRows {
-		return "", "", nil
+		return "", "", time.Time{}, nil
 	}
-	return status, output, err
+	return status, output, at, err
 }
 
 // VenueDeviceSerials lists the serials of a venue's devices still in the fleet.
