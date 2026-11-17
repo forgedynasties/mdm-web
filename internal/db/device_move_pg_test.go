@@ -74,7 +74,7 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 	src.pool.Exec(ctx, `UPDATE devices SET handed_over_at = NULL, handed_over_by = '' WHERE id = $1`, std)
 	src.pool.Exec(ctx, `INSERT INTO device_config (device_id, kiosk_enabled, kiosk_package, screen_brightness) VALUES ($1, true, 'aio.app.nugget', 122)`, fw)
 	src.pool.Exec(ctx, `INSERT INTO device_nicknames (device_id, name) VALUES ($1, 'Table 4')`, fw)
-	src.pool.Exec(ctx, `INSERT INTO device_app_follows (device_id, package, created_by) VALUES ($1, 'aio.app.kds.uatv2', 'qa')`, std)
+	src.pool.Exec(ctx, `INSERT INTO device_app_wants (device_id, package, created_by) VALUES ($1, 'aio.app.kds.uatv2', 'qa')`, std)
 	src.pool.Exec(ctx, `INSERT INTO hardware_serials (hardware_serial, serial_number) VALUES ('HW-1', 'MV-STD')`)
 	src.pool.Exec(ctx, `INSERT INTO device_adb_key (serial, label) VALUES ('MV-STD', 'adbkey-1')`)
 	t.Cleanup(func() {
@@ -161,7 +161,7 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 		t.Errorf("profile venue %v max %d, want the device's venue and 1", profVenue, maxE)
 	}
 	var follows, hw, adb int
-	dst.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM device_app_follows f JOIN devices d ON d.id = f.device_id WHERE d.serial_number = 'MV-STD'),
+	dst.pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM device_app_wants f JOIN devices d ON d.id = f.device_id WHERE d.serial_number = 'MV-STD'),
 		(SELECT count(*) FROM hardware_serials WHERE serial_number = 'MV-STD'), (SELECT count(*) FROM device_adb_key WHERE serial = 'MV-STD')`).Scan(&follows, &hw, &adb)
 	if follows != 1 || hw != 1 || adb != 1 {
 		t.Errorf("follows %d, hardware serials %d, adb keys %d", follows, hw, adb)
@@ -170,7 +170,7 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 	// Again (just before the move goes): the same profile, one more enrolment, the follow
 	// list replaced, not doubled.
 	dst.pool.Exec(ctx, `UPDATE enrollment_profiles SET enroll_count = 1 WHERE token = $1`, first)
-	src.pool.Exec(ctx, `INSERT INTO device_app_follows (device_id, package) VALUES ($1, 'aio.app.kds.stagev2')`, std)
+	src.pool.Exec(ctx, `INSERT INTO device_app_wants (device_id, package) VALUES ($1, 'aio.app.kds.stagev2')`, std)
 	res, err = move("MV-STD")
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestDeviceMoveBetweenServers(t *testing.T) {
 		t.Errorf("second import: created %v token %q, want the first token", res.Created, res.EnrollToken)
 	}
 	dst.pool.QueryRow(ctx, `SELECT max_enrolls FROM enrollment_profiles WHERE token = $1`, first).Scan(&maxE)
-	dst.pool.QueryRow(ctx, `SELECT count(*) FROM device_app_follows f JOIN devices d ON d.id = f.device_id WHERE d.serial_number = 'MV-STD'`).Scan(&follows)
+	dst.pool.QueryRow(ctx, `SELECT count(*) FROM device_app_wants f JOIN devices d ON d.id = f.device_id WHERE d.serial_number = 'MV-STD'`).Scan(&follows)
 	if maxE != 2 || follows != 2 {
 		t.Errorf("max_enrolls %d follows %d, want 2 and 2", maxE, follows)
 	}

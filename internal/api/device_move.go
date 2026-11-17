@@ -25,7 +25,8 @@ import (
 // On mdm.dev (the server the fleet is on):
 //
 //	GET  /api/v1/admin/move/devices/{serial}         the device's bundle
-//	POST /api/v1/admin/move/devices/{serial}         import it on prod now, then move it when it can
+//	POST /api/v1/admin/move/devices/{serial}[?now=1] import it on prod now, then move it when it can
+//	                                                 (now=1: a firmware device at an open venue too)
 //	POST /api/v1/admin/move/venues/{id}[?only=dpc|firmware]   the same for every device at a venue
 //	POST /api/v1/admin/move/devices/{serial}/cancel  a move not under way
 //	GET  /api/v1/admin/move/status[?state=&venue=]   every move and where it is
@@ -232,10 +233,17 @@ func (h *Handler) MoveDevice(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	res := h.startMove(r.Context(), target, r.PathValue("serial"), "admin API")
+	serial := r.PathValue("serial")
+	res := h.startMove(r.Context(), target, serial, "admin API")
 	status := http.StatusOK
 	if res.Error != "" {
 		status = http.StatusConflict
+	} else if r.URL.Query().Get("now") == "1" {
+		// Move it now: no waiting for the venue to close (a firmware device reboots).
+		if ok, err := h.db.MoveNow(r.Context(), serial); err == nil && ok {
+			_ = h.db.InsertAudit(r.Context(), "admin API", "device.move_now", serial, target)
+			res.State = db.MovePending + " · now"
+		}
 	}
 	writeJSON(w, status, res)
 }
@@ -383,7 +391,7 @@ func (h *Handler) moveWait(ctx context.Context, m db.DeviceMove) string {
 	if m.LastSeenAt == nil || time.Since(*m.LastSeenAt) > moveOnlineWithin {
 		return "waiting for it to come online"
 	}
-	if m.Kind != "firmware" || m.VenueID == nil {
+	if m.Kind != "firmware" || m.VenueID == nil || m.SendNow {
 		return ""
 	}
 	// A firmware device reboots into the move: at a venue, only while the venue is closed.

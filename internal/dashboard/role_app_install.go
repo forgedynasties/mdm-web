@@ -67,9 +67,12 @@ func (h *Handler) roleAppInstallBases(ctx context.Context) (bases map[string]str
 	}
 	bases, install, upgrade = map[string]string{}, map[string]bool{}, map[string]bool{}
 	for _, a := range apps {
-		if a.BasePackage != "" && (a.AutoInstall || a.AutoUpgrade) {
+		// No upgrades since 17 Nov 2026 (user: "we can stop version tracking since all aio
+		// apps have auto updates"): a missing prod app is installed, a present one is left
+		// to update itself. role_apps.auto_upgrade is kept, unused.
+		if a.BasePackage != "" && a.AutoInstall {
 			bases[a.Role] = a.BasePackage
-			install[a.Role], upgrade[a.Role] = a.AutoInstall, a.AutoUpgrade
+			install[a.Role], upgrade[a.Role] = true, false
 		}
 	}
 	return bases, install, upgrade
@@ -204,11 +207,15 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 		return
 	}
 	target := deviceTargets(devices, bases, venueCh)
-	// A device that follows channel builds (app_follows.go: a QA tablet) chose its apps
-	// itself: no prod app is pushed onto it.
-	if follows, err := h.db.AllFollows(ctx); err == nil {
-		for id := range follows {
-			delete(target, id)
+	// A device someone gave another channel of its role app (Add app: a QA tablet on UAT)
+	// keeps what it was given: the prod app is not pushed onto it.
+	if all, err := h.db.AllAppWants(ctx); err == nil {
+		chosen := chosenChannelOf(all)
+		for i := range devices {
+			d := &devices[i]
+			if t, ok := target[d.ID]; ok && choseOtherChannel(chosen[d.ID], bases[d.Class()], t) {
+				delete(target, d.ID)
+			}
 		}
 	}
 	want := map[string]bool{}

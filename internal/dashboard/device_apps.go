@@ -169,6 +169,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	apps, _ := h.db.ListApps(r.Context())
 	apkPkg, _ := h.db.GetApkPackageMap(r.Context(), nil)
 	follows := h.deviceFollowsView(r.Context(), device)
+	wants := h.deviceWantsView(r.Context(), device)
 	h.tmpl.ExecuteTemplate(w, "device-apps-list", map[string]any{
 		"Device": device,
 		"Role":   h.pageRole(r),
@@ -177,8 +178,10 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 		// checks against the FULL list so a non-launchable install isn't re-shown.
 		"InstalledPackages": launchableOnly(installedPkgs),
 		"NuggetIDByPackage": nuggetIDByPackage(device.LatestExtra),
-		"PendingInstalls":   pendingInstallRows(commands, apps, installedPkgs, apkPkg),
+		"PendingInstalls":   dropWantRows(pendingInstallRows(commands, apps, installedPkgs, apkPkg), apps, apkPkg, wantsBusy(wants)),
 		"Uninstalling":      pendingUninstallPkgs(commands),
+		"Wants":             wants,
+		"RoleAppSet":        h.roleAppPackages(r.Context(), device),
 		"Follows":           follows,
 		"FollowSet":         followSet(follows),
 	})

@@ -1,0 +1,45 @@
+{{/* Add app on many devices (D1, 17 Nov 2026): rendered by GET /apps/add-to and opened by
+     add-app.js from the right-click menu, a group or a venue. Apps on the left, the picked
+     app's channels on the right, a footer saying what happens. app_wants_bulk.go */}}
+{{define "add-app-dialog"}}
+<div class="modal-backdrop modal-open aa-dlg" id="add-app-dlg" data-q="{{.Target.Query}}" data-n="{{.N}}" data-online="{{.Online}}" data-offline="{{.Offline}}">
+<style>
+  .aa-dlg .modal-box{max-width:820px;width:calc(100vw - 32px);padding:0;overflow:hidden}
+  .aa-h{padding:16px 20px 8px}.aa-h b{font-size:17px;display:block}.aa-h small{color:var(--muted)}
+  .aa-b{display:grid;grid-template-columns:260px 1fr;border-top:1px solid var(--border-soft);min-height:300px;max-height:60vh}
+  .aa-l{border-right:1px solid var(--border-soft);overflow:auto;padding:8px}
+  .aa-l input{width:100%;box-sizing:border-box;margin-bottom:6px}
+  .aa-app{display:flex;gap:10px;align-items:center;width:100%;text-align:left;padding:8px 10px;border:0;border-radius:12px;background:none;color:inherit;font:inherit;cursor:pointer}
+  .aa-app:hover{background:var(--surface-3)}.aa-app.on{background:var(--surface-3);font-weight:600}
+  .aa-app img,.aa-app .aa-m{width:26px;height:26px;border-radius:7px;flex:none;background:var(--surface-3)}
+  .aa-sep{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:10px 10px 4px}
+  .aa-r{overflow:auto;padding:12px 18px}
+  .aa-ch{display:grid;grid-template-columns:20px 1fr auto;gap:10px;align-items:center;padding:10px 6px;border-bottom:1px solid var(--border-soft);cursor:pointer;border-radius:8px}
+  .aa-ch:hover{background:var(--surface-3)}.aa-ch small{display:block;color:var(--muted);font-family:var(--mono);font-size:11px}
+  .aa-rd{width:16px;height:16px;border-radius:50%;border:2px solid var(--border)}.aa-ch.on .aa-rd{border:5px solid var(--accent-fill)}
+  .aa-have{font-size:12px;color:var(--muted);white-space:nowrap}
+  .aa-empty{color:var(--muted);padding:30px 6px}
+  .aa-f{display:flex;align-items:center;gap:12px;padding:14px 20px;border-top:1px solid var(--border-soft)}.aa-f .aa-say{flex:1;font-size:14px;color:var(--text-2)}
+  @media (max-width:720px){.aa-b{grid-template-columns:1fr;max-height:none}.aa-l{border-right:0;max-height:34vh}}
+</style>
+<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="aa-title">
+  <div class="aa-h"><b id="aa-title">Add app to {{.Target.Label}}</b><small>{{.N}} device{{if ne .N 1}}s{{end}}{{if .N}} · {{.Online}} online, {{.Offline}} offline{{end}}</small></div>
+  {{if and .N .Apps}}
+  <div class="aa-b">
+    <div class="aa-l">
+      <input type="search" class="form-input" placeholder="Search apps…" aria-label="Search apps" data-aa-filter>
+      {{$first := true}}{{$other := false}}
+      {{range .Apps}}
+      {{if and $first .AIO}}{{$first = false}}<div class="aa-sep">Role apps</div>{{end}}
+      {{if and (not .AIO) (not $other)}}{{$other = true}}{{$first = false}}<div class="aa-sep">Other apps</div>{{end}}
+      <button type="button" class="aa-app" data-name="{{.Name}}" data-channels="{{.Channels}}">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}<span class="aa-m"></span>{{end}}<span>{{.Name}}</span></button>
+      {{end}}
+    </div>
+    <div class="aa-r"><div class="aa-empty">Pick an app on the left. Its newest build is what installs.</div></div>
+  </div>
+  {{else if not .N}}<div class="aa-h"><p>None of these devices can take an app from you.</p></div>
+  {{else}}<div class="aa-h"><p>No apps in the library yet.</p></div>{{end}}
+  <div class="aa-f"><span class="aa-say" aria-live="polite">Pick an app</span><button type="button" class="cc-btn" data-aa-close>Cancel</button><button type="button" class="btn-primary btn-sm" data-aa-add disabled>Add app</button></div>
+</div>
+</div>
+{{end}}

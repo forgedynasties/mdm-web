@@ -560,6 +560,9 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			WHERE c.id IN (
 				SELECT id FROM commands WHERE created_at > NOW() - INTERVAL '1 hour'
 				UNION
+				-- Changes that wait for an offline device (WaitingCommandsSQL): a week.
+				SELECT id FROM commands WHERE type IN `+WaitingCommandsSQL+` AND created_at > NOW() - INTERVAL '7 days'
+				UNION
 				SELECT command_id FROM command_status
 				WHERE device_id = $1 AND status IN ('downloading', 'installing')
 			)
@@ -877,7 +880,12 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		         -- while the device was offline spun "Uninstalling…" for good (DK19253D40158,
 		         -- 16 Nov 2026). Delivered stays delivered: the device did get it.
 		         WHEN COALESCE(cs.status, 'pending') = 'pending'
-		              AND c.created_at <= NOW() - INTERVAL '1 hour' THEN 'expired'
+		              AND c.created_at <= NOW() - CASE WHEN c.type IN `+WaitingCommandsSQL+` THEN INTERVAL '7 days' ELSE INTERVAL '1 hour' END THEN 'expired'
+		         -- A reboot is 'delivered' until the device's uptime proves a restart. Still
+		         -- delivered 15 minutes on, it didn't restart: say so instead of "running"
+		         -- (17 Nov 2026, FW-2026-000066).
+		         WHEN c.type = 'reboot' AND cs.status = 'delivered'
+		              AND cs.updated_at <= NOW() - INTERVAL '15 minutes' THEN 'no_restart'
 		         WHEN cs.status IS NOT NULL THEN cs.status
 		         WHEN c.type IN `+shortLivedCommandsSQL+`
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
@@ -970,6 +978,7 @@ func (d *DB) GetDeviceQueue(ctx context.Context, deviceID uuid.UUID) ([]DeviceCo
 		-- age, since it IS running right now.
 		AND (
 			c.created_at > NOW() - INTERVAL '1 hour'
+			OR (c.type IN `+WaitingCommandsSQL+` AND c.created_at > NOW() - INTERVAL '7 days')
 			OR COALESCE(cs.status, 'pending') IN ('downloading', 'installing', 'installed', 'completed', 'failed', 'cancelled')
 		)
 		ORDER BY c.created_at ASC
@@ -1236,6 +1245,8 @@ func (d *DB) DevicesWithLiveCommands(ctx context.Context, ids []uuid.UUID) ([]uu
 	rows, err := d.pool.Query(ctx, `
 		WITH recent AS MATERIALIZED (
 			SELECT id, target_type FROM commands WHERE created_at > NOW() - INTERVAL '1 hour'
+			UNION
+			SELECT id, target_type FROM commands WHERE type IN `+WaitingCommandsSQL+` AND created_at > NOW() - INTERVAL '7 days'
 		), cand AS (
 			SELECT ct.target_id AS dev, r.id FROM recent r
 			JOIN command_targets ct ON ct.command_id = r.id
@@ -1271,3 +1282,12 @@ func (d *DB) DevicesWithLiveCommands(ctx context.Context, ids []uuid.UUID) ([]uu
 	}
 	return out, rows.Err()
 }
+
+// WaitingCommandsSQL are the commands that wait a week for an offline device instead of
+// an hour (17 Nov 2026, plan from FW-2026-000066; user agreed): a Wi-Fi change made on one
+// device's page, and lost mode (marking a device lost is exactly when it is likely off).
+// Apps are no longer commands at all (app_wants.go).
+const WaitingCommandsSQL = `('wifi_config', 'lost_mode')`
+
+// waitingCommandsIndex keeps the week-long delivery window cheap.
+const waitingCommandsIndex = `CREATE INDEX IF NOT EXISTS idx_commands_waiting ON commands (created_at) WHERE type IN ('wifi_config', 'lost_mode');`

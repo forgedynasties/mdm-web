@@ -810,6 +810,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"assetVer": func() string { return assetVer },
 		// envLabel marks a server that is not prod in the header and the tab title (E1).
 		"envLabel": func() string { return envLabel },
+		// inSet: k is in a map[string]bool, which may be missing (nil) from the data.
+		"inSet": func(m any, k string) bool { s, _ := m.(map[string]bool); return s[k] },
 		// isCards: the user draws device lists as cards (fleet_view), safe on pages that never set it.
 		"isCards":           func(v any) bool { s, _ := v.(string); return s == "cards" },
 		"venueIcon":         func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
@@ -1149,7 +1151,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "ok"
 			case "failed":
 				return "danger"
-			case "expired":
+			case "expired", "no_restart":
 				return "warn"
 			case "downloading", "installing", "running":
 				return "active"
@@ -1175,6 +1177,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// device, pending/delivered show as "queued" (it runs when the device reconnects).
 		// Terminal/in-progress statuses are shown as-is.
 		"cmdStatusLabel": func(status string, online bool) string {
+			if status == "no_restart" {
+				return "sent · didn't restart"
+			}
 			if !online && (status == "delivered" || status == "pending") {
 				return "queued"
 			}

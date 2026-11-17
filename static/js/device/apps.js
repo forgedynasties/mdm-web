@@ -168,8 +168,9 @@ window.appInfoOpen = function (el) {
   if (btn) {
     var note = byId('ai-sysnote');
     byId('ai-uninstall-pkg').value = pkg;
-    btn.hidden = sys;
-    if (note) note.hidden = !sys;
+    var roleApp = el.getAttribute('data-roleapp') === '1';
+    btn.hidden = sys || roleApp;
+    if (note) { note.hidden = !(sys || roleApp); note.textContent = roleApp ? "The role app can't be removed." : "System apps can't be uninstalled."; }
   }
   m.classList.add('modal-open');
 };
@@ -336,7 +337,8 @@ window.installToggle = function (btn) {
   var n = holder.querySelectorAll('input[name="apk_url"]').length;
   var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
   if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Pick one or more apps';
-  if (s) { s.disabled = n === 0; s.textContent = n ? ('Install (' + n + ')') : 'Install'; }
+  var add = form.hasAttribute('data-add');
+  if (s) { s.disabled = n === 0; s.textContent = add ? (n > 1 ? 'Add ' + n + ' apps' : 'Add app') : (n ? ('Install (' + n + ')') : 'Install'); }
   if (pane) {
     if (on) installPane(btn);
     else if (pane.dataset.tile === btn.getAttribute('data-family')) {
@@ -395,16 +397,25 @@ window.doUninstall = function (tile) {
   if (!tile) return;
   var pkg = tile.getAttribute('data-pkg'); if (!pkg) return;
   var name = tile.getAttribute('data-name') || pkg;
-  if (!confirm('Uninstall ' + name + ' from this device?')) return;
+  if (tile.getAttribute('data-roleapp') === '1') { if (window.showToast) showToast("The role app can't be removed", 'error'); return; }
+  if (!confirm('Remove ' + name + ' from this device? The MDM keeps it off.')) return;
   markUninstalling(tile);
   window.__uninstallPending = (window.__uninstallPending || 0) + 1;
   var serial = window.DEVICE_SERIAL;
   var base = '/devices/' + encodeURIComponent(serial);
-  fetch(base + '/commands', {
+  // Remove (17 Nov 2026): recorded on the device (app_wants_view.go) and kept off. An
+  // offline device takes it when it's back: the spinner stops and the "On its way" box says so.
+  fetch(base + '/apps/remove', {
     method: 'POST', credentials: 'same-origin',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'HX-Request': 'true' },
-    body: 'type=uninstall&package=' + encodeURIComponent(pkg)
+    body: 'package=' + encodeURIComponent(pkg)
   }).then(function (r) {
+    if (r.ok && r.headers.get('X-App-Waits') === '1') {
+      clearInterval(iv); settle();
+      if (window.showToast) showToast(name + ' is removed when the device is back online', 'info');
+      if (window.htmx) htmx.trigger(document.body, 'device-updated');
+      return;
+    }
     if (r.ok) return;
     // Refused (e.g. the agent can't uninstall): say why and put the tile back now,
     // instead of spinning "Uninstalling…" for 30 s and silently reverting.
@@ -500,72 +511,60 @@ window.installPane = function (btn) {
   var url = btn.getAttribute('data-url'), vi = Math.max(0, ch.urls.indexOf(url));
   // Channels and following are for AIO's own apps (user, 4 Nov 2026: "channel tracking prod
   // stage etc is only for aio apps"); any other app picks a build and installs it.
+  // D1 (17 Nov 2026): no build menu; the library's newest build is what goes, and the MDM
+  // doesn't track versions after that (AIO apps update themselves).
   if (btn.getAttribute('data-aio') !== '1') {
-    btn.setAttribute('data-follow', '0'); btn.setAttribute('data-ch', ''); btn.setAttribute('data-ver', ch.vers[vi] || '');
+    btn.setAttribute('data-ch', ''); btn.setAttribute('data-ver', ch.vers[0] || '');
+    instSet(btn, ch.urls[0], ch.pkg);
     var have = inst[ch.pkg];
     pane.dataset.tile = btn.getAttribute('data-family');
     pane.innerHTML = '<div class="inst-ph">' + (icon ? icon.outerHTML : '') + '<span><b>' + instEsc(name) + '</b><small>' + (have ? 'On this device: ' + instEsc(have) : 'Not on this device') + '</small></span></div>' +
-      '<div class="inst-lbl">Build</div><div class="inst-rows"><div class="inst-ch on"><span class="inst-cn"><small class="mono">' + instEsc(ch.pkg) + '</small></span>' +
-      '<select class="inst-bsel" aria-label="Build of ' + instEsc(name) + '">' + ch.vers.slice(0, 12).map(function (v, j) { return '<option value="' + j + '"' + (j === vi ? ' selected' : '') + '>' + instEsc(v || 'unversioned') + (j === 0 ? ' · newest' : '') + '</option>'; }).join('') + '</select></div></div>' + instDrop(pane);
-    var bs = pane.querySelector('.inst-bsel');
-    bs.addEventListener('change', function () {
-      var j = +bs.value; instSet(btn, ch.urls[j] || ch.urls[0], ch.pkg); btn.setAttribute('data-ver', ch.vers[j] || '');
-      var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = ch.vers[j] || ''; installLabel();
-    });
+      '<p class="muted small">Installs the newest build in the library' + (ch.vers[0] ? ' (' + instEsc(ch.vers[0]) + ')' : '') + '.</p>' + instDrop(pane);
     installLabel();
     return;
   }
-  if (btn.getAttribute('data-follow') === null) btn.setAttribute('data-follow', ch.label === 'prod' ? '0' : '1');
-  btn.setAttribute('data-ch', instChName(ch.label)); btn.setAttribute('data-ver', ch.vers[vi] || '');
-  var follow = btn.getAttribute('data-follow') === '1';
+  btn.setAttribute('data-ch', instChName(ch.label)); btn.setAttribute('data-ver', ch.vers[0] || '');
   var on = Object.keys(inst).map(function (k) { var c = chs.filter(function (x) { return x.pkg === k; })[0]; return (c ? instChName(c.label) : k) + ' ' + inst[k]; });
   var h = '<div class="inst-ph">' + (icon ? icon.outerHTML : '') + '<span><b>' + instEsc(name) + '</b><small>' + (on.length ? 'On this device: ' + instEsc(on.join(', ')) : 'Not on this device') + '</small></span></div>';
-  h += '<div class="inst-lbl">Channel and build</div><div class="inst-rows" role="radiogroup" aria-label="Channel">';
+  h += '<div class="inst-lbl">Channel</div><div class="inst-rows" role="radiogroup" aria-label="Channel">';
   chs.forEach(function (c, i) {
     var cur = c === ch, have = inst[c.pkg];
     h += '<div class="inst-ch' + (cur ? ' on' : '') + '" role="radio" aria-checked="' + cur + '" tabindex="0" data-i="' + i + '">' +
       '<span class="inst-rd"></span><span class="inst-cn"><b>' + instEsc(instChName(c.label)) + '</b><small class="mono">' + instEsc(c.pkg) + '</small></span>' +
-      (have ? '<span class="inst-have">' + instEsc(have) + ' on device</span>' : '') +
-      '<select class="inst-bsel" aria-label="Build of ' + instEsc(instChName(c.label)) + '">' +
-      c.vers.slice(0, 12).map(function (v, j) { return '<option value="' + j + '"' + (cur && j === vi ? ' selected' : '') + '>' + instEsc(v || 'unversioned') + (j === 0 ? ' · newest' : '') + '</option>'; }).join('') +
-      '</select></div>';
+      (have ? '<span class="inst-have">on the device</span>' : '<span class="inst-have muted">' + instEsc(c.vers[0] || '') + '</span>') + '</div>';
   });
-  h += '</div><label class="inst-keep"><input type="checkbox"' + (follow ? ' checked' : '') + '> <span><b>Keep this device on the newest ' + instEsc(instChName(ch.label)) + ' build</b><small>every newer ' + instEsc(name) + ' ' + instEsc(instChName(ch.label)) + ' build in the library installs here by itself</small></span></label>';
-  h += instDrop(pane);
+  h += '</div>' + instDrop(pane);
   pane.innerHTML = h; pane.dataset.tile = btn.getAttribute('data-family');
-  function pick(i, j) {
+  function pick(i) {
     var c = chs[i]; if (!c) return;
     var changed = c !== ch;
-    instSet(btn, c.urls[j] || c.urls[0], c.pkg);
-    btn.setAttribute('data-ch', instChName(c.label)); btn.setAttribute('data-ver', c.vers[j] || c.vers[0] || '');
-    if (changed) btn.setAttribute('data-follow', c.label === 'prod' ? '0' : '1');
-    var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = instChName(c.label) + ' ' + (c.vers[j] || c.vers[0] || '');
+    instSet(btn, c.urls[0], c.pkg);
+    btn.setAttribute('data-ch', instChName(c.label)); btn.setAttribute('data-ver', c.vers[0] || '');
+    var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = instChName(c.label) + ' ' + (c.vers[0] || '');
     if (changed) installPane(btn);
     installLabel();
   }
   pane.querySelectorAll('.inst-ch').forEach(function (row) {
-    var i = +row.dataset.i, sel = row.querySelector('.inst-bsel');
-    row.addEventListener('click', function (e) { if (e.target === sel) return; pick(i, +sel.value); });
-    row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(i, +sel.value); } });
-    sel.addEventListener('change', function () { pick(i, +sel.value); });
+    var i = +row.dataset.i;
+    row.addEventListener('click', function () { pick(i); });
+    row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(i); } });
   });
-  var kc = pane.querySelector('.inst-keep input');
-  if (kc) kc.addEventListener('change', function () { btn.setAttribute('data-follow', kc.checked ? '1' : '0'); installLabel(); });
 };
 // The footer says what Install will do: one app in full ("Install POS · UAT 987.0.0 and
 // follow UAT"), several as a count.
 window.installLabel = function () {
   var form = document.getElementById('install-form'), s = document.getElementById('install-submit'), c = document.getElementById('install-count'); if (!form || !s) return;
-  var on = form.querySelectorAll('.install-tile.on'), f = 0;
-  on.forEach(function (t) { if (t.getAttribute('data-follow') === '1') f++; });
+  var on = form.querySelectorAll('.install-tile.on'), add = form.hasAttribute('data-add');
   if (!on.length) { if (c) c.textContent = 'Pick one or more apps'; return; }
-  s.textContent = (f ? 'Install and follow' : 'Install') + (on.length > 1 ? ' (' + on.length + ')' : '');
+  s.textContent = add ? (on.length > 1 ? 'Add ' + on.length + ' apps' : 'Add app') : ('Install' + (on.length > 1 ? ' (' + on.length + ')' : ''));
   if (!c) return;
+  var when = form.getAttribute('data-online') === '1' ? 'now' : 'when the device is back online';
   if (on.length === 1) {
     var t = on[0], ch = t.getAttribute('data-ch'), v = t.getAttribute('data-ver');
-    c.innerHTML = 'Install <b>' + instEsc(t.getAttribute('data-app') || '') + (ch ? ' · ' + instEsc(ch) : '') + (v ? ' ' + instEsc(v) : '') + '</b>' + (f ? ' and follow ' + instEsc(ch || '') : '');
+    c.innerHTML = (add ? 'Adds ' : 'Install ') + '<b>' + instEsc(t.getAttribute('data-app') || '') + (ch ? ' · ' + instEsc(ch) : '') + '</b>' +
+      (add ? '. It installs the newest build' + (v ? ' (' + instEsc(v) + ')' : '') + ' ' + when + '.' : (v ? ' ' + instEsc(v) : ''));
   } else {
-    c.textContent = on.length + ' apps' + (f ? ' · ' + f + ' followed' : '');
+    c.textContent = add ? 'Adds ' + on.length + ' apps. Each installs its newest build ' + when + '.' : on.length + ' apps';
   }
 };
 // Follow what was ticked, before the install goes out (the follow job then sees the
@@ -610,12 +609,12 @@ window.dropApkInstall = function (file) {
     })
     .then(function (app) {
       var body = new URLSearchParams();
-      body.append('type', 'install_apk'); body.append('target_type', 'devices'); body.append('target_serials', serial); body.append('apk_url', app.apk_url);
-      return fetch('/commands', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' } })
+      body.append('apk_url', app.apk_url);
+      return fetch('/devices/' + encodeURIComponent(serial) + '/apps/add', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' } })
         .then(function (r) { if (!r.ok && r.status !== 204) throw new Error('could not queue the install'); return app; });
     })
     .then(function (app) {
-      toast('Installing ' + (app.name || app.package_name) + (app.version_name ? ' ' + app.version_name : '') + ' on this device', 'success');
+      toast('Added ' + (app.name || app.package_name) + (app.version_name ? ' ' + app.version_name : '') + ' to this device', 'success');
       if (window.htmx) htmx.trigger(document.body, 'device-updated');
     })
     .catch(function (err) { toast(err.message, 'error'); });

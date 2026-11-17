@@ -1598,6 +1598,7 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 		return
 	}
 	h.afterWipeAck(ctx, body.CommandID, deviceID, body.Status)
+	h.afterUninstallAck(ctx, body.CommandID, deviceID, body.Status)
 	if body.Status == "installed" && body.Package != "" {
 		if cmd, err := h.db.GetCommand(ctx, body.CommandID); err == nil && cmd.ApkURL != "" {
 			_ = h.db.LearnApkPackage(ctx, cmd.ApkURL, body.Package)
@@ -2805,6 +2806,7 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.afterWipeAck(r.Context(), cmdID, device.ID, body.Status)
+	h.afterUninstallAck(r.Context(), cmdID, device.ID, body.Status)
 	// Learn which package this APK installs, so future stuck installs auto-reconcile.
 	if body.Status == "installed" && body.Package != "" {
 		if cmd, err := h.db.GetCommand(r.Context(), cmdID); err == nil && cmd.ApkURL != "" {
@@ -3060,6 +3062,25 @@ func deviceCommandType(t string) string { return db.DeviceCommandType(t) }
 // key with everything else. Forget the key now, so the wiped device's first check-in (on
 // the image's shared key) registers a new one instead of being refused as a device that
 // "uses its own key".
+// afterUninstallAck drops an uninstalled package from the device's reported list at once
+// (17 Nov 2026; user: "if uninstall is successful we dont ever need a new list again"), so
+// the device page stops showing an app that is gone, and adding it back isn't taken for a
+// no-op.
+func (h *Handler) afterUninstallAck(ctx context.Context, cmdID, deviceID uuid.UUID, status string) {
+	if status != "completed" {
+		return
+	}
+	pkg, err := h.db.UninstallPackageOf(ctx, cmdID)
+	if err != nil || pkg == "" {
+		return
+	}
+	if err := h.db.ForgetPackage(ctx, deviceID, pkg); err != nil {
+		log.Printf("[uninstall] %s: forget %s: %v", deviceID, pkg, err)
+		return
+	}
+	h.hub.PublishDeviceUpdate(deviceID)
+}
+
 func (h *Handler) afterWipeAck(ctx context.Context, cmdID, deviceID uuid.UUID, status string) {
 	if status != "completed" {
 		return

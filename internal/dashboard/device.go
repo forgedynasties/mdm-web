@@ -541,6 +541,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return strings.HasPrefix(devFams[i].BasePackage, "aio.app.") && !strings.HasPrefix(devFams[j].BasePackage, "aio.app.")
 	})
 	follows := h.deviceFollowsView(r.Context(), device)
+	wants := h.deviceWantsView(r.Context(), device)
 	// The lock rule covering this device, and whether it was overridden by hand.
 	kioskRule := h.kioskRuleFor(r.Context(), *device)
 	_, kioskOverride := h.db.KioskRuleMark(r.Context(), device.ID)
@@ -655,8 +656,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"LockApp":             lockAppFor(*device, h.db.RoleAppBase(r.Context(), device.Class()), installedPkgs, kioskCfg, h.cfg.KioskAppAllowed),
 		"KioskAllowlistCSV":   strings.Join(h.cfg.KioskAllowlist(), ","),
 		"KioskExtras":         kioskExtras,
-		"PendingInstalls":     pendingInstalls,
+		"PendingInstalls":     dropWantRows(pendingInstalls, apps, apkPkg, wantsBusy(wants)),
 		"Uninstalling":        pendingUninstallPkgs(commands),
+		"Wants":               wants,
+		"RoleAppSet":          h.roleAppPackages(r.Context(), device),
 		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
 		"KioskExit":           h.kioskExitFor(r, device),

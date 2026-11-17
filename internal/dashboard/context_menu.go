@@ -22,6 +22,7 @@ func ctxCaps(role string) string {
 		"team":       role != "" && !roleIsCustomer(role),
 		"screenshot": may("screenshot"),
 		"reboot":     may("reboot"),
+		"apps":       may("install_apk"),
 		"remote":     roleCanOperate(role),
 		"lock":       roleCanSupport(role),
 		"group":      roleCanOperate(role),

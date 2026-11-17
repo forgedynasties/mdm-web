@@ -7,6 +7,7 @@ import (
 	_ "image/jpeg"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -600,6 +601,37 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// R1 (17 Nov 2026): a reboot reaches the group's online devices only; a group sent as
+	// itself would reach an offline member when it reconnects, later.
+	var offline []string
+	if cmdType == "reboot" {
+		ids := gTargets
+		if gType == "groups" {
+			if ids, err = h.db.GetDeviceIDsByGroupIDs(r.Context(), gTargets); err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+		}
+		devs, err := h.db.GetDevicesByIDs(r.Context(), ids)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		var on []uuid.UUID
+		for i := range devs {
+			if h.deviceOnline(&devs[i]) {
+				on = append(on, devs[i].ID)
+			} else {
+				offline = append(offline, devs[i].SerialNumber)
+			}
+		}
+		sort.Strings(offline)
+		if len(on) == 0 {
+			h.rebootAllOffline(w, r, offline)
+			return
+		}
+		gType, gTargets = "devices", on
+	}
 	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, gType, gTargets, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -612,7 +644,11 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	detail += ", cmd=" + cmd.ID.String()
 	h.audit(r, "command.send", cmdType, detail)
-	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
+	dest := "/commands/" + cmd.ID.String()
+	if len(offline) > 0 {
+		dest += "?flash=" + url.QueryEscape(fmt.Sprintf("Rebooting %d · %d offline, not sent: %s", len(gTargets), len(offline), strings.Join(offline, ", "))) + "&flash_type=info"
+	}
+	http.Redirect(w, r, dest, http.StatusFound)
 }
 
 // GroupHiddenSet: POST /groups/{id}/hidden {hidden: 1|0}. Super admin only: a hidden group
