@@ -140,7 +140,7 @@ func dockShows(role, key string) bool {
 // APIs, live updates, device sub-pages) passes untouched and keeps its own guards.
 var curatedPages = map[string]bool{
 	"devices": true, "restaurants": true, "alerts": true, "apps": true, "releases": true,
-	"lineup": true, "clients": true, "host-apps": true, "compliance": true, "jobs": true,
+	"lineup": true, "models": true, "clients": true, "host-apps": true, "compliance": true, "jobs": true,
 	"lock": true, "adb": true, "users": true, "settings": true, "server": true, "enrollment": true,
 	"coverage": true, "groups": true, "map": true, "fleet-health": true, "battery": true,
 	"activity": true, "alert-config": true, "reports": true, "productions": true,

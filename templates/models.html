@@ -1,0 +1,177 @@
+{{define "models.html"}}
+{{template "header" .}}
+{{/* Models (M3, picked 17 Nov 2026; was Lineup's All products): one flat list of every
+     model, biggest first, with chips; the pane is the picked model. models.go */}}
+{{$p := .Pane}}
+<template id="page-island">
+  <span class="isl-dot on"></span>
+  <span class="isl-t">Models</span>
+  <span class="isl-s"><b>{{.Total}}</b> models{{if .NeedsN}} · <span class="w">{{.NeedsN}} need a role</span>{{end}}</span>
+  <span class="isl-acts"><a class="cc-btn" href="/lineup?view=runs">Factory runs</a></span>
+</template>
+<style>
+  .md-chips{display:flex;gap:6px;flex-wrap:wrap;padding:2px 4px 8px}
+  .md-chip{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:99px;padding:4px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+  .md-chip[aria-pressed="true"]{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
+  .md-it .nm{display:flex;flex-direction:column;min-width:0}.md-it .nm small{color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .md-it.on .nm small{color:inherit;opacity:.85}
+  .md-k{font-size:10px;font-weight:700;border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:1px;white-space:nowrap}
+  .md-k.fw{background:#e6e9ff;color:#3540a8}.md-k.st{background:#e3f4ea;color:#1d6b37}
+  html[data-theme="dark"] .md-k.fw{background:#232a5a;color:#b9c0ff}html[data-theme="dark"] .md-k.st{background:#163d24;color:#9be2b3}
+  .md-it.on .md-k{background:rgba(255,255,255,.22);color:#fff}
+  .md-warn{color:var(--warn)}
+  .md-card{margin-bottom:14px}
+  .md-head{display:flex;gap:14px;align-items:center;padding:16px 18px}
+  .md-head b{font-size:20px;display:block}.md-head small{color:var(--muted)}
+  .md-head .cc-btn{margin-left:auto;white-space:nowrap}
+  .md-sec{padding:14px 18px;border-top:1px solid var(--border-soft)}
+  .md-sec h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:700}
+  .md-seg{display:inline-flex;background:var(--surface-3);border-radius:99px;padding:3px;gap:2px}
+  .md-seg label{padding:6px 13px;border-radius:99px;font-size:13px;cursor:pointer}
+  .md-seg input{position:absolute;opacity:0;pointer-events:none}
+  .md-seg label:has(input:checked){background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.1);font-weight:600}
+  .md-roles{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 4px}
+  .md-roles label{border-radius:99px;padding:5px 12px;font-size:13px;background:var(--surface-3);cursor:pointer}
+  .md-roles input{position:absolute;opacity:0;pointer-events:none}
+  .md-roles label:has(input:checked){background:var(--accent-fill);color:#fff}
+  .md-roles label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .md-note{color:var(--muted);font-size:13px;margin:8px 0 0;line-height:1.5}
+  .md-t{width:100%;border-collapse:collapse;font-size:13.5px}.md-t td,.md-t th{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border-soft)}.md-t th{color:var(--muted);font-weight:600}
+  .md-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:14px}
+  .md-build{display:inline-flex;gap:6px;align-items:center;margin:0 10px 6px 0}.md-build form{display:inline;margin:0}
+</style>
+<div class="cl-page">
+<div class="cc-top"><div><h1 class="cc-h1">Models</h1></div></div>
+<div class="fleet-md dv-rise-1">
+  <aside class="fleet-rail" aria-label="Models">
+    <div class="fleet-rail-cap"><span>Models</span></div>
+    <div class="md-chips" role="group" aria-label="Show">
+      <button type="button" class="md-chip" data-mdf="fw" aria-pressed="false">Firmware</button>
+      <button type="button" class="md-chip" data-mdf="st" aria-pressed="false">Standard</button>
+      <button type="button" class="md-chip" data-mdf="none" aria-pressed="false">Needs a role · {{.NeedsN}}</button>
+      <button type="button" class="md-chip" data-mdf="several" aria-pressed="false">Several roles · {{.SeveralN}}</button>
+    </div>
+    {{range .Models}}<a class="fleet-rail-item md-it{{if and $p (eq .Key $p.M.Key)}} on{{end}}" href="/models?model={{.Key}}" data-kind="{{if .Firmware}}fw{{else}}st{{end}}" data-nroles="{{len .Roles}}"{{if and $p (eq .Key $p.M.Key)}} aria-current="page"{{end}}>
+      <span class="dot {{if not .Roles}}warn{{else if .Online}}ok{{else}}muted{{end}}"></span>
+      <span class="nm"><span>{{.Label}}<span class="md-k {{if .Firmware}}fw{{else}}st{{end}}">{{.Kind}}</span></span><small{{if not .Roles}} class="md-warn"{{end}}>{{.RoleText}}</small></span>
+      <span class="ct">{{.Devices}}</span></a>{{end}}
+  </aside>
+  <div class="fleet-roster">
+  {{with $p}}{{$m := .M}}
+    <div class="cc-card md-card">
+      <div class="md-head">
+        <span><b>{{$m.Label}}</b><small><span class="mono">{{$m.Key}}</span>{{with $m.Reported}} · {{.}}{{end}} · <span class="md-k {{if $m.Firmware}}fw{{else}}st{{end}}" style="margin-left:0">{{$m.Kind}}</span> · {{$m.Devices}} device{{if ne $m.Devices 1}}s{{end}}, {{$m.Online}} online</small></span>
+        {{if $m.Devices}}<a class="cc-btn" href="/devices?product={{$m.Key}}">Show its devices →</a>{{end}}
+      </div>
+
+      <div class="md-sec"><h2>Role</h2>
+      {{if $m.Firmware}}
+        <div class="md-line"><b>{{$m.RoleText}}</b><span class="muted">· set by its firmware</span></div>
+      {{else if .CanEdit}}
+        <form method="POST" action="/models/{{$m.Key}}/roles" data-md-roles data-label="{{$m.Label}}" data-moving='{{jsonMap .Moving}}'>
+          <div class="md-seg" role="radiogroup" aria-label="Roles">
+            <label><input type="radio" name="mode" value="one"{{if le (len $m.Roles) 1}} checked{{end}}>One role</label>
+            <label><input type="radio" name="mode" value="several"{{if gt (len $m.Roles) 1}} checked{{end}}>Several roles</label>
+          </div>
+          <div class="md-roles" data-md-pick>
+            {{range $.Pane.AllRoles}}<label><input type="checkbox" name="roles" value="{{.}}"{{if hasStr $m.Roles .}} checked{{end}}>{{classLabel .}}</label>{{end}}
+          </div>
+          <p class="md-note" data-md-say></p>
+          <button type="submit" class="cc-btn primary sm" data-md-save hidden>Save</button>
+        </form>
+      {{else}}
+        <div class="md-line"><b{{if not $m.Roles}} class="md-warn"{{end}}>{{$m.RoleText}}</b>{{if gt (len $m.Roles) 1}}<span class="muted">· picked when each one is enrolled</span>{{end}}</div>
+        <p class="md-note">A super admin or an Ops lead sets a model's roles.</p>
+      {{end}}
+      </div>
+
+      {{if .ByRole}}<div class="md-sec"><h2>Devices by role</h2>
+        <table class="md-t"><tbody>{{range .ByRole}}<tr><th>{{if .Role}}{{classLabel .Role}}{{else}}<span class="md-warn">Needs a role</span>{{end}}</th><td>{{.N}}</td><td><a href="/devices?product={{$m.Key}}{{if .Role}}&class={{.Role}}{{end}}">show</a></td></tr>{{end}}</tbody></table>
+      </div>{{end}}
+
+      {{with .Fw}}{{$fw := .}}<div class="md-sec" id="firmware"><h2>Firmware</h2>
+        <table class="md-t"><tbody>
+          <tr><th style="width:160px">Prod build</th><td>{{if .Channel}}<span class="mono">{{.Channel.Version}}</span> <small class="muted">{{$p.FwSince}}</small>{{else if eq .Mode "lab"}}<span class="muted">none: lab only</span>{{else}}<span class="muted">none set</span>{{end}}</td></tr>
+          {{if .Channel}}<tr><th>Deployed on it</th><td>{{if $p.FwOnIt.Of}}{{template "lu-bar" $p.FwOnIt}}{{else}}<span class="muted">no deployed devices</span>{{end}}{{if .OtherLine}} <small class="md-warn">{{.OtherLine}} on another firmware line</small>{{end}}</td></tr>{{end}}
+          <tr><th>{{if .Channel}}Newer builds{{else}}Builds{{end}}</th><td>
+            {{if and (eq .Mode "prod") .Channel}}{{range .Newer}}<span class="md-build"><span class="mono">{{.Version}}</span>{{if .IsDev}} <span class="cc-tag">dev</span>{{end}}{{if $p.CanFw}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$fw.Label}}?\n\nDeployed devices on the same line move to it in their quiet window, and reboot.')"><input type="hidden" name="role" value="{{$p.FwRoleKey}}"><input type="hidden" name="model" value="{{$fw.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><input type="hidden" name="back" value="/models?model={{$fw.Key}}"><button class="cc-btn xs primary" type="submit">Promote</button></form>{{else}}<a href="/releases/{{.ID}}">open</a>{{end}}</span>{{else}}<span class="muted">none newer</span>{{end}}
+            {{else if eq .Mode "prod"}}{{range .Releases}}<span class="md-build"><span class="mono">{{.Version}}</span>{{if $p.CanFw}}<form method="post" action="/pipeline/firmware" onsubmit="return confirm('Make {{.Version}} prod firmware for {{$fw.Label}}?')"><input type="hidden" name="role" value="{{$p.FwRoleKey}}"><input type="hidden" name="model" value="{{$fw.Key}}"><input type="hidden" name="release_id" value="{{.ID}}"><input type="hidden" name="back" value="/models?model={{$fw.Key}}"><button class="cc-btn xs" type="submit">Set as prod</button></form>{{else}}<a href="/releases/{{.ID}}">open</a>{{end}}</span>{{else}}<span class="muted">nothing published</span>{{end}}
+            {{else}}{{range .Releases}}<a class="md-build mono" href="/releases/{{.ID}}">{{.Version}}</a>{{else}}<span class="muted">nothing published</span>{{end}}{{end}}
+          </td></tr>
+        </tbody></table>
+        <p class="md-note"><a href="/lineup?role={{$p.FwRoleKey}}#firmware">When devices move</a> (the fleet's firmware window) · <a href="/releases">Releases →</a></p>
+      </div>{{end}}
+
+      {{with .Client}}<div class="md-sec"><h2>MDM client</h2>
+        <div class="md-line"><span>{{.Label}}{{if .Hosted}} <span class="mono">{{.Build.Version}}</span> hosted{{end}}</span>{{if $p.ClientOn.Of}}{{template "lu-bar" $p.ClientOn}}<span class="muted">on it</span>{{end}}<a class="link-detail" href="/clients" style="margin-left:auto">MDM clients →</a></div>
+      </div>{{end}}
+
+      {{if .Apps}}<div class="md-sec"><h2>App</h2>
+        <table class="md-t"><tbody>{{range .Apps}}<tr><th style="width:160px">{{.Label}}</th><td>{{if .Base}}<span class="mono">{{.Base}}</span>{{if .Of}} · {{.Have}} of {{.Of}} have it{{end}}{{else}}<span class="muted">no app set</span>{{end}}</td><td><a href="/lineup/apps?app={{.Role}}">app and units →</a></td></tr>{{end}}</tbody></table>
+      </div>{{end}}
+    </div>
+  {{else}}
+    <div class="cc-card"><div class="cc-empty tall"><div><b>No models yet</b>A model shows here once a device of it checks in.</div></div></div>
+  {{end}}
+  </div>
+</div>
+</div>
+<script>
+(function () {
+  // Chips filter the rail (any pressed chip must match).
+  var rail = document.querySelector('.fleet-rail'); if (!rail) return;
+  rail.querySelectorAll('.md-chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+      var on = Array.prototype.map.call(rail.querySelectorAll('.md-chip[aria-pressed="true"]'), function (x) { return x.dataset.mdf; });
+      rail.querySelectorAll('.md-it').forEach(function (it) {
+        var k = it.dataset.kind, n = +it.dataset.nroles, ok = true;
+        on.forEach(function (f) {
+          if (f === 'fw' || f === 'st') ok = ok && (on.indexOf('fw') >= 0 && k === 'fw' || on.indexOf('st') >= 0 && k === 'st');
+          if (f === 'none') ok = ok && n === 0;
+          if (f === 'several') ok = ok && n > 1;
+        });
+        it.hidden = !ok;
+      });
+    });
+  });
+  // The role form: one role picks one chip; several needs two; the note says what changes.
+  var f = document.querySelector('[data-md-roles]'); if (!f) return;
+  var say = f.querySelector('[data-md-say]'), save = f.querySelector('[data-md-save]');
+  var moving = {}; try { moving = JSON.parse(f.dataset.moving || '{}'); } catch (e) {}
+  var start = new FormData(f), startKey = JSON.stringify(Array.from(start.entries()));
+  function mode() { return (f.querySelector('input[name="mode"]:checked') || {}).value; }
+  function picked() { return Array.prototype.map.call(f.querySelectorAll('input[name="roles"]:checked'), function (i) { return i; }); }
+  function update(changed) {
+    var p = picked();
+    if (mode() === 'one' && p.length > 1) {
+      p.forEach(function (i) { if (i !== changed) i.checked = false; });
+      if (!changed || !changed.checked) { p.slice(1).forEach(function (i) { i.checked = false; }); }
+      p = picked();
+    }
+    var names = p.map(function (i) { return i.parentNode.textContent.trim(); });
+    if (mode() === 'one') {
+      var n = p.length ? (moving[p[0].value] || 0) : 0;
+      say.textContent = p.length ? 'Every ' + f.dataset.label + ' is a ' + names[0] + ': AIO Enroll doesn\'t ask, and its devices show the role without a picker.' + (n ? ' ' + n + ' device' + (n === 1 ? '' : 's') + ' change role.' : '') : 'Pick its role.';
+    } else {
+      say.textContent = p.length > 1 ? 'AIO Enroll asks "' + names.join(' or ') + '?" when one is enrolled; a device of it picks among these.' : 'Pick at least two roles.';
+    }
+    var now = JSON.stringify(Array.from(new FormData(f).entries()));
+    save.hidden = now === startKey;
+    save.disabled = mode() === 'one' ? p.length !== 1 : p.length < 2;
+  }
+  f.addEventListener('change', function (e) { update(e.target.name === 'roles' ? e.target : null); });
+  f.addEventListener('submit', function (e) {
+    var p = picked();
+    if (mode() === 'one' && p.length === 1) {
+      f.querySelector('input[name="mode"]:checked').value = 'one';
+      var hidden = document.createElement('input'); hidden.type = 'hidden'; hidden.name = 'role'; hidden.value = p[0].value; f.appendChild(hidden);
+      var n = moving[p[0].value] || 0;
+      if (n && !confirm('Make every ' + f.dataset.label + ' a ' + p[0].parentNode.textContent.trim() + '? ' + n + ' device' + (n === 1 ? '' : 's') + ' change role, and their app and lock follow.')) { e.preventDefault(); hidden.remove(); }
+    }
+  });
+  update(null);
+})();
+</script>
+{{template "footer" .}}
+{{end}}

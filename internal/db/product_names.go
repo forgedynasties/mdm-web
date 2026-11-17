@@ -189,6 +189,20 @@ func (d *DB) DetachProductRole(ctx context.Context, key, role, by string) (int64
 	return d.setProductRoles(ctx, key, keep, by)
 }
 
+// SetProductRoles stores the model's roles (Models page: one role, or several picked at
+// onboarding) and brings its devices in line. Returns how many devices changed.
+func (d *DB) SetProductRoles(ctx context.Context, key string, roles []string, by string) (int64, error) {
+	return d.setProductRoles(ctx, prod.Normalize(key), roles, by)
+}
+
+// ModelRoleMoves counts, for a model, the devices whose role would change if it had only
+// role: those in another role or none (a confirmation names it before it happens).
+func (d *DB) ModelRoleMoves(ctx context.Context, key, role string) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `SELECT count(*) FROM devices WHERE product = $1 AND NOT hidden AND device_class <> $2`, prod.Normalize(key), role).Scan(&n)
+	return n, err
+}
+
 // setProductRoles stores the model's roles and brings its devices in line: with one role
 // every device takes it; otherwise a device keeps its class only while it is one of the
 // roles, and the rest have none (the role app and lock wait until someone picks).
@@ -207,7 +221,8 @@ func (d *DB) setProductRoles(ctx context.Context, key string, roles []string, by
 		return 0, err
 	}
 	if single != "" {
-		tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2, class_source = '' WHERE product = $1 AND device_class <> $2 AND class_source <> 'pin'`, key, single)
+		// One role wins over a pin (Models, 17 Nov 2026).
+		tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = $2, class_source = '' WHERE product = $1 AND (device_class <> $2 OR class_source = 'pin')`, key, single)
 		if err != nil {
 			return 0, err
 		}
@@ -216,7 +231,8 @@ func (d *DB) setProductRoles(ctx context.Context, key string, roles []string, by
 	// No role: its devices lose the class it gave them; the next check-in fills a guess
 	// from the model they report, if there is one. Several: only a class the model no
 	// longer has is cleared.
-	tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = '', class_source = '' WHERE product = $1 AND device_class <> '' AND NOT (device_class = ANY($2)) AND class_source <> 'pin'`, key, roles)
+	// Several: a pin outside them goes too. No role at all: pins stand.
+	tag, err := d.pool.Exec(ctx, `UPDATE devices SET device_class = '', class_source = '' WHERE product = $1 AND device_class <> '' AND NOT (device_class = ANY($2)) AND (class_source <> 'pin' OR cardinality($2::text[]) > 0)`, key, roles)
 	if err != nil {
 		return 0, err
 	}

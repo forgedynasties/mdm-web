@@ -85,7 +85,17 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/shell/session", h.requireReleaseAdmin(drainable(h.deviceRoute("shell", h.atOwner(h.ShellSessionStream)))))
 	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.atOwner(h.ShellSessionInput))))
 	// Releases (pipeline.go): what every role runs, and the per-model firmware.
-	mux.HandleFunc("GET /lineup", h.requireAuth(h.Pipeline))
+	// Models (17 Nov 2026) replaces Lineup's All products: a bare /lineup goes there; a
+	// product's pane (?role=), Models without a role and Factory runs (?view=) stay.
+	mux.HandleFunc("GET /lineup", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.RawQuery == "" {
+			http.Redirect(w, r, "/models", http.StatusFound)
+			return
+		}
+		h.Pipeline(w, r)
+	}))
+	mux.HandleFunc("GET /models", h.requireAuth(h.ModelsPage))
+	post("POST /models/{key}/roles", h.requireAuth(h.ModelSetRoles))
 	mux.HandleFunc("GET /pipeline", h.requireAuth(h.PipelineRedirect))
 	post("POST /pipeline/firmware", h.requireOTA(h.requireFleetOTA(h.PipelineFirmware)))
 	post("POST /pipeline/rollout", h.requireLab(h.PipelineRollout))

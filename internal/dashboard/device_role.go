@@ -23,11 +23,11 @@ import (
 // and the Device card keeps a picker (D1). The AIO backend's device type is only a
 // suggestion a person confirms (B1).
 
-// Per serial (30 Oct 2026; user: "allow engineers to change the class of each device, we can
-// allow this for devices other than firmware devices, but per serial not per model"): a
-// Standard-client device's Role picker offers every class, and the pick is pinned to that
-// serial (class_source "pin", db.PinDeviceClass) so its model's role no longer moves it;
-// "Back to the model's role" unpins. Firmware devices keep their product's class.
+// Per serial (30 Oct–17 Nov 2026): a Standard-client device's picker used to offer every
+// class, pinned to its serial. Since Models (17 Nov 2026; user: a device's role is picked
+// "among its model's roles"), a device picks only among its model's roles; a one-role model
+// (or one with no role yet) has no picker, its role is set on Models. A pin made before
+// stays only while its model has no role ("Back to the model's role" still unpins it).
 
 // deviceRole is what the device page knows about a device's role.
 type deviceRole struct {
@@ -35,26 +35,15 @@ type deviceRole struct {
 	Source    string   // devices.class_source: "" model, "set", "enroll", "backend", "pin"
 	Backend   string   // the class the AIO backend's device type means, "" none
 	Where     string   // the backend restaurant it is listed at
-	PerSerial bool     // a Standard-client device: any class, pinned to its serial
+	PerSerial bool     // unused since 17 Nov 2026 (roles are picked among the model's)
 }
 
 // Picker reports whether the Device card offers a role picker.
-func (r deviceRole) Picker() bool { return r.PerSerial || len(r.Roles) > 1 }
+func (r deviceRole) Picker() bool { return len(r.Roles) > 1 }
 
 // Choices are the picker's classes: per serial every class a Standard-client device can
 // be (perSerialClass), else the model's roles.
-func (r deviceRole) Choices() []string {
-	if r.PerSerial {
-		var out []string
-		for _, c := range product.Classes() {
-			if perSerialClass(c) {
-				out = append(out, c)
-			}
-		}
-		return out
-	}
-	return r.Roles
-}
+func (r deviceRole) Choices() []string { return r.Roles }
 
 // perSerialClass: a class a Standard-client device may be set to by serial. Not Tableside
 // AI (user, 30 Oct 2026: "changing to tsai not allowed"): a T7 is our own firmware tablet.
@@ -81,7 +70,6 @@ func (r deviceRole) SourceText() string {
 func (h *Handler) deviceRoleOf(ctx context.Context, d *db.Device) deviceRole {
 	var out deviceRole
 	if d.AgentKind != product.KindFirmware {
-		out.PerSerial = true
 		out.Source, _ = h.db.DeviceClassSource(ctx, d.SerialNumber)
 	}
 	if d.Product == "" || product.IsKnown(d.Product) {
@@ -182,18 +170,6 @@ func (h *Handler) DeviceSetRole(w http.ResponseWriter, r *http.Request) {
 			h.hxDoneToast(w, r, back, "Back to its model's role", "success")
 			return
 		}
-		if !perSerialClass(class) {
-			h.hxDoneToast(w, r, back, "That role can't be set on this device", "error")
-			return
-		}
-		if err := h.db.PinDeviceClass(r.Context(), serial, class); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		h.audit(r, "device.role", serial, d.DeviceClass+" → "+class+" (this device)")
-		h.hub.PublishDeviceUpdate(d.ID)
-		h.hxDoneToast(w, r, back, "Now a "+product.ClassLabel(class)+" · its app and lock follow", "success")
-		return
 	}
 	if d.DeviceClass == class {
 		h.hxDoneToast(w, r, back, "It is a "+product.ClassLabel(class)+" already", "success")

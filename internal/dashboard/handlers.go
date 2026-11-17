@@ -812,6 +812,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"envLabel": func() string { return envLabel },
 		// inSet: k is in a map[string]bool, which may be missing (nil) from the data.
 		"inSet": func(m any, k string) bool { s, _ := m.(map[string]bool); return s[k] },
+		// jsonMap is a map as JSON, for a data- attribute (Models: devices a role change moves).
+		"jsonMap": func(m map[string]int) string { b, _ := json.Marshal(m); return string(b) },
 		// isCards: the user draws device lists as cards (fleet_view), safe on pages that never set it.
 		"isCards":           func(v any) bool { s, _ := v.(string); return s == "cards" },
 		"venueIcon":         func(id any, name, size string) template.HTML { return venueIconHTML(d, id, name, size) },
