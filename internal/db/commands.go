@@ -878,6 +878,11 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		         -- 16 Nov 2026). Delivered stays delivered: the device did get it.
 		         WHEN COALESCE(cs.status, 'pending') = 'pending'
 		              AND c.created_at <= NOW() - INTERVAL '1 hour' THEN 'expired'
+		         -- A reboot is 'delivered' until the device's uptime proves a restart. Still
+		         -- delivered 15 minutes on, it didn't restart: say so instead of "running"
+		         -- (17 Nov 2026, FW-2026-000066).
+		         WHEN c.type = 'reboot' AND cs.status = 'delivered'
+		              AND cs.updated_at <= NOW() - INTERVAL '15 minutes' THEN 'no_restart'
 		         WHEN cs.status IS NOT NULL THEN cs.status
 		         WHEN c.type IN `+shortLivedCommandsSQL+`
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'

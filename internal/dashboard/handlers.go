@@ -1151,7 +1151,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "ok"
 			case "failed":
 				return "danger"
-			case "expired":
+			case "expired", "no_restart":
 				return "warn"
 			case "downloading", "installing", "running":
 				return "active"
@@ -1177,6 +1177,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// device, pending/delivered show as "queued" (it runs when the device reconnects).
 		// Terminal/in-progress statuses are shown as-is.
 		"cmdStatusLabel": func(status string, online bool) string {
+			if status == "no_restart" {
+				return "sent · didn't restart"
+			}
 			if !online && (status == "delivered" || status == "pending") {
 				return "queued"
 			}

@@ -230,6 +230,34 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// R1 (17 Nov 2026): a reboot goes only to devices that are online; the rest are named
+	// in the result, and with none online nothing is sent and the page says so.
+	var offlineSkipped []string
+	if cmdType == "reboot" && targetType == "devices" && len(targetIDs) > 0 {
+		if devs, err := h.db.GetDevicesByIDs(r.Context(), targetIDs); err == nil {
+			on := map[uuid.UUID]bool{}
+			for i := range devs {
+				if h.deviceOnline(&devs[i]) {
+					on[devs[i].ID] = true
+				} else {
+					offlineSkipped = append(offlineSkipped, devs[i].SerialNumber)
+				}
+			}
+			sort.Strings(offlineSkipped)
+			kept := targetIDs[:0:0]
+			for _, id := range targetIDs {
+				if on[id] {
+					kept = append(kept, id)
+				}
+			}
+			if len(kept) == 0 {
+				h.rebootAllOffline(w, r, offlineSkipped)
+				return
+			}
+			targetIDs = kept
+		}
+	}
+
 	// Reject a command that resolves to no devices (e.g. "all" on an empty fleet, or
 	// serials that match nothing) rather than inserting an orphan command with no
 	// targets that no device will ever pick up.
@@ -445,7 +473,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// with a summary, since there's no single command to open.
 	if len(created) == 1 {
 		dest := "/commands/" + created[0].ID.String()
-		if n := len(skipped); n > 0 {
+		if n := len(offlineSkipped); n > 0 {
+			msg := fmt.Sprintf("Rebooting %d · %d offline, not sent: %s", len(targetIDs), n, strings.Join(offlineSkipped, ", "))
+			dest += "?flash=" + url.QueryEscape(msg) + "&flash_type=info"
+		} else if n := len(skipped); n > 0 {
 			msg := fmt.Sprintf("Sent to %d device(s). Skipped %d that already have or are installing this app: %s", len(targetIDs), n, strings.Join(skipped, ", "))
 			dest += "?flash=" + url.QueryEscape(msg) + "&flash_type=info"
 		}
@@ -579,4 +610,26 @@ func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 // msg is the reason to refuse it, "" when it may be sent.
 func checkedPayload(cmdType string, r *http.Request) (json.RawMessage, string) {
 	return product.NormalizeCommandPayload(cmdType, buildPayload(cmdType, r))
+}
+
+// rebootAllOffline answers a reboot whose devices are all offline: the page's prompt
+// (offline-prompt.js) for an htmx request, else back where it came from with the message.
+func (h *Handler) rebootAllOffline(w http.ResponseWriter, r *http.Request, serials []string) {
+	msg := "A reboot needs the device online, so nothing was sent: "
+	if len(serials) == 1 {
+		msg = serials[0] + " is offline. " + msg[:len(msg)-2] + "."
+	} else {
+		msg = fmt.Sprintf("All %d are offline. ", len(serials)) + msg + strings.Join(serials, ", ")
+	}
+	if r.Header.Get("HX-Request") == "true" {
+		ev, _ := json.Marshal(map[string]any{"mdm-reboot-offline": map[string]any{"serials": serials}})
+		w.Header().Set("HX-Trigger", string(ev))
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	back := "/devices"
+	if ref, err := url.Parse(r.Referer()); err == nil && strings.HasPrefix(ref.Path, "/") && ref.Host == r.Host {
+		back = ref.Path
+	}
+	h.hxRedirect(w, r, back+"?flash="+url.QueryEscape(msg)+"&flash_type=error")
 }

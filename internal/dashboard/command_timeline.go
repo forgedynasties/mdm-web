@@ -90,6 +90,8 @@ func eventLabel(kind string, detail json.RawMessage) (string, string) {
 		return "Cancelled", ""
 	case "expired":
 		return "Expired before it ran", ""
+	case "no_restart":
+		return "Sent · the device didn't restart", ""
 	case "received_ack":
 		return "Receipt acknowledged", ""
 	}

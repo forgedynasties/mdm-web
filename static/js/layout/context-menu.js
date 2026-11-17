@@ -149,13 +149,17 @@
   // which lands on the command's page.
   function runCommand(type, serials, ask) {
     if (ask && !window.confirm(ask + '\n\n' + serials.slice(0, 8).join('\n') + (serials.length > 8 ? '\n…and ' + (serials.length - 8) + ' more' : ''))) return;
-    var f = document.createElement('form');
-    f.method = 'POST'; f.action = '/commands'; f.style.display = 'none';
-    [['type', type], ['target_type', 'devices'], ['target_serials', serials.join('\n')]].forEach(function (kv) {
-      var i = document.createElement('input'); i.type = 'hidden'; i.name = kv[0]; i.value = kv[1]; f.appendChild(i);
-    });
-    document.body.appendChild(f);
-    f.submit();
+    // As an htmx request, so the server can answer with the offline prompt (a reboot to
+    // devices that are all offline sends nothing, offline-prompt.js) or a redirect to the job.
+    var body = new URLSearchParams();
+    body.append('type', type); body.append('target_type', 'devices'); body.append('target_serials', serials.join('\n'));
+    fetch('/commands', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' } }).then(function (r) {
+      var trig = r.headers.get('HX-Trigger'), to = r.headers.get('HX-Redirect');
+      if (trig) { try { var ev = JSON.parse(trig); if (ev['mdm-reboot-offline'] && window.mdmRebootOffline) { window.mdmRebootOffline(ev['mdm-reboot-offline']); return; } } catch (e) {} }
+      if (to) { location.href = to; return; }
+      if (r.redirected) { location.href = r.url; return; }
+      if (!r.ok) return r.text().then(function (t) { if (window.showToast) showToast((t || 'Could not send it').trim(), 'error'); });
+    }).catch(function () { if (window.showToast) showToast('Could not send it', 'error'); });
   }
   var targets = null;
   function loadTargets() {

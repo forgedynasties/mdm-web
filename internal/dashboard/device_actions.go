@@ -92,6 +92,26 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	// A reboot during an OTA download throws the bytes away, and during an install can
 	// leave a half-written slot — refuse it while either fleet's update is in flight.
 	// The MDM's own post-OTA reboot does not come through here, so it still works.
+	if cmdType == "reboot" && !h.deviceOnline(device) {
+		// R1 (17 Nov 2026; user: "Reboot can only be sent to a device which is online. if a
+		// reboot is sent and a device is offline show that prompt"): nothing is sent, and the
+		// page opens a prompt saying why (offline-prompt.js).
+		msg := device.SerialNumber + " is offline. A reboot needs the device online, so nothing was sent."
+		switch {
+		case r.Header.Get("Accept") == "application/json":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": msg})
+		case r.Header.Get("HX-Request") == "true":
+			ev, _ := json.Marshal(map[string]any{"mdm-reboot-offline": map[string]any{
+				"serials": []string{device.SerialNumber}, "ago": ago(device.LastSeenAt)}})
+			w.Header().Set("HX-Trigger", string(ev))
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			h.hxDoneToast(w, r, "/devices/"+serial, msg, "error")
+		}
+		return
+	}
 	if cmdType == "reboot" {
 		if blocked, why, err := h.db.RebootBlockedFor(r.Context(), device.ID); err == nil && blocked {
 			msg := "Reboot refused: " + why + " on this device. It reboots on its own when the update is ready."
