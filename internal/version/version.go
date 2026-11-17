@@ -32,6 +32,16 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.5",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"Updates: a device's \"last moved\" time is kept in the database, so the update page no longer flips between Stuck and Installing depending on which server copy answers.",
+			"Every list page (Venues, Groups, Alerts, Apps, Models, Setup, MDM clients, Users, Access, Activity, Compliance, Releases, Lineup) has Fleet's width and placement, its pills at the top of the pane, and never scrolls as a whole.",
+			"Pills and rail links switch the view in place: the page stays, only the pane dims, no skeleton or slide. Apps › Other apps lists the apps' makers in the rail.",
+			"Loading L4: rail rows, pills and releases load on hover and views opened in the last minute come back instantly (refreshed after a change or reload); the loading bar shows only after 120 ms.",
+		},
+	},
+	{
 		Version: "1.64.4",
 		Date:    "2026-11-17",
 		Changes: []string{

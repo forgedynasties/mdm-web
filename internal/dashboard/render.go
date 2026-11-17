@@ -214,9 +214,16 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, da
 	// Vary keys them to the same cache entry, and htmx never knows the difference.
 	// The FULL (non-boosted) document response for these same URLs is untouched —
 	// only this HX-Request-flagged fragment variant becomes briefly cacheable.
-	if r.Header.Get("HX-Request") == "true" && prefetchableTemplates[name] {
+	if r.Header.Get("HX-Request") == "true" && r.Method == http.MethodGet && r.Header.Get("X-Mdm-Pf") != "" {
+		// L4 (17 Nov 2026): a rail row, page pill or release the pointer rested on, or a
+		// view opened in the last minute (prefetch.js). Kept 60 s in this user's browser,
+		// keyed by the page's token (Vary), which changes on every load and after any
+		// change; one older than 3 s is checked again after it is shown.
+		w.Header().Set("Cache-Control", "private, max-age=60")
+		w.Header().Set("Vary", "HX-Request, HX-Boosted, X-Mdm-Pf")
+	} else if r.Header.Get("HX-Request") == "true" && prefetchableTemplates[name] {
 		w.Header().Set("Cache-Control", "private, max-age=10")
-		w.Header().Set("Vary", "HX-Request, HX-Boosted")
+		w.Header().Set("Vary", "HX-Request, HX-Boosted, X-Mdm-Pf")
 	}
 	buf.WriteTo(w)
 }

@@ -49,6 +49,7 @@ type a1Row struct {
 	Package    string
 	Icon       string
 	Role       string // the Lineup role whose app this is, "" if none
+	Maker      string // Other apps: its maker's key from the package name (appMaker)
 	RoleLabel  string
 	LibVersion string // library's newest prod-variant version, "" if none
 	Download   string // that build's APK (/apps/{id}/apk), "" if none (user, 2 Nov 2026)
@@ -83,6 +84,40 @@ type a1Product struct {
 	Devices           int
 }
 
+type a1Maker struct {
+	Key, Label string
+	Apps       int
+}
+
+// appMaker names who makes an app from its package (17 Nov 2026, UI review: "on other apps
+// side rail should also change"): a few known vendors by prefix, else the package's second
+// part ("com.whatsapp" → Whatsapp).
+func appMaker(pkg string) (key, label string) {
+	known := []struct{ pre, key, label string }{
+		{"com.google.", "google", "Google"}, {"com.android.", "android", "Android"}, {"android", "android", "Android"},
+		{"com.sunmi.", "sunmi", "Sunmi"}, {"woyou.", "sunmi", "Sunmi"}, {"com.woyou.", "sunmi", "Sunmi"},
+		{"com.qualcomm.", "qualcomm", "Qualcomm"}, {"org.codeaurora.", "qualcomm", "Qualcomm"}, {"com.qti.", "qualcomm", "Qualcomm"}, {"vendor.qti.", "qualcomm", "Qualcomm"},
+		{"com.mediatek.", "mediatek", "MediaTek"}, {"com.rockchip.", "rockchip", "Rockchip"}, {"android.rockchip.", "rockchip", "Rockchip"},
+		{"com.samsung.", "samsung", "Samsung"}, {"com.sec.", "samsung", "Samsung"},
+		{"aio.", "aio", "AIO"}, {"com.aioapp.", "aio", "AIO"}, {"com.manageaio.", "aio", "AIO"},
+	}
+	for _, k := range known {
+		if pkg == strings.TrimSuffix(k.pre, ".") || strings.HasPrefix(pkg, k.pre) {
+			return k.key, k.label
+		}
+	}
+	parts := strings.Split(pkg, ".")
+	w := parts[0]
+	if len(parts) > 1 && (w == "com" || w == "org" || w == "net" || w == "io" || w == "de" || w == "cn" || w == "tv" || w == "app" || len(w) <= 3) {
+		w = parts[1]
+	}
+	w = strings.ToLower(w)
+	if w == "" {
+		return "other", "Other"
+	}
+	return w, strings.ToUpper(w[:1]) + w[1:]
+}
+
 type a1RoleApp struct {
 	Role, Label, Package, Version string
 	Missing                       bool
@@ -112,6 +147,7 @@ type appsA1 struct {
 	Rows   []a1Row
 	// L1 (30 Oct 2026): the rail's By product list and its view counts.
 	Products      []a1Product
+	Makers        []a1Maker // Other apps' rail (17 Nov 2026): who makes them, biggest first
 	RoleN, OtherN int
 	Rail          a1Rail
 	Hidden        int // packages seen on devices, not in the library and not a role app
@@ -390,6 +426,27 @@ func buildAppsA1(in a1Inputs) appsA1 {
 			v.OtherN++
 		}
 	}
+	mk := map[string]int{}
+	for i := range v.Rows {
+		r := &v.Rows[i]
+		if r.Role != "" {
+			continue
+		}
+		key, label := appMaker(r.Package)
+		r.Maker = key
+		if j, ok := mk[key]; ok {
+			v.Makers[j].Apps++
+			continue
+		}
+		mk[key] = len(v.Makers)
+		v.Makers = append(v.Makers, a1Maker{Key: key, Label: label, Apps: 1})
+	}
+	sort.SliceStable(v.Makers, func(a, b int) bool {
+		if v.Makers[a].Apps != v.Makers[b].Apps {
+			return v.Makers[a].Apps > v.Makers[b].Apps
+		}
+		return v.Makers[a].Label < v.Makers[b].Label
+	})
 	sort.SliceStable(v.Products, func(a, b int) bool { return v.Products[a].Devices > v.Products[b].Devices })
 	sort.SliceStable(v.Rows, func(a, b int) bool {
 		if v.Rows[a].Devices != v.Rows[b].Devices {

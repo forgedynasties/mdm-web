@@ -408,10 +408,15 @@ func (d *DB) SetCommandProgressBytes(ctx context.Context, commandID, deviceID uu
 	// Interim progress must never overwrite a terminal state (a late 'downloading'
 	// arriving after 'installed' would revert the row).
 	_, err = d.pool.Exec(ctx, `
-		INSERT INTO command_status (command_id, device_id, status, progress, bytes_done, bytes_total, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		INSERT INTO command_status (command_id, device_id, status, progress, bytes_done, bytes_total, updated_at, progress_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
-			SET status = EXCLUDED.status, progress = EXCLUDED.progress,
+			SET progress_at = CASE WHEN command_status.progress IS DISTINCT FROM EXCLUDED.progress
+			                         OR command_status.status IS DISTINCT FROM EXCLUDED.status
+			                         OR (EXCLUDED.bytes_done > 0 AND EXCLUDED.bytes_done <> command_status.bytes_done)
+			                         OR command_status.progress_at IS NULL
+			                       THEN NOW() ELSE command_status.progress_at END,
+			    status = EXCLUDED.status, progress = EXCLUDED.progress,
 			    bytes_done  = CASE WHEN EXCLUDED.bytes_done  > 0 THEN EXCLUDED.bytes_done  ELSE command_status.bytes_done  END,
 			    bytes_total = CASE WHEN EXCLUDED.bytes_total > 0 THEN EXCLUDED.bytes_total ELSE command_status.bytes_total END,
 			    updated_at = NOW()

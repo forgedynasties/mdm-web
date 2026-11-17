@@ -1942,6 +1942,10 @@ ALTER TABLE command_status ADD COLUMN IF NOT EXISTS bytes_total BIGINT NOT NULL 
 ALTER TABLE command_status ADD COLUMN IF NOT EXISTS lease_id         UUID;
 ALTER TABLE command_status ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
 ALTER TABLE command_status ADD COLUMN IF NOT EXISTS attempts         INT NOT NULL DEFAULT 0;
+-- When the percent (or phase) last changed. It lived only in each server copy's memory, so
+-- with two copies the update page flipped between "Stuck at 92%" and "Installing" depending
+-- on which copy answered (17 Nov 2026, update #620).
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS progress_at      TIMESTAMPTZ;
 
 -- Per-command policy, stamped from internal/command at creation, so delivery and expiry
 -- read a column instead of re-deciding in SQL. max_attempts 0 = unlimited, which is the

@@ -56,7 +56,6 @@
 <div class="cc-top"><div><h1 class="cc-h1">People</h1></div>
   {{if .Assignable}}<div class="cc-actions isl-dup"><button type="button" class="cc-btn primary" onclick="upInviteOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Invite</button></div>{{end}}
 </div>
-{{template "users-tabs" .}}
 {{if .InviteFailed}}<div class="vf-strip"><div class="vf-strip-h"><div><h2>The account was made, but the invite email did not go out</h2><small>Open the person and use Send again.</small></div></div></div>{{end}}
   {{if .Waiting}}
   <div class="vf-strip" id="waiting-signups">
@@ -95,6 +94,7 @@
     {{if eq .Role "admin"}}<a class="fleet-rail-item" href="/activity"><span class="dot muted"></span><span class="nm">Activity</span></a>{{end}}
   </aside>
   <div class="fleet-roster">
+  {{template "users-tabs" .}}
     <div class="fleet-pane-head"><span class="t" data-cl-title>Everyone</span><span class="c" data-cl-count>{{add (len .Team) (len .Customers)}} people</span></div>
     <div class="fleet-bar">
       <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search name or email…" aria-label="Search people" autocomplete="off"></div>

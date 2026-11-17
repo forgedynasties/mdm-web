@@ -7922,7 +7922,7 @@ body .cc-top .cc-h1 {
 body .cc-top { margin-bottom: 0; justify-content: flex-end; }
 body .cc-top > div:first-child { flex: 0 0 0; min-width: 0; }
 body .cc-top .cc-actions { padding-top: 0; }
-body .cc-top:has(.cc-actions:not(.isl-dup) > *) { margin-bottom: 14px; }
+body .cc-top:has(.cc-actions:not(.isl-dup) > :not(.isl-dup, .isl-dup-sr)) { margin-bottom: 14px; }
 
 /* D3 island (picked 3 Nov 2026): a breadcrumb in front of the page's name (layout.html
    crumbs()), and live moments over the island (static/js/layout/island.js): what a click
@@ -8223,4 +8223,35 @@ html body :is(.card, .cc-card, .ddc-card, .fleet-rail, .cl-card, .dd-needs) { bo
   animation: pane-load 1s linear infinite; }
 @keyframes pane-load { from { background-position: -40% 0; } to { background-position: 140% 0; } }
 @media (prefers-reduced-motion: reduce) { .pane-loading::before { animation: none; background: var(--accent-fill); opacity: .4; } }
+
+/* Fleet-style pages line up with Fleet (17 Nov 2026, UI review: "make all relevant pages match
+   fleet page width and all placement"): the same width (--page-max) and the rail and pane
+   start at the top; a page's pill bar sits at the top of its pane, as Fleet's tabs do. */
+body :is(.cl-page, .ro-wrap, .vn-page, .fl-page) { max-width: var(--page-max); }
+.fleet-roster > .cc-tabs { margin: 0 0 12px !important; }
+.fleet-roster > .ap-pills, .fleet-roster > .k1-bar { margin: 0 0 12px; }
+body :is(.pl-wrap) { max-width: var(--page-max); }
+/* A list page never scrolls as a whole: no bottom padding under the list (Apps had 96 px from
+   the old floating dock). */
+html.shell main.shell-list > :is(.cl-page, .cc-wrap, .vn-page, .fl-page, .ro-wrap) { padding-bottom: 0; margin-bottom: 0; }
+/* A pane whose list sits in a plain wrapper with its own head (Alerts): the wrapper is a column,
+   so its table scrolls inside instead of being cut at the bottom; with several tables in it
+   (Alerts › Crashes) the wrapper scrolls as one. */
+html.shell .fleet-roster > div:not(.card):has(> .fleet-pane-head) { display: flex; flex-direction: column; min-height: 0; }
+html.shell .fleet-roster > div:not(.card):has(> .fleet-pane-head) > * { flex: none; max-height: none; }
+html.shell .fleet-roster > div:not(.card):has(> .fleet-pane-head) > .card:has(> .ft-wrap) { flex: 0 1 auto; min-height: 0; }
+html.shell .fleet-roster > div:not(.card):has(> .fleet-pane-head):has(> .card ~ .card) { overflow-y: auto; scrollbar-width: thin; }
+html.shell .fleet-roster > div:not(.card):has(> .fleet-pane-head):has(> .card ~ .card) > .card { flex: none; }
+html.shell .fleet-roster > div:not(.card):has(> .fleet-pane-head):has(> .card ~ .card) .ft-wrap { overflow: visible; max-height: none; }
+
+/* A closed <details>' content takes no room anywhere: Chromium keeps a closed menu's
+   absolutely placed popup laid out, and on Alerts 55 of them made the page scroll. */
+details:not([open]) > :not(summary) { display: none; }
+/* Absolutely placed bits in a list (screen-reader labels, popups) scroll with the list: they were
+   placed against <main> and made a list page scroll (Alerts). */
+html.shell .fleet-roster, html.shell .fleet-roster .ft-wrap { position: relative; }
+/* A page reached from its own pills or rail (navigation.js) arrives in place: no entrance
+   animation on any of its parts. */
+main.nav-still, main.nav-still * { animation: none !important; }
+main.nav-still.htmx-added { opacity: 1 !important; }
 
