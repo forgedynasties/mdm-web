@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.3",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"Admin: the AIO backend placements (Enrollment › From the AIO backend: create or link a venue, move a venue's devices there) work over the admin API too.",
+		},
+	},
+	{
 		Version: "1.64.2",
 		Date:    "2026-11-17",
 		Changes: []string{
