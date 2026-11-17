@@ -580,8 +580,25 @@ function bulkRun(type, fields, confirmMsg) {
   add('target_type', 'devices');
   add('target_serials', serials.join('\n'));
   Object.keys(fields || {}).forEach(function (k) { add(k, fields[k]); });
+  // A reboot goes as an htmx request, so devices that are all offline get the prompt
+  // (offline-prompt.js) instead of a page; the others follow the server's redirect.
+  if (type === 'reboot' && window.fetch) {
+    fetch('/commands', { method: 'POST', body: new URLSearchParams(new FormData(f)), credentials: 'same-origin', headers: { 'HX-Request': 'true' } }).then(function (r) {
+      var trig = r.headers.get('HX-Trigger');
+      if (trig) { try { var ev = JSON.parse(trig); if (ev['mdm-reboot-offline'] && window.mdmRebootOffline) { window.mdmRebootOffline(ev['mdm-reboot-offline']); return; } } catch (e) {} }
+      if (r.redirected) { location.href = r.url; return; }
+      if (!r.ok) return r.text().then(function (t) { if (window.showToast) showToast((t || 'Could not send it').trim(), 'error'); });
+    });
+    return;
+  }
   document.body.appendChild(f);
   f.submit();
+}
+
+// Add app on the selection (D1, 17 Nov 2026): the shared dialog (add-app.js).
+function bulkAddApp() {
+  var serials = getSelectedSerials();
+  if (serials.length && window.mdmAddApp) window.mdmAddApp({ serials: serials });
 }
 
 // Shell needs its line before it can run, so it gets a prompt rather than a sheet: the

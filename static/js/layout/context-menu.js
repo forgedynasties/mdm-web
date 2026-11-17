@@ -28,6 +28,7 @@
     shot: '<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/>',
     remote: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
     reboot: '<path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/>',
+    app: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/>',
     lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
     unlock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>',
     group: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/>',
@@ -200,6 +201,7 @@
     if (caps.reboot) it.push({ label: one ? 'Reboot…' : 'Reboot ' + n + '…', icon: 'reboot', ro: ro, run: function () {
       runCommand('reboot', serials, 'Reboot ' + (one ? t.serial : n + ' devices') + '? Whatever is on screen restarts.');
     } });
+    if (caps.apps && window.mdmAddApp) it.push({ label: one ? 'Add app…' : 'Add app to ' + n + '…', icon: 'app', ro: ro, run: function () { window.mdmAddApp({ serials: serials }); } });
     if (caps.lock && one) {
       var locked = d.locked === '1';
       it.push({ label: locked ? 'Unlock' : 'Lock', icon: locked ? 'unlock' : 'lock', ro: ro, run: function () {

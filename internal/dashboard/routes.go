@@ -323,6 +323,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/follows", h.requireAuth(h.deviceRoute("install_apk", h.DeviceFollow)))
 	// Apps added to / removed from a device (app_wants_view.go, 17 Nov 2026).
 	post("POST /devices/{serial}/apps/add", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppAdd)))
+	mux.HandleFunc("GET /apps/add-to", h.requireAuth(h.AddAppDialog))
+	post("POST /apps/add-to", h.requireAuth(h.AddAppTo))
 	post("POST /devices/{serial}/apps/remove", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRemove)))
 	post("POST /devices/{serial}/apps/cancel", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppCancel)))
 	post("POST /devices/{serial}/apps/retry", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRetry)))
