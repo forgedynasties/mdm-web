@@ -8,9 +8,10 @@ import (
 	"time"
 )
 
-// A class set for one serial (PinDeviceClass) outlives its model's role: check-ins and a
-// Lineup change leave it; UnpinDeviceClass hands it back to the model.
-func TestPinnedClassOutlivesModel(t *testing.T) {
+// A class set for one serial (PinDeviceClass) holds only while its model has no role
+// (Models, 17 Nov 2026: a model with one role wins over a pin, at check-in and when the
+// model changes); UnpinDeviceClass hands it back to the model.
+func TestPinnedClassYieldsToModel(t *testing.T) {
 	url := os.Getenv("MDM_TEST_DATABASE_URL")
 	if url == "" {
 		t.Skip("MDM_TEST_DATABASE_URL not set")
@@ -26,13 +27,7 @@ func TestPinnedClassOutlivesModel(t *testing.T) {
 	}
 	sfx := time.Now().Format("150405.000")
 	model, serial := "pinmodel"+sfx, "PIN-"+sfx
-	if _, err := d.setProductRoles(ctx, model, []string{"pos"}, "test"); err != nil {
-		t.Fatal(err)
-	}
 	extra := json.RawMessage(`{"agent_type":"dpc"}`)
-	if _, _, _, _, _, err := d.UpsertCheckin(ctx, serial, "b1", nil, extra, false, model); err != nil {
-		t.Fatal(err)
-	}
 	class := func() (string, string) {
 		var c, s string
 		if err := d.pool.QueryRow(ctx, `SELECT device_class, class_source FROM devices WHERE serial_number = $1`, serial).Scan(&c, &s); err != nil {
@@ -40,11 +35,9 @@ func TestPinnedClassOutlivesModel(t *testing.T) {
 		}
 		return c, s
 	}
+	// A model with no role: a pin holds through check-ins.
 	if _, _, _, _, _, err := d.UpsertCheckin(ctx, serial, "b1", nil, extra, false, model); err != nil {
 		t.Fatal(err)
-	}
-	if c, _ := class(); c != "pos" {
-		t.Fatalf("before the pin the model's role holds, got %q", c)
 	}
 	if err := d.PinDeviceClass(ctx, serial, "kds"); err != nil {
 		t.Fatal(err)
@@ -53,13 +46,23 @@ func TestPinnedClassOutlivesModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	if c, s := class(); c != "kds" || s != "pin" {
-		t.Errorf("after a check-in: %q/%q, want kds/pin", c, s)
+		t.Errorf("no model role, after a check-in: %q/%q, want kds/pin", c, s)
 	}
+	// The model gets one role: it wins, now and at the next check-in.
 	if _, err := d.setProductRoles(ctx, model, []string{"mpos"}, "test"); err != nil {
 		t.Fatal(err)
 	}
-	if c, _ := class(); c != "kds" {
-		t.Errorf("after a Lineup change: %q, want kds", c)
+	if c, s := class(); c != "mpos" || s != "" {
+		t.Errorf("after the model's role: %q/%q, want mpos from the model", c, s)
+	}
+	if err := d.PinDeviceClass(ctx, serial, "kds"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, _, _, err := d.UpsertCheckin(ctx, serial, "b3", nil, extra, false, model); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := class(); c != "mpos" {
+		t.Errorf("a pin against a one-role model, after a check-in: %q, want mpos", c)
 	}
 	if err := d.UnpinDeviceClass(ctx, serial); err != nil {
 		t.Fatal(err)
