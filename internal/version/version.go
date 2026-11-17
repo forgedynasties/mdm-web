@@ -32,6 +32,16 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.4",
+		Date:    "2026-11-17",
+		Changes: []string{
+			"UI review, first round: the Overview's By type and Right now cards have the open arrow; gradient buttons leave no coloured line on hover; Fleet fits its rows to the window again (no more 1–25 with a scrolling table).",
+			"A rail that loads its pane (Setup, Models…) marks the pick at once and dims the pane with a moving bar while it loads; pages with a rail open with a two-column skeleton.",
+			"List and stat cards no longer lift on hover; Setup's Enrolled and Profiles scroll after Show more, with a gap under their chips; Setup's rail drops Venues.",
+			"Apps: AIO apps | Other apps as the top pills and only the products in the rail. Releases: the list and the detail run to the bottom, level at the top. The dock keeps Users on Access and Activity.",
+		},
+	},
+	{
 		Version: "1.64.3",
 		Date:    "2026-11-17",
 		Changes: []string{

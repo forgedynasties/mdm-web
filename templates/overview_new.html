@@ -479,14 +479,14 @@ html:not(.ov-nofit):has(.ovd .ovb) .ovb-radar{min-height:150px}
     {{end}}
 
     <section class="ovb-c" aria-labelledby="ovb-ty">
-      <div class="ovb-ch"><h2 id="ovb-ty">By type</h2><span class="sp"></span><a class="ovb-ib" href="/devices" aria-label="Fleet"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></a></div>
+      <div class="ovb-ch"><h2 id="ovb-ty">By type</h2><span class="sp"></span><a class="ovb-ib" href="/devices" aria-label="Fleet"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></a></div>
       <div class="ovb-rings">{{range .Types}}
         <a class="ovb-ring" href="{{.Href}}"><svg viewBox="0 0 82 82" role="img" aria-label="{{.Label}}: {{.Online}} of {{.Total}} online"><circle class="bg" cx="41" cy="41" r="33"/><circle class="fg {{.Tone}}" cx="41" cy="41" r="33" stroke-dasharray="{{.Dash}} {{.Circ}}"/><text x="41" y="45" text-anchor="middle">{{.Online}}/{{.Total}}</text></svg>{{.Label}}</a>{{end}}
       </div>
     </section>
 
     <section class="ovb-c" aria-labelledby="ovb-rn">
-      <div class="ovb-ch"><h2 id="ovb-rn">Right now</h2><span class="sp"></span><a class="ovb-ib" href="/devices?status=offline" aria-label="Offline devices"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/></svg></a></div>
+      <div class="ovb-ch"><h2 id="ovb-rn">Right now</h2><span class="sp"></span><a class="ovb-ib" href="/devices?status=offline" aria-label="Offline devices"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></a></div>
       <div class="ovb-split">
         <div class="lbls"><span style="flex:{{.SplitOn}}">Online<b>{{.SplitOn}}</b></span><span style="flex:{{.SplitOffVenue}}">Offline at a venue<b class="r">{{.SplitOffVenue}}</b></span><span style="flex:{{.SplitOffLab}}">Offline in Lab<b>{{.SplitOffLab}}</b></span></div>
         <div class="bars"><i class="g" style="flex:{{.SplitOn}}"></i><i class="r" style="flex:{{.SplitOffVenue}}"></i><i class="h" style="flex:{{.SplitOffLab}}"></i></div>

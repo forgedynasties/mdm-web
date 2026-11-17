@@ -12,6 +12,11 @@
   .a1-sugg form{display:flex;align-items:center;gap:12px;padding:9px 13px;border-radius:12px;background:var(--accent-soft);font-size:12.5px;margin:0}
   .a1-sugg form span{flex:1;min-width:0}
   .cl-page .fleet-rail-item .ap-ic.sm{margin-right:2px}
+  .ap-pills{display:flex;gap:2px;padding:4px;border-radius:12px;background:var(--surface2);width:max-content;margin:-4px 0 14px}
+  .ap-pills button{font:inherit;font-size:13px;font-weight:600;padding:6px 14px;border:0;border-radius:9px;background:none;color:var(--text-2);cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+  .ap-pills button span{font-size:11.5px;color:var(--muted);font-weight:600}
+  .ap-pills button:hover{color:var(--text)}
+  .ap-pills button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06)}
   @media (max-width:720px){.cl-card .ft-wrap{overflow-x:auto;position:relative}.cl-card .cl-ft{min-width:640px}}
 </style>
 <template id="page-island">
@@ -29,7 +34,6 @@
     <div><h1 class="cc-h1">Apps</h1></div>
     {{if $lib}}<div class="cc-actions isl-dup"><button type="button" class="cc-btn primary" onclick="libAddOpen()">Add apps</button></div>{{end}}
   </div>
-  {{template "apps-hub-tabs" .}}
   {{if and .Suggestions $lib}}
   <div class="a1-sugg">
     {{range .Suggestions}}{{$sg := .}}
@@ -43,22 +47,19 @@
   </div>
   {{end}}
   <div data-cl data-one="app" data-many="apps" data-start="role">
+  {{/* AIO apps | Other apps as the page's top pills, the rail only the products (17 Nov 2026,
+       UI review: "top level pills instead of library and resource use … aio apps other apps";
+       "in side rail only keep by product … only one list, get rid of search"). */}}
+  <div class="ap-pills" role="group" aria-label="Apps">
+    <button type="button" class="on" data-clf="role" data-title="AIO apps" aria-pressed="true">AIO apps<span>{{$a.RoleN}}</span></button>
+    {{if .CanShowAll}}<button type="button" data-clf="other" data-title="Other apps" aria-pressed="false">Other apps<span>{{$a.OtherN}}</span></button>{{end}}
+  </div>
   <div class="fleet-md dv-rise-1">
-    <aside class="fleet-rail" aria-label="App views">
-      <div class="fleet-rail-cap"><span>Apps</span></div>
-      {{/* No "All apps" entry; Role apps opens first (5 Nov 2026, user: "no need to add all apps
-           to side rail in apps page, role apps should be selected by default"). */}}
-      <button type="button" class="fleet-rail-item on" data-clf="role" data-title="Role apps" aria-pressed="true"><span class="dot ok"></span><span class="nm">Role apps</span><span class="ct">{{$a.RoleN}}</span></button>
-      {{if .CanShowAll}}
-      <button type="button" class="fleet-rail-item" data-clf="other" aria-pressed="false"><span class="dot muted"></span><span class="nm">Other apps</span><span class="ct">{{$a.OtherN}}</span></button>
-      {{end}}
-      {{if $a.Products}}
-      <div class="fleet-rail-cap" style="margin-top:10px"><span>By product</span></div>
-      {{range $a.Products}}<button type="button" class="fleet-rail-item" data-clf="pc-{{.Role}}" aria-pressed="false">{{if .Icon}}<img class="ap-ic sm" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="dot ok"></span>{{end}}<span class="nm">{{.Label}}</span><span class="ct">{{.Devices}}</span></button>{{end}}
-      {{end}}
+    <aside class="fleet-rail" aria-label="Products" data-rail-search="off">
+      {{range $a.Products}}<button type="button" class="fleet-rail-item" data-clf="pc-{{.Role}}" data-title="{{.Label}}" aria-pressed="false">{{if .Icon}}<img class="ap-ic sm" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="dot ok"></span>{{end}}<span class="nm">{{.Label}}</span><span class="ct">{{.Devices}}</span></button>{{end}}
     </aside>
     <div class="fleet-roster">
-      <div class="fleet-pane-head"><span class="t" data-cl-title>Role apps</span><span class="c" data-cl-count>{{$a.RoleN}} app{{if ne $a.RoleN 1}}s{{end}}</span>{{if $lib}}<span class="ap-hact"><button type="button" class="cc-btn primary sm" onclick="libAddOpen()">Add APK</button></span>{{end}}</div>
+      <div class="fleet-pane-head"><span class="t" data-cl-title>AIO apps</span><span class="c" data-cl-count>{{$a.RoleN}} app{{if ne $a.RoleN 1}}s{{end}}</span>{{if $lib}}<span class="ap-hact"><button type="button" class="cc-btn primary sm" onclick="libAddOpen()">Add APK</button></span>{{end}}</div>
       <div class="fleet-bar">
         <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search apps, packages, versions…" aria-label="Search apps"></div>
         <div class="fleet-fwrap">

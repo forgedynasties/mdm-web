@@ -191,8 +191,29 @@
     if (!fp.on) { sync(); return; }
     var f = C.querySelector('.fl-foot');
     if (f && f.dataset.start) fp.start = Math.max(0, +f.dataset.start - 1);
+    // Measured before the shell had sized the table, a page can come out too tall (25 rows,
+    // the table scrolling, "1–25"; 17 Nov 2026): rows that overflow mean ask again.
+    if (refit()) return;
     fill(); foot(); cue(); prefetch();
   });
+  function refit() {
+    var w = wrap();
+    if (!fp.on || !w || w.scrollHeight <= w.clientHeight + 2) return false;
+    if (!size()) return false;
+    htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' });
+    return true;
+  }
+  // The table's box settles after the page appears (fonts, the shell, the island): when its
+  // height changes, the number of rows that fit is measured again.
+  if (window.ResizeObserver) {
+    var lastH = 0;
+    new ResizeObserver(function () {
+      var w = wrap(); if (!w || !fp.on) return;
+      var h = w.clientHeight; if (Math.abs(h - lastH) < 2) return; lastH = h;
+      clearTimeout(window.__flFpO);
+      window.__flFpO = setTimeout(function () { if (size()) htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' }); }, 120);
+    }).observe(C);
+  }
   document.body.addEventListener('fleet:scoped', function () { cache = {}; });
   window.addEventListener('resize', function () {
     clearTimeout(window.__flFpR);

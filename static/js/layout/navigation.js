@@ -181,6 +181,9 @@
       if (/^\/commands\/[0-9a-f-]{8,}/.test(path)) return 'skel-detail';
       if (/^\/(groups|restaurants|productions)\/[^/]+/.test(path)) return 'skel-detail';
       if (path === '/devices') return 'skel-fleet'; // two-column: collections rail + roster
+      // Every other page with Fleet's rail + pane (17 Nov 2026, UI review: Setup's skeleton
+      // was one full-width block).
+      if (/^\/(coverage|visits|enrollment|my-visits|models|restaurants|groups|apps|alerts|adb|clients|releases|users|activity)$/.test(path)) return 'skel-fleet';
       return 'skel-list'; // history, alerts, users, packages, setup, …
     }
     // ── Page-shaped skeletons from the page itself ─────────────────────────────

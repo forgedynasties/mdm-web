@@ -42,6 +42,7 @@
     var rows = Array.prototype.slice.call(rail.querySelectorAll('.fleet-rail-item'));
     // data-rail-search: always a search, whatever the length (Models), its value the placeholder.
     if (rows.length <= LONG && !rail.hasAttribute('data-rail-search')) return;
+    if (rail.getAttribute('data-rail-search') === 'off') return; // never (Apps)
     var tabs = rail.querySelector(':scope > .rail-tabs');
 
     var box = document.createElement('div');
