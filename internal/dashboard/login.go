@@ -39,9 +39,13 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	// Refuse further attempts once either the source IP or the targeted account
 	// has accumulated too many recent failures (F-01).
 	ip := ratelimit.ClientIP(r)
-	userKey := "u:" + user
-	for _, key := range []string{ip, userKey} {
-		if n, retry := h.loginFails.Count(key); n >= loginMaxFailures {
+	// Per account from this address; a far higher count for the account from anywhere,
+	// so one stranger can't lock a named person out (18 Nov 2026 audit) while a spread-out
+	// guessing run is still stopped.
+	userKey := "u:" + user + "|" + ip
+	userAnyKey := "ua:" + user
+	for key, max := range map[string]int{ip: loginMaxFailures, userKey: loginMaxFailures, userAnyKey: 6 * loginMaxFailures} {
+		if n, retry := h.loginFails.Count(key); n >= max {
 			mins := int(retry.Minutes()) + 1
 			w.WriteHeader(http.StatusTooManyRequests)
 			h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{
@@ -91,6 +95,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	// Failed attempt — count it against both the IP and the account.
 	h.loginFails.Hit(ip)
 	h.loginFails.Hit(userKey)
+	h.loginFails.Hit(userAnyKey)
 	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials", "Brand": h.cfg.CustomBrand()})
 }
 

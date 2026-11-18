@@ -448,6 +448,16 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 	if !h.requireDeviceAction(w, r, policyActionForCommand(cmd.Type), deviceIDs[0]) {
 		return
 	}
+	// A resend repeats what was sent, to a device it was sent to: not a way to push
+	// someone else's command (its stored Wi-Fi password, say) onto another device.
+	if h.commandHiddenFrom(r, *cmd) {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	if was, err := h.db.CommandTargetsDevice(r.Context(), cmd.ID, deviceIDs[0]); err != nil || !was {
+		http.Error(w, "That command was not sent to this device.", http.StatusBadRequest)
+		return
+	}
 	payload, ok := h.resendPayload(w, r, cmd)
 	if !ok {
 		return
@@ -799,9 +809,13 @@ func (h *Handler) AttentionClear(w http.ResponseWriter, r *http.Request) {
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	attn, _, _ := classifyCommands(cmds, summaries, dismissed)
+	// Everyone's list only for the super admin; others clear what they sent themselves.
+	all, me := h.access(r).unrestricted(), h.currentUsername(r)
 	ids := make([]uuid.UUID, 0, len(attn))
 	for _, c := range attn {
-		ids = append(ids, c.ID)
+		if all || c.CreatedBy == me {
+			ids = append(ids, c.ID)
+		}
 	}
 	if err := h.db.DismissCommands(r.Context(), ids, h.role(r)); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)

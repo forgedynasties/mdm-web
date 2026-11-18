@@ -95,6 +95,19 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Someone who sees part of the fleet gets the groups holding a device they see, and
+	// empty ones (a group they just made); not the names and sizes of the rest.
+	if acc := h.access(r); acc.hidesDevices() {
+		_, seen := acc.visibleCollections()
+		kept := groups[:0:0]
+		for _, g := range groups {
+			if n := seen[g.ID]; n > 0 || g.DeviceCount == 0 {
+				g.DeviceCount = n
+				kept = append(kept, g)
+			}
+		}
+		groups = kept
+	}
 	// Per-group health scores for the card grid; missing entries render as "—".
 	health := make(map[uuid.UUID]db.GroupHealth)
 	if ghs, err := h.db.GetGroupHealth(r.Context(), h.connectedSlice()); err == nil {

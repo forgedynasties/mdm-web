@@ -32,6 +32,16 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.10",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: a remote-control connection must come from the session that opened it; reset, invite and verify links are stored hashed (links already mailed keep working).",
+			"Security: failed sign-ins lock an account for the address they came from, not for everyone; an account is locked for all only after 48 failures in 15 minutes.",
+			"Security: cancelling a firmware update is for an admin; resending a command needs you to see it and goes only to a device it was sent to; clearing Needs attention clears your own; the Groups list shows the groups holding a device you see.",
+			"Security: an APK's icon is size-checked before it is decoded; a device's Save to library must answer within two hours with the version asked for; AIO Enroll no longer says when a device you can't see was last heard.",
+		},
+	},
+	{
 		Version: "1.64.9",
 		Date:    "2026-11-18",
 		Changes: []string{

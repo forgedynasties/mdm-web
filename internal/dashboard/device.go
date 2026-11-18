@@ -712,7 +712,7 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		"Device": device,
 		// Single-use, short-lived token instead of the admin API key (which must
 		// never reach the browser). The control WebSocket redeems it server-side.
-		"Token": h.remote.IssueToken(device.ID, 2*time.Minute),
+		"Token": h.remote.IssueToken(device.ID, h.currentUsername(r), 2*time.Minute),
 		"Kbd":   remoteKbdLevel(device),
 		// Menu boards (TV boxes) are driven by a remote: the button column beside the
 		// screen becomes a D-pad (P2, picked 22 Oct 2026; user: "for menu board, add a
@@ -755,7 +755,7 @@ func (h *Handler) DeviceRemoteToken(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": h.remote.IssueToken(device.ID, 2*time.Minute)})
+	json.NewEncoder(w).Encode(map[string]string{"token": h.remote.IssueToken(device.ID, h.currentUsername(r), 2*time.Minute)})
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console

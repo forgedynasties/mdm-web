@@ -239,3 +239,12 @@ func (h *Handler) resolveCommandActors(ctx context.Context, cmds []db.Command) {
 		}
 	}
 }
+
+// SessionUsername is whose dashboard session the request carries, "" for none. For the
+// API's remote-control socket, which the browser opens with its cookie.
+func (h *Handler) SessionUsername(r *http.Request) string {
+	if s, ok := h.currentSession(r); ok {
+		return s.Username
+	}
+	return ""
+}

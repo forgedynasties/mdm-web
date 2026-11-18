@@ -852,6 +852,11 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
+	// Firmware rollouts belong to the people who may start one (18 Nov 2026 audit).
+	if !roleCanOTA(h.role(r)) {
+		http.Error(w, "Cancelling a firmware update is for an admin.", http.StatusForbidden)
+		return
+	}
 	if err := h.db.CancelDeployment(r.Context(), did); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return

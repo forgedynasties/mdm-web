@@ -2249,6 +2249,8 @@ CREATE TABLE IF NOT EXISTS remote_tokens (
     device_id UUID NOT NULL,
     expires   TIMESTAMPTZ NOT NULL
 );
+-- Who it was minted for: the socket that redeems it must be that person's (18 Nov 2026).
+ALTER TABLE remote_tokens ADD COLUMN IF NOT EXISTS username TEXT NOT NULL DEFAULT '';
 
 -- Host app not on screen removed (user, 30 Oct 2026: "remove the app not on screen alert
 -- completely"): its rule goes and any open alert of it is resolved.

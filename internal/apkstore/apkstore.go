@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"image"
 	"image/png"
 	"io"
 	"os"
@@ -330,7 +331,8 @@ func (s *Store) Parse(ctx context.Context, key string) (*Meta, error) {
 		return nil, errors.New("empty object")
 	}
 	reader := &s3ReaderAt{ctx: ctx, client: s.client, bucket: s.bucket, key: key, size: size}
-	if err := checkEntrySizes(reader, size); err != nil {
+	zr, err := checkEntrySizes(reader, size)
+	if err != nil {
 		return nil, err
 	}
 	pkg, err := apk.OpenZipReader(reader, size)
@@ -339,7 +341,7 @@ func (s *Store) Parse(ctx context.Context, key string) (*Meta, error) {
 	}
 	defer pkg.Close()
 
-	return metaFrom(pkg)
+	return metaFrom(pkg, zr)
 }
 
 // The parser reads these entries whole into memory, so their declared sizes are checked
@@ -350,22 +352,59 @@ const (
 	maxResourcesBytes = 128 << 20
 )
 
-func checkEntrySizes(r io.ReaderAt, size int64) error {
+func checkEntrySizes(r io.ReaderAt, size int64) (*zip.Reader, error) {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
-		return fmt.Errorf("parse apk: %w", err)
+		return nil, fmt.Errorf("parse apk: %w", err)
 	}
 	for _, f := range zr.File {
 		switch f.Name {
 		case "AndroidManifest.xml":
 			if f.UncompressedSize64 > maxManifestBytes {
-				return errors.New("parse apk: AndroidManifest.xml is too large")
+				return nil, errors.New("parse apk: AndroidManifest.xml is too large")
 			}
 		case "resources.arsc":
 			if f.UncompressedSize64 > maxResourcesBytes {
-				return errors.New("parse apk: resources.arsc is too large")
+				return nil, errors.New("parse apk: resources.arsc is too large")
 			}
 		}
+	}
+	return zr, nil
+}
+
+// safeIcon reads the launcher icon itself, with limits the parser's own Icon() lacks:
+// the file at most 4 MB and the picture at most 4 megapixels, checked before decoding.
+func safeIcon(pkg *apk.Apk, zr *zip.Reader) image.Image {
+	mf := pkg.Manifest()
+	path, err := mf.App.Icon.String()
+	if err != nil || path == "" {
+		return nil
+	}
+	for _, f := range zr.File {
+		if f.Name != path {
+			continue
+		}
+		if f.UncompressedSize64 > 4<<20 {
+			return nil
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil
+		}
+		raw, err := io.ReadAll(io.LimitReader(rc, 4<<20))
+		rc.Close()
+		if err != nil {
+			return nil
+		}
+		cfg, _, err := image.DecodeConfig(bytes.NewReader(raw))
+		if err != nil || cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > 4<<20 {
+			return nil
+		}
+		img, _, err := image.Decode(bytes.NewReader(raw))
+		if err != nil {
+			return nil
+		}
+		return img
 	}
 	return nil
 }
@@ -374,17 +413,30 @@ func checkEntrySizes(r io.ReaderAt, size int64) error {
 // files this server holds itself (the DPC agent APK) rather than S3 objects — so
 // it works with S3 unconfigured.
 func ParseFile(path string) (*Meta, error) {
-	pkg, err := apk.OpenFile(path)
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("parse apk: %w", err)
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("parse apk: %w", err)
+	}
+	zr, err := checkEntrySizes(f, st.Size())
+	if err != nil {
+		return nil, err
+	}
+	pkg, err := apk.OpenZipReader(f, st.Size())
 	if err != nil {
 		return nil, fmt.Errorf("parse apk: %w", err)
 	}
 	defer pkg.Close()
-	return metaFrom(pkg)
+	return metaFrom(pkg, zr)
 }
 
 // metaFrom pulls the fields we care about out of an opened APK. Label, version and
 // icon are all best-effort: a package name is the only thing an APK must have.
-func metaFrom(pkg *apk.Apk) (*Meta, error) {
+func metaFrom(pkg *apk.Apk, zr *zip.Reader) (*Meta, error) {
 	m := &Meta{Package: pkg.PackageName()}
 	if m.Package == "" {
 		return nil, errors.New("apk has no package name")
@@ -406,7 +458,7 @@ func metaFrom(pkg *apk.Apk) (*Meta, error) {
 			m.TestOnly = b
 		}
 	}
-	if icon, err := pkg.Icon(nil); err == nil && icon != nil {
+	if icon := safeIcon(pkg, zr); icon != nil {
 		var buf bytes.Buffer
 		if png.Encode(&buf, icon) == nil {
 			m.IconPNGB64 = base64.StdEncoding.EncodeToString(buf.Bytes())

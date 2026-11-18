@@ -68,6 +68,8 @@ type Handler struct {
 	// ownerProxy serves a device's remote session from the server copy holding its
 	// socket (cluster.ProxyIfRemote); nil with one copy.
 	ownerProxy func(http.ResponseWriter, *http.Request, uuid.UUID) bool
+	// sessionUser names the dashboard account whose session a request carries.
+	sessionUser func(*http.Request) string
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
@@ -386,6 +388,9 @@ func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// SetSessionUser tells the API who a request's dashboard session belongs to ("" for none).
+func (h *Handler) SetSessionUser(fn func(*http.Request) string) { h.sessionUser = fn }
+
 // SetOwnerProxy lets remote sessions run on the copy that holds the device (W5).
 func (h *Handler) SetOwnerProxy(fn func(http.ResponseWriter, *http.Request, uuid.UUID) bool) {
 	h.ownerProxy = fn
@@ -405,8 +410,13 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	}
 	// Auth is a single-use token minted by the (session-authenticated) dashboard,
 	// not the admin API key — the key must never reach the browser / WS URL. It is
-	// bound to the minting client's IP, so a leaked token can't be replayed elsewhere.
-	tokenDeviceID, ok := h.remote.RedeemToken(r.URL.Query().Get("token"))
+	// bound to the person it was minted for: this request must carry that person's
+	// dashboard session, so a token read from a log can't be used by someone else.
+	tokenDeviceID, tokenUser, ok := h.remote.RedeemToken(r.URL.Query().Get("token"))
+	if ok && tokenUser != "" && h.sessionUser != nil && h.sessionUser(r) != tokenUser {
+		log.Printf("[remote] token minted for %s presented without that session, from %s", tokenUser, r.RemoteAddr)
+		ok = false
+	}
 	if !ok {
 		log.Printf("[remote] auth failed for %s", r.RemoteAddr)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)

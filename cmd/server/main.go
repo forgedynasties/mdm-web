@@ -696,6 +696,7 @@ func main() {
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
 	apiHandler.SetKioskRelocker(dash.RelockFromDevice)
+	apiHandler.SetSessionUser(dash.SessionUsername)
 	apiHandler.SetAPKPuller(dash)
 	// Test-bench routes (admin key): lock/unlock one device, take one off a venue.
 	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))

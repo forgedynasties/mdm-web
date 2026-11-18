@@ -106,9 +106,13 @@ func (h *Handler) passwordLogin(w http.ResponseWriter, r *http.Request, roleOK f
 		return
 	}
 	ip := ratelimit.ClientIP(r)
-	userKey := "u:" + body.Username
-	for _, key := range []string{ip, userKey} {
-		if n, retry := h.loginFails.Count(key); n >= loginMaxFailures {
+	// Per account from this address; a far higher count for the account from anywhere,
+	// so one stranger can't lock a named person out (18 Nov 2026 audit) while a spread-out
+	// guessing run is still stopped.
+	userKey := "u:" + body.Username + "|" + ip
+	userAnyKey := "ua:" + body.Username
+	for key, max := range map[string]int{ip: loginMaxFailures, userKey: loginMaxFailures, userAnyKey: 6 * loginMaxFailures} {
+		if n, retry := h.loginFails.Count(key); n >= max {
 			w.Header().Set("Retry-After", fmt.Sprint(int(retry.Seconds())+1))
 			appErr(w, http.StatusTooManyRequests, fmt.Sprintf("too many failed attempts, try again in %d minute(s)", int(retry.Minutes())+1))
 			return
@@ -121,6 +125,7 @@ func (h *Handler) passwordLogin(w http.ResponseWriter, r *http.Request, roleOK f
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)) != nil {
 		h.loginFails.Hit(ip)
 		h.loginFails.Hit(userKey)
+		h.loginFails.Hit(userAnyKey)
 		appErr(w, http.StatusUnauthorized, "invalid credentials")
 		return nil, "", time.Time{}, false
 	}
