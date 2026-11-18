@@ -295,6 +295,12 @@ func (h *Handler) DeviceAppRemove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "package required", http.StatusBadRequest)
 		return
 	}
+	// The MDM clients themselves: removing one would cut the device off from us.
+	switch pkg {
+	case "com.aioapp.mdm", "aio.app.mdmclient.dpc":
+		http.Error(w, "The MDM client can't be removed.", http.StatusForbidden)
+		return
+	}
 	if h.roleAppPackages(r.Context(), d)[pkg] {
 		http.Error(w, "The role app can't be removed.", http.StatusForbidden)
 		return

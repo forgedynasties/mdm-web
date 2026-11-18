@@ -40,6 +40,10 @@ func TestAppWantsAgainstPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Fixed serials: clear what an earlier run left so the test can be run twice.
+	if _, err := pool.Exec(ctx, `DELETE FROM devices WHERE serial_number LIKE 'AW-%'`); err != nil {
+		t.Fatal(err)
+	}
 	h := &Handler{db: d, cfg: cfg, hub: ws.NewHub()}
 
 	// The library: POS prod and UAT, and Chrome. Unreachable URLs: apkmeta gives up at once.

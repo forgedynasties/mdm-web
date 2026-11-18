@@ -1614,7 +1614,10 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 	// two would see a terminal status (no longer polling) with no output attached yet,
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
-		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
+		if err := h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output); errors.Is(err, db.ErrCommandNotTargeted) {
+			log.Printf("[ws-ack] device %s acked a command that does not target it", deviceID)
+			return
+		}
 	}
 	if err := h.db.AckCommand(ctx, body.CommandID, deviceID, body.Status); err != nil {
 		log.Printf("[ws-ack] AckCommand error: %v", err)
@@ -1842,7 +1845,13 @@ func (h *Handler) ProcessDueScheduledReboots(ctx context.Context) {
 			log.Printf("[ota-scheduler] create reboot command error: %v", err)
 			continue
 		}
-		_ = h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent")
+		if err := h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent"); err != nil {
+			// Still "due" in the table: without this the same reboot would go out every
+			// minute until the write succeeded. Withdraw it and try again next tick.
+			log.Printf("[ota-scheduler] could not mark reboot_sent (device=%s update=%d): %v", dr.DeviceID, dr.UpdateID, err)
+			_ = h.db.CancelDeviceCommand(ctx, cmd.ID, dr.DeviceID)
+			continue
+		}
 		h.optimisticallyCompleteReboot(ctx, dr.UpdateID, dr.DeviceID)
 		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{dr.DeviceID})
 		h.hub.PublishDeviceUpdate(dr.DeviceID)
@@ -2101,6 +2110,13 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	if !validSerial(req.SerialNumber) {
 		return // a corrupted serial: nothing is stored (see validSerial)
 	}
+	// A socket speaks for its own device only. Without this a device (or anyone with the
+	// shared key) could write another serial's state over its own connection, skipping
+	// the own-key rule and the per-device rate limit that the HTTP path applies.
+	if own, err := h.db.GetDeviceByID(ctx, deviceID); err != nil || own == nil || !strings.EqualFold(own.SerialNumber, req.SerialNumber) {
+		log.Printf("[ws-telemetry] dropped a frame naming serial %s on another device's socket", req.SerialNumber)
+		return
+	}
 
 	// Same gate as the HTTP path: DPC support off means store nothing. No config is
 	// pushed back either — the frame is simply dropped.
@@ -2355,21 +2371,42 @@ func (h *Handler) ListTestDataDeviceHistory(w http.ResponseWriter, r *http.Reque
 
 	end := time.Now().UTC()
 	start := end.Add(-7 * 24 * time.Hour)
+	bad := func(msg string) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+	}
 	if v := r.URL.Query().Get("start"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			start = t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			bad("start: want RFC3339, e.g. 2026-10-16T00:00:00Z")
+			return
 		}
+		start = t
 	}
 	if v := r.URL.Query().Get("end"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			end = t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			bad("end: want RFC3339, e.g. 2026-10-17T00:00:00Z")
+			return
 		}
+		end = t
+	}
+	if !end.After(start) {
+		bad("end must be after start")
+		return
 	}
 	intervalSec := 300
 	if v := r.URL.Query().Get("interval_sec"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			intervalSec = n
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			bad("interval_sec must be a positive whole number")
+			return
 		}
+		intervalSec = n
+	}
+	// Every row is built in memory: bound the answer, not just the query.
+	if end.Sub(start)/time.Second/time.Duration(intervalSec) > 50000 {
+		bad("too many points: at most 50000 per request, so widen interval_sec or shorten the window")
+		return
 	}
 	cycles := r.URL.Query().Get("cycles") == "true"
 
@@ -2438,6 +2475,10 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g, err := h.db.CreateGroup(r.Context(), strings.TrimSpace(body.Name))
+	if db.IsUniqueViolation(err) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "a group with that name already exists"})
+		return
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -2824,7 +2865,10 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	// two would see a terminal status (no longer polling) with no output attached yet,
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
-		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
+		if err := h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output); errors.Is(err, db.ErrCommandNotTargeted) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
+			return
+		}
 	}
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
 		if errors.Is(err, db.ErrCommandNotTargeted) {

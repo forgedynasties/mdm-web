@@ -97,7 +97,10 @@ func (h *Handler) RestaurantHandOverReady(w http.ResponseWriter, r *http.Request
 	var ids []uuid.UUID
 	var serials []string
 	for _, s := range v.SettingUp {
-		if s.Ready {
+		// Each device on its own rights: being allowed to hand over the first one says
+		// nothing about the rest of the venue.
+		dev := s.Device
+		if s.Ready && h.mayHandOver(r, &dev) {
 			ids = append(ids, s.Device.ID)
 			serials = append(serials, s.Device.SerialNumber)
 		}

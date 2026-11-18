@@ -32,7 +32,7 @@ func (h *Handler) DeviceSetNickname(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.TrimSpace(r.FormValue("nickname"))
 	if len(name) > 40 {
-		name = name[:40]
+		name = truncRunes(name, 40)
 	}
 	if err := h.db.SetNickname(r.Context(), device.ID, name); err != nil {
 		http.Error(w, "Could not save", http.StatusInternalServerError)

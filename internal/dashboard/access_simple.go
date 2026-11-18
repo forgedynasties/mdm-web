@@ -272,7 +272,7 @@ func (h *Handler) parseSimple(ctx context.Context, r *http.Request, u *db.User) 
 	}
 	note := strings.TrimSpace(r.FormValue("note"))
 	if len(note) > 200 {
-		note = note[:200]
+		note = truncRunes(note, 200)
 	}
 	every := r.FormValue("see") == "all"
 	if every && do == "role" && expires == nil && !roleIsCustomer(u.Role) {

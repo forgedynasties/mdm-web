@@ -164,12 +164,18 @@ func TestMobileAPIAgainstPostgres(t *testing.T) {
 
 	// A viewer reads but may not act.
 	vt := login("m-viewer-" + stamp)
-	_, dev = call("GET", "/api/v1/m/devices/"+serial, vt, "")
-	if acts := dev["actions"].(map[string]any); acts["reboot"] == true || acts["unlock"] == true || acts["screenshot"] == true {
-		t.Fatalf("viewer actions: %v", acts)
+	// A viewer sees devices in service only (roles replan, 30 Oct): either the device is
+	// theirs to look at, with no actions, or it isn't theirs to look at at all.
+	vcode, dev := call("GET", "/api/v1/m/devices/"+serial, vt, "")
+	if vcode == 200 {
+		if acts, _ := dev["actions"].(map[string]any); acts["reboot"] == true || acts["unlock"] == true || acts["screenshot"] == true {
+			t.Fatalf("viewer actions: %v", acts)
+		}
+	} else if vcode != 403 && vcode != 404 {
+		t.Fatalf("viewer device: %d, want 200 (read only), 403 or 404", vcode)
 	}
-	if code, _ := call("POST", "/api/v1/m/devices/"+serial+"/actions", vt, `{"action":"unlock"}`); code != 403 {
-		t.Fatalf("viewer unlock: %d, want 403", code)
+	if code, _ := call("POST", "/api/v1/m/devices/"+serial+"/actions", vt, `{"action":"unlock"}`); code != 403 && code != 404 {
+		t.Fatalf("viewer unlock: %d, want 403 (or 404 if the device is out of their sight)", code)
 	}
 	if code, _ := call("POST", "/api/v1/m/alerts/"+alertID+"/ack", vt, ""); code != 403 {
 		t.Fatalf("viewer ack: %d, want 403", code)

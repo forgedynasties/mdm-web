@@ -204,14 +204,17 @@ func (d *DB) SaveLogcatResult(ctx context.Context, requestID, deviceID uuid.UUID
 	// same DEVICE_API_KEY, the submitted request_id is an unauthenticated identity
 	// claim — verify the request was actually issued to THIS device before storing a
 	// result and marking it fulfilled, so a device can't forge/deny another's logs.
+	// A request is answered once: the row is locked and a second answer is refused, so a
+	// replayed request_id can't add result rows without bound or overwrite the first.
 	var reqDevice uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT device_id FROM logcat_requests WHERE id = $1`, requestID).Scan(&reqDevice); err != nil {
+	var reqStatus string
+	if err := tx.QueryRow(ctx, `SELECT device_id, status FROM logcat_requests WHERE id = $1 FOR UPDATE`, requestID).Scan(&reqDevice, &reqStatus); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrLogcatNotTargeted
 		}
 		return nil, err
 	}
-	if reqDevice != deviceID {
+	if reqDevice != deviceID || reqStatus == "fulfilled" {
 		return nil, ErrLogcatNotTargeted
 	}
 

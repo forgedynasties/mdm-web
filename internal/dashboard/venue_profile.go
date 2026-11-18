@@ -159,6 +159,10 @@ func (h *Handler) RestaurantProfileSave(w http.ResponseWriter, r *http.Request) 
 		venueBack(w, r, id, "profile", err.Error(), "error")
 		return
 	}
+	if msg := db.ValidateVenueFields(name, "", strings.TrimSpace(r.FormValue("notes")), ""); msg != "" {
+		venueBack(w, r, id, "profile", msg, "error")
+		return
+	}
 	ctx := r.Context()
 	if err := h.db.UpdateRestaurantProfile(ctx, id, name, strings.TrimSpace(r.FormValue("notes"))); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -244,7 +248,7 @@ func (h *Handler) RestaurantLocationSave(w http.ResponseWriter, r *http.Request)
 	}
 	r.ParseForm()
 	lat, lon := parseFloatPtr(r.FormValue("latitude")), parseFloatPtr(r.FormValue("longitude"))
-	if (lat == nil) != (lon == nil) || (lat != nil && (math.Abs(*lat) > 90 || math.Abs(*lon) > 180)) {
+	if (lat == nil) != (lon == nil) || (lat != nil && (math.IsNaN(*lat) || math.IsNaN(*lon) || math.IsInf(*lat, 0) || math.IsInf(*lon, 0) || math.Abs(*lat) > 90 || math.Abs(*lon) > 180)) {
 		venueBack(w, r, id, "location", "That point isn't on the map.", "error")
 		return
 	}
@@ -256,6 +260,10 @@ func (h *Handler) RestaurantLocationSave(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	addr := strings.TrimSpace(r.FormValue("address"))
+	if msg := db.ValidateVenueFields("x", addr, "", ""); msg != "" {
+		venueBack(w, r, id, "location", msg, "error")
+		return
+	}
 	// A field someone changes here stops following the AIO backend (B1, "Set here").
 	if cur, err := h.db.GetRestaurant(r.Context(), id); err == nil {
 		var edited []string

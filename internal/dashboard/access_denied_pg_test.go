@@ -17,6 +17,7 @@ import (
 
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/otagate"
 	"mdm/internal/ratelimit"
 	"mdm/internal/ws"
 )
@@ -43,7 +44,7 @@ func TestAccessDeniedPages(t *testing.T) {
 	}
 	tmpl := template.Must(template.New("").Parse(`{{define "header"}}<main>{{end}}{{define "footer"}}</main>{{end}}`))
 	tmpl = template.Must(tmpl.ParseFiles("../../templates/denied.html"))
-	h := &Handler{db: d, cfg: cfg, hub: ws.NewHub(), loginFails: ratelimit.New(15 * time.Minute), tmpl: tmpl,
+	h := &Handler{db: d, cfg: cfg, hub: ws.NewHub(), loginFails: ratelimit.New(15 * time.Minute), tmpl: tmpl, otaGate: otagate.New(d, cfg),
 		store: sessions.NewCookieStore([]byte("0123456789abcdef0123456789abcdef"))}
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -66,6 +67,13 @@ func TestAccessDeniedPages(t *testing.T) {
 		}
 	}
 	if err := d.AssignDeviceToRestaurant(ctx, setupSerial, &rest.ID); err != nil {
+		t.Fatal(err)
+	}
+	// Placing deploys (3 Nov 2026), so put it back into setup by hand: that is the state
+	// this test needs a support person to be locked out of.
+	if sd, err := d.GetDevice(ctx, setupSerial); err != nil {
+		t.Fatal(err)
+	} else if _, err := d.SetSettingUp(ctx, []uuid.UUID{sd.ID}); err != nil {
 		t.Fatal(err)
 	}
 

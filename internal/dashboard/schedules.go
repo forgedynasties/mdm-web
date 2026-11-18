@@ -155,6 +155,9 @@ func (h *Handler) fireSchedule(ctx context.Context, s db.ScheduledRecipe, acc *a
 	if err != nil {
 		return err
 	}
+	if rec.Type == "shell" && !h.cfg.ShellEnabled() {
+		return fmt.Errorf("shell commands are disabled by an administrator")
+	}
 	if h.authorizeCommand(acc.role, rec.Type) != cmdAuthzOK {
 		return fmt.Errorf("%s may no longer send %s", s.CreatedBy, rec.Type)
 	}

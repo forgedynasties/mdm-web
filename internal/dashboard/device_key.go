@@ -59,7 +59,7 @@ func (h *Handler) DeviceKeyReset(w http.ResponseWriter, r *http.Request) {
 	}
 	if note := strings.TrimSpace(r.FormValue("note")); note != "" {
 		if len(note) > 200 {
-			note = note[:200]
+			note = truncRunes(note, 200)
 		}
 		why += ": " + note
 	}

@@ -2,8 +2,10 @@ package db
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // ── Groups ────────────────────────────────────────────────────────────────────
@@ -126,7 +128,7 @@ func (d *DB) DeleteGroup(ctx context.Context, id uuid.UUID) error {
 func (d *DB) AddDeviceToGroup(ctx context.Context, serial string, groupID uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO device_groups (device_id, group_id)
-		SELECT id, $2 FROM devices WHERE serial_number = $1
+		SELECT id, $2 FROM devices WHERE upper(serial_number) = upper($1)
 		ON CONFLICT DO NOTHING
 	`, serial, groupID)
 	return err
@@ -158,7 +160,7 @@ func (d *DB) AddDevicesToGroup(ctx context.Context, serials []string, groupID uu
 func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `
 		DELETE FROM device_groups
-		WHERE device_id = (SELECT id FROM devices WHERE serial_number = $1)
+		WHERE device_id = (SELECT id FROM devices WHERE upper(serial_number) = upper($1))
 		AND group_id = $2
 	`, serial, groupID)
 	return err
@@ -306,4 +308,11 @@ func (d *DB) MoveDeviceToGroup(ctx context.Context, deviceID uuid.UUID, group *u
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+// IsUniqueViolation reports whether err is Postgres' unique_violation (23505), so a
+// handler can answer 409 for a name that is taken instead of a bare 500.
+func IsUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

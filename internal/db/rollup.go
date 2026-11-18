@@ -32,9 +32,29 @@ func (d *DB) PruneShaped(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
 		return 0, nil
 	}
-	s, err := d.pool.Exec(ctx, `DELETE FROM device_samples WHERE at < NOW() - make_interval(days => $1)`, days)
-	if err != nil {
+	// One day at a time, oldest first: a first run or a long backlog is millions of rows,
+	// and a single DELETE of them holds row locks for minutes and bloats WAL and the table.
+	var total int64
+	var oldest *time.Time
+	if err := d.pool.QueryRow(ctx, `SELECT min(at) FROM device_samples`).Scan(&oldest); err != nil {
 		return 0, err
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -days)
+	if oldest != nil {
+		for from := oldest.UTC().Truncate(24 * time.Hour); from.Before(cutoff); from = from.AddDate(0, 0, 1) {
+			to := from.AddDate(0, 0, 1)
+			if to.After(cutoff) {
+				to = cutoff
+			}
+			t, err := d.pool.Exec(ctx, `DELETE FROM device_samples WHERE at >= $1 AND at < $2`, from, to)
+			if err != nil {
+				return total, err
+			}
+			total += t.RowsAffected()
+			if err := ctx.Err(); err != nil {
+				return total, err
+			}
+		}
 	}
 	e, err := d.pool.Exec(ctx, `
 		DELETE FROM device_state_events e
@@ -43,9 +63,9 @@ func (d *DB) PruneShaped(ctx context.Context, days int) (int64, error) {
 		              WHERE n.device_id = e.device_id AND n.key = e.key
 		                AND n.at > e.at AND n.at < NOW() - make_interval(days => $1))`, days)
 	if err != nil {
-		return s.RowsAffected(), err
+		return total, err
 	}
-	return s.RowsAffected() + e.RowsAffected(), nil
+	return total + e.RowsAffected(), nil
 }
 
 // DownsampleSamples is DownsampleCheckins for device_samples: days older than

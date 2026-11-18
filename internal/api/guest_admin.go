@@ -32,6 +32,10 @@ func (h *Handler) CreateRestaurant(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name is required"})
 		return
 	}
+	if msg := db.ValidateVenueFields(strings.TrimSpace(body.Name), strings.TrimSpace(body.Address), strings.TrimSpace(body.Notes), body.Timezone); msg != "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+		return
+	}
 	rest, err := h.db.CreateRestaurant(r.Context(), db.Restaurant{
 		Name:     strings.TrimSpace(body.Name),
 		Address:  strings.TrimSpace(body.Address),
@@ -60,9 +64,24 @@ func (h *Handler) AssignRestaurantDevices(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serials is required"})
 		return
 	}
+	if len(body.Serials) > 500 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "at most 500 serials per request"})
+		return
+	}
+	// Trim and de-duplicate first, so the count is honest and the UPDATE gets the same
+	// serials the lookups below checked.
+	seen := map[string]bool{}
+	clean := body.Serials[:0:0]
+	for _, s := range body.Serials {
+		if s = strings.TrimSpace(s); s != "" && !seen[s] {
+			seen[s] = true
+			clean = append(clean, s)
+		}
+	}
+	body.Serials = clean
 	var ids []uuid.UUID
 	for _, s := range body.Serials {
-		d, err := h.db.GetDevice(r.Context(), strings.TrimSpace(s))
+		d, err := h.db.GetDevice(r.Context(), s)
 		if err != nil {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found: " + s})
 			return

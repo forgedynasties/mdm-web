@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -804,11 +805,16 @@ func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, buildID
 				if e.Uptime != nil && *e.Uptime > 0 {
 					bootTime = now.Add(-time.Duration(*e.Uptime) * time.Second)
 				}
-				_, _ = d.pool.Exec(ctx, `
+				if _, err := d.pool.Exec(ctx, `
 					INSERT INTO device_events (device_id, kind, summary, occurred_at)
 					VALUES ($1, 'reboot', $2, $3)
 					ON CONFLICT (device_id, kind, occurred_at) DO NOTHING`,
-					deviceID, e.BootReason, bootTime.Truncate(time.Second))
+					deviceID, e.BootReason, bootTime.Truncate(time.Second)); err != nil {
+					// Keep the old boot id so the next check-in records this reboot again,
+					// instead of losing it for good.
+					log.Printf("[checkin] reboot event for %s: %v", deviceID, err)
+					return
+				}
 			}
 			_, _ = d.pool.Exec(ctx, `UPDATE devices SET last_boot_id = $2 WHERE id = $1`, deviceID, e.BootID)
 		}

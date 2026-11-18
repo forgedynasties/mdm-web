@@ -31,6 +31,10 @@ func (d *DB) TryJobLease(ctx context.Context, name, holder string, hold time.Dur
 // ReleaseJobLease ends holder's lease on name at next: just before the job's next tick,
 // so another copy can take that tick but none can run this one twice.
 func (d *DB) ReleaseJobLease(ctx context.Context, name, holder string, next time.Time) error {
-	_, err := d.pool.Exec(ctx, `UPDATE job_leases SET until = $3 WHERE name = $1 AND holder = $2`, name, holder, next)
+	// "next" is measured on the caller's clock; what is stored is the database's now plus
+	// the time left, so a copy whose clock runs fast or slow can't hand the next tick to
+	// both copies (or to neither).
+	left := time.Until(next).Microseconds()
+	_, err := d.pool.Exec(ctx, `UPDATE job_leases SET until = NOW() + ($3::bigint * INTERVAL '1 microsecond') WHERE name = $1 AND holder = $2`, name, holder, left)
 	return err
 }

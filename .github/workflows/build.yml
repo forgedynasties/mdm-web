@@ -28,6 +28,18 @@ jobs:
   test:
     name: Build & test
     runs-on: ubuntu-latest
+    # A real Postgres, so the *_pg_test.go tests run: without MDM_TEST_DATABASE_URL they
+    # skip, and four of them had drifted from the code unnoticed (QA audit, 18 Nov 2026).
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: mdmci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -44,7 +56,10 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test ./...
+        env:
+          MDM_TEST_DATABASE_URL: postgres://postgres:ci@localhost:5432/mdmci?sslmode=disable
+        # -p 1: packages that migrate the one database must not run side by side.
+        run: go test -p 1 ./...
 
       - name: Vet
         # Advisory: the tree has pre-existing vet findings, so this reports without

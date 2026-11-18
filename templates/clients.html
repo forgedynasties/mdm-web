@@ -429,7 +429,7 @@
     {{if $oldN}}<button type="button" class="fleet-rail-item" data-clf="old" data-title="Older releases" aria-pressed="false"><span class="dot muted"></span><span class="nm">Older releases</span><span class="ct">{{$oldN}}</span></button>{{end}}
   </aside>
   <div class="fleet-roster" id="cl-c2" style="min-width:0"{{if .Updating}} hx-get="/clients?client={{.Slot}}" hx-select="#cl-c2" hx-target="this" hx-swap="outerHTML" hx-trigger="every 6s" hx-push-url="false"{{end}}>
-    <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">{{.Label}}</h1><span class="c">{{if .Hosted}}hosted {{.Build.Version}} (code {{.Build.VersionCode}}) · {{.Note}}{{else}}nothing hosted yet{{end}}</span></div>
+    <div class="fleet-pane-head"><h2 class="t cc-h1" style="font-size:inherit;margin:0">{{.Label}}</h2><span class="c">{{if .Hosted}}hosted {{.Build.Version}} (code {{.Build.VersionCode}}) · {{.Note}}{{else}}nothing hosted yet{{end}}</span></div>
     <div class="c2-pol">
       {{if .Hosted}}<b>{{.UpToDate}} of {{.Devices}} on {{.Build.Version}}</b>{{end}}
       <span class="bar" aria-hidden="true">{{range $.ClientCards}}{{if .On}}{{range .Bar}}<i class="{{.Tone}}" style="width:{{.Pct}}%" title="{{.Title}}"></i>{{end}}{{end}}{{end}}</span>
