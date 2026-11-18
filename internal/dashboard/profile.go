@@ -204,7 +204,7 @@ func (h *Handler) UserSetAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "user.avatar.set", target.Username, "")
-	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+	if to := r.FormValue("redirect"); to == "/profile" || (strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//")) {
 		http.Redirect(w, r, to, http.StatusSeeOther)
 		return
 	}
@@ -229,7 +229,7 @@ func (h *Handler) UserClearAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = h.db.ClearUserAvatar(r.Context(), id)
 	h.audit(r, "user.avatar.clear", target.Username, "")
-	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+	if to := r.FormValue("redirect"); to == "/profile" || (strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//")) {
 		http.Redirect(w, r, to, http.StatusSeeOther)
 		return
 	}
