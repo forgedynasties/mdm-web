@@ -1,0 +1,82 @@
+/* Access, AC1 · Matrix (18 Nov 2026): the Overview's bento language. Left, the risks (open one to
+   see who and fix it); right, the big card with three tabs, the matrix first. On a desktop
+   window (html.shell) the page fits and the list and matrix scroll inside their cards. */
+.ac1{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:14px;align-items:stretch}
+.ac1-l{display:flex;flex-direction:column;gap:12px;min-height:0}
+.ac1-nav{display:flex;gap:2px;align-self:flex-start;background:var(--surface);border-radius:99px;padding:3px}
+.ac1-nav a{font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2);text-decoration:none}
+.ac1-nav a:hover{background:var(--surface2)}
+.ac1-nav a.on{background:var(--accent-fill);color:#fff}
+.ac1-risks{flex:1;min-height:0;display:flex;flex-direction:column}
+.ac1-rl{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column;gap:2px}
+.ac1-ri{text-decoration:none;align-items:center}
+.ac1-ri .ovb-dot{margin-top:0}
+.ac1-ri b{white-space:normal}
+.ac1-rb{padding:2px 8px 10px 28px}
+.ac1-rb p{margin:0 0 6px;font-size:12px;color:var(--text-2)}
+.ac1-fr{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px}
+.ac1-fr .nm{flex:1;min-width:0}
+.ac1-fr small{color:var(--muted);font-size:11.5px}
+.ac1-fr form{margin:0}
+.ac1-a{font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);text-decoration:none;background:none;border:0;padding:2px 4px;cursor:pointer;border-radius:6px}
+.ac1-a:hover{text-decoration:underline}
+.ac1-a.x{color:var(--ovb-r)}
+.ac1-none{font-size:12px;color:var(--muted);padding:4px 0}
+.ac1-main{min-height:0;display:flex;flex-direction:column;position:relative}
+.ac1-tl{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.ac1-tl .sp{flex:1}
+.ac1 .ovb-seg a{font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2);text-decoration:none}
+.ac1 .ovb-seg a.on{background:var(--accent-fill);color:#fff}
+.ac1-key{font-size:11.5px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ac1-key .ovb-dot{margin-top:0}
+.ac1-sc{flex:1;min-height:0;overflow:auto;scrollbar-width:thin;position:relative}
+.ac1-mx{width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0 4px;font-size:12px}
+.ac1-mx th{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:left;padding:4px 6px;position:sticky;top:0;background:var(--surface);z-index:2;vertical-align:bottom}
+.ac1-mx th::after{content:attr(data-sub);display:block;font-size:10px;font-weight:500;letter-spacing:0;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac1-mx td{padding:0 3px}
+.ac1-mx th.rn,.ac1-mx td.rn{width:150px}
+.ac1-mx td.rn{font-size:12.5px;padding-right:8px}
+.ac1-mx td.rn b{font-weight:600;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac1-mx td.rn small{display:block;font-weight:400;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ac1-mx tr.dh td{padding:14px 0 2px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.ac1-cell{width:100%;font:inherit;font-size:11.5px;font-weight:600;border:0;border-radius:10px;padding:7px 8px;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--surface2);color:var(--text-2);text-align:left}
+.ac1-cell::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--border);flex:none}
+.ac1-cell.f{background:color-mix(in srgb,var(--ovb-g) 16%,var(--surface));color:var(--text)}.ac1-cell.f::before{background:var(--ovb-g)}
+.ac1-cell.p{background:color-mix(in srgb,var(--ovb-y) 18%,var(--surface));color:var(--text)}.ac1-cell.p::before{background:var(--ovb-y)}
+.ac1-cell.e{background:color-mix(in srgb,var(--ovb-o) 20%,var(--surface));color:var(--text)}.ac1-cell.e::before{background:var(--ovb-o)}
+.ac1-cell:hover,.ac1-cell.sel{outline:2px solid var(--border)}
+.ac1-cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.ac1-pop{position:absolute;z-index:5;width:250px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:8px;font-size:12.5px}
+.ac1-pop[hidden]{display:none}
+.ac1-pop .h{font-weight:650;padding:4px 6px}
+.ac1-pop .p{padding:2px 6px 6px;color:var(--text-2);line-height:1.45}
+.ac1-pop .mut{color:var(--muted)}
+.ac1-pop .b{display:block;padding:7px 8px;border-radius:9px;color:var(--text);text-decoration:none;font-weight:600}
+.ac1-pop .b:hover{background:var(--surface2)}
+/* grants tab and who tab keep their existing cards, flattened into the big card */
+.ac1-roles{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.ac1-chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:99px;background:var(--surface2);color:var(--text-2);text-decoration:none}
+.ac1-chip i{font-style:normal;opacity:.65;margin-left:4px}
+.ac1-chip:hover{background:var(--border-soft)}
+.ac1-chip.on{background:var(--accent-fill);color:#fff}
+.ac1-main .fleet-pane-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:4px 0 8px;padding:0}
+.ac1-main .fleet-pane-head .t{font-size:15px;font-weight:650}
+.ac1-main .fleet-pane-head .c{font-size:12px;color:var(--muted)}
+.ac1-main .cc-card.acc-card{box-shadow:none;border:1px solid var(--border-soft);border-radius:16px;background:var(--surface);margin-bottom:14px}
+.ac1-main .acc-give{flex-wrap:wrap}
+@media (max-width:1100px){
+  .ac1{grid-template-columns:minmax(0,1fr)}
+  .ac1-rl,.ac1-sc{overflow:visible}
+}
+@media (max-width:720px){
+  .ac1-sc{overflow-x:auto}
+  .ac1-mx{min-width:640px}
+}
+/* Desktop shell: the page never scrolls; risks and matrix scroll inside their cards. */
+@media (min-width:1101px){
+  html.shell .ac1{height:calc(var(--shell-h,100vh) - 56px)}
+}
+.ac1-main .acc-lv{position:relative}
+.ac1-main .acc-who-f{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px 16px}
+.ac1-main .acc-who-f select{min-width:260px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:13px}
+.ac1-main .acc-give select,.ac1-main .acc-give input[type=date]{border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text)}
