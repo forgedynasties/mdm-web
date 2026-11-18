@@ -89,13 +89,19 @@ func TestAccessPageRenders(t *testing.T) {
 	cards := []accessRoleCard{{Role: "engineer", Label: "Engineer", Plural: "Engineers", People: 10, Grants: gs, Sentence: accessSentence("Engineers", "They", gs, time.Now())}}
 	tmpl := peopleTmpl(t, "users_access.html", "_users_tabs.html")
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
-		"Role": "admin", "UsersTab": "access", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
+		"Role": "admin", "UsersTab": "access", "Tab": "grants", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
 		"Groups": []db.Group{{ID: g, Name: "QA"}}, "Venues": []db.Restaurant{},
 	},
 		`Engineers can operate the QA group (until `, `and look at every other device.`, `value="manage"`, `starting point`,
-		`action="/users/access/levels"`, `Give engineers access`, `>Who can act on…</span>`)
+		`action="/users/access/levels"`, `Give engineers access`, `>Who can act on…</a>`)
+	rows, risks := buildAccessMatrix([]db.User{{Username: "hafiz", Role: "engineer"}}, gs, time.Now())
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
-		"Role": "admin", "UsersTab": "access", "Cards": cards, "Who": "group:" + g.String(), "WhoName": "the QA group",
+		"Role": "admin", "UsersTab": "access", "Tab": "matrix", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
+		"AxCols": axColumns, "AxRows": rows, "AxRisks": risks, "AxRisk": "ending", "NRisks": 1,
+		"Groups": []db.Group{}, "Venues": []db.Restaurant{},
+	}, `id="ac1-mx"`, `class="ac1-cell f"`, `Grants ending within 7 days`, `>Engineer</b>`)
+	renderPeople(t, tmpl, "users_access.html", map[string]any{
+		"Role": "admin", "UsersTab": "access", "Tab": "who", "Cards": cards, "Who": "group:" + g.String(), "WhoName": "the QA group",
 		"WhoRows": []whoRow{{Who: "Super admins", Level: "Manage", Via: "everything", People: 4}}, "Now": time.Now(),
 		"Groups": []db.Group{{ID: g, Name: "QA"}}, "Venues": []db.Restaurant{},
 	}, `Who can act on the QA group`, `Super admins`)

@@ -472,9 +472,39 @@ func (h *Handler) AccessPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	tab := r.URL.Query().Get("tab")
+	if who != "" {
+		tab = "who"
+	} else if r.URL.Query().Get("role") != "" {
+		tab = "grants"
+	}
+	if tab != "grants" && tab != "who" {
+		tab = "matrix"
+	}
+	if tab == "grants" && sel == "" && len(cards) > 0 {
+		sel = cards[0].Role
+	}
+	axRows, axRisks := buildAccessMatrix(users, all, now)
+	nGrants, nRisks := 0, 0
+	for _, g := range all {
+		if !g.Expired(now) {
+			nGrants++
+		}
+	}
+	for _, k := range axRisks {
+		nRisks += len(k.Items)
+	}
 	h.render(w, r, "users_access.html", map[string]any{
 		"Title":     "Access",
 		"UsersTab":  "access",
+		"Tab":       tab,
+		"AxCols":    axColumns,
+		"AxRows":    axRows,
+		"AxRisks":   axRisks,
+		"AxRisk":    r.URL.Query().Get("risk"),
+		"NGrants":   nGrants,
+		"NRisks":    nRisks,
+		"NPeople":   len(users),
 		"Cards":     cards,
 		"Sel":       sel,
 		"Own":       own,
