@@ -1,0 +1,67 @@
+/* People Activity PA2, Actor first (18 Nov 2026). Builds on the Overview's bento rules
+   (ovb-device.css, first part): actors on the left, the picked one explained on the right. */
+.pa2{max-width:var(--page-max,1760px);margin:0 auto;font-size:13px;position:relative;display:flex;flex-direction:column}
+.pa2 .cc-tabs{flex:none}
+.pa2-card{display:flex;flex-direction:column;min-height:0;flex:1}
+.pa2-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.pa2-top .sp{flex:1}
+.pa2-seg a{font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2);text-decoration:none;white-space:nowrap}
+.pa2-seg a.on{background:var(--accent-fill);color:#fff}
+.pa2-seg a i{font-style:normal;opacity:.7;margin-left:3px}
+.pa2 .ovb-tag.c{background:var(--ovb-page);color:var(--text-2);text-transform:none;letter-spacing:0;font-weight:700}
+.pa2-f{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0}
+.pa2-f select,.pa2-f input[type=text]{font:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--border);border-radius:99px;background:var(--surface);color:var(--text)}
+.pa2-f input[name=device]{width:150px;font-family:var(--mono)}
+.pa2-chk{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text-2)}
+.pa2-clear{font-size:12.5px;color:var(--text-2)}
+.pa2-pane{grid-template-columns:minmax(260px,340px) minmax(0,1fr);flex:1;min-height:0}
+.pa2 .ovb-list{max-height:none}
+.pa2 a.ovb-li{text-decoration:none;align-items:center}
+.pa2 .ovb-li .ovb-dot{margin-top:0}
+.pa2 .ovb-li .ubub{width:26px;height:26px;font-size:10.5px;flex:none}
+.pa2 .ovb-li .ovb-tag{flex:none;font-size:10px}
+.pa2-dets{overflow:hidden}
+.pa2-dets .ovb-det{min-height:0}
+.pa2-hd{display:flex;align-items:center;gap:12px}
+.pa2-hd .ubub{width:40px;height:40px;font-size:15px;flex:none}
+.pa2-hd h2{margin:0;font-size:17px;font-weight:650;overflow-wrap:anywhere}
+.pa2-hd h2 a{color:inherit;text-decoration:none}.pa2-hd h2 a:hover{color:var(--accent-text)}
+.pa2-sub{color:var(--muted);font-size:12px;margin-top:2px}
+.pa2-bad{color:var(--ovb-r)}
+.pa2 .ovb-facts{flex:none}
+.pa2-days{display:flex;align-items:flex-end;gap:6px;height:64px;margin-top:12px;flex:none}
+.pa2-days div{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;gap:4px;min-width:0}
+.pa2-days i{display:block;border-radius:6px;background:var(--border);min-height:3px}
+.pa2-days i.t{background:var(--ovb-g)}
+.pa2-days span{font-size:10px;color:var(--muted);text-align:center;flex:none}
+.pa2-days div{height:64px}
+.pa2-days i{flex:none}
+.pa2-ev{flex:1;min-height:0;overflow:auto;margin-top:10px}
+.pa2-tb{width:100%;border-collapse:collapse;font-size:12.5px}
+.pa2-tb th{position:sticky;top:0;background:var(--ovb-page);z-index:1;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+.pa2-tb td{padding:7px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+.pa2-tb tbody tr:hover td{background:var(--surface2)}
+.pa2-when{white-space:nowrap;color:var(--muted)}
+.pa2-what{color:var(--text-2);width:100%}
+.pa2 .av-who{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;min-width:0;white-space:nowrap}
+.pa2 .av-who .ubub{width:22px;height:22px;font-size:9.5px;flex:none}
+.pa2-empty{padding:18px 10px;color:var(--text-2);font-size:13px}
+.pa2-empty b{display:block;color:var(--text)}
+.pa2-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex:none;flex-wrap:wrap}
+.pa2-pager .cc-btn[aria-disabled]{opacity:.45;pointer-events:none}
+.pa2 .muted{color:var(--muted)}.pa2 .small{font-size:11.5px}
+
+@media (min-width:1101px){
+  html.shell .pa2{height:calc(var(--shell-h,100vh) - 30px)}
+}
+@media (max-width:1100px){
+  .pa2-pane{grid-template-columns:minmax(0,1fr)}
+  .pa2 .ovb-list{max-height:300px}
+}
+@media (max-width:720px){
+  .pa2 .ovb-c{padding:14px}
+  .pa2-f{width:100%}
+  .pa2-f select,.pa2-f input[name=device]{flex:1 1 40%;min-width:0}
+  .pa2-tb{min-width:0}
+  .pa2-ev{overflow-x:auto}
+}

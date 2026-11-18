@@ -134,8 +134,10 @@ func TestActivityPageRenders(t *testing.T) {
 	renderPeople(t, peopleTmpl(t, "activity.html", "_users_tabs.html"), "activity.html", map[string]any{
 		"Role": "admin", "UsersTab": "activity", "Entries": []db.AuditEntry{{Actor: "Hafiz", Action: "device.reboot", CreatedAt: time.Now(), DeviceSerial: "AT070AABU00089"}},
 		"Total": 1, "Page": 1, "TotalPages": 2, "Kinds": activityKindOrder, "KindCount": map[string]int{"": 1, "devices": 1},
-		"Days": "7", "Kind": "", "BaseQS": template.URL("days=7"),
-	}, `>Everything</span>`, `kind=devices`, `AT070AABU00089`, `Last 7 days`, `Next`)
+		"Days": "7", "Kind": "", "BaseQS": template.URL("days=7"), "Track": "people",
+		"TrackCount": map[string]int{"people": 1}, "Src": "",
+		"PA2": buildPA2([]pa2Row{{Key: "hafiz", Name: "Hafiz", N: 1, Last: time.Now()}}, []db.AuditEntry{{Actor: "Hafiz", CreatedAt: time.Now()}}, "people", "", "", "", "7", "", false, false, ""),
+	}, `Everything · 1`, `value="devices"`, `AT070AABU00089`, `Last 7 days`, `Next`, `All people`, `actor=hafiz`)
 }
 
 func TestActivityKinds(t *testing.T) {
