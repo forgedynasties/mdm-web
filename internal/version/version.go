@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.22",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Releases and updates in the Overview's language, fitted to the window with no page scrolling: the Releases page is a table of releases with a preview (add a package, inspect, attach a flashing bundle, create a release with its first package); New update is a three-step stepper with a live \"will update N devices\" summary; the deployment page has the progress and to-do on the left and the devices with a detail and actions on the right; Update settings is a list with an explanation pane and tonight's counts; Release crashes lists the crash groups with their trace, trend and devices.",
+		},
+	},
+	{
 		Version: "1.64.21",
 		Date:    "2026-11-18",
 		Changes: []string{
