@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.16",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view: the panel sheet opens in the centre, a second click on the dock button closes it, its header animates in with it, and the tab bar on the sheet is gone (the dock already switches panels).",
+		},
+	},
+	{
 		Version: "1.64.15",
 		Date:    "2026-11-18",
 		Changes: []string{

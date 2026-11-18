@@ -851,7 +851,7 @@
   <button type="button" data-bt-open="about">{{template "bt-ic" "about"}}<span>About</span></button>
 </nav>
 <div class="bt-scrim" id="bt-scrim"></div>
-<div class="bt-sheet-h" id="bt-sheet-h"><div class="bt-sw" id="bt-sw"></div><span class="bt-esc">Esc</span><button type="button" class="bt-x" id="bt-x" aria-label="Close panel">✕</button></div>
+<div class="bt-sheet-h" id="bt-sheet-h"><h2 class="bt-ttl" id="bt-ttl"></h2><span class="bt-esc">Esc</span><button type="button" class="bt-x" id="bt-x" aria-label="Close panel">✕</button></div>
 <div class="ovd bt-wrap"><div class="ovb" id="bt">
   <section class="ovb-c ovb-health" aria-labelledby="bt-h">
     <div class="ovb-ch"><h2 id="bt-h">Device health</h2><span class="sp"></span><button type="button" class="ovb-pill {{$bv.Tone}}" style="border:0;cursor:pointer" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))" title="Open Health">{{$bv.Score}}</button></div>
@@ -950,15 +950,15 @@
   /* the dock and the sheet */
   var KEYS=['apps','activity','health','network','location','about'],NAMES={apps:'Apps',activity:'Activity',health:'Health',network:'Network',location:'Location',about:'About'};
   function init(){
-  var dock=document.getElementById('bt-dock'),sw=document.getElementById('bt-sw'),open=null;
+  var dock=document.getElementById('bt-dock'),ttl=document.getElementById('bt-ttl'),open=null;
   var avail=KEYS.filter(function(k){return document.getElementById('dd-panel-'+k)&&dock.querySelector('[data-bt-open="'+k+'"]')});
   function openPanel(k){if(window.setDeviceTab)setDeviceTab(k,document.getElementById('dd-tab-'+k))}
   function closePanel(){if(window.setDeviceTab)setDeviceTab('summary',document.getElementById('dd-tab-summary'))}
   function sync(){var o=null;KEYS.forEach(function(k){var p=document.getElementById('dd-panel-'+k);if(p&&!p.hidden)o=k});
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
     dock.querySelectorAll('[data-bt-open]').forEach(function(b){b.classList.toggle('on',b.dataset.btOpen===o)});
-    sw.innerHTML=avail.map(function(k){return '<button type="button" data-bt-open="'+k+'" class="'+(k===o?'on':'')+'">'+NAMES[k]+'</button>'}).join('')}
-  document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&(dock.contains(b)||sw.contains(b))){if(b.dataset.btOpen===open&&dock.contains(b))closePanel();else openPanel(b.dataset.btOpen);return}
+    ttl.textContent=o?NAMES[o]:''}
+  document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&dock.contains(b)){if(b.dataset.btOpen===open)closePanel();else openPanel(b.dataset.btOpen);return}
     if(e.target.id==='bt-scrim'||e.target.closest('#bt-x'))closePanel()});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open&&!e.defaultPrevented)closePanel()});
   var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
