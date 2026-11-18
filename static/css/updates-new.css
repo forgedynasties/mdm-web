@@ -1,0 +1,99 @@
+/* New update · NU1, stepper with a live coral summary (18 Nov 2026). Built on the Overview's bento
+   (.ovb, .ovb-c, .ovb-promo, .ovb-seg, .ovb-btn from ovb-device.css). Left: the steps. Middle:
+   the picked step's pane. Right: the coral summary + Send. On a desktop window it fits without a
+   page scroll; a long list scrolls inside its own pane. */
+.nu{display:block;margin:0}
+.nu-grid{grid-template-columns:minmax(220px,260px) minmax(0,1fr) minmax(280px,330px);align-items:stretch}
+html.shell .nu{height:calc(var(--shell-h) - 32px);min-height:0}
+html.shell .nu-grid{height:100%;grid-template-rows:minmax(0,1fr)}
+
+/* steps */
+.nu-steps{display:flex;flex-direction:column;gap:6px;min-height:0;overflow:auto}
+.nu-ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.nu-step{display:flex;gap:12px;align-items:center;width:100%;border:0;background:none;font:inherit;text-align:left;padding:11px 12px;border-radius:16px;color:var(--text);cursor:pointer}
+.nu-step:hover:not(:disabled){background:var(--surface2)}
+.nu-step:disabled{opacity:.5;cursor:default}
+.nu-step .tx{flex:1;min-width:0}
+.nu-step b{display:block;font-size:14px;font-weight:600}
+.nu-step small{display:block;font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nu-n{flex:none;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);display:grid;place-items:center;font-style:normal;font-size:12.5px;font-weight:700;color:var(--text-2)}
+.nu-step.on{background:var(--ovb-page)}
+.nu-step.on .nu-n{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
+.nu-back{margin-top:auto;font-size:12.5px;color:var(--text-2);text-decoration:none;padding:8px 12px}
+.nu-back:hover{color:var(--accent-text)}
+
+/* pane */
+.nu-pane{display:flex;flex-direction:column;min-height:0}
+.nu-sec{flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;overflow-y:auto;scrollbar-width:thin}
+.nu-sec[hidden]{display:none}
+.nu-m{font-size:12px;color:var(--muted)}
+.nu-fld{display:flex;flex-direction:column;gap:7px;min-height:0}
+.nu-grow{flex:1}
+.nu-lb{font-size:12px;font-weight:650;color:var(--text-2)}
+.nu-fld select.form-input{max-width:340px}
+.nu-hint{font-size:12px;color:var(--muted);max-width:560px}
+.nu-hint b{color:var(--text-2)}
+.nu-empty{padding:20px 4px}
+.nu-foot{display:flex;align-items:center;gap:10px;padding-top:12px;margin-top:12px;border-top:1px solid var(--border-soft)}
+.nu-foot .sp{flex:1}
+.nu-foot .ovb-btn[hidden]{display:none}
+.nu-foot .ovb-btn:disabled{opacity:.45;cursor:default}
+
+/* the release list is always open: a searchable list, scrolling inside the pane */
+.nu-combo{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;position:relative}
+.nu-combo .form-input{max-width:480px;flex:none}
+.nu-combo .rel-list.nu-list{position:static;display:block;flex:1;min-height:90px;max-height:none;overflow:auto;margin:0;
+  border:1px solid var(--border-soft);border-radius:16px;box-shadow:none;background:var(--surface);padding:4px}
+.nu-combo .rel-opt{padding:9px 12px;border-radius:11px;font-size:13px}
+.nu-combo .rel-opt.on{background:var(--ovb-page);font-weight:650}
+.nu-combo .rel-opt.on::after{content:"selected";float:right;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:var(--accent-fill);border-radius:99px;padding:2px 9px}
+
+/* options */
+.nu .ovb-seg button.seg-btn{border-radius:99px}
+.nu-wipe{border:1px solid var(--ovb-r);background:color-mix(in srgb,var(--ovb-r) 9%,var(--surface));border-radius:16px;padding:13px 16px;max-width:620px}
+.nu-wipe b{display:block;color:var(--ovb-r);font-size:14px;margin-bottom:4px}
+.nu-wipe p{margin:0 0 9px;font-size:12.5px;color:var(--text-2)}
+.nu-wipe label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;cursor:pointer}
+
+/* the shared device picker, fitted to the pane */
+.nu .pk-rail{flex:1;min-height:300px;border:0;box-shadow:none;border-radius:0;background:none;overflow:hidden}
+.nu .pk-rail .co-r-b{padding:0;flex:1;min-height:0;display:flex;flex-direction:column}
+.nu .pk-rail .co-hint{display:none}
+.nu .pk-rail .co-quick{margin-bottom:8px}
+.nu .pk-rail .co-scopelist{max-height:72px;flex:none;margin-bottom:4px}
+.nu .pk-rail .co-devlist{flex:1;min-height:120px;max-height:none}
+.nu .pk-rail .co-basket{border-radius:16px;border-top:0;margin-top:10px;padding:10px 14px;flex:none}
+.nu .pk-rail .co-bk-pills{max-height:46px;overflow:auto}
+
+@media (max-height:780px){.nu .pk-rail .co-scopelist{max-height:46px}.nu .pk-rail .co-bk-pills{display:none}.nu .pk-rail .co-quick{display:none}}
+
+/* the coral summary */
+.nu-sum{min-height:0;overflow:auto;justify-content:space-between;gap:14px}
+.nu-sum-k{font-size:12px;font-weight:700;opacity:.85;position:relative}
+.nu-sum b{display:block;font-size:26px}
+.nu-sum-l{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:7px;font-size:13px;line-height:1.35;position:relative}
+.nu-sum-l li{padding-left:16px;position:relative}
+.nu-sum-l li::before{content:"";position:absolute;left:0;top:6px;width:7px;height:7px;border-radius:50%;background:#fff;opacity:.85}
+.nu-sum-w{position:relative;font-size:12.5px;font-weight:600;line-height:1.4;background:rgba(255,255,255,.18);border-radius:14px;padding:10px 12px}
+.nu-sum-w.stop{background:#fff;color:var(--ovb-r)}
+.nu-sum .ovb-btn.w{align-self:stretch;justify-content:center;font-size:14px}
+.nu-sum .ovb-btn.w:disabled{opacity:.55;cursor:not-allowed}
+.nu-sum.is-blocked{background:color-mix(in srgb,var(--accent-fill) 70%,#444)}
+
+/* tablet and phones: stack, page scrolls */
+@media (max-width:1100px){
+  html.shell .nu{height:auto}
+  .nu-grid{grid-template-columns:minmax(0,1fr)}
+  .nu-steps{overflow:visible}
+  .nu-ol{flex-direction:row;flex-wrap:wrap}
+  .nu-ol li{flex:1 1 200px}
+  .nu-sec{min-height:420px}
+  .nu-sum{order:3}
+}
+@media (max-width:720px){
+  .nu-ol li{flex-basis:100%}
+  .nu-back{display:none}
+  .nu-sum b{font-size:22px}
+  .nu-combo .rel-list.nu-list{min-height:240px}
+  .nu .pk-rail .co-devlist{min-height:200px}
+}
