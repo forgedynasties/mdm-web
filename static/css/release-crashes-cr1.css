@@ -1,0 +1,53 @@
+/* Release crashes CR1 (18 Nov 2026): crash groups on the left, the picked group on the right.
+   Builds on the Overview's bento rules (ovb-device.css, first part). */
+.cr1{max-width:var(--page-max,1760px);margin:0 auto;font-size:13px;position:relative}
+.cr1 .ovb.cr1-g{grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:14px;align-items:stretch}
+.cr1 .ovb-c{display:flex;flex-direction:column;min-height:0}
+.cr1 .ovb-ch form{margin:0}
+.cr1 .muted{color:var(--muted)}.cr1 .small{font-size:11.5px}
+.cr1-filters{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.cr1-seg{align-self:flex-start;max-width:100%}
+.cr1-seg a{font-size:12px;font-weight:600;padding:6px 12px;border-radius:99px;color:var(--text-2);text-decoration:none;white-space:nowrap}
+.cr1-seg a.on{background:var(--accent-fill);color:#fff}
+.cr1-seg a i{font-style:normal;opacity:.7;margin-left:3px}
+.cr1-q{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;padding:8px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.cr1 .cr1-items{flex:1;max-height:none;min-height:0}
+.cr1 a.ovb-li{text-decoration:none;align-items:center}
+.cr1 a.ovb-li[hidden]{display:none}
+.cr1 .ovb-li .ovb-dot{margin-top:0}
+.cr1-n{text-align:right;flex:none}
+.cr1-n b{display:block;font-size:15px;font-weight:650;overflow:visible}
+.cr1-n small{font-size:11px;color:var(--muted)}
+.cr1-empty{padding:18px 8px;color:var(--text-2);font-size:13px}
+.cr1-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap}
+.cr1-pager .cc-btn[aria-disabled]{opacity:.45;pointer-events:none}
+.cr1-body{flex:1;min-height:0;overflow:auto;padding-right:4px;display:flex;flex-direction:column}
+.cr1-sig{font-size:20px;line-height:1.25;font-weight:650;letter-spacing:-.01em;margin:0;overflow-wrap:anywhere}
+.cr1 .ovb-facts{flex:none}
+.cr1-trend{display:flex;flex-direction:column;justify-content:space-between}
+.cr1-bars{display:flex;align-items:flex-end;gap:3px;height:32px;margin-bottom:4px}
+.cr1-bars i{display:block;width:7px;border-radius:3px;background:var(--border)}
+.cr1-bars i.on{background:var(--ovb-r)}
+.cr1-trace-h,.cr1-dev-h{display:flex;align-items:center;gap:10px;margin:18px 0 8px;flex:none}
+.cr1-trace-h h3,.cr1-dev-h h3{margin:0;font-size:14px;font-weight:600}
+.cr1-trace-h .sp,.cr1-dev-h .sp{flex:1}
+.cr1-trace{margin:0;max-height:240px;min-height:60px;overflow:auto;border-radius:14px;padding:12px 14px;font-family:var(--mono,ui-monospace,monospace);font-size:12px;line-height:1.5;white-space:pre;flex:none}
+.cr1-dev{margin-top:0}
+.cr1-dev td.x{width:34px;text-align:right}
+.cr1-dev td.x form{margin:0}
+.cr1-x{border:0;background:none;font-size:18px;line-height:1;color:var(--muted);cursor:pointer;width:26px;height:26px;border-radius:50%}
+.cr1-x:hover{background:var(--surface2);color:var(--ovb-r)}
+.cr1-del{color:var(--ovb-r)}
+@media (min-width:1101px){
+  html.shell .cr1{height:calc(var(--shell-h) - 30px);display:flex;flex-direction:column}
+  html.shell .cr1 .ovb.cr1-g{flex:1;min-height:0;grid-template-rows:minmax(0,1fr)}
+}
+@media (max-width:1100px){
+  .cr1 .ovb.cr1-g{grid-template-columns:minmax(0,1fr)}
+  .cr1 .cr1-items{max-height:340px}
+}
+@media (max-width:720px){
+  .cr1 .ovb-c{padding:14px}
+  .cr1-sig{font-size:17px}
+  .cr1-trace{max-height:200px}
+}

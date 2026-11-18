@@ -7,3 +7,15 @@ function probFromCrash(btn) {
   });
   location.href = '/releases/' + window.RELEASE_CRASHES_PAGE.release + '?tab=problems&' + p.toString();
 }
+
+// CR1: filter the group list on this page by signature or kind.
+(function () {
+  var q = document.getElementById('cr1-q'), box = document.getElementById('cr1-items');
+  if (!q || !box) return;
+  q.addEventListener('input', function () {
+    var t = q.value.trim().toLowerCase();
+    box.querySelectorAll('.ovb-li').forEach(function (a) {
+      a.hidden = !!t && (a.dataset.s || '').toLowerCase().indexOf(t) < 0;
+    });
+  });
+})();

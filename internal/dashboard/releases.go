@@ -971,7 +971,11 @@ func (h *Handler) ReleaseCrashDelete(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.audit(r, "release.crash.delete", strconv.Itoa(id), eid.String())
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/crashes", id), http.StatusSeeOther)
+	redirect := strings.TrimSpace(r.FormValue("redirect"))
+	if !strings.HasPrefix(redirect, "/releases") {
+		redirect = fmt.Sprintf("/releases/%d/crashes", id)
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 // ReleaseCrashes is the full, paginated list of a release's auto-detected crashes,
@@ -988,34 +992,7 @@ func (h *Handler) ReleaseCrashes(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
-	const pageSize = 25
-	page := 1
-	if p, e := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page"))); e == nil && p > 0 {
-		page = p
-	}
-	groups, total, _ := h.db.CrashGroupsOnBuild(r.Context(), rel.Version, pageSize, (page-1)*pageSize)
-	totalPages := (total + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	// An out-of-range page (stale link) returns no rows and total 0; clamp and re-query so
-	// the pager and count stay honest.
-	if len(groups) == 0 && page > 1 {
-		page = 1
-		groups, total, _ = h.db.CrashGroupsOnBuild(r.Context(), rel.Version, pageSize, 0)
-		totalPages = (total + pageSize - 1) / pageSize
-		if totalPages < 1 {
-			totalPages = 1
-		}
-	}
-	h.render(w, r, "release_crashes.html", map[string]any{
-		"Title":       "Crashes · " + rel.Version,
-		"Release":     rel,
-		"CrashGroups": groups,
-		"Page":        page,
-		"Total":       total,
-		"TotalPages":  totalPages,
-	})
+	h.render(w, r, "release_crashes.html", h.buildCrashesCR1(r, rel))
 }
 
 // ReleaseCrashGroupDelete removes every crash matching a group's kind + signature on this
