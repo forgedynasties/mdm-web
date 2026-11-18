@@ -1,4 +1,4 @@
-{{define "bt-ic"}}{{if eq . "apps"}}<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg>{{else if eq . "activity"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>{{else if eq . "health"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>{{else if eq . "network"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0"/><circle cx="12" cy="19.2" r="1"/></svg>{{else if eq . "location"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>{{else}}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>{{end}}{{end}}
+{{define "bt-ic"}}{{if eq . "apps"}}<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg>{{else if eq . "activity"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>{{else if eq . "health"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>{{else if eq . "network"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0"/><circle cx="12" cy="19.2" r="1"/></svg>{{else if eq . "location"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>{{else if eq . "notes"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>{{else}}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>{{end}}{{end}}
 {{define "device-stats"}}
 <div class="dd-details"
   id="device-stats" data-diff-guard data-morph
@@ -637,7 +637,7 @@
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
       <span class="dd-notes-t">Notes</span>{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
     </button>
-    <div class="dd-notes-pop cc-menu" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
+    <div class="dd-notes-pop cc-menu" id="dd-notes-pop" hidden>{{if not .Bento}}{{template "device-notes" .}}{{end}}</div>
   </span>
 </div>
 </div>
@@ -849,6 +849,7 @@
   <button type="button" data-bt-open="network">{{template "bt-ic" "network"}}<span>Network</span></button>
   <button type="button" data-bt-open="location">{{template "bt-ic" "location"}}<span>Location</span></button>
   <button type="button" data-bt-open="about">{{template "bt-ic" "about"}}<span>About</span></button>
+  {{if not .IsOwner}}<hr><button type="button" data-bt-open="notes">{{template "bt-ic" "notes"}}<span>Notes</span>{{if .Notes}}<i class="n d" aria-label="has a note"></i>{{end}}</button>{{end}}
 </nav>
 <div class="bt-scrim" id="bt-scrim"></div>
 <div class="bt-sheet-h" id="bt-sheet-h"><h2 class="bt-ttl" id="bt-ttl"></h2><span class="bt-esc">Esc</span><button type="button" class="bt-x" id="bt-x" aria-label="Close panel">✕</button></div>
@@ -914,20 +915,26 @@
   {{if .Needs}}<a class="ovb-promo" role="button" tabindex="0" onclick="btTab('needs')"><b>{{len .Needs}} thing{{if ne (len .Needs) 1}}s{{end}}<br>need{{if eq (len .Needs) 1}}s{{end}} a look</b><span class="ovb-btn w">Open</span><span class="big" aria-hidden="true">{{len .Needs}}</span></a>
   {{else}}<a class="ovb-promo" role="button" tabindex="0" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))"><b>Everything<br>is running</b><span class="ovb-btn w">Open Health</span><span class="big" aria-hidden="true">✓</span></a>{{end}}
 
-  <section class="ovb-c" aria-labelledby="bt-v">
+  {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}{{$hasPad := and .WlcApplicable $wlcS (ne $wlcS "—")}}
+  {{if not $hasPad}}<section class="ovb-c" aria-labelledby="bt-v">
     <div class="ovb-ch"><h2 id="bt-v">Vitals</h2></div>
     <div class="ovb-rings">{{range $bv.Rings}}<a class="ovb-ring" role="button" tabindex="0" onclick="setDeviceTab('{{.Tab}}', document.getElementById('dd-tab-{{.Tab}}'))"><svg viewBox="0 0 82 82" role="img" aria-label="{{.Label}} {{.Text}}"><circle class="bg" cx="41" cy="41" r="33"/><circle class="fg {{.Tone}}" cx="41" cy="41" r="33" stroke-dasharray="{{.Dash}} {{.Circ}}"/><text x="41" y="45" text-anchor="middle">{{.Text}}</text></svg>{{.Label}}</a>{{end}}</div>
-  </section>
+  </section>{{end}}
 
-  <section class="ovb-c" aria-labelledby="bt-d">
-    <div class="ovb-ch"><h2 id="bt-d">Details</h2><span class="sp"></span><button type="button" class="ovb-ib" aria-label="About" onclick="setDeviceTab('about', document.getElementById('dd-tab-about'))"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></button></div>
-    <div class="ovb-facts" style="margin-top:0">
-      <div class="ovb-fact"><b>{{if .Online}}Online{{else}}Offline{{end}}</b><span>{{if .Online}}connected now{{else}}last seen {{timeSince .Device.LastSeenAt}}{{end}}</span></div>
-      {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="ovb-fact"><b>{{$up}}</b><span>up</span></div>{{end}}
-      <div class="ovb-fact"><b>{{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</b><span>{{if .Device.DeployedEffective}}venue{{else}}not at a venue{{end}}</span></div>
-      {{if .Device.BuildID}}<div class="ovb-fact"><b>{{.Device.BuildID}}</b><span>build</span></div>{{end}}
+  <section class="ovb-c bt-details" aria-labelledby="bt-d">
+    <div class="ovb-ch"><h2 id="bt-d">Details</h2></div>
+    <div class="bt-place" id="bt-place"></div>
+    <div class="bt-dl">
+      <div><span>Status</span><b>{{if .Online}}Online{{else}}Offline · {{timeSince .Device.LastSeenAt}}{{end}}</b></div>
+      {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div><span>Up</span><b>{{$up}}</b></div>{{end}}
+      {{if .Device.BuildID}}<div><span>Build</span><b>{{.Device.BuildID}}</b></div>{{end}}
     </div>
   </section>
+
+  {{if $hasPad}}<section class="ovb-c bt-pad" aria-labelledby="bt-p">
+    <div class="ovb-ch"><h2 id="bt-p">Charging pad</h2></div>
+    <div id="bt-pad-slot"></div>
+  </section>{{end}}
 </div></div>
 <script>(function(){
   var root=document.getElementById('bt');if(!root)return;
@@ -947,8 +954,13 @@
       pane.querySelectorAll('[data-bt-pick]').forEach(function(x){x.classList.toggle('on',x===p)});
       pane.querySelectorAll('[data-bt-det]').forEach(function(d){d.hidden=d.dataset.btDet!==i})}
   });
-  /* the dock and the sheet */
-  var KEYS=['apps','activity','health','network','location','about'],NAMES={apps:'Apps',activity:'Activity',health:'Health',network:'Network',location:'Location',about:'About'};
+  /* what the old strip and tab-row carried moves into the tiles: the client pill, the venue
+     and groups rows into Details, the charging pad card into its tile (same elements, so their
+     popovers and the wlc switch keep working) */
+  var slot=document.getElementById('bt-place'),cp=document.querySelector('.dd-facts .cpill-wrap'),pl=document.querySelector('.dd-facts .dd-place');
+  if(slot){if(cp)slot.appendChild(cp);if(pl)slot.appendChild(pl)}
+  var pc=document.getElementById('charging-pad-card'),ps=document.getElementById('bt-pad-slot');if(pc&&ps)ps.appendChild(pc);
+  var KEYS=['apps','activity','health','network','location','about','notes','graphs'],NAMES={apps:'Apps',activity:'Activity',health:'Health',network:'Network',location:'Location',about:'About',notes:'Notes',graphs:'Graphs'};
   function init(){
   var dock=document.getElementById('bt-dock'),ttl=document.getElementById('bt-ttl'),open=null;
   var avail=KEYS.filter(function(k){return document.getElementById('dd-panel-'+k)&&dock.querySelector('[data-bt-open="'+k+'"]')});
@@ -956,11 +968,17 @@
   function closePanel(){if(window.setDeviceTab)setDeviceTab('summary',document.getElementById('dd-tab-summary'))}
   function sync(){var o=null;KEYS.forEach(function(k){var p=document.getElementById('dd-panel-'+k);if(p&&!p.hidden)o=k});
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
+    /* the graph card lives in the Today pane, and in the Graphs sheet while that is open */
+    var home=document.getElementById('bt-graph-slot'),big=document.getElementById('bt-graphs-slot'),card=document.querySelector('.chart-card'),leg=document.getElementById('vt-legend');
+    if(home&&big&&card){var want=(o==='graphs')?big:home;if(card.parentNode!==want){want.appendChild(card);if(leg)want.appendChild(leg);setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}}
     dock.querySelectorAll('[data-bt-open]').forEach(function(b){b.classList.toggle('on',b.dataset.btOpen===o)});
     ttl.textContent=o?NAMES[o]:''}
   document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&dock.contains(b)){if(b.dataset.btOpen===open)closePanel();else openPanel(b.dataset.btOpen);return}
     if(e.target.id==='bt-scrim'||e.target.closest('#bt-x'))closePanel()});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open&&!e.defaultPrevented)closePanel()});
+  /* the graph card's "full screen" button opens the Graphs sheet instead of the browser's full screen (capture: ahead of vitals.js) */
+  var fs=document.getElementById('chart-fs-btn');if(fs){fs.title='Open the graphs in a larger view';fs.setAttribute('aria-label','Open the graphs in a larger view');
+    document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#chart-fs-btn')){e.stopPropagation();e.preventDefault();if(open==='graphs')closePanel();else openPanel('graphs')}},true)}
   var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
   sync();
   }
@@ -1344,6 +1362,8 @@ window.DEVICE_VITALS = {
 <script src="/static/js/device/vitals.js?v={{assetVer}}"></script>
 
 </section><!-- /summary -->
+{{if .Bento}}<section class="dd-panel" data-dd-panel="graphs" id="dd-panel-graphs" hidden aria-label="Graphs"><div class="bt-slot" id="bt-graphs-slot"></div></section>
+<section class="dd-panel" data-dd-panel="notes" id="dd-panel-notes" hidden aria-label="Notes">{{template "device-notes" .}}</section>{{end}}
 
 <section class="dd-panel" data-dd-panel="about" id="dd-panel-about" role="tabpanel" aria-labelledby="dd-tab-about" tabindex="0" hidden>
   <div class="about-grid">

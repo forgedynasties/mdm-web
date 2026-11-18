@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.17",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view: the facts strip and the Notes / Pad row are gone. The client, venue and groups are in the Details tile; a T7 gets a Charging pad tile with the on/off switch (other devices keep the Vitals rings); Notes is a dock entry. The graph card's enlarge button opens a Graphs sheet instead of full screen, and the sheets now come in with the page stepping back behind them.",
+		},
+	},
+	{
 		Version: "1.64.16",
 		Date:    "2026-11-18",
 		Changes: []string{

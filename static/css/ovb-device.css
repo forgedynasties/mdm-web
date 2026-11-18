@@ -165,7 +165,7 @@ html.shell .dd-bento .ovb{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) a
 /* A1 · edge dock with labels, and the sheet (user, 18 Nov 2026). The tab row is hidden; the
    bento stays on screen under the sheet (the summary panel is kept shown when another panel is
    opened); a visible non-summary panel is fixed to the right edge. */
-.dd-bento .dd-tabs{display:none}
+.dd-bento .dd-tabrow,.dd-bento .dd-facts{display:none}
 .dd-bento #dd-panel-summary[hidden]{display:flex!important}
 .bt-dock,.bt-scrim,.bt-sheet-h{display:none}
 .dd-bento .bt-dock{display:flex}
@@ -186,13 +186,36 @@ html.shell .dd-bento .ovb{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) a
 body.bt-sheet-open .dd-bento .bt-dock{z-index:36}
 .dd-bento .bt-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:opacity .2s;z-index:31}
 body.bt-sheet-open .dd-bento .bt-scrim{opacity:1;pointer-events:auto}
-.dd-bento .bt-sheet-h{position:fixed;top:78px;left:50%;transform:translateX(-50%);width:min(70vw,960px);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33;animation:btslide .22s ease}
+.dd-bento .bt-sheet-h{position:fixed;top:78px;left:50%;transform:translateX(-50%);width:min(70vw,960px);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33;animation:btslide .3s cubic-bezier(.2,.8,.2,1)}
 body.bt-sheet-open .dd-bento .bt-sheet-h{display:flex}
-.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;left:50%;transform:translateX(-50%);width:min(70vw,960px);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-12px 8px 40px rgba(0,0,0,.18);animation:btslide .22s ease}
+.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;left:50%;transform:translateX(-50%);width:min(70vw,960px);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-12px 8px 40px rgba(0,0,0,.18);animation:btslide .3s cubic-bezier(.2,.8,.2,1)}
 .dd-bento .bt-sheet-h{box-shadow:-12px -4px 40px rgba(0,0,0,.10)}
-@keyframes btslide{from{transform:translate(-50%,14px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+@keyframes btslide{from{transform:translate(-50%,28px) scale(.98);opacity:0}to{transform:translate(-50%,0) scale(1);opacity:1}}
 }
 @media (max-width:1100px),(max-height:639px){
 .dd-bento .bt-dock{flex-direction:row;flex-wrap:wrap;margin:0 0 10px;padding:6px}
 .dd-bento .bt-dock button{width:auto;flex:1 1 70px}
 }
+
+/* N4 · the bento recedes (user, 18 Nov 2026): the page steps back and softens while the sheet
+   comes forward. Entry only: the panels are shown and hidden by setDeviceTab, which has no exit. */
+.dd-bento .bt-wrap{transition:transform .3s cubic-bezier(.2,.8,.2,1),filter .3s ease,opacity .3s ease}
+body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);opacity:.85}
+.dd-bento .bt-scrim{background:rgba(0,0,0,.12);backdrop-filter:blur(2px);transition:opacity .3s ease}
+@media (prefers-reduced-motion:reduce){.dd-bento .bt-wrap,.dd-bento .bt-scrim{transition:none}.dd-bento .dd-panel,.dd-bento .bt-sheet-h{animation:none!important}}
+/* P1 · what the strip carried now lives in Details; the pad has its own tile (pad devices only) */
+.dd-bento .bt-details{overflow:visible}
+.dd-bento .bt-place{display:flex;flex-direction:column;gap:6px;font-size:12.5px}
+.dd-bento .bt-place .dd-place{display:flex;flex-direction:column;gap:6px}
+.dd-bento .bt-place .cpill-wrap{display:flex;align-items:center;gap:8px}
+.dd-bento .bt-dl{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-soft);font-size:12px}
+.dd-bento .bt-dl span{color:var(--muted);margin-right:5px}.dd-bento .bt-dl b{font-weight:650}
+.dd-bento .bt-pad{overflow:auto}
+.dd-bento .bt-pad #charging-pad-card .cc-mh{display:none}
+.bt-dock hr{border:0;border-top:1px solid var(--border-soft);margin:3px 10px;width:auto}
+.bt-dock .n.d{background:var(--ovb-g,#1f9d60);width:7px;height:7px;padding:0;top:5px;right:12px}
+
+/* the Graphs sheet (the graph card's enlarge button): the same card, in a sheet */
+.dd-bento #dd-panel-graphs:not([hidden]){display:flex;flex-direction:column}
+.dd-bento #dd-panel-graphs .bt-slot{flex:1;min-height:0}
+.dd-bento #dd-panel-graphs .bt-slot .vt-legend{display:flex;flex:none;height:auto;margin:8px 0 0;background:none;border:0;padding:0 6px}
