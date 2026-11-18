@@ -154,6 +154,12 @@ var commands = []Command{
 	// admin-only and the send paths accept exactly one named device — never all or a group.
 	{Type: "adb_tcp", Cap: CapAdbTcp, Roles: rolesAdmin, API: true},
 
+	// Approve a computer's adb key on a Standard-client device: the client presses Allow on
+	// Android's own dialog, only when it shows the fingerprint in the payload (18 Nov 2026;
+	// on a two-screen POS the dialog opens where the remote screen can't reach it). It lets
+	// that computer into the device, so: admin-only, one named device, API only for now.
+	{Type: "adb_approve", Cap: CapAdbApprove, Roles: rolesAdmin, API: true},
+
 	// Lost mode: the device shows a full-screen "this belongs to …" message, pinned with
 	// lock task, until the server lifts it (nothing on the device does).
 	// Operator-level like reboot — reacting to a missing tablet must not wait for an admin
@@ -201,6 +207,7 @@ var accessActionsAdminOnly = map[string]string{
 	"move_server":   "move_server",
 	"mic_gain_read": "mic_gain_read",
 	"adb_tcp":       "adb_tcp",
+	"adb_approve":   "adb_approve",
 }
 
 // AdminOnlyCommandTypes is the set in accessActionsAdminOnly, exported so the

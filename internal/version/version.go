@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.11",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"A computer's adb key can be approved on a Standard-client device from the admin API (command adb_approve): the device presses Allow on Android's own dialog, only when it shows the key named in the command. For two-screen POS units, where that dialog opens out of the remote screen's reach. Needs Standard client 0.16.1.",
+		},
+	},
+	{
 		Version: "1.64.10",
 		Date:    "2026-11-18",
 		Changes: []string{

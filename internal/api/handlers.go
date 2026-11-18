@@ -2575,6 +2575,12 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "target_type must be all, devices, or groups"})
 		return
 	}
+	if body.Type == "adb_approve" {
+		if msg := product.ValidateAdbApprove(body.TargetType, len(body.Targets), body.Payload); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
+	}
 	if body.Type == "adb_tcp" {
 		if msg := product.ValidateAdbTcp(body.TargetType, len(body.Targets), body.Payload); msg != "" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})

@@ -100,6 +100,11 @@ func (d *DB) ListCommandsByBatch(ctx context.Context, batch string) ([]Command, 
 func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payload json.RawMessage, targetType string, targetIDs []uuid.UUID, createdBy string) (*Command, error) {
 	// Every send path ends here, so this is where "wireless adb goes to one device at a
 	// time" holds for all of them — the device page, bulk actions, groups and the API.
+	if cmdType == "adb_approve" {
+		if msg := prod.ValidateAdbApprove(targetType, len(targetIDs), payload); msg != "" {
+			return nil, errors.New(msg)
+		}
+	}
 	if cmdType == "adb_tcp" {
 		if msg := prod.ValidateAdbTcp(targetType, len(targetIDs), payload); msg != "" {
 			return nil, errors.New(msg)

@@ -864,6 +864,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Collect logs"
 	case "ota":
 		return "OTA update"
+	case "adb_approve":
+		return "Approve adb key"
 	case "adb_tcp":
 		return "Wireless adb"
 	case "lost_mode":

@@ -274,7 +274,7 @@ machine can mint one without the dashboard.
 `POST /commands` request:
 ```json
 {
-  "type": "install_apk",             // install_apk|shell|screenshot|reboot|ota|update_splash|adb_tcp (default install_apk)
+  "type": "install_apk",             // install_apk|shell|screenshot|reboot|ota|update_splash|adb_tcp|adb_approve (default install_apk)
   "apk_url": "string",               // required for install_apk
   "payload": {},                     // type-specific; update_splash: {"url":"...","partition_size":N}
   "target_type": "devices",          // required: all|devices|groups
@@ -282,6 +282,8 @@ machine can mint one without the dashboard.
 }
 ```
 `adb_tcp` switches wireless adb on a firmware device: payload `{"port": 5555, "hours": 24}` (port `0` = off, hours `0` = stays on; defaults 5555 / 24). Exactly one named device per command (`target_type: "devices"`, one target) — anything else is `400`. Needs client 1.4.9+ on firmware v2.1.022+; an older image answers `failed` saying so. adbd still requires an authorized key.
+
+`adb_approve` approves a computer's adb key on a Standard-client device (client 0.16.1+, accessibility service on): payload `{"fingerprint": "AB:CD:…", "always": true, "wait_s": 60}`. `fingerprint` is the MD5 of the computer's adb public key as Android's "Allow USB debugging?" dialog shows it (`awk '{print $1}' ~/.android/adbkey.pub | base64 -d | md5sum`; colons optional). The device waits up to `wait_s` (5-240) for the dialog on any of its displays and presses Allow only if it shows that fingerprint, so send the command, then run `adb connect`. `always` (default true) ticks "Always allow from this computer". Exactly one named device; the answer says which display the dialog was on, or what was on screen instead.
 
 Response `201`: `{ "command": {…}, "skipped": ["serial", …] }`. If every target already has that app installing, returns `200` with `{ "created": false, "skipped": [...], "message": "…" }`.
 

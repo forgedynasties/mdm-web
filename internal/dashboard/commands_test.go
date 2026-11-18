@@ -32,6 +32,7 @@ var wantCommandRoles = map[string][]string{
 	"move_server":      {"admin"},
 	"mic_gain_read":    {"admin"},
 	"adb_tcp":          {"admin"},
+	"adb_approve":      {"admin"},
 	"lost_mode":        {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner", "staff"},
 	"wifi_config":      {"admin", "fleet_manager", "operator", "engineer", "field"},
 }
