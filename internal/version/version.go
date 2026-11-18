@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.13",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Device page: an optional Bento view, the Overview as tiles. Switch from the page's ⋯ menu (Bento view / Standard view); it is remembered per person and never the default.",
+			"Menus close when you choose an item. Enrolment checks the size of the token and product, a scheduled recipe is sent at most once, and a few database write failures are now logged.",
+		},
+	},
+	{
 		Version: "1.64.12",
 		Date:    "2026-11-18",
 		Changes: []string{
