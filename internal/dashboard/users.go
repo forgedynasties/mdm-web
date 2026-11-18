@@ -33,6 +33,7 @@ type userRow struct {
 	Activity  string     // p1Activity bucket, for the Activity filter
 	CanManage bool
 	Rank      int
+	Own       bool // holds access grants of their own, on top of the role
 }
 
 type venueRef struct {
@@ -54,7 +55,11 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	levels, _ := h.db.ListAccessLevels(ctx)
 	now := time.Now()
 	roleOp, ownOp := map[string][]string{}, map[string][]string{}
+	ownAny := map[string]bool{} // people holding a grant of their own, whatever the level
 	for _, g := range levels {
+		if !g.Expired(now) && g.SubjectType != "role" {
+			ownAny[g.Subject] = true
+		}
 		if g.Expired(now) || g.Rank() < db.LevelOperate {
 			continue
 		}
@@ -84,6 +89,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			row.Invited = &at
 		}
 		row.Activity = p1Activity(row, now)
+		row.Own = ownAny[u.Username]
 		if roleIsCustomer(u.Role) {
 			if pol, err := h.db.GetUserAccess(ctx, u.Username); err == nil {
 				for _, g := range pol.Grants {
@@ -135,7 +141,10 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 			quiet++
 		}
 	}
+	ul1 := h.buildUL1(ctx, team, customers, len(waiting), now)
 	h.render(w, r, "users.html", map[string]any{
+		"UL1":           ul1,
+		"Activity":      r.URL.Query().Get("activity"),
 		"RoleCount":     roleCount,
 		"Quiet":         quiet,
 		"Waiting":       waiting,

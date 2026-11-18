@@ -30,6 +30,7 @@ type p1Inputs struct {
 }
 
 type p1Role struct {
+	Key   string
 	Label string
 	N     int
 	Pct   int
@@ -225,7 +226,7 @@ func buildUsersP1(in p1Inputs) p1View {
 			if d.Customer {
 				label += " · customer"
 			}
-			rl.Roles = append(rl.Roles, p1Role{Label: label, N: n, Pct: n * 100 / maxR})
+			rl.Roles = append(rl.Roles, p1Role{Key: d.Key, Label: label, N: n, Pct: n * 100 / maxR})
 		}
 	}
 	v.Rail = rl
