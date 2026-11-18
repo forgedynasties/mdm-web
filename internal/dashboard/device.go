@@ -553,6 +553,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	sec := h.securityFor(r.Context(), device)
 	devRole := h.deviceRoleOf(r.Context(), device)
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
+		"Bento":   h.deviceViewName(r) == "bento", // the Overview as tiles (device_bento)
 		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
 		"LookOnly":     lookOnly,
 		"Look":         look,

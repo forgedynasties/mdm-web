@@ -271,7 +271,7 @@
      graph) until split.js, near its end, arranges it (5 Nov 2026, user: "sometimes during device
      page loading ui is like this"). Hidden until split.js marks it ready; 4 s fallback. */}}
 <style>@media (min-width:1100px){.device-detail:not(.dd-ready){visibility:hidden}}</style>
-<div class="device-detail cc-wrap dd-cc"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
+<div class="device-detail cc-wrap dd-cc{{if .Bento}} dd-bento dd-ready{{end}}"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
 <script>(function(){var d=document.currentScript.parentElement;setTimeout(function(){if(d)d.classList.add('dd-ready');},4000);})();</script>
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
@@ -413,6 +413,7 @@
         <div class="cc-msep"></div>
         {{if and .Device.HasBattery (not .IsDPC) (canAppLibrary .Role)}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
         <a class="cc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export data…</a>
+        {{if .Bento}}<a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=new" hx-boost="false" title="The standard device page, with the graph and tabs. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Standard view</a>{{else}}<a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=bento" hx-boost="false" title="The Overview as tiles, like the fleet Overview. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/></svg>Bento view</a>{{end}}
         <a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=classic" hx-boost="false" title="Back to the device page as it was before the redesign. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Classic view</a>
         {{with .HandOver}}{{if .CanSetUp}}<form method="POST" action="/devices/{{$.Device.SerialNumber}}/setup-again" hx-boost="false" onsubmit="return confirm('Put this device into setup? Field people can work on it until someone hands it over again.')"><button type="submit" class="cc-mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Set up again…</button></form>{{end}}{{end}}
         {{if canAdmin .Role}}{{$sm := .Security}}
@@ -825,6 +826,104 @@
 
 
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
+{{if .Bento}}
+{{/* Bento view (18 Nov 2026, user: "implement this view but dont make it default … option on
+     the device page to switch … remembered with user"): the Overview as tiles, like the fleet
+     Overview. The graph card below is moved into the graph tile by the script after the legend;
+     every other tab is unchanged and opened from its tile. */}}
+<style>
+.dd-bento .bt{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.dd-bento .bt-t{background:var(--surface);border-radius:22px;padding:14px 16px;min-width:0;position:relative}
+.dd-bento .bt-t>h2{margin:0 0 8px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
+.dd-bento .bt-t>h2 .sp{flex:1}
+.dd-bento .bt-t>h2 a,.dd-bento .bt-t>h2 button{font:inherit;font-size:11px;text-transform:none;letter-spacing:0;color:var(--accent-text,var(--accent));font-weight:600;background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
+.dd-bento .bt-hero{grid-column:span 12;display:flex;gap:16px;align-items:center}
+.dd-bento .bt-hero img{width:84px;height:84px;border-radius:20px;object-fit:contain;background:var(--canvas,var(--bg));flex:none}
+.dd-bento .bt-hero .id{font-family:var(--mono);font-weight:700;font-size:16px;overflow-wrap:anywhere}
+.dd-bento .bt-hero .nm{font-size:13px;color:var(--text-2);margin-top:4px}
+.dd-bento .bt-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px;align-items:center}
+.dd-bento .bt-chip{font-size:11px;font-weight:700;border-radius:99px;padding:3px 9px;background:var(--canvas,var(--bg));color:var(--text-2)}
+.dd-bento .bt-chip.ok{background:color-mix(in srgb,var(--ok) 16%,var(--surface));color:var(--ok)}
+.dd-bento .bt-chip.warn{background:color-mix(in srgb,var(--warn) 18%,var(--surface));color:var(--warn)}
+.dd-bento .bt-graph{grid-column:span 8;grid-row:span 2;padding:0;background:none;border-radius:0}
+.dd-bento .bt-graph .chart-card{margin:0;border-radius:22px;border:0}
+.dd-bento .bt-graph .vt-legend{margin:10px 0 0;border-radius:22px;border:0}
+.dd-bento .bt-health{grid-column:span 4}
+.dd-bento .bt-needs{grid-column:span 4}
+.dd-bento .bt-s{grid-column:span 3}.dd-bento .bt-m{grid-column:span 4}
+.dd-bento .bt-big{font-size:28px;font-weight:650;line-height:1.05}
+.dd-bento .bt-sub{color:var(--text-2);font-size:12px;margin-top:3px}
+.dd-bento .bt-bar{height:6px;border-radius:3px;background:var(--canvas,var(--bg));overflow:hidden;margin-top:9px}
+.dd-bento .bt-bar i{display:block;height:100%;border-radius:3px;background:var(--ok)}
+.dd-bento .bt-bar.warn i{background:var(--warn)}.dd-bento .bt-bar.danger i{background:var(--danger)}
+.dd-bento .bt-kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--border-soft);font-size:12px}
+.dd-bento .bt-kv span{color:var(--muted)}.dd-bento .bt-kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}
+.dd-bento .bt-recent{max-height:240px;overflow:auto}
+.dd-bento .bt-recent>*{border:0!important;box-shadow:none!important;background:none!important;padding:0!important;margin:0!important}
+.dd-bento .bt-recent .cc-ch,.dd-bento .bt-recent .card-header{display:none}
+.dd-bento .bt-go{cursor:pointer}
+.dd-bento .bt-go:hover{box-shadow:0 0 0 2px var(--accent-edge,var(--accent))}
+@media(max-width:1000px){.dd-bento .bt>*{grid-column:span 12!important;grid-row:auto!important}}
+@media(min-width:1001px) and (max-width:1250px){.dd-bento .bt-s{grid-column:span 6}}
+</style>
+<div class="bt">
+  <div class="bt-t bt-hero">
+    {{with modelPic .Device.Product}}<img src="{{.Img}}" alt="" width="84" height="84" decoding="async">{{end}}
+    <div style="min-width:0">
+      <div class="bt-chips">
+        <span class="id">{{.Device.SerialNumber}}</span>
+        {{if .Online}}<span class="bt-chip ok">Online</span>{{else}}<span class="bt-chip warn">Offline · {{timeSince .Device.LastSeenAt}}</span>{{end}}
+        <span class="bt-chip">{{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</span>
+        {{if .KioskConfig.KioskEnabled}}<span class="bt-chip">Locked</span>{{end}}
+        {{if .Lost}}{{if .Lost.On}}<span class="bt-chip warn">Lost mode</span>{{end}}{{end}}
+      </div>
+      <div class="nm">{{if .Nickname}}{{.Nickname}} · {{end}}{{.Device.ProductLabel}}{{if .Device.BuildID}} · build {{.Device.BuildID}}{{end}}{{$av := extraField .Device.LatestExtra "agent_version"}}{{if and $av (ne $av "—")}} · MDM client {{$av}}{{end}}</div>
+    </div>
+  </div>
+  <div class="bt-t bt-graph" id="bt-graph-slot"></div>
+  <div class="bt-t bt-health bt-go" role="button" tabindex="0" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+    <h2>Health <span class="sp"></span><a>Open</a></h2>
+    <div class="bt-big">{{if gt .Health.Scored 0}}{{.Health.Passing}} <small style="font-size:14px;font-weight:500;color:var(--muted)">of {{.Health.Scored}} checks</small>{{else}}—{{end}}</div>
+    <div class="bt-sub">{{if .Health.Alerts}}{{.Health.Alerts}} open alert{{if ne .Health.Alerts 1}}s{{end}}{{else}}No open alerts{{end}}</div>
+    {{if gt .Health.Scored 0}}<div class="bt-bar {{if lt .Health.Passing .Health.Scored}}warn{{end}}"><i style="width:{{pctOf .Health.Passing .Health.Scored}}%"></i></div>{{end}}
+  </div>
+  <div class="bt-t bt-needs">
+    <h2>Needs a look <span class="sp"></span>{{if .Needs}}<a>{{len .Needs}}</a>{{end}}</h2>
+    {{with .Needs}}{{template "dd-todo-rows" (dict "Items" . "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" false "Serial" $.Device.SerialNumber "RoleOK" (canOperate $.Role))}}{{else}}<div class="bt-sub">Nothing. This device looks fine.</div>{{end}}
+  </div>
+  {{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}
+  <div class="bt-t bt-s{{if eq .Key "wifi"}} bt-go{{end}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="setDeviceTab('network', document.getElementById('dd-tab-network'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"{{end}}>
+    <h2>{{.Label}}{{if eq .Key "wifi"}} <span class="sp"></span><a>Open</a>{{end}}</h2>
+    <div class="bt-big">{{.Value}}</div><div class="bt-sub">{{.Sub}}</div>
+    <div class="bt-bar {{if eq .Tone "warn"}}warn{{else if eq .Tone "danger"}}danger{{end}}"><i style="width:{{.Pct}}%"></i></div>
+  </div>
+  {{end}}
+  {{if not .IsOwner}}{{with .HostApp}}{{if .Active.Package}}
+  <div class="bt-t bt-s bt-go" role="button" tabindex="0" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+    <h2>Host app <span class="sp"></span><a>Apps</a></h2>
+    <div class="bt-big" style="font-size:19px">{{.Active.Name}}{{if .Active.Version}} <small style="font-weight:500;color:var(--muted)">{{.Active.Version}}</small>{{end}}</div>
+    <div class="bt-sub">{{.State}}{{if .Today}} · {{.Today}} today{{end}}</div>
+    {{if .Memory}}<div class="bt-kv" style="margin-top:8px"><span>Memory</span><b>{{.Memory}}</b></div>{{end}}
+    <div class="bt-kv"><span>Problems (24 h)</span><b>{{.Problems}}</b></div>
+  </div>{{end}}{{end}}{{end}}
+  <div class="bt-t bt-m bt-go" role="button" tabindex="0" onclick="setDeviceTab('location', document.getElementById('dd-tab-location'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+    <h2>Location <span class="sp"></span><a>Map</a></h2>
+    <div class="bt-big" style="font-size:19px">{{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
+    <div class="bt-sub">{{with .Wifi}}{{if .Current}}On {{.Current}}{{end}}{{end}}</div>
+    <div class="bt-sub">Where it is, its address and its trail are on the Location tab.</div>
+  </div>
+  {{if not .IsOwner}}
+  <div class="bt-t bt-m">
+    <h2>Recent <span class="sp"></span><button type="button" onclick="setDeviceTab('activity', document.getElementById('dd-tab-activity'))">All activity</button></h2>
+    <div class="bt-recent" id="bt-recent" hx-target="this" hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-select="unset" hx-trigger="load" hx-swap="innerHTML"><div class="bt-sub">Loading…</div></div>
+  </div>
+  <div class="bt-t bt-m bt-go" role="button" tabindex="0" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+    <h2>Apps <span class="sp"></span><a>All apps</a></h2>
+    <div class="bt-sub">Installed apps, what is on screen and resource use, with install, remove and follow.</div>
+  </div>
+  {{end}}
+</div>
+{{end}}
 
 <style>
 /* Vitals card: stacked charts, range dropdown, navigator (see the comment in the card). */
@@ -1172,6 +1271,7 @@
     </div>
   </div>
 
+{{if .Bento}}<script>(function(){var s=document.getElementById('bt-graph-slot'),c=document.querySelector('#dd-panel-summary .chart-card'),l=document.getElementById('vt-legend');if(s&&c){s.appendChild(c);if(l)s.appendChild(l);}})();</script>{{end}}
 <script>
 // The vitals charts' data, read by static/js/device/vitals.js.
 window.DEVICE_VITALS = {
@@ -1947,7 +2047,7 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
 </style>
 {{/* The divider's position for this person (null = the default). split.js */}}
 <script>window.DD_SPLIT = {{if .DeviceSplit}}{{.DeviceSplit}}{{else}}null{{end}};</script>
-<script src="/static/js/device/split.js?v={{assetVer}}"></script>
+{{if not .Bento}}<script src="/static/js/device/split.js?v={{assetVer}}"></script>{{end}}
 </div><!-- /ddc-body -->
 </div><!-- /device-detail -->
 
