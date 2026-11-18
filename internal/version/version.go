@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.23",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"People and account pages in the Overview's language, fitted to the window: Users (tiles, roles, table), the person page (profile, what they can do, can they reach a device), Access (who can do what matrix, grants, risks), People activity (actor first), My profile (display preferences with a live preview) and the owner's Your team card with an invite dialog; sign-in, sign-up, forgot and reset password redesigned, and the sign-in page now says when an email was verified or a password saved.",
+			"Device page: the Apps list and the Health sheet no longer fold anything, the Health status line wraps, and the Network sheet shows the connection with 24 h of Wi-Fi signal on the left and the saved networks on the right.",
+		},
+	},
+	{
 		Version: "1.64.22",
 		Date:    "2026-11-18",
 		Changes: []string{

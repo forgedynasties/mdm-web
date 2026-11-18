@@ -24,7 +24,7 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           var w = j && (j.wifi || []).filter(function (p) { return p && typeof p.y === 'number'; });
-          if (w && w.length > 1) draw(el, w); else { el.hidden = false; el.innerHTML = '<div class="wf-sig-h"><b>Signal · last 24 h</b><span>no signal readings yet</span></div>'; }
+          if (w && w.length > 1) draw(el, w); else { el.hidden = true; }
         }).catch(function () {});
     });
   }
