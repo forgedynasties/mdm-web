@@ -298,7 +298,9 @@ func (d *DB) noteInstalledApp(ctx context.Context, commandID, deviceID uuid.UUID
 		return
 	}
 	if tag.RowsAffected() > 0 {
-		_, _ = d.pool.Exec(ctx, `UPDATE devices SET packages_hash = '' WHERE id = $1`, deviceID)
+		if _, err := d.pool.Exec(ctx, `UPDATE devices SET packages_hash = '' WHERE id = $1`, deviceID); err != nil {
+			log.Printf("[install-ack] could not ask %s for a fresh app list: %v", deviceID, err)
+		}
 	}
 }
 

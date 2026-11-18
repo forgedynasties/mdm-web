@@ -56,12 +56,18 @@ func (d *DB) PruneShaped(ctx context.Context, days int) (int64, error) {
 			}
 		}
 	}
+	// The newest event per device and key before the cut-off is kept (the state the device
+	// was in when the window opens); older ones go. One pass for "newest", not a self-join
+	// per row.
 	e, err := d.pool.Exec(ctx, `
+		WITH keep AS (
+			SELECT DISTINCT ON (device_id, key) device_id, key, at
+			FROM device_state_events
+			WHERE at < NOW() - make_interval(days => $1)
+			ORDER BY device_id, key, at DESC)
 		DELETE FROM device_state_events e
 		WHERE e.at < NOW() - make_interval(days => $1)
-		  AND EXISTS (SELECT 1 FROM device_state_events n
-		              WHERE n.device_id = e.device_id AND n.key = e.key
-		                AND n.at > e.at AND n.at < NOW() - make_interval(days => $1))`, days)
+		  AND NOT EXISTS (SELECT 1 FROM keep k WHERE k.device_id = e.device_id AND k.key = e.key AND k.at = e.at)`, days)
 	if err != nil {
 		return total, err
 	}

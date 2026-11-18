@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -350,7 +351,10 @@ func (d *DB) ClaimDigest(ctx context.Context, day time.Time, lines int) (bool, e
 
 // ReleaseDigest forgets a claimed digest whose send failed, so the next pass retries.
 func (d *DB) ReleaseDigest(ctx context.Context, day time.Time) {
-	_, _ = d.pool.Exec(ctx, `DELETE FROM alert_digests WHERE day = $1::date`, day.Format("2006-01-02"))
+	if _, err := d.pool.Exec(ctx, `DELETE FROM alert_digests WHERE day = $1::date`, day.Format("2006-01-02")); err != nil {
+		// Left claimed, today's digest will not be retried: say so.
+		log.Printf("[digest] could not release %s: %v", day.Format("2006-01-02"), err)
+	}
 }
 
 // CrashIssue is one crash signature on one build, across devices: a release problem.

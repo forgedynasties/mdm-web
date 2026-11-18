@@ -54,7 +54,11 @@ BEGIN
   LOOP
     INSERT INTO groups (name) VALUES (w.group_name) ON CONFLICT (name) DO NOTHING;
     SELECT id INTO gid FROM groups WHERE name = w.group_name;
-    INSERT INTO device_groups (device_id, group_id) VALUES (NEW.id, gid) ON CONFLICT DO NOTHING;
+    -- The group can be deleted between the two statements above; then there is nothing to
+    -- join, and failing here would abort the device's own INSERT/UPDATE.
+    IF gid IS NOT NULL THEN
+      INSERT INTO device_groups (device_id, group_id) VALUES (NEW.id, gid) ON CONFLICT DO NOTHING;
+    END IF;
   END LOOP;
   RETURN NULL;
 END $$ LANGUAGE plpgsql;

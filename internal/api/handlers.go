@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
@@ -863,6 +864,13 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validSerial(req.Serial) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
+		return
+	}
+	// Product is stored on the device row and Token is looked up: bound both, and keep
+	// control characters out of what is stored.
+	req.Product = strings.TrimSpace(req.Product)
+	if len(req.Token) > 200 || len(req.Product) > 64 || strings.ContainsFunc(req.Product, unicode.IsControl) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid token or product"})
 		return
 	}
 	profile, err := h.db.ActiveEnrollmentProfileByToken(r.Context(), req.Token)
