@@ -2,193 +2,153 @@
      region: banner, cards, table and rail refetch together on the SSE nudge and the 30 s
      poll, so nothing on screen goes stale beside the rest. Builder: deployment_d1.go. */}}
 {{define "deployment-targets"}}
+{{/* DP1 (picked 18 Nov 2026): the Overview's bento on one rollout. Left: progress ring with
+     Installed / In progress / Left, the to-do list, then installs over time, venues and how
+     it goes out. Right: the device list (problems first, State and Venue pills, search) with
+     the picked device explained beside it and its actions. Every device's detail is in the
+     page (hidden); deployment_detail.js shows the picked one and keeps the choice across the
+     live refresh. Builder: deployment_d1.go. */}}
 {{$d := .D1}}{{$dep := .Deployment}}{{$base := printf "/releases/%d/deployments/%d" .Release.ID $dep.ID}}
-<div class="ov2">
-<div class="ov2-main">
-  {{with $d.Banner}}
-  <div class="ov2-ban{{if .Tone}} is-{{.Tone}}{{end}}">
-    <div class="ov2-ban-k">{{.Kicker}}</div>
-    <h2>{{.Headline}}</h2>
-    {{if .Todos}}
-    <ol class="oc-todo">
-      {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}<form action="{{.Post}}" method="POST" hx-boost="true"{{with .Confirm}} hx-confirm="{{.}}"{{end}}><button type="submit">{{.Action}}</button></form>{{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
-    </ol>
-    {{if .More}}<a class="oc-more" href="#dp1-devices">{{.More}} more in the table <i aria-hidden="true">→</i></a>{{end}}
-    {{end}}
-    {{with .Line}}<p class="dp1-line">{{.}}</p>{{end}}
-  </div>
+<div class="ovd dp1p">
+<div class="ovb dp1-g">
+<div class="dp1-l">
+  {{with $d.Rail}}
+  <section class="ovb-c dp1-prog" aria-label="How far the rollout has got">
+    <div class="ovb-ch"><h2>Progress</h2><span class="sp"></span><span class="ovb-tag{{if eq $dep.Status "active"}} y{{end}}">{{if eq $dep.Status "active"}}Rolling out{{else}}{{$dep.Status}}{{end}}</span></div>
+    <div class="dp1-top2">
+      <div class="dp1-ring{{if .Tone}} s-{{.Tone}}{{end}}" title="{{.Done}} of {{.Total}} installed">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
+        <span><b>{{.Pct}}%</b><small>installed</small></span>
+      </div>
+      <div class="dp1-hi"><b>{{.Done}} of {{.Total}} device{{if ne .Total 1}}s{{end}}</b>{{with .Sub}}<small>{{.}}</small>{{end}}</div>
+    </div>
+    <div class="dp1-figs">
+      {{range $d.Cards}}
+      <a class="dp1-fig" href="{{.Href}}">
+        <span class="t">{{.Title}}</span>
+        {{with .A}}<span class="m"><b>{{.Value}}</b><small>{{.Label}}</small>{{if .Delta}}<em class="{{.Tone}}">{{.Delta}}</em>{{end}}</span>{{end}}
+        {{with .B}}<span class="m"><b>{{.Value}}</b><small>{{.Label}}</small>{{if .Delta}}<em class="{{.Tone}}">{{.Delta}}</em>{{end}}</span>{{end}}
+      </a>
+      {{end}}
+    </div>
+  </section>
   {{end}}
 
-  <div class="oc-stats">
-    {{range $d.Cards}}
-    <div class="oc-st">
-      <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
-      <a class="oc-stm" href="{{.Href}}">
-        {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-        {{with .B}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-      </a>
-      {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/></svg>{{else}}<div style="height:16px"></div>{{end}}
+  {{with $d.Banner}}
+  <section class="ovb-c dp1-todo{{if .Todos}} has{{end}}" aria-label="To do">
+    <div class="ovb-ch"><h2>To do</h2></div>
+    <h2 class="dp1-hd">{{.Headline}}</h2>
+    {{if .Todos}}
+    <ol class="dp1-tl">
+      {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}<form action="{{.Post}}" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML"{{with .Confirm}} hx-confirm="{{.}}"{{end}}><button type="submit" class="ovb-btn l">{{.Action}}</button></form>{{else}}<a class="ovb-btn l" href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
+    </ol>
+    {{if .More}}<a class="dp1-more" href="#dp1-devices">{{.More}} more in the list <i aria-hidden="true">→</i></a>{{end}}
+    {{end}}
+    {{with .Line}}<p class="dp1-line">{{.}}</p>{{end}}
+  </section>
+  {{end}}
+
+  {{with $d.Rail}}
+  <section class="ovb-c dp1-facts">
+    <div class="ovb-ch"><h2>Installs over time</h2></div>
+    <div class="dp1-bars" role="img" aria-label="{{.BarsCap}}">
+      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+    </div>
+    <div class="dp1-cap">{{.BarsCap}}</div>
+    {{if .Venues}}
+    <div class="ovb-ch dp1-sec"><h2>Venues</h2></div>
+    <ul class="dp1-ven">
+      {{range .Venues}}<li><div class="h">{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}<b>{{.Name}}</b>{{end}}<span>{{.Done}} of {{.Total}}{{if eq .Done .Total}} ✓{{end}}</span></div><div class="dp1-seg" aria-hidden="true">{{if .Done}}<i class="d" style="flex:{{.Done}}"></i>{{end}}{{if .Look}}<i class="w" style="flex:{{.Look}}"></i>{{end}}{{if .Active}}<i class="n" style="flex:{{.Active}}"></i>{{end}}{{if .Wait}}<i style="flex:{{.Wait}}"></i>{{end}}</div></li>{{end}}
+    </ul>
+    {{if .MoreVenues}}<div class="dp1-cap">and {{.MoreVenues}} more venue{{if ne .MoreVenues 1}}s{{end}}, all in the list</div>{{end}}
+    {{end}}
+    <div class="ovb-ch dp1-sec"><h2>How it goes out</h2></div>
+    <div class="dp1-how">
+      <div><span class="k">Reboot</span><span class="v">{{.Reboot}}<small>{{.RebootSub}}</small></span>{{if and (canOTA $.Role) (ne $dep.Status "canceled")}}<button type="button" onclick="dplOpen('dpl-reboot-modal')">Change</button>{{end}}</div>
+      {{if .Package}}<div><span class="k">Package</span><span class="v">{{.Package}}{{with .PackageSub}}<small>{{.}}</small>{{end}}</span></div>{{end}}
+    </div>
+  </section>
+  {{end}}
+</div>
+
+<section class="ovb-c dp1-devs" id="dp1-devices">
+  <div class="ovb-ch"><h2>Devices <span class="dp1-n">{{len $d.Rows}} · problems first</span></h2><span class="sp"></span>
+    {{if $d.Rows}}
+    <div class="oc-bar dp1-bar-f" role="group" aria-label="Filter the devices">
+      <label class="dp1-q"><svg viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input id="dp1-q" type="search" placeholder="Search serial" autocomplete="off" aria-label="Search the devices by serial"></label>
+      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-dp1-pill="state">State: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu" hidden>
+          <button type="button" class="cc-mi active" data-dp1-set="state" data-val="">All</button>
+          {{with index $d.Counts "look"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="look">Needs a look · {{.}}</button>{{end}}
+          {{with index $d.Counts "failed"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="failed">Failed · {{.}}</button>{{end}}
+          {{with index $d.Counts "dl"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="dl">Downloading · {{.}}</button>{{end}}
+          {{with index $d.Counts "reboot"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="reboot">Rebooting · {{.}}</button>{{end}}
+          {{with index $d.Counts "wait"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="wait">Waiting · {{.}}</button>{{end}}
+          {{with index $d.Counts "ok"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="ok">Installed · {{.}}</button>{{end}}
+          {{with index $d.Counts "canceled"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="canceled">Canceled · {{.}}</button>{{end}}
+        </div></div>
+      {{if gt (len $d.Venues) 1}}
+      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-dp1-pill="venue">Venue: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+        <div class="cc-menu oc-scroll" hidden>
+          <button type="button" class="cc-mi active" data-dp1-set="venue" data-val="">All</button>
+          {{range $d.Venues}}<button type="button" class="cc-mi" data-dp1-set="venue" data-val="{{.}}">{{.}}</button>{{end}}
+        </div></div>
+      {{end}}
     </div>
     {{end}}
   </div>
-
-  <section class="oc-card" id="dp1-devices">
-    <div class="oc-ch"><h2>Devices <span>{{len $d.Rows}} · problems first</span></h2>
-      {{if $d.Rows}}
-      <div class="oc-bar dp1-bar-f" role="group" aria-label="Filter the devices">
-        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-dp1-pill="state">State: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu" hidden>
-            <button type="button" class="cc-mi active" data-dp1-set="state" data-val="">All</button>
-            {{with index $d.Counts "look"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="look">Needs a look · {{.}}</button>{{end}}
-            {{with index $d.Counts "failed"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="failed">Failed · {{.}}</button>{{end}}
-            {{with index $d.Counts "dl"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="dl">Downloading · {{.}}</button>{{end}}
-            {{with index $d.Counts "reboot"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="reboot">Rebooting · {{.}}</button>{{end}}
-            {{with index $d.Counts "wait"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="wait">Waiting · {{.}}</button>{{end}}
-            {{with index $d.Counts "ok"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="ok">Installed · {{.}}</button>{{end}}
-            {{with index $d.Counts "canceled"}}<button type="button" class="cc-mi" data-dp1-set="state" data-val="canceled">Canceled · {{.}}</button>{{end}}
-          </div></div>
-        {{if gt (len $d.Venues) 1}}
-        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false" data-dp1-pill="venue">Venue: <b>All</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-          <div class="cc-menu oc-scroll" hidden>
-            <button type="button" class="cc-mi active" data-dp1-set="venue" data-val="">All</button>
-            {{range $d.Venues}}<button type="button" class="cc-mi" data-dp1-set="venue" data-val="{{.}}">{{.}}</button>{{end}}
-          </div></div>
+  {{if $d.Rows}}
+  <div class="dp1-pane">
+    <div class="dp1-list">
+      {{range $i, $r := $d.Rows}}
+      <button type="button" class="ovb-li dp1-r" data-state="{{$r.Key}}" data-venue="{{$r.Venue}}" data-serial="{{$r.Serial}}">
+        <span class="tx"><b class="sn">{{$r.Serial}}</b><small>{{$r.Venue}}</small></span>
+        <span class="dp1-rs"><span class="dp1-st {{$r.Tone}}"><i></i>{{$r.Word}}</span>{{if $r.Bar}}<span class="dp1-pb"><i style="width:{{$r.Pct}}%"></i></span>{{end}}</span>
+      </button>
+      {{end}}
+      <div class="dp1-none" hidden>No device matches these filters.</div>
+    </div>
+    <div class="ovb-dets dp1-dets">
+      {{range $i, $r := $d.Rows}}
+      <div class="ovb-det dp1-det" data-serial="{{$r.Serial}}"{{if $i}} hidden{{end}}>
+        <div class="dp1-dh">
+          <h3 class="dp1-ds">{{if $r.InFleet}}<a class="sn" href="/devices/{{$r.Serial}}">{{$r.Serial}}</a>{{else}}<span class="sn">{{$r.Serial}}</span>{{end}}</h3>
+          <span class="dp1-st {{$r.Tone}}"><i></i>{{$r.Word}}</span>
+        </div>
+        <p class="dp1-dv">{{if $r.VenueKey}}<a href="/restaurants/{{$r.VenueKey}}">{{$r.Venue}}</a>{{else}}{{$r.Venue}}{{end}}</p>
+        {{if $r.Bar}}<span class="ovb-pb dp1-dpb"><i{{if eq $r.Key "look"}} class="o"{{end}} style="width:{{$r.Pct}}%"></i></span>{{end}}
+        <p class="dp1-reason">{{if and (eq $r.Key "failed") $r.ErrorCode}}{{otaErrorText $r.ErrorCode}}{{else}}{{$r.Detail}}{{end}}</p>
+        {{if $r.Steps}}
+        <ol class="dp1-steps">{{range $r.Steps}}<li class="{{.Class}}"><i></i>{{.Label}}</li>{{end}}</ol>
         {{end}}
+        {{if $r.From}}<p class="dp1-from">from {{$r.From}}{{if $r.Full}} · full image{{end}}</p>{{end}}
+        <div class="ovb-acts dp1-acts">
+          {{if canOperate $.Role}}
+            {{if $r.Reboot}}<form action="{{$base}}/devices/{{$r.Serial}}/reboot" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML" hx-confirm="Reboot {{$r.Serial}} now to apply the installed update?"><button type="submit" class="ovb-btn">Reboot to apply</button></form>{{end}}
+            {{if or $r.Retry $r.RetryStalled}}<form action="{{$base}}/devices/{{$r.Serial}}/retry" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML"><button type="submit" class="ovb-btn" title="Send it again the same way (incremental if it qualifies, else full)">{{if $r.RetryStalled}}Retry the download{{else}}Retry{{end}}</button></form>{{end}}
+            {{if $r.RetryFull}}<form action="{{$base}}/devices/{{$r.Serial}}/retry" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML"><input type="hidden" name="delivery" value="full"><button type="submit" class="ovb-btn l">Retry with the full image</button></form>{{end}}
+            {{if $r.Cancel}}<form action="{{$base}}/devices/{{$r.Serial}}/cancel-ota" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML" hx-confirm="Cancel the download on {{$r.Serial}}? Safe while it is downloading; an install already under way is never aborted. The row is marked failed so you can retry."><button type="submit" class="ovb-btn l">Cancel the download</button></form>{{end}}
+            {{if $r.Remove}}<form action="{{$base}}/devices/{{$r.Serial}}/remove" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML" hx-confirm="Remove {{$r.Serial}} from this rollout?{{if eq $r.Key "wait"}} It will not receive the update.{{else}} It stops counting in this rollout's numbers.{{end}}"><button type="submit" class="ovb-btn l">Remove from this rollout</button></form>{{end}}
+          {{end}}
+          {{if $r.InFleet}}<a class="ovb-btn l" href="/devices/{{$r.Serial}}">Open device</a>{{end}}
+        </div>
       </div>
       {{end}}
     </div>
-    {{if $d.Rows}}
-    <table class="dp1-t">
-      <thead><tr><th>Device</th><th>Venue</th><th>State</th><th></th></tr></thead>
-      <tbody>
-      {{range $d.Rows}}
-      <tr class="dp1-r" data-state="{{.Key}}" data-venue="{{.Venue}}" data-serial="{{.Serial}}">
-        <td>{{if .InFleet}}<a class="sn" href="/devices/{{.Serial}}">{{.Serial}}</a>{{else}}<span class="sn">{{.Serial}}</span>{{end}}{{if .From}}<small>from {{.From}}{{if .Full}} · full image{{end}}</small>{{end}}</td>
-        <td>{{if .VenueKey}}<a class="dp1-v" href="/restaurants/{{.VenueKey}}">{{.Venue}}</a>{{else}}<span class="dp1-mut">{{.Venue}}</span>{{end}}</td>
-        <td><span class="dp1-st {{.Tone}}"><i></i>{{.Word}}</span><small class="dp1-sub">{{if .Bar}}<span class="dp1-pb"><i style="width:{{.Pct}}%"></i></span>{{end}}{{if and (eq .Key "failed") .ErrorCode}}{{otaErrorText .ErrorCode}}{{else}}{{.Detail}}{{end}}</small></td>
-        <td class="dp1-acts">
-          {{if canOperate $.Role}}
-            {{/* One button per row, the rest under ···: three side by side ran past the card. */}}
-            {{if .Open}}<a class="cc-btn xs" href="/devices/{{.Serial}}">Open</a>
-            {{else if or .Retry .RetryStalled}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-btn xs" title="Send it again the same way (incremental if it qualifies, else full)">Retry</button></form>
-            {{else if .Reboot}}<form action="{{$base}}/devices/{{.Serial}}/reboot" method="POST" hx-boost="true" hx-confirm="Reboot {{.Serial}} now to apply the installed update?"><button type="submit" class="cc-btn xs primary">Reboot to apply</button></form>
-            {{else if .Cancel}}<form action="{{$base}}/devices/{{.Serial}}/cancel-ota" method="POST" hx-boost="true" hx-confirm="Cancel the download on {{.Serial}}? Safe while it is downloading; an install already under way is never aborted. The row is marked failed so you can retry."><button type="submit" class="cc-btn xs">Cancel</button></form>
-            {{else if .Remove}}<form action="{{$base}}/devices/{{.Serial}}/remove" method="POST" hx-boost="true" hx-confirm="Remove {{.Serial}} from this rollout?{{if eq .Key "wait"}} It will not receive the update.{{else}} It stops counting in this rollout's numbers.{{end}}"><button type="submit" class="cc-btn xs">Remove</button></form>{{end}}
-            {{$more := or (and .Open (or .RetryStalled .Cancel)) (and (or .Retry .RetryStalled) (or .RetryFull .Remove .Cancel))}}
-            {{if $more}}
-            <div class="oc-cm dp1-rm"><button type="button" class="cc-btn xs" data-oc-menu aria-haspopup="true" aria-expanded="false" aria-label="More for {{.Serial}}">···</button>
-              <div class="cc-menu" hidden>
-                {{if and .Open .RetryStalled}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><button type="submit" class="cc-mi">Retry the download</button></form>{{end}}
-                {{if .RetryFull}}<form action="{{$base}}/devices/{{.Serial}}/retry" method="POST" hx-boost="true"><input type="hidden" name="delivery" value="full"><button type="submit" class="cc-mi">Retry with the full image</button></form>{{end}}
-                {{if .Cancel}}<form action="{{$base}}/devices/{{.Serial}}/cancel-ota" method="POST" hx-boost="true" hx-confirm="Cancel the download on {{.Serial}}? Safe while it is downloading; an install already under way is never aborted. The row is marked failed so you can retry."><button type="submit" class="cc-mi">Cancel the download</button></form>{{end}}
-                {{if .Remove}}<form action="{{$base}}/devices/{{.Serial}}/remove" method="POST" hx-boost="true" hx-confirm="Remove {{.Serial}} from this rollout? It stops counting in this rollout's numbers."><button type="submit" class="cc-mi">Remove from this rollout</button></form>{{end}}
-              </div>
-            </div>
-            {{end}}
-          {{end}}
-        </td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
-    <div class="dp1-none" hidden>No device matches these filters.</div>
-    {{else}}
-    <div class="oc-empty">No devices targeted yet.</div>
-    {{end}}
-    <div class="oc-foot"><span><i style="background:var(--warn)"></i>Needs a look</span><span><i style="background:var(--danger)"></i>Failed</span><span><i style="background:var(--accent)"></i>Downloading or rebooting</span><span><i style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)"></i>Waiting</span><span><i style="background:var(--ok)"></i>Installed</span></div>
-  </section>
-</div>
-
-{{with $d.Rail}}
-<aside class="ov2-rail" aria-label="How far the rollout has got">
-  <div class="ov2-ring{{if .Tone}} s-{{.Tone}}{{end}}" title="{{.Done}} of {{.Total}} installed">
-    <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
-    <span><b>{{.Pct}}%</b><small>installed</small></span>
   </div>
-  <div class="ov2-hi"><b>{{.Done}} of {{.Total}} device{{if ne .Total 1}}s{{end}}</b>{{with .Sub}}<small>{{.}}</small>{{end}}</div>
-  <div class="ov2-bars" role="img" aria-label="{{.BarsCap}}">
-    {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
-  </div>
-  <div class="ov2-hi"><small>{{.BarsCap}}</small></div>
-  {{if .Venues}}
-  <div class="ov2-rh"><h2>Venues</h2></div>
-  <ul class="dp1-ven">
-    {{range .Venues}}<li><div class="h">{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}<b>{{.Name}}</b>{{end}}<span>{{.Done}} of {{.Total}}{{if eq .Done .Total}} ✓{{end}}</span></div><div class="dp1-seg" aria-hidden="true">{{if .Done}}<i class="d" style="flex:{{.Done}}"></i>{{end}}{{if .Look}}<i class="w" style="flex:{{.Look}}"></i>{{end}}{{if .Active}}<i class="n" style="flex:{{.Active}}"></i>{{end}}{{if .Wait}}<i style="flex:{{.Wait}}"></i>{{end}}</div></li>{{end}}
-  </ul>
-  {{if .MoreVenues}}<div class="dp1-more">and {{.MoreVenues}} more venue{{if ne .MoreVenues 1}}s{{end}}, all in the table</div>{{end}}
+  {{else}}
+  <div class="oc-empty">No devices targeted yet.</div>
   {{end}}
-  <div class="ov2-rh"><h2>How it goes out</h2></div>
-  <div class="dp1-how">
-    <div><span class="k">Reboot</span><span class="v">{{.Reboot}}<small>{{.RebootSub}}</small></span>{{if and (canOTA $.Role) (ne $dep.Status "canceled")}}<button type="button" onclick="dplOpen('dpl-reboot-modal')">Change</button>{{end}}</div>
-    {{if .Package}}<div><span class="k">Package</span><span class="v">{{.Package}}{{with .PackageSub}}<small>{{.}}</small>{{end}}</span></div>{{end}}
-  </div>
-</aside>
-{{end}}
+</section>
+</div>
 </div>
 {{end}}
 
 {{define "deployment_detail.html"}}
 {{template "header" .}}
 
-<style>
-  /* Deployment page D1 (21 Oct 2026): ov2 grid from style.css, plus the table (S1:
-     a dot and a word, the progress under it) and the rail's venue and settings rows. */
-  .dp1-line{margin:12px 0 0!important;font-size:13.5px!important;max-width:70ch}
-  .ov2-ban.is-calm .dp1-line{opacity:.8}
-  .dp1-bar-f{margin:0}
-  .dp1-t{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
-  .dp1-t th:nth-child(1){width:178px}.dp1-t th:nth-child(2){width:22%}.dp1-t th:nth-child(4){width:150px}
-  .dp1-t td:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .dp1-t th{text-align:left;font-size:10.5px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border-soft)}
-  .dp1-t td{padding:9px 10px;border-top:1px solid var(--border-soft);vertical-align:middle}
-  .dp1-t tbody tr:first-child td{border-top:0}
-  .dp1-t tr[hidden]{display:none}
-  .dp1-t .sn{font-family:var(--mono);font-weight:650;color:var(--text);text-decoration:none;white-space:nowrap}
-  .dp1-t a.sn:hover,.dp1-v:hover{text-decoration:underline}
-  .dp1-t td>small{display:block;font-size:11px;color:var(--muted);margin-top:1px;white-space:nowrap}
-  .dp1-v{color:var(--text);text-decoration:none;white-space:nowrap}
-  .dp1-mut{color:var(--muted)}
-  .dp1-tag{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--surface2);color:var(--muted);margin-left:6px}
-  .dp1-st{display:inline-flex;align-items:center;gap:7px;font-weight:650;white-space:nowrap}
-  .dp1-st i{width:8px;height:8px;border-radius:50%;background:var(--text-faint);flex:none}
-  .dp1-st.ok i{background:var(--ok)}.dp1-st.run i{background:var(--accent)}.dp1-st.warn i{background:var(--warn)}.dp1-st.bad i{background:var(--danger)}
-  .dp1-st.q i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--muted)}
-  .dp1-st.warn{color:var(--warn)}.dp1-st.bad{color:var(--danger)}.dp1-st.muted{color:var(--muted)}
-  .dp1-t td>small.dp1-sub{display:flex;align-items:center;font-size:11.5px;color:var(--muted);margin:2px 0 0 15px;max-width:420px;line-height:1.4;white-space:normal}
-  .dp1-pb{display:inline-block;flex:none;width:72px;height:5px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-right:8px}
-  .dp1-pb i{display:block;height:5px;background:var(--accent)}
-  .dp1-acts{text-align:right;white-space:nowrap}
-  .dp1-acts form{display:inline;margin:0}
-  .dp1-acts .cc-btn{margin-left:4px}
-  .dp1-rm{display:inline-block;position:relative;text-align:left}
-  .dp1-rm .cc-menu form{margin:0}
-  .dp1-rm .cc-menu .cc-mi{width:100%;text-align:left}
-  .dp1-none{padding:18px;text-align:center;color:var(--muted);font-size:12.5px}
-  .dp1-ven{list-style:none;margin:-4px 0 0;padding:0}
-  .dp1-ven li{padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
-  .dp1-ven li:first-child{border-top:0}
-  .dp1-ven .h{display:flex;justify-content:space-between;gap:8px}
-  .dp1-ven .h a,.dp1-ven .h b{font-weight:650;color:var(--text);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .dp1-ven .h a:hover{text-decoration:underline}
-  .dp1-ven .h span{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .dp1-seg{display:flex;height:6px;border-radius:99px;overflow:hidden;background:var(--surface2);margin-top:6px;gap:2px}
-  .dp1-seg i{display:block;height:100%;background:var(--surface2)}
-  .dp1-seg .d{background:var(--ok)}.dp1-seg .n{background:var(--accent)}.dp1-seg .w{background:var(--warn)}
-  .dp1-more{font-size:12px;color:var(--muted);margin-top:-6px}
-  .dp1-how{display:flex;flex-direction:column;border:1px solid var(--border-soft);border-radius:16px;overflow:hidden}
-  .dp1-how>div{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--border-soft);font-size:12.5px}
-  .dp1-how>div:first-child{border-top:0}
-  .dp1-how .k{width:66px;flex:none;font-size:10.5px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-  .dp1-how .v{flex:1;min-width:0;font-weight:600}
-  .dp1-how .v small{display:block;color:var(--muted);font-size:11.5px;font-weight:400}
-  .dp1-how button{font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:2px}
-  .dp1-how button:hover{text-decoration:underline}
-  .dp1-top .cc-status b{color:var(--text);font-weight:650}
-  .dp1-mm{position:relative}
-  .dp1-mm .cc-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:200px}
-  .dp1-mm .cc-menu form{margin:0}
-  .dp1-mm .cc-menu .cc-mi{width:100%;text-align:left}
-</style>
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/deployment-dp1.css?v={{assetVer}}">
 
 {{$dep := .Deployment}}
 {{$rel := .Release}}
