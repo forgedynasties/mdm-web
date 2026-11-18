@@ -28,7 +28,7 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
+	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer, "Verified": r.URL.Query().Get("verified") == "1", "Reset": r.URL.Query().Get("reset") == "1"})
 }
 
 func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {

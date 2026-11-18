@@ -2,78 +2,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script>
-    // Set theme before first paint to avoid a flash of the wrong theme.
-    (function () {
-      try {
-        var t = localStorage.getItem('mdm-theme');
-        if (t !== 'light' && t !== 'dark') t = 'light';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-    })();
-  </script>
+  {{template "au-head"}}
   <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
-  <link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
-  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
-  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
 </head>
-<body class="auth2-body">
-  <main class="auth2-wrap">
-    <div class="auth2-hero">
-      <div class="auth2-hero-top">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</div>
-      <div>
-        <div class="auth2-hero-head">Every kiosk and tablet, <span class="hl">all in one</span> dashboard.</div>
-        <div class="auth2-hero-sub">Fleet monitoring, OTA updates, app lock, and remote control — all in one place.</div>
-      </div>
-      <div class="auth2-hero-foot">© 2026 AIO · AI for Restaurants</div>
+<body class="au1">
+  <main class="au1-split">
+    <div class="au1-promo">
+      {{template "au-wm" .}}
+      <b>Every kiosk and tablet, all in one dashboard.</b>
+      <div class="au1-facts"><span class="au1-fact"><b>OTA</b><span>Updates</span></span><span class="au1-fact"><b>Lock</b><span>App lock</span></span><span class="au1-fact"><b>Remote</b><span>Screen and shell</span></span></div>
+      <span class="au1-big">AIO</span>
     </div>
 
-    <div class="auth2-side">
-      <div class="auth2-form-wrap">
-        <h1 class="auth2-title">Welcome back</h1>
-        <div class="auth2-subtitle">Sign in to the MDM dashboard</div>
+    <div class="au1-card">
+      <div class="au1-wm-m">{{template "au-wm" .}}</div>
+      <h1>Welcome back</h1>
+      <p class="au1-sub">Sign in to the MDM dashboard</p>
 
-        {{if .Error}}
-        <div class="auth2-alert error" role="alert">{{.Error}}</div>
+      {{if .Error}}
+      <div class="au1-al err" role="alert"><span>{{.Error}}</span></div>
+      {{end}}
+      {{if .Verified}}
+      <div class="au1-al ok" role="status"><span>Email verified. You can sign in now.</span></div>
+      {{end}}
+
+      {{if .Reset}}
+      <div class="au1-al ok" role="status"><span>Password saved. Sign in with the new password.</span></div>
+      {{end}}
+
+      <form action="/login" method="POST">
+        <div class="au1-f">
+          <label for="username">Email</label>
+          <input class="au1-in" type="text" id="username" name="username" autocomplete="username" placeholder="you@aioapp.com" required>
+        </div>
+        <div class="au1-f au1-pw">
+          <label for="password">Password</label>
+          <input class="au1-in" type="password" id="password" name="password" autocomplete="current-password" required>
+          {{template "au-eye" "password"}}
+        </div>
+        <div class="au1-forgot"><a href="/forgot-password">Forgot password?</a></div>
+        <button type="submit" class="au1-btn">Sign in</button>
+
+        {{if msLoginEnabled}}
+        <div class="au1-or">or</div>
+        <a href="/auth/microsoft" class="au1-ms">
+          <svg width="15" height="15" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+          Sign in with Microsoft
+        </a>
         {{end}}
+      </form>
 
-        <form action="/login" method="POST" class="auth2-form">
-          <div class="auth2-field">
-            <label for="username">Email</label>
-            <input type="text" id="username" name="username" autocomplete="username" placeholder="you@aioapp.com" required>
-          </div>
-          <div class="auth2-field">
-            <label for="password">Password</label>
-            <div class="auth2-pwrap">
-              <input type="password" id="password" name="password" autocomplete="current-password" required>
-              <button type="button" class="auth2-eye" id="pw-toggle" aria-label="Show password" onclick="authTogglePw()">
-                <svg id="pw-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg id="pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 5c7 0 11 7 11 7a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
-              </button>
-            </div>
-          </div>
-          <div class="auth2-row"><a href="/forgot-password">Forgot password?</a></div>
-          <button type="submit" class="auth2-btn">Sign in</button>
-
-          {{if msLoginEnabled}}
-          <div class="auth2-divider">or</div>
-          <a href="/auth/microsoft" class="auth2-oauth">
-            <svg width="15" height="15" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-            Sign in with Microsoft
-          </a>
-          {{end}}
-        </form>
-
-        <div class="auth2-alt">Don't have an account? <a href="/signup">Sign up</a></div>
-      </div>
+      <div class="au1-alt">Don't have an account? <a href="/signup">Sign up</a></div>
+      <div class="au1-foot">© 2026 AIO · AI for Restaurants</div>
     </div>
   </main>
-<script src="/static/js/login.js?v={{assetVer}}"></script>
+<script src="/static/js/auth-bento.js?v={{assetVer}}"></script>
 </body>
 </html>
 {{end}}
