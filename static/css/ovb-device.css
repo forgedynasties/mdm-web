@@ -236,3 +236,20 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 @media (max-width:1100px),(max-height:639px){.dd-bento #dd-panel-about:not([hidden]){display:block}}
 .bt-skel{height:14px;border-radius:7px;background:linear-gradient(90deg,var(--ovb-page,var(--bg)) 25%,var(--surface) 50%,var(--ovb-page,var(--bg)) 75%);background-size:200% 100%;animation:btsh 1.2s infinite linear;margin:10px 0}
 @keyframes btsh{to{background-position:-200% 0}}
+
+/* Apps sheet (S2): list left, host card and the picked app right */
+.dd-bento #dd-panel-apps:not([hidden]){display:grid;grid-template-columns:minmax(300px,420px) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);gap:12px;overflow:hidden;align-content:stretch}
+.dd-bento #dd-panel-apps .apl-card{grid-column:1;grid-row:1 / 3;margin:0;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.dd-bento #dd-panel-apps #apps-live{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.dd-bento #dd-panel-apps .app-list{flex:1;min-height:0;overflow:auto}
+.dd-bento #dd-panel-apps .apl2-host{grid-column:2;grid-row:1;margin:0}
+.dd-bento #dd-panel-apps .apl2-det{display:none}
+.dd-bento #dd-panel-apps .bt-appd{grid-column:2;grid-row:2;margin:0;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto;background:var(--ovb-page,var(--bg))}
+.dd-bento #dd-panel-apps .app-row.bt-on{background:var(--ovb-page,var(--bg));border-radius:10px}
+.bt-ad-h{display:flex;gap:12px;align-items:center}.bt-ad-ic{width:52px;height:52px;border-radius:15px;display:grid;place-items:center;overflow:hidden;flex:none}.bt-ad-ic>*{width:52px;height:52px;border-radius:15px}
+.bt-ad-n{font-size:20px;font-weight:650;line-height:1.1}.bt-ad-p{font-size:12px;color:var(--text-2);font-family:var(--mono);overflow-wrap:anywhere}
+.bt-ad-h .ovb-tag{margin-left:auto}
+.bt-ad-bar{height:8px;border-radius:99px;background:var(--border-soft);overflow:hidden}.bt-ad-bar i{display:block;height:100%;background:var(--ovb-g,#1f9d60);border-radius:99px}
+.bt-ad-acts{display:flex;gap:8px;margin-top:auto;padding-top:10px;flex-wrap:wrap}
+@media (max-width:1100px),(max-height:639px){.dd-bento #dd-panel-apps:not([hidden]){display:block}.dd-bento #dd-panel-apps .bt-appd{display:none}}
+.bt-ad-h .ovb-tag.n{background:var(--surface);color:var(--text-2);border:1px solid var(--border)}

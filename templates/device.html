@@ -985,6 +985,27 @@
   setTimeout(function(){if(!window.htmx)return;document.querySelectorAll('.dd-panel[data-dd-panel="activity"],.dd-panel[data-dd-panel="health"],.dd-panel[data-dd-panel="apps"]').forEach(function(p){
     var lz=p.hasAttribute('hx-get')?[p]:[].slice.call(p.querySelectorAll(':scope > [hx-trigger^="dd-show"]'));
     lz.forEach(function(l){window.htmx.process(l);window.htmx.trigger(l,'dd-show')})})},1200);
+  /* Apps sheet, S2 (user, 18 Nov 2026): the list on the left, the picked app explained on the right
+     (the host app card stays above it). Rows keep their markup and handlers; a click on a row selects
+     it here instead of opening the info popup, which is one button away ("Details…"). The list is
+     re-rendered by htmx, so the selection is re-applied after each settle. */
+  (function(){var apps=document.getElementById('dd-panel-apps'),box=document.getElementById('bt-app-detail');if(!apps||!box)return;var cur='';
+    function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+    function rows(){return [].slice.call(apps.querySelectorAll('.app-row.app-tile:not(.app-installing)'))}
+    function render(r){cur=r?r.getAttribute('data-pkg'):'';rows().forEach(function(x){x.classList.toggle('bt-on',x===r)});
+      if(!r){box.innerHTML='<p class="muted">No apps to show.</p>';return}
+      var name=r.getAttribute('data-name'),pkg=r.getAttribute('data-pkg'),ver=r.getAttribute('data-ver'),sys=r.getAttribute('data-sys')==='1',role=r.getAttribute('data-roleapp')==='1';
+      var ic=r.querySelector('.app-icon,.app-mono'),icon=ic?ic.outerHTML:'',fig=(r.querySelector('.apl-fig')||{}).textContent||'—',pct=(r.querySelector('.apl-bar2 i')||{style:{width:'0'}}).style.width,fol=r.querySelector('.dd-fchip'),use=r.getAttribute('data-use')||'';
+      var rm=r.querySelector('button.app-x:not(.app-x-lock)');
+      box.innerHTML='<div class="bt-ad-h"><span class="bt-ad-ic">'+icon+'</span><div><div class="bt-ad-n">'+esc(name)+'</div><div class="bt-ad-p">'+esc(pkg)+(ver?' · '+esc(ver):'')+'</div></div><span class="ovb-tag'+(role?'':' n')+'">'+(role?'Role app':sys?'System':'User app')+'</span></div>'+
+        '<div class="ovb-facts"><div class="ovb-fact"><b>'+esc(fig)+'</b><span>in this window</span></div>'+(use?'<div class="ovb-fact"><b>'+esc(use)+'</b><span>use</span></div>':'')+'<div class="ovb-fact"><b>'+(sys?'System':'User')+'</b><span>type</span></div></div>'+
+        '<div class="bt-ad-bar"><i style="width:'+esc(pct)+'"></i></div>'+(fol?'<p class="ovb-sub">'+esc(fol.textContent)+'</p>':'')+
+        '<div class="bt-ad-acts"><button type="button" class="ovb-btn cta-g" data-bt-info><span class="cta-t">Details…</span></button>'+(rm?'<button type="button" class="ovb-btn l" data-bt-rm>Remove</button>':'')+'</div>'}
+    function reselect(){var r=rows();var m=r.filter(function(x){return x.getAttribute('data-pkg')===cur})[0]||r[0];render(m)}
+    apps.addEventListener('click',function(e){var row=e.target.closest('.app-row.app-tile');if(row&&!e.target.closest('.app-x-form')&&apps.contains(row)&&!row.classList.contains('app-installing')){e.stopPropagation();e.preventDefault();render(row);return}
+      var b=e.target.closest('[data-bt-info],[data-bt-rm]');if(b){var r=rows().filter(function(x){return x.getAttribute('data-pkg')===cur})[0];if(!r)return;if(b.hasAttribute('data-bt-info')&&window.appInfoOpen)appInfoOpen(r);else{var x=r.querySelector('button.app-x:not(.app-x-lock)');if(x)x.click()}}},true);
+    document.body.addEventListener('htmx:afterSettle',function(e){if(apps.contains(e.target)||e.target.id==='apps-live')reselect()});
+    setTimeout(reselect,1500);reselect()})();
   var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
   sync();
   }
@@ -1743,6 +1764,7 @@ window.DEVICE_VITALS = {
       {{template "device-apps-list" .}}
     </div>
   </div>
+  {{if .Bento}}<div class="card bt-appd" id="bt-app-detail" aria-live="polite"></div>{{end}}
 </section>
 {{end}}
 

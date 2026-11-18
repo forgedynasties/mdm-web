@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.18",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view sheets: About fits without scrolling, the Location map fills its sheet, Activity, Health and Apps load in the background so they open filled, and Apps is a list with the picked app explained beside the host app card (Details… opens the existing info popup).",
+		},
+	},
+	{
 		Version: "1.64.17",
 		Date:    "2026-11-18",
 		Changes: []string{
