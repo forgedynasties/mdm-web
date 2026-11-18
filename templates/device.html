@@ -1,3 +1,4 @@
+{{define "bt-ic"}}{{if eq . "apps"}}<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg>{{else if eq . "activity"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>{{else if eq . "health"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>{{else if eq . "network"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0"/><circle cx="12" cy="19.2" r="1"/></svg>{{else if eq . "location"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>{{else}}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>{{end}}{{end}}
 {{define "device-stats"}}
 <div class="dd-details"
   id="device-stats" data-diff-guard data-morph
@@ -836,6 +837,21 @@
      The other tabs are unchanged. */}}
 <link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
 {{$bv := .BentoV}}
+{{/* A1 · edge dock with labels (user, 18 Nov 2026): the tab row is gone in Bento. The panels the tabs
+     held (Apps, Activity, Health, Network, Location, About) are the same sections; the dock
+     opens one as a sheet on the right (CSS: a visible non-summary panel is fixed to the edge),
+     the switcher at its top moves between them, Esc or ✕ or the scrim closes. setDeviceTab
+     still does the work, so ?tab= links and every "open the X tab" button keep working. */}}
+<nav class="bt-dock" id="bt-dock" aria-label="Device panels">
+  {{if not .IsOwner}}<button type="button" data-bt-open="apps">{{template "bt-ic" "apps"}}<span>Apps</span>{{with .HostApp}}{{if .Count}}<i class="n">{{.Count}}</i>{{end}}{{end}}</button>
+  <button type="button" data-bt-open="activity">{{template "bt-ic" "activity"}}<span>Activity</span></button>
+  <button type="button" data-bt-open="health">{{template "bt-ic" "health"}}<span>Health</span>{{if .Health.Count}}<i class="n w">{{.Health.Count}}</i>{{end}}</button>{{end}}
+  <button type="button" data-bt-open="network">{{template "bt-ic" "network"}}<span>Network</span></button>
+  <button type="button" data-bt-open="location">{{template "bt-ic" "location"}}<span>Location</span></button>
+  <button type="button" data-bt-open="about">{{template "bt-ic" "about"}}<span>About</span></button>
+</nav>
+<div class="bt-scrim" id="bt-scrim"></div>
+<div class="bt-sheet-h" id="bt-sheet-h"><div class="bt-sw" id="bt-sw"></div><span class="bt-esc">Esc</span><button type="button" class="bt-x" id="bt-x" aria-label="Close panel">✕</button></div>
 <div class="ovd bt-wrap"><div class="ovb" id="bt">
   <section class="ovb-c ovb-health" aria-labelledby="bt-h">
     <div class="ovb-ch"><h2 id="bt-h">Device health</h2><span class="sp"></span><button type="button" class="ovb-pill {{$bv.Tone}}" style="border:0;cursor:pointer" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))" title="Open Health">{{$bv.Score}}</button></div>
@@ -931,6 +947,24 @@
       pane.querySelectorAll('[data-bt-pick]').forEach(function(x){x.classList.toggle('on',x===p)});
       pane.querySelectorAll('[data-bt-det]').forEach(function(d){d.hidden=d.dataset.btDet!==i})}
   });
+  /* the dock and the sheet */
+  var KEYS=['apps','activity','health','network','location','about'],NAMES={apps:'Apps',activity:'Activity',health:'Health',network:'Network',location:'Location',about:'About'};
+  function init(){
+  var dock=document.getElementById('bt-dock'),sw=document.getElementById('bt-sw'),open=null;
+  var avail=KEYS.filter(function(k){return document.getElementById('dd-panel-'+k)&&dock.querySelector('[data-bt-open="'+k+'"]')});
+  function openPanel(k){if(window.setDeviceTab)setDeviceTab(k,document.getElementById('dd-tab-'+k))}
+  function closePanel(){if(window.setDeviceTab)setDeviceTab('summary',document.getElementById('dd-tab-summary'))}
+  function sync(){var o=null;KEYS.forEach(function(k){var p=document.getElementById('dd-panel-'+k);if(p&&!p.hidden)o=k});
+    open=o;document.body.classList.toggle('bt-sheet-open',!!o);
+    dock.querySelectorAll('[data-bt-open]').forEach(function(b){b.classList.toggle('on',b.dataset.btOpen===o)});
+    sw.innerHTML=avail.map(function(k){return '<button type="button" data-bt-open="'+k+'" class="'+(k===o?'on':'')+'">'+NAMES[k]+'</button>'}).join('')}
+  document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&(dock.contains(b)||sw.contains(b))){openPanel(b.dataset.btOpen);return}
+    if(e.target.id==='bt-scrim'||e.target.closest('#bt-x'))closePanel()});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open&&!e.defaultPrevented)closePanel()});
+  var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
+  sync();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();</script>
 {{end}}
 <style>

@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.15",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Device page, Bento view: no tab row. A labelled dock on the right edge opens Apps, Activity, Health, Network, Location and About as a sheet over the bento, with a switcher, Esc to close, and ?tab= links still working. Phones get the dock as a row.",
+		},
+	},
+	{
 		Version: "1.64.14",
 		Date:    "2026-11-18",
 		Changes: []string{
