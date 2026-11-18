@@ -958,7 +958,7 @@
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
     dock.querySelectorAll('[data-bt-open]').forEach(function(b){b.classList.toggle('on',b.dataset.btOpen===o)});
     sw.innerHTML=avail.map(function(k){return '<button type="button" data-bt-open="'+k+'" class="'+(k===o?'on':'')+'">'+NAMES[k]+'</button>'}).join('')}
-  document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&(dock.contains(b)||sw.contains(b))){openPanel(b.dataset.btOpen);return}
+  document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&(dock.contains(b)||sw.contains(b))){if(b.dataset.btOpen===open&&dock.contains(b))closePanel();else openPanel(b.dataset.btOpen);return}
     if(e.target.id==='bt-scrim'||e.target.closest('#bt-x'))closePanel()});
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open&&!e.defaultPrevented)closePanel()});
   var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});

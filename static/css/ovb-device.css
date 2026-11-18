@@ -188,11 +188,11 @@ html.shell .dd-bento .ovb{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) a
 body.bt-sheet-open .dd-bento .bt-dock{z-index:36}
 .dd-bento .bt-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:opacity .2s;z-index:31}
 body.bt-sheet-open .dd-bento .bt-scrim{opacity:1;pointer-events:auto}
-.dd-bento .bt-sheet-h{position:fixed;top:78px;right:90px;width:min(62vw,900px);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33}
+.dd-bento .bt-sheet-h{position:fixed;top:78px;left:50%;transform:translateX(-50%);width:min(70vw,960px);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33}
 body.bt-sheet-open .dd-bento .bt-sheet-h{display:flex}
-.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;right:90px;width:min(62vw,900px);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-12px 8px 40px rgba(0,0,0,.18);animation:btslide .22s ease}
+.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;left:50%;transform:translateX(-50%);width:min(70vw,960px);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-12px 8px 40px rgba(0,0,0,.18);animation:btslide .22s ease}
 .dd-bento .bt-sheet-h{box-shadow:-12px -4px 40px rgba(0,0,0,.10)}
-@keyframes btslide{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+@keyframes btslide{from{transform:translate(-50%,14px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 }
 @media (max-width:1100px),(max-height:639px){
 .dd-bento .bt-dock{flex-direction:row;flex-wrap:wrap;margin:0 0 10px;padding:6px}
