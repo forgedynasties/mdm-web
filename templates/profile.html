@@ -1,157 +1,142 @@
 {{define "profile.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/profile-pr1.css?v={{assetVer}}">
 
-<style>
-.pf-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:4px 0 18px}
-.pf-top .cc-actions{display:flex;gap:8px;flex-wrap:wrap}
-.pf-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap;min-width:0}
-.pf-hero .cc-eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:650;margin-bottom:2px}
-.pf-av{width:64px;height:64px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:750;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-text)}
-.pf-av.has-img{overflow:hidden}.pf-av.has-img img{width:100%;height:100%;object-fit:cover;display:block}
-.pf-avforms{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}.pf-avform{margin:0}.pf-avform label{cursor:pointer}
-.pf-name{font-size:22px;font-weight:750;letter-spacing:-.015em;margin:0}
-.pf-meta{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.pf-role{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:99px;background:var(--surface-3);color:var(--text-2)}
-.pf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:16px}
-.pf-list{padding:6px 17px 12px}
-.pf-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
-.pf-row:first-child{border-top:none}
-.pf-row .k{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pf-row .bar{flex:0 0 120px;height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden}
-.pf-row .bar i{display:block;height:100%;background:var(--accent)}
-.pf-row .n{font-variant-numeric:tabular-nums;font-weight:650;min-width:36px;text-align:right}
-.pf-empty{padding:22px 17px;color:var(--muted);font-size:13px}
-.pf-act{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
-.pf-act:first-child{border-top:none}
-.pf-act .t{color:var(--text-faint);flex:0 0 78px;font-variant-numeric:tabular-nums}
-.pf-act .a{font-weight:650}
-.pf-act .d{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-</style>
+{{/* PR1 · Bento board (18 Nov 2026): identity card on the left, Display with a live preview,
+     then what the person does (or their restaurants, for an owner). The H1 is kept for screen
+     readers; the island names the page. */}}
+<div class="ovd pr1" id="pr1">
+  <h1 class="pr1-h1">{{if .ViewingOther}}{{.Display}}{{else}}My profile{{end}}</h1>
+  <div class="pr1-g">
 
-<div class="cc-wrap">
-  {{/* The profile's own hero, not a page header: .cc-top is hidden/squeezed site-wide since
-       26 Oct 2026, which pushed this to a narrow column on the right (3 Nov 2026). */}}
-  <div class="pf-top">
-    <div class="pf-hero">
-      <span class="pf-av{{if and .Bubble .Bubble.URL}} has-img{{end}}">{{if and .Bubble .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{slice .Display 0 1}}{{end}}</span>
-      <div>
-        <div class="cc-eyebrow">{{if .ViewingOther}}People · Users{{else}}My profile{{end}}</div>
-        <h1 class="pf-name">{{.Display}}</h1>
-        <div class="pf-meta">
-          <span class="pf-role">{{if .User}}{{roleLabel .User.Role}}{{else}}{{roleLabel .Role}}{{end}}</span>
-          <span class="mono">{{.Username}}</span>
-          {{if .User}}{{if .User.Email}}<span>{{.User.Email}}{{if .User.EmailVerifiedAt}} · verified{{end}}</span>{{end}}<span>Joined {{shortDate .User.CreatedAt}}</span>{{end}}
-          {{if and .Stats.FirstAt (not .OwnerSelf)}}<span>First action {{shortDate (deref .Stats.FirstAt)}}</span>{{end}}
-        </div>
+    <div class="ovb-c pr1-id">
+      <div class="pr1-av-wrap">
+        <span class="pr1-av{{if and .Bubble .Bubble.URL}} has-img{{end}}">{{if and .Bubble .Bubble.URL}}<img src="{{.Bubble.URL}}" alt="">{{else}}{{slice .Display 0 1}}{{end}}</span>
         {{if and .User .CanEditAvatar}}
-        <div class="pf-avforms">
-          <form action="/users/{{.User.ID}}/avatar" method="POST" enctype="multipart/form-data" class="pf-avform">
-            <label class="cc-btn sm">{{if and .Bubble .Bubble.URL}}Change picture{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label>
+        <details class="pr1-avmenu">
+          <summary class="ovb-ib" aria-label="Picture" title="Picture"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></summary>
+          <div class="pr1-pop">
+            <form action="/users/{{.User.ID}}/avatar" method="POST" enctype="multipart/form-data">
+            {{if not $.ViewingOther}}<input type="hidden" name="redirect" value="/profile">{{end}}
+              <label class="pr1-pi">{{if and .Bubble .Bubble.URL}}Change picture{{else}}Add picture{{end}}<input type="file" name="avatar" accept="image/png,image/jpeg,image/gif" hidden onchange="this.form.requestSubmit()"></label>
+            </form>
+            {{if and .Bubble .Bubble.URL}}<form action="/users/{{.User.ID}}/avatar/delete" method="POST">{{if not .ViewingOther}}<input type="hidden" name="redirect" value="/profile">{{end}}<button type="submit" class="pr1-pi">Remove picture</button></form>{{end}}
+            <div class="pr1-mut">PNG, JPEG or GIF · squared to 128 px</div>
+          </div>
+        </details>
+        {{end}}
+      </div>
+      <h2 class="pr1-name">{{.Display}}</h2>
+      <span class="pr1-rtag">{{if .User}}{{roleLabel .User.Role}}{{else}}{{roleLabel .Role}}{{end}}</span>
+      <div class="pr1-kvs">
+        <div class="pr1-kv f"><span>Username</span><span class="mono">{{.Username}}</span></div>
+        {{if .User}}
+        {{if .User.Email}}<div class="pr1-kv"><span>Email</span><span class="pr1-em">{{.User.Email}}</span></div>
+        <div class="pr1-kv"><span>Email state</span>{{if .User.EmailVerifiedAt}}<span class="pr1-dotp">Verified</span>{{else}}<span class="pr1-dotp c">Not verified</span>{{end}}</div>{{end}}
+        <div class="pr1-kv"><span>Joined</span><span>{{shortDate .User.CreatedAt}}</span></div>
+        {{end}}
+        {{if and .Stats.FirstAt (not .OwnerSelf)}}<div class="pr1-kv"><span>First action</span><span>{{shortDate (deref .Stats.FirstAt)}}</span></div>{{end}}
+      </div>
+      <div class="pr1-acts">
+        {{if .ViewingOther}}<a class="ovb-btn l" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="ovb-btn l" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
+        {{if and .CanSeeActivity (canManageUsers .Role)}}<a class="ovb-btn l" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
+      </div>
+    </div>
+
+    <div class="pr1-main">
+      {{with .DisplayPrefs}}
+      <div class="ovb-c" id="display">
+        <div class="ovb-ch"><h2>Display</h2><span class="sp"></span><span class="pr1-dotp c">only for you</span></div>
+        <div class="pr1-dsp">
+          <form action="/profile/display" method="POST" id="pr1-form" data-fd-dens="{{if eq .FleetDensity "Compact"}}compact{{else}}comfortable{{end}}" data-fd-time="{{if eq .FleetTime "24-hour"}}24{{else}}12{{end}}" data-fd-rows="{{.FleetPageSize}}" data-fd-sort="{{.FleetSort}}" data-sortlabels="{{range $k, $v := .SortLabels}}{{$k}}={{$v}};{{end}}">
+            <div class="pr1-r2"><div class="pr1-f"><label for="pr1-rows">Rows per page</label>
+              <input id="pr1-rows" type="number" name="page_size" class="pr1-in" value="{{.PageSize}}" min="1" max="200" step="1" placeholder="Fleet default ({{.FleetPageSize}})"></div>
+            <div class="pr1-f"><label for="pr1-sort">Default sort</label>
+              <select id="pr1-sort" name="default_sort" class="pr1-in">
+                <option value="">Fleet default ({{.FleetSort}})</option>
+                {{$cur := .Sort}}{{$l := .SortLabels}}{{range .Sorts}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{index $l .}}</option>{{end}}
+              </select></div></div>
+            <div class="pr1-f"><label>Table density</label>
+              <div class="pr1-seg" role="radiogroup">
+                <label><input type="radio" name="density" value=""{{if eq .Density ""}} checked{{end}}><span>Fleet default ({{.FleetDensity}})</span></label>
+                <label><input type="radio" name="density" value="comfortable"{{if eq .Density "comfortable"}} checked{{end}}><span>Comfortable</span></label>
+                <label><input type="radio" name="density" value="compact"{{if eq .Density "compact"}} checked{{end}}><span>Compact</span></label>
+              </div></div>
+            <div class="pr1-f"><label>Time format</label>
+              <div class="pr1-seg" role="radiogroup">
+                <label><input type="radio" name="time_format" value=""{{if eq .Time ""}} checked{{end}}><span>Fleet default ({{.FleetTime}})</span></label>
+                <label><input type="radio" name="time_format" value="12"{{if eq .Time "12"}} checked{{end}}><span>12-hour</span></label>
+                <label><input type="radio" name="time_format" value="24"{{if eq .Time "24"}} checked{{end}}><span>24-hour</span></label>
+              </div></div>
+            <div class="pr1-f"><label>Device page view</label>
+              <div class="pr1-seg" role="radiogroup">
+                <label><input type="radio" name="device_view" value="new"{{if eq .DeviceView "new"}} checked{{end}}><span>New</span></label>
+                <label><input type="radio" name="device_view" value="classic"{{if eq .DeviceView "classic"}} checked{{end}}><span>Classic</span></label>
+                {{if eq .DeviceView "bento"}}<label><input type="radio" name="device_view" value="bento" checked><span>Bento</span></label>{{end}}
+              </div></div>
+            <div class="pr1-sv"><button type="submit" class="ovb-btn">Save</button><button type="button" class="pr1-lnk" id="pr1-reset">Use fleet defaults</button></div>
           </form>
-          {{if and .Bubble .Bubble.URL}}<form action="/users/{{.User.ID}}/avatar/delete" method="POST" class="pf-avform"><button type="submit" class="cc-btn sm">Remove</button></form>{{end}}
-          <span class="muted small">PNG, JPEG or GIF · squared to 128 px</span>
+          <div class="pr1-prevbox">
+            <div class="pr1-lab">Preview · Fleet</div>
+            <table class="pr1-prev" id="pr1-prev"><thead><tr><th>Serial</th><th>Venue</th><th>Last seen</th></tr></thead><tbody>
+              <tr><td class="mono">SAMPLE-0001</td><td>A venue</td><td data-t="14:05">2:05 PM</td></tr>
+              <tr><td class="mono">SAMPLE-0002</td><td>Another venue</td><td data-t="09:30">9:30 AM</td></tr>
+              <tr><td class="mono">SAMPLE-0003</td><td>Lab</td><td data-t="22:12">10:12 PM</td></tr></tbody></table>
+            <div class="pr1-hint" id="pr1-note"></div>
+            <div class="pr1-split">
+              <span class="pr1-lab">Device page divider</span>
+              <span id="pr1-splitv">{{if .DeviceSplit}}{{.DeviceSplit}}% graph{{else}}Default{{end}}</span>
+              {{if .DeviceSplit}}<button type="button" class="pr1-lnk" id="pr1-splitreset">Reset</button>{{end}}
+              <span class="pr1-hint">Drag it on any device page.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{end}}
+
+      {{if .OwnerSelf}}
+      <div class="ovb-c">
+        <div class="ovb-ch"><h2>Your restaurant{{if gt (len .OwnerVenues) 1}}s{{end}}</h2></div>
+        {{range .OwnerVenues}}<div class="pr1-kv f2"><span>{{.}}</span><a class="ovb-btn l sm" href="/">Open</a></div>{{else}}<div class="pr1-empty"><b>No restaurant is linked to your account yet.</b>Ask your MDM administrator.</div>{{end}}
+      </div>
+      {{else}}
+      <div class="ovb-c">
+        <div class="ovb-ch"><h2>What you do most</h2><span class="sp"></span></div>
+        <div class="pr1-facts">
+          <div class="ovb-fact"><b>{{.Stats.Actions}}</b><span>Actions · {{if .Stats.Rank}}#{{.Stats.Rank}} of {{.Stats.Actors}} people{{else}}none recorded yet{{end}}</span></div>
+          <div class="ovb-fact"><b>{{.Stats.Commands}}</b><span>Commands sent · {{.Stats.Installs}} install{{if ne .Stats.Installs 1}}s{{end}}</span></div>
+          <div class="ovb-fact"><b>{{.Stats.DevicesTouched}}</b><span>Devices touched</span></div>
+          <div class="ovb-fact"><b>{{.Stats.ActiveDays}}</b><span>Active days · {{.Stats.PageViews}} page view{{if ne .Stats.PageViews 1}}s{{end}}{{if .Stats.LastAt}} · last {{timeSince (deref .Stats.LastAt)}}{{end}}</span></div>
+        </div>
+        <div class="pr1-two">
+          <div>
+            <div class="pr1-lab">Top actions</div>
+            {{range .Stats.TopActions}}<div class="pr1-kv f2"><span class="mono">{{.Name}}</span><span class="pr1-bar"><i style="width:{{.Pct}}%"></i></span><b>{{.Count}}</b></div>{{else}}<div class="pr1-hint">No actions recorded under this account yet.</div>{{end}}
+          </div>
+          <div>
+            <div class="pr1-lab">Command mix</div>
+            {{range .Stats.CommandTypes}}<div class="pr1-kv f2"><span>{{cmdLabel .Name}}</span><span class="pr1-bar"><i style="width:{{.Pct}}%"></i></span><b>{{.Count}}</b></div>{{else}}<div class="pr1-hint">No commands sent yet.</div>{{end}}
+          </div>
+        </div>
+      </div>
+
+      <div class="pr1-two cards">
+        <div class="ovb-c">
+          <div class="ovb-ch"><h2>Enrolled devices</h2><span class="sp"></span><span class="pr1-dotp c">{{len .Enrolled}} via AIO Enroll</span></div>
+          {{range .Enrolled}}<div class="pr1-act"><span class="t" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</span><a class="a mono" href="/devices/{{.Serial}}">{{.Serial}}</a><span class="d">{{classLabel .DeviceClass}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}</span></div>{{else}}<div class="pr1-hint">No devices enrolled through AIO Enroll under this account.</div>{{end}}
+        </div>
+        {{if .CanSeeActivity}}
+        <div class="ovb-c">
+          <div class="ovb-ch"><h2>Recent activity</h2></div>
+          {{range .Recent}}<div class="pr1-act"><span class="t">{{timeSince .CreatedAt}}</span><span class="a mono">{{.Action}}</span><span class="d">{{.Target}}{{if .Detail}} · {{.Detail}}{{end}}</span></div>{{else}}<div class="pr1-hint">Nothing yet.</div>{{end}}
         </div>
         {{end}}
       </div>
-    </div>
-    <div class="cc-actions">
-      {{if .ViewingOther}}<a class="cc-btn" href="javascript:history.back()">← Back</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
-      {{if and .CanSeeActivity (canManageUsers .Role)}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
+      {{end}}
     </div>
   </div>
-
-  {{with .DisplayPrefs}}
-  <div class="cc-card" id="display" style="max-width:560px;margin-bottom:16px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h2>Display</h2><span class="m">only for you</span></div>
-    <form action="/profile/display" method="POST" class="pf-list">
-      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Devices per page</span>
-        <input type="number" name="page_size" class="form-input" value="{{.PageSize}}" min="1" max="200" step="1" placeholder="Fleet default ({{.FleetPageSize}})" style="width:200px;"></label>
-      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Default sort</span>
-        <select name="default_sort" class="form-input" style="width:200px;">
-          <option value="">Fleet default ({{.FleetSort}})</option>
-          {{$cur := .Sort}}{{$l := .SortLabels}}{{range .Sorts}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{index $l .}}</option>{{end}}
-        </select></label>
-      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Table density</span>
-        <select name="density" class="form-input" style="width:200px;">
-          <option value="">Fleet default ({{.FleetDensity}})</option>
-          <option value="comfortable"{{if eq .Density "comfortable"}} selected{{end}}>Comfortable</option>
-          <option value="compact"{{if eq .Density "compact"}} selected{{end}}>Compact</option>
-        </select></label>
-      <label class="pf-row" style="gap:8px;"><span class="k" style="flex:0 0 140px;">Time format</span>
-        <select name="time_format" class="form-input" style="width:200px;">
-          <option value="">Fleet default ({{.FleetTime}})</option>
-          <option value="12"{{if eq .Time "12"}} selected{{end}}>12-hour (AM/PM)</option>
-          <option value="24"{{if eq .Time "24"}} selected{{end}}>24-hour</option>
-        </select></label>
-      <div class="pf-row"><button type="submit" class="cc-btn sm primary">Save</button></div>
-    </form>
-  </div>
-  {{end}}
-
-  {{if .OwnerSelf}}
-  <div class="cc-card" style="max-width:560px;">
-    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span><h2>Your restaurant{{if gt (len .OwnerVenues) 1}}s{{end}}</h2></div>
-    <div class="pf-list">
-      {{range .OwnerVenues}}<div class="pf-row"><span class="k">{{.}}</span><a class="cc-btn sm" href="/">Open</a></div>{{else}}<div class="pf-empty">No restaurant is linked to your account yet. Ask your MDM administrator.</div>{{end}}
-    </div>
-  </div>
-  {{else}}
-  <div class="cc-kpis">
-    <div class="cc-kpi"><span class="k">Actions</span><div class="v">{{.Stats.Actions}}</div><div class="d">{{if .Stats.Rank}}#{{.Stats.Rank}} of {{.Stats.Actors}} people{{else}}nothing recorded yet{{end}}</div></div>
-    <div class="cc-kpi"><span class="k">Commands sent</span><div class="v">{{.Stats.Commands}}</div><div class="d">{{.Stats.Installs}} install{{if ne .Stats.Installs 1}}s{{end}}</div></div>
-    <div class="cc-kpi"><span class="k">Devices touched</span><div class="v">{{.Stats.DevicesTouched}}</div><div class="d">directly targeted</div></div>
-    <div class="cc-kpi"><span class="k">Active days</span><div class="v">{{.Stats.ActiveDays}}</div><div class="d">{{.Stats.PageViews}} page view{{if ne .Stats.PageViews 1}}s{{end}}{{if .Stats.LastAt}} · last {{timeSince (deref .Stats.LastAt)}}{{end}}</div></div>
-  </div>
-
-  <div class="pf-grid">
-    <div class="cc-card">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></span><h2>What you do most</h2></div>
-      {{if .Stats.TopActions}}
-      <div class="pf-list">
-        {{range .Stats.TopActions}}
-        <div class="pf-row"><span class="k mono">{{.Name}}</span><span class="bar"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.Count}}</span></div>
-        {{end}}
-      </div>
-      {{else}}<div class="pf-empty">No actions recorded under this account yet.</div>{{end}}
-    </div>
-
-    <div class="cc-card">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></span><h2>Command mix</h2></div>
-      {{if .Stats.CommandTypes}}
-      <div class="pf-list">
-        {{range .Stats.CommandTypes}}
-        <div class="pf-row"><span class="k">{{cmdLabel .Name}}</span><span class="bar"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.Count}}</span></div>
-        {{end}}
-      </div>
-      {{else}}<div class="pf-empty">No commands sent yet.</div>{{end}}
-    </div>
-
-    <div class="cc-card">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span><h2>Enrolled devices</h2><span class="m">{{len .Enrolled}} via AIO Enroll</span></div>
-      {{if .Enrolled}}
-      <div class="pf-list">
-        {{range .Enrolled}}
-        <div class="pf-act"><span class="t" title="{{formatTime .EnrolledAt}}">{{timeSince .EnrolledAt}}</span><span class="a mono"><a href="/devices/{{.Serial}}">{{.Serial}}</a></span><span class="d">{{classLabel .DeviceClass}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}</span></div>
-        {{end}}
-      </div>
-      {{else}}<div class="pf-empty">No devices enrolled through AIO Enroll under this account.</div>{{end}}
-    </div>
-
-    {{if .CanSeeActivity}}
-    <div class="cc-card">
-      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h2>Recent activity</h2></div>
-      {{if .Recent}}
-      <div class="pf-list">
-        {{range .Recent}}
-        <div class="pf-act"><span class="t">{{timeSince .CreatedAt}}</span><span class="a mono">{{.Action}}</span><span class="d">{{.Target}}{{if .Detail}} · {{.Detail}}{{end}}</span></div>
-        {{end}}
-      </div>
-      {{else}}<div class="pf-empty">Nothing yet.</div>{{end}}
-    </div>
-    {{end}}
-  </div>
-  {{end}}
 </div>
-
+<script src="/static/js/profile-pr1.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}

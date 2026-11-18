@@ -1,0 +1,48 @@
+/* Owner home, Your team card: TM1 (18 Nov 2026). Builds on the Overview bento (.ovb-c, .ovb-btn). */
+.oh .tm1{margin-top:36px;max-width:none}
+.tm1-g{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:14px;align-items:start}
+.tm1-side{display:flex;flex-direction:column;gap:14px}
+.oh .tm1 .ovb-ch h2{display:block;margin:0;font-family:var(--font);font-size:15px;font-weight:600;letter-spacing:0}
+.tm1 .ovb-c{box-shadow:var(--shadow-lg)}
+.tm1-r{display:flex;align-items:center;gap:12px;padding:11px 4px;border-top:1px solid var(--border-soft)}
+.tm1-r:first-of-type{border-top:0}
+.tm1-r form{margin:0}
+.tm1-r .t{flex:1;min-width:0}
+.tm1-r .t b{font-size:13.5px;font-weight:600;display:flex;gap:6px 8px;align-items:center;flex-wrap:wrap}
+.tm1-r .t p{margin:2px 0 0;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm1-av{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-text);font-weight:700;font-size:13px;text-transform:uppercase}
+.tm1-rtag{font-size:10.5px;font-weight:800;letter-spacing:.04em;border-radius:99px;padding:3px 9px;text-transform:uppercase;background:var(--surface-3);color:var(--text-2)}
+.tm1-vch{font-size:11px;font-weight:600;background:var(--surface2);border-radius:99px;padding:2px 9px;color:var(--text-2);white-space:nowrap}
+.tm1-dotp{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.tm1-dotp::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ovb-g,#1f9d60);flex:none}
+.tm1-dotp.o::before{background:var(--ovb-o,#ef7d31)}
+.tm1-dotp.c::before{background:none;border:1.5px solid var(--muted);width:6px;height:6px}
+.tm1 .ovb-btn.sm{padding:5px 14px;font-size:12px}
+.tm1-kv{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.tm1-kv.f{border-top:0}.tm1-kv>span:first-child{color:var(--text-2)}
+.tm1-hint{margin:0;font-size:12.5px;color:var(--muted);line-height:1.5}
+.tm1-empty{font-size:13px;color:var(--muted);padding:10px 4px 4px}.tm1-empty b{display:block;color:var(--text);margin-bottom:2px}
+.tm1-msg{margin:0 0 8px;font-size:13px;color:var(--ok)}.tm1-msg.bad{color:var(--danger)}
+
+/* dialogs */
+.tm1-dlg{position:fixed;inset:0;margin:auto;height:fit-content;border:0;border-radius:22px;padding:22px 24px;width:430px;max-width:calc(100vw - 32px);background:var(--surface);color:var(--text);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.tm1-dlg::backdrop{background:rgba(15,15,25,.4)}
+.tm1-dlg h3{margin:0 0 4px;font-size:18px;font-weight:650}
+.tm1-dlg .tm1-hint{margin-bottom:14px}
+.tm1-f{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.tm1-f>label{font-size:12px;font-weight:600;color:var(--text-2)}
+.tm1-in{width:100%;box-sizing:border-box;height:42px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);padding:0 14px;font:inherit;font-size:14px}
+.tm1-in:focus{outline:2px solid color-mix(in srgb,var(--accent-fill) 45%,transparent);outline-offset:1px}
+.tm1-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tm1-vsl{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.tm1-vsl label{display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--text);font-weight:500}
+.tm1-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+.tm1-err{margin:0 0 12px;padding:9px 12px;border-radius:12px;font-size:13px;background:var(--danger-bg);color:var(--danger)}
+
+@media (max-width:900px){.tm1-g{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:720px){
+  .tm1-r{flex-wrap:wrap}
+  .tm1-r .t{flex:1 1 calc(100% - 50px)}
+  .tm1-r .tm1-dotp{margin-left:46px}
+  .tm1-2{grid-template-columns:1fr}
+}
