@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.19",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view: the Graph pane's metric list is a thin rail (dot, number, label), so the graph is wider.",
+		},
+	},
+	{
 		Version: "1.64.18",
 		Date:    "2026-11-18",
 		Changes: []string{

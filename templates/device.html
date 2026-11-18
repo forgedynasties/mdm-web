@@ -877,9 +877,9 @@
         <button type="button" role="tab" data-bt-tab="apps">Apps{{with .HostApp}}{{if .Count}} · {{.Count}}{{end}}{{end}}</button>{{end}}
       </span><span class="sp"></span></div>
     <div class="ovb-t2">
-      <div class="ovb-pane" data-bt-pane="graph">
-        <div class="ovb-list" role="listbox" aria-label="Metric">
-          {{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<button type="button" class="ovb-li{{if eq .Key "battery"}} on{{end}}" data-bt-metric="{{.Key}}"><span class="ovb-dot {{if eq .Tone "warn"}}o{{else if eq .Tone "danger"}}r{{else if eq .Tone "muted"}}c{{end}}"></span><span class="tx"><b>{{.Label}} · {{.Value}}</b><small>{{.Sub}}</small></span></button>{{end}}
+      <div class="ovb-pane bt-pane-g" data-bt-pane="graph">
+        <div class="ovb-list bt-railbox" role="listbox" aria-label="Metric">
+          {{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<button type="button" class="ovb-li bt-rail{{if eq .Key "battery"}} on{{end}}" data-bt-metric="{{.Key}}" title="{{.Label}} · {{.Value}} · {{.Sub}}"><span class="ovb-dot {{if eq .Tone "warn"}}o{{else if eq .Tone "danger"}}r{{else if eq .Tone "muted"}}c{{end}}"></span><b>{{.Value}}</b><small>{{.Label}}</small></button>{{end}}
         </div>
         <div class="ovb-dets"><div class="ovb-det"><div class="bt-slot" id="bt-graph-slot"></div></div></div>
       </div>
