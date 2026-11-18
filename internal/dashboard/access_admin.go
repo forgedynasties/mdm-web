@@ -557,7 +557,7 @@ func parseGrantForm(r *http.Request) (effect string, actions []string, note stri
 	}
 	note = strings.TrimSpace(r.FormValue("note"))
 	if len(note) > 200 {
-		note = note[:200]
+		note = truncRunes(note, 200)
 	}
 	if expires, err = parseExpires(r); err != nil {
 		return "", nil, "", nil, err

@@ -412,6 +412,11 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 // fields while they are still kept. A wifi_config whose password has been swept cannot
 // be repeated from here — the new command would carry no password — so it says so.
 func (h *Handler) resendPayload(w http.ResponseWriter, r *http.Request, cmd *db.Command) (json.RawMessage, bool) {
+	// A resend is a new send: the administrator's shell switch applies to it as to the first.
+	if cmd.Type == "shell" && !h.cfg.ShellEnabled() {
+		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
+		return nil, false
+	}
 	payload := h.db.DeliveryPayload(r.Context(), cmd.ID, cmd.Type, cmd.Payload)
 	if _, msg := product.NormalizeCommandPayload(cmd.Type, payload); msg != "" {
 		http.Error(w, cmdTypeLabel(cmd.Type)+" can't be resent: the password is no longer kept. Send it again with the password.", http.StatusBadRequest)

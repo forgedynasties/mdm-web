@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -769,4 +771,28 @@ func (d *DB) UpdateRestaurantLocation(ctx context.Context, id uuid.UUID, address
 	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET address = $2, latitude = $3, longitude = $4, timezone = $5 WHERE id = $1`,
 		id, address, lat, lon, tz)
 	return err
+}
+
+// ValidateVenueFields is the one check for the free-text fields of a venue, shared by the
+// dashboard forms and the admin API: sizes are capped (the name is pushed to every
+// table's welcome screen) and a timezone must be one Go knows (an unknown one used to be
+// stored and silently treated as UTC). "" when everything is fine.
+func ValidateVenueFields(name, address, notes, tz string) string {
+	switch {
+	case utf8.RuneCountInString(name) > 120:
+		return "The name is too long (120 characters at most)."
+	case utf8.RuneCountInString(address) > 300:
+		return "The address is too long (300 characters at most)."
+	case utf8.RuneCountInString(notes) > 4000:
+		return "The notes are too long (4000 characters at most)."
+	}
+	if tz = strings.TrimSpace(tz); tz != "" {
+		if len(tz) > 64 {
+			return "Unknown timezone."
+		}
+		if _, err := time.LoadLocation(tz); err != nil {
+			return "Unknown timezone " + tz + "."
+		}
+	}
+	return ""
 }

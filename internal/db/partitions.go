@@ -116,6 +116,17 @@ func (d *DB) ensureMonth(ctx context.Context, s PartSpec, month time.Time) error
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Two copies reach the month rollover together: serialise on a lock, then look again,
+	// so the loser finds the partition made and does nothing instead of failing.
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(7270002)"); err != nil {
+		return err
+	}
+	if err := tx.QueryRow(ctx, `SELECT to_regclass($1) IS NOT NULL`, "public."+name).Scan(&exists); err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
 	stmts := []string{
 		fmt.Sprintf(`CREATE TABLE %s (LIKE %s INCLUDING DEFAULTS INCLUDING CONSTRAINTS)`, name, s.Table),
 		fmt.Sprintf(`WITH moved AS (DELETE FROM %s_pdefault WHERE %s >= '%s' AND %s < '%s' RETURNING *)

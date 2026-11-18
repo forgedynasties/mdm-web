@@ -53,8 +53,16 @@ func TestSetupStatesAndVisits(t *testing.T) {
 	if err := d.AssignDeviceToRestaurant(ctx, serial, &venue.ID); err != nil {
 		t.Fatal(err)
 	}
+	// Placing deploys (3 Nov 2026): a device put at a venue is in service at once; an Ops
+	// lead puts it back into setup by hand.
+	if s := state(); s != StateInService {
+		t.Fatalf("placed: %s, want in service", s)
+	}
+	if n, err := d.SetSettingUp(ctx, []uuid.UUID{id}); err != nil || n != 1 {
+		t.Fatalf("set up again: %d %v", n, err)
+	}
 	if s := state(); s != StateSettingUp {
-		t.Fatalf("placed: %s, want setting up", s)
+		t.Fatalf("set up again: %s, want setting up", s)
 	}
 	vid, err := d.OpenSetupVisit(ctx, venue.ID, "test", time.Now().Add(72*time.Hour), []string{"field-" + sfx}, "t")
 	if err != nil {
@@ -78,7 +86,7 @@ func TestSetupStatesAndVisits(t *testing.T) {
 	if err := d.AssignDeviceToRestaurant(ctx, serial, &venue.ID); err != nil {
 		t.Fatal(err)
 	}
-	if s := state(); s != StateSettingUp {
-		t.Fatalf("placed again: %s, want setting up", s)
+	if s := state(); s != StateInService {
+		t.Fatalf("placed again: %s, want in service", s)
 	}
 }

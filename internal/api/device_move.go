@@ -234,6 +234,10 @@ func (h *Handler) MoveDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serial := r.PathValue("serial")
+	if dev, err := h.db.GetDevice(r.Context(), serial); err != nil || dev == nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
 	res := h.startMove(r.Context(), target, serial, "admin API")
 	status := http.StatusOK
 	if res.Error != "" {
@@ -436,6 +440,10 @@ func (h *Handler) sendMove(ctx context.Context, m db.DeviceMove) bool {
 			var reboot *db.Command
 			if reboot, err = h.db.CreateCommandBy(ctx, "reboot", "", nil, "devices", ids, "device move"); err == nil {
 				h.pushCommand(ctx, reboot, "devices", ids)
+			} else if cerr := h.db.CancelDeviceCommand(ctx, first.ID, m.DeviceID); cerr != nil {
+				// The setprop must not stand alone: a device holding the new address with
+				// no reboot would move on any later restart, with no custody or token.
+				log.Printf("[move] %s: could not withdraw the setprop after the reboot failed: %v", m.Serial, cerr)
 			}
 		}
 	} else {

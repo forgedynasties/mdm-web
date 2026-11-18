@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"mdm/internal/db"
 	"mdm/internal/middleware"
@@ -43,23 +45,41 @@ type ownKeyEntry struct {
 }
 
 func (h *Handler) serialHasOwnKey(ctx context.Context, serial string) bool {
+	has, _ := h.serialHasOwnKeyE(ctx, serial)
+	return has
+}
+
+// serialHasOwnKeyE is serialHasOwnKey that says when it could not tell. An unknown serial
+// is "no key" (a new device); a database error is an error, so the caller can refuse
+// rather than let the shared key through while the lookup is down.
+func (h *Handler) serialHasOwnKeyE(ctx context.Context, serial string) (bool, error) {
 	ownKeyCache.Lock()
 	if e, ok := ownKeyCache.m[serial]; ok && time.Since(e.at) < ownKeyTTL {
 		ownKeyCache.Unlock()
-		return e.has
+		return e.has, nil
 	}
 	ownKeyCache.Unlock()
 	has, err := h.db.DeviceHasOwnKey(ctx, serial)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil // unknown serial
+	}
 	if err != nil {
-		return false // unknown serial or DB trouble: the other checks still apply
+		return false, err
 	}
 	ownKeyCache.Lock()
 	if ownKeyCache.m == nil {
 		ownKeyCache.m = map[string]ownKeyEntry{}
 	}
+	if len(ownKeyCache.m) > memoryCap {
+		for k, e := range ownKeyCache.m {
+			if time.Since(e.at) >= ownKeyTTL {
+				delete(ownKeyCache.m, k)
+			}
+		}
+	}
 	ownKeyCache.m[serial] = ownKeyEntry{has, time.Now()}
 	ownKeyCache.Unlock()
-	return has
+	return has, nil
 }
 
 // requireDeviceIdentity decides whether the caller may act as serial. A per-device key
@@ -80,7 +100,18 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 		h.noteOwnKeyIP(r.Context(), serial, ratelimit.ClientIP(r))
 		return true
 	}
-	if serial != "" && h.serialHasOwnKey(r.Context(), serial) {
+	hasOwn := false
+	if serial != "" {
+		var err error
+		if hasOwn, err = h.serialHasOwnKeyE(r.Context(), serial); err != nil {
+			// Fail closed: with the lookup down we can't tell whether this serial has its
+			// own key, and the shared key is public. Devices retry on 503.
+			log.Printf("[device-auth] own-key lookup for %s failed: %v", serial, err)
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "unavailable"})
+			return false
+		}
+	}
+	if hasOwn {
 		ip := ratelimit.ClientIP(r)
 		// Either shared key resets a serial's own key again (user, 30 Oct 2026: "get rid
 		// of the possible impersonation alert, auto reset key also"), the public one

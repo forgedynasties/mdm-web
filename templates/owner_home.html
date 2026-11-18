@@ -118,7 +118,7 @@
 <div hx-get="/" hx-trigger="every 30s" hx-select="#oh-root" hx-target="#oh-root" hx-swap="outerHTML" hidden></div>
 <div class="oh" id="oh-root">
   <div class="eyebrow">{{.DateLine}} · {{.TimeLine}}{{if eq .VenueCount 1}}{{range .Venues}} · {{.Name}}{{end}}{{end}}</div>
-  <h1>{{.Greeting}}, {{.Name}}.<br><span class="hl">{{.Headline}}</span></h1>
+  <h1>{{.Greeting}}, {{.Name}}. <br><span class="hl">{{.Headline}}</span></h1>
   {{if .Lede}}<p class="lede">{{.Lede}}</p>{{end}}
 
   {{if .Total}}

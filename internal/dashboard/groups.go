@@ -272,6 +272,10 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	group, err := h.db.CreateGroup(r.Context(), name)
+	if db.IsUniqueViolation(err) {
+		http.Error(w, "A group with that name already exists", http.StatusConflict)
+		return
+	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -345,6 +349,10 @@ func (h *Handler) GroupUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.db.RenameGroup(r.Context(), id, name); err != nil {
+		if db.IsUniqueViolation(err) {
+			http.Error(w, "A group with that name already exists", http.StatusConflict)
+			return
+		}
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

@@ -148,6 +148,10 @@ func (h *Handler) RestaurantSetupAgain(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Only an Ops lead puts devices into setup.", http.StatusForbidden)
 		return
 	}
+	if !h.access(r).venueInScope(id) {
+		http.Error(w, "That venue is outside your access.", http.StatusForbidden)
+		return
+	}
 	devs, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 2000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -156,7 +160,7 @@ func (h *Handler) RestaurantSetupAgain(w http.ResponseWriter, r *http.Request) {
 	var ids []uuid.UUID
 	var serials []string
 	for _, d := range devs {
-		if !d.Hidden {
+		if !d.Hidden && h.access(r).canDevice("notes", d.ID) {
 			ids = append(ids, d.ID)
 			serials = append(serials, d.SerialNumber)
 		}

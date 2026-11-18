@@ -1089,6 +1089,13 @@ func (d *DB) MergeLatestExtra(ctx context.Context, deviceID uuid.UUID, patch jso
 }
 
 func (d *DB) SaveCommandResult(ctx context.Context, commandID, deviceID uuid.UUID, output string) error {
+	// Only a device the command targets may attach output to it: an ack for someone
+	// else's command is refused before anything is stored.
+	if targeted, err := d.commandTargetsDevice(ctx, commandID, deviceID); err != nil {
+		return err
+	} else if !targeted {
+		return ErrCommandNotTargeted
+	}
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO command_results (command_id, device_id, output)
 		VALUES ($1, $2, $3)

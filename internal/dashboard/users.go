@@ -436,7 +436,12 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 	// Sessions carry the role they signed in with; a changed role signs them out so it
 	// applies now, not when the session expires (security audit, 26 Oct 2026).
 	if role != target.Role {
-		_ = h.db.DeleteSessionsForUser(r.Context(), id)
+		if err := h.db.DeleteSessionsForUser(r.Context(), id); err != nil {
+			// The role is already changed; say so rather than let old sessions live on quietly.
+			log.Printf("[users] role changed for %s but ending their sessions failed: %v", target.Username, err)
+			http.Error(w, "The role was changed, but ending their open sessions failed. Save again to retry.", http.StatusInternalServerError)
+			return
+		}
 	}
 	// Rules the new role makes pointless go with the change: left behind, an
 	// operator's "remote control" grant kept showing on a super op's page as if it

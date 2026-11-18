@@ -157,6 +157,16 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 
+	// One copy migrates at a time: two servers starting together in a rolling deploy used
+	// to run the same DROP/ADD CONSTRAINT and CREATE OR REPLACE statements at once and one
+	// died with "tuple concurrently updated". The second waits here (up to 2 minutes),
+	// then finds the schema already current. The lock is released at commit/rollback.
+	if _, err := tx.Exec(ctx, "SET LOCAL lock_timeout = '120s'"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(7270001)"); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, "SET LOCAL lock_timeout = '15s'"); err != nil {
 		return err
 	}
