@@ -152,9 +152,28 @@ func (h *Handler) MicrosoftLoginCallback(w http.ResponseWriter, r *http.Request)
 		user = created
 		h.audit(r, "user.microsoft_signup", user.ID.String(), email)
 	} else if user.EmailVerifiedAt == nil {
-		// e.g. a pending self-signup account — Microsoft already verified this
-		// identity, so unblock it too instead of leaving it stuck.
+		// A pending self-signup account. Nobody proved they own this address when it was
+		// made, so its password may be a stranger's (18 Nov 2026 audit): replace it with
+		// a random one and end its sessions before Microsoft verifies the account. The
+		// person signs in with Microsoft, or sets a password through "Forgot password".
+		randomPW, tErr := newToken()
+		if tErr != nil {
+			fail("Internal error, please try again.")
+			return
+		}
+		hash, hErr := bcrypt.GenerateFromPassword([]byte(randomPW), bcrypt.DefaultCost)
+		if hErr != nil {
+			fail("Internal error, please try again.")
+			return
+		}
+		if err := h.db.SetUserPassword(r.Context(), user.ID, string(hash)); err != nil {
+			log.Printf("microsoft login: reset unverified password: %v", err)
+			fail("Internal error, please try again.")
+			return
+		}
+		_ = h.db.DeleteSessionsForUser(r.Context(), user.ID)
 		_ = h.db.SetUserEmailVerified(r.Context(), user.ID)
+		h.audit(r, "user.microsoft_claim", user.ID.String(), email+" (unverified sign-up: password replaced)")
 	}
 
 	if h.msAppHandOff(w, r, user) {

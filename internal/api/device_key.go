@@ -121,7 +121,7 @@ func (h *Handler) RegisterDeviceKey(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
 		return
 	}
-	if h.deviceRateLimited(w, req.Serial) {
+	if h.deviceRateLimited(w, r, req.Serial) {
 		return
 	}
 	ctx := r.Context()

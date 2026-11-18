@@ -24,6 +24,12 @@ const (
 	// outputRetention is how long a finished stream's buffer is kept for late
 	// replay before it's freed from the map (else every command ever run leaks).
 	outputRetention = 2 * time.Minute
+	// maxOutputBytes caps the bytes one stream retains (18 Nov 2026 audit: chunks are
+	// up to 4 MiB each, so the chunk count alone let a device hold gigabytes).
+	maxOutputBytes = 8 << 20
+	// outputIdle: a stream no device has written to and nobody watches for this long
+	// is dropped, done frame or not.
+	outputIdle = 30 * time.Minute
 	// replayBuffer is the per-subscriber channel size (also bounds replay).
 	replayBuffer = 512
 )
@@ -37,6 +43,8 @@ type outputKey struct {
 // outputStream holds the subscriber channels and buffered chunks for one stream.
 type outputStream struct {
 	chunks []string
+	bytes  int
+	last   time.Time
 	subs   []chan string
 	closed bool
 }
@@ -93,6 +101,12 @@ type Manager struct {
 	// command output streams keyed by (commandID, deviceID)
 	outMu   sync.Mutex
 	outputs map[outputKey]*outputStream
+	swept   time.Time
+
+	// AcceptOutput, if set, says whether a device may open an output stream for a
+	// command: only for a command that targets it. Asked once per stream, not per
+	// chunk. Without it any device could buffer output under made-up command ids.
+	AcceptOutput func(commandID, deviceID uuid.UUID) bool
 
 	// OTA progress per device
 	otaMu    sync.Mutex
@@ -165,16 +179,32 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 
 func (m *Manager) appendCommandOutput(key outputKey, chunk string) {
 	m.outMu.Lock()
+	_, known := m.outputs[key]
+	m.outMu.Unlock()
+	if !known && m.AcceptOutput != nil && !m.AcceptOutput(key.CommandID, key.DeviceID) {
+		return
+	}
+	m.outMu.Lock()
 	defer m.outMu.Unlock()
 	s := m.ensureStream(key)
 	if s.closed {
 		return
 	}
 	s.chunks = append(s.chunks, chunk)
+	s.bytes += len(chunk)
+	s.last = time.Now()
+	for s.bytes > maxOutputBytes && len(s.chunks) > 1 {
+		s.bytes -= len(s.chunks[0])
+		s.chunks = s.chunks[1:]
+	}
 	// Bound retained output: keep the most recent maxOutputChunks, trimming only
 	// when we hit 2× so this is amortized O(1) rather than a copy per chunk.
 	if len(s.chunks) > 2*maxOutputChunks {
 		s.chunks = append([]string(nil), s.chunks[len(s.chunks)-maxOutputChunks:]...)
+		s.bytes = 0
+		for _, c := range s.chunks {
+			s.bytes += len(c)
+		}
 	}
 	for _, ch := range s.subs {
 		select {
@@ -267,10 +297,26 @@ func (m *Manager) SubscribeCommandOutput(commandID, deviceID uuid.UUID) (<-chan 
 func (m *Manager) ensureStream(key outputKey) *outputStream {
 	s, ok := m.outputs[key]
 	if !ok {
-		s = &outputStream{}
+		m.sweepIdle()
+		s = &outputStream{last: time.Now()}
 		m.outputs[key] = s
 	}
 	return s
+}
+
+// sweepIdle drops streams that were never finished and that nobody watches. Called
+// with outMu held, at most once a minute.
+func (m *Manager) sweepIdle() {
+	now := time.Now()
+	if now.Sub(m.swept) < time.Minute {
+		return
+	}
+	m.swept = now
+	for k, st := range m.outputs {
+		if !st.closed && len(st.subs) == 0 && now.Sub(st.last) > outputIdle {
+			delete(m.outputs, k)
+		}
+	}
 }
 
 // ── OTA progress ─────────────────────────────────────────────────────────────

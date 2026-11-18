@@ -38,7 +38,7 @@ func (h *Handler) PendingCommands(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
 		return
 	}
-	if h.deviceRateLimited(w, serial) {
+	if h.deviceRateLimited(w, r, serial) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, serial) {

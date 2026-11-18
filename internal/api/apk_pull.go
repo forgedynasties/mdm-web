@@ -38,7 +38,7 @@ func (h *Handler) pullCaller(w http.ResponseWriter, r *http.Request) (*apkPullBo
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "not available"})
 		return nil, uuid.Nil, uuid.Nil, false
 	}
-	if h.deviceRateLimited(w, b.SerialNumber) || !h.requireDeviceIdentity(w, r, b.SerialNumber) {
+	if h.deviceRateLimited(w, r, b.SerialNumber) || !h.requireDeviceIdentity(w, r, b.SerialNumber) {
 		return nil, uuid.Nil, uuid.Nil, false
 	}
 	cmdID, err := uuid.Parse(b.CommandID)

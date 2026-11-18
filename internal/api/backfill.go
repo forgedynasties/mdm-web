@@ -146,7 +146,7 @@ func (h *Handler) Backfill(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "at most 500 readings per request"})
 		return
 	}
-	if h.deviceRateLimited(w, req.Serial) {
+	if h.deviceRateLimited(w, r, req.Serial) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, req.Serial) {

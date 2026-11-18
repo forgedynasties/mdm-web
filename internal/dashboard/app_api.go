@@ -274,6 +274,13 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 			appErr(w, http.StatusForbidden, "engineers enrol lab devices: leave the venue empty")
 			return
 		}
+		// Viewers enrol into the To place queue only (pre-pentest audit, 18 Nov 2026): a
+		// device placed at a venue is in service at once and receives the venue's Wi-Fi
+		// and staff PIN, and every tenant member becomes a Viewer on first sign-in.
+		if s.Role == "viewer" {
+			appErr(w, http.StatusForbidden, "viewers enrol devices into the To place queue: leave the venue empty")
+			return
+		}
 		name = appEnrollProfilePrefix + site.Name + " · " + s.Username
 		placement = ""
 	}

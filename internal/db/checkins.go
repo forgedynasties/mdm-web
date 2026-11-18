@@ -161,7 +161,11 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- Agent facts persist from the frame that carries them: a DPC agent
 			    -- announces itself once and stays DPC; a frame without the keys
 			    -- (delta / legacy client) leaves what was learned.
-			    agent_kind         = CASE WHEN $4::jsonb->>'agent_type' = 'dpc' THEN 'dpc' ELSE devices.agent_kind END,
+			    -- agent_kind is set when the row is made (above) and by enrolment
+			    -- (EnrollDevice): telemetry never changes it. A check-in claiming
+			    -- agent_type dpc used to turn a firmware device into a Standard one,
+			    -- with the public key (18 Nov 2026 audit).
+			    agent_kind         = devices.agent_kind,
 			    capabilities       = CASE WHEN jsonb_typeof($4::jsonb->'capabilities') = 'array'
 			                              THEN $4::jsonb->'capabilities' ELSE devices.capabilities END,
 			    capabilities_degraded = CASE WHEN jsonb_typeof($4::jsonb->'capabilities_degraded') = 'array'

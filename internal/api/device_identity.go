@@ -82,12 +82,13 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 	}
 	if serial != "" && h.serialHasOwnKey(r.Context(), serial) {
 		ip := ratelimit.ClientIP(r)
-		// Either shared key resets a serial's own key again (user, 30 Oct 2026: "get rid
-		// of the possible impersonation alert, auto reset key also"), the public one
-		// included, so v2.0 images and reflashed devices come back by themselves. This
-		// undoes the 26 Oct audit fix (with the public key anyone knowing a serial can
-		// re-key it); making it secure again is in ~/aio-mdm/TODO.md.
-		if h.recoverLostKey(r.Context(), serial, ip) {
+		// Only the enrollment key resets a serial's own key (pre-pentest audit, 18 Nov
+		// 2026). The public key is in the public client source, so accepting it let anyone
+		// who knew a serial re-key the device and receive its staff PIN, Wi-Fi passwords
+		// and remote input. Images since 30 Sep carry the enrollment key; a device with
+		// only the public key (v2.0 images) gets "Reset device key" from an admin. No
+		// daily ceiling and no impersonation alert, as decided 30 Oct.
+		if middleware.EnrollKeyUsed(r) && h.recoverLostKey(r.Context(), serial, ip) {
 			return true
 		}
 		log.Printf("[device-auth] refused the shared key for %s (it has its own key) from %s", serial, ip)

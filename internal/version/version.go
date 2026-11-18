@@ -32,6 +32,17 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.7",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: only the enrollment key lets a device with a lost key back in by itself. A device that has only the public key needs Reset device key.",
+			"Security: an enrollment token no longer gives a new key to a Standard device that is online with its own. Viewers enrol into the To place queue, not straight into a venue.",
+			"Security: signing in with Microsoft to an unverified sign-up replaces that account's password and signs it out everywhere.",
+			"Security: a device's command output is kept only for commands sent to it, up to 8 MB each; oversized images (over 16 megapixels) are refused before decoding.",
+			"Security: a check-in can't change a device from Firmware to Standard; one caller can't use up another device's request budget; a stored session value can't be used to sign in; nicknames are escaped on the owner home.",
+		},
+	},
+	{
 		Version: "1.64.6",
 		Date:    "2026-11-17",
 		Changes: []string{

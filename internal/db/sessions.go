@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,6 +51,11 @@ func (d *DB) GetSession(ctx context.Context, id string) (*Session, error) {
 	if err != nil {
 		// A row from before hashing (or written by the old server during a deploy):
 		// accept it once and store it hashed.
+		// Never for a value that is itself a stored hash: someone who read the table
+		// would be signed in with it (18 Nov 2026 audit).
+		if strings.HasPrefix(id, "h:") {
+			return nil, err
+		}
 		if err2 := d.pool.QueryRow(ctx, q, id).Scan(&s.UserID, &s.Username, &s.Role, &s.CreatedAt, &s.LastSeen, &s.ExpiresAt); err2 != nil {
 			return nil, err
 		}

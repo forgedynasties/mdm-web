@@ -247,6 +247,13 @@ func main() {
 	// summary pill on the Actions page stayed "in progress" until a reload
 	// re-derived it fresh. Mirrors the same ack the WS "command_ack" path applies
 	// for every other command type.
+	// A device streams output only for a command that was sent to it.
+	shellMgr.AcceptOutput = func(commandID, deviceID uuid.UUID) bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		ok, err := database.CommandTargetsDevice(ctx, commandID, deviceID)
+		return err == nil && ok
+	}
 	shellMgr.OnCommandDone = func(deviceID, commandID uuid.UUID, exitCode int) {
 		ctx := context.Background()
 		out := shellMgr.CommandOutput(commandID, deviceID)

@@ -53,7 +53,7 @@ func (h *Handler) BatteryLog(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "battery-log schema " + strconv.Itoa(req.Schema) + " is not supported"})
 		return
 	}
-	if h.deviceRateLimited(w, req.Serial) {
+	if h.deviceRateLimited(w, r, req.Serial) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, req.Serial) {

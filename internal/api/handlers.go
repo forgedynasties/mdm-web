@@ -175,8 +175,16 @@ func decodeDeviceJSON(body io.Reader, v any) error {
 // deviceRateLimited records one request for serial and, if the per-minute burst is
 // exceeded, writes a 429 and returns true. Keyed by serial (the device identity)
 // rather than IP, since many devices share a restaurant/lab NAT.
-func (h *Handler) deviceRateLimited(w http.ResponseWriter, serial string) bool {
-	n, retry := h.deviceRate.Hit(serial)
+//
+// The budget is the device's own only for a request made with that device's key. Every
+// other caller naming the serial (a shared key, or another device's key) shares a second
+// one, so a stranger can't use up a keyed device's budget (18 Nov 2026 audit).
+func (h *Handler) deviceRateLimited(w http.ResponseWriter, r *http.Request, serial string) bool {
+	key := "shared:" + serial
+	if middleware.BoundSerial(r) == serial {
+		key = serial
+	}
+	n, retry := h.deviceRate.Hit(key)
 	if n > deviceRateBurst {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
@@ -784,6 +792,10 @@ func (h *Handler) recoverWithOldToken(w http.ResponseWriter, r *http.Request, to
 	if err != nil {
 		return false
 	}
+	// Same rule as a fresh enrolment: never re-key a device that still uses its key.
+	if dev, err := h.db.GetDevice(ctx, serial); err != nil || dev == nil || h.deviceLiveNow(dev) {
+		return false
+	}
 	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
 		return false
@@ -1375,7 +1387,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "extra telemetry too large"})
 		return
 	}
-	if h.deviceRateLimited(w, req.SerialNumber) {
+	if h.deviceRateLimited(w, r, req.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, req.SerialNumber) {
@@ -2117,7 +2129,7 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and request_id are required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -2745,7 +2757,7 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number is required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -2842,7 +2854,7 @@ func (h *Handler) OtaProgress(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -2881,7 +2893,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -3141,6 +3153,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// reenrollOnlineWindow: a device heard from this recently still holds its key.
+const reenrollOnlineWindow = 5 * time.Minute
+
+// deviceLiveNow: on a socket, or heard from within reenrollOnlineWindow.
+func (h *Handler) deviceLiveNow(dev *db.Device) bool {
+	return h.hub.IsConnected(dev.ID) || time.Since(dev.LastSeenAt) < reenrollOnlineWindow
+}
+
 // reenrollRefusal says why an enrollment token may not take this serial, or "". A token
 // re-keys the serial and moves it into its venue, so it must not reach a device that is
 // already somebody's (security audit, 26 Oct 2026): a firmware device is never re-keyed
@@ -3155,7 +3175,16 @@ func (h *Handler) reenrollRefusal(ctx context.Context, serial string, venue *uui
 	if dev.AgentKind == product.KindFirmware {
 		return "this serial is a firmware device already in the MDM; enrollment can't take it over"
 	}
-	if !h.serialHasOwnKey(ctx, serial) || dev.RestaurantID == nil {
+	if !h.serialHasOwnKey(ctx, serial) {
+		return ""
+	}
+	// A device that is online with its own key has not lost it: re-keying it would hand
+	// its identity to whoever holds the token (pre-pentest audit, 18 Nov 2026). A
+	// factory-reset device is offline on its old key, so it still re-enrols.
+	if h.deviceLiveNow(dev) {
+		return "this device is online with its own key; reset its key in the MDM first"
+	}
+	if dev.RestaurantID == nil {
 		return ""
 	}
 	if venue != nil && *venue == *dev.RestaurantID {
