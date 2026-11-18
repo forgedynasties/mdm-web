@@ -614,7 +614,7 @@ func (h *Handler) scopeName(ctx context.Context, g db.AccessLevel) string {
 
 // safeBack keeps a redirect on this site.
 func safeBack(v, def string) string {
-	if strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "//") {
+	if strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "//") && !strings.ContainsAny(v, "\\\t\r\n") {
 		return v
 	}
 	return def

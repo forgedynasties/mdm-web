@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -77,6 +78,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// Every other type carries a single payload.
 	installURLs := dedupeStrings(formValues(r, "apk_url"))
 	uninstallPkgs := dedupeStrings(formValues(r, "package"))
+	if why := h.installURLRefused(r, cmdType, append(installURLs, strings.TrimSpace(r.FormValue("apk_url")))...); why != "" {
+		http.Error(w, why, http.StatusForbidden)
+		return
+	}
 	if cmdType == "install_apk" && len(installURLs) == 0 {
 		http.Redirect(w, r, "/commands", http.StatusFound)
 		return
@@ -632,4 +637,37 @@ func (h *Handler) rebootAllOffline(w http.ResponseWriter, r *http.Request, seria
 		back = ref.Path
 	}
 	h.hxRedirect(w, r, back+"?flash="+url.QueryEscape(msg)+"&flash_type=error")
+}
+
+// installURLRefused says why this person may not install from apkURL, or "". Below the
+// super admin an install takes a build from the app library or one this server hosts
+// (the MDM clients), never an address typed into a request: the library is where the
+// package and signer rules are applied (18 Nov 2026 audit).
+func (h *Handler) installURLRefused(r *http.Request, cmdType string, urls ...string) string {
+	if (cmdType != "install_apk" && cmdType != "app_update") || h.role(r) == "admin" {
+		return ""
+	}
+	var lib map[string]bool
+	for _, raw := range urls {
+		if raw == "" {
+			continue
+		}
+		if u, err := url.Parse(raw); err == nil && (strings.HasPrefix(u.Path, "/apps/") || strings.HasPrefix(u.Path, "/agent/")) {
+			own := raw[:len(raw)-len(u.RequestURI())]
+			if own == h.baseURL(r) || slices.Contains(h.publicOrigins, own) {
+				continue
+			}
+		}
+		if lib == nil {
+			lib = map[string]bool{}
+			apps, _ := h.db.ListApps(r.Context())
+			for _, a := range apps {
+				lib[a.ApkURL] = true
+			}
+		}
+		if !lib[raw] {
+			return "Installs take a build from the app library. Add the APK there first."
+		}
+	}
+	return ""
 }

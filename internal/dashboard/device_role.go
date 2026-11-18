@@ -240,6 +240,10 @@ func (h *Handler) AppDeviceRole(w http.ResponseWriter, r *http.Request, s *db.Se
 		if acc := h.accessFor(r.Context(), s.Role, s.Username); !acc.visible(d.ID) || acc.engineerVenueCount("notes", []uuid.UUID{d.ID}) > 0 {
 			appErr(w, http.StatusForbidden, "that device is outside your access")
 			return
+		} else if d.RestaurantID != nil && !acc.canDevice("notes", d.ID) {
+			// At a venue: the same right the dashboard asks for (18 Nov 2026 audit).
+			appErr(w, http.StatusForbidden, "that device is at a venue: its role is changed in the MDM")
+			return
 		}
 		if err := h.db.SetDeviceClass(r.Context(), body.Serial, body.Class, "enroll"); err != nil {
 			if errors.Is(err, db.ErrRoleNotAllowed) {

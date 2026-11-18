@@ -31,7 +31,12 @@ var (
 	placesClient = &http.Client{Timeout: 8 * time.Second}
 )
 
-const placesPerMinute = 60
+const (
+	placesPerMinute = 60
+	placesPerDay    = 3000
+)
+
+var placesDay = ratelimit.New(24 * time.Hour)
 
 // placesKey is GOOGLE_PLACES_API_KEY, else the geocoding key (user, 4 Nov 2026: "use the same
 // geocoding api key", which has Places (New) on it).
@@ -51,6 +56,12 @@ func placesGate(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if n, _ := placesHits.Hit(ratelimit.ClientIP(r)); n > placesPerMinute {
 		http.Error(w, "too many searches, try again in a minute", http.StatusTooManyRequests)
+		return false
+	}
+	// And a ceiling for everyone together, per server copy: the page is public and each
+	// call is billed (18 Nov 2026 audit).
+	if n, _ := placesDay.Hit("all"); n > placesPerDay {
+		http.Error(w, "search is busy, try again later", http.StatusTooManyRequests)
 		return false
 	}
 	return true

@@ -96,7 +96,33 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "this device uses its own key"})
 		return false
 	}
+	// A shared key naming a serial we have never seen makes a new device. One address
+	// may add newSerialsPerHour of them: the key is public, and without a limit anyone
+	// could fill the fleet with made-up devices (18 Nov 2026 audit).
+	if serial != "" && !h.serialKnown(r.Context(), serial) {
+		if n, retry := newSerialHits.Hit(ratelimit.ClientIP(r)); n > newSerialsPerHour {
+			w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many new devices from this address"})
+			return false
+		}
+	}
 	return true
+}
+
+const newSerialsPerHour = 300
+
+var newSerialHits = ratelimit.New(time.Hour)
+
+// serialKnown: the serial has a device row.
+func (h *Handler) serialKnown(ctx context.Context, serial string) bool {
+	ownKeyCache.Lock()
+	_, ok := ownKeyCache.m[serial]
+	ownKeyCache.Unlock()
+	if ok {
+		return true
+	}
+	_, err := h.db.DeviceHasOwnKey(ctx, serial)
+	return err == nil
 }
 
 // wsPeers remembers the address of each device's current socket, and when the device

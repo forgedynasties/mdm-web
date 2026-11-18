@@ -320,6 +320,10 @@ func main() {
 	}
 	splashFS := http.StripPrefix("/splash-img/", http.FileServer(http.Dir(splashDir)))
 	mux.Handle("GET /splash-img/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") { // no directory listing: the names are the secret
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 		splashFS.ServeHTTP(w, r)
 	}))

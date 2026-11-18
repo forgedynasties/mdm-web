@@ -32,6 +32,17 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.8",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: installs take a build from the app library or one this server hosts; only a super admin can install from another address.",
+			"Security: engineers can't place a device at a venue; deleting a venue is for an Ops lead or an admin; a device at a venue has its role changed in the MDM, not from AIO Enroll, unless you can operate it.",
+			"Security: a caller with the right key is never refused because of someone else's wrong keys from the same network; one address can add at most 300 new devices an hour with the shared key.",
+			"Security: the app library accepts only its own uploads and refuses APKs whose manifest or resources would unpack to an unreasonable size; log bundles leave out properties named key, token, secret or password.",
+			"Security: live logcat tags and buffers can't be read as options; the public restaurant search has a daily ceiling; the splash folder no longer lists its files.",
+		},
+	},
+	{
 		Version: "1.64.7",
 		Date:    "2026-11-18",
 		Changes: []string{

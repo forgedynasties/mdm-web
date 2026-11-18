@@ -29,7 +29,7 @@ s "memory"; dumpsys meminfo 2>/dev/null | head -n 45
 s "wifi"; dumpsys wifi 2>/dev/null | grep -E "mWifiInfo|Supplicant state|mNetworkInfo" | head -n 20
 s "ota (update_engine)"; logcat -d -s update_engine 2>/dev/null | tail -n 150
 s "crash buffer"; logcat -d -b crash -v threadtime 2>/dev/null | tail -n 400
-s "getprop"; getprop
+s "getprop"; getprop | grep -viE "key|token|secret|passw"
 s "logcat (last 3000 lines)"; logcat -d -b main,system -v threadtime -t 3000 2>/dev/null`
 
 func collectLogsPayload() json.RawMessage {

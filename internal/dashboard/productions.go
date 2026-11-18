@@ -3,6 +3,7 @@ package dashboard
 import (
 	"encoding/csv"
 	"fmt"
+	"html/template"
 	_ "image/gif"
 	_ "image/jpeg"
 	"net/http"
@@ -214,6 +215,7 @@ func (h *Handler) ProductionPreviewSerial(w http.ResponseWriter, r *http.Request
 
 	batch := db.EncodeBatch(batchMonth, batchYear)
 	prefix := productCode + modelCode + variant + sku + batch
+	prefix = template.HTMLEscapeString(prefix)
 	first := fmt.Sprintf("%s%05d", prefix, startSeq)
 	last := fmt.Sprintf("%s%05d", prefix, startSeq+quantity-1)
 	fmt.Fprintf(w, `<code class="serial-preview">%s</code> → <code class="serial-preview">%s</code> &nbsp;<span class="muted small">batch <strong>%s</strong></span>`, first, last, batch)

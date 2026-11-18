@@ -4,6 +4,7 @@
 package apkstore
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -329,6 +330,9 @@ func (s *Store) Parse(ctx context.Context, key string) (*Meta, error) {
 		return nil, errors.New("empty object")
 	}
 	reader := &s3ReaderAt{ctx: ctx, client: s.client, bucket: s.bucket, key: key, size: size}
+	if err := checkEntrySizes(reader, size); err != nil {
+		return nil, err
+	}
 	pkg, err := apk.OpenZipReader(reader, size)
 	if err != nil {
 		return nil, fmt.Errorf("parse apk: %w", err)
@@ -336,6 +340,34 @@ func (s *Store) Parse(ctx context.Context, key string) (*Meta, error) {
 	defer pkg.Close()
 
 	return metaFrom(pkg)
+}
+
+// The parser reads these entries whole into memory, so their declared sizes are checked
+// first (archive/zip refuses an entry that inflates past what it declares). Without it a
+// few megabytes of APK could inflate to gigabytes (18 Nov 2026 audit).
+const (
+	maxManifestBytes  = 16 << 20
+	maxResourcesBytes = 128 << 20
+)
+
+func checkEntrySizes(r io.ReaderAt, size int64) error {
+	zr, err := zip.NewReader(r, size)
+	if err != nil {
+		return fmt.Errorf("parse apk: %w", err)
+	}
+	for _, f := range zr.File {
+		switch f.Name {
+		case "AndroidManifest.xml":
+			if f.UncompressedSize64 > maxManifestBytes {
+				return errors.New("parse apk: AndroidManifest.xml is too large")
+			}
+		case "resources.arsc":
+			if f.UncompressedSize64 > maxResourcesBytes {
+				return errors.New("parse apk: resources.arsc is too large")
+			}
+		}
+	}
+	return nil
 }
 
 // ParseFile reads an APK from the local filesystem. Same metadata as Parse, for

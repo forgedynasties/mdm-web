@@ -3,6 +3,7 @@ package dashboard
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -58,6 +59,11 @@ func (h *Handler) adbRowFor(d *db.Device, online bool, hist *db.AdbTCPFleetRow) 
 		_ = json.Unmarshal(d.LatestExtra, &p)
 	}
 	code := extraInt64(d.LatestExtra, "agent_version_code")
+	// The address is what the device reported and ends up in "adb connect" lines people
+	// copy into a terminal: keep it only when it is an IP address.
+	if net.ParseIP(p.IP) == nil {
+		p.IP = ""
+	}
 	r := adbRow{Device: d, Online: online, IP: p.IP}
 	r.CanSwitch = d.Supports("adb_tcp") && code >= adbTCPMinClientCode
 	switch d.AgentKind {

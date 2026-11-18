@@ -582,6 +582,10 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if why := h.installURLRefused(r, cmdType, apkURL); why != "" {
+		http.Error(w, why, http.StatusForbidden)
+		return
+	}
 	if cmdType == "install_apk" && apkURL == "" {
 		http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 		return
