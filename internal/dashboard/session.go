@@ -19,6 +19,13 @@ import (
 // account) within the limiter window before further attempts are refused.
 const loginMaxFailures = 8
 
+// loginMaxFailuresIP is the same for one source address across ALL accounts. It is higher on
+// purpose: an office shares one public address, and with 8 here a few colleagues mistyping
+// locked every one of them out of the dashboard for 15 minutes (18 Nov 2026: two people on
+// mdm.dev). One account from one address is still stopped at loginMaxFailures; this only
+// stops one address trying many accounts.
+const loginMaxFailuresIP = 60
+
 // sessionIdleTimeout logs out a session that has gone this long without an
 // authenticated request, independent of the absolute lifetime
 // (cfg.SessionTimeout(), default 24h). Activity slides last_seen forward

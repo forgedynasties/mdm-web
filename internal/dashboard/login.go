@@ -44,7 +44,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	// guessing run is still stopped.
 	userKey := "u:" + user + "|" + ip
 	userAnyKey := "ua:" + user
-	for key, max := range map[string]int{ip: loginMaxFailures, userKey: loginMaxFailures, userAnyKey: 6 * loginMaxFailures} {
+	for key, max := range map[string]int{ip: loginMaxFailuresIP, userKey: loginMaxFailures, userAnyKey: 6 * loginMaxFailures} {
 		if n, retry := h.loginFails.Count(key); n >= max {
 			mins := int(retry.Minutes()) + 1
 			w.WriteHeader(http.StatusTooManyRequests)

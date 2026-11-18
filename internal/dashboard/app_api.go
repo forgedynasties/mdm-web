@@ -111,7 +111,7 @@ func (h *Handler) passwordLogin(w http.ResponseWriter, r *http.Request, roleOK f
 	// guessing run is still stopped.
 	userKey := "u:" + body.Username + "|" + ip
 	userAnyKey := "ua:" + body.Username
-	for key, max := range map[string]int{ip: loginMaxFailures, userKey: loginMaxFailures, userAnyKey: 6 * loginMaxFailures} {
+	for key, max := range map[string]int{ip: loginMaxFailuresIP, userKey: loginMaxFailures, userAnyKey: 6 * loginMaxFailures} {
 		if n, retry := h.loginFails.Count(key); n >= max {
 			w.Header().Set("Retry-After", fmt.Sprint(int(retry.Seconds())+1))
 			appErr(w, http.StatusTooManyRequests, fmt.Sprintf("too many failed attempts, try again in %d minute(s)", int(retry.Minutes())+1))

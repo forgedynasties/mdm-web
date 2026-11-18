@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.20",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Sign-in: a few wrong passwords from one office no longer lock everyone on that network out. One account from one address is still stopped after 8 failures; one address trying many accounts after 60.",
+		},
+	},
+	{
 		Version: "1.64.19",
 		Date:    "2026-11-18",
 		Changes: []string{
