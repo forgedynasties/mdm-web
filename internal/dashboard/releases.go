@@ -858,7 +858,37 @@ func (h *Handler) ReleaseCreate(w http.ResponseWriter, r *http.Request) {
 	// progress is invisible to everyone but devs and admins until it is turned off.
 	_ = h.db.SetReleaseDev(r.Context(), rel.ID, r.FormValue("is_dev") == "1")
 	h.audit(r, "release.create", version, "")
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", rel.ID), http.StatusSeeOther)
+	// AP1 (picked Nov 2026): the New release dialog can bring the first package and a QFIL
+	// link with it, so a release is made in one save. Without them this is the old call.
+	if packageURLFromForm(r) != "" {
+		if _, ok := h.createPackageFromForm(w, r, rel.Version, rel.Product); !ok {
+			return // the release exists; the error says what was wrong with the package
+		}
+		h.audit(r, "release.package.add", version, "")
+	}
+	if url := qfilURLFromForm(r); url != "" && roleCanQFIL(h.role(r)) {
+		if _, err := h.db.CreateQFILPackage(r.Context(), rel.ID, strings.TrimSpace(r.FormValue("qfil_label")), url, "", h.currentUsername(r)); err == nil {
+			h.audit(r, "release.qfil.add", strconv.Itoa(rel.ID), "")
+		}
+	}
+	dest := fmt.Sprintf("/releases/%d", rel.ID)
+	if r.FormValue("redirect") == "list" {
+		dest = fmt.Sprintf("/releases?release=%d", rel.ID)
+	}
+	http.Redirect(w, r, dest, http.StatusSeeOther)
+}
+
+// roleCanQFIL: who may attach a flashing bundle (the release page's rule).
+func roleCanQFIL(role string) bool { return role == "admin" || role == "operator" }
+
+// qfilURLFromForm reads the QFIL link, honouring the base64 (WAF-bypass) field.
+func qfilURLFromForm(r *http.Request) string {
+	if b64 := strings.TrimSpace(r.FormValue("qfil_url_b64")); b64 != "" {
+		if dec, err := base64.RawURLEncoding.DecodeString(b64); err == nil {
+			return strings.TrimSpace(string(dec))
+		}
+	}
+	return strings.TrimSpace(r.FormValue("qfil_url"))
 }
 
 // ReleaseAddPackage adds another package (e.g. an incremental) to an existing
@@ -889,7 +919,12 @@ func (h *Handler) ReleaseAddPackage(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.createPackageFromForm(w, r, rel.Version, rel.Product); !ok {
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+	// The Releases pane adds packages in place and asks to come back to it.
+	dest := fmt.Sprintf("/releases/%d", id)
+	if back := strings.TrimSpace(r.FormValue("redirect")); strings.HasPrefix(back, "/releases") && !strings.HasPrefix(back, "//") {
+		dest = back
+	}
+	http.Redirect(w, r, dest, http.StatusSeeOther)
 }
 
 // packageURLFromForm reads the OTA package URL from the add/inspect form, honoring the
@@ -916,6 +951,16 @@ func (h *Handler) PackageInspect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
+	h.inspectPackageURL(w, r)
+}
+
+// PackageInspectNew is the same read for the New release dialog, where the release does not
+// exist yet (AP1).
+func (h *Handler) PackageInspectNew(w http.ResponseWriter, r *http.Request) {
+	h.inspectPackageURL(w, r)
+}
+
+func (h *Handler) inspectPackageURL(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	w.Header().Set("Content-Type", "application/json")
 	url := packageURLFromForm(r)
@@ -936,8 +981,13 @@ func (h *Handler) PackageInspect(w http.ResponseWriter, r *http.Request) {
 	// fingerprint (and ro.build.id) is held constant for Play Integrity, so it doesn't
 	// identify the version — reporting it would be misleading. We return what IS
 	// meaningful: full vs incremental, the target device, and size/reachability.
+	// Whether installing it factory-resets the device (AP1 shows it in red before saving).
+	wctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	wipe, _ := ota.Wipes(wctx, url)
+	cancel()
 	json.NewEncoder(w).Encode(map[string]any{
 		"ok":             true,
+		"wipe":           wipe,
 		"size_bytes":     m.SizeBytes,
 		"ota_type":       m.OTAType,
 		"type":           typ,

@@ -27,7 +27,7 @@ function pkgVerify() {
       if (!d.ok) { out.innerHTML = '<span class="pkg-bad">✗ ' + esc(d.error || 'Could not read the package') + '</span>'; return; }
       if (d.type) setPkgType(d.type);
       var sz = d.size_bytes > 1073741824 ? (d.size_bytes / 1073741824).toFixed(2) + ' GB' : Math.round(d.size_bytes / 1048576) + ' MB';
-      out.innerHTML = '<span class="pkg-ok">✓ Reachable</span> <span class="pkg-chip">' + sz + '</span> <span class="pkg-chip">' + esc(d.type) + (d.device ? ' · for ' + esc(d.device) : '') + '</span>';
+      out.innerHTML = '<span class="pkg-ok">✓ Reachable</span> <span class="pkg-chip">' + sz + '</span> <span class="pkg-chip">' + esc(d.type) + (d.device ? ' · for ' + esc(d.device) : '') + '</span>' + (d.wipe ? ' <span class="pkg-bad">⚠ wipes the device: apps, settings and data are erased</span>' : '');
     })
     .catch(function () { out.innerHTML = '<span class="pkg-bad">✗ Couldn’t reach the package.</span>'; });
 }
