@@ -32,6 +32,15 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.12",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"QA audit fixes: a device socket can only report its own serial; the shared key is refused (not accepted) while the key lookup is down; a repeated or late command reply changes nothing; a command is handed to one poll at a time.",
+			"Venues and groups: a taken group name says so (409), service hours and timezones are checked, names and notes have size limits, and removing or handing over devices checks the venue and each device's access.",
+			"Hardening: QA history and battery log limits, migrations and partitions take a lock, job leases use database time, resent and scheduled shell commands obey the shell switch, and the database tests now run in CI.",
+		},
+	},
+	{
 		Version: "1.64.11",
 		Date:    "2026-11-18",
 		Changes: []string{
