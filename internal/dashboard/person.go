@@ -116,6 +116,7 @@ func (h *Handler) renderPerson(w http.ResponseWriter, r *http.Request, u *db.Use
 		"IsSuperAdmin":   h.role(r) == "admin",
 		"Back":           "/users/" + u.ID.String() + "/profile",
 		"FirstName":      first,
+		"Reach":          h.personReachOf(ctx, u, r.URL.Query().Get("serial")),
 	})
 }
 

@@ -117,7 +117,7 @@ func TestPersonPageRenders(t *testing.T) {
 		"CopyFrom": []db.User{{Username: "abdullah", FirstName: "Abdullah", Role: "engineer"}},
 	},
 		`Hafiz can look at every device.`, `Engineer role`, `their own`, `the Test Cycles group`, `Give Hafiz access`,
-		`action="/users/access/levels"`, `/users/access/levels/`, `name="subject" value="hafiz"`,
+		`action="/users/access/levels"`, `/users/access/levels/`, `name="subject" value="hafiz"`, `Can Hafiz reach a device?`, `Remove Hafiz`,
 		`action="/users/`+u.ID.String()+`/access-where"`, `name="scope" value="" checked`, `Copy their Where`, `value="abdullah"`)
 	// With a Where: Groups picked, the QA box ticked, Elsewhere Hidden, the row marked as theirs.
 	w := whereChoiceOf(&db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{g}, Elsewhere: "hidden", SetBy: "ali"}, map[uuid.UUID]string{g: "QA"})
