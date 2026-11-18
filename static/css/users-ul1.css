@@ -1,0 +1,100 @@
+/* Users list UL1 (18 Nov 2026): the Overview's bento on the people table. Builds on the first
+   part of ovb-device.css (.ovb-c, .ovb-ch, .ovb-seg, .ovb-ring, .ovb-pb, .ovb-pill, .ovb-dot).
+   Left: People ring + actions per day, By role rows. Right: housekeeping tiles over the table. */
+
+.ul1p{margin-top:4px}
+.ul1-g{display:grid;grid-template-columns:minmax(280px,300px) minmax(0,1fr);gap:14px;align-items:start}
+.ul1-l,.ul1-r{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
+.ul1-c{padding:16px 18px}
+.ul1-ringrow{display:flex;align-items:center;gap:16px}
+.ul1-kv{flex:1;min-width:0}
+.ul1-kv>div{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0}
+.ul1-kv span{color:var(--text-2)}
+.ul1-cap{margin-top:10px;font-size:11.5px;color:var(--text-2)}
+.ul1-days{display:flex;align-items:flex-end;gap:6px;height:44px;margin-top:6px}
+.ul1-days i{flex:1;border-radius:6px;background:var(--border);display:block;min-height:4px}
+.ul1-days i.t{background:var(--ovb-g)}
+.ul1-dayl{display:flex;gap:6px;font-size:10px;color:var(--muted)}
+.ul1-dayl span{flex:1;text-align:center}
+.ul1-rlist{flex:1 1 60px;display:flex;flex-direction:column;gap:2px;min-height:0;overflow:auto;scrollbar-width:thin}
+.ul1-rrow{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;font:inherit;font-size:12.5px;color:var(--text);padding:5px 8px;border-radius:10px;cursor:pointer;text-align:left}
+.ul1-rrow:hover{background:var(--surface2)}
+.ul1-rrow.on{background:var(--accent-fill);color:#fff}
+.ul1-rrow .nm{width:118px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ul1-rrow .ovb-pb{flex:1}
+.ul1-rrow .n{width:22px;text-align:right;font-weight:600}
+.ul1-rrow.on .ovb-pb{background:rgba(255,255,255,.3)}
+.ul1-rrow.on .ovb-pb i{background:#fff}
+.ul1-lk{font:inherit;font-size:12px;font-weight:600;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:2px 4px}
+.ul1-lk[hidden]{display:none}
+.ul1-more{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12.5px}
+.ul1-more a{color:var(--accent-text);text-decoration:none;font-weight:600}
+
+/* tiles */
+.ul1-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.ul1-tile{background:var(--surface);border-radius:18px;padding:12px 16px;border:0;text-align:left;font:inherit;cursor:pointer;display:flex;flex-direction:column;gap:2px;color:var(--text)}
+.ul1-tile b{font-size:24px;font-weight:650;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.ul1-tile b .ovb-dot{margin-top:0}
+.ul1-tile span{font-size:12px;color:var(--text-2)}
+.ul1-tile:hover{background:var(--surface2)}
+.ul1-tile.on{outline:2px solid var(--accent-fill)}
+.ul1-tile:focus-visible,.ul1-rrow:focus-visible,.ul1-fp:focus-visible{outline:2px solid var(--accent-fill);outline-offset:1px}
+
+/* table card */
+.ul1-card{display:flex;flex-direction:column;min-height:0;padding:16px 18px}
+.ul1-tl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.ul1-sp{flex:1}
+.ul1-q{font:inherit;font-size:12.5px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:99px;padding:6px 14px;width:220px;box-sizing:border-box;max-width:100%}
+.ul1-fp{font:inherit;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:99px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.ul1-fp:hover{background:var(--surface2)}
+.ul1-fp.on{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
+.ul1-sc{overflow:auto;min-height:0;flex:1;scrollbar-width:thin}
+.ul1-sc[hidden],.ul1-wait[hidden]{display:none}
+.ul1-tb{width:100%;border-collapse:collapse;font-size:12.5px}
+.ul1-tb th{position:sticky;top:0;background:var(--surface);z-index:1;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.ul1-tb th.on{color:var(--text)}
+.ul1-sort{font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;background:none;border:0;padding:0;cursor:pointer;font-weight:inherit}
+.ul1-sort i{font-style:normal;margin-left:3px}
+.ul1-tb td .cc-pill{white-space:nowrap}
+.ul1-tb td{padding:7px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+.ul1-tb tbody tr{cursor:pointer}
+.ul1-tb tbody tr:hover td{background:var(--surface2)}
+.ul1-tb tr[hidden]{display:none}
+.ul1-who{display:flex;align-items:center;gap:10px;min-width:0;color:inherit;text-decoration:none}
+.ul1-who .ubub{width:30px;height:30px;font-size:12px;flex:none}
+.ul1-who .t{min-width:0}
+.ul1-who b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ul1-who small{display:block;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ul1-op{color:var(--text-2);max-width:300px;overflow:hidden;text-overflow:ellipsis}
+.ul1-seen{white-space:nowrap;color:var(--text-2)}
+.ul1-ac{width:44px;text-align:right}
+.ul1-st{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.ul1-st i{width:7px;height:7px;border-radius:50%;background:var(--muted);display:block}
+.ul1-st.g i{background:var(--ovb-g)}.ul1-st.w i{background:var(--ovb-o)}.ul1-st.y i{background:var(--ovb-y)}
+.ul1-none{padding:30px;text-align:center;color:var(--muted)}
+.ul1-none[hidden]{display:none}
+
+/* waiting list (unverified sign-ups) */
+.ul1-wh{margin:0 0 10px;padding:10px 12px;background:var(--ovb-page,var(--canvas));border-radius:12px;font-size:12.5px;color:var(--text-2)}
+.ul1-wh b{color:var(--text)}
+.ul1-wait .uu-row{padding:10px 4px}
+
+/* desktop window: the page fits, the table scrolls inside its card */
+html.shell .ul1p.fit{height:var(--ul1-h);display:flex;flex-direction:column}
+html.shell .ul1p.fit .ul1-g{flex:1;min-height:0;grid-template-rows:minmax(0,1fr)}
+html.shell .ul1p.fit .ul1-g{align-items:stretch}
+html.shell .ul1p.fit .ul1-card{flex:1}
+html.shell .ul1p.fit .ul1-roles{flex:1;min-height:0;display:flex;flex-direction:column}
+html.shell main#main:has(.ul1p.fit){overflow:hidden}
+
+@media (max-width:1100px),(max-height:639px){
+  .ul1-g{grid-template-columns:minmax(0,1fr)}
+  .ul1-sc{max-height:560px}
+  .ul1-r{order:-1}
+}
+@media (max-width:720px){
+  .ul1-c,.ul1-card{padding:16px}
+  .ul1-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .ul1-q{width:100%;flex:1 1 100%}
+  .ul1-sp{display:none}
+}

@@ -73,8 +73,9 @@ func TestPeopleListRenders(t *testing.T) {
 		"CustomerRoles": []string{"owner", "staff"}, "RoleCount": map[string]int{"viewer": 2, "owner": 1},
 		"Waiting": []db.User{{ID: uuid.New(), Username: "new@x", Role: "viewer", CreatedAt: now}},
 		"Invites": 1, "Quiet": 1, "Assignable": []string{"viewer"}, "UsersTab": "people",
+		"UL1": buildUL1Test(in),
 	},
-		`data-clf="team"`, `data-clf="cust"`, `data-clf="inv"`, `data-clf="quiet"`, `data-clf="r-viewer"`,
+		`data-ul1-who="team"`, `data-ul1-who="cust"`, `data-ul1-flt="inv"`, `data-ul1-flt="quiet"`, `data-ul1-role="viewer"`,
 		`>Can operate</th>`, `Lab devices, the QA group`, `id="waiting-signups"`,
 		`id="invite-modal"`, `href="/users/access"`, `href="/activity"`, `aria-current="page"`)
 }
@@ -148,4 +149,9 @@ func TestActivityKinds(t *testing.T) {
 			t.Errorf("activityKind(%q) = %q, want %q", a, got, want)
 		}
 	}
+}
+
+func buildUL1Test(in p1Inputs) ul1View {
+	v := buildUsersP1(in)
+	return ul1View{Rail: v.Rail, Team: len(in.Team), Customers: len(in.Customers), Dash: "10 214"}
 }
