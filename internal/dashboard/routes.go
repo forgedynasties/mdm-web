@@ -54,9 +54,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /onboarding-demo/try/{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/onboarding-demo/try", http.StatusMovedPermanently)
 	})
-	mux.HandleFunc("GET /sneak-peek", h.SneakPeek)
-	mux.HandleFunc("GET /sneak-peek/alerts", h.SneakPeekAlerts)
-	mux.HandleFunc("GET /sneak-peek/fleet", h.SneakPeekFleet)
 
 	mux.HandleFunc("GET /{$}", h.Root)
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))

@@ -402,21 +402,6 @@
   </div>
   <main id="main" class="container" tabindex="-1">
 {{end}}{{/* end boosted/non-boosted chrome; <main> is now open in both paths */}}
-    {{if .Preview}}
-    {{/* Sneak-peek chrome, shared by every preview page: a banner, and a click
-         router that keeps in-app navigation inside the preview (dock → the dummy
-         version of each page) instead of bouncing a visitor to /login. */}}
-    <style>.dock a[href="/commands"],.dock a[href="/jobs"]{display:none!important}
-      /* Preview renders statically (no live SSE/htmx): make the entrance-animated
-         regions visible immediately so nothing stays stuck at opacity:0. */
-      .dv-rise-1,.dv-rise-2,.dv-rise-3,.ov3-w,.cc-rise{animation:none!important;opacity:1!important;transform:none!important}</style>
-    <div style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;margin:0 0 16px;padding:10px 16px;border-radius:12px;color:#fff;font-size:13px;font-weight:650;background:linear-gradient(90deg,#F9674E,#7A80F6)">
-      <span>Sneak peek — every number here is <b>sample data</b>, not a real fleet.</span>
-      <a href="/login" style="color:#fff;text-decoration:none;font-weight:750;border:1px solid rgba(255,255,255,.55);border-radius:40px;padding:4px 13px">Open the real dashboard →</a>
-      <a href="/" data-preview-exit style="color:#fff;text-decoration:none;opacity:.9">Exit</a>
-    </div>
-    <script src="/static/js/layout/preview-router.js?v={{assetVer}}"></script>
-    {{end}}
     <script src="/static/js/layout/back-links.js?v={{assetVer}}"></script>
 {{end}}
 

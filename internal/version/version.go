@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.24",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"New landing page (the door): the shield, the name, one line, Sign in, Microsoft sign-in when configured and Create account, with the six device types as a quiet row. The sneak-peek preview (/sneak-peek and its sample fleet) is gone.",
+		},
+	},
+	{
 		Version: "1.64.23",
 		Date:    "2026-11-18",
 		Changes: []string{

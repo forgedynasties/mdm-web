@@ -61,8 +61,7 @@
     // the popover's content is always already there before you click — fixes
     // it at the source instead of fighting the resulting repaint.
     var alertsListReady = false;
-    // Sneak peek has no session: /alerts/recent would answer with a redirect to /login.
-    var preview = location.pathname.indexOf('/sneak-peek') === 0;
+    var preview = false;
     window.refreshAlertsList = function () {
       var p = document.getElementById('alerts-pop');
       if (!p || preview) return;

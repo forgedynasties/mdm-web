@@ -144,7 +144,7 @@ var curatedPages = map[string]bool{
 	"lock": true, "adb": true, "users": true, "settings": true, "server": true, "enrollment": true,
 	"coverage": true, "groups": true, "map": true, "fleet-health": true, "battery": true,
 	"activity": true, "alert-config": true, "reports": true, "productions": true,
-	"visits": true, "my-visits": true, "pipeline": true, "sneak-peek": true, "boot-logo": true,
+	"visits": true, "my-visits": true, "pipeline": true, "boot-logo": true,
 	"commands": true, "kiosk": true, "manage": true, "packages": true, "schedules": true,
 }
 
