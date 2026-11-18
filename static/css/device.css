@@ -676,9 +676,9 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .app-list .app-tile>.app-tsub{grid-column:3/-2;text-align:left;justify-content:flex-start}
 .app-list .app-x-form{position:static;opacity:0}
 .app-list .app-tile:hover .app-x-form,.app-list .app-x-form:focus-within{opacity:1}
-.apl-sys>summary{list-style:none;cursor:pointer;padding:12px 16px 4px;font-size:12.5px;font-weight:650;color:var(--text);border-top:1px solid var(--border)}
+.apl-sys>summary{list-style:none;cursor:default;pointer-events:none;padding:12px 16px 4px;font-size:12.5px;font-weight:650;color:var(--text);border-top:1px solid var(--border)}
 .apl-sys>summary::-webkit-details-marker{display:none}
-.apl-sys>summary::before{content:"▸ ";color:var(--muted)}.apl-sys[open]>summary::before{content:"▾ "}
+.apl-sys>summary::before{content:""}
 
 /* The update line (U2, picked 27 Oct 2026): title, the steps, a link and one action. */
 .ota-ln{display:flex;align-items:center;gap:14px;padding:9px 14px;margin:0 0 12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;font-size:12.5px;box-shadow:var(--shadow-sm)}

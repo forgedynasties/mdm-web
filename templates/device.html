@@ -2383,8 +2383,8 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
   {{end}}
   {{range $L.User}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" false)}}{{end}}
   {{if $L.System}}
-  {{/* Folded into one line (A2, 5 Nov 2026); a search opens it. */}}
-  <details class="apl-sys" id="apps-sys"><summary id="apps-sys-sep">System apps <span class="muted">{{len $L.System}}</span></summary>
+  {{/* Always open: nothing on this list folds (18 Nov 2026, user). */}}
+  <details class="apl-sys" id="apps-sys" open><summary id="apps-sys-sep">System apps <span class="muted">{{len $L.System}}</span></summary>
   {{range $L.System}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" true)}}{{end}}
   </details>
   {{end}}
