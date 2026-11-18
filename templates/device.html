@@ -968,6 +968,7 @@
   function closePanel(){if(window.setDeviceTab)setDeviceTab('summary',document.getElementById('dd-tab-summary'))}
   function sync(){var o=null;KEYS.forEach(function(k){var p=document.getElementById('dd-panel-'+k);if(p&&!p.hidden)o=k});
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
+    if(o==='location'){setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}
     /* the graph card lives in the Today pane, and in the Graphs sheet while that is open */
     var home=document.getElementById('bt-graph-slot'),big=document.getElementById('bt-graphs-slot'),card=document.querySelector('.chart-card'),leg=document.getElementById('vt-legend');
     if(home&&big&&card){var want=(o==='graphs')?big:home;if(card.parentNode!==want){want.appendChild(card);if(leg)want.appendChild(leg);setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}}
@@ -979,6 +980,11 @@
   /* the graph card's "full screen" button opens the Graphs sheet instead of the browser's full screen (capture: ahead of vitals.js) */
   var fs=document.getElementById('chart-fs-btn');if(fs){fs.title='Open the graphs in a larger view';fs.setAttribute('aria-label','Open the graphs in a larger view');
     document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#chart-fs-btn')){e.stopPropagation();e.preventDefault();if(open==='graphs')closePanel();else openPanel('graphs')}},true)}
+  /* the panels that fetch their content when first shown (Activity, Health, …) are warmed up in the
+     background, so the sheet opens with its content instead of an empty frame that fills in later */
+  setTimeout(function(){if(!window.htmx)return;document.querySelectorAll('.dd-panel[data-dd-panel="activity"],.dd-panel[data-dd-panel="health"],.dd-panel[data-dd-panel="apps"]').forEach(function(p){
+    var lz=p.hasAttribute('hx-get')?[p]:[].slice.call(p.querySelectorAll(':scope > [hx-trigger^="dd-show"]'));
+    lz.forEach(function(l){window.htmx.process(l);window.htmx.trigger(l,'dd-show')})})},1200);
   var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
   sync();
   }
