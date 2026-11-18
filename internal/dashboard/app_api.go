@@ -115,6 +115,9 @@ func (h *Handler) passwordLogin(w http.ResponseWriter, r *http.Request, roleOK f
 		}
 	}
 	u, err := h.db.GetUserByUsername(r.Context(), body.Username)
+	if err != nil {
+		wastePasswordCheck(body.Password)
+	}
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)) != nil {
 		h.loginFails.Hit(ip)
 		h.loginFails.Hit(userKey)

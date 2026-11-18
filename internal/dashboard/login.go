@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"mdm/internal/mailer"
@@ -78,6 +80,12 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
+	}
+
+	if err != nil {
+		// No such account: spend the same time a wrong password does, so the answer's
+		// timing doesn't say which usernames exist (18 Nov 2026 audit).
+		wastePasswordCheck(pass)
 	}
 
 	// Failed attempt — count it against both the IP and the account.
@@ -288,9 +296,15 @@ func (h *Handler) ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resetURL := h.baseURL(r) + "/reset-password?token=" + token
-	if err := h.mail.Send(r.Context(), email, "Reset your password", mailer.ResetPasswordHTML(resetURL)); err != nil {
-		log.Printf("forgot-password: send reset email to %s: %v", email, err)
-	}
+	// Sent after the answer: the wait for the mail server would otherwise tell a real
+	// address from an unknown one (18 Nov 2026 audit).
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := h.mail.Send(ctx, email, "Reset your password", mailer.ResetPasswordHTML(resetURL)); err != nil {
+			log.Printf("forgot-password: send reset email to %s: %v", email, err)
+		}
+	}()
 	h.audit(r, "user.password_reset_requested", u.ID.String(), "")
 	sent()
 }
@@ -351,4 +365,14 @@ func (h *Handler) ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
 	_ = h.db.DeleteSessionsForUser(r.Context(), userID)
 	h.audit(r, "user.password_reset", userID.String(), "")
 	http.Redirect(w, r, "/login?reset=1", http.StatusFound)
+}
+
+var dummyHash = sync.OnceValue(func() []byte {
+	h, _ := bcrypt.GenerateFromPassword([]byte("no such account"), bcrypt.DefaultCost)
+	return h
+})
+
+// wastePasswordCheck does the work of a password check against no account.
+func wastePasswordCheck(pass string) {
+	_ = bcrypt.CompareHashAndPassword(dummyHash(), []byte(pass))
 }

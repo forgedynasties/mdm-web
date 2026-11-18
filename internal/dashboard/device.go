@@ -704,6 +704,7 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.audit(r, "device.remote_open", device.SerialNumber, "remote control opened")
 	h.render(w, r, "remote.html", map[string]any{
 		"Title":  "Remote — " + device.SerialNumber,
 		"Serial": device.SerialNumber,

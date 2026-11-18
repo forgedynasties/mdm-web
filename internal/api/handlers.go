@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -1151,7 +1152,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 			}
 			seen[p.Package] = struct{}{}
 			icon := p.Icon
-			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
+			if len(icon) > maxIconBytes || !pngBase64(icon) { // drop an oversized or non-PNG icon; keep the app row
 				icon = ""
 			}
 			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Launchable: p.Launchable, Icon: icon})
@@ -3272,4 +3273,14 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// pngBase64: v is standard base64 of a PNG. An app icon is stored for every device that
+// has the package and ends up in pages, so anything else a device sends is dropped.
+func pngBase64(v string) bool {
+	if v == "" {
+		return true
+	}
+	raw, err := base64.StdEncoding.DecodeString(v)
+	return err == nil && bytes.HasPrefix(raw, []byte("\x89PNG\r\n\x1a\n"))
 }

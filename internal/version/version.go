@@ -32,6 +32,15 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.9",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: sign-in and Forgot password take the same time whether or not the account exists.",
+			"Security: an app icon a device reports is kept only when it is a PNG; opening remote control is in the activity log.",
+			"Security: owners can't add an AIO team address as staff; the inventory export can't be read as formulas by a spreadsheet; the release package check shows what it read as text.",
+		},
+	},
+	{
 		Version: "1.64.8",
 		Date:    "2026-11-18",
 		Changes: []string{

@@ -147,6 +147,12 @@ func (h *Handler) TeamInvite(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Enter their email address.", http.StatusBadRequest)
 		return
 	}
+	// An AIO address is a team member's: they sign in with Microsoft and must not land in
+	// a customer account an owner made for them (18 Nov 2026 audit).
+	if strings.HasSuffix(email, "@aioapp.com") {
+		http.Error(w, "That is an AIO team address: it can't be added as staff.", http.StatusBadRequest)
+		return
+	}
 	mine := h.customerVenues(r.Context(), h.currentUsername(r))
 	var venues []string
 	if len(mine) == 1 {
