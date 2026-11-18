@@ -235,6 +235,20 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 		"FilterProduct":  filterProduct,
 		"Sel":            sel,
 	}
+	rl4, rl4c := buildRL4(rv.Active, rv.Hidden, byRelease, filterProduct)
+	data["RL4"] = rl4
+	data["RL4Counts"] = rl4c
+	// The view the table opens on: the selection's own, else the plain releases.
+	start := "rel"
+	if sel != nil {
+		for _, rw := range rl4 {
+			if rw.Version == sel.Version && rw.Tracked == sel.Tracked {
+				start = rw.Flags
+				break
+			}
+		}
+	}
+	data["RL4Start"] = start
 	if sel != nil && sel.ReleaseID != nil {
 		rel, err := h.db.GetRelease(ctx, *sel.ReleaseID)
 		if err == nil {

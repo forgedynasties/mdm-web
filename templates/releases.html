@@ -1,332 +1,340 @@
 {{define "releases.html"}}
 {{template "header" .}}
-<style>
-/* ── Releases (O2, picked 16 Oct): the release list beside the selected release,
-   updates in flight pinned on top. ── */
-.ro-wrap{max-width:1240px;margin:0 auto}
-.ro-head{display:flex;align-items:center;gap:12px;margin:4px 0 12px;flex-wrap:wrap}
-.ro-head h1{margin:0}
-.ro-head .r{margin-left:auto;display:flex;gap:8px}
-.ro-pills{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-.ro-pills a{font-size:12px;font-weight:650;border:1px solid var(--border);border-radius:99px;padding:4px 11px;color:var(--text-2);background:var(--surface);text-decoration:none}
-.ro-pills a.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
-.ro-pills label{font-size:12px;color:var(--muted);display:inline-flex;gap:6px;align-items:center;margin-left:8px;cursor:pointer}
-.ro-live{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:10px 16px;border-radius:14px;border:1px solid color-mix(in srgb,var(--info, #60a5fa) 45%,transparent);background:color-mix(in srgb,var(--info, #60a5fa) 8%,var(--surface));margin-bottom:8px;font-size:13px;text-decoration:none;color:var(--text-2)}
-.ro-live b{color:var(--text)}
-/* Updates running (U1, 23 Oct 2026): one card, rows in fixed columns. */
-.ro-run{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:14px}
-.ro-run-h{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border-soft)}
-.ro-run-h h2{margin:0;font-family:var(--font-display);font-weight:500;font-size:17px}
-.ro-run-h span{color:var(--muted);font-size:12.5px}
-.ro-run-h a{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent-text);text-decoration:none}
-.ro-run-r{display:grid;grid-template-columns:130px 160px minmax(0,1fr) 90px 190px 60px;gap:16px;align-items:center;padding:10px 18px;border-top:1px solid var(--border-soft);font-size:13px;color:var(--text-2);text-decoration:none}
-.ro-run-h+.ro-run-r{border-top:0}
-.ro-run-r:hover{background:var(--hover)}
-.ro-run-r.done{opacity:.62}
-.ro-st{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text)}
-.ro-st i{width:8px;height:8px;border-radius:99px;flex:none}
-.ro-st.run i{background:#3b82f6;box-shadow:0 0 0 3px color-mix(in srgb,#3b82f6 22%,transparent)}
-.ro-st.look{color:var(--danger)}.ro-st.look i{background:var(--danger)}
-.ro-st.wait{color:var(--warn)}.ro-st.wait i{border:2px solid var(--warn);box-sizing:border-box}
-.ro-st.done{color:var(--muted);font-weight:500}.ro-st.done i{background:var(--ok)}
-.ro-n{font-variant-numeric:tabular-nums;color:var(--text)}.ro-n b{font-weight:650}
-.ro-note{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ro-note.bad{color:var(--danger)}
-.ro-md{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
-.ro-list{padding:6px;position:sticky;top:76px;max-height:calc(100vh - 200px);overflow:auto}
-.ro-it{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;padding:8px 10px;border-radius:10px;text-decoration:none;color:var(--text-2);font-size:12.5px}
-.ro-it:hover{background:var(--hover)}
-.ro-it.on{background:var(--accent-soft)}
-.ro-it b{font-family:var(--mono);font-size:12.5px;color:var(--text);font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ro-it .d{color:var(--muted);font-size:11.5px;white-space:nowrap}
-.ro-it small{grid-column:1/-1;color:var(--muted);font-size:11.5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.ro-it .live{color:#60a5fa;font-weight:650}
-.ro-it.dev,.ro-it.rep{display:none}
-.ro-list.show-dev .ro-it.dev,.ro-list.show-rep .ro-it.rep{display:grid}
-.ro-it.ro-cut{display:none!important}
-.ro-more{display:block;width:100%;margin:4px 0 2px;padding:8px 10px;border:0;border-radius:10px;background:none;font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-text);text-align:left;cursor:pointer}
-.ro-more:hover{background:var(--hover)}
-.ro-more[hidden]{display:none}
-.ro-sep{font-size:11px;font-weight:650;color:var(--muted);padding:10px 10px 4px}
-.ro-det{padding:16px 20px}
-.ro-dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
-.ro-dh h2{margin:0;font-family:var(--mono);font-size:18px}
-.ro-dh .r{margin-left:auto;display:flex;gap:8px}
-.ro-acts{align-items:center;gap:6px!important}
-.ro-acts form{margin:0;display:inline-flex}
-.ro-acts .cc-btn{height:28px;box-sizing:border-box;line-height:1}
-/* The card clips its content; an open ⋯ menu hangs below it. */
-.ro-det:has(.ro-more[open]){overflow:visible}
-.ro-ib{padding:6px 7px}
-.ro-ib svg{width:14px;height:14px}
-.ro-more{position:relative}
-.ro-more>summary{list-style:none}
-.ro-more>summary::-webkit-details-marker{display:none}
-.ro-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40}
-.ro-name{font-size:13px;color:var(--muted);margin:0 0 10px}
-.ro-kv{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 14px;align-items:center;font-size:13px;color:var(--text-2);padding:10px 0;border-top:1px solid var(--border-soft)}
-.ro-kv .k{color:var(--muted);font-size:12.5px}
-.ro-kv a{color:var(--text)}
-.ro-cov{display:flex;align-items:center;gap:10px}
-.ro-cov .cc-meter{width:160px}
-.ro-chg{white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--text-2);max-height:220px;overflow:auto;margin:0}
-.ro-sec{font-size:12.5px;font-weight:650;color:var(--muted);margin:16px 0 4px}
-table.ro-t{width:100%;border-collapse:collapse;font-size:12.5px}
-.ro-t th{text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border)}
-.ro-t td{padding:9px 8px;border-bottom:1px solid var(--border-soft);color:var(--text-2);vertical-align:middle}
-.ro-t td a{color:var(--text);text-decoration:none;font-family:var(--mono);font-size:12px}
-.ro-t td a:hover{color:var(--accent-text)}
-.ro-bar{display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--surface2);min-width:140px}
-.ro-bar i{display:block;height:100%}.ro-bar .p{background:var(--ok)}.ro-bar .f{background:var(--danger)}.ro-bar .g{background:#60a5fa}.ro-bar .w{background:var(--warn)}
-.ro-bad{color:var(--danger)}
-.ro-empty{padding:30px 10px;text-align:center;color:var(--muted);font-size:13px}
-a.rl-crash{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;text-decoration:none;background:var(--danger-bg);color:var(--danger);white-space:nowrap}
-a.rl-crash.warn{background:var(--warn-bg);color:var(--warn)}
-a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
-/* ── R2 (21 Oct 2026): the selected release as a banner and cards ── */
-.r2-ban{padding:20px 24px 22px;border-radius:18px;margin:4px 0 0}
-.r2-ban h2{font-size:24px}
-.r2-ban .oc-todo{max-width:none}
-.r2-ban .oc-todo li{min-width:0}
-.r2-stats{margin:14px 0 14px}
-.r2-ct{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.r2-bar{margin:6px 0 16px;min-width:0}
-.r2-bar i{min-width:0}
-.r2-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2);margin:0 0 14px}
-.r2-line a{color:var(--text)}
-.r2-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin:0 0 14px}
-.r2-two .oc-card,.r2-up{padding:14px 16px 12px}
-.r2-pk{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.r2-pk li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);flex-wrap:wrap}
-.r2-none{font-size:12.5px;color:var(--muted);margin:0}
-.r2-up .oc-ch{margin-bottom:6px}
-</style>
-<div class="ro-wrap">
-  {{/* Context island: what is released, what is moving, the two actions. */}}
-  {{$tr := 0}}{{range .Versions}}{{if .Tracked}}{{$tr = add $tr 1}}{{end}}{{end}}
-  <template id="page-island">
-    <span class="isl-dot{{if .Active}} warn{{else}} on{{end}}"></span>
-    <span class="isl-t">Releases</span>
-    <span class="isl-s"><b>{{$tr}}</b> release{{if ne (printf "%v" $tr) "1"}}s{{end}}{{if .Active}} · <a href="{{(index .Active 0).URL}}" class="w">{{len .Active}} updating</a>{{end}}{{if .NotTracked}} · {{.NotTracked}} build{{if ne .NotTracked 1}}s{{end}} not added{{end}}</span>
-    <span class="isl-acts">
-      {{if canAdmin .Role}}<a class="cc-btn" href="/releases/settings">Update settings</a>{{end}}
-      {{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
-      {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}
-    </span>
-  </template>
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/releases-rl4.css?v={{assetVer}}">
+{{/* RL4 (picked Nov 2026, "a table with a preview, Fleet's twin"): Fleet's layout. Rail =
+     products, views (releases, dev only, not added, hidden) and the updates running now; one
+     table of releases (search, sort, in the page: coll_list.js); the picked release is
+     explained in the pane beside it. A row opens ?release=<id>, so the pane is built by the
+     server, as before; every action it had is still here. */}}
+{{$tr := 0}}{{range .Versions}}{{if .Tracked}}{{$tr = add $tr 1}}{{end}}{{end}}
+{{$canRel := canRelease .Role}}{{$ctr := .RL4Counts}}
+<template id="page-island">
+  <span class="isl-dot{{if .Active}} warn{{else}} on{{end}}"></span>
+  <span class="isl-t">Releases</span>
+  <span class="isl-s"><b>{{$tr}}</b> release{{if ne (printf "%v" $tr) "1"}}s{{end}}{{if .Active}} · <a href="{{(index .Active 0).URL}}" class="w">{{len .Active}} updating</a>{{end}}{{if .NotTracked}} · {{.NotTracked}} build{{if ne .NotTracked 1}}s{{end}} not added{{end}}</span>
+  <span class="isl-acts">
+    {{if canAdmin .Role}}<a class="cc-btn" href="/releases/settings">Update settings</a>{{end}}
+    {{if $canRel}}<button type="button" class="cc-btn" onclick="rl4NewOpen()">New release</button>{{end}}
+    {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}
+  </span>
+</template>
+<div class="cl-page rl4 ovd" data-prod="{{.FilterProduct}}">
   <div class="cc-top">
     <div>
       <div class="cc-eyebrow">Software</div>
       <h1 class="cc-h1">Releases</h1>
     </div>
-    <div class="cc-actions isl-dup">{{if canAdmin .Role}}<a class="cc-btn" href="/releases/settings">Update settings</a>{{end}}{{if canRelease .Role}}<button type="button" class="cc-btn" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">New release</button>{{end}}
+    <div class="cc-actions isl-dup">{{if canAdmin .Role}}<a class="cc-btn" href="/releases/settings">Update settings</a>{{end}}{{if $canRel}}<button type="button" class="cc-btn" onclick="rl4NewOpen()">New release</button>{{end}}
       {{if canOTA .Role}}<a class="cc-btn primary" href="/updates/new">New update…</a>{{end}}</div>
   </div>
 
-  {{with .Strip}}{{if .Rows}}
-  <section class="ro-run" aria-label="Updates running">
-    <div class="ro-run-h"><h2>Updates running</h2><span>{{if .Running}}{{.Running}} · {{.Installed}} of {{.Total}} devices installed{{if .Installing}}, {{.Installing}} installing{{end}}{{else}}none{{end}}</span></div>
-    {{range .Rows}}
-    <a class="ro-run-r{{if eq .State "done"}} done{{end}}" href="{{.URL}}">
-      <span class="ro-st {{.State}}"><i></i>{{if eq .State "look"}}Needs a look{{else if eq .State "run"}}Installing{{else if eq .State "wait"}}Waiting{{else}}Finished{{end}}</span>
-      <span class="mono">{{.Version}} · #{{.ID}}</span>
-      <span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.Trouble}}"></i><i class="g" style="flex:{{.Moving}}"></i><i style="flex:{{.Pending}}"></i></span>
-      <span class="ro-n"><b>{{.Installed}}</b> of {{.Total}}</span>
-      <span class="ro-note{{if or .Failed .Trouble}} bad{{end}}">{{.Note}}</span>
-      <span class="cc-btn sm">Open</span>
-    </a>
-    {{end}}
-  </section>
-  {{end}}{{end}}
-
-  <div class="ro-pills">
-    <a href="/releases"{{if eq .FilterProduct ""}} class="on"{{end}}>All products</a>
-    {{range .Products}}<a href="/releases?product={{.Key}}"{{if eq $.FilterProduct .Key}} class="on"{{end}}>{{.Label}}</a>{{end}}
-    {{if .NotTracked}}<label><input type="checkbox" onchange="document.getElementById('ro-list').classList.toggle('show-rep', this.checked)"> {{.NotTracked}} reported build{{if ne .NotTracked 1}}s{{end}} not added</label>{{end}}
-    {{if and (canSeeDev .Role) .DevCount}}<label><input type="checkbox" id="ro-dev" onchange="roDev(this.checked)"> {{.DevCount}} dev release{{if ne .DevCount 1}}s{{end}}</label>{{end}}
-  </div>
-
-  <div class="ro-md">
-    <nav class="cc-card ro-list" id="ro-list" aria-label="Releases">
-      {{$tracked := 0}}{{range .Versions}}{{if .Tracked}}{{$tracked = add $tracked 1}}{{end}}{{end}}
-      {{if and .Versions (not $tracked)}}<div class="ro-empty">No releases{{if .FilterProduct}} for this product{{end}} yet.{{if .NotTracked}} Tick “reported builds” above to see the builds devices are running.{{end}}</div>{{end}}
-      {{range .Versions}}{{$c := index $.RolloutCounts .Version}}
-      <a class="ro-it{{if .IsDev}} dev{{end}}{{if not .Tracked}} rep{{end}}{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" data-ctx="link" data-name="{{.Version}}" data-page="{{if .Tracked}}/releases/{{derefInt .ReleaseID}}{{else}}/releases?build={{urlquery .Version}}{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}{{if $.FilterProduct}}&amp;product={{$.FilterProduct}}{{end}}">
-        <b title="{{.Version}}">{{.Version}}</b><span class="d">{{if .ReleasedAt}}{{shortDate (deref .ReleasedAt)}}{{else}}reported{{end}}</span>
-        <small>{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{if $.ProdFor}}{{range index $.ProdFor (derefInt .ReleaseID)}}<span class="cc-tag ok" title="Lineup's prod firmware for {{.Model}}">prod</span>{{end}}{{end}}{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if $c.N}} · {{$c.N}} update{{if ne $c.N 1}}s{{end}}{{end}}{{if $c.Active}} · <span class="live">updating</span>{{end}}</small>
+  <div data-cl data-one="release" data-many="releases" data-start="{{.RL4Start}}">
+  <div class="fleet-md dv-rise-1">
+    <aside class="fleet-rail" aria-label="Release filters">
+      <div class="fleet-rail-cap"><span>Products</span></div>
+      <button type="button" class="fleet-rail-item on" data-clp="" aria-selected="true"><span class="dot ok"></span><span class="nm">All products</span></button>
+      {{range .Products}}<button type="button" class="fleet-rail-item" data-clp="{{.Key}}" aria-selected="false"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $ctr.ByProduct .Key}}</span></button>{{end}}
+      <div class="fleet-rail-cap sp"><span>Show</span></div>
+      <button type="button" class="fleet-rail-item on" data-clf="rel" data-title="Releases" aria-pressed="true"><span class="dot ok"></span><span class="nm">Releases</span><span class="ct">{{$ctr.Rel}}</span></button>
+      {{if and (canSeeDev .Role) $ctr.Dev}}<button type="button" class="fleet-rail-item" data-clf="dev" data-title="Dev only" aria-pressed="false"><span class="dot warn"></span><span class="nm">Dev only</span><span class="ct">{{$ctr.Dev}}</span></button>{{end}}
+      {{if $ctr.Rep}}<button type="button" class="fleet-rail-item" data-clf="rep" data-title="Not added" aria-pressed="false"><span class="dot muted"></span><span class="nm">Not added</span><span class="ct">{{$ctr.Rep}}</span></button>{{end}}
+      {{if $ctr.Hid}}<button type="button" class="fleet-rail-item" data-clf="hid" data-title="Hidden" aria-pressed="false"><span class="dot muted"></span><span class="nm">Hidden</span><span class="ct">{{$ctr.Hid}}</span></button>{{end}}
+      {{with .Strip}}{{if .Rows}}
+      <div class="fleet-rail-cap sp"><span>Updates running</span></div>
+      {{range .Rows}}
+      <a class="rl4-up" href="{{.URL}}">
+        <b><span>{{.Version}} · #{{.ID}}</span></b>
+        <span class="rl4-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="f" style="flex:{{.Trouble}}"></i><i class="m" style="flex:{{.Moving}}"></i><i style="flex:{{.Pending}}"></i></span>
+        <small{{if or .Failed .Trouble}} class="bad"{{end}}>{{.Installed}} of {{.Total}}{{if eq .State "done"}} · finished{{else if .Note}} · {{.Note}}{{end}}</small>
       </a>
-      {{else}}<div class="ro-empty">No releases{{if .FilterProduct}} for this product{{end}} yet.</div>{{end}}
-      <button type="button" class="ro-more" id="ro-more" onclick="roMore(true)" hidden>Show more</button>
-      {{if .HiddenReleases}}<div class="ro-sep">Hidden</div>{{range .HiddenReleases}}<a class="ro-it{{if and $.Sel (eq $.Sel.Version .Version)}} on{{end}}" data-ctx="link" data-name="{{.Version}}" data-page="{{if .Tracked}}/releases/{{derefInt .ReleaseID}}{{else}}/releases?build={{urlquery .Version}}{{end}}" href="/releases?{{if .Tracked}}release={{.ReleaseID}}{{else}}build={{urlquery .Version}}{{end}}"><b>{{.Version}}</b><span class="d">hidden</span></a>{{end}}{{end}}
-    </nav>
+      {{end}}
+      {{end}}{{end}}
+    </aside>
 
-    <section class="cc-card ro-det">
+    <div class="fleet-roster">
+      <div class="fleet-pane-head"><span class="t" data-cl-title>Releases</span><span class="c" data-cl-count>{{$ctr.Rel}} releases</span></div>
+      <div class="fleet-bar">
+        <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search version, name, product…" aria-label="Search releases"></div>
+        <div class="fleet-fwrap">
+          <button type="button" class="fleet-fbtn" data-cl-sortbtn aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"/></svg>Sort<span class="sort-cur" data-cl-sortcur>· Newest</span></button>
+          <div class="cc-menu cl-sortmenu" role="menu" data-cl-sortmenu hidden>
+            <div class="cc-msec">Sort by</div>
+            <button type="button" class="cc-mi active" role="menuitemradio" aria-checked="true" data-cls="date" data-dir="desc">Newest</button>
+            <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="date" data-dir="asc">Oldest</button>
+            <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="devices" data-dir="desc">On most devices</button>
+            <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="crashes" data-dir="desc">Most crashes</button>
+            <button type="button" class="cc-mi" role="menuitemradio" aria-checked="false" data-cls="name" data-dir="asc">Version A–Z</button>
+          </div>
+        </div>
+      </div>
+      <div class="card cl-card">
+        <div class="ft-wrap"><table class="ft cl-ft">
+          <thead><tr>
+            <th scope="col">Release</th>
+            <th scope="col" style="width:112px">Status</th>
+            <th scope="col" style="width:150px">Rollout</th>
+            <th scope="col" style="width:78px">Crashes</th>
+            <th scope="col" style="width:112px">Added</th>
+          </tr></thead>
+          <tbody>
+          {{range .RL4}}{{$isSel := and $.Sel (eq $.Sel.Version .Version) (eq $.Sel.Tracked .Tracked)}}
+          <tr class="ft-row{{if $isSel}} sel{{end}}" data-href="{{.Href}}" data-ctx="link" data-name="{{.Version}}" data-page="{{if .Tracked}}/releases/{{derefInt .ReleaseID}}{{else}}/releases?build={{urlquery .Version}}{{end}}" data-flags="{{.Flags}}" data-classes="{{.ProdKey}}" data-text="{{.Search}}" data-s-name="{{.Version}}" data-s-date="{{.DateUnix}}" data-s-devices="{{.DeviceCount}}" data-s-crashes="{{.CrashN}}">
+            <td><a class="cl-nm" href="{{.Href}}"><span class="cl-t"><b class="rl4-v" title="{{.Version}}">{{.Version}}</b><small>{{if .Name}}{{.Name}} · {{end}}{{if .Product}}{{productLabel .Product}}{{else}}reported by devices{{end}}</small></span></a></td>
+            <td><span class="rl4-tags">{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{else}}<span class="cc-tag">reported</span>{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{if .Tracked}}{{if $.ProdFor}}{{range index $.ProdFor (derefInt .ReleaseID)}}<span class="cc-tag ok" title="Lineup's prod firmware for {{.Model}}">prod</span>{{end}}{{end}}{{end}}</span></td>
+            <td><span class="rl4-roll"><span class="rl4-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="m" style="flex:{{.Moving}}"></i><i{{if not .Roll}} class="h"{{end}} style="flex:{{.Rest}}"></i></span><small>{{.Label}}{{if .Updating}} · <span class="live">updating</span>{{end}}</small></span></td>
+            <td>{{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{derefInt .ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td class="ft-date">{{if .ReleasedAt}}<span title="{{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{else}}—{{end}}</td>
+          </tr>
+          {{end}}
+          </tbody>
+        </table></div>
+        <div class="cl-none" data-cl-none hidden>No release matches.{{if .NotTracked}} Builds devices report without a release are under “Not added”.{{end}}</div>
+        {{if not .RL4}}<div class="cl-none">No releases yet.{{if $canRel}} Use New release to make the first.{{end}}</div>{{end}}
+      </div>
+    </div>
+
+    <section class="rl4-pv" id="rl4-pv" aria-label="Selected release">
     {{with .Sel}}
-      {{if .Tracked}}{{$rel := $.Rel}}
-      <div class="ro-dh">
+      {{if .Tracked}}{{$rel := $.Rel}}{{$sel := .}}
+      <div class="rl4-ph">
         <h2>{{.Version}}</h2>
         <span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>
         {{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}
         {{if $.ProdFor}}{{range index $.ProdFor (derefInt .ReleaseID)}}<a class="cc-tag ok" href="{{.Href}}" title="Lineup's prod firmware for {{.Model}}: devices at venues move to it by themselves">Prod for {{.Label}}</a>{{end}}{{end}}
         {{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}
         {{if .ReleasedAt}}<span class="cc-tag" title="{{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
-        {{/* The release page's own actions, compact (16 Oct): dev / everyone and publish as
-             buttons, the rarer ones in ⋯, the full page behind the arrow. Each form comes
-             back here (redirect), not to the release page. */}}
-        <span class="r ro-acts">
-          {{if canRelease $.Role}}
-          <form action="/releases/{{.ReleaseID}}/dev" method="POST"{{if .IsDev}} hx-confirm="Release {{.Version}} to everyone? It stops being folded away behind the dev toggle."{{end}}>
-            <input type="hidden" name="dev" value="{{if .IsDev}}0{{else}}1{{end}}"><input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
-            <button type="submit" class="cc-btn sm" title="{{if .IsDev}}Only super admins can see this release now{{else}}Everyone can see this release now{{end}}">{{if .IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
-          </form>
-          {{if ne .Status "published"}}<form action="/releases/{{.ReleaseID}}/publish" method="POST"{{if not $.HasFull}} hx-confirm="No full update package added yet. Publish {{.Version}} anyway?"{{end}}>
-            <input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
-            <button type="submit" class="cc-btn sm primary">Publish</button>
-          </form>{{end}}
-          {{end}}
-          {{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn sm primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}
-          <details class="ro-more">
-            <summary class="cc-btn sm ro-ib" title="More" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></summary>
-            <div class="cc-menu ro-menu">
-              <a class="cc-mi" href="/devices?build={{urlquery .Version}}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Show devices<small>{{.DeviceCount}}</small></a>
-              {{if and $.QFILPackages (or (eq $.Role "admin") (eq $.Role "operator"))}}<a class="cc-mi" href="{{(index $.QFILPackages 0).URL}}" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Flashing bundle</a>{{end}}
-              {{if and (canRelease $.Role) (eq $.DevicesCount 0)}}<hr class="cc-msep">
-              <form action="/releases/{{.ReleaseID}}/delete" method="POST" hx-confirm="Delete release {{.Version}}? No devices are running it. This removes the release and its packages and updates.">
-                <button type="submit" class="cc-mi danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Delete release</button>
-              </form>{{end}}
-            </div>
-          </details>
-          <a class="cc-btn sm ro-ib" href="/releases/{{.ReleaseID}}" title="Open the release page" aria-label="Open the release page"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
-        </span>
       </div>
-      {{if .Name}}<p class="ro-name">{{.Name}}</p>{{end}}
-      {{/* R2 (21 Oct 2026): what this release needs, three cards, then packages, changes
-           and its updates as cards. The actions above stay where they were. */}}
-      {{$sel := .}}
+      {{if .Name}}<p class="rl4-nm">{{.Name}}</p>{{end}}
+      {{/* The release page's own actions, compact: Update devices, dev / everyone and publish
+           as buttons, the rarer ones in ⋯, the full page behind the arrow. Each form comes
+           back here (redirect), not to the release page. */}}
+      <div class="rl4-acts">
+        {{if and (canOTA $.Role) $.CanPush}}<a class="ovb-btn" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}
+        {{if $canRel}}
+        {{if ne .Status "published"}}<form action="/releases/{{.ReleaseID}}/publish" method="POST"{{if not $.HasFull}} hx-confirm="No full update package added yet. Publish {{.Version}} anyway?"{{end}}>
+          <input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
+          <button type="submit" class="ovb-btn">Publish</button>
+        </form>{{end}}
+        <form action="/releases/{{.ReleaseID}}/dev" method="POST"{{if .IsDev}} hx-confirm="Release {{.Version}} to everyone? It stops being folded away behind the dev view."{{end}}>
+          <input type="hidden" name="dev" value="{{if .IsDev}}0{{else}}1{{end}}"><input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
+          <button type="submit" class="ovb-btn l" title="{{if .IsDev}}Only super admins can see this release now{{else}}Everyone can see this release now{{end}}">{{if .IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
+        </form>
+        {{end}}
+        <details class="rl4-more">
+          <summary class="rl4-ib" title="More" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></summary>
+          <div class="cc-menu">
+            <a class="cc-mi" href="/devices?build={{urlquery .Version}}"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Show devices<small>{{.DeviceCount}}</small></a>
+            {{if and $.QFILPackages (or (eq $.Role "admin") (eq $.Role "operator"))}}<a class="cc-mi" href="{{(index $.QFILPackages 0).URL}}" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Flashing bundle</a>{{end}}
+            {{if and $canRel (eq $.DevicesCount 0)}}<hr class="cc-msep">
+            <form action="/releases/{{.ReleaseID}}/delete" method="POST" hx-confirm="Delete release {{.Version}}? No devices are running it. This removes the release and its packages and updates.">
+              <button type="submit" class="cc-mi danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Delete release</button>
+            </form>{{end}}
+          </div>
+        </details>
+        <a class="rl4-ib" href="/releases/{{.ReleaseID}}" title="Open the release page" aria-label="Open the release page"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></a>
+      </div>
+
       {{with $.R2}}
       {{with .Banner}}
-      <div class="ov2-ban is-{{.Tone}} r2-ban">
-        <div class="ov2-ban-k">{{.Kicker}}</div>
-        <h2>{{.Headline}}</h2>
+      <div class="rl4-todo {{.Tone}}">
+        <div class="k">{{.Kicker}}</div>
+        <h3>{{.Headline}}</h3>
         {{if .Todos}}
-        <ol class="oc-todo">
+        <ol>
           {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>
             {{if .Post}}<form action="{{.Post}}" method="POST"{{if .Confirm}} hx-confirm="{{.Confirm}}"{{end}}><input type="hidden" name="redirect" value="/releases?release={{$sel.ReleaseID}}">{{if .Field}}<input type="hidden" name="{{.Field}}" value="{{.Value}}">{{end}}<button type="submit">{{.Action}}</button></form>
             {{else}}<a href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
         </ol>
-        {{if .More}}<a class="oc-more" href="/releases/{{$sel.ReleaseID}}">{{.More}} more on the release page <i aria-hidden="true">→</i></a>{{end}}
+        {{if .More}}<a class="more" href="/releases/{{$sel.ReleaseID}}">{{.More}} more on the release page →</a>{{end}}
         {{else}}<p>{{.Calm}}</p>{{end}}
       </div>
       {{end}}
 
-      <div class="oc-stats r2-stats">
+      <div class="rl4-facts">
         {{range .Cards}}
-        <div class="oc-st">
-          <div class="oc-sth">{{if .Href}}<a href="{{.Href}}">{{.Title}}</a>{{else}}<span class="r2-ct">{{.Title}}</span>{{end}}</div>
-          {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
-          <div class="oc-stm">
-            {{with .A}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
-            {{with .B}}<span><span class="oc-tri {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+        <div class="rl4-fact">
+          <div class="k">{{if .Href}}<a href="{{.Href}}">{{.Title}}</a>{{else}}{{.Title}}{{end}}</div>
+          {{if .Empty}}<p class="e">{{.Empty}}</p>{{else}}
+          <div class="v">
+            {{with .A}}<span><span class="d {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
+            {{with .B}}<span><span class="d {{.Tone}}">{{.Delta}}</span><b>{{.Value}}</b><small>{{.Label}}</small></span>{{end}}
           </div>
-          {{if .Bar}}<span class="ro-bar r2-bar">{{range .Bar}}<i class="{{.Tone}}" style="flex:{{.Flex}}"></i>{{end}}</span>{{end}}
+          {{if .Bar}}<span class="rl4-bar">{{range .Bar}}<i class="{{.Tone}}" style="flex:{{.Flex}}"></i>{{end}}</span>{{end}}
           {{end}}
         </div>
         {{end}}
       </div>
 
-      <div class="r2-two">
-        <div class="oc-card">
-          <div class="oc-ch"><h2>Packages <span>{{len .Packages}}</span></h2>{{if canRelease $.Role}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}#packages">Add package</a>{{end}}</div>
-          {{if .Packages}}
-          <ul class="r2-pk">
-            {{range .Packages}}<li><span class="cc-tag{{if .Full}} ok{{end}}">{{if .Full}}full{{else}}incremental{{end}}</span>
-              <span>{{if not .Full}}from <span class="mono">{{.From}}</span>{{else}}any build{{end}}{{with .Size}} · {{.}}{{end}} · added {{.Date}}{{if .Wipe}} · <span class="ro-bad">wipes the device</span>{{end}}{{if .Yanked}} · <span class="ro-bad">{{.Status}}</span>{{end}}</span></li>{{end}}
-          </ul>
-          {{else}}<p class="r2-none"><span class="ro-bad">None yet.</span> A full package lets devices take it from any build.</p>{{end}}
+      <div class="rl4-sec" id="rl4-packages">
+        <div class="rl4-sh"><h3>Packages <span>{{len .Packages}}</span></h3><span class="sp"></span>{{if $canRel}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}#packages" title="Delete packages and see every detail">Manage</a>{{end}}</div>
+        {{if .Packages}}
+        <ul class="rl4-pk">
+          {{range .Packages}}<li><span class="cc-tag{{if .Full}} ok{{end}}">{{if .Full}}full{{else}}incremental{{end}}</span>
+            <span>{{if not .Full}}from <span class="mono">{{.From}}</span>{{else}}any build{{end}}{{with .Size}} · {{.}}{{end}} · added {{.Date}}{{if .Wipe}} · <span class="rl4-bad">wipes the device</span>{{end}}{{if .Yanked}} · <span class="rl4-bad">{{.Status}}</span>{{end}}</span></li>{{end}}
+        </ul>
+        {{else}}<p class="rl4-none"><span class="rl4-bad">None yet.</span> A full package lets devices take it from any build.</p>{{end}}
+        {{if $canRel}}
+        <details class="rl4-add">
+          <summary class="cc-btn sm">Add package</summary>
+          <form action="/releases/{{$sel.ReleaseID}}/packages" method="POST" data-rl4-pkgform data-inspect="/releases/{{$sel.ReleaseID}}/packages/inspect">
+            <input type="hidden" name="redirect" value="/releases?release={{$sel.ReleaseID}}">
+            <div class="rl4-seg" role="radiogroup" aria-label="Package type">
+              <label><input type="radio" name="type" value="full"{{if not $.HasFull}} checked{{end}}{{if $.HasFull}} disabled{{end}}><span title="{{if $.HasFull}}This release already has its full image{{else}}The complete build: any device can install it{{end}}">Full image</span></label>
+              <label><input type="radio" name="type" value="incremental"{{if $.HasFull}} checked{{end}}><span title="A smaller patch from one specific build">Incremental</span></label>
+            </div>
+            <label class="rl4-f" data-rl4-src {{if not $.HasFull}}hidden{{end}}>From build
+              <select name="source_build_id">
+                <option value="">— choose the source release —</option>
+                {{$relProd := or $rel.Product "t7"}}
+                {{range $.Versions}}{{if and .Tracked (ne .Version $rel.Version) (eq (or .Product "t7") $relProd)}}<option value="{{.Version}}">{{.Version}}{{if .Name}} — {{.Name}}{{end}}</option>{{end}}{{end}}
+              </select>
+            </label>
+            <label class="rl4-f">Package URL
+              <span class="rl4-urlrow"><input type="url" name="update_url" class="mono" placeholder="https://…/update.zip" required data-rl4-url><button type="button" data-rl4-inspect>Inspect</button></span>
+              <input type="hidden" name="update_url_b64">
+            </label>
+            <div class="rl4-ins" data-rl4-out><span class="hint">Inspect reads the file header, not the whole package.</span></div>
+            <div><button type="submit" class="cc-btn primary sm">Add package</button></div>
+          </form>
+        </details>
+        {{end}}
+        {{if or $.QFILPackages (and $canRel (or (eq $.Role "admin") (eq $.Role "operator")))}}
+        <div class="rl4-line" style="margin-top:10px">
+          <span>Flashing bundle (QFIL):</span>
+          {{if $.QFILPackages}}<a href="{{(index $.QFILPackages 0).URL}}" download hx-boost="false">download</a>{{else}}<span class="muted">none</span>{{end}}
+          {{if and $canRel (or (eq $.Role "admin") (eq $.Role "operator"))}}
+          <details class="rl4-add" style="margin:0;border:0;padding:0;flex-basis:100%">
+            <summary class="cc-btn sm">{{if $.QFILPackages}}Replace link{{else}}Attach link{{end}}</summary>
+            <form id="rl4-qfil-form" action="/releases/{{$sel.ReleaseID}}/qfil" method="POST">
+              <input type="hidden" name="redirect" value="/releases?release={{$sel.ReleaseID}}">
+              <input type="hidden" name="qfil_url_b64">
+              {{if $.QFILPackages}}<input type="hidden" name="label" value="{{(index $.QFILPackages 0).Label}}"><input type="hidden" name="notes" value="{{(index $.QFILPackages 0).Notes}}">{{end}}
+              <label class="rl4-f">Download link<input type="url" name="qfil_url" class="mono" placeholder="https://…" required{{if $.QFILPackages}} value="{{(index $.QFILPackages 0).URL}}"{{end}}></label>
+              <div><button type="submit" class="cc-btn primary sm">Save</button></div>
+            </form>
+            {{if $.QFILPackages}}<form action="/releases/{{$sel.ReleaseID}}/qfil/{{(index $.QFILPackages 0).ID}}/delete" method="POST" style="margin-top:6px" hx-confirm="Remove the download link from this release?"><button type="submit" class="cc-btn sm">Remove link</button></form>{{end}}
+          </details>
+          {{end}}
         </div>
-        <div class="oc-card">
-          <div class="oc-ch"><h2>Changes</h2>{{if canRelease $.Role}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}">Edit</a>{{end}}</div>
-          {{if $sel.Changelog}}<p class="ro-chg">{{$sel.Changelog}}</p>{{else}}<p class="r2-none">No changelog.</p>{{end}}
-        </div>
+        {{end}}
+      </div>
+
+      <div class="rl4-sec">
+        <div class="rl4-sh"><h3>Changes</h3><span class="sp"></span>{{if $canRel}}<a class="cc-btn sm" href="/releases/{{$sel.ReleaseID}}">Edit</a>{{end}}</div>
+        {{if $sel.Changelog}}<p class="rl4-chg">{{$sel.Changelog}}</p>{{else}}<p class="rl4-none">No changelog.</p>{{end}}
       </div>
       {{end}}
 
-      {{if or .Crash .Problems.Open .Problems.Blockers}}<p class="r2-line">
-        {{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}
-        {{if or .Problems.Open .Problems.Blockers}}<span>Problems: <a href="/releases/{{.ReleaseID}}#problems">{{.Problems.Open}} open{{if .Problems.Blockers}} · <span class="ro-bad">{{.Problems.Blockers}} blocking</span>{{end}}</a></span>{{end}}
+      {{if or .Crash .Problems.Open .Problems.Blockers}}<p class="rl4-line">
+        {{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{.ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}} crash issue{{if ne .Crash.Issues 1}}s{{end}} · {{.Crash.Devices}} devices</a>{{end}}
+        {{if or .Problems.Open .Problems.Blockers}}<span>Problems: <a href="/releases/{{.ReleaseID}}#problems">{{.Problems.Open}} open{{if .Problems.Blockers}} · <span class="rl4-bad">{{.Problems.Blockers}} blocking</span>{{end}}</a></span>{{end}}
       </p>{{end}}
-      <div class="oc-card r2-up">
-        <div class="oc-ch"><h2>Updates <span>{{with $.Rollouts}}{{len .}}{{else}}0{{end}}</span></h2>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn sm primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}</div>
-      {{if $.Rollouts}}
-      <table class="ro-t">
-        <tr><th>Update</th><th>Started</th><th>Progress</th><th></th><th>State</th></tr>
-        {{range $.Rollouts}}
-        <tr><td><a href="{{.URL}}">#{{.ID}}</a></td>
-          <td>{{shortDate .CreatedAt}}{{if .CreatedBy}} · {{.CreatedBy}}{{end}}</td>
-          <td><span class="ro-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="w" style="flex:{{.Trouble}}"></i><i class="g" style="flex:{{.Moving}}"></i><i style="flex:{{.Pending}}"></i></span></td>
-          <td>{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Stuck}} · <span class="ro-bad">{{.Stuck}} stuck</span>{{end}}{{if .NotBack}} · <span class="ro-bad">{{.NotBack}} not back from reboot</span>{{end}}{{if .Failed}} · <span class="ro-bad">{{.Failed}} failed</span>{{end}}</td>
-          <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}updating{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
-        {{end}}
-      </table>
-      {{else}}<p class="r2-none">No updates sent yet.{{if and (canOTA $.Role) $.CanPush}} <a href="/updates/new?release={{.ReleaseID}}">Update devices</a>.{{end}}</p>{{end}}
+
+      <div class="rl4-sec">
+        <div class="rl4-sh"><h3>Updates <span>{{with $.Rollouts}}{{len .}}{{else}}0{{end}}</span></h3><span class="sp"></span>{{if and (canOTA $.Role) $.CanPush}}<a class="cc-btn sm primary" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}</div>
+        {{if $.Rollouts}}
+        <table class="ovb-mini">
+          <tr><th>Update</th><th>Started</th><th class="w">Progress</th><th>State</th></tr>
+          {{range $.Rollouts}}
+          <tr><td><a href="{{.URL}}">#{{.ID}}</a></td>
+            <td>{{shortDate .CreatedAt}}{{if .CreatedBy}} · {{.CreatedBy}}{{end}}</td>
+            <td><span class="rl4-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="f" style="flex:{{.Trouble}}"></i><i class="m" style="flex:{{.Moving}}"></i><i style="flex:{{.Pending}}"></i></span>
+              <small class="mut">{{.Installed}}/{{.Total}}{{if .Installing}} · {{.Installing}} installing{{end}}{{if .Stuck}} · <span class="rl4-bad">{{.Stuck}} stuck</span>{{end}}{{if .NotBack}} · <span class="rl4-bad">{{.NotBack}} not back</span>{{end}}{{if .Failed}} · <span class="rl4-bad">{{.Failed}} failed</span>{{end}}</small></td>
+            <td><span class="cc-tag{{if eq .Status "active"}} info{{end}}">{{if eq .Status "active"}}updating{{else if eq .Status "complete"}}done{{else}}{{.Status}}{{end}}</span></td></tr>
+          {{end}}
+        </table>
+        {{else}}<p class="rl4-none">No updates sent yet.{{if and (canOTA $.Role) $.CanPush}} <a href="/updates/new?release={{.ReleaseID}}">Update devices</a>.{{end}}</p>{{end}}
       </div>
       {{else}}
-      <div class="ro-dh"><h2>{{.Version}}</h2><span class="cc-tag">reported</span>{{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}</div>
-      <p class="ro-name">Seen on devices, not a release yet: there is no changelog, package or update for it.</p>
-      <div class="ro-kv"><span class="k">On devices</span><span class="ro-cov"><span class="cc-meter"><i style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></span>{{if .DeviceCount}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}</span></div>
-      {{if canRelease $.Role}}<form action="/releases/track" method="POST" style="margin-top:12px"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="cc-btn primary">Add as release</button></form>{{end}}
+      <div class="rl4-ph"><h2>{{.Version}}</h2><span class="cc-tag">reported</span>{{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}</div>
+      <p class="rl4-nm">Seen on devices, not a release yet: there is no changelog, package or update for it.</p>
+      <div class="rl4-facts"><div class="rl4-fact"><div class="k">On devices</div><div class="v"><span><b>{{.DeviceCount}}</b><small>of {{$.FleetTotal}}</small></span></div><span class="rl4-bar"><i class="p" style="flex:{{.DeviceCount}}"></i><i style="flex:{{sub $.FleetTotal .DeviceCount}}"></i></span></div></div>
+      <div class="rl4-acts">
+        {{if .DeviceCount}}<a class="ovb-btn l" href="/devices?build={{urlquery .Version}}">Show devices</a>{{end}}
+        {{if $canRel}}<form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="ovb-btn">Add as release</button></form>{{end}}
+      </div>
       {{end}}
     {{else}}
-      <div class="ro-empty">{{if .Versions}}Pick a release on the left.{{else}}No release to show.{{end}}</div>
+      <div class="rl4-empty">{{if .Versions}}Pick a release in the table.{{else}}No release to show.{{end}}</div>
     {{end}}
     </section>
   </div>
+  </div>
 </div>
-{{if canRelease .Role}}
-<!-- New Release modal: version + product + changelog. update packages are attached on the next screen. -->
-<div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
-  <div class="modal-box" style="max-width:540px;">
+
+{{if $canRel}}
+{{/* AP1 (picked Nov 2026): release and package side by side, one save. The package and the
+     QFIL link are optional: without a URL this posts exactly what New release always did. */}}
+<div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)rl4NewClose()">
+  <div class="modal-box rl4-dlg" role="dialog" aria-modal="true" aria-labelledby="rl4-new-t">
     <div class="modal-header">
-      <span class="modal-title">New Release</span>
-      <button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('create-pkg-modal').classList.remove('modal-open')">&times;</button>
+      <span class="modal-title" id="rl4-new-t">New release</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="rl4NewClose()">&times;</button>
     </div>
     <div class="modal-body">
-      <form action="/releases" method="POST" class="command-form" style="padding:0;">
-        <div class="form-row">
-          <label class="form-label">Release version</label>
-          <input type="text" name="version" class="form-input" placeholder="e.g. 2026.06.01-release" required autofocus>
-          <div class="form-hint">The version devices report after this release — its unique identifier (per product).</div>
+      <form action="/releases" method="POST" id="rl4-new" data-rl4-pkgform data-inspect="/releases/inspect">
+        <input type="hidden" name="redirect" value="list">
+        <div class="rl4-ap">
+          <section class="rl4-apc">
+            <h3>Release</h3>
+            <label class="rl4-f">Product
+              <select name="product" required data-rl4-prod>
+                {{range $.Products}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+              </select>
+              <small>Only devices of this product are ever offered or sent it.</small>
+            </label>
+            <label class="rl4-f">Build id
+              <input type="text" name="version" class="mono" placeholder="e.g. v2.1.026" required autofocus data-rl4-ver>
+              <small>The version devices report after this release, its unique id (per product).</small>
+            </label>
+            <label class="rl4-cb"><input type="checkbox" name="is_dev" value="1" checked data-rl4-dev><span>Dev release<small>Only super admins see it, and it stays out of everyone else's Updates page and push pickers. Release it to everyone from the release itself.</small></span></label>
+            <label class="rl4-f">Changes <span class="rl4-sub">(optional)</span>
+              <textarea name="changelog" rows="5" placeholder="What changed in this release…"></textarea>
+            </label>
+          </section>
+          <section class="rl4-apc">
+            <h3>First package <span class="sp"></span><span class="cc-tag">optional</span></h3>
+            <div class="rl4-seg" role="radiogroup" aria-label="Package type">
+              <label><input type="radio" name="type" value="full" checked><span title="The complete build: any device can install it">Full image</span></label>
+              <label><input type="radio" name="type" value="incremental"><span title="A smaller patch from one specific build">Incremental</span></label>
+            </div>
+            <label class="rl4-f" data-rl4-src hidden>From build
+              <select name="source_build_id" data-rl4-srcsel>
+                <option value="">— choose the source release —</option>
+                {{range $.Versions}}{{if .Tracked}}<option value="{{.Version}}" data-prod="{{or .Product "t7"}}">{{.Version}}{{if .Name}} — {{.Name}}{{end}}</option>{{end}}{{end}}
+              </select>
+            </label>
+            <label class="rl4-f">Package URL
+              <span class="rl4-urlrow"><input type="url" name="update_url" class="mono" placeholder="https://ota-update-packages.s3.amazonaws.com/…/update.zip" data-rl4-url><button type="button" data-rl4-inspect>Inspect</button></span>
+              <input type="hidden" name="update_url_b64">
+            </label>
+            <div class="rl4-ins" data-rl4-out><span class="hint">Inspect reads the file header, not the whole package. You can also add packages later.</span></div>
+            {{if or (eq $.Role "admin") (eq $.Role "operator")}}
+            <details class="rl4-qf">
+              <summary>QFIL flashing bundle <span class="cc-tag">optional</span></summary>
+              <div>
+                <label class="rl4-f">Download link<input type="url" name="qfil_url" class="mono" placeholder="https://…" data-rl4-qfil></label>
+                <input type="hidden" name="qfil_url_b64">
+                <p class="rl4-sub">Used by the factory to flash a unit from scratch; never sent over the air.</p>
+              </div>
+            </details>
+            {{end}}
+          </section>
+          <section class="rl4-sum">
+            <b data-rl4-sumt>Create a dev release</b>
+            <span class="s" data-rl4-sums>No package yet, add one later.</span>
+            <button type="submit" class="ovb-btn w">Create release</button>
+            <span class="big">1</span>
+          </section>
         </div>
-        <div class="form-row">
-          <label class="form-label">Product</label>
-          <select name="product" class="form-input" required>
-            {{range $.Products}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
-          </select>
-          <div class="form-hint">The hardware this release targets. Only devices of this product are ever offered or sent it.</div>
-        </div>
-        <div class="form-row">
-          <label class="form-label" style="display:flex;align-items:center;gap:9px;cursor:pointer;">
-            <input type="checkbox" name="is_dev" value="1" checked style="width:16px;height:16px;">
-            Dev release
-          </label>
-          <div class="form-hint">On by default: while it is a dev release only devs and admins see it — it stays out of everyone else's Updates page and push pickers. Turn it off here, or from the release itself, when it is ready to be seen.</div>
-        </div>
-        <div class="form-row">
-          <label class="form-label">Changelog <span class="muted small">(optional)</span></label>
-          <textarea name="changelog" class="form-textarea" rows="8" placeholder="What changed in this release…" style="resize:vertical;min-height:180px;"></textarea>
-        </div>
-        <button type="submit" class="btn-primary">Create Release</button>
-        <div class="form-hint" style="margin-top:8px;">You'll add the update package (and incrementals) on the next screen.</div>
       </form>
     </div>
   </div>
 </div>
-<script>
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') { var m = document.getElementById('create-pkg-modal'); if (m) m.classList.remove('modal-open'); }
-});
-</script>
 {{end}}
+<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
 <script src="/static/js/releases.js?v={{assetVer}}"></script>
+<script src="/static/js/releases-rl4.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}

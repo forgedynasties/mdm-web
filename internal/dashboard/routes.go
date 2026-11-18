@@ -508,6 +508,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
 	post("POST /releases/{id}/packages", h.requireReleaseAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/inspect", h.requireReleaseAdmin(h.PackageInspect))
+	post("POST /releases/inspect", h.requireReleaseAdmin(h.PackageInspectNew))
 	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrOperator(h.fleetWide(h.ReleaseCrashes)))
 	post("POST /releases/{id}/crashes/group/delete", h.requireReleaseAdmin(h.ReleaseCrashGroupDelete))
 	post("POST /releases/{id}/crashes/{eid}/delete", h.requireReleaseAdmin(h.ReleaseCrashDelete))
