@@ -1,0 +1,163 @@
+/* ── Overview B1 (5 Nov 2026): bento ─────────────────────────────────────── */
+.ovd{--ovb-g:#1f9d60;--ovb-o:#ef7d31;--ovb-y:#d9a70a;--ovb-r:#d64432}
+/* a shade down in dark mode, so the pills and rings don't glare (5 Nov 2026) */
+html[data-theme="dark"] .ovd{--ovb-g:#1a8a55;--ovb-o:#cc6a2b;--ovb-y:#b08a0d;--ovb-r:#b83e2e}
+/* Dark mode: solid status fills become tinted chips with coloured text, and the coral "waiting
+   to be placed" card a deep coral tint (5 Nov 2026, user: "fix bright colors in dark mode"). */
+html[data-theme="dark"] .ovd .ovb-pill.g,html[data-theme="dark"] .ovd .ovb-tag{background:color-mix(in srgb,var(--ovb-g) 26%,transparent);color:#7fd3a6}
+html[data-theme="dark"] .ovd .ovb-tag.y{background:color-mix(in srgb,var(--ovb-y) 28%,transparent);color:#e6c867}
+html[data-theme="dark"] .ovd .ovb-tag.o{background:color-mix(in srgb,var(--ovb-o) 28%,transparent);color:#f0a777}
+html[data-theme="dark"] .ovd .ovb-tag.r{background:color-mix(in srgb,var(--ovb-r) 30%,transparent);color:#f19a8d}
+html[data-theme="dark"] .ovd .ovb-pill.y{background:color-mix(in srgb,var(--ovb-y) 28%,transparent);color:#e6c867}
+html[data-theme="dark"] .ovd .ovb-pill.o{background:color-mix(in srgb,var(--ovb-o) 28%,transparent);color:#f0a777}
+html[data-theme="dark"] .ovd .ovb-pill.r{background:color-mix(in srgb,var(--ovb-r) 30%,transparent);color:#f19a8d}
+html[data-theme="dark"] .ovd .ovb-promo{background:color-mix(in srgb,var(--accent-fill) 34%,#16161c)}
+html[data-theme="dark"] .ovd .ovb-promo:hover{background:color-mix(in srgb,var(--accent-fill) 46%,#16161c)}
+html[data-theme="dark"] .ovd .ovb-promo .ovb-btn.w{background:color-mix(in srgb,#fff 90%,transparent);color:#a83d28}
+.ovd{--ovb-page:var(--canvas,#efeff2)} /* H1: the whole app is the canvas now */
+.ovb{display:grid;grid-template-columns:minmax(300px,330px) minmax(0,1fr) minmax(0,1fr);gap:14px}
+.ovb-c{background:var(--surface);border-radius:22px;padding:18px 20px;min-width:0}
+.ovb-ch{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ovb-ch h2{margin:0;font-size:15px;font-weight:600}
+.ovb-ch .sp{flex:1}
+.ovb-ib{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;color:var(--text-2);flex:none}
+.ovb-ib:hover{background:var(--surface2)}
+.ovb-ib svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+.ovb-pill{font-size:11.5px;font-weight:700;border-radius:99px;padding:3px 9px;min-width:34px;text-align:center;color:#fff;text-decoration:none}
+.ovb-pill.g{background:var(--ovb-g)}.ovb-pill.y{background:var(--ovb-y)}.ovb-pill.o{background:var(--ovb-o)}.ovb-pill.r{background:var(--ovb-r)}
+.ovb-tag{font-size:10.5px;font-weight:800;letter-spacing:.04em;border-radius:99px;padding:3px 9px;text-transform:uppercase;color:#fff;background:var(--ovb-g)}
+.ovb-tag.y{background:var(--ovb-y)}.ovb-tag.o{background:var(--ovb-o)}.ovb-tag.r{background:var(--ovb-r)}
+.ovb-radar{display:block;width:100%;max-width:260px;margin:0 auto}
+.ovb-radar .g{fill:none;stroke:var(--border);stroke-width:1}
+.ovb-radar .a{fill:rgba(31,157,96,.18);stroke:var(--ovb-g);stroke-width:2}
+.ovb-radar .d{fill:var(--ovb-g)}
+.ovb-radar text{font:600 11px Poppins,system-ui;fill:var(--text-2)}
+.ovb-parts{list-style:none;margin:8px 0 0;padding:0}
+.ovb-parts a{display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 0;color:var(--text);text-decoration:none}
+.ovb-parts a:hover{color:var(--accent-text)}
+.ovb-parts .k{width:20px;height:20px;border-radius:50%;border:1px solid var(--border);display:grid;place-items:center;font-size:10.5px;color:var(--text-2);flex:none}
+.ovb-parts .lead{flex:1;border-bottom:1px dashed var(--border);margin:0 4px;transform:translateY(-3px)}
+.ovb-hero{grid-column:span 2;display:flex;flex-direction:column}
+.ovb-seg{display:inline-flex;background:var(--ovb-page);border-radius:99px;padding:3px;gap:2px;flex-wrap:wrap}
+.ovb-seg button{font:inherit;font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2);background:none;border:0;cursor:pointer}
+.ovb-seg button.on{background:var(--accent-fill);color:#fff}
+.ovb-big{font-size:34px;line-height:1.1;font-weight:650;letter-spacing:-.02em;margin:14px 0 0;max-width:640px;overflow-wrap:anywhere}
+.ovb-sub{font-size:13.5px;color:var(--text-2);margin:8px 0 0;max-width:560px}
+.ovb-acts{display:flex;gap:8px;flex-wrap:wrap}
+.ovb-btn{border:0;border-radius:99px;padding:5px 5px 5px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent-fill);color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:10px}
+.ovb-btn:hover{background:var(--accent-fill-h)}
+.ovb-btn::after{content:"";flex:none;width:26px;height:26px;border-radius:50%;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cf4529' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center/13px no-repeat}
+.ovb-btn.l,.ovb-promo .ovb-btn.w{padding:9px 16px}.ovb-btn.l::after,.ovb-promo .ovb-btn.w::after{display:none}
+.ovb-btn.l:hover{background:var(--surface2)}.ovb-promo .ovb-btn.w:hover{background:#fff}
+.ovb-btn.l{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.ovb-promo{background:var(--accent-fill);color:#fff;border-radius:22px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:150px;position:relative;overflow:hidden;text-decoration:none}
+.ovb-promo b{font-size:24px;font-weight:600;line-height:1.15;position:relative}
+/* Hover darkens the card itself, and its text stays white on it (5 Nov 2026, user: "hover should
+   change accent color too only text is changed and accent and text should contrast"). */
+.ovb-promo{transition:background .15s ease}
+.ovb-promo:hover,.ovb-promo:focus-visible{background:var(--accent-fill-h);color:#fff}
+.ovb-promo:hover b{color:#fff}
+.ovb-promo:hover .ovb-btn.w{background:#fff;color:var(--accent-fill-h)}
+.ovb-promo .ovb-btn.w{background:#fff;color:var(--accent-fill);align-self:flex-start;position:relative}
+.ovb-promo .big{position:absolute;right:16px;bottom:6px;font-size:84px;font-weight:700;opacity:.22;line-height:1}
+.ovb-rings{display:flex;justify-content:space-around;gap:10px;flex-wrap:wrap}
+.ovb-ring{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--text-2);text-decoration:none}
+.ovb-ring svg{width:82px;height:82px}
+.ovb-ring .bg{fill:none;stroke:var(--border-soft);stroke-width:7;stroke-dasharray:2 3}
+.ovb-ring .fg{fill:none;stroke-width:7;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
+.ovb-ring .fg.g{stroke:var(--ovb-g)}.ovb-ring .fg.o{stroke:var(--ovb-o)}.ovb-ring .fg.r{stroke:var(--ovb-r)}
+.ovb-ring text{font:700 13px Poppins,system-ui;fill:var(--text)}
+.ovb-split .lbls{display:flex;gap:6px}
+.ovb-split .lbls span{font-size:12px;color:var(--text-2);min-width:80px}
+.ovb-split .lbls b{display:block;font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--text);margin-top:2px}
+.ovb-split .lbls b.r{color:var(--ovb-r)}
+.ovb-split .bars{display:flex;gap:4px;height:34px;margin-top:10px}
+.ovb-split .bars i{border-radius:9px;display:block;min-width:4px}
+.ovb-split .bars .g{background:var(--ovb-g)}.ovb-split .bars .r{background:var(--ovb-r)}
+.ovb-split .bars .h{background:repeating-linear-gradient(135deg,var(--border) 0 5px,transparent 5px 10px)}
+/* Today T2: list + detail */
+.ovb-t2{flex:1;min-height:360px;display:flex}
+.ovb-pane{flex:1;display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:12px;min-height:0}
+.ovb-pane[hidden]{display:none}
+.ovb-list{overflow:auto;border:1px solid var(--border-soft);border-radius:16px;padding:4px;min-height:0;max-height:460px}
+.ovb-li{display:flex;gap:10px;align-items:flex-start;width:100%;padding:9px 10px;border-radius:11px;border:0;background:none;font:inherit;font-size:13px;color:var(--text);text-align:left;cursor:pointer}
+.ovb-li:hover{background:var(--surface2)}
+.ovb-li.on{background:var(--ovb-page)}
+.ovb-li .tx{flex:1;min-width:0}
+.ovb-li b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovb-li small{display:block;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ovb-dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block;background:var(--ovb-g);margin-top:5px}
+.ovb-dot.y{background:var(--ovb-y)}.ovb-dot.o{background:var(--ovb-o)}.ovb-dot.r{background:var(--ovb-r)}.ovb-dot.c{background:none;border:1.5px solid var(--muted);width:6px;height:6px}
+.ovb-dets{background:var(--ovb-page);border-radius:16px;padding:16px 18px;overflow:auto;min-height:0;display:flex}
+.ovb-det{flex:1;display:flex;flex-direction:column;min-width:0}
+.ovb-det[hidden]{display:none}
+.ovb-det .ovb-big{font-size:26px;margin-top:10px}
+.ovb-det .ovb-acts{margin-top:auto;padding-top:14px}
+.ovb-facts{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ovb-fact{background:var(--surface);border:1px solid var(--border-soft);border-radius:12px;padding:8px 12px;min-width:84px}
+.ovb-fact b{display:block;font-size:19px;font-weight:650;white-space:nowrap}
+.ovb-fact span{font-size:11.5px;color:var(--text-2)}
+.ovb-mini{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:12px}
+.ovb-mini th{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:5px 8px;border-bottom:1px solid var(--border)}
+.ovb-mini td{padding:6px 8px;border-bottom:1px solid var(--border-soft)}
+.ovb-mini tr:last-child td{border-bottom:0}
+.ovb-mini td.w{width:40%}
+.ovb-mini .mono{font-family:var(--mono);font-size:12px;color:var(--text);text-decoration:none}
+.ovb-mini .mono:hover{color:var(--accent-text)}
+.ovb-mini .mut{color:var(--muted)}
+.ovb-pb{display:block;height:8px;border-radius:99px;background:var(--border-soft);overflow:hidden}
+.ovb-pb i{display:block;height:100%;border-radius:inherit;background:var(--ovb-g)}
+.ovb-pb i.o{background:var(--ovb-o)}.ovb-pb i.r{background:var(--ovb-r)}
+.ovb-sbar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--border-soft);margin-top:14px;gap:2px}
+.ovb-sbar i{display:block}
+.ovb-sbar .g{background:var(--ovb-g)}.ovb-sbar .y{background:var(--ovb-y)}.ovb-sbar .r{background:var(--ovb-r)}.ovb-sbar .c{background:var(--border)}
+.ovb-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2);margin-top:8px}
+.ovb-legend > span{display:inline-flex;align-items:center;gap:6px}
+.ovb-legend .ovb-dot{margin-top:0}
+.ovb-emptyc{grid-column:1/-1;background:var(--ovb-page);border-radius:16px;padding:22px 24px}
+
+/* ── Device bento (E1, 18 Nov 2026): the Overview's panes for one device. The rules above are
+   copied from overview_new.html; the rest fits the page to the window, as the Overview does. ── */
+.dd-bento .bt-wrap{display:flex;flex-direction:column;min-height:0}
+.dd-bento .ovb{min-height:0}
+.dd-bento .ovb-c{padding:14px 18px;overflow:hidden}
+.dd-bento .ovb-ch{margin-bottom:8px}
+.dd-bento .ovb-health{display:flex;flex-direction:column;min-height:0}
+.dd-bento .ovb-radar{flex:none;height:150px;width:100%}
+.dd-bento .ovb-parts{margin-top:4px;overflow:auto;min-height:0}
+.dd-bento .ovb-parts a{padding:3px 0;font-size:12.5px;cursor:pointer}
+.dd-bento .ovb-hero{display:flex;flex-direction:column;min-height:0}
+.dd-bento .ovb-t2{min-height:0;flex:1}
+.dd-bento .ovb-pane{min-height:0}.dd-bento .ovb-list{max-height:none}
+.dd-bento .ovb-pane[hidden]{display:none}
+.dd-bento .ovb-det .ovb-big{font-size:22px;margin-top:8px}
+.dd-bento .ovb-promo{min-height:0;padding:16px;cursor:pointer}.dd-bento .ovb-promo b{font-size:19px}.dd-bento .ovb-promo .big{font-size:60px}
+.dd-bento .ovb-ring svg{width:64px;height:64px}
+.dd-bento .ovb-btn{font-size:12px}
+.dd-bento .bt-slot{flex:1;min-height:0;display:flex;flex-direction:column}
+.dd-bento .bt-slot .chart-card{flex:1;min-height:0;display:flex;flex-direction:column;margin:0;border:0;background:none;box-shadow:none;overflow:hidden}
+.dd-bento .bt-slot .chart-card .cc-ch.vt-head{flex:none;padding:0 0 6px}
+.dd-bento .bt-slot .chart-split{flex:1;min-height:0;display:flex;flex-direction:column}
+.dd-bento .bt-slot .chart-body{flex:1;display:flex;flex-direction:column;min-height:0}
+.dd-bento .bt-slot .vt-panel{flex:1;min-height:0;display:flex;flex-direction:column}
+.dd-bento .bt-slot .vt-panel .chart-wrap--tall{flex:1;min-height:60px;height:auto!important;padding:4px 8px 0 0}
+.dd-bento .bt-slot .vt-panel .chart-wrap canvas{position:absolute!important;inset:0;width:100%!important;height:100%!important}
+.dd-bento .bt-slot .vt-navw{flex:none;padding:10px 0 2px;border:0}
+.dd-bento .bt-slot .vt-nav{height:30px}
+.dd-bento .bt-slot .vt-days,.dd-bento .bt-slot .vt-navfoot{display:none}
+.dd-bento .bt-slot .vt-legend{display:none}
+@media (min-height:900px){.dd-bento .bt-slot .vt-legend{display:flex;flex:none;height:40px;margin:6px 0 0;background:none;border:0;padding:0}}
+.dd-bento .bt-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:12px}
+.dd-bento .bt-recent{overflow:auto;min-height:0;flex:1}
+.dd-bento .bt-recent>*{border:0!important;box-shadow:none!important;background:none!important;padding:0!important;margin:0!important}
+.dd-bento .bt-recent .cc-ch,.dd-bento .bt-recent .card-header{display:none}
+/* Desktop window: the Overview tab is exactly the space above the dock and never scrolls
+   (user, 18 Nov 2026: "bento is all about no scrolling"). Phones and short windows stack. */
+html.shell main#main:has(.dd-bento){overflow:hidden}
+html.shell .dd-bento,html.shell .dd-bento>.ddc-body,html.shell .dd-bento .ddc-main{height:100%;min-height:0;display:flex;flex-direction:column}
+html.shell .dd-bento #dd-panel-summary:not([hidden]){flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+html.shell .dd-bento .bt-wrap{flex:1;min-height:0}
+html.shell .dd-bento .ovb{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) auto;gap:10px}
+@media (max-width:1100px),(max-height:639px){
+.dd-bento .ovb{grid-template-columns:1fr}.dd-bento .ovb-hero{grid-column:auto}.dd-bento .ovb-pane{grid-template-columns:1fr}
+.dd-bento .bt-slot .vt-panel .chart-wrap--tall{height:240px!important}.dd-bento .bt-slot .chart-split{min-height:290px}.dd-bento .ovb-radar{height:190px}}

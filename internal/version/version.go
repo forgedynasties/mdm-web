@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.14",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Device page, Bento view: now the Overview's own panes and fits the window with no scrolling. A radar of the device's health, a Today card (Graph, Needs, Activity, Apps; each a list with the pick explained), a coral action card, vitals rings and details. Phones stack. Still opt-in from the page's ⋯ menu.",
+		},
+	},
+	{
 		Version: "1.64.13",
 		Date:    "2026-11-18",
 		Changes: []string{

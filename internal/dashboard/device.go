@@ -552,8 +552,20 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	fwModes, _ := h.db.FirmwareModes(r.Context())
 	sec := h.securityFor(r.Context(), device)
 	devRole := h.deviceRoleOf(r.Context(), device)
+	isBento := h.deviceViewName(r) == "bento"
+	var bento bentoView
+	if isBento {
+		online := h.hub.IsConnectedForDisplay(device.ID)
+		showBat := device.HasBattery() && deviceReportsBattery(device, chartCheckins)
+		pad := padState(device, h.cfg.WlcApplies(device.ProductKey()), kioskCfg.WlcChargingEnabled)
+		cols := vitalColumns(device, showBat, flapRate > 10, pad)
+		au := h.agentUpdateFor(r, device)
+		ksusp := kioskCfg.KioskEnabled && extraBoolField(device.LatestExtra, "kiosk_suspended")
+		bento = deviceBentoOf(device, online, health, cols, device.Supports("kiosk_set") && device.DeployedEffective, kioskCfg.KioskEnabled && !ksusp, !au.Available)
+	}
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
-		"Bento":   h.deviceViewName(r) == "bento", // the Overview as tiles (device_bento)
+		"Bento":   isBento, // the Overview as tiles (device_bento)
+		"BentoV":  bento,
 		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
 		"LookOnly":     lookOnly,
 		"Look":         look,

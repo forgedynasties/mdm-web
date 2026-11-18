@@ -1404,6 +1404,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"batteryTemp": batteryTempStr,
 		"vitalCols":   vitalColumns, // the device pane's vitals as columns
+		"needOne":     needOne,      // one to-do as a list (bento detail pane)
 		// micGain parses latest_extra.mic_gain for templates that only have the
 		// device (vitals partial); nil when the device reports no mic gain.
 		"micGain": micGainPtr,

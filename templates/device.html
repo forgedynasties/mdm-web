@@ -827,104 +827,112 @@
 
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
 {{if .Bento}}
-{{/* Bento view (18 Nov 2026, user: "implement this view but dont make it default … option on
-     the device page to switch … remembered with user"): the Overview as tiles, like the fleet
-     Overview. The graph card below is moved into the graph tile by the script after the legend;
-     every other tab is unchanged and opened from its tile. */}}
-<style>
-.dd-bento .bt{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;margin:0 0 14px}
-.dd-bento .bt-t{background:var(--surface);border-radius:22px;padding:14px 16px;min-width:0;position:relative}
-.dd-bento .bt-t>h2{margin:0 0 8px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
-.dd-bento .bt-t>h2 .sp{flex:1}
-.dd-bento .bt-t>h2 a,.dd-bento .bt-t>h2 button{font:inherit;font-size:11px;text-transform:none;letter-spacing:0;color:var(--accent-text,var(--accent));font-weight:600;background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
-.dd-bento .bt-hero{grid-column:span 12;display:flex;gap:16px;align-items:center}
-.dd-bento .bt-hero img{width:84px;height:84px;border-radius:20px;object-fit:contain;background:var(--canvas,var(--bg));flex:none}
-.dd-bento .bt-hero .id{font-family:var(--mono);font-weight:700;font-size:16px;overflow-wrap:anywhere}
-.dd-bento .bt-hero .nm{font-size:13px;color:var(--text-2);margin-top:4px}
-.dd-bento .bt-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px;align-items:center}
-.dd-bento .bt-chip{font-size:11px;font-weight:700;border-radius:99px;padding:3px 9px;background:var(--canvas,var(--bg));color:var(--text-2)}
-.dd-bento .bt-chip.ok{background:color-mix(in srgb,var(--ok) 16%,var(--surface));color:var(--ok)}
-.dd-bento .bt-chip.warn{background:color-mix(in srgb,var(--warn) 18%,var(--surface));color:var(--warn)}
-.dd-bento .bt-graph{grid-column:span 8;grid-row:span 2;padding:0;background:none;border-radius:0}
-.dd-bento .bt-graph .chart-card{margin:0;border-radius:22px;border:0}
-.dd-bento .bt-graph .vt-legend{margin:10px 0 0;border-radius:22px;border:0}
-.dd-bento .bt-health{grid-column:span 4}
-.dd-bento .bt-needs{grid-column:span 4}
-.dd-bento .bt-s{grid-column:span 3}.dd-bento .bt-m{grid-column:span 4}
-.dd-bento .bt-big{font-size:28px;font-weight:650;line-height:1.05}
-.dd-bento .bt-sub{color:var(--text-2);font-size:12px;margin-top:3px}
-.dd-bento .bt-bar{height:6px;border-radius:3px;background:var(--canvas,var(--bg));overflow:hidden;margin-top:9px}
-.dd-bento .bt-bar i{display:block;height:100%;border-radius:3px;background:var(--ok)}
-.dd-bento .bt-bar.warn i{background:var(--warn)}.dd-bento .bt-bar.danger i{background:var(--danger)}
-.dd-bento .bt-kv{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--border-soft);font-size:12px}
-.dd-bento .bt-kv span{color:var(--muted)}.dd-bento .bt-kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}
-.dd-bento .bt-recent{max-height:240px;overflow:auto}
-.dd-bento .bt-recent>*{border:0!important;box-shadow:none!important;background:none!important;padding:0!important;margin:0!important}
-.dd-bento .bt-recent .cc-ch,.dd-bento .bt-recent .card-header{display:none}
-.dd-bento .bt-go{cursor:pointer}
-.dd-bento .bt-go:hover{box-shadow:0 0 0 2px var(--accent-edge,var(--accent))}
-@media(max-width:1000px){.dd-bento .bt>*{grid-column:span 12!important;grid-row:auto!important}}
-@media(min-width:1001px) and (max-width:1250px){.dd-bento .bt-s{grid-column:span 6}}
-</style>
-<div class="bt">
-  <div class="bt-t bt-hero">
-    {{with modelPic .Device.Product}}<img src="{{.Img}}" alt="" width="84" height="84" decoding="async">{{end}}
-    <div style="min-width:0">
-      <div class="bt-chips">
-        <span class="id">{{.Device.SerialNumber}}</span>
-        {{if .Online}}<span class="bt-chip ok">Online</span>{{else}}<span class="bt-chip warn">Offline · {{timeSince .Device.LastSeenAt}}</span>{{end}}
-        <span class="bt-chip">{{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</span>
-        {{if .KioskConfig.KioskEnabled}}<span class="bt-chip">Locked</span>{{end}}
-        {{if .Lost}}{{if .Lost.On}}<span class="bt-chip warn">Lost mode</span>{{end}}{{end}}
-      </div>
-      <div class="nm">{{if .Nickname}}{{.Nickname}} · {{end}}{{.Device.ProductLabel}}{{if .Device.BuildID}} · build {{.Device.BuildID}}{{end}}{{$av := extraField .Device.LatestExtra "agent_version"}}{{if and $av (ne $av "—")}} · MDM client {{$av}}{{end}}</div>
-    </div>
-  </div>
-  <div class="bt-t bt-graph" id="bt-graph-slot"></div>
-  <div class="bt-t bt-health bt-go" role="button" tabindex="0" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-    <h2>Health <span class="sp"></span><a>Open</a></h2>
-    <div class="bt-big">{{if gt .Health.Scored 0}}{{.Health.Passing}} <small style="font-size:14px;font-weight:500;color:var(--muted)">of {{.Health.Scored}} checks</small>{{else}}—{{end}}</div>
-    <div class="bt-sub">{{if .Health.Alerts}}{{.Health.Alerts}} open alert{{if ne .Health.Alerts 1}}s{{end}}{{else}}No open alerts{{end}}</div>
-    {{if gt .Health.Scored 0}}<div class="bt-bar {{if lt .Health.Passing .Health.Scored}}warn{{end}}"><i style="width:{{pctOf .Health.Passing .Health.Scored}}%"></i></div>{{end}}
-  </div>
-  <div class="bt-t bt-needs">
-    <h2>Needs a look <span class="sp"></span>{{if .Needs}}<a>{{len .Needs}}</a>{{end}}</h2>
-    {{with .Needs}}{{template "dd-todo-rows" (dict "Items" . "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" false "Serial" $.Device.SerialNumber "RoleOK" (canOperate $.Role))}}{{else}}<div class="bt-sub">Nothing. This device looks fine.</div>{{end}}
-  </div>
-  {{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}
-  <div class="bt-t bt-s{{if eq .Key "wifi"}} bt-go{{end}}"{{if eq .Key "wifi"}} role="button" tabindex="0" onclick="setDeviceTab('network', document.getElementById('dd-tab-network'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"{{end}}>
-    <h2>{{.Label}}{{if eq .Key "wifi"}} <span class="sp"></span><a>Open</a>{{end}}</h2>
-    <div class="bt-big">{{.Value}}</div><div class="bt-sub">{{.Sub}}</div>
-    <div class="bt-bar {{if eq .Tone "warn"}}warn{{else if eq .Tone "danger"}}danger{{end}}"><i style="width:{{.Pct}}%"></i></div>
-  </div>
-  {{end}}
-  {{if not .IsOwner}}{{with .HostApp}}{{if .Active.Package}}
-  <div class="bt-t bt-s bt-go" role="button" tabindex="0" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-    <h2>Host app <span class="sp"></span><a>Apps</a></h2>
-    <div class="bt-big" style="font-size:19px">{{.Active.Name}}{{if .Active.Version}} <small style="font-weight:500;color:var(--muted)">{{.Active.Version}}</small>{{end}}</div>
-    <div class="bt-sub">{{.State}}{{if .Today}} · {{.Today}} today{{end}}</div>
-    {{if .Memory}}<div class="bt-kv" style="margin-top:8px"><span>Memory</span><b>{{.Memory}}</b></div>{{end}}
-    <div class="bt-kv"><span>Problems (24 h)</span><b>{{.Problems}}</b></div>
-  </div>{{end}}{{end}}{{end}}
-  <div class="bt-t bt-m bt-go" role="button" tabindex="0" onclick="setDeviceTab('location', document.getElementById('dd-tab-location'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-    <h2>Location <span class="sp"></span><a>Map</a></h2>
-    <div class="bt-big" style="font-size:19px">{{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
-    <div class="bt-sub">{{with .Wifi}}{{if .Current}}On {{.Current}}{{end}}{{end}}</div>
-    <div class="bt-sub">Where it is, its address and its trail are on the Location tab.</div>
-  </div>
-  {{if not .IsOwner}}
-  <div class="bt-t bt-m">
-    <h2>Recent <span class="sp"></span><button type="button" onclick="setDeviceTab('activity', document.getElementById('dd-tab-activity'))">All activity</button></h2>
-    <div class="bt-recent" id="bt-recent" hx-target="this" hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-select="unset" hx-trigger="load" hx-swap="innerHTML"><div class="bt-sub">Loading…</div></div>
-  </div>
-  <div class="bt-t bt-m bt-go" role="button" tabindex="0" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
-    <h2>Apps <span class="sp"></span><a>All apps</a></h2>
-    <div class="bt-sub">Installed apps, what is on screen and resource use, with install, remove and follow.</div>
-  </div>
-  {{end}}
-</div>
-{{end}}
+{{/* Bento view, E1 (user, 18 Nov 2026: "E1"; "bento is all about no scrolling"): the Overview's
+     panes for one device. Left, a radar of the device's health parts; the Today card is the graph
+     pane (tabs Graph · Needs · Activity · Apps, each a list with the pick explained beside it);
+     under them the coral action card, vitals rings and facts. The graph card below is moved into
+     the Graph pane by the script after the legend (Chart.js keeps its elements). The CSS is the
+     Overview's own (static/css/ovb-device.css); on a desktop window it fits with no scrolling.
+     The other tabs are unchanged. */}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+{{$bv := .BentoV}}
+<div class="ovd bt-wrap"><div class="ovb" id="bt">
+  <section class="ovb-c ovb-health" aria-labelledby="bt-h">
+    <div class="ovb-ch"><h2 id="bt-h">Device health</h2><span class="sp"></span><button type="button" class="ovb-pill {{$bv.Tone}}" style="border:0;cursor:pointer" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))" title="Open Health">{{$bv.Score}}</button></div>
+    {{if $bv.HasRing}}<svg class="ovb-radar" viewBox="-125 -112 250 230" role="img" aria-label="Device health by part">
+      {{range $bv.Radar.Rings}}<polygon class="g" points="{{.}}"/>{{end}}
+      {{range $bv.Radar.Axes}}<line class="g" x1="0" y1="0" x2="{{index . 0}}" y2="{{index . 1}}"/>{{end}}
+      <polygon class="a" points="{{$bv.Radar.Area}}"/>
+      {{range $bv.Radar.Dots}}<circle class="d" cx="{{index . 0}}" cy="{{index . 1}}" r="3.5"/>{{end}}
+      {{range $bv.Radar.Labels}}<text x="{{.X}}" y="{{.Y}}" text-anchor="middle">{{.N}}</text>{{end}}
+    </svg>{{end}}
+    <ol class="ovb-parts">{{range $bv.Parts}}
+      <li><a role="button" tabindex="0" title="{{.Why}}" onclick="setDeviceTab('{{.Tab}}', document.getElementById('dd-tab-{{.Tab}}'))" onkeydown="if(event.key==='Enter'){this.click()}"><span class="k">{{.N}}</span>{{.Name}}<span class="lead"></span><span class="ovb-pill {{.Tone}}">{{.Pct}}%</span></a></li>{{end}}
+    </ol>
+  </section>
 
+  <section class="ovb-c ovb-hero" aria-labelledby="bt-t">
+    <div class="ovb-ch"><h2 id="bt-t">Today</h2><span class="sp"></span>
+      <span class="ovb-seg" role="tablist" id="bt-tabs">
+        <button type="button" role="tab" class="on" data-bt-tab="graph">Graph</button>
+        <button type="button" role="tab" data-bt-tab="needs">Needs{{if .Needs}} · {{len .Needs}}{{end}}</button>
+        {{if not .IsOwner}}<button type="button" role="tab" data-bt-tab="activity">Activity</button>
+        <button type="button" role="tab" data-bt-tab="apps">Apps{{with .HostApp}}{{if .Count}} · {{.Count}}{{end}}{{end}}</button>{{end}}
+      </span><span class="sp"></span></div>
+    <div class="ovb-t2">
+      <div class="ovb-pane" data-bt-pane="graph">
+        <div class="ovb-list" role="listbox" aria-label="Metric">
+          {{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<button type="button" class="ovb-li{{if eq .Key "battery"}} on{{end}}" data-bt-metric="{{.Key}}"><span class="ovb-dot {{if eq .Tone "warn"}}o{{else if eq .Tone "danger"}}r{{else if eq .Tone "muted"}}c{{end}}"></span><span class="tx"><b>{{.Label}} · {{.Value}}</b><small>{{.Sub}}</small></span></button>{{end}}
+        </div>
+        <div class="ovb-dets"><div class="ovb-det"><div class="bt-slot" id="bt-graph-slot"></div></div></div>
+      </div>
+      <div class="ovb-pane" data-bt-pane="needs" hidden>
+        {{if .Needs}}
+        <div class="ovb-list" role="listbox" aria-label="Needs a look">{{range $i, $n := .Needs}}<button type="button" class="ovb-li{{if eq $i 0}} on{{end}}" data-bt-pick="{{$i}}"><span class="ovb-dot {{if eq $n.Tone "bad"}}r{{else if eq $n.Tone "warn"}}o{{else}}y{{end}}"></span><span class="tx"><b>{{$n.Title}}</b>{{with $n.Why}}<small>{{.}}</small>{{end}}</span></button>{{end}}</div>
+        <div class="ovb-dets">{{range $i, $n := .Needs}}<div class="ovb-det" data-bt-det="{{$i}}"{{if ne $i 0}} hidden{{end}}>
+          <div><span class="ovb-tag {{if eq $n.Tone "bad"}}r{{else if eq $n.Tone "warn"}}o{{else}}y{{end}}">{{if eq $n.Tone "bad"}}Needs action{{else if eq $n.Tone "warn"}}Warning{{else}}Note{{end}}</span></div>
+          {{template "dd-todo-rows" (dict "Items" (needOne $n) "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" false "Serial" $.Device.SerialNumber "RoleOK" (canOperate $.Role))}}
+        </div>{{end}}</div>
+        {{else}}<div class="ovb-emptyc"><span class="ovb-tag g">All clear</span><p class="ovb-big">Nothing needs a look. This device is fine.</p></div>{{end}}
+      </div>
+      {{if not .IsOwner}}
+      <div class="ovb-pane" data-bt-pane="activity" hidden style="grid-template-columns:1fr">
+        <div class="ovb-dets" style="display:flex;flex-direction:column"><div class="bt-recent" id="bt-recent" hx-target="this" hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-select="unset" hx-trigger="load" hx-swap="innerHTML"><p class="ovb-sub">Loading…</p></div>
+          <div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('activity', document.getElementById('dd-tab-activity'))"><span class="cta-t">All activity</span></a></div></div>
+      </div>
+      <div class="ovb-pane" data-bt-pane="apps" hidden>
+        {{with .HostApp}}{{if .Active.Package}}
+        <div class="ovb-list" role="listbox" aria-label="Apps"><button type="button" class="ovb-li on" data-bt-pick="0"><span class="ovb-dot {{if eq .Active.Dot "on"}}{{else if eq .Active.Dot "run"}}y{{else}}c{{end}}"></span><span class="tx"><b>{{.Active.Name}}</b><small>{{.Active.Version}} · host app</small></span></button>
+          {{range $i, $o := .Others}}<button type="button" class="ovb-li" data-bt-pick="{{add $i 1}}"><span class="ovb-dot c"></span><span class="tx"><b>{{$o.Name}}</b><small>{{$o.Version}}{{if $o.Env}} · {{$o.Env}}{{end}}</small></span></button>{{end}}</div>
+        <div class="ovb-dets"><div class="ovb-det" data-bt-det="0"><div><span class="ovb-tag">Host app</span></div><p class="ovb-big">{{.Active.Name}}{{if .Active.Version}} {{.Active.Version}}{{end}}</p><p class="ovb-sub">{{.State}}{{if .Today}} · {{.Today}} on screen today{{end}}</p>
+          <div class="ovb-facts"><div class="ovb-fact"><b>{{or .Today "—"}}</b><span>on screen today</span></div><div class="ovb-fact"><b>{{or .Memory "—"}}</b><span>memory</span></div><div class="ovb-fact"><b>{{.Problems}}</b><span>problems (24 h)</span></div></div>
+          <div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>
+          {{range $i, $o := .Others}}<div class="ovb-det" data-bt-det="{{add $i 1}}" hidden><div><span class="ovb-tag y">Variant</span></div><p class="ovb-big">{{$o.Name}}{{if $o.Version}} {{$o.Version}}{{end}}</p><p class="ovb-sub">{{$o.Package}}</p><div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>{{end}}</div>
+        {{else}}<div class="ovb-emptyc"><span class="ovb-tag y">No host app</span><p class="ovb-big">This device reports no host app.</p><div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>{{end}}
+        {{else}}<div class="ovb-emptyc"><span class="ovb-tag y">Apps</span><p class="ovb-big">Installed apps, what is on screen and resource use.</p><div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>{{end}}
+      </div>
+      {{end}}
+    </div>
+  </section>
+
+  {{if .Needs}}<a class="ovb-promo" role="button" tabindex="0" onclick="btTab('needs')"><b>{{len .Needs}} thing{{if ne (len .Needs) 1}}s{{end}}<br>need{{if eq (len .Needs) 1}}s{{end}} a look</b><span class="ovb-btn w">Open</span><span class="big" aria-hidden="true">{{len .Needs}}</span></a>
+  {{else}}<a class="ovb-promo" role="button" tabindex="0" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))"><b>Everything<br>is running</b><span class="ovb-btn w">Open Health</span><span class="big" aria-hidden="true">✓</span></a>{{end}}
+
+  <section class="ovb-c" aria-labelledby="bt-v">
+    <div class="ovb-ch"><h2 id="bt-v">Vitals</h2></div>
+    <div class="ovb-rings">{{range $bv.Rings}}<a class="ovb-ring" role="button" tabindex="0" onclick="setDeviceTab('{{.Tab}}', document.getElementById('dd-tab-{{.Tab}}'))"><svg viewBox="0 0 82 82" role="img" aria-label="{{.Label}} {{.Text}}"><circle class="bg" cx="41" cy="41" r="33"/><circle class="fg {{.Tone}}" cx="41" cy="41" r="33" stroke-dasharray="{{.Dash}} {{.Circ}}"/><text x="41" y="45" text-anchor="middle">{{.Text}}</text></svg>{{.Label}}</a>{{end}}</div>
+  </section>
+
+  <section class="ovb-c" aria-labelledby="bt-d">
+    <div class="ovb-ch"><h2 id="bt-d">Details</h2><span class="sp"></span><button type="button" class="ovb-ib" aria-label="About" onclick="setDeviceTab('about', document.getElementById('dd-tab-about'))"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg></button></div>
+    <div class="ovb-facts" style="margin-top:0">
+      <div class="ovb-fact"><b>{{if .Online}}Online{{else}}Offline{{end}}</b><span>{{if .Online}}connected now{{else}}last seen {{timeSince .Device.LastSeenAt}}{{end}}</span></div>
+      {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div class="ovb-fact"><b>{{$up}}</b><span>up</span></div>{{end}}
+      <div class="ovb-fact"><b>{{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</b><span>{{if .Device.DeployedEffective}}venue{{else}}not at a venue{{end}}</span></div>
+      {{if .Device.BuildID}}<div class="ovb-fact"><b>{{.Device.BuildID}}</b><span>build</span></div>{{end}}
+    </div>
+  </section>
+</div></div>
+<script>(function(){
+  var root=document.getElementById('bt');if(!root)return;
+  window.btTab=function(k){
+    root.querySelectorAll('[data-bt-tab]').forEach(function(b){var on=b.dataset.btTab===k;b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false')});
+    root.querySelectorAll('[data-bt-pane]').forEach(function(p){p.hidden=p.dataset.btPane!==k});
+    if(k==='graph')window.dispatchEvent(new Event('resize'));
+  };
+  document.getElementById('bt-tabs').addEventListener('click',function(e){var b=e.target.closest('[data-bt-tab]');if(b)btTab(b.dataset.btTab)});
+  root.addEventListener('click',function(e){
+    var m=e.target.closest('[data-bt-metric]');
+    if(m){var map={battery:'battery',temp:'temp',ram:'ram',wifi:'net',power:'battery'},t=map[m.dataset.btMetric];
+      m.parentNode.querySelectorAll('.ovb-li').forEach(function(x){x.classList.toggle('on',x===m)});
+      if(t&&window.setChartTab)setChartTab(t);return}
+    var p=e.target.closest('[data-bt-pick]');
+    if(p){var pane=p.closest('[data-bt-pane]'),i=p.dataset.btPick;
+      pane.querySelectorAll('[data-bt-pick]').forEach(function(x){x.classList.toggle('on',x===p)});
+      pane.querySelectorAll('[data-bt-det]').forEach(function(d){d.hidden=d.dataset.btDet!==i})}
+  });
+})();</script>
+{{end}}
 <style>
 /* Vitals card: stacked charts, range dropdown, navigator (see the comment in the card). */
 /* Battery fault (G1, 21 Oct 2026): the no-pack note over the hatched band, the tab's dot. */
