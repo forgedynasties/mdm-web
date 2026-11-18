@@ -324,3 +324,8 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 .bt-aa-b{display:flex;gap:6px;flex-wrap:wrap}
 .bt-aa-b .chip{border:1px solid var(--border-soft);background:var(--surface);border-radius:99px;padding:5px 12px;font:inherit;font-size:12px;font-weight:600;color:var(--text-2);cursor:pointer}
 .bt-aa-b .chip:hover{border-color:var(--accent-fill);color:var(--text)}
+
+/* Health sheet: nothing folds (user, 18 Nov 2026); the status line wraps inside its card */
+.dd-bento .dh-card details.dh-fold>summary{pointer-events:none;cursor:default}
+.dd-bento .dh-card details.dh-fold>summary::before{content:none}
+.dd-bento .dh-card .card-header>.m{flex:1 0 100%;white-space:normal;margin:2px 0 0;line-height:1.4}

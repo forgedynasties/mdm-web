@@ -1899,8 +1899,8 @@ window.DEVICE_VITALS = {
     <details class="dh-fold" open><summary>Compliance checklist <span class="muted">· {{if $hv.Scored}}{{$hv.Passing}} of {{$hv.Scored}} pass{{else}}not checked{{end}}</span></summary>
       <div hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="intersect once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
         <div class="muted small" style="padding:18px;text-align:center;">Loading compliance…</div></div></details>
-    <details class="dh-fold"><summary>Alert history</summary>
-      <div hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="toggle once from:closest details" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+    <details class="dh-fold" open><summary>Alert history</summary>
+      <div hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="intersect once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
         <div class="muted small" style="padding:18px;text-align:center;">Loading alerts…</div></div></details>
   </div>
   <style>
