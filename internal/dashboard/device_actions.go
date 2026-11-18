@@ -371,10 +371,46 @@ func (h *Handler) DeviceNotesUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	notes := strings.TrimSpace(r.FormValue("notes"))
 	const maxNotes = 4000
+	// A log entry (Bento Notes sheet): body + kind. The older single-note form posts "notes".
+	if body := strings.TrimSpace(r.FormValue("body")); body != "" {
+		if len(body) > maxNotes {
+			body = truncRunes(body, maxNotes)
+		}
+		kind := r.FormValue("kind")
+		okKind := false
+		for _, k := range db.NoteKinds {
+			okKind = okKind || k == kind
+		}
+		if !okKind {
+			kind = "note"
+		}
+		if err := h.db.AddDeviceNote(r.Context(), device.ID, h.currentUsername(r), kind, body); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "device.notes", serial, fmt.Sprintf("%s len=%d", kind, len(body)))
+		if r.Header.Get("HX-Request") == "" {
+			http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		h.tmpl.ExecuteTemplate(w, "device-notes", h.withRole(r, map[string]any{
+			"Device":  device,
+			"Notes":   body,
+			"Saved":   true,
+			"Bento":   true,
+			"NoteLog": h.noteLogFor(r.Context(), r, device),
+		}))
+		return
+	}
+	notes := strings.TrimSpace(r.FormValue("notes"))
 	if len(notes) > maxNotes {
-		notes = notes[:maxNotes]
+		notes = truncRunes(notes, maxNotes)
+	}
+	// The single note: saved as before, and kept in the log when it changed.
+	if prev, _ := h.db.GetDeviceNotes(r.Context(), device.ID); prev != notes && notes != "" {
+		_ = h.db.AddDeviceNote(r.Context(), device.ID, h.currentUsername(r), "note", notes)
 	}
 	if err := h.db.SetDeviceNotes(r.Context(), device.ID, notes); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)

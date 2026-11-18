@@ -1405,6 +1405,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"batteryTemp": batteryTempStr,
 		"vitalCols":   vitalColumns, // the device pane's vitals as columns
 		"needOne":     needOne,      // one to-do as a list (bento detail pane)
+		"noteKinds":    func() []string { return db.NoteKinds },
+		"initials": func(n string) string {
+			r := []rune(strings.TrimSpace(n))
+			if len(r) == 0 {
+				return "?"
+			}
+			if len(r) > 2 {
+				r = r[:2]
+			}
+			return strings.ToUpper(string(r))
+		},
 		// micGain parses latest_extra.mic_gain for templates that only have the
 		// device (vitals partial); nil when the device reports no mic gain.
 		"micGain": micGainPtr,

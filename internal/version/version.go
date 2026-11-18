@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.21",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view sheets: Notes is a log (each entry has a time, author and kind, with what the MDM did to the device mixed in; the old single note becomes its first entry), Activity is a list with the picked event explained beside it, Health puts what needs a look first with passing checks as chips, About gets its admin actions, and Network and About are regrouped.",
+			"Fleet: the device table no longer scrolls, only pages (the pager, the numbers and the arrow keys flip them).",
+		},
+	},
+	{
 		Version: "1.64.20",
 		Date:    "2026-11-18",
 		Changes: []string{

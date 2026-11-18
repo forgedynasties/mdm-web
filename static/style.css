@@ -8255,3 +8255,9 @@ html.shell .fleet-roster, html.shell .fleet-roster .ft-wrap { position: relative
 main.nav-still, main.nav-still * { animation: none !important; }
 main.nav-still.htmx-added { opacity: 1 !important; }
 
+
+/* Fleet table: no scrolling, pages only (user, 18 Nov 2026). The page holds exactly the rows that fit
+   (fitpages.js); a table too wide for the window may still pan sideways. The scroll cue and the fades
+   that hinted at more rows are gone with it. */
+html.shell .fleet-roster .card > .ft-wrap { overflow-y: hidden; overflow-x: auto; }
+.fl-cue, .fl-fade { display: none !important; }

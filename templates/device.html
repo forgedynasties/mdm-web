@@ -225,8 +225,31 @@
      POST /devices/{serial}/notes. */}}
 {{define "device-notes"}}
 {{/* Notes, in the menu kit (device-menus-demos.html, M1). Returned whole by POST
-     /devices/{serial}/notes, which swaps it back in with "Saved". */}}
-<div id="device-notes-card">
+     /devices/{serial}/notes, which swaps it back in with "Saved". In the Bento view (NO3, picked
+     18 Nov 2026) it is a log: a composer, filters, and the entries newest first with what the MDM
+     did to the device mixed in (grey, "Show automatic" hides them). */}}
+<div id="device-notes-card"{{if .Bento}} class="bt-nl"{{end}}>
+  {{if .Bento}}
+  {{if canOperate .Role}}
+  <form hx-post="/devices/{{.Device.SerialNumber}}/notes" hx-target="#device-notes-card" hx-swap="outerHTML" class="bt-nl-form">
+    <textarea name="body" rows="3" maxlength="4000" placeholder="Add to the log…" aria-label="New note" required></textarea>
+    <div class="bt-nl-row">
+      <span class="bt-nl-kinds" role="radiogroup" aria-label="Kind">{{range $i, $k := noteKinds}}<label><input type="radio" name="kind" value="{{$k}}"{{if eq $i 0}} checked{{end}}><span>{{$k}}</span></label>{{end}}</span>
+      {{if .Saved}}<span class="bt-nl-saved">Added</span>{{end}}
+      <button type="submit" class="ovb-btn cta-g"><span class="cta-t">Add entry</span></button>
+    </div>
+  </form>
+  {{end}}
+  <div class="bt-nl-f" role="group" aria-label="Filter the log">
+    <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" class="on" data-nlf="auto">Show automatic</button>
+  </div>
+  <ul class="bt-nl-list">
+    {{range .NoteLog}}<li data-kind="{{.Kind}}"><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
+      <div><div class="bt-nl-h"><span class="bt-nl-k {{.Kind}}">{{.Kind}}</span><b>{{.Who}}</b><time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}">{{.At.Format "2 Jan, 15:04"}} UTC</time></div>
+      <div class="bt-nl-t{{if .Auto}} auto{{end}}">{{.Text}}</div></div></li>
+    {{else}}<li class="bt-nl-empty">Nothing logged yet. Notes you add, and what is done to this device, appear here with their time.</li>{{end}}
+  </ul>
+  {{else}}
   <div class="cc-mh">Notes{{if .Saved}}<span class="sub dn-saved">Saved</span>{{end}}</div>
   {{if canOperate .Role}}
   <form hx-post="/devices/{{.Device.SerialNumber}}/notes" hx-target="#device-notes-card" hx-swap="outerHTML" class="dn-form">
@@ -235,6 +258,7 @@
   </form>
   {{else}}
     <div class="dn-form">{{if .Notes}}<div class="dn-view">{{.Notes}}</div>{{else}}<div class="muted small">No notes.</div>{{end}}</div>
+  {{end}}
   {{end}}
 </div>
 {{end}}
@@ -954,6 +978,11 @@
       pane.querySelectorAll('[data-bt-pick]').forEach(function(x){x.classList.toggle('on',x===p)});
       pane.querySelectorAll('[data-bt-det]').forEach(function(d){d.hidden=d.dataset.btDet!==i})}
   });
+  /* Notes log filters (delegated: the card is re-rendered by htmx) */
+  document.addEventListener('click',function(e){var b=e.target.closest('.bt-nl-f [data-nlf]');if(!b)return;var card=b.closest('.bt-nl'),k=b.dataset.nlf;
+    if(k==='auto'){b.classList.toggle('on')}else{card.querySelectorAll('.bt-nl-f [data-nlf]:not([data-nlf=auto])').forEach(function(x){x.classList.toggle('on',x===b)})}
+    var kind=(card.querySelector('.bt-nl-f [data-nlf].on:not([data-nlf=auto])')||{dataset:{nlf:'all'}}).dataset.nlf,auto=card.querySelector('[data-nlf=auto]').classList.contains('on');
+    card.querySelectorAll('.bt-nl-list li[data-kind]').forEach(function(li){var a=li.dataset.kind==='auto';li.style.display=(a?auto:(kind==='all'||li.dataset.kind===kind))?'':'none'})});
   /* what the old strip and tab-row carried moves into the tiles: the client pill, the venue
      and groups rows into Details, the charging pad card into its tile (same elements, so their
      popovers and the wlc switch keep working) */
@@ -1006,6 +1035,28 @@
       var b=e.target.closest('[data-bt-info],[data-bt-rm]');if(b){var r=rows().filter(function(x){return x.getAttribute('data-pkg')===cur})[0];if(!r)return;if(b.hasAttribute('data-bt-info')&&window.appInfoOpen)appInfoOpen(r);else{var x=r.querySelector('button.app-x:not(.app-x-lock)');if(x)x.click()}}},true);
     document.body.addEventListener('htmx:afterSettle',function(e){if(apps.contains(e.target)||e.target.id==='apps-live')reselect()});
     setTimeout(reselect,1500);reselect()})();
+  /* Activity sheet, AC2: pick an event on the left, see it explained on the right (rows are re-rendered by htmx) */
+  (function(){var act=document.getElementById('dd-panel-activity'),box=document.getElementById('bt-act-detail');if(!act||!box)return;
+    function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+    function show(row){act.querySelectorAll('.ddc-tl.bt-on').forEach(function(x){x.classList.remove('bt-on')});row.classList.add('bt-on');
+      var dot=row.querySelector('.dot'),cls=dot?(dot.classList.contains('ok')?'g':dot.classList.contains('err')?'r':dot.classList.contains('warn')?'y':'n'):'n',tag=cls==='g'?'Done':cls==='r'?'Failed':cls==='y'?'In progress':'Change';
+      var main=row.querySelector('.ddc-tl-main'),when=row.querySelector('.when'),id=row.getAttribute('data-cmd-id'),href=row.getAttribute('href'),title=(row.querySelector('.ddc-tl-main b')||main||{}).textContent||'',ser='{{.Device.SerialNumber}}';
+      var shot=/screenshot/i.test(title)&&id?'<img alt="Screenshot" style="max-width:100%;max-height:230px;border-radius:12px;align-self:flex-start" src="/commands/'+esc(id)+'/screenshot/'+encodeURIComponent(ser)+'" onerror="this.remove()">':'';
+      box.innerHTML='<div><span class="ovb-tag '+(cls==='r'?'r':cls==='y'?'y':'')+'">'+tag+'</span></div><div class="ovb-big" style="font-size:20px;margin:0">'+esc(title)+'</div><div class="bt-ad-meta">'+(main?main.innerHTML:'')+'</div><div class="bt-ad-meta">'+(when?esc(when.getAttribute('title')||when.textContent):'')+'</div>'+shot+(href?'<div class="bt-ad-acts"><a class="ovb-btn cta-g" href="'+esc(href)+'"><span class="cta-t">Open command</span></a></div>':'')}
+    act.addEventListener('click',function(e){var row=e.target.closest('.ddc-tl');if(!row||!act.contains(row)||e.target.closest('#bt-act-detail'))return;if(e.target.closest('a.link-detail'))return;e.preventDefault();e.stopPropagation();show(row)},true)})();
+  /* Health sheet, H1: two columns. The card's children are siblings, so they are gathered into a left
+     column (status, alert history) and a right one (what needs a look, compliance) */
+  (function(){var c=document.querySelector('#dd-panel-health .dh-card');if(!c||c.querySelector(':scope > .bt-hl'))return;var l=document.createElement('div'),r=document.createElement('div');l.className='bt-hl';r.className='bt-hr';
+    var kids=[].slice.call(c.children),det=kids.filter(function(k){return k.tagName==='DETAILS'});
+    kids.forEach(function(k){if(k.classList.contains('card-header')||k===det[1])l.appendChild(k);else r.appendChild(k)});c.appendChild(l);c.appendChild(r)})();
+  /* About sheet, AB2: the admin actions sit with the device they act on (the same dialogs as the page menu) */
+  (function(){var ag=document.querySelector('#dd-panel-about .about-grid'),mv=document.getElementById('move-server-dlg'),kr=document.getElementById('key-reset-dlg');if(!ag||!(mv||kr))return;
+    var d=document.createElement('div');d.className='ddc-card bt-aboutacts';d.innerHTML='<div class="bt-aa-h">Actions</div><div class="bt-aa-b">'+(mv?'<button type="button" class="chip" data-aa="mv">Move to another server…</button>':'')+(kr?'<button type="button" class="chip" data-aa="kr">Reset device key…</button>':'')+'</div>';ag.appendChild(d);
+    d.addEventListener('click',function(e){var b=e.target.closest('[data-aa]');if(!b)return;var dl=document.getElementById(b.dataset.aa==='mv'?'move-server-dlg':'key-reset-dlg');if(dl&&dl.showModal)dl.showModal()})})();
+  /* background load of what the Health sheet fetches on first view */
+  setTimeout(function(){if(!window.htmx)return;var c=document.querySelector('#dd-panel-health [hx-trigger^="intersect"]'),a=document.querySelector('#dd-panel-health details.dh-fold:nth-of-type(2)');
+    if(c){window.htmx.process(c);window.htmx.trigger(c,'intersect')}
+    if(a){a.open=true;var l=a.querySelector('[hx-trigger^="toggle"]');if(l){window.htmx.process(l);a.dispatchEvent(new Event('toggle'))}}},1500);
   var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
   sync();
   }
@@ -1812,6 +1863,7 @@ window.DEVICE_VITALS = {
        partial carries its own live-refresh attributes while a command is unfinished. */}}
   <div hx-get="/devices/{{.Device.SerialNumber}}/timeline" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
        class="muted small" style="padding:26px;text-align:center;">Loading activity…</div>
+  {{if .Bento}}<div class="card bt-actd" id="bt-act-detail" aria-live="polite"><p class="muted">Pick an event to see it here.</p></div>{{end}}
 </section><!-- /activity -->
 {{/* Moved under the split by split.js and loaded when it is first shown (G3). Its own
      target and select: inherited ones made the card replace the whole page. */}}

@@ -263,3 +263,64 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 .dd-bento .bt-rail b{font-size:14px;font-weight:650;white-space:nowrap;overflow:visible;text-overflow:clip}
 .dd-bento .bt-rail small{font-size:10.5px;color:var(--text-2);white-space:nowrap}
 @media (max-width:1100px),(max-height:639px){.dd-bento .bt-pane-g{grid-template-columns:1fr}.dd-bento .bt-railbox{flex-direction:row;flex-wrap:wrap}.dd-bento .bt-rail{width:auto;flex:1 1 70px}}
+
+/* Notes sheet (NO3): a log */
+.dd-bento #dd-panel-notes:not([hidden]){display:flex;flex-direction:column}
+.dd-bento .bt-nl{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}
+.bt-nl-form{background:var(--ovb-page,var(--bg));border-radius:16px;padding:12px 14px;flex:none}
+.bt-nl-form textarea{width:100%;border:1px solid var(--border);border-radius:14px;padding:9px 11px;font:inherit;background:var(--surface);color:var(--text);resize:none;min-height:58px;box-sizing:border-box}
+.bt-nl-row{display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap}
+.bt-nl-kinds{display:flex;gap:6px;flex-wrap:wrap}.bt-nl-kinds label{cursor:pointer}.bt-nl-kinds input{position:absolute;opacity:0;pointer-events:none}
+.bt-nl-kinds span{display:inline-block;border:1px solid var(--border-soft);background:var(--surface);border-radius:99px;padding:4px 11px;font-size:11.5px;font-weight:600;color:var(--text-2);text-transform:capitalize}
+.bt-nl-kinds input:checked+span{background:var(--ovb-page,var(--bg));border-color:var(--accent-fill);color:var(--text)}
+.bt-nl-kinds input:focus-visible+span{box-shadow:var(--ring)}
+.bt-nl-row .ovb-btn{margin-left:auto;font-size:12px;border:0}
+.bt-nl-saved{color:var(--ovb-g,#1f9d60);font-size:12px;font-weight:650}
+.bt-nl-f{display:flex;gap:6px;flex-wrap:wrap;flex:none}
+.bt-nl-f button{border:1px solid var(--border-soft);background:var(--surface);border-radius:99px;padding:4px 11px;font:inherit;font-size:11.5px;font-weight:600;color:var(--text-2);cursor:pointer}
+.bt-nl-f button.on{background:var(--ovb-page,var(--bg));border-color:var(--accent-fill);color:var(--text)}
+.bt-nl-list{list-style:none;margin:0;padding:0;overflow:auto;min-height:0;flex:1}
+.bt-nl-list li{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--border-soft);align-items:flex-start}
+.bt-nl-who{width:24px;height:24px;border-radius:50%;background:var(--accent-fill);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:700;flex:none}
+.bt-nl-list li[data-kind=auto] .bt-nl-who{background:var(--muted)}
+.bt-nl-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.bt-nl-h b{font-size:12px}.bt-nl-h time{color:var(--muted);font-size:11.5px}
+.bt-nl-k{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:99px;padding:1px 7px;background:var(--ovb-page,var(--bg));color:var(--text-2)}
+.bt-nl-k.issue{background:color-mix(in srgb,var(--ovb-r,#d64432) 18%,var(--surface));color:var(--ovb-r,#d64432)}
+.bt-nl-k.fix{background:color-mix(in srgb,var(--ovb-g,#1f9d60) 18%,var(--surface));color:var(--ovb-g,#1f9d60)}
+.bt-nl-k.hardware{background:color-mix(in srgb,var(--ovb-y,#d9a70a) 22%,var(--surface));color:#8a6a00}
+.bt-nl-k.auto{color:var(--muted)}
+.bt-nl-t{margin-top:3px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.bt-nl-t.auto{color:var(--muted)}
+.bt-nl-empty{color:var(--muted);padding:14px 0;display:block!important;border:0!important}
+
+/* Health sheet (H1): the status and the alert history on the left, what needs a look and the
+   compliance checks on the right (failing rows first, passing ones as quiet chips) */
+.dd-bento #dd-panel-health:not([hidden]){display:block;overflow:auto}
+.dd-bento .dh-card{display:grid;grid-template-columns:290px minmax(0,1fr);gap:16px;background:none;box-shadow:none;border:0;padding:0;margin:0;align-items:start}
+.dd-bento .dh-card>.bt-hl,.dd-bento .dh-card>.bt-hr{display:flex;flex-direction:column;gap:12px;min-width:0}
+.dd-bento .dh-card .card-header{background:var(--ovb-page,var(--bg));border-radius:16px;padding:12px 14px;flex-wrap:wrap}
+.dd-bento .dh-card details.dh-fold{border:0}
+.dd-bento .dh-card .bt-hl details.dh-fold{background:var(--ovb-page,var(--bg));border-radius:16px}
+.dd-bento .dh-card .dh-fold>div{padding:0 10px 10px}
+.dd-bento .dco-say{border-radius:14px;margin-bottom:10px}
+.dd-bento .dco-list{column-count:1;display:flex;flex-wrap:wrap;gap:6px;border:0;background:none;padding:0}
+.dd-bento .dco-it{display:inline-flex;margin:0;padding:3px 10px;border:1px solid var(--border-soft);border-radius:99px;background:var(--surface);font-size:12px}
+.dd-bento .dco-it.fail,.dd-bento .dco-it.warn{order:-1;flex:1 0 100%;border-radius:12px;padding:8px 12px;background:var(--ovb-page,var(--bg))}
+@media (max-width:1100px),(max-height:639px){.dd-bento .dh-card{display:block}}
+/* Network sheet (N1): the connection on the left, the saved networks on the right */
+.dd-bento #dd-panel-network:not([hidden]){overflow:auto}
+.dd-bento #dd-panel-network .wf-card{background:none;box-shadow:none;border:0;padding:0;margin:0}
+/* About sheet (AB2): identity and actions left, grouped facts right */
+.dd-bento #dd-panel-about .ddc-card{background:var(--ovb-page,var(--bg));box-shadow:none;border:0;border-radius:16px}
+/* Activity sheet (AC2): the timeline left, the picked event explained right */
+.dd-bento #dd-panel-activity:not([hidden]){display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:12px;overflow:hidden}
+.dd-bento #dd-panel-activity #device-timeline{grid-column:1;min-height:0;overflow:auto;margin:0;box-shadow:none;border:0;background:none}
+.dd-bento #dd-panel-activity .bt-actd{grid-column:2;margin:0;padding:16px 18px;background:var(--ovb-page,var(--bg));display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+.dd-bento #dd-panel-activity .ddc-tl.bt-on{background:var(--ovb-page,var(--bg));border-radius:10px}
+.bt-ad-meta{font-size:12px;color:var(--text-2)}
+@media (max-width:1100px),(max-height:639px){.dd-bento #dd-panel-activity:not([hidden]){display:block}.dd-bento #dd-panel-activity .bt-actd{display:none}}
+
+.dd-bento .dh-card>.card-header .m{white-space:normal;flex:1 0 100%;margin-top:2px}
+.bt-aboutacts{padding:12px 14px}.bt-aa-h{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.bt-aa-b{display:flex;gap:6px;flex-wrap:wrap}
+.bt-aa-b .chip{border:1px solid var(--border-soft);background:var(--surface);border-radius:99px;padding:5px 12px;font:inherit;font-size:12px;font-weight:600;color:var(--text-2);cursor:pointer}
+.bt-aa-b .chip:hover{border-color:var(--accent-fill);color:var(--text)}

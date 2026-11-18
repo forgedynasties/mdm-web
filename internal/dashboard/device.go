@@ -565,6 +565,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
 		"Bento":   isBento, // the Overview as tiles (device_bento)
+		"NoteLog": func() []noteLogItem {
+			if !isBento {
+				return nil
+			}
+			return h.noteLogFor(ctx, r, device)
+		}(),
 		"BentoV":  bento,
 		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
 		"LookOnly":     lookOnly,
