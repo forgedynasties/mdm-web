@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.31",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Venue setting \"Apps\": install the role app automatically (yes by default). A venue set to no keeps whatever its devices run: the role-app install skips it and the Lineup Apps tab shows its units as \"auto-install off for this venue\". Part of moving lab devices into an AIO Lab venue.",
+		},
+	},
+	{
 		Version: "1.64.30",
 		Date:    "2026-11-19",
 		Changes: []string{
