@@ -119,6 +119,78 @@ function mdmDevSkeleton() {
   return '<div class="skel-list skel-card">' + s + '</div>';
 }
 
+// The rail's highlight, the entries' links and the heading, for one picked entry (the anchor of
+// its .ri-main link), or for none (null: every device). The picked entry's x (its link to "every
+// device") clears the pick: nothing stays on, and every entry's link goes back to picking it
+// (5 Nov 2026, user: "clicking cross here doesnt work").
+function applyRail(anchor) {
+  document.querySelectorAll('.fleet-rail a.ri-main[data-pick]').forEach(function (x) {
+    x.setAttribute('href', (anchor && x === anchor) ? (x.dataset.clear || '/devices') : x.dataset.pick);
+  });
+  document.querySelectorAll('.fleet-rail-item').forEach(function (x) { x.classList.remove('on'); });
+  var rt = document.getElementById('roster-title'), rc = document.getElementById('roster-count');
+  var item = anchor && anchor.closest('.fleet-rail-item');
+  if (!item) { if (rt) rt.textContent = 'All devices'; return; }
+  item.classList.add('on');
+  var nm = item.querySelector('.nm'), ct = item.querySelector('.ct');
+  if (rt && nm) rt.textContent = nm.textContent.trim();
+  if (rc && ct) { var n = ct.textContent.trim(); rc.textContent = n + ' device' + (n === '1' ? '' : 's'); }
+}
+
+// The rail entry an address picks: the first of restaurant / group / build / product it names.
+function railAnchorFor(p) {
+  var keys = ['restaurant', 'group', 'build', 'product'];
+  for (var i = 0; i < keys.length; i++) {
+    var v = p.get(keys[i]);
+    if (!v) continue;
+    var as = document.querySelectorAll('.fleet-rail a.ri-main[data-pick]');
+    for (var j = 0; j < as.length; j++) {
+      var q; try { q = new URL(as[j].dataset.pick, location.origin).searchParams; } catch (_) { continue; }
+      if (q.get(keys[i]) === v) return as[j];
+    }
+    return null;
+  }
+  return null;
+}
+
+// Back / Forward between roster addresses (the clicks above pushState; nothing else listened, so
+// the address went back to venue A while the rail, list, counts and heading stayed on venue B;
+// 19 Nov 2026). The address is the single source of truth: paint everything from it, ask for the
+// list again with the address's own params, and push nothing. Only on the roster (a grid or
+// collection view, or another page, is htmx's: it reloads the address from history).
+function fleetFromAddress() {
+  var tc = document.getElementById('device-table-container');
+  if (!tc) return;
+  var p = new URLSearchParams(location.search);
+  clearSelectAllMatching();
+  setSel('search-input', p.get('q') || '');
+  var a = railAnchorFor(p);
+  if (a) {
+    // Show the Restaurants or Groups tab the entry sits on (rail.js's own switch; nothing is stored).
+    var list = a.closest('.fleet-rail-list[data-sec]');
+    if (list && list.hidden) {
+      var tab = document.querySelector('[data-rail-tabs] [role=tab][data-rt="' + list.dataset.sec + '"]');
+      if (tab) tab.click();
+    }
+  }
+  applyRail(a);
+  if (window.flTL) {
+    var st = Math.max(0, parseInt(p.get('start'), 10) || 0);
+    window.flTL.start = window.flTL.fit > 0 ? Math.floor(st / window.flTL.fit) * window.flTL.fit : st;
+  }
+  syncFilterUI();
+  tc.innerHTML = mdmDevSkeleton();
+  var url = fleetURL(getFilterVals());
+  if (url !== location.pathname + location.search) history.replaceState(history.state, '', url);
+  fleetAjax(url, { headers: { 'X-Roster-Meta': '1' } }).then(function () {
+    syncFilterUI();
+    document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
+  }, function () {});
+}
+function fleetPopHandled() {
+  return !!document.getElementById('device-table-container') && location.pathname === '/devices' && !new URLSearchParams(location.search).get('view');
+}
+
 // Re-scope the roster to a rail collection IN PLACE: only the device list (skeleton
 // → real rows) and the heading/quick-view counts (OOB) change; the rail, search bar
 // and inspector stay put. Switching collection resets the search + popover filters.
@@ -135,26 +207,8 @@ function scopeRoster(anchor, u) {
   if (curClass) ov.class = curClass;
 
   // Instant heading + rail highlight from the clicked item (before data lands).
-  var item = anchor.closest('.fleet-rail-item');
-  // The picked entry's × (its link to "every device") clears the pick: nothing stays on, and
-  // every entry's link goes back to picking it (5 Nov 2026, user: "clicking cross here doesnt work").
   var clearing = !ov.restaurant && !ov.group && !ov.build && !ov.product;
-  document.querySelectorAll('.fleet-rail a.ri-main[data-pick]').forEach(function (x) {
-    x.setAttribute('href', (!clearing && x === anchor) ? (x.dataset.clear || '/devices') : x.dataset.pick);
-  });
-  if (clearing) {
-    document.querySelectorAll('.fleet-rail-item').forEach(function (x) { x.classList.remove('on'); });
-    var rt0 = document.getElementById('roster-title'); if (rt0) rt0.textContent = 'All devices';
-    item = null;
-  }
-  if (item) {
-    document.querySelectorAll('.fleet-rail-item').forEach(function (x) { x.classList.remove('on'); });
-    item.classList.add('on');
-    var nm = item.querySelector('.nm'), ct = item.querySelector('.ct');
-    var rt = document.getElementById('roster-title'), rc = document.getElementById('roster-count');
-    if (rt && nm) rt.textContent = nm.textContent.trim();
-    if (rc && ct) { var n = ct.textContent.trim(); rc.textContent = n + ' device' + (n === '1' ? '' : 's'); }
-  }
+  applyRail(clearing ? null : anchor);
 
   var tc = document.getElementById('device-table-container');
   if (tc) tc.innerHTML = mdmDevSkeleton();
@@ -253,6 +307,15 @@ function sortDir(dir) {
 // table swap, so guard against stacking duplicate document listeners.
 if (!window.__fleetDocBound) {
   window.__fleetDocBound = true;
+  // Capture + stopImmediatePropagation: htmx's own popstate handler would reload the address from
+  // history, which is right from another page but a flash of a full reload between roster addresses.
+  window.addEventListener('popstate', function (e) {
+    if (!fleetPopHandled()) return;
+    e.stopImmediatePropagation();
+    fleetFromAddress();
+  }, true);
+  // Restored from the back/forward cache: the page is the one left, so ask for the list again.
+  window.addEventListener('pageshow', function (e) { if (e.persisted && fleetPopHandled()) fleetFromAddress(); });
   document.addEventListener('click', function(e) {
     var fw = document.getElementById('fl-fchips');
     if (fw && !fw.contains(e.target) && !(e.target.closest && e.target.closest('#fl-map-chips'))) ffClose();
