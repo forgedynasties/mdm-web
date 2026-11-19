@@ -44,6 +44,50 @@ function filterSig(vals) {
   return JSON.stringify(o);
 }
 
+// Every request for the device list goes through here. htmx.ajax with no source uses <body> as
+// the request's element, and htmx keeps ONE waiting slot per element ("queue last"): while a
+// rail click's request was in flight, ANY other body-sourced htmx.ajax (the bell's alerts, an
+// inspector panel, a tab refresh) evicted the click that was waiting behind it, so the first
+// click's answer stayed on screen under the second click's rail highlight and chip (19 Nov 2026:
+// rail + chip "Flights Vegas", list and island "Benicia Grill"). The list gets its own element:
+// nothing else can evict its requests, and a newer one replaces an older one still in flight
+// (the later pick is the one that shows). An aborted request rejects: callers pass both handlers.
+function fleetAjax(url, opts) {
+  var s = document.getElementById('fleet-sync');
+  if (!s) {
+    s = document.createElement('span');
+    s.id = 'fleet-sync'; s.hidden = true; s.setAttribute('hx-sync', 'this:replace');
+    document.body.appendChild(s);
+  }
+  var o = { source: s, target: '#device-table-container', swap: 'innerHTML' };
+  if (opts) for (var k in opts) o[k] = opts[k];
+  return htmx.ajax('GET', url, o);
+}
+
+// An answer for a different scope than the address is never painted: a request that was in
+// flight when the scope changed (a refresh from the visibility timer, SSE, a resize) would
+// otherwise put the old list under the new rail pick. Page, start, fit and the live search
+// text are not scope (a pager flip updates the address after its rows land).
+(function () {
+  var SKIP = { page: 1, q: 1, page_size: 1, start: 1, fit: 1 };
+  document.addEventListener('htmx:beforeSwap', function (e) {
+    var d = e.detail;
+    if (!d || !d.target || d.target.id !== 'device-table-container' || !d.pathInfo) return;
+    var rp = d.pathInfo.finalRequestPath || d.pathInfo.requestPath || '';
+    if (rp.split('?')[0] !== '/devices') return;
+    var want = new URLSearchParams(rp.split('?')[1] || ''), cur = new URLSearchParams(location.search);
+    for (var i = 0; i < FLEET_PARAMS.length; i++) {
+      var k = FLEET_PARAMS[i];
+      if (SKIP[k]) continue;
+      if ((want.get(k) || '') !== (cur.get(k) || '')) {
+        d.shouldSwap = false;
+        try { console.warn('Fleet: dropped an answer for another scope (' + k + '=' + (want.get(k) || '') + ', address has ' + (cur.get(k) || '') + ')'); } catch (_) {}
+        return;
+      }
+    }
+  }, true); // capture: chrome.js's data-morph handler (on <body>) paints the answer before a bubbling listener runs
+})();
+
 function navigateDevices(overrides) {
   var vals = getFilterVals(overrides);
   if (selectAllMatchingSet && filterSig(vals) !== selectAllMatchingSig) clearSelectAllMatching();
@@ -53,10 +97,10 @@ function navigateDevices(overrides) {
   // spills the fragment into the flex .dv-split as a broken horizontal row.
   // The address first, so a re-fetch while this one is in flight asks for the same list.
   history.pushState(null, '', url);
-  htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML' }).then(function() {
+  fleetAjax(url).then(function() {
     syncFilterUI();
     document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
-  });
+  }, function () {});
 }
 
 function applyFilters() {
@@ -120,10 +164,10 @@ function scopeRoster(anchor, u) {
   // would otherwise fetch the OLD scope and replace the picked venue's devices with every
   // device (19 Nov 2026: "shows the devices, then refreshes and shows all devices").
   history.pushState(null, '', url);
-  htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML', headers: { 'X-Roster-Meta': '1' } }).then(function () {
+  fleetAjax(url, { headers: { 'X-Roster-Meta': '1' } }).then(function () {
     syncFilterUI();
     document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
-  });
+  }, function () {});
 }
 
 function setSel(id, val) { var el = document.getElementById(id); if (el) el.value = val; }
