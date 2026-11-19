@@ -32,6 +32,35 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.30",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Deployment page: no made-up time left. The 14-minute default was shown as fact on a rollout where nothing had finished; the time left now comes only from installs that really finished here, and reads \"estimating…\" until one has.",
+			"New venue page: the page no longer scrolls on a desktop window. The lists under the search (waiting devices, added lately), the search results and the picked place's card scroll inside their own boxes, and Add manually fits the window.",
+		},
+	},
+	{
+		Version: "1.64.29",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Deployment page: the How it goes out tile shows its full text (no cut-off), Change is a proper button, and the tile rows are re-balanced so nothing is clipped or scrolls at any window size from 1280x700 up.",
+		},
+	},
+	{
+		Version: "1.64.28",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Google Geocoding bill: reverse-geocoded addresses are now kept in the database (shared by both server copies, a month), in ~110 m cells instead of ~11 m, so restarts and Wi-Fi position jitter no longer buy the same address again; at most 300 paid Geocoding requests a day (GEOCODE_DAILY_CAP, 0 = no cap), after which the address is left off until the next day. November's bill was the Geocoding API alone ($21 by the 18th).",
+		},
+	},
+	{
+		Version: "1.64.27",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Deployment page: the left column is a fixed grid of tiles that fits without scrolling (progress ring and state bar, time left, to do, installs over time, venues, how it goes out); each device row shows a progress bar with its percent, and the picked device shows a large readout with the amount transferred, speed and time left when known.",
+		},
+	},
+	{
 		Version: "1.64.26",
 		Date:    "2026-11-19",
 		Changes: []string{

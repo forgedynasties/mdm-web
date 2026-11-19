@@ -72,3 +72,38 @@ func TestCrashNoiseIngestAndCleanup(t *testing.T) {
 		t.Fatalf("after the migration %d crash rows, want 1", n)
 	}
 }
+
+func TestGeocodeCacheAndDailyCount(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	cell := "t" + time.Now().Format("150405.000")
+	if _, ok, _ := d.GetGeocodedAddress(ctx, cell, 30); ok {
+		t.Fatal("unexpected hit")
+	}
+	if err := d.PutGeocodedAddress(ctx, cell, "1 Main St"); err != nil {
+		t.Fatal(err)
+	}
+	if a, ok, err := d.GetGeocodedAddress(ctx, cell, 30); err != nil || !ok || a != "1 Main St" {
+		t.Fatalf("get: %q %v %v", a, ok, err)
+	}
+	d.pool.Exec(ctx, `UPDATE geocode_cache SET updated_at = now() - interval '40 days' WHERE cell = $1`, cell)
+	if _, ok, _ := d.GetGeocodedAddress(ctx, cell, 30); ok {
+		t.Fatal("an address older than the window must not be used")
+	}
+	n1, err := d.CountGeocodeCall(ctx)
+	n2, _ := d.CountGeocodeCall(ctx)
+	if err != nil || n2 != n1+1 {
+		t.Fatalf("count: %d %d %v", n1, n2, err)
+	}
+}

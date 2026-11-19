@@ -13,60 +13,79 @@
 <div class="ovb dp1-g">
 <div class="dp1-l">
   {{with $d.Rail}}
-  <section class="ovb-c dp1-prog" aria-label="How far the rollout has got">
+  {{/* DP2 (19 Nov 2026): the left column is a fixed grid of tiles that all fit in place, no
+       scrolling; a tile drops its lowest-priority detail when the window is short. */}}
+  <section class="ovb-c dp2-t dp2-prog" aria-label="How far the rollout has got">
     <div class="ovb-ch"><h2>Progress</h2><span class="sp"></span><span class="ovb-tag{{if eq $dep.Status "active"}} y{{end}}">{{if eq $dep.Status "active"}}Rolling out{{else}}{{$dep.Status}}{{end}}</span></div>
-    <div class="dp1-top2">
+    <div class="dp2-pb">
       <div class="dp1-ring{{if .Tone}} s-{{.Tone}}{{end}}" title="{{.Done}} of {{.Total}} installed">
         <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{.Offset}}" transform="rotate(-90 60 60)"/></svg>
         <span><b>{{.Pct}}%</b><small>installed</small></span>
       </div>
-      <div class="dp1-hi"><b>{{.Done}} of {{.Total}} device{{if ne .Total 1}}s{{end}}</b>{{with .Sub}}<small>{{.}}</small>{{end}}</div>
+      <div class="dp2-pr">
+        <b class="dp2-hn">{{.Done}} of {{.Total}} device{{if ne .Total 1}}s{{end}}</b>
+        <div class="dp2-stack" role="img" aria-label="{{range .Segs}}{{.N}} {{.Label}}, {{end}}">{{range .Segs}}<i class="{{.Class}}" style="flex:{{.N}}" title="{{.Label}} · {{.N}}"></i>{{end}}</div>
+      </div>
     </div>
-    <div class="dp1-figs">
-      {{range $d.Cards}}
-      <a class="dp1-fig" href="{{.Href}}">
-        <span class="t">{{.Title}}</span>
-        {{with .A}}<span class="m"><b>{{.Value}}</b><small>{{.Label}}</small>{{if .Delta}}<em class="{{.Tone}}">{{.Delta}}</em>{{end}}</span>{{end}}
-        {{with .B}}<span class="m"><b>{{.Value}}</b><small>{{.Label}}</small>{{if .Delta}}<em class="{{.Tone}}">{{.Delta}}</em>{{end}}</span>{{end}}
-      </a>
-      {{end}}
-    </div>
+    <ul class="dp2-lg">{{range .Segs}}<li><button type="button" class="dp2-lb" data-dp1-set="state" data-val="{{.Key}}" title="Show the {{.Label}} devices"><i class="{{.Class}}"></i><b>{{.N}}</b> {{.Label}}</button></li>{{end}}</ul>
   </section>
-  {{end}}
 
-  {{with $d.Banner}}
-  <section class="ovb-c dp1-todo{{if .Todos}} has{{end}}" aria-label="To do">
-    <div class="ovb-ch"><h2>To do</h2></div>
+  <section class="ovb-c dp2-t dp2-eta{{if not $d.Banner.Todos}} wide{{end}}" aria-label="Time left">
+    <div class="ovb-ch"><h2>Time left</h2></div>
+    {{if .ToGo}}<div class="dp2-big">about {{.ToGo}}</div>{{else if .Estimating}}<div class="dp2-big">estimating…</div>{{else if eq $dep.Status "active"}}<div class="dp2-big">{{if eq .Done .Total}}Done{{else}}Nothing running{{end}}</div>{{else}}<div class="dp2-big">{{if eq .Done .Total}}Done{{else}}Stopped{{end}}</div>{{end}}
+    <div class="dp2-sm">{{if .Estimating}}no install has finished yet{{else if .Rate}}{{.Rate}} install{{if ne .Rate "1"}}s{{end}} per 10 min{{else}}no installs in the last 30 min{{end}}</div>
+    {{if .Avg}}<div class="dp2-sm dp2-opt">{{.Avg}} per device so far</div>{{end}}
+    {{if not $d.Banner.Todos}}<h2 class="dp1-hd dp2-opt">{{$d.Banner.Headline}}</h2>{{end}}
+    {{if and (not $d.Banner.Todos) $d.Banner.Line}}<div class="dp2-sm dp2-opt dp2-cl">{{$d.Banner.Line}}</div>{{end}}
+  </section>
+
+  {{with $d.Banner}}{{if .Todos}}
+  <section class="ovb-c dp2-t dp2-todo" aria-label="To do">
+    <div class="ovb-ch"><h2>To do</h2><span class="sp"></span><span class="ovb-tag o">{{$d.Rail.Todo}}</span></div>
     <h2 class="dp1-hd">{{.Headline}}</h2>
-    {{if .Todos}}
-    <ol class="dp1-tl">
-      {{range .Todos}}<li><span class="t">{{.Title}}{{with .Sub}}<small>{{.}}</small>{{end}}</span>{{if .Post}}<form action="{{.Post}}" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML"{{with .Confirm}} hx-confirm="{{.}}"{{end}}><button type="submit" class="ovb-btn l">{{.Action}}</button></form>{{else}}<a class="ovb-btn l" href="{{.Href}}">{{.Action}}</a>{{end}}</li>{{end}}
-    </ol>
-    {{if .More}}<a class="dp1-more" href="#dp1-devices">{{.More}} more in the list <i aria-hidden="true">→</i></a>{{end}}
+    {{with index .Todos 0}}<div class="dp2-ti"><span class="t">{{.Title}}</span>{{with .Sub}}<small>{{.}}</small>{{end}}</div>
+    <div class="dp2-ta">{{if .Post}}<form action="{{.Post}}" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML"{{with .Confirm}} hx-confirm="{{.}}"{{end}}><button type="submit" class="ovb-btn l">{{.Action}}</button></form>{{else}}<a class="ovb-btn l" href="{{.Href}}">{{.Action}}</a>{{end}}
     {{end}}
-    {{with .Line}}<p class="dp1-line">{{.}}</p>{{end}}
+    {{if or (gt (len .Todos) 1) .More}}<div class="oc-cm"><button type="button" class="dp2-mb" data-oc-menu aria-haspopup="true" aria-expanded="false">{{if gt (len .Todos) 1}}+{{sub (len .Todos) 1}} more{{else}}more{{end}}</button>
+      <div class="cc-menu dp2-pop" hidden>
+        <ol class="dp1-tl">
+          {{range $i, $t := .Todos}}{{if $i}}<li><span class="t">{{$t.Title}}{{with $t.Sub}}<small>{{.}}</small>{{end}}</span>{{if $t.Post}}<form action="{{$t.Post}}" method="POST" hx-boost="true" hx-target="main" hx-select="main" hx-swap="outerHTML"{{with $t.Confirm}} hx-confirm="{{.}}"{{end}}><button type="submit" class="ovb-btn l">{{$t.Action}}</button></form>{{else}}<a class="ovb-btn l" href="{{$t.Href}}">{{$t.Action}}</a>{{end}}</li>{{end}}{{end}}
+        </ol>
+        {{if .More}}<a class="dp1-more" href="#dp1-devices">{{.More}} more in the list <i aria-hidden="true">→</i></a>{{end}}
+      </div></div>{{end}}
+    </div>
   </section>
-  {{end}}
+  {{end}}{{end}}
 
-  {{with $d.Rail}}
-  <section class="ovb-c dp1-facts">
-    <div class="ovb-ch"><h2>Installs over time</h2></div>
-    <div class="dp1-bars" role="img" aria-label="{{.BarsCap}}">
-      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+  <section class="ovb-c dp2-t dp2-spark" aria-label="Installs over time">
+    <div class="ovb-ch"><h2>Installs over time</h2><span class="sp"></span><span class="dp2-sm">{{.BarsCap}}</span></div>
+    <div class="dp1-bars dp2-bars" role="img" aria-label="{{.BarsCap}}">
+      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i></div>{{end}}
     </div>
-    <div class="dp1-cap">{{.BarsCap}}</div>
+    <div class="dp2-ax"><span>{{.AxisL}}</span><span>{{.AxisM}}</span><span>{{.AxisR}}</span></div>
+  </section>
+
+  <section class="ovb-c dp2-t dp2-ven" aria-label="Venues">
+    <div class="ovb-ch"><h2>Venues</h2><span class="sp"></span>
+    {{if or (gt (len .Venues) 2) .MoreVenues}}<div class="oc-cm"><button type="button" class="dp2-mb" data-oc-menu aria-haspopup="true" aria-expanded="false">All {{add (len .Venues) .MoreVenues}}</button>
+      <div class="cc-menu dp2-pop dp2-popv" hidden>
+        <ul class="dp1-ven">
+          {{range $i, $v := .Venues}}<li><div class="h">{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}<b>{{.Name}}</b>{{end}}<span>{{.Done}}/{{.Total}}{{if eq .Done .Total}} ✓{{end}}</span></div><div class="dp1-seg" aria-hidden="true">{{if .Done}}<i class="d" style="flex:{{.Done}}"></i>{{end}}{{if .Look}}<i class="w" style="flex:{{.Look}}"></i>{{end}}{{if .Active}}<i class="n" style="flex:{{.Active}}"></i>{{end}}{{if .Wait}}<i style="flex:{{.Wait}}"></i>{{end}}</div></li>{{end}}
+        </ul>
+        {{if .MoreVenues}}<div class="dp1-cap">and {{.MoreVenues}} more venue{{if ne .MoreVenues 1}}s{{end}}, all in the list</div>{{end}}
+      </div></div>{{end}}</div>
     {{if .Venues}}
-    <div class="ovb-ch dp1-sec"><h2>Venues</h2></div>
     <ul class="dp1-ven">
-      {{range .Venues}}<li><div class="h">{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}<b>{{.Name}}</b>{{end}}<span>{{.Done}} of {{.Total}}{{if eq .Done .Total}} ✓{{end}}</span></div><div class="dp1-seg" aria-hidden="true">{{if .Done}}<i class="d" style="flex:{{.Done}}"></i>{{end}}{{if .Look}}<i class="w" style="flex:{{.Look}}"></i>{{end}}{{if .Active}}<i class="n" style="flex:{{.Active}}"></i>{{end}}{{if .Wait}}<i style="flex:{{.Wait}}"></i>{{end}}</div></li>{{end}}
+      {{range $i, $v := .Venues}}{{if lt $i 3}}<li><div class="h">{{if .Href}}<a href="{{.Href}}">{{.Name}}</a>{{else}}<b>{{.Name}}</b>{{end}}<span>{{.Done}}/{{.Total}}</span></div><div class="dp1-seg" aria-hidden="true">{{if .Done}}<i class="d" style="flex:{{.Done}}"></i>{{end}}{{if .Look}}<i class="w" style="flex:{{.Look}}"></i>{{end}}{{if .Active}}<i class="n" style="flex:{{.Active}}"></i>{{end}}{{if .Wait}}<i style="flex:{{.Wait}}"></i>{{end}}</div></li>{{end}}{{end}}
     </ul>
-    {{if .MoreVenues}}<div class="dp1-cap">and {{.MoreVenues}} more venue{{if ne .MoreVenues 1}}s{{end}}, all in the list</div>{{end}}
-    {{end}}
-    <div class="ovb-ch dp1-sec"><h2>How it goes out</h2></div>
-    <div class="dp1-how">
-      <div><span class="k">Reboot</span><span class="v">{{.Reboot}}<small>{{.RebootSub}}</small></span>{{if and (canOTA $.Role) (ne $dep.Status "canceled")}}<button type="button" onclick="dplOpen('dpl-reboot-modal')">Change</button>{{end}}</div>
-      {{if .Package}}<div><span class="k">Package</span><span class="v">{{.Package}}{{with .PackageSub}}<small>{{.}}</small>{{end}}</span></div>{{end}}
-    </div>
+    {{else}}<div class="dp2-sm">No venues yet.</div>{{end}}
+  </section>
+
+  <section class="ovb-c dp2-t dp2-how" aria-label="How it goes out">
+    <div class="ovb-ch"><h2>How it goes out</h2></div>
+    <div class="dp2-hr"><span class="k">Reboot</span><span class="v">{{.Reboot}}<small>{{.RebootSub}}</small></span></div>
+    {{if .Package}}<div class="dp2-hr dp2-opt"><span class="k">Package</span><span class="v">{{.Package}}{{with .PackageSub}}<small>{{.}}</small>{{end}}</span></div>{{end}}
+    {{if and (canOTA $.Role) (ne $dep.Status "canceled")}}<button type="button" class="dp2-mb" onclick="dplOpen('dpl-reboot-modal')">Change</button>{{end}}
   </section>
   {{end}}
 </div>
@@ -103,7 +122,7 @@
       {{range $i, $r := $d.Rows}}
       <button type="button" class="ovb-li dp1-r" data-state="{{$r.Key}}" data-venue="{{$r.Venue}}" data-serial="{{$r.Serial}}">
         <span class="tx"><b class="sn">{{$r.Serial}}</b><small>{{$r.Venue}}</small></span>
-        <span class="dp1-rs"><span class="dp1-st {{$r.Tone}}"><i></i>{{$r.Word}}</span>{{if $r.Bar}}<span class="dp1-pb"><i style="width:{{$r.Pct}}%"></i></span>{{end}}</span>
+        <span class="dp1-rs"><span class="dp1-st {{$r.Tone}}"><i></i>{{$r.Word}}</span>{{if $r.Bar}}<span class="dp1-pbw"><span class="dp1-pb{{if eq $r.Key "look"}} w{{end}}"><i style="width:{{$r.Pct}}%"></i></span><em>{{$r.Pct}}%</em></span>{{end}}</span>
       </button>
       {{end}}
       <div class="dp1-none" hidden>No device matches these filters.</div>
@@ -116,10 +135,27 @@
           <span class="dp1-st {{$r.Tone}}"><i></i>{{$r.Word}}</span>
         </div>
         <p class="dp1-dv">{{if $r.VenueKey}}<a href="/restaurants/{{$r.VenueKey}}">{{$r.Venue}}</a>{{else}}{{$r.Venue}}{{end}}</p>
-        {{if $r.Bar}}<span class="ovb-pb dp1-dpb"><i{{if eq $r.Key "look"}} class="o"{{end}} style="width:{{$r.Pct}}%"></i></span>{{end}}
+        {{if $r.Bar}}
+        <div class="dp2-rd{{if eq $r.Key "look"}} w{{end}}">
+          <div class="dp1-ring dp2-rr{{if eq $r.Key "look"}} s-warn{{end}}">
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52" class="trk"/><circle cx="60" cy="60" r="52" class="val" stroke-dasharray="326.7" stroke-dashoffset="{{$r.Off}}" transform="rotate(-90 60 60)"/></svg>
+            <span><b>{{$r.Pct}}%</b><small>{{if eq $r.Word "Installing"}}installing{{else}}downloaded{{end}}</small></span>
+          </div>
+          <div class="dp2-rt">
+            <span class="ovb-pb dp1-dpb"><i{{if eq $r.Key "look"}} class="o"{{end}} style="width:{{$r.Pct}}%"></i></span>
+            <dl>
+              <div><dt>Transferred</dt><dd>{{if $r.Size}}{{$r.Size}}{{else}}{{$r.Pct}}%{{end}}</dd></div>
+              <div><dt>Speed</dt><dd>{{if $r.Speed}}{{$r.Speed}}{{else}}estimating…{{end}}</dd></div>
+              <div><dt>Time left</dt><dd>{{if $r.Left}}{{$r.Left}}{{else}}estimating…{{end}}</dd></div>
+            </dl>
+          </div>
+        </div>
+        {{if eq $r.Key "look"}}<p class="dp1-reason">{{$r.Detail}}</p>{{end}}
+        {{else}}
         <p class="dp1-reason">{{if and (eq $r.Key "failed") $r.ErrorCode}}{{otaErrorText $r.ErrorCode}}{{else}}{{$r.Detail}}{{end}}</p>
+        {{end}}
         {{if $r.Steps}}
-        <ol class="dp1-steps">{{range $r.Steps}}<li class="{{.Class}}"><i></i>{{.Label}}</li>{{end}}</ol>
+        <ol class="dp1-steps">{{range $r.Steps}}<li class="{{.Class}}"><i></i><span>{{.Label}}</span>{{with .At}}<em>{{.}}</em>{{end}}</li>{{end}}</ol>
         {{end}}
         {{if $r.From}}<p class="dp1-from">from {{$r.From}}{{if $r.Full}} · full image{{end}}</p>{{end}}
         <div class="ovb-acts dp1-acts">

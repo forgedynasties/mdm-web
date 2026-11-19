@@ -161,7 +161,9 @@ func TestDeployD1Renders(t *testing.T) {
 	for _, m := range regexp.MustCompile(`(?m)^\s*"([a-zA-Z][a-zA-Z0-9]*)":\s`).FindAllStringSubmatch(string(src), -1) {
 		funcs[m[1]] = func(...any) any { return "" }
 	}
-	funcs["canOperate"] = func(string) bool { return true }
+	funcs["sub"] = func(a, b int) int { return a - b }
+	funcs["add"] = func(a, b int) int { return a + b }
+	funcs["canOperate"] =func(string) bool { return true }
 	funcs["canOTA"] = func(string) bool { return true }
 	funcs["otaErrorText"] = func(s string) string {
 		return "Download failed — the device couldn't fetch the OTA package (check the URL is reachable from the device)."

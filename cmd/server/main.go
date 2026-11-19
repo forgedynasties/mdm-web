@@ -66,6 +66,17 @@ func (s geoStore) BumpAPHits(ctx context.Context, bssids []string) error {
 	return s.db.BumpWifiAPHits(ctx, bssids)
 }
 
+// addrStore adapts the DB to the geocoder's persistent address cache.
+type addrStore struct{ db *db.DB }
+
+func (s addrStore) GetAddr(ctx context.Context, cell string, maxAgeDays int) (string, bool, error) {
+	return s.db.GetGeocodedAddress(ctx, cell, maxAgeDays)
+}
+func (s addrStore) PutAddr(ctx context.Context, cell, address string) error {
+	return s.db.PutGeocodedAddress(ctx, cell, address)
+}
+func (s addrStore) CountCall(ctx context.Context) (int, error) { return s.db.CountGeocodeCall(ctx) }
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "admin-create" {
 		os.Exit(runAdminCreate(os.Args[2:]))
@@ -416,6 +427,13 @@ func main() {
 	var geocoder *geolocate.Geocoder
 	if key := os.Getenv("GOOGLE_GEOCODING_API_KEY"); key != "" {
 		geocoder = geolocate.NewGeocoder(key)
+		// Addresses are kept in the database and shared by both copies; at most
+		// GEOCODE_DAILY_CAP paid requests a UTC day (default 300, 0 = no cap).
+		dailyCap := 300
+		if v, err := strconv.Atoi(strings.TrimSpace(os.Getenv("GEOCODE_DAILY_CAP"))); err == nil && v >= 0 {
+			dailyCap = v
+		}
+		geocoder.SetStore(addrStore{db: database}, dailyCap)
 		log.Println("Reverse geocoder enabled (Google Geocoding API)")
 	}
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, logMgr, adminAPIKey)

@@ -111,6 +111,20 @@ html[data-theme="dark"] .vn-bdg.test{background:rgba(240,180,40,.12);border-colo
 .vn-dv .st{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
 .vn-actions{display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap}
 .vn-actions .sp{flex:1}
+/* On a desktop window the page never scrolls (19 Nov 2026: "this page has a scroll"): the
+   lists under the search, the results and the picked place's devices scroll inside their own
+   boxes instead, so a long "waiting" list on prod does not push the page. */
+html.shell .vn1.start{margin-top:8px;margin-bottom:0}
+html.shell .vn1.start .vn-lists{max-height:max(120px,calc(100vh - 410px));overflow:auto;scrollbar-width:thin}
+html.shell .vn1.start .vn-res{max-height:max(160px,calc(100vh - 430px));overflow:auto}
+html.shell .vn1:not(.start) .vn-res{max-height:max(160px,calc(100vh - 330px));overflow:auto}
+html.shell .vn1:not(.start) .vn-card{max-height:calc(100vh - 230px);overflow:auto}
+/* "Add manually": the form and its Create bar fit the window; the hint under the search steps aside */
+html.shell .vn1.manual .vn-hint,html.shell .vn1.manual .vn-foot{display:none}
+html.shell .vn1.manual{margin-bottom:8px}
+html.shell .rf-layout textarea{height:44px;min-height:0}
+html.shell #rf-manual:not([hidden]){max-height:calc(100vh - 275px);overflow:auto;scrollbar-width:thin}
+@media (max-height:860px){html.shell #rf-manual .rf-hint{display:none}}
 </style>
 
 {{if not .Embed}}
