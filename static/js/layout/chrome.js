@@ -1919,6 +1919,7 @@
     var line = main.getBoundingClientRect().bottom;
     Array.prototype.forEach.call(main.querySelectorAll(SEL), function (el) {
       if (el.parentElement && el.parentElement.closest(SEL)) return; // only the outermost card
+      if (el.querySelector('.modal-backdrop.modal-open')) return; // a clip-path would cut a dialog open inside it
       var r = el.getBoundingClientRect();
       if (r.top >= line - 8 || r.bottom <= line + 1 || !r.width) return;
       var rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 20;

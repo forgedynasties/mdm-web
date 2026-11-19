@@ -38,7 +38,7 @@ var fleetTruncate = []string{
 	"device_ai_analyses", "ws_sessions", "remote_tokens", "device_owners",
 	// device settings and identity kept outside the devices row
 	"device_config", "device_nicknames", "device_app_follows", "device_app_wants", "device_groups", "device_lab",
-	"lab_installs", "key_clash_retries", "device_adb_key", "hardware_serials",
+	"lab_installs", "key_clash_retries", "install_diagnoses", "device_adb_key", "hardware_serials",
 	"device_role_requests", "refused_checkins", "device_queries", "peer_outbox",
 	"group_serial_watch",
 	// alerts, rollouts' devices, legacy OTA

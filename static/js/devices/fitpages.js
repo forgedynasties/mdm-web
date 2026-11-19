@@ -112,14 +112,14 @@
     };
     if (c && Date.now() - c.at < 30000) {
       c.p.then(function (html) {
-        if (html == null) { htmx.ajax('GET', u, { target: C, swap: 'innerHTML' }).then(done, done); return; }
+        if (html == null) { fleetAjax(u).then(done, done); return; }
         htmx.swap(C, html, { swapStyle: 'innerHTML' });
         // The list's other listeners (selection, arrivals, the shell) hear a normal swap.
         C.dispatchEvent(new CustomEvent('htmx:afterSwap', { bubbles: true, detail: { target: C, elt: C } }));
         document.dispatchEvent(new CustomEvent('htmx:afterSettle', { detail: { target: C, elt: C } }));
         done();
       });
-    } else htmx.ajax('GET', u, { target: C, swap: 'innerHTML' }).then(done, done);
+    } else fleetAjax(u).then(done, done);
   }
   // One page on or back. A step asked for while a page is still arriving runs after it.
   function step(d) {
@@ -187,7 +187,7 @@
       size();
       // On a page boundary for this window's size, and not past a list that has since shrunk.
       fp.start = Math.floor(Math.min(fp.start, Math.max(0, total - 1)) / fp.fit) * fp.fit;
-      htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' });
+      fleetAjax(fleetURL(getFilterVals())).catch(function () {});
     } else if (!want && fp.on) { fp.on = false; cache = {}; }
   }
   document.addEventListener('htmx:afterSwap', function (e) {
@@ -205,7 +205,7 @@
     var w = wrap();
     if (!fp.on || !w || w.scrollHeight <= w.clientHeight + 2) return false;
     if (!size()) return false;
-    htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' });
+    fleetAjax(fleetURL(getFilterVals())).catch(function () {});
     return true;
   }
   // The table's box settles after the page appears (fonts, the shell, the island): when its
@@ -216,7 +216,7 @@
       var w = wrap(); if (!w || !fp.on) return;
       var h = w.clientHeight; if (Math.abs(h - lastH) < 2) return; lastH = h;
       clearTimeout(window.__flFpO);
-      window.__flFpO = setTimeout(function () { if (size()) htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' }); }, 120);
+      window.__flFpO = setTimeout(function () { if (size()) fleetAjax(fleetURL(getFilterVals())).catch(function () {}); }, 120);
     }).observe(C);
   }
   document.body.addEventListener('fleet:scoped', function () { cache = {}; });
@@ -224,7 +224,7 @@
     clearTimeout(window.__flFpR);
     window.__flFpR = setTimeout(function () {
       sync();
-      if (fp.on && size()) htmx.ajax('GET', fleetURL(getFilterVals()), { target: C, swap: 'innerHTML' });
+      if (fp.on && size()) fleetAjax(fleetURL(getFilterVals())).catch(function () {});
     }, 180);
   });
   if (document.readyState === 'complete') setTimeout(sync, 60); else window.addEventListener('load', function () { setTimeout(sync, 60); });

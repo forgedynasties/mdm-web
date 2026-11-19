@@ -737,6 +737,11 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .dd-way-st.waiting,.dd-way-st.removing{background:#fff1d6;color:#8a4b00}.dd-way-st.failed{background:#ffe1dc;color:#a12b14}.dd-way-st.installing{background:var(--accent-soft);color:var(--accent-fill)}
 html[data-theme="dark"] .dd-way-st.waiting,html[data-theme="dark"] .dd-way-st.removing{background:#4a3110;color:#ffd08a}html[data-theme="dark"] .dd-way-st.failed{background:#4d1d14;color:#ffb4a6}
 .dd-way-a{display:flex;gap:6px;white-space:nowrap}
+/* Why did it fail? (19 Nov 2026): the real reason can be a sentence, so a failed pill wraps. */
+.dd-way-st.failed{white-space:normal;border-radius:12px;grid-column:2 / 4;justify-self:start}
+.dd-way-why{grid-column:2 / -1;font-size:11.5px;color:var(--muted)}
+.dd-way-why summary{cursor:pointer}
+.dd-way-why pre{margin:6px 0 0;max-height:140px;overflow:auto;font:500 10.5px/1.45 var(--mono);white-space:pre-wrap;word-break:break-word;background:var(--surface);border-radius:8px;padding:8px}
 .app-x-lock{cursor:default;opacity:.55}
 @media (max-width:720px){.dd-way-r{grid-template-columns:30px minmax(0,1fr)}.dd-way-st,.dd-way-a{grid-column:2}.dd-way-st{justify-self:start;white-space:normal}}
 .dd-follows{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 16px 0;padding:8px 10px;border-radius:12px;background:var(--surface-3)}

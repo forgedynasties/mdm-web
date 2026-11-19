@@ -2327,7 +2327,10 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
     <span class="dd-way-ic">{{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.Package}}">{{slice .Name 0 1}}</span>{{end}}</span>
     <span class="dd-way-n"><b>{{.Name}}{{with .Channel}} · {{.}}{{end}}</b><small class="mono">{{.Package}}</small>{{if ge .Pct 0}}<span class="app-inst-bar"><i style="width:{{.Pct}}%"></i></span>{{end}}</span>
     <span class="dd-way-st {{.State}}">{{.Text}}</span>
+    {{if .Why.Asking}}<span class="dd-way-why">Asking the device why…</span>{{else if .Why.Nothing}}<span class="dd-way-why">The device's log has nothing on this install any more.</span>{{end}}
+    {{if .Why.Raw}}<details class="dd-way-why"><summary>Details</summary><pre>{{.Why.Raw}}</pre></details>{{end}}
     {{if canOperate $.Role}}<span class="dd-way-a">
+      {{if .Why.CanAsk}}<button type="button" class="cc-btn xs" title="Reads the device's install log (read-only)" hx-post="/devices/{{$.Device.SerialNumber}}/install-why" hx-vals='{"package":"{{.Package}}"}' hx-swap="none">Why did it fail?</button>{{end}}
       {{if .CanRetry}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/retry" hx-vals='{"package":"{{.Package}}"}' hx-swap="none">Try again</button>{{end}}
       {{if ne .State "installing"}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/cancel" hx-vals='{"package":"{{.Package}}"}' hx-swap="none" hx-confirm="{{if .Remove}}Keep {{.Name}} on this device?{{else}}Stop adding {{.Name}} to this device?{{end}}">Cancel</button>{{end}}
     </span>{{end}}

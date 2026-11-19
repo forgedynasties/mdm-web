@@ -15,3 +15,14 @@ html.shell #oh-pane .cl-card { min-height: 0; }
   .pl-bulk { gap: 8px; }
   .pl-bulk .pl-sel { min-width: 0; width: 100%; max-width: none; }
 }
+.fleet-rail-item.oh-all { margin-top: 6px; color: var(--text-2); }
+/* The rail is short now (no venue list): it never needs its own scrollbar. */
+html.shell .fleet-md > .fleet-rail { overflow-y: auto; scrollbar-width: none; }
+html.shell .fleet-md > .fleet-rail::-webkit-scrollbar { display: none; }
+.pl-gbar { margin-bottom: 10px; }
+.pl-gh .pl-gn { font-size: 13.5px; }
+.pl-gp td, .pl-gh td { border-radius: 0; }
+@media (max-width: 720px) {
+  .pl-gh .pl-gt { flex-wrap: wrap; }
+  .pl-gp .pl-sel { min-width: 0; width: 100%; max-width: none; }
+}

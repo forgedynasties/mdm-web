@@ -8261,3 +8261,7 @@ main.nav-still.htmx-added { opacity: 1 !important; }
    that hinted at more rows are gone with it. */
 html.shell .fleet-roster .card > .ft-wrap { overflow-y: hidden; overflow-x: auto; }
 .fl-cue, .fl-fade { display: none !important; }
+
+/* A card that holds an open dialog is never clipped to the page edge: clip-path also clips its
+   position:fixed descendants, which cut the Add app dialog down to the card's box (19 Nov 2026). */
+:is(.card, .cc-card, .ddc-card, .fleet-rail, .ovb-c, .ro-list):has(.modal-backdrop.modal-open) { clip-path: none !important; }
