@@ -267,7 +267,7 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		    agent_kind        = 'dpc',
 		    enrollment_status = 'enrolled',
 		    enrolled_at       = CASE WHEN devices.enrollment_status IN ('retired', 'wiped', 'unenrolled') THEN NOW() ELSE devices.enrolled_at END,
-		    hidden            = false,
+		    hidden            = devices.arm_hidden,
 		    product           = CASE WHEN EXCLUDED.product <> '' THEN EXCLUDED.product ELSE devices.product END,
 		    -- A class pinned to this serial stays, unless AIO Enroll was asked for one.
 		    -- A one-role model's role (EXCLUDED.device_class set, no AIO Enroll pick) wins over a pin.

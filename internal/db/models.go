@@ -316,6 +316,8 @@ type Restaurant struct {
 	DeviceCount int       `json:"device_count"` // populated by List/Get
 	// ContactEmail is where the venue's monthly device-security report goes ('' = none).
 	ContactEmail string `json:"contact_email"`
+	// Hidden: the venue is waiting to move to prod and is out of every list (device_move_arm.go).
+	Hidden bool `json:"hidden,omitempty"`
 }
 
 // DefaultKioskFeatures shows system info (battery/wifi) but blocks home, recents,

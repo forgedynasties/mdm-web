@@ -367,6 +367,11 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		h.notFoundPage(w, r, "Venue", "There is no venue at this address. It may have been deleted.")
 		return
 	}
+	// A venue hidden while its devices wait to move to prod is for super admins, by link.
+	if rest.Hidden && !h.isAdmin(r) {
+		h.notFoundPage(w, r, "Venue", "There is no venue at this address. It may have been deleted.")
+		return
+	}
 	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 1000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)

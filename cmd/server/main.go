@@ -690,6 +690,8 @@ func main() {
 	mux.Handle("POST /api/v1/admin/move/devices/{serial}/cancel", adminAuth(http.HandlerFunc(apiHandler.MoveCancel)))
 	mux.Handle("POST /api/v1/admin/move/venues/{id}", adminAuth(http.HandlerFunc(apiHandler.MoveVenue)))
 	mux.Handle("GET /api/v1/admin/move/status", adminAuth(http.HandlerFunc(apiHandler.MoveStatus)))
+	mux.Handle("POST /api/v1/admin/move/arm", adminAuth(http.HandlerFunc(apiHandler.MoveArm)))
+	mux.Handle("POST /api/v1/admin/move/unarm", adminAuth(http.HandlerFunc(apiHandler.MoveUnarm)))
 	mux.Handle("POST /api/v1/admin/move/import", adminAuth(middleware.MaxBytes(8<<20, http.HandlerFunc(apiHandler.MoveImport))))
 	// The fleet adb key (internal/api/fleet_adb_key.go): upload / metadata / remove.
 	mux.Handle("PUT /api/v1/fleet-adb-key", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.PutFleetAdbKey))))
@@ -716,6 +718,7 @@ func main() {
 	apiHandler.SetKioskRelocker(dash.RelockFromDevice)
 	apiHandler.SetSessionUser(dash.SessionUsername)
 	apiHandler.SetAPKPuller(dash)
+	apiHandler.SetClientStanding(dash.ClientStandingFor)
 	// Test-bench routes (admin key): lock/unlock one device, take one off a venue.
 	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))
 	mux.Handle("POST /api/v1/devices/{serial}/brightness", adminAuth(http.HandlerFunc(dash.APISetDeviceBrightness)))

@@ -86,6 +86,16 @@ func (d *DB) ExportPeopleLineup(ctx context.Context) (*PeopleLineupBundle, error
 				rows.Close()
 				return nil, err
 			}
+			if t.name == "restaurants" {
+				// A venue hidden here (waiting to move) is a plain venue on the target.
+				var row map[string]json.RawMessage
+				if json.Unmarshal(raw, &row) == nil {
+					row["hidden"] = json.RawMessage("false")
+					if r2, err := json.Marshal(row); err == nil {
+						raw = r2
+					}
+				}
+			}
 			out = append(out, json.RawMessage(raw))
 		}
 		rows.Close()

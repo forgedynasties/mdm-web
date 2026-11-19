@@ -261,7 +261,7 @@ func (d *DB) RestaurantsToScan(ctx context.Context) ([]uuid.UUID, error) {
 		SELECT DISTINCT r.id FROM restaurants r
 		JOIN devices d ON d.restaurant_id = r.id AND d.agent_kind = 'firmware'
 		  AND d.enrollment_status NOT IN ('retired','wiped','unenrolled')
-		WHERE r.scan_enabled`)
+		WHERE r.scan_enabled AND NOT r.hidden`)
 	if err != nil {
 		return nil, err
 	}

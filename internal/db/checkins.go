@@ -139,7 +139,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    latest_battery_pct = COALESCE($3, devices.latest_battery_pct),
 			    -- A check-in reactivates an inactive device: it was only hidden for going
 			    -- silent, so hearing from it again brings it back into every list and count.
-			    hidden             = false,
+			    hidden             = devices.arm_hidden,
 			    -- Only overwrite product when the device actually reported one; an empty
 			    -- value (delta frame / legacy client) keeps whatever was last learned.
 			    product            = COALESCE(NULLIF(EXCLUDED.product, ''), devices.product),

@@ -27,7 +27,7 @@ func (d *DB) FleetCounts(ctx context.Context, excludeDPC bool) (FleetCounts, err
 	}
 	err := d.pool.QueryRow(ctx, `
 		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`+kindWhere+`),
-		       (SELECT COUNT(*) FROM restaurants),
+		       (SELECT COUNT(*) FROM restaurants WHERE NOT hidden),
 		       (SELECT COUNT(*) FROM groups),
 		       (SELECT COUNT(*) FROM devices WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled') AND onboarded_at IS NULL)
 	`).Scan(&c.Devices, &c.Restaurants, &c.Groups, &c.Inbox)
