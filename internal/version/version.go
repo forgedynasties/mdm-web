@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.34",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Move API: `?import_only=1` on a device puts it on prod in its venue, marked as still reporting to mdm.dev, without filing a move. For clients too old to move themselves and boxes that have been dark for weeks, so prod's venues list all their devices.",
+		},
+	},
+	{
 		Version: "1.64.33",
 		Date:    "2026-11-19",
 		Changes: []string{

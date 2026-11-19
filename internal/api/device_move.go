@@ -26,6 +26,7 @@ import (
 //
 //	GET  /api/v1/admin/move/devices/{serial}         the device's bundle
 //	POST /api/v1/admin/move/devices/{serial}[?now=1] import it on prod now, then move it when it can
+//	POST /api/v1/admin/move/devices/{serial}?import_only=1   import it on prod only (no move filed)
 //	                                                 (now=1: a firmware device at an open venue too)
 //	POST /api/v1/admin/move/venues/{id}[?only=dpc|firmware]   the same for every device at a venue
 //	POST /api/v1/admin/move/devices/{serial}/cancel  a move not under way
@@ -236,6 +237,19 @@ func (h *Handler) MoveDevice(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	if dev, err := h.db.GetDevice(r.Context(), serial); err != nil || dev == nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+	if r.URL.Query().Get("import_only") == "1" {
+		// Import only (19 Nov 2026): the device appears on prod in its venue, marked as still
+		// reporting here (custody "migrate": no offline alerts, no commands), and no move is
+		// filed. For a client too old to move itself, or a box that has been dark for weeks, so
+		// prod's venue lists every device it will have. A later real move imports it again.
+		if _, err := h.importOnTarget(r.Context(), target, serial); err != nil {
+			writeJSON(w, http.StatusConflict, moveResult{Serial: serial, Error: err.Error()})
+			return
+		}
+		_ = h.db.InsertAudit(r.Context(), "admin API", "device.import_to", serial, target)
+		writeJSON(w, http.StatusOK, moveResult{Serial: serial, State: "imported"})
 		return
 	}
 	res := h.startMove(r.Context(), target, serial, "admin API")
