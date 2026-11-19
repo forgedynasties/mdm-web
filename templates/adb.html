@@ -106,7 +106,7 @@ code.adb-c{font-family:var(--mono);font-size:12px;background:var(--surface2);bor
         <td class="ft-cb"><input type="checkbox" class="adb-tick" value="{{.Device.SerialNumber}}" aria-label="Tick {{.Device.SerialNumber}}"{{if eq .Group "cant"}} disabled title="{{.Why}}"{{end}}></td>
         <td><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
           <a class="adb-sn" href="/devices/{{.Device.SerialNumber}}">{{.Device.SerialNumber}}</a>
-          <span class="sub">{{if .Venue}}{{.Venue}}{{else}}Lab{{end}} · {{.Device.KindLabel}}</span>
+          <span class="sub">{{if .Venue}}{{.Venue}}{{else}}To place{{end}} · {{.Device.KindLabel}}</span>
           {{if .LastBy}}<span class="sub">{{.LastWord}} by {{.LastBy}} · {{timeSince .LastAt}}</span>{{end}}</td>
         <td>{{if eq .Group "open"}}<span class="cc-tag warn">adb on</span> <span class="sub">{{if .OffIn}}{{.OffIn}} left{{else if .StaysOn}}until turned off{{end}}</span>
           {{else if eq .Group "cant"}}<span class="cc-tag">can't</span> <span class="sub">{{.Why}}</span>

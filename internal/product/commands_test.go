@@ -41,7 +41,7 @@ func TestCommandCatalogueIsCoherent(t *testing.T) {
 
 func knownRole(role string) bool {
 	switch role {
-	case "admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "viewer", "owner", "staff":
+	case "admin", "fleet_admin", "fleet_manager", "operator", "field", "support", "viewer", "owner", "staff":
 		return true
 	}
 	return false

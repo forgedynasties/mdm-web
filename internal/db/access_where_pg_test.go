@@ -43,13 +43,13 @@ func TestAccessWhere(t *testing.T) {
 	if err != nil || w == nil || w.Scope != "groups" || len(w.GroupIDs) != 1 || w.GroupIDs[0] != g || w.Elsewhere != "hidden" {
 		t.Fatalf("read back %+v %v", w, err)
 	}
-	if err := d.SetAccessWhere(ctx, AccessWhere{Username: user, Scope: "lab", GroupIDs: []uuid.UUID{g}, Elsewhere: "x"}); err != nil {
+	if err := d.SetAccessWhere(ctx, AccessWhere{Username: user, Scope: "deployed", GroupIDs: []uuid.UUID{g}, Elsewhere: "x"}); err != nil {
 		t.Fatal(err)
 	}
-	if w, _ := d.AccessWhereFor(ctx, user); w.Scope != "lab" || len(w.GroupIDs) != 0 || w.Elsewhere != "view" {
+	if w, _ := d.AccessWhereFor(ctx, user); w.Scope != "deployed" || len(w.GroupIDs) != 0 || w.Elsewhere != "view" {
 		t.Errorf("replaced: %+v", w)
 	}
-	if all, err := d.ListAccessWhere(ctx); err != nil || all[user].Scope != "lab" {
+	if all, err := d.ListAccessWhere(ctx); err != nil || all[user].Scope != "deployed" {
 		t.Errorf("list: %v %v", all[user], err)
 	}
 	if err := d.DeleteUserAccessLevels(ctx, user); err != nil {

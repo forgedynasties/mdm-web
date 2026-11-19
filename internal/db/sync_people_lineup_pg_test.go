@@ -43,7 +43,7 @@ func TestSyncPeopleLineupBetweenServers(t *testing.T) {
 	}
 
 	// Source: a person, a model, a role app, a venue with its hours.
-	alice, err := src.CreateUser(ctx, "alice-sync@example.com", "hash-a", "engineer", nil, true)
+	alice, err := src.CreateUser(ctx, "alice-sync@example.com", "hash-a", "operator", nil, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestSyncPeopleLineupBetweenServers(t *testing.T) {
 	}
 	var hash, role string
 	dst.pool.QueryRow(ctx, `SELECT password_hash, role FROM users WHERE id = $1`, alice.ID).Scan(&hash, &role)
-	if hash != "hash-a" || role != "engineer" {
+	if hash != "hash-a" || role != "operator" {
 		t.Errorf("alice on target: hash %q role %q", hash, role)
 	}
 	if dst.pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE username = 'bob-sync@example.com'`).Scan(&n); n != 1 {

@@ -7,13 +7,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"mdm/internal/product"
 )
 
 // QASetDeviceWlc switches wireless charging on a device's pad for the testing team (POST
 // /api/v1/testdata/devices/{serial}/wlc, QA key, {"enabled": bool}; user, 2 Nov 2026: "in
 // the test api also add wlc on off endpoint"). The same switch as APISetDeviceWlc, in the
-// testdata scope: firmware devices at no venue (Lab), and only a product with a pad.
+// testdata scope: any device on this server (19 Nov 2026), and only a product with a pad.
 func (h *Handler) QASetDeviceWlc(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Enabled *bool `json:"enabled"`
@@ -24,7 +23,7 @@ func (h *Handler) QASetDeviceWlc(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	dev, err := h.db.GetDevice(ctx, r.PathValue("serial"))
-	if err != nil || dev == nil || dev.AgentKind != product.KindFirmware || dev.RestaurantID != nil {
+	if err != nil || dev == nil || dev.Hidden {
 		writeJSONError(w, http.StatusNotFound, "device not found")
 		return
 	}

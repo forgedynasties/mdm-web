@@ -78,11 +78,6 @@ func (a *access) enrolledHere(dev uuid.UUID) bool {
 // mayPlaceAt reports whether the person may put the device at the venue: a venue in their
 // scope, or for Field any venue when it is a device they enrolled.
 func (a *access) mayPlaceAt(dev, venue uuid.UUID) bool {
-	// Engineers work on Lab devices and never place one at a venue (18 Nov 2026 audit:
-	// they see every venue, so the scope check below let them).
-	if a.role == "engineer" {
-		return false
-	}
 	return a.venueInScope(venue) || (a.role == "field" && a.enrolledHere(dev))
 }
 

@@ -25,7 +25,7 @@ func TestOpsHomeRenders(t *testing.T) {
 	svc := []svcRow{{Device: db.Device{ID: uuid.New(), SerialNumber: "AK270AABU00180", RestaurantID: &venue, RestaurantName: "Ah Huevo"}}}
 	tmpl := hubTmpl(t, "ops_home.html", "my_visits.html", "my_enroll.html", "enrollment.html", "restaurants.html", "layout.html", "_settings_cards.html")
 	for _, view := range []string{"place", "service"} {
-		data := map[string]any{"View": view, "Rows": rows, "SvcRows": svc, "ServiceN": 1, "LabN": 2,
+		data := map[string]any{"View": view, "Rows": rows, "SvcRows": svc, "ServiceN": 1,
 			"Venues": venues, "RailVenues": venues, "Enrollments": []db.Enrollment{}, "Role": "fleet_manager"}
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, "ops_home.html", data); err != nil {
@@ -33,13 +33,13 @@ func TestOpsHomeRenders(t *testing.T) {
 		}
 		out := buf.String()
 		if view == "place" {
-			for _, want := range []string{`data-serial="DK19256F40259"`, `+ New venue…`, `Send to Lab`, `<option value="pos" selected>`, `Pick a role…`, `href="/devices?restaurant=`} {
+			for _, want := range []string{`data-serial="DK19256F40259"`, `+ New venue…`, `<option value="pos" selected>`, `Pick a role…`, `href="/devices?restaurant=`} {
 				if !strings.Contains(out, want) {
 					t.Errorf("place view lacks %q", want)
 				}
 			}
 		}
-		for _, gone := range []string{"Setting up", "Hand over", "setup-again", "/visits"} {
+		for _, gone := range []string{"Setting up", "Hand over", "setup-again", "/visits", "Send to Lab", "in Lab"} {
 			if strings.Contains(out, gone) {
 				t.Errorf("%s view still mentions %q", view, gone)
 			}
@@ -78,8 +78,8 @@ func TestToPlaceState(t *testing.T) {
 		placement string
 		want      string
 	}{
-		{nil, "", db.StateLab},
-		{nil, db.PlacementLab, db.StateLab},
+		{nil, "", db.StateToPlace}, // no Lab state: a legacy device at no venue is to place
+		{nil, "lab", db.StateToPlace},
 		{nil, db.PlacementQueue, db.StateToPlace},
 		{&v, db.PlacementQueue, db.StateInService}, // placed = in service at once
 		{&v, "", db.StateInService},
@@ -92,16 +92,18 @@ func TestToPlaceState(t *testing.T) {
 }
 
 // Field's "own" grant covers the devices they enrolled until they are placed; the Ops lead's
-// to_place grant covers the queue and not the Lab.
+// to_place grant covers the devices at no venue and not those in service.
 func TestOwnAndToPlaceGrants(t *testing.T) {
 	v := uuid.New()
 	mine, theirs, handed, lab, queue := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	inService := uuid.New()
 	scopes := map[uuid.UUID]db.DeviceScope{
 		mine:   {EnrolledBy: "kevin", Placement: db.PlacementQueue},
 		theirs: {EnrolledBy: "someone", Placement: db.PlacementQueue},
 		handed: {EnrolledBy: "kevin", RestaurantID: &v},
 		lab:    {},
 		queue:  {Placement: db.PlacementQueue},
+		inService: {RestaurantID: &v},
 	}
 	field := &access{ctx: context.Background(), role: "field", username: "kevin", scopes: scopes}
 	field.once.Do(func() {})
@@ -114,7 +116,7 @@ func TestOwnAndToPlaceGrants(t *testing.T) {
 	ops := &access{ctx: context.Background(), role: "fleet_manager", username: "ops", scopes: scopes}
 	ops.once.Do(func() {})
 	tp := db.AccessLevel{ScopeType: "state", State: db.StateToPlace, Level: "manage"}
-	if !ops.grantCoversDevice(tp, scopes[queue]) || ops.grantCoversDevice(tp, scopes[lab]) {
-		t.Errorf("to_place grant should cover the queue and not the Lab")
+	if !ops.grantCoversDevice(tp, scopes[queue]) || !ops.grantCoversDevice(tp, scopes[lab]) || ops.grantCoversDevice(tp, scopes[inService]) {
+		t.Errorf("to_place grant should cover every device at no venue and not those in service")
 	}
 }

@@ -12,13 +12,13 @@ import (
 // The Ops lead's Setup (Q1, picked 3 Nov 2026; simplified 19 Nov 2026, user: "we dont need this
 // complexity", picked option A "Fleet's twin with an assign bar").
 //
-// GET /setup. A device is Lab, To place or In service; placing it at a venue puts it in service
+// GET /setup. A device is To place or In service; placing it at a venue puts it in service
 // at once, so there is nothing between. The left list: To place, In service, the venues (each
 // a link to Fleet on it; the rail's own search finds one among hundreds), then Enrollment
 // (Enrolled; the super admin's Profiles, Found on Wi-Fi, From the AIO backend). How to enroll,
 // the Android app and New profile are in the island. To place is the queue (db/placement.go): a
-// row per device with its role, a venue picker and Deploy; tick several to deploy them together
-// or send them to the Lab; "+ New venue…" in the picker creates one and deploys the ticked
+// row per device with its role, a venue picker and Deploy; tick several to deploy them together;
+// "+ New venue…" in the picker creates one and deploys the ticked
 // devices there. In service is a read-only list that opens Fleet. Field's own queue (K2) is the
 // same table on /setup/mine (placeRowsFor).
 
@@ -76,7 +76,6 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace}, 0, 2000, "serial", "asc")
 	venues, _ := h.db.ListRestaurants(ctx)
 	rows := h.placeRowsFor(ctx, queue)
-	labN, _ := h.db.CountDevices(ctx, db.DeviceFilter{State: db.StateLab})
 	serviceN, _ := h.db.CountDevices(ctx, db.DeviceFilter{State: db.StateInService})
 
 	var svc []svcRow
@@ -101,42 +100,11 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
 	data := map[string]any{
 		"Title": "Setup", "ActivePage": "setup", "View": view, "EnView": enrollmentViews[view],
-		"Rows": rows, "SvcRows": svc, "ServiceN": serviceN, "LabN": labN,
+		"Rows": rows, "SvcRows": svc, "ServiceN": serviceN,
 		"Venues": venues, "RailVenues": railVenues, "Back": "/setup",
 		"Restaurants": venues,
 	}
 	// Enrollment moved in (M1, 3 Nov 2026): its views and the left list's counts.
 	h.enrollmentData(r, view, data)
 	h.render(w, r, "ops_home.html", data)
-}
-
-// DevicePlacementPost: POST /devices/{serial}/placement {placement: queue|lab}. "Send to Lab"
-// from the queue, "Move to queue" from a Lab device: only while it is at no venue.
-func (h *Handler) DevicePlacementPost(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	back := r.FormValue("back")
-	if back == "" || !strings.HasPrefix(back, "/") || strings.HasPrefix(back, "//") {
-		back = "/devices/" + serial
-	}
-	d, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil || d == nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	if d.RestaurantID != nil {
-		h.hxDoneToast(w, r, back, "It is at a venue: take it off the venue first", "error")
-		return
-	}
-	p := r.FormValue("placement")
-	if err := h.db.SetDevicePlacement(r.Context(), d.ID, p); err != nil {
-		h.hxDoneToast(w, r, back, "Placement must be queue or lab", "error")
-		return
-	}
-	msg := "Sent to the Lab"
-	if p == db.PlacementQueue {
-		msg = "In the queue to place"
-	}
-	h.audit(r, "device.placement", serial, p)
-	h.hub.PublishDeviceUpdate(d.ID)
-	h.hxDoneToast(w, r, back, msg, "success")
 }

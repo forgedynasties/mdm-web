@@ -18,7 +18,7 @@
     <div class="sf-head"><h1 class="cc-h1">Your devices to place</h1>
       <span class="muted">{{len .Place}} · enrolled by you, no venue yet · Deploy puts a device in service and it leaves this list</span></div>
     {{if .Place}}
-    {{template "place-table" (dict "Rows" .Place "Venues" .Venues "Back" "/setup/mine" "NewVenue" false "Lab" false)}}
+    {{template "place-table" (dict "Rows" .Place "Venues" .Venues "Back" "/setup/mine" "NewVenue" false)}}
     {{if .Others}}<p class="sf-note muted">{{.Others}} other queued device{{if ne .Others 1}}s{{end}} enrolled by colleagues {{if eq .Others 1}}is{{else}}are{{end}} not shown: you see only your own enrolments, and a placed device leaves the list.</p>{{end}}
     {{else}}
     <div class="sf-empty">

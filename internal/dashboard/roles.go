@@ -64,10 +64,10 @@ type roleDef struct {
 }
 
 // Roles replan (decided 30 Oct 2026): each role says what someone can do AND which
-// devices they see, by the device's state (db/setup_visits.go): Lab (no venue), To place,
+// devices they see, by the device's state (db/setup_visits.go): To place (no venue) or
 // In service (at a venue). Stored keys stay where a role kept its job, so no account needs a
 // migration for the label to change: fleet_manager is the Ops lead, operator is Support;
-// viewer stays Viewer (now: devices in service only). engineer and field are new. fleet_admin ("Admin") and support are
+// viewer stays Viewer (now: devices in service only). field is new; engineer was retired on 19 Nov 2026 (its people became Support). fleet_admin ("Admin") and support are
 // legacy: their holders move to a new role by hand.
 var roleDefs = []roleDef{
 	{Key: "admin", Label: "Super admin", Article: "a super admin", Plural: "Super admins", Level: 5,
@@ -76,8 +76,8 @@ var roleDefs = []roleDef{
 		Desc: "Old role: everything but settings, firmware pushes", Ceiling: "An old role from before 30 Oct 2026. Move this person to a new role."},
 	{Key: "fleet_manager", Label: "Ops lead", Article: "an ops lead", Plural: "Ops leads", Level: 3,
 		Desc: "Venues, devices to place and in service", Ceiling: "An ops lead sets venues up, places devices, and acts on devices to place and in service."},
-	{Key: "engineer", Label: "Engineer", Article: "an engineer", Plural: "Engineers", Level: 2,
-		Desc: "Lab devices; restaurant devices: look, logs, screenshots", Ceiling: "An engineer does everything on lab devices. On restaurant devices they look, collect logs and take screenshots."},
+	{Key: "engineer", Label: "Engineer (old)", Article: "an engineer", Plural: "Engineers (old)", Level: 2, Legacy: true,
+		Desc: "Old role: retired 19 Nov 2026, its people became Support", Ceiling: "A retired role: every Engineer became Support on 19 Nov 2026. The key stays valid but nobody can be given it."},
 	{Key: "operator", Label: "Support", Article: "a support agent", Plural: "Support agents", Level: 2,
 		Desc: "Devices in service: commands, remote control, installs", Ceiling: "Support acts on every device in service: commands, lock, remote control, installs."},
 	{Key: "field", Label: "Field", Article: "a field person", Plural: "Field people", Level: 2,
@@ -160,7 +160,7 @@ func rolePill(role string) string {
 		return "danger"
 	case "fleet_admin", "fleet_manager":
 		return "warn"
-	case "operator", "support", "engineer":
+	case "operator", "support":
 		return "info"
 	case "field":
 		return "ok"
@@ -205,7 +205,7 @@ func roleCreatesUsers(role string) bool { return roleManagesUsers(role) }
 
 // roleCanAppLibrary: the app library (browse, upload, register). Fleet manager up;
 // removing an APK stays with the super admin.
-func roleCanAppLibrary(role string) bool { return role == "engineer" || roleAtLeast(role, "fleet_manager") }
+func roleCanAppLibrary(role string) bool { return roleAtLeast(role, "fleet_manager") }
 
 // rank orders any role for "who may manage whom": customers sit below the whole AIO
 // team, so a fleet manager (3) manages owners and staff and nobody on a customer

@@ -11,9 +11,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Use it for every POST so cross-site requests can't drive an authenticated
 	// browser session; GET routes stay on mux.HandleFunc directly.
 	post := func(pattern string, handler http.HandlerFunc) {
-		if engineerNeverWrites(pattern) {
-			handler = h.notEngineer(handler)
-		}
 		mux.HandleFunc(pattern, h.enforceSameOrigin(handler))
 	}
 
@@ -330,7 +327,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Device lifecycle: onboarding inbox confirmation, class override, retire/unretire.
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
 	post("POST /devices/{serial}/role", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetRole)))
-	post("POST /devices/{serial}/placement", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DevicePlacementPost)))
 	post("POST /devices/{serial}/follows", h.requireAuth(h.deviceRoute("install_apk", h.DeviceFollow)))
 	// Apps added to / removed from a device (app_wants_view.go, 17 Nov 2026).
 	post("POST /devices/{serial}/apps/add", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppAdd)))

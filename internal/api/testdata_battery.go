@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	"mdm/internal/db"
-	"mdm/internal/product"
 )
 
 // Battery data for the testing team (QA key): what the dashboard's /battery page shows —
@@ -171,8 +170,8 @@ func (h *Handler) GetTestDataDeviceBatteryClimbs(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, out)
 }
 
-// qaFirmwareDevice resolves {serial} for a testdata route: firmware devices in the lab
-// only, and a device outside that scope is "not found" rather than a different answer.
+// qaFirmwareDevice resolves {serial} for a testdata route: any device on this server; an
+// unknown or hidden serial is "not found".
 func (h *Handler) qaFirmwareDevice(w http.ResponseWriter, r *http.Request) (*db.Device, bool) {
 	dev, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
 	if err != nil || !qaInScope(dev) {
@@ -182,9 +181,10 @@ func (h *Handler) qaFirmwareDevice(w http.ResponseWriter, r *http.Request) (*db.
 	return dev, true
 }
 
-// qaInScope is the testdata API's device scope: firmware client, at no venue (Lab).
+// qaInScope is the testdata API's device scope: every device on this server (19 Nov 2026,
+// no Lab state; it used to be firmware devices at no venue).
 func qaInScope(d *db.Device) bool {
-	return d.AgentKind == product.KindFirmware && d.RestaurantID == nil
+	return d != nil && !d.Hidden
 }
 
 func qaBatteryWindow(r *http.Request) (time.Time, time.Time, error) {

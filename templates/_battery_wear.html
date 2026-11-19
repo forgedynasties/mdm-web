@@ -26,7 +26,7 @@
     {{range $w.Rows}}
     <tr>
       <td class="m"><a href="/battery?serial={{.Serial}}" style="color:inherit">{{.Serial}}</a></td>
-      <td>{{if .Venue}}{{.Venue}}{{else}}<span class="bt-mu">lab</span>{{end}}</td>
+      <td>{{if .Venue}}{{.Venue}}{{else}}<span class="bt-mu">to place</span>{{end}}</td>
       <td class="r">{{len .Readings}}</td>
       <td class="r">{{fmtClimb .Latest.Secs}}</td>
       <td class="r">{{.VsFleet}} %</td>

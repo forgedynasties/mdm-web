@@ -42,8 +42,6 @@ func scopeText(g db.AccessLevel) string {
 		return "every device"
 	case "state":
 		switch g.State {
-		case db.StateLab:
-			return "Lab devices"
 		case db.StateToPlace:
 			return "devices to place"
 		case db.StateInService:
@@ -78,9 +76,9 @@ func levelVerb(l int) string {
 	return ""
 }
 
-// accessSentence says what grants give, highest level first: "Engineers can operate Lab
-// devices and the QA group, and look at every other device." subject starts the sentence
-// ("Engineers", "Abdullah", "You"); they is "They" or "You" (plural verb) or the person's name.
+// accessSentence says what grants give, highest level first: "Support agents can operate devices in service
+// and the QA group, and look at every other device." subject starts the sentence
+// ("Support agents", "Abdullah", "You"); they is "They" or "You" (plural verb) or the person's name.
 func accessSentence(subject, they string, gs []db.AccessLevel, now time.Time) string {
 	by := map[int][]string{}
 	seen := map[string]bool{}
@@ -135,7 +133,7 @@ func accessSentence(subject, they string, gs []db.AccessLevel, now time.Time) st
 // ── The device page: why it is view-only, who can operate it ─────────────────
 
 type lookView struct {
-	Why  string   // "Engineers operate Lab devices and the QA group; this device is in Software."
+	Why  string   // "Support agents operate devices in service; this device is in Software."
 	Lock string   // the short reason on locked controls
 	Who  []string // who can operate it
 }
@@ -158,7 +156,7 @@ func (h *Handler) lookViewFor(ctx context.Context, acc *access, dev *db.Device) 
 			own = append(own, scopeText(g))
 		}
 	}
-	where := "at no venue (Lab)"
+	where := "at no venue (to place)"
 	if dev.RestaurantName != "" {
 		where = "at " + dev.RestaurantName
 	}
@@ -344,7 +342,7 @@ func (a *access) restaurantsViewOnly() bool {
 		case "all", "venue":
 			return false
 		case "state":
-			if g.State != db.StateLab && g.State != db.StateToPlace {
+			if g.State != db.StateToPlace {
 				return false
 			}
 		}
@@ -417,7 +415,7 @@ func (h *Handler) AccessPage(w http.ResponseWriter, r *http.Request) {
 	}
 	sel := r.URL.Query().Get("role")
 	if sel == "" && r.URL.Query().Get("who") == "" && len(cards) > 0 {
-		sel = "engineer"
+		sel = cards[0].Role
 	}
 	groups, _ := h.db.ListAllGroups(ctx)
 	rests, _ := h.db.ListRestaurants(ctx)
@@ -520,7 +518,7 @@ func parseScope(where string) (scopeType string, id *uuid.UUID, state string, ok
 		return kind, nil, "", rest == ""
 	case "state":
 		switch rest {
-		case db.StateLab, db.StateToPlace, db.StateInService:
+		case db.StateToPlace, db.StateInService:
 			return "state", nil, rest, true
 		}
 	case "group", "venue":

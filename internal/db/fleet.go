@@ -251,7 +251,7 @@ func (d *DB) GetOverviewFacts(ctx context.Context) (OverviewFacts, error) {
 	var f OverviewFacts
 	err := d.pool.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE restaurant_id IS NOT NULL),
-		       count(*) FILTER (WHERE restaurant_id IS NULL AND placement = 'queue')
+		       count(*) FILTER (WHERE restaurant_id IS NULL)
 		FROM devices
 		WHERE NOT hidden AND enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')`).
 		Scan(&f.AtVenue, &f.ToPlace)

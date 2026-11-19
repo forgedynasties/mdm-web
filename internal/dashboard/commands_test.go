@@ -9,21 +9,21 @@ import (
 	"mdm/internal/product"
 )
 
-// wantCommandRoles is the role allowlist (Engineer and Field added, Wi-Fi opened by the
+// wantCommandRoles is the role allowlist (Field added, Wi-Fi opened by the
 // roles replan, 30 Oct 2026; the device's state decides where), originally the list from before
 // it was derived from the command catalogue, written out so a change to a role set has to be deliberate.
 // This map is a security gate: widening it silently is how a low-privilege account
 // ends up able to wipe a device, and narrowing it is how a button that is offered
 // stops working.
 var wantCommandRoles = map[string][]string{
-	"screenshot":       {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner"},
-	"install_apk":      {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
-	"uninstall":        {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
+	"screenshot":       {"admin", "fleet_admin", "fleet_manager", "operator", "field", "support", "owner"},
+	"install_apk":      {"admin", "fleet_admin", "fleet_manager", "operator", "field"},
+	"uninstall":        {"admin", "fleet_admin", "fleet_manager", "operator", "field"},
 	"pull_apk":         {"admin", "fleet_admin", "fleet_manager"}, // Save to library (26 Oct 2026)
-	"reboot":           {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner", "staff"},
-	"app_update":       {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
+	"reboot":           {"admin", "fleet_admin", "fleet_manager", "operator", "field", "support", "owner", "staff"},
+	"app_update":       {"admin", "fleet_admin", "fleet_manager", "operator", "field"},
 	"shell":            {"admin"},
-	"collect_logs":     {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"},
+	"collect_logs":     {"admin", "fleet_admin", "fleet_manager", "operator", "field"},
 	"ota":              {"admin", "fleet_admin"},
 	"update_splash":    {"admin"},
 	"logcat":           {"admin"},
@@ -33,8 +33,8 @@ var wantCommandRoles = map[string][]string{
 	"mic_gain_read":    {"admin"},
 	"adb_tcp":          {"admin"},
 	"adb_approve":      {"admin"},
-	"lost_mode":        {"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner", "staff"},
-	"wifi_config":      {"admin", "fleet_manager", "operator", "engineer", "field"},
+	"lost_mode":        {"admin", "fleet_admin", "fleet_manager", "operator", "field", "support", "owner", "staff"},
+	"wifi_config":      {"admin", "fleet_manager", "operator", "field"},
 }
 
 func TestCommandRolesMatchTheAllowlist(t *testing.T) {

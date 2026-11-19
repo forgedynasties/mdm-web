@@ -20,6 +20,7 @@ func withWhere(role string, w *db.AccessWhere, own ...db.AccessLevel) *access {
 // Fixture (access_test.go): V holds d1, d2 (in service); G holds d2 and d3; d3, d4 are Lab.
 func TestWhereOnPerson(t *testing.T) {
 	g := groupG
+	qaOnlyHidden := &db.AccessWhere{Username: "abdullah", Scope: "groups", GroupIDs: []uuid.UUID{g}, Elsewhere: "hidden"}
 	qaOnly := &db.AccessWhere{Username: "abdullah", Scope: "groups", GroupIDs: []uuid.UUID{g}, Elsewhere: "view"}
 	for _, c := range []struct {
 		name   string
@@ -29,22 +30,22 @@ func TestWhereOnPerson(t *testing.T) {
 		want   bool
 	}{
 		// No Where: the role's defaults exactly (View all, Operate Lab and QA).
-		{"default: reboot a Lab device", withWhere("engineer", nil), "reboot", d4, true},
-		{"default: reboot at a venue", withWhere("engineer", nil), "reboot", d1, false},
+		{"default: reboot a Lab device", withWhere(qaFixture, nil), "reboot", d4, true},
+		{"default: reboot at a venue", withWhere(qaFixture, nil), "reboot", d1, false},
 		// Where = the QA group: Operate there, View elsewhere.
-		{"groups: reboot in QA (at a venue)", withWhere("engineer", qaOnly), "reboot", d2, true},
-		{"groups: reboot in QA (Lab)", withWhere("engineer", qaOnly), "reboot", d3, true},
-		{"groups: Lab device outside QA is view only", withWhere("engineer", qaOnly), "reboot", d4, false},
-		{"groups: still looks at it", withWhere("engineer", qaOnly), "screenshot", d4, true},
-		{"groups: no Manage from an Operate role", withWhere("engineer", qaOnly), "remote", d2, false},
+		{"groups: reboot in QA (at a venue)", withWhere(qaFixture, qaOnly), "reboot", d2, true},
+		{"groups: reboot in QA (Lab)", withWhere(qaFixture, qaOnly), "reboot", d3, true},
+		{"groups: Lab device outside QA is view only", withWhere(qaFixture, qaOnly), "reboot", d4, false},
+		{"groups: still looks at it", withWhere(qaFixture, qaOnly), "screenshot", d4, true},
+		{"groups: no Manage from an Operate role", withWhere(qaFixture, qaOnly), "remote", d2, false},
 		// Deployed = at a venue, whatever the state.
-		{"deployed: in service", withWhere("engineer", &db.AccessWhere{Scope: "deployed", Elsewhere: "view"}), "reboot", d1, true},
-		{"deployed: not Lab", withWhere("engineer", &db.AccessWhere{Scope: "deployed", Elsewhere: "view"}), "reboot", d4, false},
-		// The role decides what: Support (Manage) narrowed to Lab manages Lab devices only.
-		{"support on Lab: remote on Lab", withWhere("operator", &db.AccessWhere{Scope: "lab", Elsewhere: "hidden"}), "remote", d4, true},
-		{"support on Lab: in service hidden", withWhere("operator", &db.AccessWhere{Scope: "lab", Elsewhere: "hidden"}), "view", d1, false},
+		{"deployed: in service", withWhere(qaFixture, &db.AccessWhere{Scope: "deployed", Elsewhere: "view"}), "reboot", d1, true},
+		{"deployed: not Lab", withWhere(qaFixture, &db.AccessWhere{Scope: "deployed", Elsewhere: "view"}), "reboot", d4, false},
+		// The role decides what: Support (Manage) narrowed to the QA group manages that group only.
+		{"support on QA: remote in QA", withWhere("operator", qaOnlyHidden), "remote", d2, true},
+		{"support on QA: the rest hidden", withWhere("operator", qaOnlyHidden), "view", d1, false},
 		// Their own grants still add on top.
-		{"own grant adds", withWhere("engineer", qaOnly, db.AccessLevel{SubjectType: "user", ScopeType: "venue", ScopeID: &venueV, Level: "manage"}), "remote", d1, true},
+		{"own grant adds", withWhere(qaFixture, qaOnly, db.AccessLevel{SubjectType: "user", ScopeType: "venue", ScopeID: &venueV, Level: "manage"}), "remote", d1, true},
 	} {
 		dev := c.dev
 		if got := c.a.decide(c.action, &dev).Allowed; got != c.want {
@@ -54,7 +55,7 @@ func TestWhereOnPerson(t *testing.T) {
 }
 
 func TestWhereElsewhereHidden(t *testing.T) {
-	a := withWhere("engineer", &db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{groupG}, Elsewhere: "hidden"})
+	a := withWhere(qaFixture, &db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{groupG}, Elsewhere: "hidden"})
 	if !a.hidesDevices() {
 		t.Fatal("Elsewhere hidden: lists are filtered")
 	}
@@ -62,20 +63,20 @@ func TestWhereElsewhereHidden(t *testing.T) {
 		t.Errorf("visible: d1 %v d2 %v d3 %v d4 %v, want only the QA devices d2 and d3",
 			a.visible(d1), a.visible(d2), a.visible(d3), a.visible(d4))
 	}
-	if b := withWhere("engineer", &db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{groupG}, Elsewhere: "view"}); b.hidesDevices() {
+	if b := withWhere(qaFixture, &db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{groupG}, Elsewhere: "view"}); b.hidesDevices() {
 		t.Error("Elsewhere view only: they still see every device")
 	}
 }
 
 func TestWhereLocks(t *testing.T) {
-	a := withWhere("engineer", &db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{groupG}, Elsewhere: "view"})
+	a := withWhere(qaFixture, &db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{groupG}, Elsewhere: "view"})
 	if !a.lookOnly(d4) || a.lookOnly(d3) {
 		t.Error("a Lab device outside QA is view only; QA's Lab device is not")
 	}
 	if !a.restaurantsViewOnly() {
 		t.Error("QA only: the Restaurants tab is locked")
 	}
-	if withWhere("engineer", &db.AccessWhere{Scope: "deployed", Elsewhere: "view"}).restaurantsViewOnly() {
+	if withWhere(qaFixture, &db.AccessWhere{Scope: "deployed", Elsewhere: "view"}).restaurantsViewOnly() {
 		t.Error("Deployed: restaurants are operable")
 	}
 }
@@ -93,7 +94,7 @@ func TestWhereLeavesOthersAlone(t *testing.T) {
 		t.Error("an owner still sees their venue only")
 	}
 	// No Where: EffectiveLevels hands the grants back unchanged.
-	in := seedLevels("engineer")
+	in := seedLevels(qaFixture)
 	if out := db.EffectiveLevels(in, nil, time.Now()); len(out) != len(in) {
 		t.Errorf("no Where changed the grants: %d → %d", len(in), len(out))
 	}
@@ -102,7 +103,7 @@ func TestWhereLeavesOthersAlone(t *testing.T) {
 func TestWhereSentence(t *testing.T) {
 	g := groupG
 	w := &db.AccessWhere{Username: "a", Scope: "groups", GroupIDs: []uuid.UUID{g}, Elsewhere: "view"}
-	gs := db.EffectiveLevels(seedLevels("engineer"), w, time.Now())
+	gs := db.EffectiveLevels(seedLevels(qaFixture), w, time.Now())
 	for i := range gs {
 		if gs[i].ScopeType == "group" {
 			gs[i].ScopeName = "QA"
@@ -112,7 +113,7 @@ func TestWhereSentence(t *testing.T) {
 		t.Errorf("sentence = %q", s)
 	}
 	w.Elsewhere = "hidden"
-	gs = db.EffectiveLevels(seedLevels("engineer"), w, time.Now())
+	gs = db.EffectiveLevels(seedLevels(qaFixture), w, time.Now())
 	for i := range gs {
 		gs[i].ScopeName = "QA"
 	}

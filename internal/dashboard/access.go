@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"sort"
@@ -94,7 +93,7 @@ func roleCeiling(role string) map[string]bool {
 		return set("view", "screenshot", "reboot", "kiosk", "lost_mode", "alerts")
 	case "staff":
 		return set("view", "reboot", "lost_mode", "alerts")
-	case "operator", "fleet_manager", "fleet_admin", "engineer", "field":
+	case "operator", "fleet_manager", "fleet_admin", "field":
 	default:
 		return map[string]bool{} // unknown role: nothing
 	}
@@ -115,10 +114,9 @@ func roleCeiling(role string) map[string]bool {
 // needs an allow rule that names it; OTA below the admin is not grantable at all.
 func sensitiveByDefault(role, action string) bool {
 	return (action == "ota" && role == "fleet_admin") ||
-		// Roles replan (30 Oct 2026): Support, Engineer (on lab devices) and Field (on
-		// their visit's venue) have remote control without a rule; where is decided by
-		// the device's state (stateDecision).
-		(action == "remote" && (role == "fleet_admin" || role == "fleet_manager" || role == "operator" || role == "engineer" || role == "field"))
+		// Roles replan (30 Oct 2026): Support and Field have remote control without a rule;
+		// where is decided by the device's state (stateDecision).
+		(action == "remote" && (role == "fleet_admin" || role == "fleet_manager" || role == "operator" || role == "field"))
 }
 
 // grantRedundant reports an allow rule that gives nothing the role does not already
@@ -269,7 +267,7 @@ func (a *access) deviceLevel(dev uuid.UUID) (int, *db.AccessLevel) {
 		return db.LevelManage, nil
 	}
 	a.loadScopes()
-	sc := a.scopes[dev] // unknown (enrolled after the load): no venue, Lab
+	sc := a.scopes[dev] // unknown (enrolled after the load): no venue, to place
 	now := time.Now()
 	best, from := db.LevelNone, (*db.AccessLevel)(nil)
 	for i, g := range a.levels() {
@@ -672,16 +670,11 @@ func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, 
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return nil, "", false
 		}
-		if h.refuseEngineerVenue(w, r, action, devIDs) {
-			return nil, "", false
-		}
 		kept, dropped := acc.filterDevices(action, devIDs)
 		// Membership is read again at delivery, so a group target from someone whose
 		// rules hide devices would reach devices added to the group later, outside their
 		// scope (security audit, 26 Oct 2026): store what they may reach now instead.
-		// An engineer's group send is stored as the devices it reaches now too: a device
-		// placed at a venue later must not get it.
-		if dropped == 0 && !acc.hidesDevices() && acc.role != "engineer" {
+		if dropped == 0 && !acc.hidesDevices() {
 			return ids, targetType, true
 		}
 		if dropped == 0 {
@@ -694,9 +687,6 @@ func (h *Handler) enforceCommandTargets(w http.ResponseWriter, r *http.Request, 
 		}
 		log.Printf("[access] %s: %s on group narrowed to %d of %d device(s)", acc.username, action, len(kept), len(devIDs))
 		return kept, "devices", true
-	}
-	if h.refuseEngineerVenue(w, r, action, ids) {
-		return nil, "", false
 	}
 	kept, dropped := acc.filterDevices(action, ids)
 	if len(kept) == 0 && len(ids) > 0 {
@@ -1048,12 +1038,10 @@ func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []d
 
 // ── Device states (roles replan 30 Oct 2026; simplified 19 Nov 2026) ───────
 //
-// Which devices a role sees follows the device's state (db.DeviceState): Lab (no venue),
-// To place (no venue, enrolled for a restaurant), In service (at a venue: placing deploys).
+// Which devices a role sees follows the device's state (db.DeviceState): To place (no
+// venue) or In service (at a venue: placing deploys). There is no Lab state (19 Nov 2026).
 //
 //   super admin, Admin (old)   everything
-//   Engineer                   everything; acts on Lab only, elsewhere looks, takes
-//                              screenshots and collects logs
 //   Ops lead                   To place and In service
 //   Support, Support (old), Viewer  In service
 //   Field                      the devices they enrolled until placed ("own" grant)
@@ -1069,9 +1057,6 @@ func stateScoped(role string) bool {
 	return false
 }
 
-// engineerLookActions are what an engineer may do on a device at a venue.
-var engineerLookActions = map[string]bool{"view": true, "screenshot": true, "query": true}
-
 // stateDecision applies the device-state rule; ok=false means denied (d says why).
 // Fleet-level questions (dev nil) are left to the rest of decide, except for Field, who
 // holds no fleet-wide action.
@@ -1080,9 +1065,6 @@ func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 		if a.role == "field" {
 			return decision{false, "Field acts on devices being set up and the ones they enrolled", nil}, false
 		}
-		if a.role == "engineer" && action != "alerts" {
-			return decision{false, "Engineers act on lab devices, not on venues or deployments", nil}, false
-		}
 		return decision{}, true
 	}
 	switch a.role {
@@ -1090,24 +1072,16 @@ func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 		return decision{}, true
 	}
 	a.loadScopes()
-	sc := a.scopes[*dev] // unknown (enrolled after the load): no venue, Lab
+	sc := a.scopes[*dev] // unknown (enrolled after the load): no venue, to place
 	st := sc.State()
 	no := func(why string) (decision, bool) { return decision{false, why, nil}, false }
 	switch a.role {
-	case "engineer":
-		if st != db.StateLab && !engineerLookActions[action] {
-			return no("At a venue, engineers look, take screenshots and collect logs")
-		}
-	case "fleet_manager":
-		if st == db.StateLab {
-			return no("Lab devices are for engineers")
-		}
 	case "operator", "support", "viewer", "staff":
 		if st != db.StateInService {
 			return no("Only devices in service")
 		}
 	case "owner":
-		if st == db.StateLab || st == db.StateToPlace {
+		if st != db.StateInService {
 			return no("Not in service yet")
 		}
 	case "field":
@@ -1118,86 +1092,9 @@ func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 	return decision{}, true
 }
 
-// atVenue reports whether the device is placed at a venue (in service), i.e. not Lab. An unknown device (enrolled after the scopes were loaded) is Lab.
+// atVenue reports whether the device is placed at a venue (in service), i.e. not to place. An unknown device (enrolled after the scopes were loaded) is to place.
 func (a *access) atVenue(dev uuid.UUID) bool {
 	a.loadScopes()
 	return a.scopes[dev].RestaurantID != nil
 }
 
-// engineerVenueCount is how many of ids an engineer's level is too low for the action on
-// (access by levels, 2 Nov 2026; before that: every device at a venue). 0 for every other
-// role, whose sends skip such devices instead (filterDevices).
-func (a *access) engineerVenueCount(action string, ids []uuid.UUID) int {
-	if a.role != "engineer" {
-		return 0
-	}
-	need, n := needLevel(action), 0
-	for _, id := range ids {
-		if l, _ := a.deviceLevel(id); l < need {
-			n++
-		}
-	}
-	return n
-}
-
-// engineerVenueMsg says why an engineer's request was refused.
-func engineerVenueMsg(n int) string {
-	return fmt.Sprintf("Your access is too low for this on %d of these device%s (View there: screenshots and logs are fine).", n, plural(n))
-}
-
-// refuseEngineerVenue answers 403 when an engineer's request reaches any device their
-// level is too low for, so a bulk send is refused as a whole instead of quietly skipping.
-func (h *Handler) refuseEngineerVenue(w http.ResponseWriter, r *http.Request, action string, ids []uuid.UUID) bool {
-	n := h.access(r).engineerVenueCount(action, ids)
-	if n == 0 {
-		return false
-	}
-	h.denied(r, action, nil, decision{Reason: fmt.Sprintf("%d device(s) at a venue", n)})
-	http.Error(w, engineerVenueMsg(n), http.StatusForbidden)
-	return true
-}
-
-// engineerNeverWrites lists the write routes an engineer is refused outright: venues
-// (settings, lock, Wi-Fi, PIN, hours, devices…), lock rules, moving
-// devices into venues and clearing the jobs' needs-attention list. Their devices are at
-// venues, which are read-only for engineers; Lab devices have no venue to edit.
-func engineerNeverWrites(pattern string) bool {
-	_, path, _ := strings.Cut(pattern, " ")
-	for _, p := range []string{"/restaurants", "/lock/", "/kiosk/", "/manage/", "/devices/bulk-restaurant", "/commands/clear-attention"} {
-		if strings.HasPrefix(path, p) {
-			return true
-		}
-	}
-	return false
-}
-
-// notEngineer refuses engineers (see engineerNeverWrites).
-func (h *Handler) notEngineer(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if h.role(r) == "engineer" {
-			h.denied(r, "groups", nil, decision{Reason: "venue write: " + r.URL.Path})
-			http.Error(w, "Devices at a venue are read-only for engineers: venues and lock rules are changed by an Ops lead or Support.", http.StatusForbidden)
-			return
-		}
-		next(w, r)
-	}
-}
-
-// keepActableAlerts is keepVisibleAlerts for acting (acknowledge, resolve, snooze,
-// assign): an engineer handles only alerts about devices they may operate.
-func (a *access) keepActableAlerts(alerts []db.Alert) []db.Alert {
-	alerts = a.keepVisibleAlerts(alerts)
-	if a.role != "engineer" {
-		return alerts
-	}
-	out := alerts[:0:0]
-	for _, x := range alerts {
-		if x.DeviceID == nil {
-			continue
-		}
-		if l, _ := a.deviceLevel(*x.DeviceID); l >= db.LevelOperate {
-			out = append(out, x)
-		}
-	}
-	return out
-}

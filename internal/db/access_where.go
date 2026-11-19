@@ -11,9 +11,9 @@ import (
 )
 
 // A person's own "Where" (picked B, "where on person", 2 Nov 2026): access only adds, so a
-// role's default scope ("engineers operate Lab devices") could not be narrowed for one
+// role's default scope could not be narrowed for one
 // person. A Where replaces the role's grants for that person: their role still decides
-// what they may do (its highest level), the Where decides on which devices (Lab, every
+// what they may do (its highest level), the Where decides on which devices (every
 // device, deployed = at a venue, or some groups), and Elsewhere what they get on the rest
 // (View only, or Hidden). Their own grants still add on top. No row = the role's defaults.
 //
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS access_where (
 // AccessWhere is one person's Where.
 type AccessWhere struct {
 	Username  string
-	Scope     string // lab | all | deployed | groups
+	Scope     string // all | deployed | groups
 	GroupIDs  []uuid.UUID
 	Elsewhere string // view | hidden
 	SetBy     string
@@ -43,7 +43,7 @@ type AccessWhere struct {
 
 // ValidWhereScope reports whether s is a Where choice.
 func ValidWhereScope(s string) bool {
-	return s == "lab" || s == "all" || s == "deployed" || s == "groups"
+	return s == "all" || s == "deployed" || s == "groups"
 }
 
 // AccessWhereFor is the person's Where, or nil when they follow their role.
@@ -136,8 +136,6 @@ func EffectiveLevels(rows []AccessLevel, w *AccessWhere, now time.Time) []Access
 		switch w.Scope {
 		case "all":
 			out = append(out, mk("all", "", nil, top))
-		case "lab":
-			out = append(out, mk("state", StateLab, nil, top))
 		case "deployed":
 			out = append(out, mk("state", StateInService, nil, top))
 		case "groups":

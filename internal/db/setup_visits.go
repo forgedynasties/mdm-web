@@ -5,10 +5,10 @@ import (
 )
 
 // Device states (roles replan 30 Oct 2026; simplified 19 Nov 2026: "we dont need this
-// complexity"). A device is in one of three states, and the state decides which roles see it:
+// complexity"; no Lab state, 19 Nov 2026). A device is in one of two states, and the state
+// decides which roles see it:
 //
-//   - Lab         at no venue, not queued: office, test benches, stock
-//   - To place    at no venue, enrolled for a restaurant, waiting for a venue (placement.go)
+//   - To place    at no venue, waiting for one (placement.go)
 //   - In service  at a venue
 //
 // Placing a device at a venue puts it in service at once. There is no Setting up state, no
@@ -76,7 +76,6 @@ CREATE INDEX IF NOT EXISTS idx_setup_visit_people_user ON setup_visit_people (us
 
 // Device states.
 const (
-	StateLab       = "lab"
 	StateToPlace   = "to_place" // at no venue, enrolled for a restaurant (placement.go)
 	StateInService = "in_service"
 )
@@ -86,8 +85,8 @@ func DeviceState(restaurantID *uuid.UUID, placement string) string {
 	switch {
 	case restaurantID != nil:
 		return StateInService
-	case placement == PlacementQueue:
-		return StateToPlace
 	}
-	return StateLab
+	// A device at no venue is waiting to be placed, whatever its placement says (no Lab state,
+	// 19 Nov 2026: a legacy device that was never queued reads as To place too).
+	return StateToPlace
 }
