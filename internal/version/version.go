@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.26",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Crash feed: Google Play services' location crash on the HK1 boxes (a NullPointerException in LocationProviderManager.getProperties on the Android 13 image) is no longer stored, and the rows already stored are removed once. It only restarts Google's own process; the fix is a newer Play services in the vendor image.",
+		},
+	},
+	{
 		Version: "1.64.25",
 		Date:    "2026-11-19",
 		Changes: []string{

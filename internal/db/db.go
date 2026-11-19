@@ -209,6 +209,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, placementSchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, crashNoiseSchema); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, deviceMovesSchema); err != nil {
 		return err
 	}

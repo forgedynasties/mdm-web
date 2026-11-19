@@ -163,7 +163,7 @@ type LateCrash struct {
 func (d *DB) InsertLateCrashes(ctx context.Context, deviceID uuid.UUID, buildID string, cs []LateCrash) (int, error) {
 	n := 0
 	for _, c := range cs {
-		if c.Kind == "" || c.TimeMs <= 0 || c.Kind == "reboot" || c.Kind == "kiosk_exit_offline" || c.Kind == "offline_dropped" {
+		if c.Kind == "" || c.TimeMs <= 0 || c.Kind == "reboot" || c.Kind == "kiosk_exit_offline" || c.Kind == "offline_dropped" || isKnownCrashNoise(c.Summary) {
 			continue
 		}
 		summary, trace := c.Summary, c.Trace

@@ -772,7 +772,7 @@ func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, buildID
 	}
 	now := at.UTC()
 	for _, c := range e.Crashes {
-		if c.Kind == "" || c.TimeMs <= 0 {
+		if c.Kind == "" || c.TimeMs <= 0 || isKnownCrashNoise(c.Summary) {
 			continue
 		}
 		summary := c.Summary
