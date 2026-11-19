@@ -39,6 +39,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 		"Nicknames":  h.deliveryNicknames(r.Context(), deliveries),
 		"Stats":      computeDeliveryStats(deliveries),
 		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
+		"Whys":       h.commandInstallWhys(r.Context(), r, cmd, deliveries),
 	})
 }
 

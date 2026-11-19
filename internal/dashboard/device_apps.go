@@ -170,6 +170,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	apkPkg, _ := h.db.GetApkPackageMap(r.Context(), nil)
 	follows := h.deviceFollowsView(r.Context(), device)
 	wants := h.deviceWantsView(r.Context(), device)
+	h.attachWantsWhy(r, device, wants)
 	h.tmpl.ExecuteTemplate(w, "device-apps-list", map[string]any{
 		"Device": device,
 		"Role":   h.pageRole(r),

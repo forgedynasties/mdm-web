@@ -26,6 +26,7 @@ type wantRow struct {
 	Text     string
 	Pct      int // download percent, -1 when unknown
 	CanRetry bool
+	Why      installWhy // the real reason a failed install failed (install_why.go)
 }
 
 // deviceWantsView is the box for one device: wants not met yet, oldest first.
@@ -130,6 +131,9 @@ func channelName(l string) string {
 // shortReason is the first useful line of a device's failure output.
 func shortReason(out string) string {
 	out = strings.TrimSpace(out)
+	if r := ParseInstallFailure(out, ""); r.Code != "" && r.Plain != "" {
+		return strings.ToLower(r.Plain[:1]) + strings.TrimSuffix(r.Plain[1:], ".")
+	}
 	switch {
 	case out == "":
 		return "no answer from the device"
