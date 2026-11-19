@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"strings"
 	"net/http/httptest"
 	"testing"
 )
@@ -20,8 +21,29 @@ func TestDockShows(t *testing.T) {
 	}
 }
 
+// The old Setup addresses redirect for good, query string kept (19 Nov 2026).
+func TestOldSetupRedirects(t *testing.T) {
+	for _, c := range []struct{ from, to string }{
+		{"/visits?view=how", "/setup?view=how"}, {"/visits", "/setup"},
+		{"/my-visits?venue=x", "/setup/mine?venue=x"}, {"/my-visits/enroll", "/setup/mine/enroll"},
+	} {
+		base := "/setup"
+		switch {
+		case strings.HasPrefix(c.from, "/my-visits/enroll"):
+			base = "/setup/mine/enroll"
+		case strings.HasPrefix(c.from, "/my-visits"):
+			base = "/setup/mine"
+		}
+		rec := httptest.NewRecorder()
+		oldSetupURL(base).ServeHTTP(rec, httptest.NewRequest("GET", c.from, nil))
+		if rec.Code != 301 || rec.Header().Get("Location") != c.to {
+			t.Errorf("%s: %d %q, want 301 %q", c.from, rec.Code, rec.Header().Get("Location"), c.to)
+		}
+	}
+}
+
 // A curated role's refused fetch must not follow a redirect home: the alerts popover
-// put the whole My visits page inside a device page that way.
+// put the whole Setup page inside a device page that way.
 func TestIsNavigation(t *testing.T) {
 	r := func(h map[string]string) bool {
 		req := httptest.NewRequest("GET", "/alerts/recent", nil)

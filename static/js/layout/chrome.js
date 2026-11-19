@@ -15,6 +15,15 @@
       a.classList.toggle('active', d || g);
       if (d) direct.push(a); else if (g) grouped.push(a);
     });
+    // The longest matching address wins (Setup /setup/mine and Enroll /setup/mine/enroll).
+    if (direct.length > 1) {
+      var best = Math.max.apply(null, direct.map(function (a) { return (a.getAttribute('href') || '').split('?')[0].length; }));
+      direct = direct.filter(function (a) {
+        var keep = (a.getAttribute('href') || '').split('?')[0].length === best;
+        if (!keep) a.classList.remove('active');
+        return keep;
+      });
+    }
     if (direct.length) grouped.forEach(function (a) { a.classList.remove('active'); });
   }
   // Call with no arg so it reads the (now-current) location.pathname — not the event.
@@ -1158,7 +1167,7 @@
     // page load waits for it — and that one is usually warmed by the idle prefetch.
     var entities = [], entitiesAt = 0, entitiesLoading = false;
     function loadEntities() {
-      if (entitiesLoading || Date.now() - entitiesAt < 15000 || location.pathname.indexOf('/sneak-peek') === 0) return;
+      if (entitiesLoading || Date.now() - entitiesAt < 15000) return;
       entitiesLoading = true;
       fetch('/cmdk-index', { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : null; })
@@ -1590,7 +1599,6 @@
     }
 
     if (!document.getElementById('alerts-wrap')) return; // no bell (restaurant owner) → no stream
-    if (location.pathname.indexOf('/sneak-peek') === 0) return; // preview: no session, no stream
     var es = new EventSource('/alerts/events');
     es.addEventListener('alert-update', function (e) {
       var n = parseInt(e.data, 10);
@@ -1686,7 +1694,7 @@
       }
     }
     function load() {
-      if (busy || document.hidden || location.pathname.indexOf('/sneak-peek') === 0) return;
+      if (busy || document.hidden) return;
       busy = true;
       fetch('/dock/status', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : null; })

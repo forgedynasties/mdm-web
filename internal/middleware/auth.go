@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -23,19 +24,30 @@ var (
 	apiMaxFailPerMin = 30
 )
 
+// authFailuresLimited answers 429 and returns true once ip has limit failures this minute.
+func authFailuresLimited(w http.ResponseWriter, ip string, limit int) bool {
+	n, retry := apiAuthFailures.Count(ip)
+	if n < limit {
+		return false
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+	w.WriteHeader(http.StatusTooManyRequests)
+	w.Write([]byte(`{"error":"rate limited"}`))
+	return true
+}
+
 func APIKeyAuth(apiKey, errorMessage string, next http.Handler) http.Handler {
 	key := []byte(apiKey)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The key is compared first: a caller with the right key is never refused for
+		// someone else's failures from the same address (a venue or office NAT).
 		ip := ratelimit.ClientIP(r)
-		if n, retry := apiAuthFailures.Count(ip); n >= apiMaxFailPerMin {
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error":"rate limited"}`))
-			return
-		}
 		provided := []byte(r.Header.Get("X-API-Key"))
 		if subtle.ConstantTimeCompare(provided, key) != 1 {
+			if authFailuresLimited(w, ip, apiMaxFailPerMin) {
+				return
+			}
 			apiAuthFailures.Hit(ip)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -124,13 +136,6 @@ func DeviceAuthE(sharedKeys []string, lookup func(ctx context.Context, keyHashHe
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := ratelimit.ClientIP(r)
-		if n, retry := apiAuthFailures.Count(ip); n >= apiMaxFailPerMin {
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-			w.WriteHeader(http.StatusTooManyRequests)
-			w.Write([]byte(`{"error":"rate limited"}`))
-			return
-		}
 		provided := []byte(r.Header.Get("X-API-Key"))
 		for _, k := range shared {
 			if subtle.ConstantTimeCompare(provided, k.key) == 1 {
@@ -140,6 +145,16 @@ func DeviceAuthE(sharedKeys []string, lookup func(ctx context.Context, keyHashHe
 				next.ServeHTTP(w, r)
 				return
 			}
+		}
+		// Past the failure limit only something shaped like a device key is still looked
+		// up, and that too stops at ten times the limit: devices behind a NAT that someone
+		// floods with junk keys keep working, without an unbounded lookup per request.
+		limit := apiMaxFailPerMin
+		if bytes.HasPrefix(provided, []byte("dvk_")) && len(provided) <= 128 {
+			limit *= 10
+		}
+		if authFailuresLimited(w, ip, limit) {
+			return
 		}
 		if len(provided) > 0 {
 			sum := sha256.Sum256(provided)

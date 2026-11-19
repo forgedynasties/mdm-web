@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"strconv"
 	"time"
@@ -43,6 +44,42 @@ func (d *DB) LeaseCommand(ctx context.Context, commandID, deviceID uuid.UUID, du
 	`, commandID, deviceID, leaseID, dur)
 	if err != nil {
 		return uuid.Nil, err
+	}
+	d.AppendCommandEvent(ctx, commandID, deviceID, "leased", map[string]any{
+		"transport":  transport,
+		"lease_id":   leaseID,
+		"expires_in": dur.String(),
+	})
+	return leaseID, nil
+}
+
+// ErrLeaseHeld means another delivery holds the command, or it is already finished.
+var ErrLeaseHeld = errors.New("command is leased or finished")
+
+// TryLeaseCommand is LeaseCommand for the HTTP pull: it takes the lease only if no live
+// lease holds the command and it is not in a final state, in one statement. Two polls
+// racing for the same pending set therefore cannot both be handed a command, which
+// matters for the at-most-once types (reboot, wipe, unenroll, move_server).
+func (d *DB) TryLeaseCommand(ctx context.Context, commandID, deviceID uuid.UUID, dur time.Duration, transport string) (uuid.UUID, error) {
+	leaseID := uuid.New()
+	tag, err := d.pool.Exec(ctx, `
+		INSERT INTO command_status (command_id, device_id, status, lease_id, lease_expires_at, attempts, updated_at)
+		VALUES ($1, $2, 'delivered', $3, NOW() + $4::interval, 1, NOW())
+		ON CONFLICT (command_id, device_id) DO UPDATE
+		SET lease_id         = $3,
+		    lease_expires_at = NOW() + $4::interval,
+		    attempts         = command_status.attempts + 1,
+		    status           = CASE WHEN command_status.status = 'pending'
+		                            THEN 'delivered' ELSE command_status.status END,
+		    updated_at       = NOW()
+		WHERE command_status.status NOT IN ('installed', 'failed', 'completed', 'cancelled', 'expired')
+		  AND (command_status.lease_expires_at IS NULL OR command_status.lease_expires_at < NOW())
+	`, commandID, deviceID, leaseID, dur)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		return uuid.Nil, ErrLeaseHeld
 	}
 	d.AppendCommandEvent(ctx, commandID, deviceID, "leased", map[string]any{
 		"transport":  transport,

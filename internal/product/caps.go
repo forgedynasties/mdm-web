@@ -170,6 +170,10 @@ const (
 	// CapApkBundle: installs a split APK bundle (.xapk: base + splits in one session;
 	// Standard client 0.15.0 lists it, firmware client 1.22.4 sends apk_bundle_cmd; 4 Nov 2026).
 	CapApkBundle = "apk_bundle"
+	// CapAdbApprove: presses Allow on Android's "Allow USB debugging?" dialog for a named
+	// key, on whichever display it opened (adb_approve; Standard client 0.16.1 lists it
+	// while its accessibility service is on; 18 Nov 2026).
+	CapAdbApprove = "adb_approve"
 )
 
 // FirmwareCapFlags map the extra flags the firmware client sends (it reports no

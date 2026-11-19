@@ -15,11 +15,11 @@ function appsShowAll() {
 // filter (the input is hx-preserved) and refresh the package count.
 // System apps start folded (A2); a fold someone opened stays open across live refreshes.
 document.addEventListener('toggle', function (e) {
-  if (e.target && e.target.id === 'apps-sys') window.__appsSysOpen = e.target.open;
+  if (e.target && e.target.id === 'apps-sys' && !e.target.open) e.target.open = true;
 }, true);
 function appsAfterRefresh() {
   colorizeApps();
-  var sd = document.getElementById('apps-sys'); if (sd && window.__appsSysOpen) sd.open = true;
+  var sd = document.getElementById('apps-sys'); if (sd) sd.open = true;
   var f = document.getElementById('apps-filter');
   filterInstalledApps(f ? f.value : '');
   var c = document.getElementById('apps-count-n');

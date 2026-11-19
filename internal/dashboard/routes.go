@@ -54,9 +54,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /onboarding-demo/try/{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/onboarding-demo/try", http.StatusMovedPermanently)
 	})
-	mux.HandleFunc("GET /sneak-peek", h.SneakPeek)
-	mux.HandleFunc("GET /sneak-peek/alerts", h.SneakPeekAlerts)
-	mux.HandleFunc("GET /sneak-peek/fleet", h.SneakPeekFleet)
 
 	mux.HandleFunc("GET /{$}", h.Root)
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
@@ -333,7 +330,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/onboard", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceOnboard)))
 	post("POST /devices/{serial}/role", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DeviceSetRole)))
 	post("POST /devices/{serial}/placement", h.requireOperatorOrAdmin(h.deviceRoute("notes", h.DevicePlacementPost)))
-	post("POST /devices/{serial}/handover", h.requireAuth(h.deviceRoute("view", h.DeviceHandOverPost)))
 	post("POST /devices/{serial}/follows", h.requireAuth(h.deviceRoute("install_apk", h.DeviceFollow)))
 	// Apps added to / removed from a device (app_wants_view.go, 17 Nov 2026).
 	post("POST /devices/{serial}/apps/add", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppAdd)))
@@ -342,12 +338,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/apps/remove", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRemove)))
 	post("POST /devices/{serial}/apps/cancel", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppCancel)))
 	post("POST /devices/{serial}/apps/retry", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRetry)))
-	mux.HandleFunc("GET /my-visits", h.requireAuth(h.MyVisits))
-	mux.HandleFunc("GET /my-visits/enroll", h.requireAuth(h.EnrollGuide))
-	mux.HandleFunc("GET /visits", h.requireAuth(h.SetupHome))
-	post("POST /restaurants/{id}/setup-again", h.requireAuth(h.RestaurantSetupAgain))
-	post("POST /devices/{serial}/setup-again", h.requireAuth(h.deviceRoute("notes", h.DeviceSetupAgain)))
-	post("POST /restaurants/{id}/handover", h.requireAuth(h.RestaurantHandOverReady))
+	// Setup (19 Nov 2026): the Ops lead's queue, Field's own list and Field's Enroll. The old
+	// addresses redirect, query string kept.
+	mux.HandleFunc("GET /setup", h.requireAuth(h.SetupHome))
+	mux.HandleFunc("GET /setup/mine", h.requireAuth(h.MySetup))
+	mux.HandleFunc("GET /setup/mine/enroll", h.requireAuth(h.EnrollGuide))
+	mux.Handle("GET /visits", oldSetupURL("/setup"))
+	mux.Handle("GET /my-visits", oldSetupURL("/setup/mine"))
+	mux.Handle("GET /my-visits/enroll", oldSetupURL("/setup/mine/enroll"))
 	post("POST /devices/{serial}/retire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceRetire)))
 	post("POST /devices/{serial}/unretire", h.requireStrictAdmin(h.deviceRoute("view", h.DeviceUnretire)))
 	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
@@ -494,7 +492,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// The old app repository page; the App library (/apps) is the one library since
 	// 23 Oct 2026 (it also lived in Settings and here).
-	mux.Handle("GET /setup", http.RedirectHandler("/apps", http.StatusMovedPermanently))
 	// Managed app configurations edit the fleet device_policy, so mutations are
 	// strict-admin like the other policy pages; the page itself is admin/dev.
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
@@ -529,6 +526,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
 	post("POST /releases/{id}/packages", h.requireReleaseAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/inspect", h.requireReleaseAdmin(h.PackageInspect))
+	post("POST /releases/inspect", h.requireReleaseAdmin(h.PackageInspectNew))
 	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrOperator(h.fleetWide(h.ReleaseCrashes)))
 	post("POST /releases/{id}/crashes/group/delete", h.requireReleaseAdmin(h.ReleaseCrashGroupDelete))
 	post("POST /releases/{id}/crashes/{eid}/delete", h.requireReleaseAdmin(h.ReleaseCrashDelete))

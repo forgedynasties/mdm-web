@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 	"mdm/internal/command"
+	"mdm/internal/db"
 	"mdm/internal/ratelimit"
 )
 
@@ -38,7 +40,7 @@ func (h *Handler) PendingCommands(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
 		return
 	}
-	if h.deviceRateLimited(w, serial) {
+	if h.deviceRateLimited(w, r, serial) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, serial) {
@@ -73,7 +75,10 @@ func (h *Handler) PendingCommands(w http.ResponseWriter, r *http.Request) {
 		// The lease is the type's full work-time budget, not the short push lease: this
 		// hand-over is confirmed by the 200 the device is about to receive, where a WS
 		// push is only confirmed by a 'received' ack that may never come.
-		if _, err := h.db.LeaseCommand(ctx, cmd.ID, device.ID, spec.Lease, "http"); err != nil {
+		if _, err := h.db.TryLeaseCommand(ctx, cmd.ID, device.ID, spec.Lease, "http"); err != nil {
+			if errors.Is(err, db.ErrLeaseHeld) {
+				continue // a concurrent poll or a push already holds it
+			}
 			log.Printf("[pull] %s lease %s: %v", serial, cmd.ID, err)
 			continue
 		}

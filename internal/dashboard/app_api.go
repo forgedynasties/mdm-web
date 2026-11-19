@@ -106,18 +106,26 @@ func (h *Handler) passwordLogin(w http.ResponseWriter, r *http.Request, roleOK f
 		return
 	}
 	ip := ratelimit.ClientIP(r)
-	userKey := "u:" + body.Username
-	for _, key := range []string{ip, userKey} {
-		if n, retry := h.loginFails.Count(key); n >= loginMaxFailures {
+	// Per account from this address; a far higher count for the account from anywhere,
+	// so one stranger can't lock a named person out (18 Nov 2026 audit) while a spread-out
+	// guessing run is still stopped.
+	userKey := "u:" + body.Username + "|" + ip
+	userAnyKey := "ua:" + body.Username
+	for key, max := range map[string]int{ip: loginMaxFailuresIP, userKey: loginMaxFailures, userAnyKey: 6 * loginMaxFailures} {
+		if n, retry := h.loginFails.Count(key); n >= max {
 			w.Header().Set("Retry-After", fmt.Sprint(int(retry.Seconds())+1))
 			appErr(w, http.StatusTooManyRequests, fmt.Sprintf("too many failed attempts, try again in %d minute(s)", int(retry.Minutes())+1))
 			return
 		}
 	}
 	u, err := h.db.GetUserByUsername(r.Context(), body.Username)
+	if err != nil {
+		wastePasswordCheck(body.Password)
+	}
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(body.Password)) != nil {
 		h.loginFails.Hit(ip)
 		h.loginFails.Hit(userKey)
+		h.loginFails.Hit(userAnyKey)
 		appErr(w, http.StatusUnauthorized, "invalid credentials")
 		return nil, "", time.Time{}, false
 	}
@@ -272,6 +280,13 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 		// set venues up (devices at a venue are read-only for engineers).
 		if s.Role == "engineer" {
 			appErr(w, http.StatusForbidden, "engineers enrol lab devices: leave the venue empty")
+			return
+		}
+		// Viewers enrol into the To place queue only (pre-pentest audit, 18 Nov 2026): a
+		// device placed at a venue is in service at once and receives the venue's Wi-Fi
+		// and staff PIN, and every tenant member becomes a Viewer on first sign-in.
+		if s.Role == "viewer" {
+			appErr(w, http.StatusForbidden, "viewers enrol devices into the To place queue: leave the venue empty")
 			return
 		}
 		name = appEnrollProfilePrefix + site.Name + " · " + s.Username

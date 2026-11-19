@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log"
 	"context"
 	"encoding/json"
 	"errors"
@@ -89,13 +90,15 @@ func (d *DB) PendingOfflineExitAt(ctx context.Context, deviceID uuid.UUID) int64
 // kiosk mode offline. Idempotent per (device, kind, occurred_at) so repeated reports
 // (the client resends until acked) don't create duplicates.
 func (d *DB) RecordOfflineExit(ctx context.Context, deviceID uuid.UUID, atEpoch int64) {
-	_, _ = d.pool.Exec(ctx, `
+	if _, err := d.pool.Exec(ctx, `
 		INSERT INTO device_events (device_id, kind, summary, occurred_at)
 		SELECT $1, 'kiosk_exit_offline', 'Kiosk exited offline (exit PIN)', to_timestamp($2)
 		WHERE NOT EXISTS (
 			SELECT 1 FROM device_events
 			WHERE device_id = $1 AND kind = 'kiosk_exit_offline' AND occurred_at = to_timestamp($2))`,
-		deviceID, atEpoch)
+		deviceID, atEpoch); err != nil {
+		log.Printf("[kiosk-exit] offline exit for %s: %v", deviceID, err)
+	}
 }
 
 func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled bool, pkg string, features int) error {

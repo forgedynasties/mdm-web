@@ -64,8 +64,8 @@ type roleDef struct {
 }
 
 // Roles replan (decided 30 Oct 2026): each role says what someone can do AND which
-// devices they see, by the device's state (db/setup_visits.go): Lab (no venue), Setting
-// up, In service. Stored keys stay where a role kept its job, so no account needs a
+// devices they see, by the device's state (db/setup_visits.go): Lab (no venue), To place,
+// In service (at a venue). Stored keys stay where a role kept its job, so no account needs a
 // migration for the label to change: fleet_manager is the Ops lead, operator is Support;
 // viewer stays Viewer (now: devices in service only). engineer and field are new. fleet_admin ("Admin") and support are
 // legacy: their holders move to a new role by hand.
@@ -75,13 +75,13 @@ var roleDefs = []roleDef{
 	{Key: "fleet_admin", Label: "Admin (old)", Article: "an admin", Plural: "Admins (old)", Level: 4, Legacy: true,
 		Desc: "Old role: everything but settings, firmware pushes", Ceiling: "An old role from before 30 Oct 2026. Move this person to a new role."},
 	{Key: "fleet_manager", Label: "Ops lead", Article: "an ops lead", Plural: "Ops leads", Level: 3,
-		Desc: "Venues, devices to place, being set up and in service", Ceiling: "An ops lead sets venues up, places devices, puts devices into setup for Field, and acts on devices setting up and in service."},
+		Desc: "Venues, devices to place and in service", Ceiling: "An ops lead sets venues up, places devices, and acts on devices to place and in service."},
 	{Key: "engineer", Label: "Engineer", Article: "an engineer", Plural: "Engineers", Level: 2,
 		Desc: "Lab devices; restaurant devices: look, logs, screenshots", Ceiling: "An engineer does everything on lab devices. On restaurant devices they look, collect logs and take screenshots."},
 	{Key: "operator", Label: "Support", Article: "a support agent", Plural: "Support agents", Level: 2,
 		Desc: "Devices in service: commands, remote control, installs", Ceiling: "Support acts on every device in service: commands, lock, remote control, installs."},
 	{Key: "field", Label: "Field", Article: "a field person", Plural: "Field people", Level: 2,
-		Desc: "Devices being set up, and the ones they enroll", Ceiling: "Field acts on devices the Ops lead put into setup and on the devices they enrolled, places their own at venues, and hands devices over."},
+		Desc: "The devices they enroll, until placed", Ceiling: "Field acts on the devices they enrolled until they are placed, and places their own at any venue."},
 	{Key: "support", Label: "Support (old)", Article: "a support agent", Plural: "Support (old)", Level: 1, Legacy: true,
 		Desc: "Old role: screenshots, reboot, lock", Ceiling: "An old role from before 30 Oct 2026. Move this person to a new role."},
 	{Key: "viewer", Label: "Viewer", Article: "a viewer", Plural: "Viewers", Level: 0,

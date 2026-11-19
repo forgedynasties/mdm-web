@@ -141,7 +141,12 @@
   // start a new gesture early: a change of direction, a push harder than the last event (a new
   // flick during the old one's momentum), and a mouse wheel's next notch.
   var acc = 0, armed = true, lastT = 0, lastD = 0, flippedAt = 0;
+  // No wheel paging (user, 18 Nov 2026: "remove the scrolling in fleet page table, only pagination is
+  // fine"): the table does not scroll and the wheel does not flip pages; ‹ ›, the numbers and the
+  // arrow / PgUp / PgDn keys do. Set to true to bring the wheel gesture back.
+  var WHEEL_FLIPS = false;
   C.addEventListener('wheel', function (e) {
+    if (!WHEEL_FLIPS) return;
     if (!fp.on || !e.target.closest('.ft-wrap')) return;
     e.preventDefault();
     var now = Date.now(), d = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY, abs = Math.abs(d), was = Math.abs(lastD);

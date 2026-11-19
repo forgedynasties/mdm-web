@@ -112,10 +112,9 @@ func (h *Handler) ProcessDueScheduledRecipes(ctx context.Context) {
 		return
 	}
 	for _, s := range due {
-		if err := h.fireSchedule(ctx, s, nil); err != nil {
-			log.Printf("[recipe-scheduler] fire schedule=%s recipe=%q: %v", s.ID, s.RecipeName, err)
-		}
-		// Advance: compute the next cron time, or disable a run-once (or unparseable) one.
+		// Advance first, then fire: if the write that moves the schedule on fails, nothing
+		// has been sent and the next tick tries again. Firing first meant a failed write
+		// re-sent the same recipe (a fleet reboot, say) every minute until it succeeded.
 		var next *time.Time
 		disable := s.RunOnce
 		if !disable {
@@ -127,7 +126,11 @@ func (h *Handler) ProcessDueScheduledRecipes(ctx context.Context) {
 			}
 		}
 		if err := h.db.MarkScheduleFired(ctx, s.ID, now, next, disable); err != nil {
-			log.Printf("[recipe-scheduler] mark fired %s: %v", s.ID, err)
+			log.Printf("[recipe-scheduler] mark fired %s: %v (not sent, will retry)", s.ID, err)
+			continue
+		}
+		if err := h.fireSchedule(ctx, s, nil); err != nil {
+			log.Printf("[recipe-scheduler] fire schedule=%s recipe=%q: %v", s.ID, s.RecipeName, err)
 		}
 	}
 }
@@ -154,6 +157,9 @@ func (h *Handler) fireSchedule(ctx context.Context, s db.ScheduledRecipe, acc *a
 	ids, err := h.db.ResolveTargetIDs(ctx, rec.TargetType, rec.TargetSerials, rec.TargetGroups, rec.Scope)
 	if err != nil {
 		return err
+	}
+	if rec.Type == "shell" && !h.cfg.ShellEnabled() {
+		return fmt.Errorf("shell commands are disabled by an administrator")
 	}
 	if h.authorizeCommand(acc.role, rec.Type) != cmdAuthzOK {
 		return fmt.Errorf("%s may no longer send %s", s.CreatedBy, rec.Type)

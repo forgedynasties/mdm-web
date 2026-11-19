@@ -23,10 +23,11 @@ function pkgVerify() {
   fetch('/releases/' + window.RELEASE_PAGE.release + '/packages/inspect', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
     .then(function (r) { return r.json(); })
     .then(function (d) {
-      if (!d.ok) { out.innerHTML = '<span class="pkg-bad">✗ ' + (d.error || 'Could not read the package') + '</span>'; return; }
+      var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }); };
+      if (!d.ok) { out.innerHTML = '<span class="pkg-bad">✗ ' + esc(d.error || 'Could not read the package') + '</span>'; return; }
       if (d.type) setPkgType(d.type);
       var sz = d.size_bytes > 1073741824 ? (d.size_bytes / 1073741824).toFixed(2) + ' GB' : Math.round(d.size_bytes / 1048576) + ' MB';
-      out.innerHTML = '<span class="pkg-ok">✓ Reachable</span> <span class="pkg-chip">' + sz + '</span> <span class="pkg-chip">' + d.type + (d.device ? ' · for ' + d.device : '') + '</span>';
+      out.innerHTML = '<span class="pkg-ok">✓ Reachable</span> <span class="pkg-chip">' + sz + '</span> <span class="pkg-chip">' + esc(d.type) + (d.device ? ' · for ' + esc(d.device) : '') + '</span>' + (d.wipe ? ' <span class="pkg-bad">⚠ wipes the device: apps, settings and data are erased</span>' : '');
     })
     .catch(function () { out.innerHTML = '<span class="pkg-bad">✗ Couldn’t reach the package.</span>'; });
 }

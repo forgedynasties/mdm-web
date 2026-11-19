@@ -1,0 +1,85 @@
+/* Person page, PE1 (18 Nov 2026): the Overview's bento language. Left, who they are and the
+   account actions; middle, what they can do as answers (Edit access opens the editor in
+   place); right, account facts, "Can they reach a device?" and Remove. On a desktop window
+   (html.shell) the page fits and each card scrolls inside. */
+.pe1{display:grid;grid-template-columns:310px minmax(0,1fr) 320px;gap:14px;align-items:stretch}
+.pe1>*{min-height:0;min-width:0}
+.pe1-who,.pe1-ans{overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column}
+.pe1-ans{display:block}
+.pe1-r{display:flex;flex-direction:column;gap:14px;min-height:0}
+.pe1-reach{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}
+.pe1-back{font-size:12px;font-weight:600;color:var(--text-2);text-decoration:none;align-self:flex-start}
+.pe1-back:hover{color:var(--accent-text)}
+.pe1-id{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;margin-top:6px}
+.pe1-id .ubub{width:72px;height:72px;font-size:28px;top:0;margin:0}
+.pe1-name{margin:6px 0 0;font-size:20px;font-weight:650;overflow-wrap:anywhere}
+.pe1-mail{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.pe1-role{margin:0}
+.pe1-rt{font:inherit;font-size:11.5px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:99px;padding:4px 10px;cursor:pointer}
+.pe1-rt:hover{background:var(--surface2)}
+.pe1 .kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0}
+.pe1 .kv span{color:var(--text-2)}
+.pe1 .kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}
+.pe1-kv{margin-top:12px}
+.pe1-acts{display:flex;flex-direction:column;gap:8px;margin-top:auto;padding-top:16px}
+.pe1-acts .ovb-btn,.pe1-acts summary{justify-content:center;width:100%;box-sizing:border-box;list-style:none}
+.pe1-acts summary::-webkit-details-marker{display:none}
+.pe1-acts form{margin:0}
+.pe1-d[open]>summary{background:var(--surface2)}
+.pe1-f{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px!important}
+.pe1-f .form-input{flex:1 1 110px;min-width:0;font-size:12.5px;padding:6px 10px}
+.pe1-f input[type=file]{flex:1 1 100%;font-size:12px;color:var(--muted)}
+.pe1-f input[type=file]::file-selector-button{margin-right:8px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font:inherit;font-weight:600;cursor:pointer}
+.pe1 .ovb-btn:focus-visible,.pe1 summary:focus-visible,.pe1-rt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* answers */
+.pe1-chk{position:absolute;opacity:0;pointer-events:none}
+.pe1-lk{font-size:12.5px;font-weight:600;color:var(--accent-text);text-decoration:none}
+.pe1-lk:hover{text-decoration:underline}
+.pe1-edit-b{padding:8px 16px;cursor:pointer}
+.pe1-edit-b::after{display:none}
+.pe1-e2{display:none}
+.pe1-ans:has(.pe1-chk:checked) .pe1-e1{display:none}
+.pe1-ans:has(.pe1-chk:checked) .pe1-e2{display:inline}
+.pe1-ans:has(.pe1-chk:checked) .pe1-edit-b{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.pe1-chk:focus-visible~.ovb-ch .pe1-edit-b{outline:2px solid var(--accent);outline-offset:2px}
+.pe1-sent{margin:0 0 12px;font-size:22px;line-height:1.25;font-weight:650;letter-spacing:-.02em;max-width:720px;overflow-wrap:anywhere}
+.pe1-ans-l{list-style:none;margin:0;padding:0}
+.pe1-a{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px}
+.pe1-a:last-child{border-bottom:0}
+.pe1-ic{width:20px;height:20px;border-radius:50%;background:var(--ovb-g);color:#fff;display:grid;place-items:center;font-size:11px;flex:none}
+.pe1-ic.n{background:var(--border);color:var(--text-2)}
+.pe1-t{flex:1;min-width:0}
+.pe1-t .muted,.pe1 .muted{color:var(--muted)}
+.pe1-src{font-size:10.5px;font-weight:700;letter-spacing:.03em;border-radius:99px;padding:2px 9px;background:var(--surface2);color:var(--text-2);white-space:nowrap}
+.pe1-src.p{background:color-mix(in srgb,var(--ovb-o) 20%,var(--surface));color:var(--text)}
+.pe1-rm button{color:var(--ovb-r)}
+.pe1-editor{display:none;margin-top:14px;border-top:1px solid var(--border-soft);padding-top:8px}
+.pe1-ans:has(.pe1-chk:checked) .pe1-editor{display:block}
+.pe1-editor .aw,.pe1-editor .acc-give{padding-left:0;padding-right:0}
+.pe1-editor .acc-key{padding-left:0}
+.pe1-note{margin:8px 0 0;font-size:12px;color:var(--text-2)}
+.pe1-act{margin-top:18px}
+.pe1-feed{margin:0;padding:0;font-size:13px}
+.pe1-feed li{padding:6px 0;border-top:1px solid var(--border-soft);list-style:none;display:flex;gap:10px}
+.pe1-feed li:first-child{border-top:0}
+.pe1-feed .t{color:var(--muted);width:76px;flex:none;font-size:12px}
+/* right column */
+.pe1-del{margin-top:10px;color:var(--ovb-r);width:100%;justify-content:center;box-sizing:border-box}
+.pe1-del:hover{background:color-mix(in srgb,var(--ovb-r) 10%,var(--surface))}
+.pe1-q{display:flex;gap:6px;margin:0 0 10px}
+.pe1-q .form-input{flex:1;min-width:0;font-size:12.5px;padding:6px 10px}
+.pe1-rs{margin-bottom:4px;font-size:13px}
+.pe1 .mono{font-family:var(--mono,ui-monospace,monospace);font-weight:500}
+.pe1-reach small{font-size:11.5px}
+/* desktop shell: the page fits, cards scroll inside */
+html.shell .pe1{height:calc(var(--shell-h,100vh) - 56px)}
+html.shell main#main:has(.pe1){overflow:hidden}
+@media (max-width:1100px){
+  .pe1{grid-template-columns:minmax(0,1fr)}
+  .pe1-who,.pe1-ans,.pe1-reach{overflow:visible}
+  html.shell .pe1{height:auto}
+  html.shell main#main:has(.pe1){overflow-y:auto}
+  .pe1-acts{margin-top:14px}
+}
+@media (max-width:720px){.pe1-sent{font-size:18px}.pe1-a{flex-wrap:wrap}}
+@media (max-width:720px){.pe1-ans .ovb-ch{flex-wrap:wrap}.pe1-ans .ovb-ch .sp{display:none}}

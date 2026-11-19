@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"mdm/internal/adbtunnel"
 	"mdm/internal/alerts"
@@ -67,6 +69,8 @@ type Handler struct {
 	// ownerProxy serves a device's remote session from the server copy holding its
 	// socket (cluster.ProxyIfRemote); nil with one copy.
 	ownerProxy func(http.ResponseWriter, *http.Request, uuid.UUID) bool
+	// sessionUser names the dashboard account whose session a request carries.
+	sessionUser func(*http.Request) string
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
@@ -175,8 +179,16 @@ func decodeDeviceJSON(body io.Reader, v any) error {
 // deviceRateLimited records one request for serial and, if the per-minute burst is
 // exceeded, writes a 429 and returns true. Keyed by serial (the device identity)
 // rather than IP, since many devices share a restaurant/lab NAT.
-func (h *Handler) deviceRateLimited(w http.ResponseWriter, serial string) bool {
-	n, retry := h.deviceRate.Hit(serial)
+//
+// The budget is the device's own only for a request made with that device's key. Every
+// other caller naming the serial (a shared key, or another device's key) shares a second
+// one, so a stranger can't use up a keyed device's budget (18 Nov 2026 audit).
+func (h *Handler) deviceRateLimited(w http.ResponseWriter, r *http.Request, serial string) bool {
+	key := "shared:" + serial
+	if middleware.BoundSerial(r) == serial {
+		key = serial
+	}
+	n, retry := h.deviceRate.Hit(key)
 	if n > deviceRateBurst {
 		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
@@ -377,6 +389,9 @@ func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// SetSessionUser tells the API who a request's dashboard session belongs to ("" for none).
+func (h *Handler) SetSessionUser(fn func(*http.Request) string) { h.sessionUser = fn }
+
 // SetOwnerProxy lets remote sessions run on the copy that holds the device (W5).
 func (h *Handler) SetOwnerProxy(fn func(http.ResponseWriter, *http.Request, uuid.UUID) bool) {
 	h.ownerProxy = fn
@@ -396,8 +411,13 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	}
 	// Auth is a single-use token minted by the (session-authenticated) dashboard,
 	// not the admin API key — the key must never reach the browser / WS URL. It is
-	// bound to the minting client's IP, so a leaked token can't be replayed elsewhere.
-	tokenDeviceID, ok := h.remote.RedeemToken(r.URL.Query().Get("token"))
+	// bound to the person it was minted for: this request must carry that person's
+	// dashboard session, so a token read from a log can't be used by someone else.
+	tokenDeviceID, tokenUser, ok := h.remote.RedeemToken(r.URL.Query().Get("token"))
+	if ok && tokenUser != "" && h.sessionUser != nil && h.sessionUser(r) != tokenUser {
+		log.Printf("[remote] token minted for %s presented without that session, from %s", tokenUser, r.RemoteAddr)
+		ok = false
+	}
 	if !ok {
 		log.Printf("[remote] auth failed for %s", r.RemoteAddr)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
@@ -784,6 +804,10 @@ func (h *Handler) recoverWithOldToken(w http.ResponseWriter, r *http.Request, to
 	if err != nil {
 		return false
 	}
+	// Same rule as a fresh enrolment: never re-key a device that still uses its key.
+	if dev, err := h.db.GetDevice(ctx, serial); err != nil || dev == nil || h.deviceLiveNow(dev) {
+		return false
+	}
 	raw := make([]byte, 24)
 	if _, err := rand.Read(raw); err != nil {
 		return false
@@ -840,6 +864,13 @@ func (h *Handler) Enroll(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validSerial(req.Serial) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
+		return
+	}
+	// Product is stored on the device row and Token is looked up: bound both, and keep
+	// control characters out of what is stored.
+	req.Product = strings.TrimSpace(req.Product)
+	if len(req.Token) > 200 || len(req.Product) > 64 || strings.ContainsFunc(req.Product, unicode.IsControl) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid token or product"})
 		return
 	}
 	profile, err := h.db.ActiveEnrollmentProfileByToken(r.Context(), req.Token)
@@ -1139,7 +1170,7 @@ func (h *Handler) ingestCheckin(ctx context.Context, req *checkinRequest, src in
 			}
 			seen[p.Package] = struct{}{}
 			icon := p.Icon
-			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
+			if len(icon) > maxIconBytes || !pngBase64(icon) { // drop an oversized or non-PNG icon; keep the app row
 				icon = ""
 			}
 			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Launchable: p.Launchable, Icon: icon})
@@ -1375,7 +1406,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "extra telemetry too large"})
 		return
 	}
-	if h.deviceRateLimited(w, req.SerialNumber) {
+	if h.deviceRateLimited(w, r, req.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, req.SerialNumber) {
@@ -1591,7 +1622,10 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 	// two would see a terminal status (no longer polling) with no output attached yet,
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
-		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
+		if err := h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output); errors.Is(err, db.ErrCommandNotTargeted) {
+			log.Printf("[ws-ack] device %s acked a command that does not target it", deviceID)
+			return
+		}
 	}
 	if err := h.db.AckCommand(ctx, body.CommandID, deviceID, body.Status); err != nil {
 		log.Printf("[ws-ack] AckCommand error: %v", err)
@@ -1819,7 +1853,13 @@ func (h *Handler) ProcessDueScheduledReboots(ctx context.Context) {
 			log.Printf("[ota-scheduler] create reboot command error: %v", err)
 			continue
 		}
-		_ = h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent")
+		if err := h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent"); err != nil {
+			// Still "due" in the table: without this the same reboot would go out every
+			// minute until the write succeeded. Withdraw it and try again next tick.
+			log.Printf("[ota-scheduler] could not mark reboot_sent (device=%s update=%d): %v", dr.DeviceID, dr.UpdateID, err)
+			_ = h.db.CancelDeviceCommand(ctx, cmd.ID, dr.DeviceID)
+			continue
+		}
 		h.optimisticallyCompleteReboot(ctx, dr.UpdateID, dr.DeviceID)
 		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{dr.DeviceID})
 		h.hub.PublishDeviceUpdate(dr.DeviceID)
@@ -2078,6 +2118,13 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	if !validSerial(req.SerialNumber) {
 		return // a corrupted serial: nothing is stored (see validSerial)
 	}
+	// A socket speaks for its own device only. Without this a device (or anyone with the
+	// shared key) could write another serial's state over its own connection, skipping
+	// the own-key rule and the per-device rate limit that the HTTP path applies.
+	if own, err := h.db.GetDeviceByID(ctx, deviceID); err != nil || own == nil || !strings.EqualFold(own.SerialNumber, req.SerialNumber) {
+		log.Printf("[ws-telemetry] dropped a frame naming serial %s on another device's socket", req.SerialNumber)
+		return
+	}
 
 	// Same gate as the HTTP path: DPC support off means store nothing. No config is
 	// pushed back either — the frame is simply dropped.
@@ -2117,7 +2164,7 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and request_id are required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -2332,21 +2379,42 @@ func (h *Handler) ListTestDataDeviceHistory(w http.ResponseWriter, r *http.Reque
 
 	end := time.Now().UTC()
 	start := end.Add(-7 * 24 * time.Hour)
+	bad := func(msg string) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+	}
 	if v := r.URL.Query().Get("start"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			start = t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			bad("start: want RFC3339, e.g. 2026-10-16T00:00:00Z")
+			return
 		}
+		start = t
 	}
 	if v := r.URL.Query().Get("end"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			end = t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			bad("end: want RFC3339, e.g. 2026-10-17T00:00:00Z")
+			return
 		}
+		end = t
+	}
+	if !end.After(start) {
+		bad("end must be after start")
+		return
 	}
 	intervalSec := 300
 	if v := r.URL.Query().Get("interval_sec"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 {
-			intervalSec = n
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			bad("interval_sec must be a positive whole number")
+			return
 		}
+		intervalSec = n
+	}
+	// Every row is built in memory: bound the answer, not just the query.
+	if end.Sub(start)/time.Second/time.Duration(intervalSec) > 50000 {
+		bad("too many points: at most 50000 per request, so widen interval_sec or shorten the window")
+		return
 	}
 	cycles := r.URL.Query().Get("cycles") == "true"
 
@@ -2415,6 +2483,10 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g, err := h.db.CreateGroup(r.Context(), strings.TrimSpace(body.Name))
+	if db.IsUniqueViolation(err) {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "a group with that name already exists"})
+		return
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -2551,6 +2623,12 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.TargetType != "all" && body.TargetType != "devices" && body.TargetType != "groups" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "target_type must be all, devices, or groups"})
 		return
+	}
+	if body.Type == "adb_approve" {
+		if msg := product.ValidateAdbApprove(body.TargetType, len(body.Targets), body.Payload); msg != "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
+			return
+		}
 	}
 	if body.Type == "adb_tcp" {
 		if msg := product.ValidateAdbTcp(body.TargetType, len(body.Targets), body.Payload); msg != "" {
@@ -2745,7 +2823,7 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number is required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -2795,7 +2873,10 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	// two would see a terminal status (no longer polling) with no output attached yet,
 	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
 	if body.Output != "" {
-		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
+		if err := h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output); errors.Is(err, db.ErrCommandNotTargeted) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
+			return
+		}
 	}
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
 		if errors.Is(err, db.ErrCommandNotTargeted) {
@@ -2842,7 +2923,7 @@ func (h *Handler) OtaProgress(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -2881,7 +2962,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
 		return
 	}
-	if h.deviceRateLimited(w, body.SerialNumber) {
+	if h.deviceRateLimited(w, r, body.SerialNumber) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, body.SerialNumber) {
@@ -3141,6 +3222,14 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+// reenrollOnlineWindow: a device heard from this recently still holds its key.
+const reenrollOnlineWindow = 5 * time.Minute
+
+// deviceLiveNow: on a socket, or heard from within reenrollOnlineWindow.
+func (h *Handler) deviceLiveNow(dev *db.Device) bool {
+	return h.hub.IsConnected(dev.ID) || time.Since(dev.LastSeenAt) < reenrollOnlineWindow
+}
+
 // reenrollRefusal says why an enrollment token may not take this serial, or "". A token
 // re-keys the serial and moves it into its venue, so it must not reach a device that is
 // already somebody's (security audit, 26 Oct 2026): a firmware device is never re-keyed
@@ -3155,7 +3244,16 @@ func (h *Handler) reenrollRefusal(ctx context.Context, serial string, venue *uui
 	if dev.AgentKind == product.KindFirmware {
 		return "this serial is a firmware device already in the MDM; enrollment can't take it over"
 	}
-	if !h.serialHasOwnKey(ctx, serial) || dev.RestaurantID == nil {
+	if !h.serialHasOwnKey(ctx, serial) {
+		return ""
+	}
+	// A device that is online with its own key has not lost it: re-keying it would hand
+	// its identity to whoever holds the token (pre-pentest audit, 18 Nov 2026). A
+	// factory-reset device is offline on its old key, so it still re-enrols.
+	if h.deviceLiveNow(dev) {
+		return "this device is online with its own key; reset its key in the MDM first"
+	}
+	if dev.RestaurantID == nil {
 		return ""
 	}
 	if venue != nil && *venue == *dev.RestaurantID {
@@ -3243,4 +3341,14 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// pngBase64: v is standard base64 of a PNG. An app icon is stored for every device that
+// has the package and ends up in pages, so anything else a device sends is dropped.
+func pngBase64(v string) bool {
+	if v == "" {
+		return true
+	}
+	raw, err := base64.StdEncoding.DecodeString(v)
+	return err == nil && bytes.HasPrefix(raw, []byte("\x89PNG\r\n\x1a\n"))
 }

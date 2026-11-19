@@ -95,6 +95,19 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Someone who sees part of the fleet gets the groups holding a device they see, and
+	// empty ones (a group they just made); not the names and sizes of the rest.
+	if acc := h.access(r); acc.hidesDevices() {
+		_, seen := acc.visibleCollections()
+		kept := groups[:0:0]
+		for _, g := range groups {
+			if n := seen[g.ID]; n > 0 || g.DeviceCount == 0 {
+				g.DeviceCount = n
+				kept = append(kept, g)
+			}
+		}
+		groups = kept
+	}
 	// Per-group health scores for the card grid; missing entries render as "—".
 	health := make(map[uuid.UUID]db.GroupHealth)
 	if ghs, err := h.db.GetGroupHealth(r.Context(), h.connectedSlice()); err == nil {
@@ -272,6 +285,10 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	group, err := h.db.CreateGroup(r.Context(), name)
+	if db.IsUniqueViolation(err) {
+		http.Error(w, "A group with that name already exists", http.StatusConflict)
+		return
+	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -345,6 +362,10 @@ func (h *Handler) GroupUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.db.RenameGroup(r.Context(), id, name); err != nil {
+		if db.IsUniqueViolation(err) {
+			http.Error(w, "A group with that name already exists", http.StatusConflict)
+			return
+		}
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -582,6 +603,10 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if why := h.installURLRefused(r, cmdType, apkURL); why != "" {
+		http.Error(w, why, http.StatusForbidden)
+		return
+	}
 	if cmdType == "install_apk" && apkURL == "" {
 		http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 		return

@@ -3,6 +3,7 @@ package api
 import (
 	"log"
 	"net/http"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -53,7 +54,7 @@ func (h *Handler) BatteryLog(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "battery-log schema " + strconv.Itoa(req.Schema) + " is not supported"})
 		return
 	}
-	if h.deviceRateLimited(w, req.Serial) {
+	if h.deviceRateLimited(w, r, req.Serial) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, req.Serial) {
@@ -133,14 +134,16 @@ func parseBatteryRow(f []string, col map[string]int) (db.BatterySample, bool) {
 		return s, false
 	}
 	t, err := strconv.ParseInt(tms, 10, 64)
-	if err != nil || t <= 0 {
+	// A year outside 2000..2100 is a corrupt clock; Postgres would refuse the whole batch
+	// and the client retries it forever, so the row is dropped instead.
+	if err != nil || t < 946684800000 || t > 4102444800000 {
 		return s, false
 	}
 	ups, ok := get("up_s")
 	if !ok {
 		return s, false
 	}
-	if s.UpS, err = strconv.ParseInt(ups, 10, 64); err != nil {
+	if s.UpS, err = strconv.ParseInt(ups, 10, 64); err != nil || s.UpS < 0 {
 		return s, false
 	}
 	if s.Ev, ok = get("ev"); !ok || len(s.Ev) != 1 {
@@ -186,7 +189,7 @@ func parseBatteryRow(f []string, col map[string]int) (db.BatterySample, bool) {
 	s.Wlc = i16("wlc")
 	s.WlcOn = i16("wlc_on")
 	if v, ok := get("temp_c"); ok {
-		if x, err := strconv.ParseFloat(v, 32); err == nil && x > -100 {
+		if x, err := strconv.ParseFloat(v, 32); err == nil && x > -100 && x < 1000 && !math.IsNaN(x) {
 			f := float32(x)
 			s.TempC = &f
 		}

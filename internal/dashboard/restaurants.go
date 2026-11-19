@@ -8,6 +8,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	"log"
+	"math"
 	"net/http"
 	"net/mail"
 	"strconv"
@@ -75,7 +76,7 @@ func parseFloatPtr(s string) *float64 {
 		return nil
 	}
 	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
+	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
 		return nil
 	}
 	return &f
@@ -251,6 +252,10 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 	contact, err := venueContactEmail(r.FormValue("contact_email"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if msg := db.ValidateVenueFields(name, strings.TrimSpace(r.FormValue("address")), strings.TrimSpace(r.FormValue("notes")), r.FormValue("timezone")); msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	}
 	rest, err := h.db.CreateRestaurant(r.Context(), db.Restaurant{
@@ -445,7 +450,6 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data["AutoEnroll"], _ = h.db.RestaurantAutoEnroll(r.Context(), id)
-	data["Visits"] = h.venueVisitsView(r, id, devices)
 	data["HostApp"] = h.venueHostAppView(r.Context(), id, devices)
 	data["Updates"] = h.venueUpdatesView(r.Context(), id, win, rest.Timezone, time.Now())
 	data["Lost"] = h.venueLostView(r.Context(), id, rest.Timezone, time.Now())
@@ -881,6 +885,10 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if msg := db.ValidateVenueFields(name, strings.TrimSpace(r.FormValue("address")), strings.TrimSpace(r.FormValue("notes")), r.FormValue("timezone")); msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
 	if err := h.db.UpdateRestaurant(r.Context(), db.Restaurant{
 		ID:        id,
 		Name:      name,
@@ -922,6 +930,10 @@ func (h *Handler) RestaurantRename(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Name required", http.StatusBadRequest)
 		return
 	}
+	if msg := db.ValidateVenueFields(name, "", "", ""); msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
 	if err := h.db.RenameRestaurant(r.Context(), id, name); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -933,6 +945,12 @@ func (h *Handler) RestaurantRename(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
+	// Deleting a venue sends every device there back to the Lab: for the people who run
+	// venues (Ops lead and up), not Support (18 Nov 2026 audit).
+	if !mayManageVisits(h.role(r)) {
+		http.Error(w, "Deleting a venue is for an Ops lead or an admin.", http.StatusForbidden)
 		return
 	}
 	id, err := uuid.Parse(r.PathValue("id"))
@@ -951,6 +969,19 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 	localRedirect(w, r, "/restaurants")
 }
 
+// keepActableSerials is keepVisibleSerials narrowed to devices the viewer may act on with
+// the given action: seeing a device is not the right to move it.
+func (h *Handler) keepActableSerials(r *http.Request, serials []string, action string) []string {
+	acc := h.access(r)
+	out := make([]string, 0, len(serials))
+	for _, sn := range h.keepVisibleSerials(r, serials) {
+		if d, err := h.db.GetDevice(r.Context(), sn); err == nil && d != nil && acc.canDevice(action, d.ID) {
+			out = append(out, sn)
+		}
+	}
+	return out
+}
+
 // RestaurantAssignDevices assigns one or more devices (by serial) to this restaurant.
 func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request) {
 	if !h.requireFleetAction(w, r, "groups") {
@@ -962,7 +993,11 @@ func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request
 		return
 	}
 	r.ParseForm()
-	serials := h.keepVisibleSerials(r, parseSerialsField(r.Form["serials"]))
+	if !h.access(r).venueInScope(id) {
+		http.Error(w, "That venue is outside your access.", http.StatusForbidden)
+		return
+	}
+	serials := h.keepActableSerials(r, parseSerialsField(r.Form["serials"]), "groups")
 	if len(serials) == 0 {
 		http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 		return
@@ -1017,7 +1052,13 @@ func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	serial := r.PathValue("serial")
-	if len(h.keepVisibleSerials(r, []string{serial})) == 0 {
+	if len(h.keepActableSerials(r, []string{serial}, "groups")) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	// The path names the venue: only a device that is really there leaves it, so a
+	// request for venue A can't pull a device out of venue B (and blame A in the audit).
+	if dev, err := h.db.GetDevice(r.Context(), serial); err != nil || dev == nil || dev.RestaurantID == nil || *dev.RestaurantID != id {
 		http.NotFound(w, r)
 		return
 	}
@@ -1079,6 +1120,16 @@ func (h *Handler) RestaurantSetServiceWindow(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	r.ParseForm()
+	if _, err := h.db.GetRestaurant(r.Context(), id); err != nil {
+		http.Error(w, "Venue not found", http.StatusNotFound)
+		return
+	}
+	if r.FormValue("action") != "reset" {
+		if msg := serviceWindowFormError(r); msg != "" {
+			http.Error(w, msg, http.StatusBadRequest)
+			return
+		}
+	}
 	// Hours someone sets here stop following the AIO backend (B1).
 	_ = h.db.StopFollowingBackend(r.Context(), id, followHours)
 	if r.FormValue("action") == "reset" {

@@ -54,7 +54,16 @@
     var t = e.target, before = wasOpen;
     wasOpen = [];
     before.forEach(function (m) {
-      if (m.contains(t)) return;
+      if (m.contains(t)) {
+        // Choosing an item closes its menu (QA, 18 Nov 2026: the device ⋯ menu stayed open
+        // behind the Reboot dialog). Toggles, fields and nested triggers keep it open.
+        var item = t.closest && t.closest('.cc-mi, button, a[href], [role="menuitem"]');
+        if (item && m.contains(item) && !isTrigger(item) && !item.closest('summary') &&
+            !(item.matches && item.matches('[type="checkbox"], [type="radio"], [data-keep-menu]'))) {
+          if (m.tagName === 'DETAILS') { if (m.open) m.open = false; } else closeMenu(m);
+        }
+        return;
+      }
       if (m.tagName === 'DETAILS') { if (m.open) m.open = false; return; }
       if (isTrigger(t) || m.hasAttribute('hidden')) return;
       closeMenu(m);

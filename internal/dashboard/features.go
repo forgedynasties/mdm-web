@@ -211,7 +211,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	if view == "" {
 		view = "recent"
 	}
-	to := "/visits?view=" + view
+	to := "/setup?view=" + view
 	if f := r.URL.Query().Get("flash"); f != "" {
 		to += "&flash=" + url.QueryEscape(f) + "&flash_type=" + url.QueryEscape(r.URL.Query().Get("flash_type"))
 	}
@@ -761,13 +761,13 @@ func (h *Handler) ReportInventoryCSV(w http.ResponseWriter, r *http.Request) {
 		cw.Write([]string{
 			d.SerialNumber,
 			d.ProductLabel(),
-			extraString(d.LatestExtra, "model"),
-			d.BuildID,
+			csvText(extraString(d.LatestExtra, "model")),
+			csvText(d.BuildID),
 			strconv.Itoa(d.BatteryPct),
 			online,
 			d.LastSeenAt.UTC().Format(time.RFC3339),
-			strings.Join(groups[d.ID], ";"),
-			d.RestaurantName,
+			csvText(strings.Join(groups[d.ID], ";")),
+			csvText(d.RestaurantName),
 		})
 	}
 	cw.Flush()
@@ -2040,4 +2040,13 @@ func (h *Handler) clientSlotSummaries(r *http.Request, devices []db.Device) (map
 	}
 
 	return views, counts
+}
+
+// csvText keeps a spreadsheet from reading a cell as a formula: text a device or a
+// person supplied that starts with = + - @ gets a leading apostrophe.
+func csvText(v string) string {
+	if v != "" && strings.ContainsRune("=+-@\t\r", rune(v[0])) {
+		return "'" + v
+	}
+	return v
 }

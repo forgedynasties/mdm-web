@@ -98,6 +98,7 @@
   </details>
   {{end}}
   {{/* The connection first (device tabs plan, 27 Oct 2026), then the saved networks. */}}
+  <div class="wf-body"><div class="wf-left">
   {{with .Conn}}<div class="wf-conn">
     <div><span>On</span><b>{{if .Network}}{{.Network}}{{else}}Not on Wi-Fi{{end}}</b></div>
     {{if .Signal}}<div><span>Signal</span><b>{{.Signal}}</b></div>{{end}}
@@ -105,6 +106,7 @@
     <div><span>IP</span><b class="mono">{{if .IP}}{{.IP}}{{else}}—{{end}}</b></div>
     {{if .BSSID}}<div><span>Access point</span><b class="mono">{{.BSSID}}</b></div>{{end}}
   </div>{{end}}
+  <div class="wf-sigcard" data-serial="{{.Serial}}" hidden></div></div><div class="wf-right">
   {{if .Nets}}<div class="wf-sec">Saved networks</div>{{end}}
   {{$cur := ""}}{{range .Nets}}{{if .Connected}}{{$cur = .SSID}}{{end}}{{end}}
   {{range .Nets}}
@@ -155,6 +157,7 @@
   {{else}}
   <div class="wf-empty">{{if .Supported}}The device has not reported its saved networks yet.{{else}}This device's client does not report or change Wi-Fi.{{end}}</div>
   {{end}}
+  </div></div>
   <script>
   // Menus close on a click outside them or on Escape, like the dashboard's other menus.
   // A menu item opens its own panel (confirm / password form) and closes the others.

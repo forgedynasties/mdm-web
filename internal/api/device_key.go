@@ -43,10 +43,21 @@ type peerSeen struct {
 
 const checkinPeerFresh = 5 * time.Minute
 
+// memoryCap is how many serials the per-serial in-memory maps may hold before stale
+// entries are swept: anyone holding the shared key can name unlimited fresh serials.
+const memoryCap = 20000
+
 func noteCheckinPeer(serial, ip string) {
 	checkinPeers.Lock()
 	if checkinPeers.m == nil {
 		checkinPeers.m = map[string]peerSeen{}
+	}
+	if len(checkinPeers.m) > memoryCap { // sweep what is stale; the map must not grow with every serial ever seen
+		for k, v := range checkinPeers.m {
+			if time.Since(v.at) > checkinPeerFresh {
+				delete(checkinPeers.m, k)
+			}
+		}
 	}
 	checkinPeers.m[serial] = peerSeen{ip, time.Now()}
 	checkinPeers.Unlock()
@@ -65,6 +76,13 @@ func noteKeyClaimMiss(serial string) int {
 	defer keyClaimMisses.Unlock()
 	if keyClaimMisses.m == nil {
 		keyClaimMisses.m = map[string][]time.Time{}
+	}
+	if len(keyClaimMisses.m) > memoryCap {
+		for k, ts := range keyClaimMisses.m {
+			if len(ts) == 0 || time.Since(ts[len(ts)-1]) > keyClaimMissWindow {
+				delete(keyClaimMisses.m, k)
+			}
+		}
 	}
 	var kept []time.Time
 	for _, t := range keyClaimMisses.m[serial] {
@@ -121,7 +139,7 @@ func (h *Handler) RegisterDeviceKey(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": errInvalidSerial})
 		return
 	}
-	if h.deviceRateLimited(w, req.Serial) {
+	if h.deviceRateLimited(w, r, req.Serial) {
 		return
 	}
 	ctx := r.Context()

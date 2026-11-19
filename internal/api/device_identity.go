@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"mdm/internal/db"
 	"mdm/internal/middleware"
@@ -43,23 +45,41 @@ type ownKeyEntry struct {
 }
 
 func (h *Handler) serialHasOwnKey(ctx context.Context, serial string) bool {
+	has, _ := h.serialHasOwnKeyE(ctx, serial)
+	return has
+}
+
+// serialHasOwnKeyE is serialHasOwnKey that says when it could not tell. An unknown serial
+// is "no key" (a new device); a database error is an error, so the caller can refuse
+// rather than let the shared key through while the lookup is down.
+func (h *Handler) serialHasOwnKeyE(ctx context.Context, serial string) (bool, error) {
 	ownKeyCache.Lock()
 	if e, ok := ownKeyCache.m[serial]; ok && time.Since(e.at) < ownKeyTTL {
 		ownKeyCache.Unlock()
-		return e.has
+		return e.has, nil
 	}
 	ownKeyCache.Unlock()
 	has, err := h.db.DeviceHasOwnKey(ctx, serial)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil // unknown serial
+	}
 	if err != nil {
-		return false // unknown serial or DB trouble: the other checks still apply
+		return false, err
 	}
 	ownKeyCache.Lock()
 	if ownKeyCache.m == nil {
 		ownKeyCache.m = map[string]ownKeyEntry{}
 	}
+	if len(ownKeyCache.m) > memoryCap {
+		for k, e := range ownKeyCache.m {
+			if time.Since(e.at) >= ownKeyTTL {
+				delete(ownKeyCache.m, k)
+			}
+		}
+	}
 	ownKeyCache.m[serial] = ownKeyEntry{has, time.Now()}
 	ownKeyCache.Unlock()
-	return has
+	return has, nil
 }
 
 // requireDeviceIdentity decides whether the caller may act as serial. A per-device key
@@ -80,14 +100,26 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 		h.noteOwnKeyIP(r.Context(), serial, ratelimit.ClientIP(r))
 		return true
 	}
-	if serial != "" && h.serialHasOwnKey(r.Context(), serial) {
+	hasOwn := false
+	if serial != "" {
+		var err error
+		if hasOwn, err = h.serialHasOwnKeyE(r.Context(), serial); err != nil {
+			// Fail closed: with the lookup down we can't tell whether this serial has its
+			// own key, and the shared key is public. Devices retry on 503.
+			log.Printf("[device-auth] own-key lookup for %s failed: %v", serial, err)
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "unavailable"})
+			return false
+		}
+	}
+	if hasOwn {
 		ip := ratelimit.ClientIP(r)
-		// Either shared key resets a serial's own key again (user, 30 Oct 2026: "get rid
-		// of the possible impersonation alert, auto reset key also"), the public one
-		// included, so v2.0 images and reflashed devices come back by themselves. This
-		// undoes the 26 Oct audit fix (with the public key anyone knowing a serial can
-		// re-key it); making it secure again is in ~/aio-mdm/TODO.md.
-		if h.recoverLostKey(r.Context(), serial, ip) {
+		// Only the enrollment key resets a serial's own key (pre-pentest audit, 18 Nov
+		// 2026). The public key is in the public client source, so accepting it let anyone
+		// who knew a serial re-key the device and receive its staff PIN, Wi-Fi passwords
+		// and remote input. Images since 30 Sep carry the enrollment key; a device with
+		// only the public key (v2.0 images) gets "Reset device key" from an admin. No
+		// daily ceiling and no impersonation alert, as decided 30 Oct.
+		if middleware.EnrollKeyUsed(r) && h.recoverLostKey(r.Context(), serial, ip) {
 			return true
 		}
 		log.Printf("[device-auth] refused the shared key for %s (it has its own key) from %s", serial, ip)
@@ -95,7 +127,33 @@ func (h *Handler) requireDeviceIdentity(w http.ResponseWriter, r *http.Request, 
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "this device uses its own key"})
 		return false
 	}
+	// A shared key naming a serial we have never seen makes a new device. One address
+	// may add newSerialsPerHour of them: the key is public, and without a limit anyone
+	// could fill the fleet with made-up devices (18 Nov 2026 audit).
+	if serial != "" && !h.serialKnown(r.Context(), serial) {
+		if n, retry := newSerialHits.Hit(ratelimit.ClientIP(r)); n > newSerialsPerHour {
+			w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "too many new devices from this address"})
+			return false
+		}
+	}
 	return true
+}
+
+const newSerialsPerHour = 300
+
+var newSerialHits = ratelimit.New(time.Hour)
+
+// serialKnown: the serial has a device row.
+func (h *Handler) serialKnown(ctx context.Context, serial string) bool {
+	ownKeyCache.Lock()
+	_, ok := ownKeyCache.m[serial]
+	ownKeyCache.Unlock()
+	if ok {
+		return true
+	}
+	_, err := h.db.DeviceHasOwnKey(ctx, serial)
+	return err == nil
 }
 
 // wsPeers remembers the address of each device's current socket, and when the device

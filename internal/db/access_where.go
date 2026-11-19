@@ -139,7 +139,7 @@ func EffectiveLevels(rows []AccessLevel, w *AccessWhere, now time.Time) []Access
 		case "lab":
 			out = append(out, mk("state", StateLab, nil, top))
 		case "deployed":
-			out = append(out, mk("state", StateSettingUp, nil, top), mk("state", StateInService, nil, top))
+			out = append(out, mk("state", StateInService, nil, top))
 		case "groups":
 			for i := range w.GroupIDs {
 				id := w.GroupIDs[i]

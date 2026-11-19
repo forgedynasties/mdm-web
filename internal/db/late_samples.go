@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,7 +98,9 @@ func (d *DB) LateSpans(ctx context.Context, deviceID uuid.UUID, from, until time
 
 // RecordDeviceEvent adds a line to the device's history.
 func (d *DB) RecordDeviceEvent(ctx context.Context, deviceID uuid.UUID, kind, summary string) {
-	_, _ = d.pool.Exec(ctx, `INSERT INTO device_events (device_id, kind, summary, occurred_at) VALUES ($1, $2, $3, NOW())`, deviceID, kind, summary)
+	if _, err := d.pool.Exec(ctx, `INSERT INTO device_events (device_id, kind, summary, occurred_at) VALUES ($1, $2, $3, NOW())`, deviceID, kind, summary); err != nil {
+		log.Printf("[events] %s for %s: %v", kind, deviceID, err)
+	}
 }
 
 // LateState is one reported value of a state key ("charging", "wlc_status") on a late
@@ -160,7 +163,7 @@ type LateCrash struct {
 func (d *DB) InsertLateCrashes(ctx context.Context, deviceID uuid.UUID, buildID string, cs []LateCrash) (int, error) {
 	n := 0
 	for _, c := range cs {
-		if c.Kind == "" || c.TimeMs <= 0 || c.Kind == "reboot" || c.Kind == "kiosk_exit_offline" || c.Kind == "offline_dropped" {
+		if c.Kind == "" || c.TimeMs <= 0 || c.Kind == "reboot" || c.Kind == "kiosk_exit_offline" || c.Kind == "offline_dropped" || isKnownCrashNoise(c.Summary) {
 			continue
 		}
 		summary, trace := c.Summary, c.Trace

@@ -1,16 +1,145 @@
-{{/* Releases › Update settings (Settings S1, 24 Oct 2026): how devices find and take
-     firmware updates, moved from Settings › Devices. Super admin. */}}
+{{/* Releases › Update settings, US1 (user picked 18 Nov 2026): a list of the update settings
+     with each one's value as a hint, the picked one explained on the right with what it would
+     do tonight. Super admin. Each setting keeps its one home (the window on Lineup, client
+     auto-update on Clients, venue gates on the venue page); the MDM OTA cutoff is edited here
+     and posts to the same endpoints as before. Builder: releases_settings_us1.go. */}}
 {{define "releases_settings.html"}}
 {{template "header" .}}
-<div class="cc-wrap">
-  <div class="cc-top">
-    <div>
-      <div class="cc-eyebrow">Software · <a href="/releases">Releases</a></div>
-      <h1 class="cc-h1">Update settings</h1>
-    </div>
+{{$u := .US}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/releases-settings-us1.css?v={{assetVer}}">
+<template id="page-island">
+  <span class="isl-dot on"></span>
+  <span class="isl-t">Update settings</span>
+  <span class="isl-s">{{if $u.Tonight}}<b>{{$u.Tonight}}</b> would update tonight{{else}}nothing would update tonight{{end}}</span>
+</template>
+<div class="cc-top"><div><h1 class="cc-h1">Update settings</h1></div></div>
+<div class="ovd us1" id="us1">
+  <div class="us1-l">
+    <section class="ovb-c us1-rail" aria-labelledby="us1-h">
+      <div class="ovb-ch"><h2 id="us1-h">Settings</h2></div>
+      <nav class="us1-list" aria-label="Update settings">
+        {{range $u.Rail}}<a class="ovb-li us1-li{{if eq .Key $u.Sel}} on{{end}}" href="/releases/settings?s={{.Key}}" data-us="{{.Key}}"{{if eq .Key $u.Sel}} aria-current="page"{{end}}>
+          <span class="ovb-dot {{.Tone}}"></span>
+          <span class="tx"><b>{{.Title}}</b><small title="{{.Hint}}">{{.Hint}}</small></span>
+        </a>{{end}}
+      </nav>
+    </section>
+    <section class="ovb-promo us1-tonight" aria-label="Tonight">
+      <b>{{if $u.Tonight}}Tonight {{$u.Tonight}} device{{if ne $u.Tonight 1}}s{{end}} would update{{else}}Nothing would update tonight{{end}}</b>
+      <span class="us1-tsub">Devices online now and behind their target, in venues that are not paused. Offline devices join when they are back.</span>
+    </section>
   </div>
-  <div class="settings-panels st-moved">{{template "settings-style"}}{{template "st-ota" .St}}</div>
-  <script src="/static/js/settings/panels.js?v={{assetVer}}"></script>
+
+  <section class="ovb-c us1-pane" id="us1-pane" aria-live="polite">
+
+    {{/* ── When devices move ── */}}
+    <div class="us1-p" data-pane="window"{{if ne $u.Sel "window"}} hidden{{end}}>
+      <div class="ovb-ch"><h2>When devices move</h2><span class="sp"></span><a class="ovb-btn l" href="/lineup">Change on Lineup</a></div>
+      <p class="us1-big">{{if $u.Firmware.On}}{{if $u.Firmware.Paused}}Prod firmware is paused.{{else}}{{if $u.FwN}}Tonight {{$u.FwN}} device{{if ne $u.FwN 1}}s{{end}} would take a new prod firmware.{{else}}No device is waiting for a prod firmware.{{end}}{{end}}{{else}}Prod firmware does not move by itself.{{end}}</p>
+      <p class="ovb-sub">A deployed device takes a new prod firmware and a new role app only inside this window, in its own time zone. A venue can follow it, move only while it is closed, use its own window or be paused (Venue gates). A deployment someone sends by hand ignores it. Whether a device reboots after an install is chosen per update.</p>
+      <table class="ovb-mini us1-t">
+        <tr><th>Kind</th><th>State</th><th>Window</th><th>Set by</th></tr>
+        {{template "us1-pol" $u.Firmware}}
+        {{template "us1-pol" $u.Apps}}
+      </table>
+      {{if $u.FwModels}}
+      <h3 class="us1-h3">Prod firmware tonight</h3>
+      <table class="ovb-mini us1-t"><tr><th>Model and target</th><th>Devices</th></tr>
+        {{range $u.FwModels}}<tr><td>{{.Label}}</td><td>{{.N}}</td></tr>{{end}}
+      </table>
+      {{end}}
+      {{with $u.FwNote}}<p class="ovb-sub">{{.}}</p>{{end}}
+      {{if not $u.FwModels}}<p class="ovb-sub">{{if and $u.Firmware.On (not $u.Firmware.Paused)}}Counted from the devices at venues that are online now, on the prod model's line and older than its prod build, and whose build can take an MDM OTA.{{else}}Switch the window on in Lineup to count.{{end}}</p>{{end}}
+    </div>
+
+    {{/* ── Client auto-update ── */}}
+    <div class="us1-p" data-pane="auto"{{if ne $u.Sel "auto"}} hidden{{end}}>
+      <div class="ovb-ch"><h2>Client auto-update</h2></div>
+      <p class="us1-big">{{if $u.ClientN}}Tonight {{$u.ClientN}} device{{if ne $u.ClientN 1}}s{{end}} would take a new MDM client.{{else}}No device would take a new MDM client tonight.{{end}}</p>
+      <p class="ovb-sub">Each client keeps devices on the build this server hosts. A switch is a standing instruction: devices that are present and behind get the build inside their window, and one that was away gets it the first time it appears. A pause keeps the target and stops handing it out.</p>
+      <table class="ovb-mini us1-t">
+        <tr><th>Client</th><th>State</th><th>Window</th><th>Hosted</th><th>Behind</th><th>Tonight</th><th></th></tr>
+        {{range $u.Slots}}<tr>
+          <td><b>{{.Label}}</b>{{if .By}}<br><span class="mut">{{.By}}{{if .At}} · {{.At}}{{end}}</span>{{end}}</td>
+          <td>{{template "us1-st" .UsPolicy}}</td>
+          <td>{{.Window}}</td>
+          <td class="mono">{{if .Hosted}}{{.Hosted}}{{else}}<span class="mut">none hosted</span>{{end}}</td>
+          <td>{{.Behind}}</td><td><b>{{.Tonight}}</b></td>
+          <td><a class="us1-a" href="{{.Href}}">Change</a></td>
+        </tr>{{end}}
+      </table>
+      <p class="ovb-sub">Behind = online now and below the hosted build. Switches and pauses are made on the Clients page.</p>
+    </div>
+
+    {{/* ── MDM OTA support cutoff ── */}}
+    <div class="us1-p" data-pane="cutoff"{{if ne $u.Sel "cutoff"}} hidden{{end}}>
+      <div class="ovb-ch"><h2>MDM OTA support cutoff</h2><span class="sp"></span><span class="mut small">per product</span></div>
+      <p class="us1-big">{{if $u.Legacy}}{{$u.Legacy}} build{{if ne $u.Legacy 1}}s{{end}} in the fleet can only take a legacy OTA.{{else}}Every build in the fleet can take an MDM OTA.{{end}}</p>
+      <p class="ovb-sub">Firmware older than the chosen release cannot apply an MDM OTA. It is hidden from every push picker, dropped from a push that reaches the server anyway, and never handed the OTA command at check-in. A build with no release row counts as unsupported once a cutoff is set. Leave on "No cutoff" to offer MDM OTA to every build.</p>
+      {{if $u.Cutoffs}}
+      <form class="us1-form" action="/settings/ota-min-release" method="POST" hx-boost="false">
+        <input type="hidden" name="redirect" value="/releases/settings?s=cutoff">
+        {{range $u.Cutoffs}}
+        <label class="us1-f"><span>{{.ProductLabel}}</span>
+          <select name="ota_min_{{.ProductKey}}" class="form-input">
+            <option value="0">No cutoff, every build</option>
+            {{$cur := .Current}}{{range .Releases}}<option value="{{.ID}}"{{if eq .ID $cur}} selected{{end}}>{{.Version}} · {{formatTime .CreatedAt}}</option>{{end}}
+          </select>
+        </label>
+        {{end}}
+        <div><button type="submit" class="ovb-btn">Save cutoff</button></div>
+      </form>
+      {{else}}<p class="ovb-sub">No published releases yet.</p>{{end}}
+
+      {{if $u.Builds}}
+      <h3 class="us1-h3">Builds in the fleet <span class="mut">what the rule decides for each one</span></h3>
+      <div class="us1-tw">
+      <table class="ovb-mini us1-t ota-builds">
+        <tr><th>Build</th><th>Devices</th><th>MDM OTA</th><th>Decided by</th><th></th></tr>
+        {{range $u.Builds}}<tr>
+          <td><span class="mono">{{.BuildID}}</span> <span class="cc-tag">{{.ProductLabel}}</span>{{if not .Tracked}} <span class="cc-tag warn" title="No release row, so the date cutoff cannot classify this build">untracked</span>{{end}}</td>
+          <td>{{.Devices}}</td>
+          <td>{{if .OK}}<span class="cc-tag ok">yes</span>{{else}}<span class="cc-tag bad">legacy only</span> <span class="mut">{{.Reason}}</span>{{end}}</td>
+          <td class="mut">{{if eq .Source "device"}}the device itself{{else if eq .Source "observed"}}an update that worked{{else if eq .Source "manual"}}set here{{else if eq .Source "cutoff"}}the cutoff{{else if eq .Source "untracked"}}no release row{{else}}no cutoff set{{end}}</td>
+          <td class="us1-r">
+            <form action="/settings/ota-support" method="POST" hx-boost="false">
+              <input type="hidden" name="redirect" value="/releases/settings?s=cutoff">
+              <input type="hidden" name="build_id" value="{{.BuildID}}"><input type="hidden" name="product" value="{{.ProductKey}}">
+              <button type="submit" name="value" value="yes" class="cc-btn sm" title="Always allow MDM OTA on this build">MDM</button>
+              <button type="submit" name="value" value="no" class="cc-btn sm" title="Never push an MDM OTA to this build">Legacy</button>
+              {{if eq .Source "manual"}}<button type="submit" name="value" value="clear" class="cc-btn sm" title="Fall back to the cutoff">Clear</button>{{end}}
+            </form>
+          </td>
+        </tr>{{end}}
+      </table>
+      </div>
+      <p class="ovb-sub">A device that advertises its own capabilities always wins over anything set here. A build a device successfully updated from is recorded automatically.</p>
+      {{end}}
+    </div>
+
+    {{/* ── Venue gates ── */}}
+    <div class="us1-p" data-pane="gates"{{if ne $u.Sel "gates"}} hidden{{end}}>
+      <div class="ovb-ch"><h2>Venue gates</h2><span class="sp"></span><a class="ovb-btn l" href="/restaurants">Venues</a></div>
+      <p class="us1-big">{{if $u.Venues}}{{len $u.Venues}} venue{{if ne (len $u.Venues) 1}}s do{{else}} does{{end}} not simply follow the fleet window.{{else}}Every venue follows the fleet window.{{end}}</p>
+      <p class="ovb-sub">Each venue can follow the fleet window, move only while it is closed, use its own window, or be paused for a while or until someone resumes. It gates prod firmware and the MDM client auto-update; a deployment sent by hand is never held. A venue is changed in its Venue settings › Updates row.</p>
+      {{if $u.Venues}}
+      <table class="ovb-mini us1-t">
+        <tr><th>Venue</th><th>Setting</th><th></th></tr>
+        {{range $u.Venues}}<tr>
+          <td><b>{{.Name}}</b></td>
+          <td>{{if .Paused}}<span class="ovb-tag o">Paused</span> {{end}}{{.Detail}}</td>
+          <td class="us1-r"><a class="us1-a" href="/restaurants/{{.ID}}?open=updates#vn-updates">Open</a></td>
+        </tr>{{end}}
+      </table>
+      {{end}}
+    </div>
+  </section>
 </div>
+
+<script src="/static/js/releases-settings-us1.js?v={{assetVer}}"></script>
 {{template "footer" .}}
 {{end}}
+
+{{define "us1-st"}}{{if not .On}}<span class="ovb-tag c">Off</span>{{else if .Paused}}<span class="ovb-tag o">Paused</span>{{else}}<span class="ovb-tag">On</span>{{end}}{{end}}
+{{define "us1-pol"}}<tr><td><b>{{.Label}}</b></td><td>{{template "us1-st" .}}</td><td>{{.Window}}</td><td class="mut">{{if .By}}{{.By}}{{if .At}} · {{.At}}{{end}}{{else}}default{{end}}</td></tr>{{end}}

@@ -1,21 +1,18 @@
 {{define "updates_new.html"}}
 {{template "header" .}}
-{{/* Standalone push screen. Pick a publishable release (auto-navigates with ?release=)
-     and the Devices + Options panes below fill in place — they are always present, not
-     spawned on selection. Then POST /updates. */}}
-
 {{$rel := .Release}}
 {{/* Delivery choice only matters when both artifact kinds exist. */}}
 {{$showDelivery := and .HasFull .HasIncremental}}
+{{$selProduct := .SelectedProduct}}{{if $rel}}{{$selProduct = $rel.Product}}{{end}}
 
-<style>
-/* ── New update · phone tap-target fixes ── */
-@media(max-width:600px){
-  .push-dev{flex-wrap:wrap}
-  .push-dev .push-ck{width:20px;height:20px}
-  .seg-control .seg-btn{padding-top:9px;padding-bottom:9px}
-}
-</style>
+{{/* NU1 · stepper with a live coral summary (user's pick, 18 Nov 2026). Left: the three steps
+     (Product and release, Devices, Options), each with what is chosen so far. Middle: the picked
+     step's pane. Right: the coral summary, which says what Send will do (how many devices update
+     now, how many are offline and wait) and carries Send. All three panes are always in the form,
+     so every field posts whichever step is showing. On a desktop window it fits with no page
+     scrolling: a long list scrolls inside its own pane. */}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/updates-new.css?v={{assetVer}}">
 
 <div class="cc-wrap">
 
@@ -24,148 +21,141 @@
     <div class="cc-eyebrow">Software · Releases</div>
     <h1 class="cc-h1">New update</h1>
   </div>
-  <div class="cc-actions">
-    <a href="/releases" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Releases</a>
-  </div>
-</div>
-
-{{/* ── Step 1 · release ── */}}
-<div class="cc-card rel-card" style="margin-bottom:16px;">
-  <div class="cc-ch">
-    <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
-    <h2>1 · Product and release</h2>
-    <span class="m">only published releases with an active package</span>
-  </div>
-  {{/* Two steps, because they are two decisions: the hardware, then the build for it.
-       The product also scopes the device list below, so choosing it first means the
-       picker never offers devices this push could not reach. */}}
-  <div class="cc-cb" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
-    {{$selProduct := .SelectedProduct}}{{if $rel}}{{$selProduct = $rel.Product}}{{end}}
-    <div>
-      <div class="form-label" style="margin-bottom:6px;">Product</div>
-      <select class="form-input" style="min-width:220px;" onchange="pushPickProduct(this.value)">
-        <option value="" {{if not $selProduct}}selected{{end}}>All products</option>
-        {{range .PushProducts}}<option value="{{.Key}}"{{if eq .Key $selProduct}} selected{{end}}>{{.Label}}</option>{{end}}
-      </select>
-    </div>
-    {{/* The release list grows with every build, so the picker is a type-ahead
-         combobox rather than a plain select: typing narrows it in place (version,
-         name or product) and choosing navigates, the same as the old select did. */}}
-    <div>
-      <div class="form-label" style="margin-bottom:6px;">Release</div>
-      {{if .Releases}}
-      <div class="rel-combo" id="rel-combo">
-        <input type="text" id="rel-search" class="form-input" style="min-width:320px;" autocomplete="off" spellcheck="false"
-               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-label="Release"
-               placeholder="Search or choose a release…" data-current="{{with $rel}}{{.ID}}{{end}}">
-        <div class="rel-list" id="rel-list" role="listbox">
-          {{/* Say what each release can actually deliver: a full image reaches any
-               device (and is all the legacy path can use), an incremental only the
-               devices on its source build. Choosing between two releases without
-               that is choosing blind. */}}
-          {{range .Releases}}
-          <div class="rel-opt" role="option" data-value="{{.ID}}"
-               data-search="{{.Version}} {{.Name}} {{productLabel .Product}}">{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}} · {{if and .HasFull .Incrementals}}full + {{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}}{{else if .HasFull}}full image{{else}}{{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}} only{{end}}</div>
-          {{end}}
-          <div class="rel-none" id="rel-none" hidden>No release matches.</div>
-        </div>
-      </div>
-      {{else if $selProduct}}
-      <div class="muted small" style="padding-bottom:8px;">No publishable release for {{productLabel $selProduct}}. <a href="/releases">Publish one →</a></div>
-      {{else}}
-      <div class="muted small" style="padding-bottom:8px;">No publishable releases. <a href="/releases">Publish a release and add an update package first →</a></div>
-      {{end}}
-    </div>
-  </div>
-  <style>
-  /* cc-card clips its content (overflow:hidden), which would cut the open list off
-     at the card edge, and the next card would paint over what is left. Let this one
-     card overflow and lift it above the cards below it. */
-  .rel-card{overflow:visible;position:relative;z-index:5;}
-  .rel-combo{position:relative;}
-  .rel-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:60;max-height:280px;overflow:auto;
-    background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);display:none;}
-  .rel-combo.open .rel-list{display:block;}
-  .rel-opt{padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;}
-  .rel-opt.hidden{display:none;}
-  .rel-opt.active,.rel-opt:hover{background:var(--accent-soft);}
-  .rel-none{padding:8px 12px;font-size:12.5px;color:var(--muted);}
-  </style>
-  <script src="/static/js/updates_new/release-picker.js?v={{assetVer}}"></script>
 </div>
 
 {{/* hx-boost="false": the whole app is boosted (layout.html), and its own submit
-     interception can race pushConfirm's confirm-dialog gate below — if htmx's
-     boost wins that race, the push fires (and the page navigates) before the
-     dialog logic ever gets a chance to block it, leaving the still-open dialog
-     stranded on top of the new page. Opting this form out entirely means only
-     pushConfirm ever controls when it submits. */}}
-<form action="/updates" method="POST" id="push-form" hx-boost="false" onsubmit="return pushConfirm(event)">
+     interception can race pushConfirm's confirm-dialog gate — if htmx's boost wins that
+     race, the push fires before the dialog logic ever gets a chance to block it. Opting this
+     form out means only pushConfirm ever controls when it submits. */}}
+<form action="/updates" method="POST" id="push-form" class="ovd nu" hx-boost="false" onsubmit="return pushConfirm(event)"
+      data-start="{{if $rel}}2{{else}}1{{end}}" data-has-release="{{if $rel}}1{{end}}" data-wipes="{{if .FullWipes}}1{{end}}"
+      data-rel="{{with $rel}}{{.Version}}{{end}}" data-product="{{if $selProduct}}{{productLabel $selProduct}}{{end}}">
   <input type="hidden" name="release_id" value="{{with $rel}}{{.ID}}{{end}}">
   {{if not $showDelivery}}<input type="hidden" name="delivery" value="smart">{{end}}
 
-  {{/* ── Step 2 · devices ── always present; fills once a release is chosen ── */}}
-  {{$step2 := or $rel .SelectedProduct}}
-  <div class="cc-card{{if not $step2}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $step2}}opacity:.55;pointer-events:none;{{end}}">
-    <div class="cc-ch">
-      <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
-      <h2>2 · Devices</h2>
-      {{if $rel}}<span class="m">{{productLabel $rel.Product}} devices · <span data-dp-count>0</span> chosen</span>
-      {{else if .SelectedProduct}}<span class="m">{{productLabel .SelectedProduct}} devices · choose a release to push</span>
-      {{else}}<span class="m">choose a release to load its devices</span>{{end}}
-    </div>
-    <div style="padding:14px 16px 16px;">
-      {{if $rel}}
-      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Release" $rel.ID "Product" $rel.Product "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
-      {{else if .SelectedProduct}}
-      {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Product" .SelectedProduct "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
-      {{else}}
-      <div class="muted small" style="padding:20px 16px;text-align:center;">Devices appear here once you choose a release above.</div>
-      {{end}}
-    </div>
-  </div>
+  <div class="ovb nu-grid">
 
-  {{/* ── Step 3 · options + push — always present ── */}}
-  <div class="cc-card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
-    <div class="cc-ch">
-      <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
-      <h2>3 · Options</h2>
-    </div>
-    <div class="cc-cb" style="display:flex;flex-direction:column;gap:16px;">
+    {{/* ── the steps ── */}}
+    <section class="ovb-c nu-steps" aria-label="Steps">
+      <ol class="nu-ol">
+        <li><button type="button" class="nu-step" data-step="1">
+          <i class="nu-n">1</i><span class="tx"><b>Product and release</b><small id="nu-s1">{{if $rel}}{{$rel.Version}} · {{productLabel $rel.Product}}{{else if $selProduct}}{{productLabel $selProduct}} · choose a release{{else}}Choose a release{{end}}</small></span></button></li>
+        <li><button type="button" class="nu-step" data-step="2"{{if not (or $rel .SelectedProduct)}} disabled{{end}}>
+          <i class="nu-n">2</i><span class="tx"><b>Devices</b><small id="nu-s2">{{if $rel}}<span data-dp-count>0</span> chosen{{else}}Choose a release first{{end}}</small></span></button></li>
+        <li><button type="button" class="nu-step" data-step="3"{{if not $rel}} disabled{{end}}>
+          <i class="nu-n">3</i><span class="tx"><b>Options</b><small id="nu-s3">{{if $rel}}Reboot immediately{{else}}Choose a release first{{end}}</small></span></button></li>
+      </ol>
+      <a href="/releases" class="nu-back">← Releases</a>
+    </section>
+
+    {{/* ── the picked step's pane ── */}}
+    <section class="ovb-c nu-pane">
+
+      {{/* Step 1 · product, then the build for it. The product also scopes the device list,
+           so choosing it first means the picker never offers devices this push could not reach. */}}
+      <div class="nu-sec" data-pane="1">
+        <div class="ovb-ch"><h2>Product and release</h2><span class="sp"></span><span class="nu-m">only published releases with an active package</span></div>
+        <div class="nu-fld">
+          <label class="nu-lb" for="nu-prod">Product</label>
+          <select id="nu-prod" class="form-input" onchange="pushPickProduct(this.value)">
+            <option value="" {{if not $selProduct}}selected{{end}}>All products</option>
+            {{range .PushProducts}}<option value="{{.Key}}"{{if eq .Key $selProduct}} selected{{end}}>{{.Label}}</option>{{end}}
+          </select>
+        </div>
+        <div class="nu-fld nu-grow">
+          <label class="nu-lb" for="rel-search">Release</label>
+          {{if .Releases}}
+          {{/* The release list grows with every build, so it is searchable: typing narrows it in
+               place (version, name or product) and choosing navigates. Say what each release
+               can deliver: a full image reaches any device, an incremental only the devices on
+               its source build. */}}
+          <div class="rel-combo nu-combo" id="rel-combo">
+            <input type="text" id="rel-search" class="form-input" autocomplete="off" spellcheck="false"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-label="Release"
+                   placeholder="Search a version, name or product…" data-current="{{with $rel}}{{.ID}}{{end}}">
+            <div class="rel-list nu-list" id="rel-list" role="listbox">
+              {{range .Releases}}
+              <div class="rel-opt{{if and $rel (eq .ID $rel.ID)}} on{{end}}" role="option" data-value="{{.ID}}"
+                   data-search="{{.Version}} {{.Name}} {{productLabel .Product}}">{{.Version}}{{if not $selProduct}} · {{productLabel .Product}}{{end}} · {{if and .HasFull .Incrementals}}full + {{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}}{{else if .HasFull}}full image{{else}}{{.Incrementals}} incremental{{if ne .Incrementals 1}}s{{end}} only{{end}}</div>
+              {{end}}
+              <div class="rel-none" id="rel-none" hidden>No release matches.</div>
+            </div>
+          </div>
+          {{else if $selProduct}}
+          <div class="muted small">No publishable release for {{productLabel $selProduct}}. <a href="/releases">Publish one →</a></div>
+          {{else}}
+          <div class="muted small">No publishable releases. <a href="/releases">Publish a release and add an update package first →</a></div>
+          {{end}}
+        </div>
+        <script src="/static/js/updates_new/release-picker.js?v={{assetVer}}"></script>
+      </div>
+
+      {{/* Step 2 · devices. Fills once a release (or at least a product) is chosen. */}}
+      <div class="nu-sec" data-pane="2" hidden>
+        <div class="ovb-ch"><h2>Devices</h2><span class="sp"></span>
+          {{if $rel}}<span class="nu-m">{{productLabel $rel.Product}} devices · <span data-dp-count>0</span> chosen</span>
+          {{else if .SelectedProduct}}<span class="nu-m">{{productLabel .SelectedProduct}} devices · choose a release to push</span>{{end}}</div>
+        {{if $rel}}
+        {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Release" $rel.ID "Product" $rel.Product "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
+        {{else if .SelectedProduct}}
+        {{template "picker" (dict "Field" "serials" "Scopes" true "ScopesJSON" .ScopesJSON "Product" .SelectedProduct "SelectAll" true "Preselect" (joinLines .PreSerials) "Prompt" "Search serial, restaurant, group — or paste serials")}}
+        {{else}}
+        <div class="muted small nu-empty">Devices appear here once you choose a release.</div>
+        {{end}}
+      </div>
+
+      {{/* Step 3 · options. */}}
+      <div class="nu-sec" data-pane="3" hidden>
+        <div class="ovb-ch"><h2>Options</h2></div>
+        <div class="nu-fld">
+          <div class="nu-lb">Reboot</div>
+          <input type="hidden" name="reboot_behavior" id="push-reboot" value="immediate">
+          <span class="ovb-seg" role="radiogroup" aria-label="Reboot behavior">
+            <button type="button" class="seg-btn on" onclick="pushReboot('immediate',this)">Immediate</button>
+            <button type="button" class="seg-btn" onclick="pushReboot('manual',this)">Manual</button>
+          </span>
+          <div class="nu-hint">Immediate reboots each device once the update installs; manual waits for a reboot command.</div>
+        </div>
+        {{if $showDelivery}}
+        <div class="nu-fld">
+          <div class="nu-lb">Delivery</div>
+          <input type="hidden" name="delivery" id="push-delivery" value="smart">
+          <span class="ovb-seg" role="radiogroup" aria-label="Delivery mode">
+            <button type="button" class="seg-btn on" onclick="pushDelivery('smart',this)">Smart</button>
+            <button type="button" class="seg-btn" onclick="pushDelivery('full',this)">Full image</button>
+          </span>
+          <div class="nu-hint"><b>Smart</b> sends an incremental to devices whose current build matches one, and the full image to the rest. <b>Full image</b> forces the complete package to every device.</div>
+        </div>
+        {{end}}
+        {{if .FullWipes}}
+        {{/* The release's full image was built with --wipe: it factory-resets every device it
+             lands on. Without consent it is never used — not as Smart's fallback, not forced. */}}
+        <div id="push-wipe" class="nu-wipe">
+          <b>The full image of this release wipes the device</b>
+          <p>Installing it is a factory reset: apps, settings and data are erased and the device has to be set up again. Unless you allow it, devices with no incremental for their current build are left out, and "Full image" delivery is refused.</p>
+          <label><input type="checkbox" name="allow_wipe" value="1" id="push-allow-wipe"> Allow factory reset</label>
+        </div>
+        {{end}}
+      </div>
+
+      <div class="nu-foot">
+        <button type="button" class="ovb-btn l" id="nu-prev" hidden>Back</button>
+        <span class="sp"></span>
+        <button type="button" class="ovb-btn l" id="nu-next">Next</button>
+      </div>
+    </section>
+
+    {{/* ── the coral summary: what Send will do, live ── */}}
+    <aside class="ovb-promo nu-sum" id="nu-sum" aria-live="polite">
+      <div class="nu-sum-k" id="nu-sum-k">{{if $rel}}{{$rel.Version}} · {{productLabel $rel.Product}}{{else}}No release yet{{end}}</div>
       <div>
-        <div class="form-label" style="margin-bottom:7px;">Reboot</div>
-        <input type="hidden" name="reboot_behavior" id="push-reboot" value="immediate">
-        <span class="seg-control" role="radiogroup" aria-label="Reboot behavior">
-          <button type="button" class="seg-btn active" onclick="pushReboot('immediate',this)">Immediate</button>
-          <button type="button" class="seg-btn" onclick="pushReboot('manual',this)">Manual</button>
-        </span>
-        <div class="form-hint">Immediate reboots each device once the update installs; manual waits for a reboot command.</div>
+        <b id="nu-sum-big">{{if $rel}}Choose the devices{{else}}Choose a release{{end}}</b>
+        <ul class="nu-sum-l" id="nu-sum-l"></ul>
       </div>
-      {{if $showDelivery}}
-      <div>
-        <div class="form-label" style="margin-bottom:7px;">Delivery</div>
-        <input type="hidden" name="delivery" id="push-delivery" value="smart">
-        <span class="seg-control" role="radiogroup" aria-label="Delivery mode">
-          <button type="button" class="seg-btn active" onclick="pushDelivery('smart',this)">Smart</button>
-          <button type="button" class="seg-btn" onclick="pushDelivery('full',this)">Full image</button>
-        </span>
-        <div class="form-hint"><b>Smart</b> sends an incremental to devices whose current build matches one, and the full image to the rest. <b>Full image</b> forces the complete package to every device.</div>
-      </div>
-      {{end}}
-      {{if .FullWipes}}
-      {{/* The release's full image was built with --wipe: it factory-resets every device it
-           lands on. Without consent it is never used — not as Smart's fallback, not forced. */}}
-      <div id="push-wipe" style="border:1px solid var(--danger-edge,var(--border));background:var(--danger-bg);border-radius:10px;padding:11px 13px;">
-        <div style="font-weight:700;color:var(--danger);margin-bottom:4px;">The full image of this release wipes the device</div>
-        <div class="form-hint" style="margin:0 0 8px;">Installing it is a factory reset: apps, settings and data are erased and the device has to be set up again. Unless you allow it, devices with no incremental for their current build are left out, and "Full image" delivery is refused.</div>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;"><input type="checkbox" name="allow_wipe" value="1" id="push-allow-wipe"> Allow factory reset</label>
-      </div>
-      {{end}}
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border);">
-      <span style="flex:1;"></span>
-      <button type="submit" class="cc-btn primary" id="push-btn" data-dp-submit disabled><span id="push-lbl">Push to 0 devices</span></button>
-    </div>
+      <div class="nu-sum-w" id="nu-sum-w" hidden></div>
+      <button type="submit" class="ovb-btn w" id="push-btn" data-dp-submit disabled><span id="push-lbl">Push to 0 devices</span></button>
+    </aside>
+
   </div>
 </form>
 

@@ -169,19 +169,19 @@ func TestRemoteTokensAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	dev := uuid.New()
-	if err := d.PutRemoteToken(ctx, "tok-1", dev, time.Minute); err != nil {
+	if err := d.PutRemoteToken(ctx, "tok-1", dev, "", time.Minute); err != nil {
 		t.Fatal(err)
 	}
-	if id, ok, err := d.TakeRemoteToken(ctx, "tok-1"); err != nil || !ok || id != dev {
+	if id, _, ok, err := d.TakeRemoteToken(ctx, "tok-1"); err != nil || !ok || id != dev {
 		t.Fatalf("first take: %s %v %v", id, ok, err)
 	}
-	if _, ok, _ := d.TakeRemoteToken(ctx, "tok-1"); ok {
+	if _, _, ok, _ := d.TakeRemoteToken(ctx, "tok-1"); ok {
 		t.Fatal("a token must work once")
 	}
-	if err := d.PutRemoteToken(ctx, "tok-2", dev, -time.Second); err != nil {
+	if err := d.PutRemoteToken(ctx, "tok-2", dev, "", -time.Second); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok, _ := d.TakeRemoteToken(ctx, "tok-2"); ok {
+	if _, _, ok, _ := d.TakeRemoteToken(ctx, "tok-2"); ok {
 		t.Fatal("an expired token must not work")
 	}
 }

@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -501,8 +503,24 @@ func (d *DB) CreateUserToken(ctx context.Context, token string, userID uuid.UUID
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO user_tokens (token, user_id, purpose, expires_at)
 		VALUES ($1, $2, $3, $4)
-	`, token, userID, purpose, expiresAt)
+	`, storedUserToken(token), userID, purpose, expiresAt)
 	return err
+}
+
+// storedUserToken is what user_tokens keeps for a token: its SHA-256, so the table (or a
+// backup of it) can't be used to set someone's password (18 Nov 2026 audit).
+func storedUserToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return "h:" + hex.EncodeToString(sum[:])
+}
+
+// userTokenKeys: the stored forms a presented token may match. Tokens mailed before
+// hashing are stored as they were sent; a value that is itself a stored hash never matches.
+func userTokenKeys(token string) []string {
+	if strings.HasPrefix(token, "h:") {
+		return []string{storedUserToken(token)}
+	}
+	return []string{storedUserToken(token), token}
 }
 
 // PeekUserToken validates a token without consuming it — read-only, safe to call
@@ -517,8 +535,8 @@ func (d *DB) PeekUserToken(ctx context.Context, token, purpose string) (uuid.UUI
 	var userID uuid.UUID
 	err := d.pool.QueryRow(ctx, `
 		SELECT user_id FROM user_tokens
-		WHERE token = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()
-	`, token, purpose).Scan(&userID)
+		WHERE token = ANY($1) AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()
+	`, userTokenKeys(token), purpose).Scan(&userID)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -533,9 +551,9 @@ func (d *DB) ConsumeUserToken(ctx context.Context, token, purpose string) (uuid.
 	var userID uuid.UUID
 	err := d.pool.QueryRow(ctx, `
 		UPDATE user_tokens SET used_at = NOW()
-		WHERE token = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()
+		WHERE token = ANY($1) AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()
 		RETURNING user_id
-	`, token, purpose).Scan(&userID)
+	`, userTokenKeys(token), purpose).Scan(&userID)
 	if err != nil {
 		return uuid.Nil, err
 	}

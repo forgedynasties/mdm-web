@@ -1,3 +1,4 @@
+{{define "bt-ic"}}{{if eq . "apps"}}<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg>{{else if eq . "activity"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>{{else if eq . "health"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>{{else if eq . "network"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0"/><circle cx="12" cy="19.2" r="1"/></svg>{{else if eq . "location"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>{{else if eq . "notes"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>{{else}}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>{{end}}{{end}}
 {{define "device-stats"}}
 <div class="dd-details"
   id="device-stats" data-diff-guard data-morph
@@ -224,8 +225,31 @@
      POST /devices/{serial}/notes. */}}
 {{define "device-notes"}}
 {{/* Notes, in the menu kit (device-menus-demos.html, M1). Returned whole by POST
-     /devices/{serial}/notes, which swaps it back in with "Saved". */}}
-<div id="device-notes-card">
+     /devices/{serial}/notes, which swaps it back in with "Saved". In the Bento view (NO3, picked
+     18 Nov 2026) it is a log: a composer, filters, and the entries newest first with what the MDM
+     did to the device mixed in (grey, "Show automatic" hides them). */}}
+<div id="device-notes-card"{{if .Bento}} class="bt-nl"{{end}}>
+  {{if .Bento}}
+  {{if canOperate .Role}}
+  <form hx-post="/devices/{{.Device.SerialNumber}}/notes" hx-target="#device-notes-card" hx-swap="outerHTML" class="bt-nl-form">
+    <textarea name="body" rows="3" maxlength="4000" placeholder="Add to the log…" aria-label="New note" required></textarea>
+    <div class="bt-nl-row">
+      <span class="bt-nl-kinds" role="radiogroup" aria-label="Kind">{{range $i, $k := noteKinds}}<label><input type="radio" name="kind" value="{{$k}}"{{if eq $i 0}} checked{{end}}><span>{{$k}}</span></label>{{end}}</span>
+      {{if .Saved}}<span class="bt-nl-saved">Added</span>{{end}}
+      <button type="submit" class="ovb-btn cta-g"><span class="cta-t">Add entry</span></button>
+    </div>
+  </form>
+  {{end}}
+  <div class="bt-nl-f" role="group" aria-label="Filter the log">
+    <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" class="on" data-nlf="auto">Show automatic</button>
+  </div>
+  <ul class="bt-nl-list">
+    {{range .NoteLog}}<li data-kind="{{.Kind}}"><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
+      <div><div class="bt-nl-h"><span class="bt-nl-k {{.Kind}}">{{.Kind}}</span><b>{{.Who}}</b><time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}">{{.At.Format "2 Jan, 15:04"}} UTC</time></div>
+      <div class="bt-nl-t{{if .Auto}} auto{{end}}">{{.Text}}</div></div></li>
+    {{else}}<li class="bt-nl-empty">Nothing logged yet. Notes you add, and what is done to this device, appear here with their time.</li>{{end}}
+  </ul>
+  {{else}}
   <div class="cc-mh">Notes{{if .Saved}}<span class="sub dn-saved">Saved</span>{{end}}</div>
   {{if canOperate .Role}}
   <form hx-post="/devices/{{.Device.SerialNumber}}/notes" hx-target="#device-notes-card" hx-swap="outerHTML" class="dn-form">
@@ -234,6 +258,7 @@
   </form>
   {{else}}
     <div class="dn-form">{{if .Notes}}<div class="dn-view">{{.Notes}}</div>{{else}}<div class="muted small">No notes.</div>{{end}}</div>
+  {{end}}
   {{end}}
 </div>
 {{end}}
@@ -271,7 +296,7 @@
      graph) until split.js, near its end, arranges it (5 Nov 2026, user: "sometimes during device
      page loading ui is like this"). Hidden until split.js marks it ready; 4 s fallback. */}}
 <style>@media (min-width:1100px){.device-detail:not(.dd-ready){visibility:hidden}}</style>
-<div class="device-detail cc-wrap dd-cc"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
+<div class="device-detail cc-wrap dd-cc{{if .Bento}} dd-bento dd-ready{{end}}"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
 <script>(function(){var d=document.currentScript.parentElement;setTimeout(function(){if(d)d.classList.add('dd-ready');},4000);})();</script>
 <link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
@@ -413,8 +438,8 @@
         <div class="cc-msep"></div>
         {{if and .Device.HasBattery (not .IsDPC) (canAppLibrary .Role)}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
         <a class="cc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export data…</a>
+        {{if .Bento}}<a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=new" hx-boost="false" title="The standard device page, with the graph and tabs. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Standard view</a>{{else}}<a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=bento" hx-boost="false" title="The Overview as tiles, like the fleet Overview. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/></svg>Bento view</a>{{end}}
         <a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=classic" hx-boost="false" title="Back to the device page as it was before the redesign. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Classic view</a>
-        {{with .HandOver}}{{if .CanSetUp}}<form method="POST" action="/devices/{{$.Device.SerialNumber}}/setup-again" hx-boost="false" onsubmit="return confirm('Put this device into setup? Field people can work on it until someone hands it over again.')"><button type="submit" class="cc-mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>Set up again…</button></form>{{end}}{{end}}
         {{if canAdmin .Role}}{{$sm := .Security}}
         {{/* What the Settings tab held (E3, picked 16 Oct): each opens a dialog or confirms. */}}
         <div class="cc-msep"></div>
@@ -635,7 +660,7 @@
       <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
       <span class="dd-notes-t">Notes</span>{{if .Notes}}<i class="dd-notes-dot" aria-label="has a note"></i>{{end}}
     </button>
-    <div class="dd-notes-pop cc-menu" id="dd-notes-pop" hidden>{{template "device-notes" .}}</div>
+    <div class="dd-notes-pop cc-menu" id="dd-notes-pop" hidden>{{if not .Bento}}{{template "device-notes" .}}{{end}}</div>
   </span>
 </div>
 </div>
@@ -825,7 +850,218 @@
 
 
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
+{{if .Bento}}
+{{/* Bento view, E1 (user, 18 Nov 2026: "E1"; "bento is all about no scrolling"): the Overview's
+     panes for one device. Left, a radar of the device's health parts; the Today card is the graph
+     pane (tabs Graph · Needs · Activity · Apps, each a list with the pick explained beside it);
+     under them the coral action card, vitals rings and facts. The graph card below is moved into
+     the Graph pane by the script after the legend (Chart.js keeps its elements). The CSS is the
+     Overview's own (static/css/ovb-device.css); on a desktop window it fits with no scrolling.
+     The other tabs are unchanged. */}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+{{$bv := .BentoV}}
+{{/* A1 · edge dock with labels (user, 18 Nov 2026): the tab row is gone in Bento. The panels the tabs
+     held (Apps, Activity, Health, Network, Location, About) are the same sections; the dock
+     opens one as a sheet on the right (CSS: a visible non-summary panel is fixed to the edge),
+     the switcher at its top moves between them, Esc or ✕ or the scrim closes. setDeviceTab
+     still does the work, so ?tab= links and every "open the X tab" button keep working. */}}
+<nav class="bt-dock" id="bt-dock" aria-label="Device panels">
+  {{if not .IsOwner}}<button type="button" data-bt-open="apps">{{template "bt-ic" "apps"}}<span>Apps</span>{{with .HostApp}}{{if .Count}}<i class="n">{{.Count}}</i>{{end}}{{end}}</button>
+  <button type="button" data-bt-open="activity">{{template "bt-ic" "activity"}}<span>Activity</span></button>
+  <button type="button" data-bt-open="health">{{template "bt-ic" "health"}}<span>Health</span>{{if .Health.Count}}<i class="n w">{{.Health.Count}}</i>{{end}}</button>{{end}}
+  <button type="button" data-bt-open="network">{{template "bt-ic" "network"}}<span>Network</span></button>
+  <button type="button" data-bt-open="location">{{template "bt-ic" "location"}}<span>Location</span></button>
+  <button type="button" data-bt-open="about">{{template "bt-ic" "about"}}<span>About</span></button>
+  {{if not .IsOwner}}<hr><button type="button" data-bt-open="notes">{{template "bt-ic" "notes"}}<span>Notes</span>{{if .Notes}}<i class="n d" aria-label="has a note"></i>{{end}}</button>{{end}}
+</nav>
+<div class="bt-scrim" id="bt-scrim"></div>
+<div class="bt-sheet-h" id="bt-sheet-h"><h2 class="bt-ttl" id="bt-ttl"></h2><span class="bt-esc">Esc</span><button type="button" class="bt-x" id="bt-x" aria-label="Close panel">✕</button></div>
+<div class="ovd bt-wrap"><div class="ovb" id="bt">
+  <section class="ovb-c ovb-health" aria-labelledby="bt-h">
+    <div class="ovb-ch"><h2 id="bt-h">Device health</h2><span class="sp"></span><button type="button" class="ovb-pill {{$bv.Tone}}" style="border:0;cursor:pointer" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))" title="Open Health">{{$bv.Score}}</button></div>
+    {{if $bv.HasRing}}<svg class="ovb-radar" viewBox="-125 -112 250 230" role="img" aria-label="Device health by part">
+      {{range $bv.Radar.Rings}}<polygon class="g" points="{{.}}"/>{{end}}
+      {{range $bv.Radar.Axes}}<line class="g" x1="0" y1="0" x2="{{index . 0}}" y2="{{index . 1}}"/>{{end}}
+      <polygon class="a" points="{{$bv.Radar.Area}}"/>
+      {{range $bv.Radar.Dots}}<circle class="d" cx="{{index . 0}}" cy="{{index . 1}}" r="3.5"/>{{end}}
+      {{range $bv.Radar.Labels}}<text x="{{.X}}" y="{{.Y}}" text-anchor="middle">{{.N}}</text>{{end}}
+    </svg>{{end}}
+    <ol class="ovb-parts">{{range $bv.Parts}}
+      <li><a role="button" tabindex="0" title="{{.Why}}" onclick="setDeviceTab('{{.Tab}}', document.getElementById('dd-tab-{{.Tab}}'))" onkeydown="if(event.key==='Enter'){this.click()}"><span class="k">{{.N}}</span>{{.Name}}<span class="lead"></span><span class="ovb-pill {{.Tone}}">{{.Pct}}%</span></a></li>{{end}}
+    </ol>
+  </section>
 
+  <section class="ovb-c ovb-hero" aria-labelledby="bt-t">
+    <div class="ovb-ch"><h2 id="bt-t">Today</h2><span class="sp"></span>
+      <span class="ovb-seg" role="tablist" id="bt-tabs">
+        <button type="button" role="tab" class="on" data-bt-tab="graph">Graph</button>
+        <button type="button" role="tab" data-bt-tab="needs">Needs{{if .Needs}} · {{len .Needs}}{{end}}</button>
+        {{if not .IsOwner}}<button type="button" role="tab" data-bt-tab="activity">Activity</button>
+        <button type="button" role="tab" data-bt-tab="apps">Apps{{with .HostApp}}{{if .Count}} · {{.Count}}{{end}}{{end}}</button>{{end}}
+      </span><span class="sp"></span></div>
+    <div class="ovb-t2">
+      <div class="ovb-pane bt-pane-g" data-bt-pane="graph">
+        <div class="ovb-list bt-railbox" role="listbox" aria-label="Metric">
+          {{range vitalCols .Device .ShowBattery .ChargerFlapping .PadState}}<button type="button" class="ovb-li bt-rail{{if eq .Key "battery"}} on{{end}}" data-bt-metric="{{.Key}}" title="{{.Label}} · {{.Value}} · {{.Sub}}"><span class="ovb-dot {{if eq .Tone "warn"}}o{{else if eq .Tone "danger"}}r{{else if eq .Tone "muted"}}c{{end}}"></span><b>{{.Value}}</b><small>{{.Label}}</small></button>{{end}}
+        </div>
+        <div class="ovb-dets"><div class="ovb-det"><div class="bt-slot" id="bt-graph-slot"></div></div></div>
+      </div>
+      <div class="ovb-pane" data-bt-pane="needs" hidden>
+        {{if .Needs}}
+        <div class="ovb-list" role="listbox" aria-label="Needs a look">{{range $i, $n := .Needs}}<button type="button" class="ovb-li{{if eq $i 0}} on{{end}}" data-bt-pick="{{$i}}"><span class="ovb-dot {{if eq $n.Tone "bad"}}r{{else if eq $n.Tone "warn"}}o{{else}}y{{end}}"></span><span class="tx"><b>{{$n.Title}}</b>{{with $n.Why}}<small>{{.}}</small>{{end}}</span></button>{{end}}</div>
+        <div class="ovb-dets">{{range $i, $n := .Needs}}<div class="ovb-det" data-bt-det="{{$i}}"{{if ne $i 0}} hidden{{end}}>
+          <div><span class="ovb-tag {{if eq $n.Tone "bad"}}r{{else if eq $n.Tone "warn"}}o{{else}}y{{end}}">{{if eq $n.Tone "bad"}}Needs action{{else if eq $n.Tone "warn"}}Warning{{else}}Note{{end}}</span></div>
+          {{template "dd-todo-rows" (dict "Items" (needOne $n) "AdbOK" (and (canAdmin $.Role) (or $.Security.CanAdbTCP $.IsDPC)) "OnHealth" false "Serial" $.Device.SerialNumber "RoleOK" (canOperate $.Role))}}
+        </div>{{end}}</div>
+        {{else}}<div class="ovb-emptyc"><span class="ovb-tag g">All clear</span><p class="ovb-big">Nothing needs a look. This device is fine.</p></div>{{end}}
+      </div>
+      {{if not .IsOwner}}
+      <div class="ovb-pane" data-bt-pane="activity" hidden style="grid-template-columns:1fr">
+        <div class="ovb-dets" style="display:flex;flex-direction:column"><div class="bt-recent" id="bt-recent" hx-target="this" hx-get="/devices/{{.Device.SerialNumber}}/timeline?recent=1" hx-select="unset" hx-trigger="load" hx-swap="innerHTML"><p class="ovb-sub">Loading…</p></div>
+          <div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('activity', document.getElementById('dd-tab-activity'))"><span class="cta-t">All activity</span></a></div></div>
+      </div>
+      <div class="ovb-pane" data-bt-pane="apps" hidden>
+        {{with .HostApp}}{{if .Active.Package}}
+        <div class="ovb-list" role="listbox" aria-label="Apps"><button type="button" class="ovb-li on" data-bt-pick="0"><span class="ovb-dot {{if eq .Active.Dot "on"}}{{else if eq .Active.Dot "run"}}y{{else}}c{{end}}"></span><span class="tx"><b>{{.Active.Name}}</b><small>{{.Active.Version}} · host app</small></span></button>
+          {{range $i, $o := .Others}}<button type="button" class="ovb-li" data-bt-pick="{{add $i 1}}"><span class="ovb-dot c"></span><span class="tx"><b>{{$o.Name}}</b><small>{{$o.Version}}{{if $o.Env}} · {{$o.Env}}{{end}}</small></span></button>{{end}}</div>
+        <div class="ovb-dets"><div class="ovb-det" data-bt-det="0"><div><span class="ovb-tag">Host app</span></div><p class="ovb-big">{{.Active.Name}}{{if .Active.Version}} {{.Active.Version}}{{end}}</p><p class="ovb-sub">{{.State}}{{if .Today}} · {{.Today}} on screen today{{end}}</p>
+          <div class="ovb-facts"><div class="ovb-fact"><b>{{or .Today "—"}}</b><span>on screen today</span></div><div class="ovb-fact"><b>{{or .Memory "—"}}</b><span>memory</span></div><div class="ovb-fact"><b>{{.Problems}}</b><span>problems (24 h)</span></div></div>
+          <div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>
+          {{range $i, $o := .Others}}<div class="ovb-det" data-bt-det="{{add $i 1}}" hidden><div><span class="ovb-tag y">Variant</span></div><p class="ovb-big">{{$o.Name}}{{if $o.Version}} {{$o.Version}}{{end}}</p><p class="ovb-sub">{{$o.Package}}</p><div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>{{end}}</div>
+        {{else}}<div class="ovb-emptyc"><span class="ovb-tag y">No host app</span><p class="ovb-big">This device reports no host app.</p><div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>{{end}}
+        {{else}}<div class="ovb-emptyc"><span class="ovb-tag y">Apps</span><p class="ovb-big">Installed apps, what is on screen and resource use.</p><div class="bt-acts"><a class="ovb-btn cta-g" role="button" onclick="setDeviceTab('apps', document.getElementById('dd-tab-apps'))"><span class="cta-t">Open Apps</span></a></div></div>{{end}}
+      </div>
+      {{end}}
+    </div>
+  </section>
+
+  {{if .Needs}}<a class="ovb-promo" role="button" tabindex="0" onclick="btTab('needs')"><b>{{len .Needs}} thing{{if ne (len .Needs) 1}}s{{end}}<br>need{{if eq (len .Needs) 1}}s{{end}} a look</b><span class="ovb-btn w">Open</span><span class="big" aria-hidden="true">{{len .Needs}}</span></a>
+  {{else}}<a class="ovb-promo" role="button" tabindex="0" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))"><b>Everything<br>is running</b><span class="ovb-btn w">Open Health</span><span class="big" aria-hidden="true">✓</span></a>{{end}}
+
+  {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}{{$hasPad := and .WlcApplicable $wlcS (ne $wlcS "—")}}
+  {{if not $hasPad}}<section class="ovb-c" aria-labelledby="bt-v">
+    <div class="ovb-ch"><h2 id="bt-v">Vitals</h2></div>
+    <div class="ovb-rings">{{range $bv.Rings}}<a class="ovb-ring" role="button" tabindex="0" onclick="setDeviceTab('{{.Tab}}', document.getElementById('dd-tab-{{.Tab}}'))"><svg viewBox="0 0 82 82" role="img" aria-label="{{.Label}} {{.Text}}"><circle class="bg" cx="41" cy="41" r="33"/><circle class="fg {{.Tone}}" cx="41" cy="41" r="33" stroke-dasharray="{{.Dash}} {{.Circ}}"/><text x="41" y="45" text-anchor="middle">{{.Text}}</text></svg>{{.Label}}</a>{{end}}</div>
+  </section>{{end}}
+
+  <section class="ovb-c bt-details" aria-labelledby="bt-d">
+    <div class="ovb-ch"><h2 id="bt-d">Details</h2></div>
+    <div class="bt-place" id="bt-place"></div>
+    <div class="bt-dl">
+      <div><span>Status</span><b>{{if .Online}}Online{{else}}Offline · {{timeSince .Device.LastSeenAt}}{{end}}</b></div>
+      {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<div><span>Up</span><b>{{$up}}</b></div>{{end}}
+      {{if .Device.BuildID}}<div><span>Build</span><b>{{.Device.BuildID}}</b></div>{{end}}
+    </div>
+  </section>
+
+  {{if $hasPad}}<section class="ovb-c bt-pad" aria-labelledby="bt-p">
+    <div class="ovb-ch"><h2 id="bt-p">Charging pad</h2></div>
+    <div id="bt-pad-slot"></div>
+  </section>{{end}}
+</div></div>
+<script>(function(){
+  var root=document.getElementById('bt');if(!root)return;
+  window.btTab=function(k){
+    root.querySelectorAll('[data-bt-tab]').forEach(function(b){var on=b.dataset.btTab===k;b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false')});
+    root.querySelectorAll('[data-bt-pane]').forEach(function(p){p.hidden=p.dataset.btPane!==k});
+    if(k==='graph')window.dispatchEvent(new Event('resize'));
+  };
+  document.getElementById('bt-tabs').addEventListener('click',function(e){var b=e.target.closest('[data-bt-tab]');if(b)btTab(b.dataset.btTab)});
+  root.addEventListener('click',function(e){
+    var m=e.target.closest('[data-bt-metric]');
+    if(m){var map={battery:'battery',temp:'temp',ram:'ram',wifi:'net',power:'battery'},t=map[m.dataset.btMetric];
+      m.parentNode.querySelectorAll('.ovb-li').forEach(function(x){x.classList.toggle('on',x===m)});
+      if(t&&window.setChartTab)setChartTab(t);return}
+    var p=e.target.closest('[data-bt-pick]');
+    if(p){var pane=p.closest('[data-bt-pane]'),i=p.dataset.btPick;
+      pane.querySelectorAll('[data-bt-pick]').forEach(function(x){x.classList.toggle('on',x===p)});
+      pane.querySelectorAll('[data-bt-det]').forEach(function(d){d.hidden=d.dataset.btDet!==i})}
+  });
+  /* Notes log filters (delegated: the card is re-rendered by htmx) */
+  document.addEventListener('click',function(e){var b=e.target.closest('.bt-nl-f [data-nlf]');if(!b)return;var card=b.closest('.bt-nl'),k=b.dataset.nlf;
+    if(k==='auto'){b.classList.toggle('on')}else{card.querySelectorAll('.bt-nl-f [data-nlf]:not([data-nlf=auto])').forEach(function(x){x.classList.toggle('on',x===b)})}
+    var kind=(card.querySelector('.bt-nl-f [data-nlf].on:not([data-nlf=auto])')||{dataset:{nlf:'all'}}).dataset.nlf,auto=card.querySelector('[data-nlf=auto]').classList.contains('on');
+    card.querySelectorAll('.bt-nl-list li[data-kind]').forEach(function(li){var a=li.dataset.kind==='auto';li.style.display=(a?auto:(kind==='all'||li.dataset.kind===kind))?'':'none'})});
+  /* what the old strip and tab-row carried moves into the tiles: the client pill, the venue
+     and groups rows into Details, the charging pad card into its tile (same elements, so their
+     popovers and the wlc switch keep working) */
+  var slot=document.getElementById('bt-place'),cp=document.querySelector('.dd-facts .cpill-wrap'),pl=document.querySelector('.dd-facts .dd-place');
+  if(slot){if(cp)slot.appendChild(cp);if(pl)slot.appendChild(pl)}
+  var pc=document.getElementById('charging-pad-card'),ps=document.getElementById('bt-pad-slot');if(pc&&ps)ps.appendChild(pc);
+  var KEYS=['apps','activity','health','network','location','about','notes','graphs'],NAMES={apps:'Apps',activity:'Activity',health:'Health',network:'Network',location:'Location',about:'About',notes:'Notes',graphs:'Graphs'};
+  function init(){
+  var dock=document.getElementById('bt-dock'),ttl=document.getElementById('bt-ttl'),open=null;
+  var avail=KEYS.filter(function(k){return document.getElementById('dd-panel-'+k)&&dock.querySelector('[data-bt-open="'+k+'"]')});
+  function openPanel(k){if(window.setDeviceTab)setDeviceTab(k,document.getElementById('dd-tab-'+k))}
+  function closePanel(){if(window.setDeviceTab)setDeviceTab('summary',document.getElementById('dd-tab-summary'))}
+  function sync(){var o=null;KEYS.forEach(function(k){var p=document.getElementById('dd-panel-'+k);if(p&&!p.hidden)o=k});
+    open=o;document.body.classList.toggle('bt-sheet-open',!!o);
+    if(o==='location'){setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}
+    /* the graph card lives in the Today pane, and in the Graphs sheet while that is open */
+    var home=document.getElementById('bt-graph-slot'),big=document.getElementById('bt-graphs-slot'),card=document.querySelector('.chart-card'),leg=document.getElementById('vt-legend');
+    if(home&&big&&card){var want=(o==='graphs')?big:home;if(card.parentNode!==want){want.appendChild(card);if(leg)want.appendChild(leg);setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}}
+    dock.querySelectorAll('[data-bt-open]').forEach(function(b){b.classList.toggle('on',b.dataset.btOpen===o)});
+    ttl.textContent=o?NAMES[o]:''}
+  document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&dock.contains(b)){if(b.dataset.btOpen===open)closePanel();else openPanel(b.dataset.btOpen);return}
+    if(e.target.id==='bt-scrim'||e.target.closest('#bt-x'))closePanel()});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open&&!e.defaultPrevented)closePanel()});
+  /* the graph card's "full screen" button opens the Graphs sheet instead of the browser's full screen (capture: ahead of vitals.js) */
+  var fs=document.getElementById('chart-fs-btn');if(fs){fs.title='Open the graphs in a larger view';fs.setAttribute('aria-label','Open the graphs in a larger view');
+    document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#chart-fs-btn')){e.stopPropagation();e.preventDefault();if(open==='graphs')closePanel();else openPanel('graphs')}},true)}
+  /* the panels that fetch their content when first shown (Activity, Health, …) are warmed up in the
+     background, so the sheet opens with its content instead of an empty frame that fills in later */
+  setTimeout(function(){if(!window.htmx)return;document.querySelectorAll('.dd-panel[data-dd-panel="activity"],.dd-panel[data-dd-panel="health"],.dd-panel[data-dd-panel="apps"]').forEach(function(p){
+    var lz=p.hasAttribute('hx-get')?[p]:[].slice.call(p.querySelectorAll(':scope > [hx-trigger^="dd-show"]'));
+    lz.forEach(function(l){window.htmx.process(l);window.htmx.trigger(l,'dd-show')})})},1200);
+  /* Apps sheet, S2 (user, 18 Nov 2026): the list on the left, the picked app explained on the right
+     (the host app card stays above it). Rows keep their markup and handlers; a click on a row selects
+     it here instead of opening the info popup, which is one button away ("Details…"). The list is
+     re-rendered by htmx, so the selection is re-applied after each settle. */
+  (function(){var apps=document.getElementById('dd-panel-apps'),box=document.getElementById('bt-app-detail');if(!apps||!box)return;var cur='';
+    function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+    function rows(){return [].slice.call(apps.querySelectorAll('.app-row.app-tile:not(.app-installing)'))}
+    function render(r){cur=r?r.getAttribute('data-pkg'):'';rows().forEach(function(x){x.classList.toggle('bt-on',x===r)});
+      if(!r){box.innerHTML='<p class="muted">No apps to show.</p>';return}
+      var name=r.getAttribute('data-name'),pkg=r.getAttribute('data-pkg'),ver=r.getAttribute('data-ver'),sys=r.getAttribute('data-sys')==='1',role=r.getAttribute('data-roleapp')==='1';
+      var ic=r.querySelector('.app-icon,.app-mono'),icon=ic?ic.outerHTML:'',fig=(r.querySelector('.apl-fig')||{}).textContent||'—',pct=(r.querySelector('.apl-bar2 i')||{style:{width:'0'}}).style.width,fol=r.querySelector('.dd-fchip'),use=r.getAttribute('data-use')||'';
+      var rm=r.querySelector('button.app-x:not(.app-x-lock)');
+      box.innerHTML='<div class="bt-ad-h"><span class="bt-ad-ic">'+icon+'</span><div><div class="bt-ad-n">'+esc(name)+'</div><div class="bt-ad-p">'+esc(pkg)+(ver?' · '+esc(ver):'')+'</div></div><span class="ovb-tag'+(role?'':' n')+'">'+(role?'Role app':sys?'System':'User app')+'</span></div>'+
+        '<div class="ovb-facts"><div class="ovb-fact"><b>'+esc(fig)+'</b><span>in this window</span></div>'+(use?'<div class="ovb-fact"><b>'+esc(use)+'</b><span>use</span></div>':'')+'<div class="ovb-fact"><b>'+(sys?'System':'User')+'</b><span>type</span></div></div>'+
+        '<div class="bt-ad-bar"><i style="width:'+esc(pct)+'"></i></div>'+(fol?'<p class="ovb-sub">'+esc(fol.textContent)+'</p>':'')+
+        '<div class="bt-ad-acts"><button type="button" class="ovb-btn cta-g" data-bt-info><span class="cta-t">Details…</span></button>'+(rm?'<button type="button" class="ovb-btn l" data-bt-rm>Remove</button>':'')+'</div>'}
+    function reselect(){var r=rows();var m=r.filter(function(x){return x.getAttribute('data-pkg')===cur})[0]||r[0];render(m)}
+    apps.addEventListener('click',function(e){var row=e.target.closest('.app-row.app-tile');if(row&&!e.target.closest('.app-x-form')&&apps.contains(row)&&!row.classList.contains('app-installing')){e.stopPropagation();e.preventDefault();render(row);return}
+      var b=e.target.closest('[data-bt-info],[data-bt-rm]');if(b){var r=rows().filter(function(x){return x.getAttribute('data-pkg')===cur})[0];if(!r)return;if(b.hasAttribute('data-bt-info')&&window.appInfoOpen)appInfoOpen(r);else{var x=r.querySelector('button.app-x:not(.app-x-lock)');if(x)x.click()}}},true);
+    document.body.addEventListener('htmx:afterSettle',function(e){if(apps.contains(e.target)||e.target.id==='apps-live')reselect()});
+    setTimeout(reselect,1500);reselect()})();
+  /* Activity sheet, AC2: pick an event on the left, see it explained on the right (rows are re-rendered by htmx) */
+  (function(){var act=document.getElementById('dd-panel-activity'),box=document.getElementById('bt-act-detail');if(!act||!box)return;
+    function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+    function show(row){act.querySelectorAll('.ddc-tl.bt-on').forEach(function(x){x.classList.remove('bt-on')});row.classList.add('bt-on');
+      var dot=row.querySelector('.dot'),cls=dot?(dot.classList.contains('ok')?'g':dot.classList.contains('err')?'r':dot.classList.contains('warn')?'y':'n'):'n',tag=cls==='g'?'Done':cls==='r'?'Failed':cls==='y'?'In progress':'Change';
+      var main=row.querySelector('.ddc-tl-main'),when=row.querySelector('.when'),id=row.getAttribute('data-cmd-id'),href=row.getAttribute('href'),title=(row.querySelector('.ddc-tl-main b')||main||{}).textContent||'',ser='{{.Device.SerialNumber}}';
+      var shot=/screenshot/i.test(title)&&id?'<img alt="Screenshot" style="max-width:100%;max-height:230px;border-radius:12px;align-self:flex-start" src="/commands/'+esc(id)+'/screenshot/'+encodeURIComponent(ser)+'" onerror="this.remove()">':'';
+      box.innerHTML='<div><span class="ovb-tag '+(cls==='r'?'r':cls==='y'?'y':'')+'">'+tag+'</span></div><div class="ovb-big" style="font-size:20px;margin:0">'+esc(title)+'</div><div class="bt-ad-meta">'+(main?main.innerHTML:'')+'</div><div class="bt-ad-meta">'+(when?esc(when.getAttribute('title')||when.textContent):'')+'</div>'+shot+(href?'<div class="bt-ad-acts"><a class="ovb-btn cta-g" href="'+esc(href)+'"><span class="cta-t">Open command</span></a></div>':'')}
+    act.addEventListener('click',function(e){var row=e.target.closest('.ddc-tl');if(!row||!act.contains(row)||e.target.closest('#bt-act-detail'))return;if(e.target.closest('a.link-detail'))return;e.preventDefault();e.stopPropagation();show(row)},true)})();
+  /* Health sheet, H1: two columns. The card's children are siblings, so they are gathered into a left
+     column (status, alert history) and a right one (what needs a look, compliance) */
+  (function(){var c=document.querySelector('#dd-panel-health .dh-card');if(!c||c.querySelector(':scope > .bt-hl'))return;var l=document.createElement('div'),r=document.createElement('div');l.className='bt-hl';r.className='bt-hr';
+    var kids=[].slice.call(c.children),det=kids.filter(function(k){return k.tagName==='DETAILS'});
+    kids.forEach(function(k){if(k.classList.contains('card-header')||k===det[1])l.appendChild(k);else r.appendChild(k)});c.appendChild(l);c.appendChild(r)})();
+  /* About sheet, AB2: the admin actions sit with the device they act on (the same dialogs as the page menu) */
+  (function(){var ag=document.querySelector('#dd-panel-about .about-grid'),mv=document.getElementById('move-server-dlg'),kr=document.getElementById('key-reset-dlg');if(!ag||!(mv||kr))return;
+    var d=document.createElement('div');d.className='ddc-card bt-aboutacts';d.innerHTML='<div class="bt-aa-h">Actions</div><div class="bt-aa-b">'+(mv?'<button type="button" class="chip" data-aa="mv">Move to another server…</button>':'')+(kr?'<button type="button" class="chip" data-aa="kr">Reset device key…</button>':'')+'</div>';ag.appendChild(d);
+    d.addEventListener('click',function(e){var b=e.target.closest('[data-aa]');if(!b)return;var dl=document.getElementById(b.dataset.aa==='mv'?'move-server-dlg':'key-reset-dlg');if(dl&&dl.showModal)dl.showModal()})})();
+  /* background load of what the Health sheet fetches on first view */
+  setTimeout(function(){if(!window.htmx)return;var c=document.querySelector('#dd-panel-health [hx-trigger^="intersect"]'),a=document.querySelector('#dd-panel-health details.dh-fold:nth-of-type(2)');
+    if(c){window.htmx.process(c);window.htmx.trigger(c,'intersect')}
+    if(a){a.open=true;var l=a.querySelector('[hx-trigger^="toggle"]');if(l){window.htmx.process(l);a.dispatchEvent(new Event('toggle'))}}},1500);
+  var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
+  sync();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();</script>
+{{end}}
 <style>
 /* Vitals card: stacked charts, range dropdown, navigator (see the comment in the card). */
 /* Battery fault (G1, 21 Oct 2026): the no-pack note over the hatched band, the tab's dot. */
@@ -1172,6 +1408,7 @@
     </div>
   </div>
 
+{{if .Bento}}<script>(function(){var s=document.getElementById('bt-graph-slot'),c=document.querySelector('#dd-panel-summary .chart-card'),l=document.getElementById('vt-legend');if(s&&c){s.appendChild(c);if(l)s.appendChild(l);}})();</script>{{end}}
 <script>
 // The vitals charts' data, read by static/js/device/vitals.js.
 window.DEVICE_VITALS = {
@@ -1202,6 +1439,8 @@ window.DEVICE_VITALS = {
 <script src="/static/js/device/vitals.js?v={{assetVer}}"></script>
 
 </section><!-- /summary -->
+{{if .Bento}}<section class="dd-panel" data-dd-panel="graphs" id="dd-panel-graphs" hidden aria-label="Graphs"><div class="bt-slot" id="bt-graphs-slot"></div></section>
+<section class="dd-panel" data-dd-panel="notes" id="dd-panel-notes" hidden aria-label="Notes">{{template "device-notes" .}}</section>{{end}}
 
 <section class="dd-panel" data-dd-panel="about" id="dd-panel-about" role="tabpanel" aria-labelledby="dd-tab-about" tabindex="0" hidden>
   <div class="about-grid">
@@ -1210,17 +1449,6 @@ window.DEVICE_VITALS = {
          — which was previously recorded only in the global audit log and could not be
          traced back to a device at all. */}}
     {{if .IsOwner}}{{template "dd-audit" .}}{{end}}
-    {{/* Roles replan (30 Oct 2026): a device setting up shows its checklist and Hand over;
-         an engineer at a venue's device only looks (device_handover.go, access.go). */}}
-    {{with .HandOver}}{{if eq .State "setting_up"}}
-    <div class="dd-needs dd-setup" id="dd-setup">
-      <div class="dd-nh">Setting up at {{.VenueName}}</div>
-      <div class="dd-nr"><span class="dd-nd {{if .Ready}}ok{{end}}" aria-hidden="true"></span>
-        <span class="dd-nt">{{if .Ready}}Ready to hand over{{else}}Not ready yet{{end}}<small>{{range .Checks}}<span class="cc-tag {{if .OK}}ok{{end}}" style="margin-right:4px">{{if .OK}}✓{{else}}·{{end}} {{.Label}}</span>{{end}}{{range .Checks}}{{if not .OK}} {{.Fix}}.{{end}}{{end}}</small></span>
-        {{if .CanHand}}<form method="POST" action="/devices/{{$.Device.SerialNumber}}/handover" hx-boost="false" style="margin:0"><button type="submit" class="cc-btn sm{{if .Ready}} primary{{end}}"{{if not .Ready}} disabled title="Finish the checklist first"{{end}}>Hand over</button></form>{{end}}
-      </div>
-    </div>
-    {{end}}{{end}}
     {{if .LookOnly}}{{/* View access here (access by levels, 2 Nov 2026): why, and who can operate it. */}}
     <div class="dd-needs" id="dd-look">
       <div class="dd-nh">View only</div>
@@ -1575,6 +1803,7 @@ window.DEVICE_VITALS = {
       {{template "device-apps-list" .}}
     </div>
   </div>
+  {{if .Bento}}<div class="card bt-appd" id="bt-app-detail" aria-live="polite"></div>{{end}}
 </section>
 {{end}}
 
@@ -1622,6 +1851,7 @@ window.DEVICE_VITALS = {
        partial carries its own live-refresh attributes while a command is unfinished. */}}
   <div hx-get="/devices/{{.Device.SerialNumber}}/timeline" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
        class="muted small" style="padding:26px;text-align:center;">Loading activity…</div>
+  {{if .Bento}}<div class="card bt-actd" id="bt-act-detail" aria-live="polite"><p class="muted">Pick an event to see it here.</p></div>{{end}}
 </section><!-- /activity -->
 {{/* Moved under the split by split.js and loaded when it is first shown (G3). Its own
      target and select: inherited ones made the card replace the whole page. */}}
@@ -1638,6 +1868,7 @@ window.DEVICE_VITALS = {
 #device-timeline .app-more{margin:4px 14px 12px;width:calc(100% - 28px)}</style>
 {{end}}
 <script src="/static/js/device/queue-badge.js?v={{assetVer}}"></script>
+<script src="/static/js/device/net-n1.js?v={{assetVer}}"></script>
 
 {{if not .IsOwner}}
 {{/* Health (T1, picked 19 Oct 2026): what needs attention — open alerts and failing
@@ -1657,8 +1888,8 @@ window.DEVICE_VITALS = {
     <details class="dh-fold" open><summary>Compliance checklist <span class="muted">· {{if $hv.Scored}}{{$hv.Passing}} of {{$hv.Scored}} pass{{else}}not checked{{end}}</span></summary>
       <div hx-get="/devices/{{.Device.SerialNumber}}/compliance" hx-trigger="intersect once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
         <div class="muted small" style="padding:18px;text-align:center;">Loading compliance…</div></div></details>
-    <details class="dh-fold"><summary>Alert history</summary>
-      <div hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="toggle once from:closest details" hx-select="unset" hx-target="this" hx-swap="innerHTML">
+    <details class="dh-fold" open><summary>Alert history</summary>
+      <div hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="intersect once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
         <div class="muted small" style="padding:18px;text-align:center;">Loading alerts…</div></div></details>
   </div>
   <style>
@@ -1947,7 +2178,7 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
 </style>
 {{/* The divider's position for this person (null = the default). split.js */}}
 <script>window.DD_SPLIT = {{if .DeviceSplit}}{{.DeviceSplit}}{{else}}null{{end}};</script>
-<script src="/static/js/device/split.js?v={{assetVer}}"></script>
+{{if not .Bento}}<script src="/static/js/device/split.js?v={{assetVer}}"></script>{{end}}
 </div><!-- /ddc-body -->
 </div><!-- /device-detail -->
 
@@ -2141,8 +2372,8 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
   {{end}}
   {{range $L.User}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" false)}}{{end}}
   {{if $L.System}}
-  {{/* Folded into one line (A2, 5 Nov 2026); a search opens it. */}}
-  <details class="apl-sys" id="apps-sys"><summary id="apps-sys-sep">System apps <span class="muted">{{len $L.System}}</span></summary>
+  {{/* Always open: nothing on this list folds (18 Nov 2026, user). */}}
+  <details class="apl-sys" id="apps-sys" open><summary id="apps-sys-sep">System apps <span class="muted">{{len $L.System}}</span></summary>
   {{range $L.System}}{{template "dd-app-row" (dict "R" . "Root" $ "Sys" true)}}{{end}}
   </details>
   {{end}}

@@ -48,7 +48,7 @@ func (h *Handler) BulkNickname(w http.ResponseWriter, r *http.Request) {
 		}
 		name := strings.NewReplacer("{n}", strconv.Itoa(start+i), "{serial}", serial, "{last4}", last4).Replace(pattern)
 		if len(name) > 40 {
-			name = name[:40]
+			name = truncRunes(name, 40)
 		}
 		if err := h.db.SetNickname(r.Context(), device.ID, name); err != nil {
 			continue

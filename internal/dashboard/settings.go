@@ -614,10 +614,3 @@ func (h *Handler) movedSettings(r *http.Request) map[string]any {
 	}
 	return h.settingsData(r)
 }
-
-// ReleasesSettingsPage is GET /releases/settings: the OTA cards that were Settings ›
-// Devices (S1, 24 Oct 2026).
-func (h *Handler) ReleasesSettingsPage(w http.ResponseWriter, r *http.Request) {
-	st := h.settingsData(r)
-	h.render(w, r, "releases_settings.html", map[string]any{"Title": "Update settings", "ActivePage": "updates", "St": st})
-}

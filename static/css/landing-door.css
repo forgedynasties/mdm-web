@@ -1,0 +1,21 @@
+/* Landing page (LP4 "The door", picked 19 Nov 2026): one centred card on a faint dot grid. */
+body.ld{background:radial-gradient(circle at 1px 1px,color-mix(in srgb,var(--text) 14%,transparent) 1px,transparent 1.5px) 0 0/26px 26px,var(--canvas,var(--bg))}
+.ld-door{background:var(--surface);border-radius:32px;padding:44px 52px 34px;width:560px;max-width:100%;text-align:center;box-shadow:0 24px 60px rgba(20,20,40,.1);display:flex;flex-direction:column;align-items:center}
+.ld-shield{width:72px;height:72px;border-radius:22px;box-shadow:0 10px 30px color-mix(in srgb,#7A80F6 35%,transparent)}
+.ld-door h1{font-size:40px;font-weight:650;letter-spacing:-.02em;margin:22px 0 0;color:var(--text)}
+.ld-promise{max-width:400px;margin:12px 0 0;font-size:15px;line-height:1.5;color:var(--text-2)}
+.ld-acts{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;margin-top:26px}
+.ld-acts .cta-g{width:100%;max-width:340px;justify-content:space-between}
+.ld-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.ld-ms{width:auto;padding:0 20px}
+.ld-ghost{display:inline-flex;align-items:center;min-height:42px;padding:0 22px;border-radius:99px;background:var(--surface);border:1px solid var(--border);font-size:14px;font-weight:600;color:var(--text);text-decoration:none}
+.ld-ghost:hover{background:var(--surface2)}
+.ld-fam{display:flex;gap:10px;margin-top:30px;padding-top:22px;border-top:1px solid var(--border-soft);width:100%;justify-content:center}
+.ld-fam span{width:44px;height:44px;padding:10px;border-radius:14px;background:var(--surface2);color:var(--text-2);display:block;transition:.2s}
+.ld-fam span:hover{color:var(--accent-text);background:var(--accent-soft);transform:translateY(-3px)}
+.ld-fam svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ld-cap{font-size:11.5px;color:var(--muted);margin-top:12px}
+.ld-theme{position:fixed;top:18px;right:18px;width:40px;height:40px;border-radius:50%;background:var(--surface);border:0;display:grid;place-items:center;color:var(--text);cursor:pointer}
+.ld-theme svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ld-theme .moon{display:none}html[data-theme="dark"] .ld-theme .moon{display:block}html[data-theme="dark"] .ld-theme .sun{display:none}
+@media (max-width:720px){body.ld.au1{align-items:center;padding:14px}.ld-door{padding:30px 22px 24px;border-radius:26px}.ld-door h1{font-size:30px}.ld-fam{gap:6px}.ld-fam span{width:38px;height:38px;padding:8px;border-radius:12px}}

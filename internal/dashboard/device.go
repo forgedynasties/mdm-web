@@ -32,7 +32,7 @@ func (h *Handler) DeviceSetNickname(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.TrimSpace(r.FormValue("nickname"))
 	if len(name) > 40 {
-		name = name[:40]
+		name = truncRunes(name, 40)
 	}
 	if err := h.db.SetNickname(r.Context(), device.ID, name); err != nil {
 		http.Error(w, "Could not save", http.StatusInternalServerError)
@@ -552,11 +552,29 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	fwModes, _ := h.db.FirmwareModes(r.Context())
 	sec := h.securityFor(r.Context(), device)
 	devRole := h.deviceRoleOf(r.Context(), device)
+	isBento := h.deviceViewName(r) == "bento"
+	var bento bentoView
+	if isBento {
+		online := h.hub.IsConnectedForDisplay(device.ID)
+		showBat := device.HasBattery() && deviceReportsBattery(device, chartCheckins)
+		pad := padState(device, h.cfg.WlcApplies(device.ProductKey()), kioskCfg.WlcChargingEnabled)
+		cols := vitalColumns(device, showBat, flapRate > 10, pad)
+		au := h.agentUpdateFor(r, device)
+		ksusp := kioskCfg.KioskEnabled && extraBoolField(device.LatestExtra, "kiosk_suspended")
+		bento = deviceBentoOf(device, online, health, cols, device.Supports("kiosk_set") && device.DeployedEffective, kioskCfg.KioskEnabled && !ksusp, !au.Available)
+	}
 	h.render(w, r, h.deviceViewTemplate(r), map[string]any{
+		"Bento":   isBento, // the Overview as tiles (device_bento)
+		"NoteLog": func() []noteLogItem {
+			if !isBento {
+				return nil
+			}
+			return h.noteLogFor(ctx, r, device)
+		}(),
+		"BentoV":  bento,
 		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
 		"LookOnly":     lookOnly,
 		"Look":         look,
-		"HandOver":     h.deviceHandOverView(r, device, kioskCfg != nil && kioskCfg.KioskEnabled),
 		"Title":  device.SerialNumber,
 		"DeviceSplit": h.displayPrefs(r).DeviceSplit, // the divider, per person
 		"Needs":  deviceTodoOf(append(roleNeeds(devRole, device), deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10)...), health),
@@ -704,6 +722,7 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.audit(r, "device.remote_open", device.SerialNumber, "remote control opened")
 	h.render(w, r, "remote.html", map[string]any{
 		"Title":  "Remote — " + device.SerialNumber,
 		"Serial": device.SerialNumber,
@@ -711,7 +730,7 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		"Device": device,
 		// Single-use, short-lived token instead of the admin API key (which must
 		// never reach the browser). The control WebSocket redeems it server-side.
-		"Token": h.remote.IssueToken(device.ID, 2*time.Minute),
+		"Token": h.remote.IssueToken(device.ID, h.currentUsername(r), 2*time.Minute),
 		"Kbd":   remoteKbdLevel(device),
 		// Menu boards (TV boxes) are driven by a remote: the button column beside the
 		// screen becomes a D-pad (P2, picked 22 Oct 2026; user: "for menu board, add a
@@ -754,7 +773,7 @@ func (h *Handler) DeviceRemoteToken(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": h.remote.IssueToken(device.ID, 2*time.Minute)})
+	json.NewEncoder(w).Encode(map[string]string{"token": h.remote.IssueToken(device.ID, h.currentUsername(r), 2*time.Minute)})
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console

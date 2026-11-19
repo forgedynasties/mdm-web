@@ -44,6 +44,7 @@ type Session struct {
 // are the security properties we keep.
 type remoteToken struct {
 	deviceID uuid.UUID
+	user     string
 	expires  time.Time
 }
 
@@ -62,8 +63,8 @@ type Manager struct {
 // TokenStore keeps remote-control tokens where every server copy can redeem them
 // (db.DB). Without one they live in this process's memory, as with a single copy.
 type TokenStore interface {
-	PutRemoteToken(ctx context.Context, token string, deviceID uuid.UUID, ttl time.Duration) error
-	TakeRemoteToken(ctx context.Context, token string) (uuid.UUID, bool, error)
+	PutRemoteToken(ctx context.Context, token string, deviceID uuid.UUID, user string, ttl time.Duration) error
+	TakeRemoteToken(ctx context.Context, token string) (uuid.UUID, string, bool, error)
 }
 
 // SetTokenStore moves tokens into store (scalability plan W5: several copies).
@@ -79,7 +80,9 @@ func New(hub *ws.Hub) *Manager {
 
 // IssueToken mints a single-use token authorizing a remote session for deviceID,
 // valid for ttl. Returns "" only if the system RNG fails.
-func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
+// user is the dashboard account it is minted for: the socket that redeems it must come
+// from that person's session (18 Nov 2026 audit; "" skips that check).
+func (m *Manager) IssueToken(deviceID uuid.UUID, user string, ttl time.Duration) string {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
 		return ""
@@ -88,7 +91,7 @@ func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
 	if m.store != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := m.store.PutRemoteToken(ctx, tok, deviceID, ttl); err != nil {
+		if err := m.store.PutRemoteToken(ctx, tok, deviceID, user, ttl); err != nil {
 			log.Printf("[remote] store token: %v", err)
 			return ""
 		}
@@ -96,7 +99,7 @@ func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
 	}
 	now := time.Now()
 	m.tokenMu.Lock()
-	m.tokens[tok] = remoteToken{deviceID: deviceID, expires: now.Add(ttl)}
+	m.tokens[tok] = remoteToken{deviceID: deviceID, user: user, expires: now.Add(ttl)}
 	for k, v := range m.tokens { // opportunistic sweep of expired entries
 		if now.After(v.expires) {
 			delete(m.tokens, k)
@@ -110,30 +113,30 @@ func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
 // Returns false if the token is unknown or expired. It is deleted on the first lookup
 // (whether or not it had expired), so a leaked token can be used at most once within
 // its short lifetime.
-func (m *Manager) RedeemToken(tok string) (uuid.UUID, bool) {
+func (m *Manager) RedeemToken(tok string) (uuid.UUID, string, bool) {
 	if tok == "" {
-		return uuid.Nil, false
+		return uuid.Nil, "", false
 	}
 	if m.store != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		id, ok, err := m.store.TakeRemoteToken(ctx, tok)
+		id, user, ok, err := m.store.TakeRemoteToken(ctx, tok)
 		if err != nil {
 			log.Printf("[remote] redeem token: %v", err)
 		}
-		return id, ok
+		return id, user, ok
 	}
 	m.tokenMu.Lock()
 	defer m.tokenMu.Unlock()
 	e, ok := m.tokens[tok]
 	if !ok {
-		return uuid.Nil, false
+		return uuid.Nil, "", false
 	}
 	delete(m.tokens, tok)
 	if time.Now().After(e.expires) {
-		return uuid.Nil, false
+		return uuid.Nil, "", false
 	}
-	return e.deviceID, true
+	return e.deviceID, e.user, true
 }
 
 // Start creates a session for the device. Returns an error if a session is

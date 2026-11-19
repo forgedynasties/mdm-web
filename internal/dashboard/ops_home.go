@@ -6,24 +6,21 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/uuid"
-
 	"mdm/internal/db"
 )
 
-// The Ops lead's home (Q1, picked 3 Nov 2026; user: "for ops they should see, by default, yet
-// to assign devices and deployed … a queue for enrolled but not deployed, then they can deploy
-// them to venues assign roles create venues", "the queue page should be their main page").
+// The Ops lead's Setup (Q1, picked 3 Nov 2026; simplified 19 Nov 2026, user: "we dont need this
+// complexity", picked option A "Fleet's twin with an assign bar").
 //
-// GET /visits ("Setup"), Fleet's layout. The left list: To place · Setting up · In service, then
-// Enrollment (Enrolled; the super admin's Profiles, Found on Wi-Fi, From the AIO backend; M1,
-// 3 Nov 2026, the Enrollment page moved in) and the venues. No setup visits (3 Nov 2026):
-// placing deploys, and In service rows have Set up again for when Field must rework one. How to
-// enroll, the Android app and New profile are in the island. To place is the queue (db/placement.go): a row per
-// device with its role, a venue picker and Deploy; tick several to deploy them together or send
-// them to the Lab; "+ New venue…" in the picker creates one and deploys the ticked devices
-// there. Setting up holds the old Setup page's to-dos and each device's checklist and Hand over.
-// Field's own queue (K2) is the same table on My visits (placeRowsFor).
+// GET /setup. A device is Lab, To place or In service; placing it at a venue puts it in service
+// at once, so there is nothing between. The left list: To place, In service, the venues (each
+// a link to Fleet on it; the rail's own search finds one among hundreds), then Enrollment
+// (Enrolled; the super admin's Profiles, Found on Wi-Fi, From the AIO backend). How to enroll,
+// the Android app and New profile are in the island. To place is the queue (db/placement.go): a
+// row per device with its role, a venue picker and Deploy; tick several to deploy them together
+// or send them to the Lab; "+ New venue…" in the picker creates one and deploys the ticked
+// devices there. In service is a read-only list that opens Fleet. Field's own queue (K2) is the
+// same table on /setup/mine (placeRowsFor).
 
 // placeRow is one device in a To place table.
 type placeRow struct {
@@ -55,8 +52,14 @@ func (h *Handler) placeRowsFor(ctx context.Context, devs []db.Device) []placeRow
 	return out
 }
 
-// SetupHome: GET /visits, the Ops lead's home ("Setup"; /setup is an old redirect to Apps).
-// ?view= place (default) | setup | service.
+// svcRow is one In service row (read-only).
+type svcRow struct {
+	Device db.Device
+	Online bool
+}
+
+// SetupHome: GET /setup, the Ops lead's home. ?view= place (default) | service | the
+// Enrollment views.
 func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	if !mayManageVisits(h.role(r)) {
 		http.Error(w, "Setup is the Ops lead's home.", http.StatusForbidden)
@@ -65,67 +68,27 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	view := r.URL.Query().Get("view")
 	switch {
-	case view == "setup" || view == "service":
+	case view == "service":
 	case enrollmentViews[view] && (!superAdminViews[view] || h.role(r) == "admin"):
 	default:
 		view = "place"
 	}
 	queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace}, 0, 2000, "serial", "asc")
-	setting, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateSettingUp}, 0, 2000, "serial", "asc")
-	service, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateInService}, 0, 5000, "serial", "asc")
 	venues, _ := h.db.ListRestaurants(ctx)
 	rows := h.placeRowsFor(ctx, queue)
+	labN, _ := h.db.CountDevices(ctx, db.DeviceFilter{State: db.StateLab})
+	serviceN, _ := h.db.CountDevices(ctx, db.DeviceFilter{State: db.StateInService})
 
-	// Setting up: each device's checklist; the to-dos per venue.
-	type venueAgg struct {
-		ID           uuid.UUID
-		Name         string
-		Total, Ready int
-	}
-	agg := map[uuid.UUID]*venueAgg{}
-	var order []uuid.UUID
-	var setRows []visitDeviceRow
-	ready := 0
-	for i := range setting {
-		d := &setting[i]
-		if d.RestaurantID == nil || d.Hidden {
-			continue
-		}
-		a := agg[*d.RestaurantID]
-		if a == nil {
-			a = &venueAgg{ID: *d.RestaurantID, Name: d.RestaurantName}
-			agg[a.ID] = a
-			order = append(order, a.ID)
-		}
-		a.Total++
-		row := visitDeviceRow{Device: *d, Visit: d.RestaurantName, Online: h.hub.IsConnectedForDisplay(d.ID), State: db.StateSettingUp}
-		if view == "setup" {
-			cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
-			row.Checks, row.Ready = h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled)
-			row.CanHand = h.mayHandOver(r, d)
-			if row.Ready {
-				a.Ready++
-				ready++
+	var svc []svcRow
+	if view == "service" {
+		service, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateInService}, 0, 5000, "serial", "asc")
+		for i := range service {
+			d := &service[i]
+			if d.Hidden {
+				continue
 			}
+			svc = append(svc, svcRow{Device: *d, Online: h.hub.IsConnectedForDisplay(d.ID)})
 		}
-		setRows = append(setRows, row)
-	}
-	sort.SliceStable(setRows, func(i, j int) bool {
-		if setRows[i].Ready != setRows[j].Ready {
-			return setRows[i].Ready
-		}
-		if setRows[i].Visit != setRows[j].Visit {
-			return setRows[i].Visit < setRows[j].Visit
-		}
-		return setRows[i].Device.SerialNumber < setRows[j].Device.SerialNumber
-	})
-	var svc []visitDeviceRow
-	for i := range service {
-		d := &service[i]
-		if d.Hidden {
-			continue
-		}
-		svc = append(svc, visitDeviceRow{Device: *d, Visit: d.RestaurantName, Online: h.hub.IsConnectedForDisplay(d.ID), State: db.StateInService})
 	}
 	// The rail's venues: the ones with devices, biggest first.
 	var railVenues []db.Restaurant
@@ -138,9 +101,8 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
 	data := map[string]any{
 		"Title": "Setup", "ActivePage": "setup", "View": view, "EnView": enrollmentViews[view],
-		"Rows": rows, "SetRows": setRows, "SvcRows": svc, "Ready": ready,
-		"SettingN": len(setRows), "ServiceN": len(svc),
-		"Venues": venues, "RailVenues": railVenues, "Back": "/visits",
+		"Rows": rows, "SvcRows": svc, "ServiceN": serviceN, "LabN": labN,
+		"Venues": venues, "RailVenues": railVenues, "Back": "/setup",
 		"Restaurants": venues,
 	}
 	// Enrollment moved in (M1, 3 Nov 2026): its views and the left list's counts.

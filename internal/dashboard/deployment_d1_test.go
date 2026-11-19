@@ -187,12 +187,12 @@ func TestDeployD1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`<h2>2 things to look at</h2>`, `href="/devices/AT070AABU00644">Open device</a>`,
+		`<h2 class="dp1-hd">2 things to look at</h2>`, `href="/devices/AT070AABU00644">Open device</a>`,
 		`class="dp1-st warn"><i></i>Not back from its reboot</span>`, `class="dp1-st q"><i></i>Waiting</span>`,
 		`from v2.0.6l · full image`, `<i style="width:41%"></i>`,
 		`action="/releases/10862/deployments/422/devices/AT070AABU00116/cancel-ota"`,
 		`action="/releases/10862/deployments/422/devices/AT070AABU00527/remove"`,
-		`aria-label="More for AT070AABU00450"`, `>Retry with the full image</button>`, `>Remove from this rollout</button>`,
+		`>Retry with the full image</button>`, `>Remove from this rollout</button>`,
 		`data-dp1-set="state" data-val="wait">Waiting · 6</button>`, `data-dp1-set="venue" data-val="Huanchaco Peruvian"`,
 		`<span><b>52%</b><small>installed</small></span>`, `onclick="dplOpen('dpl-reboot-modal')">Change</button>`,
 		`data-copy-serials="#deployment-targets"`, `id="dpl-reboot-modal"`,

@@ -77,7 +77,7 @@ func TestSetupEnrollmentViews(t *testing.T) {
 			"Enrollments": []db.Enrollment{{Serial: "DP02254J10876", DeviceClass: "pos", EnrolledAt: now}},
 			"Groups":      []db.Group{}, "ExpiredProfiles": 0, "Enrolling": false, "ScoutOn": true, "FleetKeySet": true,
 			"DeviceKey": "secret-key", "DeviceKeyMask": "sec••••key",
-			"Rows": []placeRow{}, "SetRows": []visitDeviceRow{}, "SvcRows": []visitDeviceRow{},
+			"Rows": []placeRow{}, "SvcRows": []svcRow{},
 		}
 		if role != "admin" { // as enrollmentData: the provisioning cards and the key are the super admin's
 			delete(d, "Prov")
@@ -100,7 +100,7 @@ func TestSetupEnrollmentViews(t *testing.T) {
 		"how":      {`id="en-how-tabs"`, `/static/video/enroll-guide.mp4`, `Standard MDM for QR provisioning`, `id="fleet-adb-key"`, `secret-key`},
 	} {
 		out := render("admin", view)
-		for _, w := range append(wants, `hx-get="/visits?view=recent"`, `>From the AIO backend<`, `onclick="enOpenModal()"`, `id="en-modal"`, `/static/js/enrollment.js`) {
+		for _, w := range append(wants, `hx-get="/setup?view=recent"`, `>From the AIO backend<`, `onclick="enOpenModal()"`, `id="en-modal"`, `/static/js/enrollment.js`) {
 			if !strings.Contains(out, w) {
 				t.Errorf("%s view is missing %q", view, w)
 			}

@@ -1,103 +1,101 @@
 {{define "activity.html"}}
 {{template "header" .}}
-{{/* Activity (V1, access by levels, picked 2 Nov 2026): Fleet's list language. A rail of
-     kinds, person / time / device filters, one row per action in plain words linked to the
-     person and the device. Super admins only. activity.go */}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/activity-pa2.css?v={{assetVer}}">
+{{/* Activity PA2 (18 Nov 2026), Actor first: the left list is the actors of the track (a person,
+     a job, a key), the right side is the picked one: facts, 7-day bar, its actions. Super admins
+     only. activity.go, activity_pa2.go */}}
 <template id="page-island">
   <span class="isl-dot on"></span>
   <span class="isl-t">Activity</span>
   <span class="isl-s"><b>{{.Total}}</b> action{{if ne .Total 1}}s{{end}}{{if .ActorName}} by {{.ActorName}}{{end}} · {{if eq .Days "all"}}all time{{else if eq .Days "1"}}today{{else}}last {{.Days}} days{{end}}</span>
   <span class="isl-acts"><a class="cc-btn" href="/export/report/activity.csv" hx-boost="false">Export</a></span>
 </template>
-<style>
-.av-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
-.av-f select,.av-f input{font:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text)}
-.av-f input[name=device]{width:150px;font-family:var(--mono)}
-.av-who{display:flex;align-items:center;gap:8px;color:inherit;text-decoration:none;min-width:0}
-.av-who .ubub{width:24px;height:24px;font-size:10px;flex:none}
-.av-what{color:var(--text-2)}
-.av-when{white-space:nowrap;color:var(--muted)}
-.cl-ft td.av-what{white-space:normal}
-.av-src{margin-bottom:12px}
-/* the job summary keeps its full height; only the log below scrolls in the app shell */
-html.shell .fleet-roster .card.av-src{flex:none!important;display:block}
-html.shell .fleet-roster .card.av-src > .ft-wrap{overflow:visible!important}
-.av-bar{display:block;height:6px;border-radius:3px;background:var(--canvas,var(--surface2));overflow:hidden;max-width:140px}.av-bar i{display:block;height:100%;border-radius:3px;background:var(--text-2)}
-</style>
-<div class="cl-page">
-<div class="cc-top"><div><h1 class="cc-h1">Activity</h1></div></div>
-<div class="fleet-md dv-rise-1">
-  <aside class="fleet-rail" aria-label="Kinds of activity">
-    {{/* T1 (picked 5 Nov 2026): three tracks, People first; the kinds narrow the track. */}}
-    <div class="fleet-rail-cap"><span>Who</span></div>
-    <a class="fleet-rail-item{{if eq .Track "people"}} on{{end}}" href="/activity?{{.BaseQS}}"><span class="dot ok"></span><span class="nm">People</span><span class="ct">{{with .TrackCount}}{{index . "people"}}{{end}}</span></a>
-    <a class="fleet-rail-item{{if eq .Track "auto"}} on{{end}}" href="/activity?{{.BaseQS}}&amp;track=auto"><span class="dot" style="background:#8f86f0"></span><span class="nm">Automations</span><span class="ct">{{with .TrackCount}}{{index . "auto"}}{{end}}</span></a>
-    <a class="fleet-rail-item{{if eq .Track "api"}} on{{end}}" href="/activity?{{.BaseQS}}&amp;track=api"><span class="dot warn"></span><span class="nm">API &amp; QA</span><span class="ct">{{with .TrackCount}}{{index . "api"}}{{end}}</span></a>
-    <div class="fleet-rail-cap" style="margin-top:10px"><span>What</span></div>
-    <a class="fleet-rail-item{{if not .Kind}} on{{end}}" href="/activity?{{.BaseQS}}&amp;track={{.Track}}"><span class="dot muted"></span><span class="nm">Everything</span><span class="ct">{{index .KindCount ""}}</span></a>
-    {{range .Kinds}}<a class="fleet-rail-item{{if eq $.Kind .Key}} on{{end}}" href="/activity?{{$.BaseQS}}&amp;track={{$.Track}}&amp;kind={{.Key}}"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $.KindCount .Key}}</span></a>{{end}}
-  </aside>
-  <div class="fleet-roster">
-  {{template "users-tabs" .}}
-    <div class="fleet-pane-head"><span class="t">{{if .Kind}}{{range .Kinds}}{{if eq $.Kind .Key}}{{.Label}}{{end}}{{end}}{{else}}Everything{{end}}</span><span class="c">{{.Total}} action{{if ne .Total 1}}s{{end}}</span></div>
-    <form method="GET" action="/activity" class="av-f">
-      {{if .Kind}}<input type="hidden" name="kind" value="{{.Kind}}">{{end}}
+<h1 class="cc-h1 sr-only">Activity</h1>
+{{$v := .PA2}}
+<div class="ovd pa2">
+{{template "users-tabs" .}}
+<section class="ovb-c pa2-card">
+  <div class="pa2-top">
+    <div class="ovb-seg pa2-seg" role="group" aria-label="Who">
+      <a href="{{index $v.TrkURLs "people"}}" class="{{if eq .Track "people"}}on{{end}}">People <i>{{index .TrackCount "people"}}</i></a>
+      <a href="{{index $v.TrkURLs "auto"}}" class="{{if eq .Track "auto"}}on{{end}}">Automations <i>{{index .TrackCount "auto"}}</i></a>
+      <a href="{{index $v.TrkURLs "api"}}" class="{{if eq .Track "api"}}on{{end}}">API &amp; QA <i>{{index .TrackCount "api"}}</i></a>
+    </div>
+    <span class="ovb-tag c">{{len $v.Rows}} {{if eq (len $v.Rows) 1}}actor{{else}}actors{{end}}</span>
+    <span class="sp"></span>
+    <form method="GET" action="/activity" class="pa2-f">
       {{if ne .Track "people"}}<input type="hidden" name="track" value="{{.Track}}">{{end}}
-      <select name="actor" aria-label="Person" onchange="this.form.submit()">
-        <option value="">Everyone</option>
-        {{range .Actors}}<option value="{{.Username}}"{{if eq $.Actor .Username}} selected{{end}}>{{.Name}}</option>{{end}}
-      </select>
+      {{if .Actor}}<input type="hidden" name="actor" value="{{.Actor}}">{{end}}
+      {{with $.Src}}<input type="hidden" name="src" value="{{.}}">{{end}}
       <select name="days" aria-label="When" onchange="this.form.submit()">
         <option value="1"{{if eq .Days "1"}} selected{{end}}>Today</option>
         <option value="7"{{if eq .Days "7"}} selected{{end}}>Last 7 days</option>
         <option value="30"{{if eq .Days "30"}} selected{{end}}>Last 30 days</option>
         <option value="all"{{if eq .Days "all"}} selected{{end}}>All time</option>
       </select>
+      <select name="kind" aria-label="What" onchange="this.form.submit()">
+        <option value=""{{if not .Kind}} selected{{end}}>Everything · {{index .KindCount ""}}</option>
+        {{range .Kinds}}<option value="{{.Key}}"{{if eq $.Kind .Key}} selected{{end}}>{{.Label}} · {{index $.KindCount .Key}}</option>{{end}}
+      </select>
       <input type="text" name="device" value="{{.Device}}" list="av-devices" placeholder="Any device" aria-label="Device" onchange="this.form.submit()">
       <datalist id="av-devices">{{range .DeviceSerials}}<option value="{{.}}"></option>{{end}}</datalist>
-      <label class="muted small" style="display:flex;align-items:center;gap:5px"><input type="checkbox" name="views" value="1"{{if .ShowViews}} checked{{end}} onchange="this.form.submit()">Page views</label>
+      <label class="pa2-chk"><input type="checkbox" name="views" value="1"{{if .ShowViews}} checked{{end}} onchange="this.form.submit()">Page views</label>
       <noscript><button type="submit" class="cc-btn sm">Filter</button></noscript>
-      {{if or .Actor .Device .Kind}}<a href="/activity?days={{.Days}}" class="muted small">Clear</a>{{end}}
+      {{if or .Device .Kind}}<a href="/activity?days={{.Days}}{{if ne .Track "people"}}&amp;track={{.Track}}{{end}}" class="pa2-clear">Clear</a>{{end}}
     </form>
-    {{if .Sources}}
-    {{/* One row per job or key: what it sent, how much failed, when it last ran. */}}
-    <div class="card cl-card av-src">
-      <div class="ft-wrap"><table class="ft cl-ft">
-        <thead><tr><th scope="col">{{if eq .Track "auto"}}Job{{else}}Key{{end}}</th><th scope="col" style="width:120px">Commands</th><th scope="col" style="width:120px">Failed</th><th scope="col" style="width:160px">Went through</th><th scope="col" style="width:110px">Last</th></tr></thead>
-        <tbody>{{range .Sources}}
-        <tr class="ft-row"><td><b>{{.Name}}</b>{{if .About}}<div class="muted small">{{.About}}</div>{{end}}</td><td>{{.Sent}}</td><td>{{if .Failed}}<span class="cc-tag bad">{{.Failed}} failed</span>{{else}}<span class="muted">0</span>{{end}}</td><td><span class="av-bar"><i style="width:{{.OkPct}}%"></i></span></td><td class="av-when">{{timeSince .Last}}</td></tr>
-        {{end}}</tbody>
-      </table></div>
-    </div>
-    {{end}}
-    <div class="card cl-card dv-rise-2">
-    {{if .Entries}}
-    <div class="ft-wrap"><table class="ft cl-ft">
-      <thead><tr><th scope="col" style="width:110px">When</th><th scope="col" style="width:190px">Who</th><th scope="col">Did</th><th scope="col" style="width:170px">Device</th></tr></thead>
-      <tbody>
-      {{range .Entries}}
-      <tr class="ft-row">
-        <td class="av-when" title="{{localTime .CreatedAt}}">{{timeSince .CreatedAt}}</td>
-        <td>{{$u := userURL .Actor}}{{if $u}}<a class="av-who" href="{{$u}}">{{template "ubub" (userBubble .Actor)}}<span>{{.Actor}}</span></a>{{else}}<span class="av-who">{{template "ubub" (userBubble .Actor)}}<span>{{.Actor}}</span></span>{{end}}</td>
-        <td class="av-what">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{auditSentence .}}{{end}}</td>
-        <td>{{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail mono">{{.DeviceSerial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table></div>
-    {{else}}
-    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><div><b>Nothing here</b>No activity matches these filters.</div></div>
-    {{end}}
-    {{if gt .TotalPages 1}}
-    <div class="pagination" style="padding:10px 14px">
-      {{if gt .Page 1}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;track={{.Track}}&amp;kind={{.Kind}}&amp;page={{sub .Page 1}}">&#8592; Prev</a>{{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
-      <span class="muted small">Page {{.Page}} of {{.TotalPages}}</span>
-      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="/activity?{{.BaseQS}}&amp;track={{.Track}}&amp;kind={{.Kind}}&amp;page={{add .Page 1}}">Next &#8594;</a>{{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
-    </div>
-    {{end}}
-    </div>
   </div>
-</div>
+  <div class="ovb-pane pa2-pane">
+    <div class="ovb-list pa2-list" aria-label="Actors">
+      <a class="ovb-li{{if $v.AllOn}} on{{end}}" href="{{$v.AllURL}}"><i class="ovb-dot c"></i><span class="tx"><b>{{if eq .Track "people"}}All people{{else if eq .Track "auto"}}All automations{{else}}All API &amp; QA{{end}}</b><small>{{$v.AllN}} {{if eq .Track "people"}}action{{if ne $v.AllN 1}}s{{end}}{{else}}command{{if ne $v.AllN 1}}s{{end}}{{end}}</small></span></a>
+      {{range $v.Rows}}
+      <a class="ovb-li{{if .On}} on{{end}}" href="{{.URL}}">
+        {{if eq $.Track "people"}}{{template "ubub" (userBubble .Name)}}{{else}}<i class="ovb-dot{{if .Failed}} r{{end}}"></i>{{end}}
+        <span class="tx"><b>{{.Name}}</b><small>{{.N}} {{if eq $.Track "people"}}action{{if ne .N 1}}s{{end}}{{else}}command{{if ne .N 1}}s{{end}}{{end}} · last {{timeSince .Last}}</small></span>
+        {{if .Failed}}<span class="ovb-tag r">{{.Failed}} failed</span>{{end}}
+      </a>
+      {{else}}<div class="pa2-empty">{{if eq .Track "people"}}Nobody did anything in this window.{{else}}Nothing ran in this window.{{end}}</div>{{end}}
+    </div>
+    <div class="ovb-dets pa2-dets"><div class="ovb-det">
+      <div class="pa2-hd">
+        {{if $v.Person}}{{template "ubub" (userBubble $v.Title)}}{{end}}
+        <div><h2>{{if $v.Person}}{{$u := userURL $v.Title}}{{if $u}}<a href="{{$u}}">{{$v.Title}}</a>{{else}}{{$v.Title}}{{end}}{{else}}{{$v.Title}}{{end}}</h2><div class="pa2-sub">{{$v.Sub}} · {{if eq .Days "all"}}all time{{else if eq .Days "1"}}today{{else}}last {{.Days}} days{{end}}</div></div>
+      </div>
+      <div class="ovb-facts">
+        {{range $v.Facts}}<div class="ovb-fact"><b{{if .Bad}} class="pa2-bad"{{end}}>{{if .Time}}{{timeSince .Time}}{{else if .Val}}{{.Val}}{{else}}—{{end}}</b><span>{{.Label}}</span></div>{{end}}
+      </div>
+      <div class="pa2-days" aria-label="Actions in the last 7 days">
+        {{range $v.Bars}}<div><i class="{{if .Today}}t{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
+      </div>
+      <div class="pa2-ev">
+      {{if .Entries}}
+      <table class="pa2-tb">
+        <thead><tr><th scope="col">When</th>{{if $v.AllOn}}<th scope="col">Who</th>{{end}}<th scope="col">Did</th><th scope="col">Device</th></tr></thead>
+        <tbody>
+        {{range .Entries}}
+        <tr>
+          <td class="pa2-when" title="{{localTime .CreatedAt}}">{{timeSince .CreatedAt}}</td>
+          {{if $v.AllOn}}<td>{{$u := userURL .Actor}}{{if $u}}<a class="av-who" href="{{$u}}">{{template "ubub" (userBubble .Actor)}}<span>{{.Actor}}</span></a>{{else}}<span class="av-who">{{template "ubub" (userBubble .Actor)}}<span>{{.Actor}}</span></span>{{end}}</td>{{end}}
+          <td class="pa2-what">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{auditSentence .}}{{end}}</td>
+          <td>{{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail mono">{{.DeviceSerial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <div class="pa2-empty"><b>Nothing here</b> No activity matches these filters.</div>
+      {{end}}
+      </div>
+      {{if gt .TotalPages 1}}
+      <div class="pa2-pager">
+        {{if gt .Page 1}}<a class="cc-btn sm" href="/activity?{{.BaseQS}}&amp;track={{.Track}}&amp;kind={{.Kind}}&amp;page={{sub .Page 1}}">&#8592; Prev</a>{{else}}<span class="cc-btn sm" aria-disabled="true">&#8592; Prev</span>{{end}}
+        <span class="muted small">Page {{.Page}} of {{.TotalPages}} · {{.Total}} action{{if ne .Total 1}}s{{end}}</span>
+        {{if lt .Page .TotalPages}}<a class="cc-btn sm" href="/activity?{{.BaseQS}}&amp;track={{.Track}}&amp;kind={{.Kind}}&amp;page={{add .Page 1}}">Next &#8594;</a>{{else}}<span class="cc-btn sm" aria-disabled="true">Next &#8594;</span>{{end}}
+      </div>
+      {{end}}
+    </div></div>
+  </div>
+</section>
 </div>
 {{template "footer" .}}
 {{end}}

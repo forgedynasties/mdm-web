@@ -53,6 +53,11 @@ func (h *Handler) pullCommand(ctx context.Context, deviceID, commandID uuid.UUID
 	if ok, err := h.db.CommandTargetsDevice(ctx, commandID, deviceID); err != nil || !ok {
 		return nil, "", errors.New("command does not target device")
 	}
+	// A pull is answered soon after it is asked: an old command's id is not a standing
+	// permission to put something in the library (18 Nov 2026 audit).
+	if time.Since(cmd.CreatedAt) > 2*time.Hour {
+		return nil, "", errors.New("that pull is too old")
+	}
 	var p struct {
 		Package string `json:"package"`
 	}
@@ -99,6 +104,14 @@ func (h *Handler) APKPullRegister(ctx context.Context, deviceID, commandID uuid.
 	}
 	if meta.Package != pkg {
 		return "", fmt.Errorf("the upload is %s, not %s", meta.Package, pkg)
+	}
+	// And the version it asked for, when it named one: not a made-up "newest".
+	var asked struct {
+		Version string `json:"version"`
+	}
+	_ = json.Unmarshal(cmd.Payload, &asked)
+	if asked.Version != "" && meta.VersionName != asked.Version {
+		return "", fmt.Errorf("the upload is version %s, the pull asked for %s", meta.VersionName, asked.Version)
 	}
 	// No developer builds (2 Nov 2026; user: "make sure we dont pull developer builds
 	// again"): a test-only or debuggable APK, or one signed with the Android debug key, was

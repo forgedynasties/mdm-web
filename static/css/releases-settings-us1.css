@@ -1,0 +1,49 @@
+/* Update settings, US1 (18 Nov 2026): the Overview's bento language. Left, a list of the
+   settings (value as a hint) and the coral "Tonight" card; right, the picked setting. On a
+   desktop window (html.shell) the page fits and the pane scrolls inside. */
+.us1{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:14px;align-items:stretch}
+.us1-l{display:flex;flex-direction:column;gap:14px;min-height:0}
+.us1-rail{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}
+.us1-list{display:flex;flex-direction:column;gap:2px}
+.us1-li{text-decoration:none;align-items:center}
+.us1-li .ovb-dot{margin-top:0}
+.us1-li small{white-space:normal;overflow:visible;line-height:1.35}
+.us1-li:focus-visible,.us1-a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.us1-tonight{min-height:0;gap:8px;cursor:default}
+.us1-tonight b{font-size:21px}
+.us1-tonight:hover{background:var(--accent-fill)}
+.us1-tsub{font-size:12px;opacity:.92;line-height:1.4;position:relative}
+.us1-pane{min-height:0;overflow:auto;scrollbar-width:thin}
+.us1-p[hidden]{display:none}
+.us1-big{font-size:26px;line-height:1.2;font-weight:650;letter-spacing:-.02em;margin:4px 0 0;max-width:720px;overflow-wrap:anywhere}
+.us1-p .ovb-sub{max-width:720px}
+.us1-t{margin-top:16px}
+.us1-t td,.us1-t th{vertical-align:middle}
+.us1-t .mut{color:var(--muted);font-size:12px}
+.us1-h3{margin:22px 0 0;font-size:13px;font-weight:650}
+.us1-h3 .mut{font-weight:400;color:var(--muted);margin-left:6px}
+.us1-tw{overflow-x:auto}
+.us1-r{text-align:right;white-space:nowrap}
+.us1-r form{display:inline}
+.us1-a{font-size:12.5px;font-weight:650;color:var(--accent-text);text-decoration:none;white-space:nowrap}
+.us1-a:hover{text-decoration:underline}
+.us1 .ovb-tag.c{background:var(--border);color:var(--text-2)}
+.us1-form{display:flex;flex-direction:column;gap:10px;max-width:560px;margin-top:16px}
+.us1-f{display:flex;align-items:center;gap:12px;font-size:13px}
+.us1-f>span{min-width:90px;font-weight:600}
+.us1-f select{flex:1;min-width:0}
+.us1 .ovb-btn.l{padding:8px 16px;text-decoration:none}
+
+/* Desktop shell: the page never scrolls; list and pane fill the height. */
+html.shell .us1{height:calc(var(--shell-h,100vh) - 56px)}
+html.shell .us1-l{min-height:0}
+@media (max-width:1100px){
+  .us1{grid-template-columns:minmax(0,1fr)}
+  .us1-rail{overflow:visible}
+  .us1-pane{overflow:visible}
+  html.shell .us1{height:auto}
+}
+@media (max-width:720px){
+  .us1-big{font-size:21px}
+  .us1-f{flex-direction:column;align-items:stretch;gap:4px}
+}

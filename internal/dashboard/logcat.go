@@ -6,6 +6,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -61,8 +62,8 @@ func (h *Handler) LogcatStream(w http.ResponseWriter, r *http.Request) {
 		"type":       "start_logcat_stream",
 		"request_id": reqID,
 		"level":      logcatLevel(r.URL.Query().Get("level")),
-		"tag":        strings.TrimSpace(r.URL.Query().Get("tag")),
-		"buffer":     strings.TrimSpace(r.URL.Query().Get("buffer")),
+		"tag":        logcatWord(r.URL.Query().Get("tag")),
+		"buffer":     logcatWord(r.URL.Query().Get("buffer")),
 		"grep":       strings.TrimSpace(r.URL.Query().Get("grep")),
 		"tail":       logcatTail(r.URL.Query().Get("tail")),
 	})
@@ -125,4 +126,16 @@ func logcatTail(s string) int {
 		return 5000
 	}
 	return n
+}
+
+// logcatWord keeps a tag or buffer name that can't be read as a logcat option: the
+// clients pass it as an argument, and "-f/path" would write a file (18 Nov 2026 audit).
+var logcatWordRE = regexp.MustCompile(`^[A-Za-z0-9_.$/*,][A-Za-z0-9_.$/*,:-]{0,63}$`)
+
+func logcatWord(v string) string {
+	v = strings.TrimSpace(v)
+	if !logcatWordRE.MatchString(v) {
+		return ""
+	}
+	return v
 }

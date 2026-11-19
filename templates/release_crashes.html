@@ -1,44 +1,104 @@
 {{define "release_crashes.html"}}
 {{template "header" .}}
-{{$rel := .Release}}{{$role := .Role}}
+{{$rel := .Release}}{{$role := .Role}}{{$cr := .CR}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/release-crashes-cr1.css?v={{assetVer}}">
 
-<div class="cc-wrap">
-<div class="cc-top">
-  <div>
-    <div class="cc-eyebrow">Software · <a href="/releases/{{$rel.ID}}" style="color:inherit;text-decoration:none;">{{$rel.Version}}</a> · crashes</div>
-    <h1 class="cc-h1">{{.Total}} crash type{{if ne .Total 1}}s{{end}} on {{$rel.Version}}</h1>
-  </div>
-  <div class="cc-actions">
-    <a href="/releases/{{$rel.ID}}" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>{{$rel.Version}}</a>
-  </div>
-</div>
+<template id="page-island">
+  <span class="isl-dot {{if $cr.AllCount}}danger{{else}}on{{end}}"></span>
+  <span class="isl-t">Crashes · {{$rel.Version}}</span>
+  <span class="isl-s"><b>{{$cr.AllCount}}</b> crash{{if ne $cr.AllCount 1}}es{{end}} · {{$cr.AllDevices}} device{{if ne $cr.AllDevices 1}}s{{end}}{{if $cr.Days}} · last {{$cr.Days}} days{{end}}</span>
+  <span class="isl-acts"><a href="/releases/{{$rel.ID}}" class="cc-btn">{{$rel.Version}}</a></span>
+</template>
+<h1 class="cc-h1 sr-only">{{.Total}} crash type{{if ne .Total 1}}s{{end}} on {{$rel.Version}}</h1>
 
-<div class="cc-card">
-  <div class="prob-crashes">
-    {{if .CrashGroups}}
-      {{$back := printf "/releases/%d/crashes?page=%d" $rel.ID .Page}}
-      {{range .CrashGroups}}{{template "crash-group-row" (dict "G" . "RelID" $rel.ID "Role" $role "Back" $back)}}{{end}}
-    {{else}}
-      <div class="empty" style="padding:18px;">No crashes recorded on this build.</div>
-    {{end}}
-  </div>
+<div class="ovd cr1">
+<div class="ovb cr1-g">
 
-  {{if gt .TotalPages 1}}
-  <div class="pagination">
-    {{if gt .Page 1}}<a class="page-btn page-nav" href="?page={{sub .Page 1}}">&#8592; Prev</a>
-    {{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
-    <div class="page-numbers">
-      {{range pageList .Page .TotalPages}}
-        {{if eq . 0}}<span class="page-num disabled">…</span>
-        {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
-        {{else}}<a class="page-num" href="?page={{.}}">{{.}}</a>{{end}}
+  <section class="ovb-c cr1-list">
+    <div class="ovb-ch"><h2>Crash groups</h2><span class="sp"></span><span class="ovb-pill {{if .Total}}r{{else}}g{{end}}">{{.Total}}</span></div>
+    <div class="cr1-filters">
+      <div class="ovb-seg cr1-seg" role="group" aria-label="Kind">
+        {{range $cr.Kinds}}<a href="{{.URL}}" class="{{if .On}}on{{end}}">{{.Label}} <i>{{.Count}}</i></a>{{end}}
+      </div>
+      <div class="ovb-seg cr1-seg" role="group" aria-label="Window">
+        {{range $cr.Windows}}<a href="{{.URL}}" class="{{if .On}}on{{end}}">{{.Label}}</a>{{end}}
+      </div>
+      <input type="search" class="cr1-q" id="cr1-q" placeholder="Search this page's signatures" aria-label="Search signatures" autocomplete="off">
+    </div>
+    <div class="ovb-list cr1-items" id="cr1-items">
+      {{range $cr.CrashGroups}}
+      <a class="ovb-li {{if .On}}on{{end}}" href="{{.URL}}" data-s="{{.Kind}} {{.Signature}}">
+        <span class="ovb-dot {{.Hot}}"></span>
+        <span class="tx"><b title="{{.Signature}}">{{if .Signature}}{{.Signature}}{{else}}—{{end}}</b><small>{{.Kind}} · {{timeSince .LastOccurred}}</small></span>
+        <span class="cr1-n"><b>{{.Count}}</b><small>{{.DeviceCount}} dev</small></span>
+      </a>
+      {{else}}
+      <div class="cr1-empty">No crashes recorded on this build{{if $cr.Days}} in the last {{$cr.Days}} days{{end}}{{if $cr.Kind}} of this kind{{end}}.</div>
       {{end}}
     </div>
-    {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?page={{add .Page 1}}">Next &#8594;</a>
-    {{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
-  </div>
-  <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} crash type{{if ne .Total 1}}s{{end}}</div>
+    {{if gt $cr.TotalPages 1}}
+    <div class="cr1-pager">
+      {{if $cr.PrevURL}}<a class="cc-btn" href="{{$cr.PrevURL}}">&#8592; Prev</a>{{else}}<span class="cc-btn" aria-disabled="true">&#8592; Prev</span>{{end}}
+      <span class="muted small">Page {{$cr.Page}} of {{$cr.TotalPages}} · {{.Total}} crash types</span>
+      {{if $cr.NextURL}}<a class="cc-btn" href="{{$cr.NextURL}}">Next &#8594;</a>{{else}}<span class="cc-btn" aria-disabled="true">Next &#8594;</span>{{end}}
+    </div>
+    {{end}}
+  </section>
+
+  <section class="ovb-c cr1-det">
+  {{with $cr.Detail}}{{$g := .G}}{{$back := .BackURL}}
+    <div class="ovb-ch">
+      <span class="ovb-tag r">{{$g.Kind}}</span>
+      <span class="sp"></span>
+      <button type="button" class="cc-btn" onclick="probFromCrash(this)" data-kind="{{$g.Kind}}" data-serial="{{$g.SampleSerial}}" data-sum="{{$g.Signature}}">Report problem</button>
+      {{if eq $role "admin"}}
+      <form action="/releases/{{$rel.ID}}/crashes/group/delete" method="POST" hx-confirm="Remove all {{$g.Count}} occurrences of this crash? It also clears them from the Alerts page.">
+        <input type="hidden" name="kind" value="{{$g.Kind}}"><input type="hidden" name="signature" value="{{$g.Signature}}"><input type="hidden" name="redirect" value="{{$back}}">
+        <button type="submit" class="cc-btn cr1-del" title="Remove this crash group, also clears it from Alerts">Delete group</button>
+      </form>{{end}}
+    </div>
+    <div class="cr1-body">
+      <p class="cr1-sig">{{if $g.Signature}}{{$g.Signature}}{{else}}—{{end}}</p>
+      <div class="ovb-facts">
+        <div class="ovb-fact"><b>{{$g.Count}}</b><span>crash{{if ne $g.Count 1}}es{{end}}</span></div>
+        <div class="ovb-fact"><b>{{$g.DeviceCount}}</b><span>device{{if ne $g.DeviceCount 1}}s{{end}}</span></div>
+        <div class="ovb-fact"><b>{{timeSince $g.LastOccurred}}</b><span>last seen</span></div>
+        <div class="ovb-fact"><b>{{$rel.Version}}</b><span>build</span></div>
+        {{if .Trend}}<div class="ovb-fact cr1-trend" title="Crashes per day, last 14 days">
+          <div class="cr1-bars">{{range .Trend}}<i style="height:{{.H}}px" class="{{if .N}}on{{end}}" title="{{.Day}}: {{.N}}"></i>{{end}}</div><span>14 days</span></div>{{end}}
+      </div>
+
+      {{if $g.SampleDetail}}
+      <div class="cr1-trace-h"><h3>Latest trace</h3><span class="sp"></span>
+        <button type="button" class="cc-btn" onclick="copyText(document.getElementById('cr1-trace').textContent, this)">Copy</button></div>
+      <pre class="cr1-trace logcat-terminal" id="cr1-trace" tabindex="0">{{colorizeLogcat $g.SampleDetail}}</pre>
+      {{else}}
+      <div class="cr1-trace-h"><h3>Latest trace</h3></div>
+      <div class="cr1-empty">This crash carried no trace.</div>
+      {{end}}
+
+      <div class="cr1-dev-h"><h3>Devices that crashed</h3><span class="sp"></span><span class="muted small">{{if .More}}newest {{len .Events}} of {{$g.Count}}{{else}}{{len .Events}} occurrence{{if ne (len .Events) 1}}s{{end}}{{end}}</span></div>
+      <table class="ovb-mini cr1-dev">
+        <thead><tr><th>Device</th><th>Venue</th><th>When</th>{{if eq $role "admin"}}<th></th>{{end}}</tr></thead>
+        <tbody>
+        {{range .Events}}
+        <tr>
+          <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
+          <td>{{if .Restaurant}}{{.Restaurant}}{{else}}<span class="mut">Lab</span>{{end}}</td>
+          <td title="{{formatTime .OccurredAt}}">{{timeSince .OccurredAt}}</td>
+          {{if eq $role "admin"}}<td class="x"><form action="/releases/{{$rel.ID}}/crashes/{{.ID}}/delete" method="POST" hx-confirm="Remove this one crash on {{.Serial}}? It also clears the device's crash alert."><input type="hidden" name="redirect" value="{{$.CR.Detail.SelfURL}}"><button type="submit" class="cr1-x" title="Delete this event" aria-label="Delete this event on {{.Serial}}">&#215;</button></form></td>{{end}}
+        </tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  {{else}}
+    <div class="ovb-ch"><h2>No crash picked</h2></div>
+    <div class="cr1-empty">{{if $cr.Days}}Nothing crashed on {{$rel.Version}} in the last {{$cr.Days}} days.{{else}}No crashes recorded on {{$rel.Version}}.{{end}} <a href="/releases/{{$rel.ID}}">Back to the release</a></div>
   {{end}}
+  </section>
+
 </div>
 </div>
 

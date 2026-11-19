@@ -247,6 +247,13 @@ func main() {
 	// summary pill on the Actions page stayed "in progress" until a reload
 	// re-derived it fresh. Mirrors the same ack the WS "command_ack" path applies
 	// for every other command type.
+	// A device streams output only for a command that was sent to it.
+	shellMgr.AcceptOutput = func(commandID, deviceID uuid.UUID) bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		ok, err := database.CommandTargetsDevice(ctx, commandID, deviceID)
+		return err == nil && ok
+	}
 	shellMgr.OnCommandDone = func(deviceID, commandID uuid.UUID, exitCode int) {
 		ctx := context.Background()
 		out := shellMgr.CommandOutput(commandID, deviceID)
@@ -313,6 +320,10 @@ func main() {
 	}
 	splashFS := http.StripPrefix("/splash-img/", http.FileServer(http.Dir(splashDir)))
 	mux.Handle("GET /splash-img/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/") { // no directory listing: the names are the secret
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 		splashFS.ServeHTTP(w, r)
 	}))
@@ -685,6 +696,7 @@ func main() {
 	database.SetCheckinSampleSec(cfg.CheckinSampleSec())
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"), geo, geocoder)
 	apiHandler.SetKioskRelocker(dash.RelockFromDevice)
+	apiHandler.SetSessionUser(dash.SessionUsername)
 	apiHandler.SetAPKPuller(dash)
 	// Test-bench routes (admin key): lock/unlock one device, take one off a venue.
 	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))

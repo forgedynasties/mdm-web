@@ -1324,10 +1324,8 @@ func stateWhere(state string) string {
 		return "d.restaurant_id IS NULL AND d.placement <> 'queue'"
 	case StateToPlace:
 		return "d.restaurant_id IS NULL AND d.placement = 'queue'"
-	case StateSettingUp:
-		return "d.restaurant_id IS NOT NULL AND d.handed_over_at IS NULL"
 	case StateInService:
-		return "d.restaurant_id IS NOT NULL AND d.handed_over_at IS NOT NULL"
+		return "d.restaurant_id IS NOT NULL"
 	}
 	return ""
 }

@@ -224,7 +224,7 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 	// Don't let a device move a command backwards out of a terminal state (e.g.
 	// re-report 'downloading'/'failed' after 'installed') — that would corrupt OTA
 	// and deployment rollups. Re-acking the same terminal status is a harmless no-op.
-	_, err = d.pool.Exec(ctx, `
+	tag, err := d.pool.Exec(ctx, `
 		INSERT INTO command_status (command_id, device_id, status, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
@@ -233,6 +233,11 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 	`, commandID, deviceID, status)
 	if err != nil {
 		return err
+	}
+	if tag.RowsAffected() == 0 {
+		// Already final: a replayed or late ack changes nothing, so it must not run the
+		// side effects below either (an unenroll flag, a round-trip stamp, an app note).
+		return nil
 	}
 	// An unenroll that the device says it carried out is the last thing we will ever hear
 	// from it: the agent has dropped Device Owner, forgotten this server and stopped
@@ -293,7 +298,9 @@ func (d *DB) noteInstalledApp(ctx context.Context, commandID, deviceID uuid.UUID
 		return
 	}
 	if tag.RowsAffected() > 0 {
-		_, _ = d.pool.Exec(ctx, `UPDATE devices SET packages_hash = '' WHERE id = $1`, deviceID)
+		if _, err := d.pool.Exec(ctx, `UPDATE devices SET packages_hash = '' WHERE id = $1`, deviceID); err != nil {
+			log.Printf("[install-ack] could not ask %s for a fresh app list: %v", deviceID, err)
+		}
 	}
 }
 

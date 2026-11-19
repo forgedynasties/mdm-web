@@ -2249,6 +2249,8 @@ CREATE TABLE IF NOT EXISTS remote_tokens (
     device_id UUID NOT NULL,
     expires   TIMESTAMPTZ NOT NULL
 );
+-- Who it was minted for: the socket that redeems it must be that person's (18 Nov 2026).
+ALTER TABLE remote_tokens ADD COLUMN IF NOT EXISTS username TEXT NOT NULL DEFAULT '';
 
 -- Host app not on screen removed (user, 30 Oct 2026: "remove the app not on screen alert
 -- completely"): its rule goes and any open alert of it is resolved.
@@ -2265,6 +2267,6 @@ UPDATE sessions SET role = 'fleet_manager' WHERE role IN ('super_op', 'user_mana
 -- The effective role constraint: exactly the roles in roleDefs (dashboard/roles.go).
 -- Keep it last; TestRoleConstraintCoversEveryRole checks it.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','field','engineer','fleet_manager','fleet_admin','admin','owner','staff'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','support','operator','field','engineer','fleet_manager','fleet_admin','admin','owner','staff')) NOT VALID;
 
 `

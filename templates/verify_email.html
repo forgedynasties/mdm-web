@@ -2,30 +2,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {{template "au-head"}}
   <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
-  <link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
-  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
-  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
 </head>
-<body class="login-body">
-  <div class="login-card">
-    <h1 class="login-title">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</h1>
-    <p class="login-subtitle">Confirm your email</p>
-
+<body class="au1">
+  <main class="au1-card">
+    {{template "au-wm" .}}
+    <div class="au1-stp"><span><b>1</b>Create</span><em></em><span><b>2</b>Check inbox</span><em></em><span class="on"><b>3</b>Verify</span></div>
     {{if .Invalid}}
-    <div class="alert alert-error" role="alert">That verification link is invalid or has expired.</div>
-    <p class="muted small" style="text-align:center;"><a href="/signup">Sign up again</a> · <a href="/login">Back to sign in</a></p>
+    {{template "au-warn"}}
+    <div class="au1-al err" role="alert"><span>That verification link is invalid or has expired.</span></div>
+    <div class="au1-alt"><a href="/signup">Sign up again</a> · <a href="/login">Back to sign in</a></div>
     {{else}}
-    <p class="muted small" style="text-align:center;margin-bottom:14px;">Click below to finish verifying your email and activate your account.</p>
-    <form action="/verify-email" method="POST" class="login-form">
+    <h1>Confirm your email</h1>
+    <p class="au1-sub">Click below to finish verifying your email and activate your account.</p>
+    <form action="/verify-email" method="POST">
       <input type="hidden" name="token" value="{{.Token}}">
-      <button type="submit" class="btn-primary" style="align-self:stretch;padding:11px;">Verify email</button>
+      <button type="submit" class="au1-btn">Verify email</button>
     </form>
     {{end}}
-  </div>
+  </main>
 </body>
 </html>
 {{end}}

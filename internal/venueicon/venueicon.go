@@ -176,13 +176,31 @@ func get(ctx context.Context, c *http.Client, u string, limit int64) ([]byte, er
 	return safehttp.LimitedReadAll(io.Reader(resp.Body), limit)
 }
 
+// maxPixels bounds what SafeDecode will decode. A decoder allocates width × height up
+// front, so a file of a few kilobytes that claims 40000 × 40000 took the server down
+// (18 Nov 2026 audit).
+const maxPixels = 16 << 20
+
+// SafeDecode decodes an image after checking its declared size.
+func SafeDecode(raw []byte) (image.Image, error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(raw))
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > maxPixels {
+		return nil, errors.New("image dimensions too large")
+	}
+	img, _, err := image.Decode(bytes.NewReader(raw))
+	return img, err
+}
+
 // Normalize decodes a PNG, JPEG or GIF and returns it as a PNG no larger than Size on
 // its longest side. A picture below 16px is refused: that is a placeholder, not a logo.
 func Normalize(raw []byte) ([]byte, error) {
 	if len(raw) > maxImage {
 		return nil, errors.New("image is over 2 MB")
 	}
-	src, _, err := image.Decode(bytes.NewReader(raw))
+	src, err := SafeDecode(raw)
 	if err != nil {
 		return nil, errors.New("not a PNG, JPEG or GIF image")
 	}

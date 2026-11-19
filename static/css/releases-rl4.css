@@ -1,0 +1,182 @@
+/* Releases RL4 (picked Nov 2026): "a table with a preview, Fleet's twin", in the Overview's
+   bento language, plus AP1 (New release and its first package side by side).
+   Needs ovb-device.css (the .ovd colours and .ovb-* pieces) and coll-list.css. */
+.cl-page.rl4{max-width:var(--page-max,1760px);margin:0 auto;padding-bottom:96px}
+.rl4 .cc-top{margin-bottom:6px}
+.rl4 .fleet-md{display:grid;grid-template-columns:208px minmax(0,1.7fr) minmax(360px,1fr);gap:14px;align-items:start}
+.rl4 .fleet-rail,.rl4 .rl4-pv{border-radius:22px;background:var(--surface)}
+.rl4 .fleet-roster{min-width:0}
+.rl4-new{margin-left:auto}
+
+/* rail */
+.rl4 .fleet-rail-item .ct{margin-left:auto}
+.rl4 .fleet-rail-cap.sp{margin-top:12px}
+.rl4-up{display:grid;gap:5px;padding:8px 10px;margin:2px 0;border-radius:12px;text-decoration:none;color:var(--text-2);font-size:12px;border:1px solid var(--border-soft)}
+.rl4-up:hover{background:var(--hover)}
+.rl4-up b{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:650;display:flex;align-items:center;gap:6px;min-width:0}
+.rl4-up b span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rl4-up small{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl4-up small.bad{color:var(--danger)}
+
+/* table */
+.rl4 .cl-ft td{padding-top:9px;padding-bottom:9px}
+.rl4 tr.ft-row.sel>td{background:var(--accent-soft)}
+.rl4 tr.ft-row.sel>td:first-child{box-shadow:inset 3px 0 0 var(--accent-fill)}
+.rl4-v{font-family:var(--mono);font-size:13px;font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl4-tags{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.rl4-roll{display:grid;gap:4px;min-width:100px}
+.rl4-roll small{font-size:11px;color:var(--text-faint);white-space:nowrap}
+.rl4-roll small .live{color:var(--info,#3b82f6);font-weight:650}
+.rl4-bar{display:flex;height:7px;border-radius:99px;overflow:hidden;background:var(--border-soft);gap:1px}
+.rl4-bar i{display:block;height:100%}
+.rl4-bar .p{background:var(--ovb-g)}.rl4-bar .f{background:var(--ovb-r)}.rl4-bar .m{background:#60a5fa}.rl4-bar .h{background:repeating-linear-gradient(135deg,var(--border) 0 4px,transparent 4px 8px)}
+.rl4 td.ft-date{color:var(--text-2);font-size:12px;white-space:nowrap}
+.rl4 a.rl-crash{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;border-radius:99px;padding:2px 9px;text-decoration:none;background:var(--danger-bg);color:var(--danger);white-space:nowrap}
+.rl4 a.rl-crash.warn{background:var(--warn-bg);color:var(--warn)}
+.rl4 a.rl-crash svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+
+/* preview */
+.rl4-pv{padding:18px 20px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.rl4-ph{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rl4-ph h2{margin:0;font-family:var(--mono);font-size:20px;font-weight:650;letter-spacing:-.01em;overflow-wrap:anywhere}
+.rl4-nm{margin:-6px 0 0;font-size:13px;color:var(--text-2)}
+.rl4-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rl4-acts form{margin:0;display:inline-flex}
+.rl4-acts .ovb-btn{font-size:12.5px}
+.rl4-acts .ovb-btn.l{padding:8px 14px}
+.rl4-more{position:relative}
+.rl4-more>summary{list-style:none;cursor:pointer}
+.rl4-more>summary::-webkit-details-marker{display:none}
+.rl4-more .cc-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:200px}
+.rl4-more .cc-mi{width:100%;border:0;background:none;font:inherit;text-align:left;cursor:pointer;color:inherit;text-decoration:none}
+.rl4-more .cc-mi.danger{color:var(--danger)}
+.rl4-ib{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);display:inline-grid;place-items:center;color:var(--text-2);background:var(--surface);text-decoration:none;cursor:pointer;padding:0}
+.rl4-ib:hover{background:var(--surface2)}
+.rl4-ib svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+/* what it needs */
+.rl4-todo{background:var(--ovb-page);border-radius:16px;padding:14px 16px}
+.rl4-todo.bad{background:color-mix(in srgb,var(--ovb-r) 10%,var(--surface))}
+.rl4-todo.warn{background:color-mix(in srgb,var(--ovb-o) 10%,var(--surface))}
+.rl4-todo .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.rl4-todo h3{margin:4px 0 0;font-size:16px;font-weight:650}
+.rl4-todo p{margin:6px 0 0;font-size:12.5px;color:var(--text-2)}
+.rl4-todo ol{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:8px}
+.rl4-todo li{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text-2)}
+.rl4-todo li .t{flex:1;min-width:0}
+.rl4-todo li .t small{display:block;color:var(--muted);font-size:11.5px}
+.rl4-todo li form{margin:0}
+.rl4-todo li button,.rl4-todo li a{border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:5px 12px;font:inherit;font-size:12px;font-weight:600;color:var(--text);text-decoration:none;cursor:pointer;white-space:nowrap}
+.rl4-todo li button:hover,.rl4-todo li a:hover{background:var(--surface2)}
+.rl4-todo .more{display:inline-block;margin-top:8px;font-size:12px;color:var(--accent-text);text-decoration:none}
+/* facts */
+.rl4-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.rl4-fact{background:var(--ovb-page);border-radius:14px;padding:11px 13px;min-width:0}
+.rl4-fact .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.rl4-fact .k a{color:inherit;text-decoration:none}.rl4-fact .k a:hover{color:var(--accent-text)}
+.rl4-fact .v{display:flex;gap:14px;margin-top:5px;flex-wrap:wrap}
+.rl4-fact .v span{display:grid}
+.rl4-fact .v b{font-size:21px;font-weight:650;letter-spacing:-.01em;line-height:1.1}
+.rl4-fact .v small{font-size:11.5px;color:var(--text-2)}
+.rl4-fact .d{font-size:11px;font-weight:700;min-height:14px}
+.rl4-fact .d.good{color:var(--ok)}.rl4-fact .d.bad{color:var(--danger)}.rl4-fact .d.flat{color:var(--muted)}
+.rl4-fact .e{margin:5px 0 0;font-size:12px;color:var(--muted)}
+.rl4-fact .rl4-bar{margin-top:9px}
+/* sections */
+.rl4-sec{border:1px solid var(--border-soft);border-radius:16px;padding:12px 14px;min-width:0}
+.rl4-sh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.rl4-sh h3{margin:0;font-size:14px;font-weight:600}
+.rl4-sh h3 span{color:var(--muted);font-weight:500;margin-left:3px}
+.rl4-sh .sp{flex:1}
+.rl4-sh .cc-btn,.rl4-sh summary.cc-btn{height:28px;box-sizing:border-box}
+.rl4-pk{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.rl4-pk li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);flex-wrap:wrap}
+.rl4-none{margin:0;font-size:12.5px;color:var(--muted)}
+.rl4-bad{color:var(--danger)}
+.rl4-chg{white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--text-2);max-height:200px;overflow:auto;margin:0}
+.rl4-line{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--text-2)}
+.rl4-line a{color:var(--text)}
+.rl4-pv table.ovb-mini{margin-top:2px}
+.rl4-pv .ovb-mini td a{color:var(--text);text-decoration:none;font-family:var(--mono);font-size:12px}
+.rl4-pv .ovb-mini td a:hover{color:var(--accent-text)}
+.rl4-pv .ovb-mini td .rl4-bar{min-width:70px}
+.rl4-empty{margin:auto;color:var(--muted);font-size:13px;text-align:center;padding:30px 10px}
+/* add package in place */
+.rl4-add{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px}
+.rl4-add>summary{list-style:none;cursor:pointer;display:inline-flex}
+.rl4-add>summary::-webkit-details-marker{display:none}
+.rl4-add form{display:grid;gap:9px;margin-top:10px}
+
+/* shared form bits (the add form and the New release dialog) */
+.rl4-f{display:grid;gap:5px;font-size:11.5px;font-weight:650;color:var(--muted)}
+.rl4-f input[type=text],.rl4-f input[type=url],.rl4-f select,.rl4-f textarea{font:inherit;font-size:13px;font-weight:400;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 11px;min-width:0;width:100%;box-sizing:border-box}
+.rl4-f textarea{resize:vertical;min-height:90px}
+.rl4-f input:focus,.rl4-f select:focus,.rl4-f textarea:focus{outline:2px solid var(--accent-edge);outline-offset:0}
+.rl4-f .mono{font-family:var(--mono);font-size:12.5px}
+.rl4-f small{font-weight:400;font-size:11px;color:var(--muted)}
+.rl4-seg{display:inline-flex;background:var(--ovb-page);border-radius:99px;padding:3px;gap:2px;width:max-content;max-width:100%}
+.rl4-seg label{cursor:pointer}
+.rl4-seg input{position:absolute;opacity:0;pointer-events:none}
+.rl4-seg span{display:block;font-size:12px;font-weight:600;padding:6px 13px;border-radius:99px;color:var(--text-2)}
+.rl4-seg input:checked+span{background:var(--accent-fill);color:#fff}
+.rl4-seg input:focus-visible+span{outline:2px solid var(--accent-edge)}
+.rl4-seg input:disabled+span{opacity:.45;cursor:not-allowed}
+.rl4-urlrow{display:flex;gap:8px}
+.rl4-urlrow input{flex:1}
+.rl4-urlrow button{flex:none;border:1px solid var(--border);background:var(--surface);border-radius:11px;padding:0 14px;font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-text);cursor:pointer}
+.rl4-urlrow button:hover{background:var(--surface2)}
+.rl4-ins{min-height:18px;font-size:12px}
+.rl4-ins .bad{color:var(--danger);font-weight:600}
+.rl4-ins .hint{color:var(--muted)}
+.rl4-tiles{display:flex;gap:8px;flex-wrap:wrap}
+.rl4-tile{background:var(--ovb-page);border-radius:12px;padding:8px 12px;min-width:80px}
+.rl4-tile b{display:block;font-size:14px;font-weight:650;color:var(--text)}
+.rl4-tile span{font-size:11px;color:var(--muted);font-weight:500}
+.rl4-wipe{margin-top:8px;border-radius:12px;padding:9px 12px;font-size:12.5px;background:var(--danger-bg);color:var(--danger)}
+.rl4-keep{margin-top:8px;border-radius:12px;padding:9px 12px;font-size:12.5px;background:var(--ok-bg);color:var(--ok)}
+.rl4-sub{font-weight:400;font-size:11.5px;color:var(--muted);margin:0}
+
+/* AP1: New release dialog */
+.modal-box.rl4-dlg{max-width:min(1120px,100%);width:100%;max-height:92vh;border-radius:24px;background:var(--ovb-page,var(--canvas))}
+.rl4-dlg .modal-header{border-bottom:0;padding:18px 24px 6px}
+.rl4-dlg .modal-body{padding:6px 24px 22px;display:block}
+.rl4-ap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) 270px;gap:14px;align-items:stretch}
+.rl4-apc{background:var(--surface);border-radius:20px;padding:18px 20px;display:grid;gap:12px;align-content:start;min-width:0}
+.rl4-apc h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.rl4-apc h3 .sp{flex:1}
+.rl4-qf{border:1px solid var(--border-soft);border-radius:14px;padding:10px 12px}
+.rl4-qf>summary{cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;list-style:none}
+.rl4-qf>summary::-webkit-details-marker{display:none}
+.rl4-qf>summary::after{content:"+";margin-left:auto;color:var(--muted);font-weight:500}
+.rl4-qf[open]>summary::after{content:"−"}
+.rl4-qf>div{display:grid;gap:8px;margin-top:10px}
+.rl4-sum{background:var(--accent-fill);color:#fff;border-radius:20px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:200px;position:relative;overflow:hidden}
+html[data-theme="dark"] .rl4-sum{background:color-mix(in srgb,var(--accent-fill) 34%,#16161c)}
+.rl4-sum b{font-size:21px;font-weight:600;line-height:1.2;position:relative;overflow-wrap:anywhere}
+.rl4-sum .s{font-size:12.5px;opacity:.92;position:relative}
+.rl4-sum .ovb-btn.w{background:#fff;color:var(--accent-fill);align-self:flex-start;position:relative;padding:9px 18px}
+.rl4-sum .ovb-btn.w::after{display:none}
+.rl4-sum .ovb-btn.w:hover{background:#fff;opacity:.92}
+.rl4-sum .big{position:absolute;right:14px;bottom:2px;font-size:84px;font-weight:700;opacity:.2;line-height:1;pointer-events:none}
+.rl4-cb{display:flex;gap:9px;align-items:flex-start;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
+.rl4-cb input{width:16px;height:16px;margin-top:2px;flex:none}
+.rl4-cb small{display:block;font-weight:400;color:var(--muted);font-size:11.5px;margin-top:2px}
+
+/* narrow windows: the rail folds (phone-rails.js), the preview goes under the table */
+@media(max-width:1100px){
+  .rl4 .fleet-md{grid-template-columns:minmax(0,1fr)}
+  .rl4-ap{grid-template-columns:minmax(0,1fr)}
+  .rl4-sum{min-height:0}
+}
+@media(max-width:720px){
+  .rl4{padding-bottom:84px}
+  .rl4-pv{padding:14px}
+  .rl4-ph h2{font-size:17px}
+  .rl4-facts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .modal-box.rl4-dlg{max-height:94vh;border-radius:20px}
+  .rl4-dlg .modal-body{padding:4px 12px 16px}
+}
+/* the preview scrolls inside the sized page area; the table keeps its own scroll (style.css shell) */
+html.shell .rl4 .rl4-pv{overflow-y:auto;min-height:0;scrollbar-width:thin}
+html.shell .cl-page.rl4{padding-bottom:0}
+@media(min-width:1101px) and (max-width:1299px){.rl4 .cl-ft th:nth-child(5),.rl4 .cl-ft td:nth-child(5){display:none}}
+.rl4-fact:last-child:nth-child(odd){grid-column:1/-1}

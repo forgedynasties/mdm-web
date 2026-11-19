@@ -1,0 +1,25 @@
+{{define "au-head"}}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // Set theme before first paint to avoid a flash of the wrong theme.
+    (function () {
+      try {
+        var t = localStorage.getItem('mdm-theme');
+        if (t !== 'light' && t !== 'dark') t = 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+  <link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{assetVer}}">
+  <link rel="stylesheet" href="/static/style.css?v={{assetVer}}">
+  <link rel="stylesheet" href="/static/css/auth-bento.css?v={{assetVer}}">
+{{end}}
+{{define "au-wm"}}<span class="au1-wm"><img src="/static/favicon.svg?v={{assetVer}}" alt="">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</span>{{end}}
+{{define "au-eye"}}<button type="button" class="au1-eye" data-for="{{.}}" aria-label="Show password">Show</button>{{end}}
+{{define "au-env"}}<div class="au1-ic env"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 8 8 6 8-6"/></svg></div>{{end}}
+{{define "au-warn"}}<div class="au1-ic warn"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></div>{{end}}

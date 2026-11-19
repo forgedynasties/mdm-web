@@ -464,7 +464,8 @@ func ownerHeadline(venues []*ownerVenue, total, hour int) (headline, lede string
 				ready++
 				continue
 			}
-			groups[st.Word] = append(groups[st.Word], st.Name)
+			// Names go into the lede as HTML: a nickname is typed by a person.
+			groups[st.Word] = append(groups[st.Word], template.HTMLEscapeString(st.Name))
 		}
 	}
 	// One sentence per kind of problem. Up to two names are spelled out, more

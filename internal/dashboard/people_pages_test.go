@@ -73,8 +73,9 @@ func TestPeopleListRenders(t *testing.T) {
 		"CustomerRoles": []string{"owner", "staff"}, "RoleCount": map[string]int{"viewer": 2, "owner": 1},
 		"Waiting": []db.User{{ID: uuid.New(), Username: "new@x", Role: "viewer", CreatedAt: now}},
 		"Invites": 1, "Quiet": 1, "Assignable": []string{"viewer"}, "UsersTab": "people",
+		"UL1": buildUL1Test(in),
 	},
-		`data-clf="team"`, `data-clf="cust"`, `data-clf="inv"`, `data-clf="quiet"`, `data-clf="r-viewer"`,
+		`data-ul1-who="team"`, `data-ul1-who="cust"`, `data-ul1-flt="inv"`, `data-ul1-flt="quiet"`, `data-ul1-role="viewer"`,
 		`>Can operate</th>`, `Lab devices, the QA group`, `id="waiting-signups"`,
 		`id="invite-modal"`, `href="/users/access"`, `href="/activity"`, `aria-current="page"`)
 }
@@ -89,13 +90,19 @@ func TestAccessPageRenders(t *testing.T) {
 	cards := []accessRoleCard{{Role: "engineer", Label: "Engineer", Plural: "Engineers", People: 10, Grants: gs, Sentence: accessSentence("Engineers", "They", gs, time.Now())}}
 	tmpl := peopleTmpl(t, "users_access.html", "_users_tabs.html")
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
-		"Role": "admin", "UsersTab": "access", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
+		"Role": "admin", "UsersTab": "access", "Tab": "grants", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
 		"Groups": []db.Group{{ID: g, Name: "QA"}}, "Venues": []db.Restaurant{},
 	},
 		`Engineers can operate the QA group (until `, `and look at every other device.`, `value="manage"`, `starting point`,
-		`action="/users/access/levels"`, `Give engineers access`, `>Who can act on…</span>`)
+		`action="/users/access/levels"`, `Give engineers access`, `>Who can act on…</a>`)
+	rows, risks := buildAccessMatrix([]db.User{{Username: "hafiz", Role: "engineer"}}, gs, time.Now())
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
-		"Role": "admin", "UsersTab": "access", "Cards": cards, "Who": "group:" + g.String(), "WhoName": "the QA group",
+		"Role": "admin", "UsersTab": "access", "Tab": "matrix", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
+		"AxCols": axColumns, "AxRows": rows, "AxRisks": risks, "AxRisk": "ending", "NRisks": 1,
+		"Groups": []db.Group{}, "Venues": []db.Restaurant{},
+	}, `id="ac1-mx"`, `class="ac1-cell f"`, `Grants ending within 7 days`, `>Engineer</b>`)
+	renderPeople(t, tmpl, "users_access.html", map[string]any{
+		"Role": "admin", "UsersTab": "access", "Tab": "who", "Cards": cards, "Who": "group:" + g.String(), "WhoName": "the QA group",
 		"WhoRows": []whoRow{{Who: "Super admins", Level: "Manage", Via: "everything", People: 4}}, "Now": time.Now(),
 		"Groups": []db.Group{{ID: g, Name: "QA"}}, "Venues": []db.Restaurant{},
 	}, `Who can act on the QA group`, `Super admins`)
@@ -117,7 +124,7 @@ func TestPersonPageRenders(t *testing.T) {
 		"CopyFrom": []db.User{{Username: "abdullah", FirstName: "Abdullah", Role: "engineer"}},
 	},
 		`Hafiz can look at every device.`, `Engineer role`, `their own`, `the Test Cycles group`, `Give Hafiz access`,
-		`action="/users/access/levels"`, `/users/access/levels/`, `name="subject" value="hafiz"`,
+		`action="/users/access/levels"`, `/users/access/levels/`, `name="subject" value="hafiz"`, `Can Hafiz reach a device?`, `Remove Hafiz`,
 		`action="/users/`+u.ID.String()+`/access-where"`, `name="scope" value="" checked`, `Copy their Where`, `value="abdullah"`)
 	// With a Where: Groups picked, the QA box ticked, Elsewhere Hidden, the row marked as theirs.
 	w := whereChoiceOf(&db.AccessWhere{Scope: "groups", GroupIDs: []uuid.UUID{g}, Elsewhere: "hidden", SetBy: "ali"}, map[uuid.UUID]string{g: "QA"})
@@ -134,8 +141,10 @@ func TestActivityPageRenders(t *testing.T) {
 	renderPeople(t, peopleTmpl(t, "activity.html", "_users_tabs.html"), "activity.html", map[string]any{
 		"Role": "admin", "UsersTab": "activity", "Entries": []db.AuditEntry{{Actor: "Hafiz", Action: "device.reboot", CreatedAt: time.Now(), DeviceSerial: "AT070AABU00089"}},
 		"Total": 1, "Page": 1, "TotalPages": 2, "Kinds": activityKindOrder, "KindCount": map[string]int{"": 1, "devices": 1},
-		"Days": "7", "Kind": "", "BaseQS": template.URL("days=7"),
-	}, `>Everything</span>`, `kind=devices`, `AT070AABU00089`, `Last 7 days`, `Next`)
+		"Days": "7", "Kind": "", "BaseQS": template.URL("days=7"), "Track": "people",
+		"TrackCount": map[string]int{"people": 1}, "Src": "",
+		"PA2": buildPA2([]pa2Row{{Key: "hafiz", Name: "Hafiz", N: 1, Last: time.Now()}}, []db.AuditEntry{{Actor: "Hafiz", CreatedAt: time.Now()}}, "people", "", "", "", "7", "", false, false, ""),
+	}, `Everything · 1`, `value="devices"`, `AT070AABU00089`, `Last 7 days`, `Next`, `All people`, `actor=hafiz`)
 }
 
 func TestActivityKinds(t *testing.T) {
@@ -148,4 +157,9 @@ func TestActivityKinds(t *testing.T) {
 			t.Errorf("activityKind(%q) = %q, want %q", a, got, want)
 		}
 	}
+}
+
+func buildUL1Test(in p1Inputs) ul1View {
+	v := buildUsersP1(in)
+	return ul1View{Rail: v.Rail, Team: len(in.Team), Customers: len(in.Customers), Dash: "10 214"}
 }

@@ -52,12 +52,8 @@ func (a *access) venueInScope(id uuid.UUID) bool {
 	if !a.hidesDevices() {
 		return true
 	}
-	// The Ops lead runs every venue, empty ones included; Field the venues with devices being
-	// set up (no setup visits since 3 Nov 2026).
+	// The Ops lead runs every venue, empty ones included.
 	if a.role == "fleet_manager" && a.pol.Base != "deny" {
-		return true
-	}
-	if a.role == "field" && a.settingUpAt(id) {
 		return true
 	}
 	if rests, _ := a.visibleCollections(); rests[id] > 0 {
@@ -71,28 +67,22 @@ func (a *access) venueInScope(id uuid.UUID) bool {
 	return false
 }
 
-// settingUpAt reports whether any device at the venue is in the Setting up bucket.
-func (a *access) settingUpAt(venue uuid.UUID) bool {
-	a.loadScopes()
-	for _, sc := range a.scopes {
-		if sc.RestaurantID != nil && *sc.RestaurantID == venue && !sc.InService {
-			return true
-		}
-	}
-	return false
-}
-
-// enrolledHere reports whether the person enrolled the device and it isn't handed over yet:
+// enrolledHere reports whether the person enrolled the device and it isn't placed yet:
 // Field may put such a device at any venue (K2, 3 Nov 2026; db/placement.go).
 func (a *access) enrolledHere(dev uuid.UUID) bool {
 	a.loadScopes()
 	sc := a.scopes[dev]
-	return a.username != "" && sc.EnrolledBy == a.username && !sc.InService
+	return a.username != "" && sc.EnrolledBy == a.username && sc.RestaurantID == nil
 }
 
 // mayPlaceAt reports whether the person may put the device at the venue: a venue in their
 // scope, or for Field any venue when it is a device they enrolled.
 func (a *access) mayPlaceAt(dev, venue uuid.UUID) bool {
+	// Engineers work on Lab devices and never place one at a venue (18 Nov 2026 audit:
+	// they see every venue, so the scope check below let them).
+	if a.role == "engineer" {
+		return false
+	}
 	return a.venueInScope(venue) || (a.role == "field" && a.enrolledHere(dev))
 }
 

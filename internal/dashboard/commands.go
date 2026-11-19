@@ -412,6 +412,11 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 // fields while they are still kept. A wifi_config whose password has been swept cannot
 // be repeated from here — the new command would carry no password — so it says so.
 func (h *Handler) resendPayload(w http.ResponseWriter, r *http.Request, cmd *db.Command) (json.RawMessage, bool) {
+	// A resend is a new send: the administrator's shell switch applies to it as to the first.
+	if cmd.Type == "shell" && !h.cfg.ShellEnabled() {
+		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
+		return nil, false
+	}
 	payload := h.db.DeliveryPayload(r.Context(), cmd.ID, cmd.Type, cmd.Payload)
 	if _, msg := product.NormalizeCommandPayload(cmd.Type, payload); msg != "" {
 		http.Error(w, cmdTypeLabel(cmd.Type)+" can't be resent: the password is no longer kept. Send it again with the password.", http.StatusBadRequest)
@@ -446,6 +451,16 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.requireDeviceAction(w, r, policyActionForCommand(cmd.Type), deviceIDs[0]) {
+		return
+	}
+	// A resend repeats what was sent, to a device it was sent to: not a way to push
+	// someone else's command (its stored Wi-Fi password, say) onto another device.
+	if h.commandHiddenFrom(r, *cmd) {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	if was, err := h.db.CommandTargetsDevice(r.Context(), cmd.ID, deviceIDs[0]); err != nil || !was {
+		http.Error(w, "That command was not sent to this device.", http.StatusBadRequest)
 		return
 	}
 	payload, ok := h.resendPayload(w, r, cmd)
@@ -799,9 +814,13 @@ func (h *Handler) AttentionClear(w http.ResponseWriter, r *http.Request) {
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	attn, _, _ := classifyCommands(cmds, summaries, dismissed)
+	// Everyone's list only for the super admin; others clear what they sent themselves.
+	all, me := h.access(r).unrestricted(), h.currentUsername(r)
 	ids := make([]uuid.UUID, 0, len(attn))
 	for _, c := range attn {
-		ids = append(ids, c.ID)
+		if all || c.CreatedBy == me {
+			ids = append(ids, c.ID)
+		}
 	}
 	if err := h.db.DismissCommands(r.Context(), ids, h.role(r)); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -850,6 +869,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Collect logs"
 	case "ota":
 		return "OTA update"
+	case "adb_approve":
+		return "Approve adb key"
 	case "adb_tcp":
 		return "Wireless adb"
 	case "lost_mode":

@@ -7,12 +7,14 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	"image/png"
+	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"mdm/internal/db"
+	"mdm/internal/venueicon"
 
 	"github.com/google/uuid"
 )
@@ -181,7 +183,12 @@ func (h *Handler) UserSetAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
-	src, _, err := image.Decode(f)
+	raw, err := io.ReadAll(io.LimitReader(f, 8<<20))
+	if err != nil {
+		http.Error(w, "Could not read that file.", http.StatusBadRequest)
+		return
+	}
+	src, err := venueicon.SafeDecode(raw)
 	if err != nil {
 		http.Error(w, "That file is not a PNG, JPEG or GIF image.", http.StatusBadRequest)
 		return
@@ -197,7 +204,7 @@ func (h *Handler) UserSetAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "user.avatar.set", target.Username, "")
-	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+	if to := r.FormValue("redirect"); to == "/profile" || (strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//")) {
 		http.Redirect(w, r, to, http.StatusSeeOther)
 		return
 	}
@@ -222,7 +229,7 @@ func (h *Handler) UserClearAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = h.db.ClearUserAvatar(r.Context(), id)
 	h.audit(r, "user.avatar.clear", target.Username, "")
-	if to := r.FormValue("redirect"); strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//") {
+	if to := r.FormValue("redirect"); to == "/profile" || (strings.HasPrefix(to, "/users/") && !strings.Contains(to, "//")) {
 		http.Redirect(w, r, to, http.StatusSeeOther)
 		return
 	}

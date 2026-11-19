@@ -17,6 +17,7 @@ import (
 
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/otagate"
 	"mdm/internal/ratelimit"
 	"mdm/internal/ws"
 )
@@ -43,7 +44,7 @@ func TestAccessDeniedPages(t *testing.T) {
 	}
 	tmpl := template.Must(template.New("").Parse(`{{define "header"}}<main>{{end}}{{define "footer"}}</main>{{end}}`))
 	tmpl = template.Must(tmpl.ParseFiles("../../templates/denied.html"))
-	h := &Handler{db: d, cfg: cfg, hub: ws.NewHub(), loginFails: ratelimit.New(15 * time.Minute), tmpl: tmpl,
+	h := &Handler{db: d, cfg: cfg, hub: ws.NewHub(), loginFails: ratelimit.New(15 * time.Minute), tmpl: tmpl, otaGate: otagate.New(d, cfg),
 		store: sessions.NewCookieStore([]byte("0123456789abcdef0123456789abcdef"))}
 	mux := http.NewServeMux()
 	h.RegisterRoutes(mux)
@@ -65,7 +66,10 @@ func TestAccessDeniedPages(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := d.AssignDeviceToRestaurant(ctx, setupSerial, &rest.ID); err != nil {
+	// A device queued for a venue (to place): support sees only devices in service.
+	if sd, err := d.GetDevice(ctx, setupSerial); err != nil {
+		t.Fatal(err)
+	} else if err := d.SetDevicePlacement(ctx, sd.ID, db.PlacementQueue); err != nil {
 		t.Fatal(err)
 	}
 
@@ -89,7 +93,7 @@ func TestAccessDeniedPages(t *testing.T) {
 		says       []string
 	}{
 		{"lab device", "/devices/" + labSerial, 403, []string{"have access</h1>", "in the Lab", "devices in service"}},
-		{"device setting up", "/devices/" + setupSerial, 403, []string{"being set up at DN venue " + stamp}},
+		{"device to place", "/devices/" + setupSerial, 403, []string{"waiting to be placed"}},
 		{"venue with none of theirs", "/restaurants/" + rest.ID.String(), 403, []string{"Venue DN venue " + stamp, "None of its devices"}},
 		{"missing venue", "/restaurants/" + uuid.NewString(), 404, []string{"Not found", "no venue at this address"}},
 		{"super admin page", "/settings", 403, []string{"Only Super admins can open it."}},

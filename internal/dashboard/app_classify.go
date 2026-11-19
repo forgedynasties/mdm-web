@@ -219,7 +219,7 @@ func classifySerial(serial string, known *db.Device, ps []db.Production, fs []se
 }
 
 // AppClassify: POST /api/v1/app/classify {"serials":[...]} → {"serials":{"<serial>":{class,…}}}.
-func (h *Handler) AppClassify(w http.ResponseWriter, r *http.Request, _ *db.Session) {
+func (h *Handler) AppClassify(w http.ResponseWriter, r *http.Request, sess *db.Session) {
 	var body struct {
 		Serials []string `json:"serials"`
 	}
@@ -254,6 +254,7 @@ func (h *Handler) AppClassify(w http.ResponseWriter, r *http.Request, _ *db.Sess
 		return
 	}
 	fams := buildFamilies(samples)
+	acc := h.accessFor(r.Context(), sess.Role, sess.Username)
 	out := make(map[string]serialClass, len(serials))
 	for _, s := range serials {
 		var known *db.Device
@@ -261,6 +262,11 @@ func (h *Handler) AppClassify(w http.ResponseWriter, r *http.Request, _ *db.Sess
 			known = d
 		}
 		c := classifySerial(s, known, ps, fams)
+		// "It is already in the fleet" is all the app needs about a device this person
+		// can't see: not when it was last heard.
+		if known != nil && !acc.visible(known.ID) {
+			c.LastSeenAt = nil
+		}
 		if c.LastSeenAt != nil {
 			c.Online = time.Since(*c.LastSeenAt) <= time.Duration(h.cfg.CheckinInterval()*3)*time.Second
 		}

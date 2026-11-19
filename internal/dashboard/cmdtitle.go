@@ -103,6 +103,12 @@ func cmdTitleOf(s cmdShape) (title, hint string) {
 			return "Update reboot", "after a firmware update"
 		}
 		return "Reboot", ""
+	case "adb_approve":
+		var p struct {
+			Fingerprint string `json:"fingerprint"`
+		}
+		_ = json.Unmarshal(s.Payload, &p)
+		return "Approve adb key", p.Fingerprint
 	case "adb_tcp":
 		var p struct {
 			Port  int `json:"port"`
@@ -206,6 +212,8 @@ func cmdVerbOf(s cmdShape) string {
 		return "updated"
 	case "reboot":
 		return "rebooted"
+	case "adb_approve":
+		return "approved"
 	case "adb_tcp":
 		return "switched"
 	case "wipe":

@@ -2,95 +2,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script>
-    // Set theme before first paint to avoid a flash of the wrong theme.
-    (function () {
-      try {
-        var t = localStorage.getItem('mdm-theme');
-        if (t !== 'light' && t !== 'dark') t = 'light';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-    })();
-  </script>
+  {{template "au-head"}}
   <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
-  <link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
-  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
-  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
 </head>
-<body class="auth2-body">
-  <main class="auth2-wrap">
-    <div class="auth2-hero">
-      <div class="auth2-hero-top">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</div>
-      <div>
-        <div class="auth2-hero-head">Every kiosk and tablet, <span class="hl">all in one</span> dashboard.</div>
-        <div class="auth2-hero-sub">Fleet monitoring, OTA updates, app lock, and remote control — all in one place.</div>
+<body class="au1">
+  <main class="au1-card">
+    {{template "au-wm" .}}
+    <div class="au1-stp"><span{{if not .Sent}} class="on"{{end}}><b>1</b>Create</span><em></em><span{{if .Sent}} class="on"{{end}}><b>2</b>Check inbox</span><em></em><span><b>3</b>Verify</span></div>
+    {{if .Sent}}
+    {{template "au-env"}}
+    <h1>Check your inbox</h1>
+    <p class="au1-sub">We sent a verification link to <b>{{.Email}}</b>. You can sign in once you have opened it.</p>
+    <div class="au1-al info"><span>Nothing yet? Look in spam.</span></div>
+    <div class="au1-alt"><a href="/signup">Use another address</a> · <a href="/login">Back to sign in</a></div>
+    {{else}}
+    <h1>Create your account</h1>
+    <p class="au1-sub">Sign up for the MDM dashboard</p>
+
+    {{if .Error}}
+    <div class="au1-al err" role="alert"><span>{{.Error}}</span></div>
+    {{end}}
+
+    <form action="/signup" method="POST" data-au-set>
+      <div class="au1-row2">
+        <div class="au1-f">
+          <label for="first_name">First name</label>
+          <input class="au1-in" type="text" id="first_name" name="first_name" autocomplete="given-name" value="{{.FirstName}}" required>
+        </div>
+        <div class="au1-f">
+          <label for="last_name">Last name</label>
+          <input class="au1-in" type="text" id="last_name" name="last_name" autocomplete="family-name" value="{{.LastName}}" required>
+        </div>
       </div>
-      <div class="auth2-hero-foot">© 2026 AIO · AI for Restaurants</div>
-    </div>
-
-    <div class="auth2-side">
-      <div class="auth2-form-wrap">
-        {{if .Sent}}
-        <h1 class="auth2-title">Check your inbox</h1>
-        <div class="auth2-subtitle">We sent a verification link to {{.Email}}.</div>
-        <div class="auth2-alt" style="margin-top:26px;"><a href="/login">Back to sign in</a></div>
-        {{else}}
-        <h1 class="auth2-title">Create your account</h1>
-        <div class="auth2-subtitle">Sign up for the MDM dashboard</div>
-
-        {{if .Error}}
-        <div class="auth2-alert error" role="alert">{{.Error}}</div>
-        {{end}}
-
-        <form action="/signup" method="POST" class="auth2-form">
-          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
-            <div class="auth2-field">
-              <label for="first_name">First name</label>
-              <input type="text" id="first_name" name="first_name" autocomplete="given-name" value="{{.FirstName}}" required>
-            </div>
-            <div class="auth2-field">
-              <label for="last_name">Last name</label>
-              <input type="text" id="last_name" name="last_name" autocomplete="family-name" value="{{.LastName}}" required>
-            </div>
-          </div>
-          <div class="auth2-field">
-            <label for="email">Work email</label>
-            <input type="email" id="email" name="email" autocomplete="email" placeholder="you@aioapp.com" value="{{.Email}}" required>
-          </div>
-          <div class="auth2-field">
-            <label for="password">Password</label>
-            <div class="auth2-pwrap">
-              <input type="password" id="password" name="password" autocomplete="new-password" minlength="8" required>
-              <button type="button" class="auth2-eye" id="pw-toggle" aria-label="Show password" onclick="authTogglePw('password','pw-eye-on','pw-eye-off','pw-toggle')">
-                <svg id="pw-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg id="pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 5c7 0 11 7 11 7a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
-              </button>
-            </div>
-          </div>
-          <div class="auth2-field">
-            <label for="confirm">Confirm password</label>
-            <div class="auth2-pwrap">
-              <input type="password" id="confirm" name="confirm" autocomplete="new-password" minlength="8" required>
-              <button type="button" class="auth2-eye" id="cf-toggle" aria-label="Show password" onclick="authTogglePw('confirm','cf-eye-on','cf-eye-off','cf-toggle')">
-                <svg id="cf-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                <svg id="cf-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 5c7 0 11 7 11 7a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
-              </button>
-            </div>
-          </div>
-          <button type="submit" class="auth2-btn">Sign up</button>
-        </form>
-
-        <div class="auth2-alt">Already have an account? <a href="/login">Sign in</a></div>
-        {{end}}
+      <div class="au1-f">
+        <label for="email">Work email</label>
+        <input class="au1-in" type="email" id="email" name="email" autocomplete="email" placeholder="you@aioapp.com" value="{{.Email}}" required>
       </div>
-    </div>
+      <div class="au1-f au1-pw">
+        <label for="password">Password</label>
+        <input class="au1-in" type="password" id="password" name="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" required data-au-n>
+        {{template "au-eye" "password"}}
+        <div class="au1-pwm"><i></i><i></i><i></i><i></i></div>
+        <div class="au1-pwl"><span data-au-lbl>Enter a password</span><span data-au-match></span></div>
+      </div>
+      <div class="au1-f au1-pw">
+        <label for="confirm">Confirm password</label>
+        <input class="au1-in" type="password" id="confirm" name="confirm" autocomplete="new-password" minlength="8" placeholder="Repeat it" required data-au-c>
+        {{template "au-eye" "confirm"}}
+      </div>
+      <button type="submit" class="au1-btn">Sign up</button>
+    </form>
+
+    <div class="au1-alt">Already have an account? <a href="/login">Sign in</a></div>
+    {{end}}
   </main>
-<script src="/static/js/signup.js?v={{assetVer}}"></script>
+<script src="/static/js/auth-bento.js?v={{assetVer}}"></script>
 </body>
 </html>
 {{end}}

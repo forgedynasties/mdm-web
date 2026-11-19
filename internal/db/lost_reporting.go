@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -319,13 +320,15 @@ func (d *DB) IngestBLESightings(ctx context.Context, heardBy uuid.UUID, extra js
 		}
 		// A listener reports every scan (every couple of minutes) while it hears something:
 		// one row per neighbour per minute, the strongest reading kept.
-		_, _ = d.pool.Exec(ctx, `
+		if _, err := d.pool.Exec(ctx, `
 			INSERT INTO ble_sightings (session_id, heard_by, rssi, at)
 			SELECT s.id, $2, $3, $4 FROM lost_sessions s
 			WHERE s.beacon = $1 AND s.device_id <> $2
 			  AND (s.ended_at IS NULL OR s.ended_at > $4)
 			ON CONFLICT (session_id, heard_by, at) DO UPDATE SET rssi = GREATEST(ble_sightings.rssi, EXCLUDED.rssi)`,
-			b, heardBy, s.RSSI, when.UTC().Truncate(time.Minute))
+			b, heardBy, s.RSSI, when.UTC().Truncate(time.Minute)); err != nil {
+			log.Printf("[lost] BLE sighting for %s: %v", heardBy, err)
+		}
 	}
 }
 

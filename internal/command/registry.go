@@ -97,6 +97,8 @@ var specs = map[string]Spec{
 	"mic_gain_read": {AtLeastOnce, LaneShell, 5 * time.Minute, 5 * time.Minute, 0, nil, false},
 	"mic_gain_set":  {AtLeastOnce, LaneShell, 5 * time.Minute, 5 * time.Minute, 0, nil, false},
 	"adb_tcp":       {AtLeastOnce, LaneShell, 5 * time.Minute, 10 * time.Minute, 0, nil, false},
+	// Waits on the device for the dialog (up to 4 min); a repeat while it waits is ignored there.
+	"adb_approve": {AtLeastOnce, LaneShell, 5 * time.Minute, 10 * time.Minute, 0, nil, false},
 
 	// ── state pushes ───────────────────────────────────────────────────────────
 	"config": {AtLeastOnce, LaneDefault, 10 * time.Minute, time.Hour, 0, nil, false},

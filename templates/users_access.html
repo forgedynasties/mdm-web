@@ -1,52 +1,63 @@
 {{define "users_access.html"}}
 {{template "header" .}}
-{{/* Access (A1, access by levels, picked 2 Nov 2026): one card per role with the levels it
-     gives where, "+ Give … access", the extra access given to people, and "Who can act on"
-     a group or venue. Handlers: access_levels.go. */}}
+{{/* Access (AC1 · Matrix, picked 18 Nov 2026): the risks on the left (open one to see who and
+     fix it), "Who can do what" as the big card (a row per role, then the people who hold
+     grants of their own; a cell explains itself and offers "Add a grant"), and two more tabs:
+     Grants (each role's levels, the give form, grants held by people) and Who can act on a
+     group or venue. Same routes as before: POST /users/access/levels and .../{id}/delete.
+     Builders: access_levels.go (AccessPage), access_matrix.go. */}}
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/users-access-ac1.css?v={{assetVer}}">
 <template id="page-island">
-  <span class="isl-dot on"></span>
-  <span class="isl-t">Access</span>
-  <span class="isl-s">{{len .Cards}} role{{if ne (len .Cards) 1}}s{{end}}{{if .Own}} · {{len .Own}} given to people{{end}}</span>
+  <span class="isl-dot {{if .NRisks}}warn{{else}}on{{end}}"></span>
+  <span class="isl-t">People · Access</span>
+  <span class="isl-s"><b>{{.NPeople}}</b> people · <b>{{.NGrants}}</b> grants{{if .NRisks}} · <span class="w">{{.NRisks}} to look at</span>{{end}}</span>
 </template>
 {{template "acc-css" .}}
-<style>
-.acc-card{margin-bottom:14px;overflow:hidden}
-.acc-h{display:flex;align-items:baseline;gap:10px;padding:14px 16px 0;flex-wrap:wrap}
-.acc-h h2{font-size:16px;font-weight:650;margin:0}
-.acc-h .m{color:var(--muted);font-size:12.5px}
-.acc-who-f{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px 16px}
-</style>
-<div class="cl-page">
 <div class="cc-top"><div><h1 class="cc-h1">Access</h1></div></div>
-<div class="fleet-md dv-rise-1">
-  <aside class="fleet-rail" aria-label="Roles">
-    <div class="fleet-rail-cap"><span>Roles</span></div>
-    {{range .Cards}}<a class="fleet-rail-item{{if eq $.Sel .Role}} on{{end}}" href="/users/access?role={{.Role}}"{{if eq $.Sel .Role}} aria-current="page"{{end}}><span class="dot {{if .Grants}}ok{{else}}muted{{end}}"></span><span class="nm">{{.Label}}</span><span class="ct">{{.People}}</span></a>{{end}}
-    <div class="fleet-rail-cap" style="margin-top:12px"><span>Check</span></div>
-    <a class="fleet-rail-item{{if .Who}} on{{end}}" href="/users/access?who=pick"><span class="dot muted"></span><span class="nm">Who can act on…</span></a>
-  </aside>
-  <div class="fleet-roster">
-  {{template "users-tabs" .}}
-  {{if .Who}}
-    <div class="fleet-pane-head"><span class="t">Who can act on {{if .WhoName}}{{.WhoName}}{{else}}a group or venue{{end}}</span></div>
-    <div class="cc-card acc-card">
-      <form method="GET" action="/users/access" class="acc-who-f">
-        <select name="who" class="en-sel" aria-label="Group or venue" required>
-          <option value="" disabled{{if not .WhoName}} selected{{end}}>Pick a group or venue…</option>
-          {{with .Groups}}<optgroup label="Groups">{{range .}}<option value="group:{{.ID}}"{{if eq $.Who (printf "group:%s" .ID)}} selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
-          {{with .Venues}}<optgroup label="Venues">{{range .}}<option value="venue:{{.ID}}"{{if eq $.Who (printf "venue:%s" .ID)}} selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
-        </select>
-        <button type="submit" class="cc-btn sm">Show</button>
-      </form>
-      {{if .WhoRows}}
-      <div class="ft-wrap"><table class="ft">
-        <thead><tr><th>Who</th><th style="width:110px">Level</th><th>Through</th><th class="ft-num" style="width:90px">People</th></tr></thead>
-        <tbody>{{range .WhoRows}}<tr class="ft-row"><td><b>{{.Who}}</b></td><td><span class="acc-lvl l-{{lower .Level}}">{{.Level}}</span></td><td class="muted">{{.Via}}</td><td class="ft-num">{{.People}}</td></tr>{{end}}</tbody>
-      </table></div>
-      <p class="acc-key" style="padding-top:10px">"only" rows reach just the devices in that state or of those visits. Customers see only their own venues.</p>
+<div class="ovd ac1" id="ac1">
+  <div class="ac1-l">
+    <nav class="ac1-nav" aria-label="People"><a href="/users">People</a><a href="/users/access" aria-current="page" class="on">Access</a>{{if eq .Role "admin"}}<a href="/activity">Activity</a>{{end}}</nav>
+    <section class="ovb-c ac1-risks" aria-labelledby="ac1-rh">
+      <div class="ovb-ch"><h2 id="ac1-rh">Risks</h2><span class="sp"></span><span class="ovb-pill {{if .NRisks}}o{{else}}g{{end}}">{{.NRisks}}</span></div>
+      <div class="ac1-rl">
+      {{range .AxRisks}}{{$n := len .Items}}{{$open := eq $.AxRisk .Key}}
+        <a class="ovb-li ac1-ri{{if $open}} on{{end}}" href="/users/access?{{if not $open}}risk={{.Key}}{{end}}" aria-expanded="{{$open}}"><span class="ovb-dot {{if $n}}{{.Tone}}{{else}}c{{end}}"></span><span class="tx"><b>{{.Title}}</b></span><span class="ovb-pill {{if $n}}{{.Tone}}{{else}}g{{end}}">{{$n}}</span></a>
+        {{if $open}}<div class="ac1-rb"><p>{{.Desc}}</p>
+          {{range .Items}}<div class="ac1-fr"><span class="nm"><b>{{.Name}}</b> <small>{{.Sub}}</small></span>
+            {{if .ID}}<a class="ac1-a" href="/users/{{.ID}}/profile">Open</a>{{end}}
+            {{if .GrantID}}<form method="POST" action="/users/access/levels/{{.GrantID}}/delete" hx-boost="false" onsubmit="return confirm('Remove this access?')"><input type="hidden" name="back" value="/users/access?risk={{$.AxRisk}}"><button class="ac1-a x" type="submit">Revoke</button></form>{{end}}
+          </div>{{else}}<div class="ac1-none">Nothing here.</div>{{end}}
+        </div>{{end}}
       {{end}}
+      </div>
+    </section>
+  </div>
+  <section class="ovb-c ac1-main">
+    <div class="ac1-tl">
+      <span class="ovb-seg" role="tablist">
+        <a href="/users/access" class="{{if eq .Tab "matrix"}}on{{end}}">Who can do what</a>
+        <a href="/users/access?tab=grants" class="{{if eq .Tab "grants"}}on{{end}}">Grants · {{.NGrants}}</a>
+        <a href="/users/access?who=pick" class="{{if eq .Tab "who"}}on{{end}}">Who can act on…</a>
+      </span>
+      <span class="sp"></span>
+      {{if eq .Tab "matrix"}}<span class="ac1-key"><i class="ovb-dot"></i>everything <i class="ovb-dot y"></i>part of the fleet <i class="ovb-dot o"></i>extra grant</span>{{end}}
     </div>
-  {{else}}
+    <div class="ac1-sc">
+    {{if eq .Tab "matrix"}}
+      <table class="ac1-mx" id="ac1-mx">
+        <thead><tr><th class="rn">Role</th>{{range .AxCols}}<th data-sub="{{.Sub}}">{{.Name}}</th>{{end}}</tr></thead>
+        <tbody>
+        {{range .AxRows}}{{if .Divider}}<tr class="dh"><td colspan="7">People with grants beyond their role</td></tr>{{end}}
+        <tr class="{{if .Person}}pe{{end}}"><td class="rn"><b>{{.Name}}</b><small>{{.Sub}}</small></td>
+          {{$row := .}}{{range $i, $c := .Cells}}<td><button type="button" class="ac1-cell {{$c.Class}}" data-ax-who="{{$row.Name}}" data-ax-col="{{with index $.AxCols $i}}{{.Name}}{{end}}" data-ax-lines="{{$c.Tip}}" data-ax-role="{{if and (not $c.Fixed) (not $row.Person)}}{{$row.Role}}{{end}}" data-ax-open="{{if $row.Person}}{{$row.ID}}{{end}}">{{$c.Text}}</button></td>{{end}}
+        </tr>{{end}}
+        </tbody>
+      </table>
+      <div class="ac1-pop" id="ac1-pop" role="dialog" aria-label="Cell details" hidden></div>
+    {{else if eq .Tab "grants"}}
+      <nav class="ac1-roles" aria-label="Roles">{{range .Cards}}<a class="ac1-chip{{if eq $.Sel .Role}} on{{end}}" href="/users/access?role={{.Role}}"{{if eq $.Sel .Role}} aria-current="page"{{end}}>{{.Label}} <i>{{.People}}</i></a>{{end}}</nav>
+      <div class="ac1-gr">
     {{range .Cards}}{{if eq $.Sel .Role}}{{$c := .}}
     <div class="fleet-pane-head"><span class="t">{{.Label}}</span><span class="c">{{.People}} {{if eq .People 1}}person{{else}}people{{end}} · applies to everyone with this role{{if .Legacy}} · old role, can't be given any more{{end}}</span></div>
     <div class="cc-card acc-card">
@@ -81,9 +92,30 @@
       <tbody>{{range .Own}}<tr class="ft-row{{if .Expired $.Now}} acc-exp{{end}}"><td><b>{{with index $.UserNames .Subject}}{{.}}{{else}}{{.Subject}}{{end}}</b></td><td>{{accessScopeText .}}</td><td><span class="acc-lvl l-{{.Level}}">{{title .Level}}</span></td><td>{{if .Until}}{{.Until.Format "2 Jan 2006"}}{{else}}<span class="muted">no end</span>{{end}}</td></tr>{{end}}</tbody>
     </table></div></div>
     {{end}}
-  {{end}}
-  </div>
+      </div>
+    {{else}}
+    <div class="fleet-pane-head"><span class="t">Who can act on {{if .WhoName}}{{.WhoName}}{{else}}a group or venue{{end}}</span></div>
+    <div class="cc-card acc-card">
+      <form method="GET" action="/users/access" class="acc-who-f">
+        <select name="who" class="en-sel" aria-label="Group or venue" required>
+          <option value="" disabled{{if not .WhoName}} selected{{end}}>Pick a group or venue…</option>
+          {{with .Groups}}<optgroup label="Groups">{{range .}}<option value="group:{{.ID}}"{{if eq $.Who (printf "group:%s" .ID)}} selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
+          {{with .Venues}}<optgroup label="Venues">{{range .}}<option value="venue:{{.ID}}"{{if eq $.Who (printf "venue:%s" .ID)}} selected{{end}}>{{.Name}}</option>{{end}}</optgroup>{{end}}
+        </select>
+        <button type="submit" class="cc-btn sm">Show</button>
+      </form>
+      {{if .WhoRows}}
+      <div class="ft-wrap"><table class="ft">
+        <thead><tr><th>Who</th><th style="width:110px">Level</th><th>Through</th><th class="ft-num" style="width:90px">People</th></tr></thead>
+        <tbody>{{range .WhoRows}}<tr class="ft-row"><td><b>{{.Who}}</b></td><td><span class="acc-lvl l-{{lower .Level}}">{{.Level}}</span></td><td class="muted">{{.Via}}</td><td class="ft-num">{{.People}}</td></tr>{{end}}</tbody>
+      </table></div>
+      <p class="acc-key" style="padding-top:10px">"only" rows reach just the devices in that state. Customers see only their own venues.</p>
+      {{end}}
+    </div>
+    {{end}}
+    </div>
+  </section>
 </div>
-</div>
+<script src="/static/js/users/access_ac1.js?v={{assetVer}}" defer></script>
 {{template "footer" .}}
 {{end}}

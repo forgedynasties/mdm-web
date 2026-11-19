@@ -32,6 +32,166 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.26",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Crash feed: Google Play services' location crash on the HK1 boxes (a NullPointerException in LocationProviderManager.getProperties on the Android 13 image) is no longer stored, and the rows already stored are removed once. It only restarts Google's own process; the fix is a newer Play services in the vendor image.",
+		},
+	},
+	{
+		Version: "1.64.25",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Setup is simpler: no Setting up state, no Hand over, no Set up again. A device is Lab, To place or In service, and placing it at a venue puts it in service at once. The Ops lead Setup page is /setup (a queue table with an assign bar) and Field's is /setup/mine (their own devices to place) with Enroll at /setup/mine/enroll; the old /visits and /my-visits addresses redirect. Devices already at a venue are put in service on upgrade and the old Setting up grants are removed.",
+			"Apps library in the Overview's language: a rail by product, one table, and a preview pane for the picked row with its channels, versions, Add version and the family tools.",
+			"App page: a strip of channel cards with coverage rings; click a version to see only the devices running it.",
+		},
+	},
+	{
+		Version: "1.64.24",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"New landing page (the door): the shield, the name, one line, Sign in, Microsoft sign-in when configured and Create account, with the six device types as a quiet row. The sneak-peek preview (/sneak-peek and its sample fleet) is gone.",
+		},
+	},
+	{
+		Version: "1.64.23",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"People and account pages in the Overview's language, fitted to the window: Users (tiles, roles, table), the person page (profile, what they can do, can they reach a device), Access (who can do what matrix, grants, risks), People activity (actor first), My profile (display preferences with a live preview) and the owner's Your team card with an invite dialog; sign-in, sign-up, forgot and reset password redesigned, and the sign-in page now says when an email was verified or a password saved.",
+			"Device page: the Apps list and the Health sheet no longer fold anything, the Health status line wraps, and the Network sheet shows the connection with 24 h of Wi-Fi signal on the left and the saved networks on the right.",
+		},
+	},
+	{
+		Version: "1.64.22",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Releases and updates in the Overview's language, fitted to the window with no page scrolling: the Releases page is a table of releases with a preview (add a package, inspect, attach a flashing bundle, create a release with its first package); New update is a three-step stepper with a live \"will update N devices\" summary; the deployment page has the progress and to-do on the left and the devices with a detail and actions on the right; Update settings is a list with an explanation pane and tonight's counts; Release crashes lists the crash groups with their trace, trend and devices.",
+		},
+	},
+	{
+		Version: "1.64.21",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view sheets: Notes is a log (each entry has a time, author and kind, with what the MDM did to the device mixed in; the old single note becomes its first entry), Activity is a list with the picked event explained beside it, Health puts what needs a look first with passing checks as chips, About gets its admin actions, and Network and About are regrouped.",
+			"Fleet: the device table no longer scrolls, only pages (the pager, the numbers and the arrow keys flip them).",
+		},
+	},
+	{
+		Version: "1.64.20",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Sign-in: a few wrong passwords from one office no longer lock everyone on that network out. One account from one address is still stopped after 8 failures; one address trying many accounts after 60.",
+		},
+	},
+	{
+		Version: "1.64.19",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view: the Graph pane's metric list is a thin rail (dot, number, label), so the graph is wider.",
+		},
+	},
+	{
+		Version: "1.64.18",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view sheets: About fits without scrolling, the Location map fills its sheet, Activity, Health and Apps load in the background so they open filled, and Apps is a list with the picked app explained beside the host app card (Details… opens the existing info popup).",
+		},
+	},
+	{
+		Version: "1.64.17",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view: the facts strip and the Notes / Pad row are gone. The client, venue and groups are in the Details tile; a T7 gets a Charging pad tile with the on/off switch (other devices keep the Vitals rings); Notes is a dock entry. The graph card's enlarge button opens a Graphs sheet instead of full screen, and the sheets now come in with the page stepping back behind them.",
+		},
+	},
+	{
+		Version: "1.64.16",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Bento view: the panel sheet opens in the centre, a second click on the dock button closes it, its header animates in with it, and the tab bar on the sheet is gone (the dock already switches panels).",
+		},
+	},
+	{
+		Version: "1.64.15",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Device page, Bento view: no tab row. A labelled dock on the right edge opens Apps, Activity, Health, Network, Location and About as a sheet over the bento, with a switcher, Esc to close, and ?tab= links still working. Phones get the dock as a row.",
+		},
+	},
+	{
+		Version: "1.64.14",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Device page, Bento view: now the Overview's own panes and fits the window with no scrolling. A radar of the device's health, a Today card (Graph, Needs, Activity, Apps; each a list with the pick explained), a coral action card, vitals rings and details. Phones stack. Still opt-in from the page's ⋯ menu.",
+		},
+	},
+	{
+		Version: "1.64.13",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Device page: an optional Bento view, the Overview as tiles. Switch from the page's ⋯ menu (Bento view / Standard view); it is remembered per person and never the default.",
+			"Menus close when you choose an item. Enrolment checks the size of the token and product, a scheduled recipe is sent at most once, and a few database write failures are now logged.",
+		},
+	},
+	{
+		Version: "1.64.12",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"QA audit fixes: a device socket can only report its own serial; the shared key is refused (not accepted) while the key lookup is down; a repeated or late command reply changes nothing; a command is handed to one poll at a time.",
+			"Venues and groups: a taken group name says so (409), service hours and timezones are checked, names and notes have size limits, and removing or handing over devices checks the venue and each device's access.",
+			"Hardening: QA history and battery log limits, migrations and partitions take a lock, job leases use database time, resent and scheduled shell commands obey the shell switch, and the database tests now run in CI.",
+		},
+	},
+	{
+		Version: "1.64.11",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"A computer's adb key can be approved on a Standard-client device from the admin API (command adb_approve): the device presses Allow on Android's own dialog, only when it shows the key named in the command. For two-screen POS units, where that dialog opens out of the remote screen's reach. Needs Standard client 0.16.1.",
+		},
+	},
+	{
+		Version: "1.64.10",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: a remote-control connection must come from the session that opened it; reset, invite and verify links are stored hashed (links already mailed keep working).",
+			"Security: failed sign-ins lock an account for the address they came from, not for everyone; an account is locked for all only after 48 failures in 15 minutes.",
+			"Security: cancelling a firmware update is for an admin; resending a command needs you to see it and goes only to a device it was sent to; clearing Needs attention clears your own; the Groups list shows the groups holding a device you see.",
+			"Security: an APK's icon is size-checked before it is decoded; a device's Save to library must answer within two hours with the version asked for; AIO Enroll no longer says when a device you can't see was last heard.",
+		},
+	},
+	{
+		Version: "1.64.9",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: sign-in and Forgot password take the same time whether or not the account exists.",
+			"Security: an app icon a device reports is kept only when it is a PNG; opening remote control is in the activity log.",
+			"Security: owners can't add an AIO team address as staff; the inventory export can't be read as formulas by a spreadsheet; the release package check shows what it read as text.",
+		},
+	},
+	{
+		Version: "1.64.8",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: installs take a build from the app library or one this server hosts; only a super admin can install from another address.",
+			"Security: engineers can't place a device at a venue; deleting a venue is for an Ops lead or an admin; a device at a venue has its role changed in the MDM, not from AIO Enroll, unless you can operate it.",
+			"Security: a caller with the right key is never refused because of someone else's wrong keys from the same network; one address can add at most 300 new devices an hour with the shared key.",
+			"Security: the app library accepts only its own uploads and refuses APKs whose manifest or resources would unpack to an unreasonable size; log bundles leave out properties named key, token, secret or password.",
+			"Security: live logcat tags and buffers can't be read as options; the public restaurant search has a daily ceiling; the splash folder no longer lists its files.",
+		},
+	},
+	{
+		Version: "1.64.7",
+		Date:    "2026-11-18",
+		Changes: []string{
+			"Security: only the enrollment key lets a device with a lost key back in by itself. A device that has only the public key needs Reset device key.",
+			"Security: an enrollment token no longer gives a new key to a Standard device that is online with its own. Viewers enrol into the To place queue, not straight into a venue.",
+			"Security: signing in with Microsoft to an unverified sign-up replaces that account's password and signs it out everywhere.",
+			"Security: a device's command output is kept only for commands sent to it, up to 8 MB each; oversized images (over 16 megapixels) are refused before decoding.",
+			"Security: a check-in can't change a device from Firmware to Standard; one caller can't use up another device's request budget; a stored session value can't be used to sign in; nicknames are escaped on the owner home.",
+		},
+	},
+	{
 		Version: "1.64.6",
 		Date:    "2026-11-17",
 		Changes: []string{

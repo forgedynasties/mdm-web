@@ -115,15 +115,17 @@ func TestReleasesR2Renders(t *testing.T) {
 		"Packages": in.Packages, "Rollouts": in.Rollouts, "Active": in.Rollouts, "CanPush": true, "HasFull": true,
 		"RolloutCounts": map[string]rolloutCount{"v2.1.035": {N: 1, Active: 1}},
 		"R2":            buildReleaseR2(in),
+		"RL4Start":      "dev",
 		"ProdFor":       map[int][]prodTag{35: {{Label: "Tableside AI", Model: "T7", Href: "/lineup?role=t7#model-t7"}}},
 	}
+	data["RL4"], data["RL4Counts"] = buildRL4([]versionRow{row}, nil, map[int][]rolloutView{35: in.Rollouts}, "")
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "releases.html", data); err != nil {
 		t.Fatalf("releases.html failed to render: %v", err)
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`class="ov2-ban is-bad r2-ban"`, `3 things for this release`, `v2.1.035 · AIO T7 · published 20 Oct · dev`,
+		`class="rl4-todo bad"`, `3 things for this release`, `v2.1.035 · AIO T7 · published 20 Oct · dev`,
 		`href="/releases/35/deployments/401">Open update</a>`, `href="/releases/35/crashes">See crashes</a>`,
 		`action="/releases/35/dev"`, `name="dev" value="0"`, `name="redirect" value="/releases?release=35"`, `>Release to everyone</button>`,
 		`>On devices</a>`, `▲ 3 this week`, `>Update #401</a>`, `3/12</b><small>installed</small>`, `>Crashes</a>`, `▲ 7`,

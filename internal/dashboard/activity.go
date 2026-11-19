@@ -106,15 +106,6 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 			entries[i].Actor = dn
 		}
 	}
-	if actor != "" {
-		kept := make([]db.AuditEntry, 0, len(entries))
-		for _, e := range entries {
-			if e.Actor == actorName {
-				kept = append(kept, e)
-			}
-		}
-		entries = kept
-	}
 	// V1 (access by levels, 2 Nov 2026): a time window and a kind, both on the server so
 	// paging stays right; the rail counts each kind within the window.
 	days := r.URL.Query().Get("days")
@@ -170,6 +161,16 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	case trackAPI:
 		sources = apiSrc
 	}
+	// PA2 (18 Nov 2026): the left list is the actors of the track, built before the actor
+	// filter so it stays whole while one of them is picked.
+	src := strings.TrimSpace(r.URL.Query().Get("src"))
+	var actorRows []pa2Row
+	if track == trackPeople {
+		actorRows = pa2People(entries, usernameByName(users))
+	} else {
+		actorRows = pa2Sources(sources)
+	}
+	entries = pa2Pick(entries, track, actor, actorName, src)
 	kindCount := map[string]int{"": len(entries)}
 	for _, e := range entries {
 		kindCount[activityKind(e.Action)]++
@@ -256,7 +257,7 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"DistinctUsers": len(distinctUsers),
 		"TopAction":     topAction,
 		"TopActionN":    topActionN,
-		"BaseQS":        activityQS(actor, days, deviceSerial, showAdmin, showViews),
+		"BaseQS":        activityQS(actor, days, deviceSerial, showAdmin, showViews, src),
 		"Days":          days,
 		"Kind":          kind,
 		"KindCount":     kindCount,
@@ -264,6 +265,8 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"Track":         track,
 		"TrackCount":    trackCount,
 		"Sources":       sources,
+		"Src":           src,
+		"PA2":           buildPA2(actorRows, entries, track, actor, actorName, src, days, deviceSerial, showAdmin, showViews, kind),
 	})
 }
 
@@ -302,10 +305,13 @@ func activityKind(action string) string {
 
 // activityQS is the Activity filter's query string without kind and page, for the rail
 // and pager links.
-func activityQS(actor, days, device string, admin, views bool) template.URL {
+func activityQS(actor, days, device string, admin, views bool, src string) template.URL {
 	q := url.Values{}
 	if actor != "" {
 		q.Set("actor", actor)
+	}
+	if src != "" {
+		q.Set("src", src)
 	}
 	q.Set("days", days)
 	if device != "" {

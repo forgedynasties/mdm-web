@@ -1,0 +1,83 @@
+/* Public account pages (sign in, sign up, verify, forgot, reset) in the Overview's bento language.
+   Standalone: these pages carry no app chrome. Tokens come from style.css (light + dark). */
+body.au1{margin:0;min-height:100vh;background:var(--canvas,var(--bg));color:var(--text);font-family:var(--font);
+  display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;
+  --au-r:#d64432;--au-o:#ef7d31;--au-y:#d9a70a;--au-g:#1f9d60}
+html[data-theme="dark"] body.au1{--au-r:#b83e2e;--au-o:#cc6a2b;--au-y:#b08a0d;--au-g:#1a8a55}
+.au1 *{box-sizing:border-box}
+.au1-split{display:grid;grid-template-columns:minmax(0,1.1fr) 420px;gap:14px;width:1000px;max-width:100%}
+.au1-card{background:var(--surface);border-radius:22px;padding:28px;width:440px;max-width:100%}
+.au1-split .au1-card{width:auto}
+.au1-card h1{font-size:24px;font-weight:650;letter-spacing:-.02em;margin:0 0 4px;color:var(--text)}
+.au1-sub{font-size:13.5px;color:var(--text-2);margin:0 0 18px}
+.au1-wm{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:15px;letter-spacing:-.01em;margin-bottom:16px;color:var(--text)}
+.au1-wm img{width:28px;height:28px;border-radius:9px}
+.au1-promo .au1-wm{color:#fff;margin:0;position:relative}
+/* promo card */
+.au1-promo{background:var(--accent-fill);color:#fff;border-radius:22px;padding:28px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-height:440px;position:relative;overflow:hidden}
+.au1-promo b{font-size:34px;font-weight:600;line-height:1.15;max-width:420px;position:relative;letter-spacing:-.02em}
+.au1-facts{display:flex;gap:10px;flex-wrap:wrap;position:relative}
+.au1-fact{background:rgba(255,255,255,.16);border-radius:12px;padding:8px 12px;min-width:84px}
+.au1-fact b{display:block;font-size:19px;font-weight:650;line-height:1.2;max-width:none;letter-spacing:0}
+.au1-fact span{font-size:11.5px;opacity:.88}
+.au1-big{position:absolute;right:16px;bottom:6px;font-size:84px;font-weight:700;opacity:.22;line-height:1;pointer-events:none}
+html[data-theme="dark"] .au1-promo{background:color-mix(in srgb,var(--accent-fill) 34%,#16161c)}
+/* form */
+.au1-f{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;position:relative}
+.au1-f label{font-size:12px;font-weight:600;color:var(--text-2)}
+.au1-in{width:100%;height:42px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);padding:0 14px;font:inherit;font-size:14px}
+.au1-in::placeholder{color:var(--text-faint,var(--muted))}
+.au1-in:focus{outline:2px solid color-mix(in srgb,var(--accent-fill) 45%,transparent);outline-offset:1px}
+.au1-pw .au1-in{padding-right:60px}
+.au1-eye{position:absolute;right:6px;top:27px;height:30px;padding:0 10px;border:0;background:none;color:var(--muted);cursor:pointer;border-radius:99px;font-size:11px;font-weight:700;font-family:inherit}
+.au1-eye:hover{background:var(--surface2)}
+.au1-row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.au1-forgot{display:flex;justify-content:flex-end;margin:-4px 0 14px}
+.au1-forgot a{color:var(--accent-text);text-decoration:none;font-size:12.5px}
+.au1-alt{text-align:center;font-size:12.5px;color:var(--text-2);margin-top:16px}
+.au1-alt a{font-weight:600;text-decoration:underline;text-underline-offset:2px;color:var(--text)}
+.au1-foot{font-size:11.5px;color:var(--muted);text-align:center;margin-top:12px}
+/* alerts */
+.au1-al{border-radius:12px;padding:10px 13px;font-size:13px;margin-bottom:12px;display:flex;gap:9px;align-items:flex-start;line-height:1.45}
+.au1-al::before{content:"";width:8px;height:8px;border-radius:50%;flex:none;margin-top:6px;background:currentColor}
+.au1-al span{color:var(--text)}
+.au1-al.err{background:color-mix(in srgb,var(--au-r) 12%,var(--surface));color:var(--au-r)}
+.au1-al.ok{background:color-mix(in srgb,var(--au-g) 13%,var(--surface));color:var(--au-g)}
+.au1-al.info{background:var(--surface2);color:var(--text-2)}
+/* buttons: the product's arrow pill */
+.au1-btn{border:0;border-radius:99px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;background:var(--accent-fill);color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:6px 6px 6px 20px;min-height:42px}
+.au1-btn:hover{background:var(--accent-fill-h)}
+.au1-btn::after{content:"";flex:none;width:30px;height:30px;border-radius:50%;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cf4529' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center/13px no-repeat}
+.au1-ms{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:42px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;text-decoration:none}
+.au1-ms:hover{background:var(--surface2)}
+.au1-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11.5px;margin:14px 0}
+.au1-or::before,.au1-or::after{content:"";flex:1;height:1px;background:var(--border)}
+/* stepper */
+.au1-stp{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:18px;flex-wrap:wrap}
+.au1-stp span{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;background:var(--surface2)}
+.au1-stp span b{width:18px;height:18px;border-radius:50%;background:var(--border);display:inline-grid;place-items:center;font-size:10.5px;color:var(--text-2)}
+.au1-stp span.on{color:var(--text);font-weight:600}
+.au1-stp span.on b{background:var(--accent-fill);color:#fff}
+.au1-stp em{width:14px;height:1px;background:var(--border)}
+/* password meter */
+.au1-pwm{display:flex;gap:4px;margin-top:6px}
+.au1-pwm i{flex:1;height:5px;border-radius:99px;background:var(--border-soft,var(--border))}
+.au1-pwm i.r{background:var(--au-r)}.au1-pwm i.o{background:var(--au-o)}.au1-pwm i.y{background:var(--au-y)}.au1-pwm i.g{background:var(--au-g)}
+.au1-pwl{font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;justify-content:space-between;gap:8px}
+.au1-pwr{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--muted)}
+.au1-pwr li::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;border:1.5px solid currentColor;margin-right:6px;opacity:.7}
+.au1-pwr li.ok{color:var(--text)}
+.au1-pwr li.ok::before{background:var(--au-g);border-color:var(--au-g);opacity:1}
+.au1-pwr li.hard::after{content:" · required";font-size:10.5px}
+/* status icons */
+.au1-ic{width:64px;height:64px;display:grid;place-items:center;margin-bottom:14px;border-radius:50%}
+.au1-ic.env{border-radius:20px;background:var(--accent-soft)}
+.au1-ic.tick{background:color-mix(in srgb,var(--au-g) 16%,var(--surface))}
+.au1-ic.warn{background:color-mix(in srgb,var(--au-r) 14%,var(--surface))}
+.au1-ic svg{width:30px;height:30px;fill:none;stroke-width:2}
+.au1-ic.env svg{stroke:var(--accent-text)}.au1-ic.tick svg{stroke:var(--au-g)}.au1-ic.warn svg{stroke:var(--au-r)}
+/* phones: the promo card is dropped, the form stands alone */
+.au1-wm-m{display:none}
+@media (max-width:900px){.au1-split{grid-template-columns:minmax(0,1fr);width:440px}.au1-promo{display:none}.au1-wm-m{display:block}}
+@media (max-width:480px){.au1-stp em{display:none}.au1-stp{gap:6px}}
+@media (max-width:480px){body.au1{padding:12px;align-items:flex-start}.au1-card{padding:22px 18px}.au1-row2{grid-template-columns:minmax(0,1fr)}}

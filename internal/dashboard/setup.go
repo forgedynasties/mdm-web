@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"regexp"
 	"strings"
 	"time"
 
@@ -133,6 +134,9 @@ func (h *Handler) AppUploadURL(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"url": url, "key": key})
 }
 
+// uploadKeyRE: what AppUploadURL names an upload, after the store's prefix.
+var uploadKeyRE = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(apk|xapk)$`)
+
 // AppRegister reads the freshly-uploaded object back from S3, parses its package,
 // version and launcher icon, creates the repository app, and feeds the shared icon
 // index (so the icon shows everywhere immediately). Admin only.
@@ -151,12 +155,22 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Icon    string `json:"icon"` // base64 PNG
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 512<<10)).Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
 		return
 	}
 	if req.Key == "" {
 		writeJSONError(w, http.StatusBadRequest, "key required")
+		return
+	}
+	// Only an object this page's upload made (AppUploadURL): any other key would publish
+	// that object of the bucket at /apps/{id}/apk (18 Nov 2026 audit).
+	if rest, ok := strings.CutPrefix(req.Key, h.apk.Key("")); !ok || !uploadKeyRE.MatchString(rest) {
+		writeJSONError(w, http.StatusBadRequest, "unknown upload")
+		return
+	}
+	if req.Package != "" && !packageNameRE.MatchString(req.Package) {
+		writeJSONError(w, http.StatusBadRequest, "invalid package name")
 		return
 	}
 	pkg, version, name, icon := req.Package, req.Version, req.Name, req.Icon

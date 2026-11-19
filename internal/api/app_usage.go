@@ -53,7 +53,7 @@ func (h *Handler) AppUsage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "at most 400 apps, and to_ms after from_ms"})
 		return
 	}
-	if h.deviceRateLimited(w, req.Serial) {
+	if h.deviceRateLimited(w, r, req.Serial) {
 		return
 	}
 	if !h.requireDeviceIdentity(w, r, req.Serial) {

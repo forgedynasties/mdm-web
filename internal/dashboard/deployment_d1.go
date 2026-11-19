@@ -39,7 +39,49 @@ type dp1Row struct {
 	Pct                     int
 	// actions (the template still checks the role)
 	Retry, RetryFull, Reboot, Remove, Cancel, RetryStalled, Open bool
+	Steps                                                       []dp1Step // the device's path, for the detail pane (none for failed / canceled)
 	order                                                       int
+}
+
+// dp1Step is one stop on a device's way through the update. Class: d done, c under way,
+// w stuck, "" still to come.
+type dp1Step struct{ Label, Class string }
+
+func dp1StepsOf(r dp1Row) []dp1Step {
+	done := -1
+	switch r.Key {
+	case "ok":
+		done = 4
+	case "reboot":
+		done = 3
+	case "dl":
+		done = 1
+		if r.Word == "Installing" {
+			done = 2
+		}
+	case "look":
+		done = 1
+		if r.LookOf == "reboot" {
+			done = 3
+		}
+	case "wait":
+		done = 0
+	}
+	if done < 0 {
+		return nil
+	}
+	out := []dp1Step{{"Offered", ""}, {"Downloaded", ""}, {"Installed", ""}, {"Back on the new build", ""}}
+	for i := range out {
+		switch {
+		case i < done:
+			out[i].Class = "d"
+		case i == done && r.Key == "look":
+			out[i].Class = "w"
+		case i == done && (r.Key == "dl" || r.Key == "reboot"):
+			out[i].Class = "c"
+		}
+	}
+	return out
 }
 
 type dp1Todo struct {
@@ -299,6 +341,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	order := map[string]int{"look": 0, "failed": 1, "dl": 2, "reboot": 3, "wait": 4, "ok": 5, "canceled": 6}
 	for i := range v.Rows {
 		v.Rows[i].order = order[v.Rows[i].Key]
+		v.Rows[i].Steps = dp1StepsOf(v.Rows[i])
 		v.Counts[v.Rows[i].Key]++
 	}
 	sort.SliceStable(v.Rows, func(i, j int) bool {

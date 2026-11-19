@@ -9,7 +9,7 @@
 {{end}}
 
 {{/* Give access (access by levels): where, level, until. dict: SubjectType, Subject, Back,
-     Label ("Give engineers access"), Groups, Venues, Field (offer "their setup visits"). */}}
+     Label ("Give engineers access"), Groups, Venues. */}}
 {{define "acc-give"}}
 <form method="POST" action="/users/access/levels" class="acc-give" hx-boost="false">
   <input type="hidden" name="subject_type" value="{{.SubjectType}}">
@@ -21,10 +21,8 @@
     <option value="all">Every device</option>
     <option value="state:lab">Lab devices (no venue)</option>
     <option value="state:to_place">Devices to place (enrolled, no venue yet)</option>
-    <option value="state:setting_up">Devices being set up</option>
     <option value="state:in_service">Devices in service</option>
-    {{if .Field}}<option value="visit">The venues of their setup visits</option>{{end}}
-    <option value="own">The devices they enrolled, until handed over</option>
+    <option value="own">The devices they enrolled, until placed</option>
     {{with .Groups}}<optgroup label="Groups">{{range .}}<option value="group:{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}
     {{with .Venues}}<optgroup label="Venues">{{range .}}<option value="venue:{{.ID}}">{{.Name}}</option>{{end}}</optgroup>{{end}}
   </select></label>

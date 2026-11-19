@@ -9,6 +9,8 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,6 +47,34 @@ func parseHHMM(s string, def int) int {
 		return def
 	}
 	return h*60 + m
+}
+
+var hhmmRe = regexp.MustCompile(`^([01]?[0-9]|2[0-3]):[0-5][0-9]$`)
+
+// serviceWindowFormError checks the hours form before anything is stored: a field that is
+// present must be a real HH:MM (it used to fall back to a default and report success), and
+// a timezone must be one Go knows (an unknown one quietly meant UTC). Empty fields keep
+// their defaults, as the forms omit the ones they don't show.
+func serviceWindowFormError(r *http.Request) string {
+	names := []string{"open", "close", "night_open", "night_close"}
+	for i := 0; i < 7; i++ {
+		n := strconv.Itoa(i)
+		names = append(names, "open_"+n, "close_"+n)
+	}
+	for _, n := range names {
+		if v := strings.TrimSpace(r.FormValue(n)); v != "" && !hhmmRe.MatchString(v) {
+			return "That time isn't valid: " + n + " must be HH:MM."
+		}
+	}
+	if tz := strings.TrimSpace(r.FormValue("timezone")); tz != "" {
+		if len(tz) > 64 {
+			return "Unknown timezone."
+		}
+		if _, err := time.LoadLocation(tz); err != nil {
+			return "Unknown timezone " + tz + "."
+		}
+	}
+	return ""
 }
 
 // serviceWindowView is one editable service window (fleet default or a group's).
@@ -136,6 +166,12 @@ func (h *Handler) buildServiceWindowViews(ctx context.Context) (serviceWindowVie
 // The form field is named group_id for back-compat but carries a restaurant id.
 func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	if r.FormValue("action") != "reset" {
+		if msg := serviceWindowFormError(r); msg != "" {
+			http.Error(w, msg, http.StatusBadRequest)
+			return
+		}
+	}
 	gidStr := strings.TrimSpace(r.FormValue("group_id"))
 	if gidStr != "" && r.FormValue("action") == "reset" {
 		if gid, err := uuid.Parse(gidStr); err == nil {

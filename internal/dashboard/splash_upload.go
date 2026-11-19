@@ -1,7 +1,6 @@
 package dashboard
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -12,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"mdm/internal/venueicon"
 
 	"github.com/google/uuid"
 )
@@ -52,7 +53,7 @@ func splashBMP(data []byte) ([]byte, error) {
 	if len(data) >= 2 && data[0] == 'B' && data[1] == 'M' {
 		return data, nil
 	}
-	img, _, err := image.Decode(bytes.NewReader(data))
+	img, err := venueicon.SafeDecode(data)
 	if err != nil {
 		return nil, fmt.Errorf("unsupported image (need BMP, PNG or JPEG): %w", err)
 	}

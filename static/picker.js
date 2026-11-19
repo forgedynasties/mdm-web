@@ -209,7 +209,9 @@
     document.querySelectorAll('[data-dp-count]').forEach(function (e) { e.textContent = serials.length; });
     document.querySelectorAll('[data-dp-s]').forEach(function (e) { e.textContent = serials.length === 1 ? '' : 's'; });
     document.querySelectorAll('[data-dp-submit]').forEach(function (e) { e.disabled = serials.length === 0; });
-    document.dispatchEvent(new CustomEvent('pk:change', { detail: { serials: serials } }));
+    var on = 0, off = 0, full = 0;
+    serials.forEach(function (s) { var m = picked[s] || {}; if (m.online === true) on++; else if (m.online === false) off++; if (m.artifact === 'full') full++; });
+    document.dispatchEvent(new CustomEvent('pk:change', { detail: { serials: serials, online: on, offline: off, full: full } }));
   }
 
   // ── interaction ─────────────────────────────────────────────────────────────

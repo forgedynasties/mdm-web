@@ -341,7 +341,7 @@ func buildOvBento(in ovBentoIn) ovBento {
 		case "waiting":
 			h.Facts = []ovFact{{strconv.Itoa(t.Devices), "waiting for a venue"}}
 			if in.Facts.ToPlace > 0 {
-				h.Alt, h.AltHref = "Open Setup", "/visits"
+				h.Alt, h.AltHref = "Open Setup", "/setup"
 			}
 		}
 		h.List, h.ListS = t.Title, t.Sub

@@ -121,12 +121,13 @@ func TestAppD1Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		// P1 (30 Oct 2026): ← Apps, the app's name, its channels in the rail, Versions and Devices.
-		`<a class="p1-back" href="/apps">← Apps</a>`, `<h1 class="cc-h1">Nugget</h1>`, `aria-label="Channels"`,
-		`href="/apps/aio.app.nugget.stagev2"><span class="dot`, `class="fleet-rail-item on" href="/apps/aio.app.nugget" aria-current="page"`, `<small class="p1-rv">17.0.0</small>`,
-		`<h2>Versions <span>`, `<h2>Devices <span>14</span>`, `<span class="cc-tag ok">newest</span>`, `<span class="cc-tag warn">not in library</span>`,
+		// App page B (19 Nov 2026): ← Apps, the app's name, the channel strip, Versions and Devices.
+		`<a class="ap1-back" href="/apps">&larr; Apps</a>`, `<h1 class="cc-h1">Nugget</h1>`, `aria-label="Channels"`,
+		`href="/apps/aio.app.nugget.stagev2"`, `class="ovb-c ap1-ch on" href="/apps/aio.app.nugget" aria-current="page"`, `<span class="v mono">17.0.0</span>`,
+		`<h2>Versions</h2>`, `<h2>Devices</h2><span class="ap1-chip" id="ap1-count">14</span>`, `<span class="ovb-tag">newest</span>`, `<span class="ovb-tag o">not in library</span>`,
 		`action="/setup/apps/`, `>APK</a>`, `data-d1-set="ver" data-val="16.9.0"`, `data-d1-set="venue" data-val="Huanchaco Peruvian"`,
-		`class="ft-row d1-r" data-ver="17.0.0"`, `id="lib-add-modal"`, `id="lib-card"`, `name="next" value="/apps/aio.app.nugget"`, `aria-label="Family tools"`,
+		`class="ap1-add"`, `href="/apps/usage"`,
+		`class="d1-r" data-ver="17.0.0"`, `id="lib-add-modal"`, `id="lib-card"`, `name="next" value="/apps/aio.app.nugget"`, `aria-label="Family tools"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("app page is missing %q", want)

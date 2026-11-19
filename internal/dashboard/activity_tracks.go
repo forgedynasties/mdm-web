@@ -44,7 +44,7 @@ func normTrack(t string) string {
 // trackSource is one job or key in the Automations / API & QA tracks: what it sent in the
 // window, how much failed, and when it last did anything.
 type trackSource struct {
-	Name, About  string
+	Key, Name, About string
 	Sent, Failed int
 	OkPct        int
 	Last         time.Time
@@ -75,7 +75,7 @@ func (h *Handler) trackSources(ctx context.Context, track string, since time.Tim
 			continue
 		}
 		key := strings.ToLower(strings.TrimSpace(r.By))
-		s := trackSource{Name: r.By, Sent: r.Sent, Failed: r.Failed, Last: r.Last}
+		s := trackSource{Key: r.By, Name: r.By, Sent: r.Sent, Failed: r.Failed, Last: r.Last}
 		if a, ok := trackAbout[key]; ok {
 			s.Name, s.About = a[0], a[1]
 		} else if l, ok := db.SystemActorLabel(r.By); ok {

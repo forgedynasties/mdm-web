@@ -364,6 +364,12 @@ func crashSig(col string) string {
 // event was reported on — so a device that has since updated doesn't drag old crashes
 // forward. See CrashGroup for the grouping rule.
 func (d *DB) CrashGroupsOnBuild(ctx context.Context, buildID string, limit, offset int) ([]CrashGroup, int, error) {
+	return d.CrashGroupsOnBuildF(ctx, buildID, "", 0, limit, offset)
+}
+
+// CrashGroupsOnBuildF is CrashGroupsOnBuild narrowed to one kind ("" = all) and to events
+// of the last sinceDays days (0 = all time).
+func (d *DB) CrashGroupsOnBuildF(ctx context.Context, buildID, kind string, sinceDays, limit, offset int) ([]CrashGroup, int, error) {
 	if buildID == "" {
 		return nil, 0, nil
 	}
@@ -386,13 +392,15 @@ func (d *DB) CrashGroupsOnBuild(ctx context.Context, buildID string, limit, offs
 			FROM device_events e
 			JOIN devices dv ON dv.id = e.device_id
 			WHERE e.build_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
+			  AND ($4 = '' OR e.kind = $4)
+			  AND ($5 <= 0 OR e.occurred_at > now() - make_interval(days => $5))
 			GROUP BY e.kind, `+sig+`
 		)
 		SELECT kind, sig, cnt, devs, last_at, sample_serial, sample_detail,
 		       COUNT(*) OVER() AS total_groups
 		FROM grp
 		ORDER BY cnt DESC, last_at DESC
-		LIMIT $2 OFFSET $3`, buildID, limit, offset)
+		LIMIT $2 OFFSET $3`, buildID, limit, offset, kind, sinceDays)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -564,4 +572,105 @@ func (d *DB) DeleteCrashEvent(ctx context.Context, eventID uuid.UUID) (deviceID 
 func (d *DB) DeleteDeviceCrashAlert(ctx context.Context, deviceID uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM alerts WHERE type = 'device_crash' AND device_id = $1`, deviceID)
 	return err
+}
+
+// CrashGroupEvent is one occurrence inside a crash group, for the group's device list.
+type CrashGroupEvent struct {
+	ID         uuid.UUID
+	Serial     string
+	Restaurant string
+	OccurredAt time.Time
+}
+
+// CrashGroupEvents lists the newest occurrences of one crash group on a build (kind +
+// normalized signature), within sinceDays (0 = all time), with the device and venue.
+func (d *DB) CrashGroupEvents(ctx context.Context, buildID, kind, signature string, sinceDays, limit int) ([]CrashGroupEvent, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT e.id, dv.serial_number, COALESCE(r.name, ''), e.occurred_at
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
+		WHERE e.build_id = $1 AND e.kind = $2 AND `+crashSig("e.summary")+` = $3
+		  AND ($4 <= 0 OR e.occurred_at > now() - make_interval(days => $4))
+		ORDER BY e.occurred_at DESC
+		LIMIT $5`, buildID, kind, signature, sinceDays, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CrashGroupEvent
+	for rows.Next() {
+		var c CrashGroupEvent
+		if err := rows.Scan(&c.ID, &c.Serial, &c.Restaurant, &c.OccurredAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// CrashDaily counts one group's events per day over the last `days` days, oldest first,
+// ending today (UTC).
+func (d *DB) CrashDaily(ctx context.Context, buildID, kind, signature string, days int) ([]int, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT (now()::date - e.occurred_at::date) AS ago, COUNT(*)
+		FROM device_events e
+		WHERE e.build_id = $1 AND e.kind = $2 AND `+crashSig("e.summary")+` = $3
+		  AND e.occurred_at >= now()::date - ($4::int - 1)
+		GROUP BY 1`, buildID, kind, signature, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]int, days)
+	for rows.Next() {
+		var ago, n int
+		if err := rows.Scan(&ago, &n); err != nil {
+			return nil, err
+		}
+		if ago >= 0 && ago < days {
+			out[days-1-ago] = n
+		}
+	}
+	return out, rows.Err()
+}
+
+// CrashKindCount is one kind's totals on a build (for the kind filter chips).
+type CrashKindCount struct {
+	Kind    string
+	Count   int
+	Devices int
+}
+
+// CrashKindsOnBuild totals a build's crash events per kind within sinceDays (0 = all time),
+// biggest first, plus the build's distinct device count in that window.
+func (d *DB) CrashKindsOnBuild(ctx context.Context, buildID string, sinceDays int) ([]CrashKindCount, int, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT kind, COUNT(*), COUNT(DISTINCT device_id)
+		FROM device_events
+		WHERE build_id = $1 AND kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
+		  AND ($2 <= 0 OR occurred_at > now() - make_interval(days => $2))
+		GROUP BY kind ORDER BY 2 DESC`, buildID, sinceDays)
+	if err != nil {
+		return nil, 0, err
+	}
+	var out []CrashKindCount
+	for rows.Next() {
+		var k CrashKindCount
+		if err := rows.Scan(&k.Kind, &k.Count, &k.Devices); err != nil {
+			rows.Close()
+			return nil, 0, err
+		}
+		out = append(out, k)
+	}
+	rows.Close()
+	var devs int
+	_ = d.pool.QueryRow(ctx, `
+		SELECT COUNT(DISTINCT device_id) FROM device_events
+		WHERE build_id = $1 AND kind NOT IN ('reboot', 'kiosk_exit_offline', 'offline_dropped')
+		  AND ($2 <= 0 OR occurred_at > now() - make_interval(days => $2))`, buildID, sinceDays).Scan(&devs)
+	return out, devs, nil
 }
