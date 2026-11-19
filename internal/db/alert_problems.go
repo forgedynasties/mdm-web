@@ -237,6 +237,7 @@ func (d *DB) TakeClosedPagedProblems(ctx context.Context) ([]ClosedProblem, erro
 			SELECT a.device_id FROM alerts a
 			WHERE a.notified_at IS NOT NULL AND NOT a.resolve_notified AND a.status = 'resolved'
 			  AND NOT EXISTS (SELECT 1 FROM alerts o WHERE o.device_id = a.device_id AND o.status <> 'resolved')
+			  AND NOT `+AlertHeldSQL("a")+`
 			GROUP BY a.device_id
 		), marked AS (
 			UPDATE alerts SET resolve_notified = true
@@ -294,6 +295,7 @@ func (d *DB) AlertsFiredSince(ctx context.Context, from time.Time) ([]NightAlert
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
 		WHERE a.fired_at >= $1 AND a.severity IN ('warning', 'critical')
 		  AND NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
+		  AND NOT `+DeviceAlertsHeldSQL("dv")+`
 		ORDER BY a.fired_at`, from)
 	if err != nil {
 		return nil, err
@@ -319,7 +321,7 @@ func (d *DB) OfflineAtOpen(ctx context.Context, connected []uuid.UUID) (map[stri
 		WHERE NOT dv.hidden AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled')
 		  AND dv.custody_server = ''
 		  AND dv.last_seen_at > NOW() - INTERVAL '7 days'
-		  AND dv.last_seen_at < NOW() - INTERVAL '15 minutes'
+		  AND dv.last_seen_at < NOW() - INTERVAL '15 minutes' AND NOT `+DeviceAlertsHeldSQL("dv")+`
 		  AND dv.id <> ALL($1::uuid[])
 		GROUP BY r.name`, connected)
 	if err != nil {

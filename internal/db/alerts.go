@@ -45,8 +45,8 @@ type Alert struct {
 	ResolvedAt     *time.Time      `json:"resolved_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	// Problem workflow (set only by the active-alert lists).
-	Assignee    string `json:"assignee,omitempty"`
-	Note        string `json:"note,omitempty"`
+	Assignee     string `json:"assignee,omitempty"`
+	Note         string `json:"note,omitempty"`
 	DeviceClass  string `json:"device_class,omitempty"`
 	RestaurantID string `json:"restaurant_id,omitempty"`
 }
@@ -203,6 +203,11 @@ func (d *DB) upsertAlert(ctx context.Context, ruleID *uuid.UUID, typ string, dev
 	// unlocked, off prod and being worked on by someone who already knows.
 	var inLab bool
 	if err := d.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM device_lab WHERE device_id = $1 AND until > now())`, deviceID).Scan(&inLab); err == nil && inLab {
+		return alertUpsert{}, nil
+	}
+	// A venue with its alerts paused raises nothing for its devices (venue_alerts_pause.go).
+	var held bool
+	if err := d.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM devices dv WHERE dv.id = $1 AND `+DeviceAlertsHeldSQL("dv")+`)`, deviceID).Scan(&held); err == nil && held {
 		return alertUpsert{}, nil
 	}
 	detailJSON := []byte("{}")
@@ -384,7 +389,7 @@ func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert,
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE ($1 = '' OR a.status = $1)
+		WHERE ($1 = '' OR a.status = $1) AND NOT `+AlertHeldSQL("a")+`
 		ORDER BY a.fired_at DESC
 		LIMIT $2
 	`, status, limit)
@@ -420,7 +425,7 @@ func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE a.status <> 'resolved' AND (a.device_id IS NULL OR NOT d.hidden)
+		WHERE a.status <> 'resolved' AND (a.device_id IS NULL OR NOT d.hidden) AND NOT `+AlertHeldSQL("a")+`
 		ORDER BY CASE a.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
 		         a.fired_at DESC
 		LIMIT $1`, limit)
@@ -462,7 +467,7 @@ func (d *DB) ListAlertsPage(ctx context.Context, status, severity string, types 
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE ($1 = '' OR a.status = $1)
+		WHERE ($1 = '' OR a.status = $1) AND NOT `+AlertHeldSQL("a")+`
 		  AND ($2 = '' OR a.severity = $2)
 		  AND (array_length($3::text[], 1) IS NULL OR a.type = ANY($3))
 		ORDER BY a.fired_at DESC, a.id DESC
@@ -519,8 +524,8 @@ func (d *DB) AlertSummaryCounts(ctx context.Context, hideIdentity bool) (AlertSu
 		       COUNT(*) FILTER (WHERE severity = 'critical' AND status <> 'resolved'),
 		       COUNT(*) FILTER (WHERE severity = 'warning'  AND status <> 'resolved'),
 		       COUNT(*) FILTER (WHERE severity = 'info'     AND status <> 'resolved')
-		FROM alerts
-		WHERE NOT ($1 AND type IN `+superAdminAlertSQL+`)
+		FROM alerts a
+		WHERE NOT ($1 AND type IN `+superAdminAlertSQL+`) AND NOT `+AlertHeldSQL("a")+`
 	`, hideIdentity).Scan(&s.Total, &s.Open, &s.Acknowledged, &s.Resolved, &s.Critical, &s.Warning, &s.Info)
 	return s, err
 }
@@ -535,7 +540,7 @@ func (d *DB) CountOpenAlerts(ctx context.Context, hideIdentity bool) (int, error
 	err := d.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
-		WHERE a.status = 'open' AND (a.device_id IS NULL OR NOT d.hidden)
+		WHERE a.status = 'open' AND (a.device_id IS NULL OR NOT d.hidden) AND NOT `+AlertHeldSQL("a")+`
 		  AND NOT ($1 AND a.type IN `+superAdminAlertSQL+`)`, hideIdentity).Scan(&n)
 	return n, err
 }
@@ -550,7 +555,7 @@ func (d *DB) DockCounts(ctx context.Context, hideIdentity bool) (critical, runni
 			 LEFT JOIN devices dv ON dv.id = a.device_id
 			 WHERE a.status = 'open' AND a.severity = 'critical'
 			   AND (a.muted_until IS NULL OR a.muted_until < NOW())
-			   AND (a.device_id IS NULL OR NOT dv.hidden)
+			   AND (a.device_id IS NULL OR NOT dv.hidden) AND NOT `+AlertHeldSQL("a")+`
 			   AND NOT ($1 AND a.type IN `+superAdminAlertSQL+`)),
 			(SELECT COUNT(*) FROM commands c
 			 WHERE c.created_at > NOW() - INTERVAL '15 minutes'
@@ -582,7 +587,7 @@ func (d *DB) AlertsByRestaurant(ctx context.Context) ([]RestaurantAlerts, error)
 		FROM alerts a
 		JOIN devices d ON d.id = a.device_id
 		JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE a.status = 'open' AND NOT d.hidden
+		WHERE a.status = 'open' AND NOT d.hidden AND NOT `+AlertHeldSQL("a")+`
 		GROUP BY r.id, r.name
 		ORDER BY COUNT(*) FILTER (WHERE a.severity = 'critical') DESC, COUNT(*) DESC, r.name`)
 	if err != nil {
@@ -1015,7 +1020,7 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE a.device_id = $1 AND a.status <> 'resolved'
+		WHERE a.device_id = $1 AND a.status <> 'resolved' AND NOT `+AlertHeldSQL("a")+`
 		ORDER BY CASE a.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
 		         a.fired_at DESC
 		LIMIT $2`, deviceID, limit)
@@ -1055,7 +1060,7 @@ func (d *DB) AlertsRaisedCounts(ctx context.Context, hideIdentity bool) (AlertsR
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
 		WHERE a.fired_at > NOW() - INTERVAL '48 hours'
-		  AND (a.device_id IS NULL OR NOT d.hidden)
+		  AND (a.device_id IS NULL OR NOT d.hidden) AND NOT `+AlertHeldSQL("a")+`
 		  AND NOT ($1 AND a.type IN `+superAdminAlertSQL+`)`, hideIdentity).
 		Scan(&r.Critical24, &r.CriticalPrev, &r.Warning24, &r.WarningPrev)
 	return r, err
