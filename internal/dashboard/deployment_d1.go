@@ -37,15 +37,27 @@ type dp1Row struct {
 	ErrorCode               string
 	Bar                     bool
 	Pct                     int
+	Size, Speed, Left, Off  string // the picked device's readout: "11 MB of 1.9 GB", "2.4 MB/s", "6 min left"
+	offeredAt, doneAt       *time.Time
 	// actions (the template still checks the role)
 	Retry, RetryFull, Reboot, Remove, Cancel, RetryStalled, Open bool
-	Steps                                                       []dp1Step // the device's path, for the detail pane (none for failed / canceled)
-	order                                                       int
+	Steps                                                        []dp1Step // the device's path, for the detail pane (none for failed / canceled)
+	order                                                        int
 }
 
 // dp1Step is one stop on a device's way through the update. Class: d done, c under way,
 // w stuck, "" still to come.
-type dp1Step struct{ Label, Class string }
+type dp1Step struct {
+	Label, Class string
+	At           template.HTML // when, where known (a local-time span)
+}
+
+func dp1At(t *time.Time) template.HTML {
+	if t == nil || t.IsZero() {
+		return ""
+	}
+	return template.HTML(`<span class="js-local-time" data-utc="` + t.UTC().Format(time.RFC3339) + `" data-format="short">` + t.UTC().Format("15:04") + `</span>`)
+}
 
 func dp1StepsOf(r dp1Row) []dp1Step {
 	done := -1
@@ -70,7 +82,13 @@ func dp1StepsOf(r dp1Row) []dp1Step {
 	if done < 0 {
 		return nil
 	}
-	out := []dp1Step{{"Offered", ""}, {"Downloaded", ""}, {"Installed", ""}, {"Back on the new build", ""}}
+	out := []dp1Step{{Label: "Offered"}, {Label: "Downloaded"}, {Label: "Installed"}, {Label: "Back on the new build"}}
+	if done >= 1 {
+		out[0].At = dp1At(r.offeredAt)
+	}
+	if r.Key == "ok" {
+		out[3].At = dp1At(r.doneAt)
+	}
 	for i := range out {
 		switch {
 		case i < done:
@@ -112,17 +130,28 @@ type dp1Bar struct {
 	Title string
 }
 
+// dp1Seg is one state in the stacked progress bar.
+type dp1Seg struct {
+	Class, Label, Key string
+	N                 int
+}
+
 type dp1Rail struct {
-	Pct            int
-	Offset         string
-	Tone           string
-	Done, Total    int
-	Sub            string
-	Bars           []dp1Bar
-	BarsCap        string
-	Venues         []dp1Venue
-	MoreVenues     int
-	Reboot, RebootSub string
+	Pct                 int
+	Offset              string
+	Tone                string
+	Done, Total         int
+	Sub                 string
+	Bars                []dp1Bar
+	BarsCap             string
+	AxisL, AxisM, AxisR template.HTML // three well-spaced labels under the sparkline
+	Segs                []dp1Seg      // the stacked bar: every state with its count
+	Rate                string        // installs per 10 min over the last half hour, "" when none
+	Todo                int
+	ToGo, Avg           string // "14 min", "12 min": left to go, and per device so far
+	Venues              []dp1Venue
+	MoreVenues          int
+	Reboot, RebootSub   string
 	Package, PackageSub string
 }
 
@@ -214,6 +243,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 		name, key := venueOf(t)
 		r := dp1Row{Serial: t.SerialNumber, Venue: name, VenueKey: key, InFleet: true, ErrorCode: t.ErrorCode}
 		r.From = t.SourceBuildID
+		r.offeredAt, r.doneAt = t.StartedAt, t.CompletedAt
 		if r.From == "" && t.Status != "installed" {
 			r.From = t.BuildID
 		}
@@ -305,6 +335,19 @@ func buildDeployD1(in dp1Inputs) dp1View {
 					bits = append(bits, s)
 				}
 				bits = append(bits, strconv.Itoa(p.Percent)+"%")
+				r.Size = p.Size()
+				for _, part := range strings.Split(p.ETA, " · ") {
+					switch {
+					case part == "":
+					case strings.HasSuffix(part, "/s"):
+						r.Speed = part
+					default:
+						r.Left = part
+						if !strings.HasPrefix(part, "about ") && part != "estimating…" {
+							r.Left = "about " + part
+						}
+					}
+				}
 				if p.ETA != "" {
 					bits = append(bits, p.ETA)
 				} else if t.StartedAt != nil {
@@ -342,6 +385,9 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	for i := range v.Rows {
 		v.Rows[i].order = order[v.Rows[i].Key]
 		v.Rows[i].Steps = dp1StepsOf(v.Rows[i])
+		if v.Rows[i].Bar {
+			v.Rows[i].Off = fmt.Sprintf("%.1f", 326.7*float64(100-v.Rows[i].Pct)/100)
+		}
 		v.Counts[v.Rows[i].Key]++
 	}
 	sort.SliceStable(v.Rows, func(i, j int) bool {
@@ -580,6 +626,31 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	}
 	rl.Sub = strings.Join(subs, " · ")
 	rl.Bars, rl.BarsCap = dp1InstallBars(in.Targets, in.Dep.CreatedAt, now)
+	if n := len(rl.Bars); n > 0 {
+		rl.AxisL, rl.AxisM, rl.AxisR = rl.Bars[0].Label, rl.Bars[n/2].Label, rl.Bars[n-1].Label
+	}
+	rl.Todo = len(b.Todos) + b.More
+	if toGo != "" {
+		rl.ToGo = dp1Mins(eta)
+	}
+	if durN > 0 {
+		rl.Avg = dp1Mins(avg)
+	}
+	last30 := 0
+	for _, t := range in.Targets {
+		if t.Status == "installed" && t.CompletedAt != nil && now.Sub(*t.CompletedAt) <= 30*time.Minute {
+			last30++
+		}
+	}
+	if last30 > 0 {
+		rl.Rate = strings.TrimSuffix(strconv.FormatFloat(float64(last30)/3, 'f', 1, 64), ".0")
+	}
+	for _, sg := range []dp1Seg{{"ok", "Installed", "ok", v.Counts["ok"]}, {"dl", "Downloading", "dl", v.Counts["dl"]}, {"rb", "To reboot", "reboot", v.Counts["reboot"]},
+		{"wt", "Waiting", "wait", v.Counts["wait"]}, {"lk", "Needs a look", "look", v.Counts["look"]}, {"fl", "Failed", "failed", v.Counts["failed"]}, {"cn", "Canceled", "canceled", v.Counts["canceled"]}} {
+		if sg.N > 0 {
+			rl.Segs = append(rl.Segs, sg)
+		}
+	}
 	sort.SliceStable(venueOrder, func(i, j int) bool {
 		a, c := venues[venueOrder[i]], venues[venueOrder[j]]
 		la, lc := a.Total-a.Done, c.Total-c.Done
@@ -592,8 +663,8 @@ func buildDeployD1(in dp1Inputs) dp1View {
 		return a.Name < c.Name
 	})
 	for i, k := range venueOrder {
-		if i == 6 {
-			rl.MoreVenues = len(venueOrder) - 6
+		if i == 30 {
+			rl.MoreVenues = len(venueOrder) - 30
 			break
 		}
 		rl.Venues = append(rl.Venues, *venues[k])
