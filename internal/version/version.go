@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.38",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Moves page (mdm.dev, super admin): /moves shows the progress of moving devices to prod, with a rail of move states and where each device is (To place or a venue, hidden venues included), a progress ring, what needs attention, a table with the client version against the hosted build, last seen and the watcher's note, and a timeline for the picked device. Read-only; refreshes every 30 seconds.",
+		},
+	},
+	{
 		Version: "1.64.37",
 		Date:    "2026-11-19",
 		Changes: []string{
