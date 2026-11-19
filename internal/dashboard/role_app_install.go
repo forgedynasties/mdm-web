@@ -184,6 +184,11 @@ func pickRoleAppInstalls(devices []db.Device, p roleAppPick, seenWithin time.Dur
 	return out
 }
 
+// venueAutoOff is true for a device at a venue whose role app auto-install is off.
+func venueAutoOff(d *db.Device, off map[uuid.UUID]bool) bool {
+	return d.RestaurantID != nil && off[*d.RestaurantID]
+}
+
 // RunRoleAppInstalls sends each online device its host app where it lacks it. Safe to
 // call every minute.
 func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
@@ -207,6 +212,11 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 		return
 	}
 	target := deviceTargets(devices, bases, venueCh)
+	autoOff, err := h.db.VenueAppAutoInstallOff(ctx)
+	if err != nil {
+		log.Printf("[role-app-install] venue auto-install: %v", err)
+		return
+	}
 	// A device someone gave another channel of its role app (Add app: a QA tablet on UAT)
 	// keeps what it was given: the prod app is not pushed onto it.
 	if all, err := h.db.AllAppWants(ctx); err == nil {
@@ -284,7 +294,7 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 	}
 	pick := roleAppPick{target: target, lib: lib, missing: missing, have: have, skip: skip, recent: recent,
 		batch:   h.appRolloutBatch(),
-		install: func(d *db.Device) bool { return installOn[d.Class()] },
+		install: func(d *db.Device) bool { return installOn[d.Class()] && !venueAutoOff(d, autoOff) },
 		upgrade: func(d *db.Device) bool {
 			return upgradeOn[d.Class()] && !refused[d.ID] && pol.Active() && gate.allows(d, pol, now)
 		}}

@@ -109,6 +109,7 @@ type luAppsInputs struct {
 	Missing    map[string]map[uuid.UUID]bool   // base → devices that reported apps and lack it
 	Installs   map[uuid.UUID]db.InstallState   // latest install of the library build
 	Venues     map[uuid.UUID]string
+	AutoOff    map[uuid.UUID]bool // venues with role app auto-install off
 	Selected   string
 	StateF     string
 	VenueF     string
@@ -290,7 +291,11 @@ func buildLineupApps(in luAppsInputs) ([]luAppCard, *luAppsPane) {
 				}
 				o.N++
 			}
-			key, word, detail, pct, bar := luDeviceState(d, base, target, has, in.Missing[target][d.ID], ins, tb, auto, in.SeenWithin, in.Now)
+			venueOff := d.RestaurantID != nil && in.AutoOff[*d.RestaurantID]
+			key, word, detail, pct, bar := luDeviceState(d, base, target, has, in.Missing[target][d.ID], ins, tb, auto && !venueOff, in.SeenWithin, in.Now)
+			if venueOff && auto {
+				detail = strings.Replace(detail, "auto-install is off", "auto-install off for this venue", 1)
+			}
 			counts[key]++
 			if key != "ok" && key != "run" && len(has) > 0 {
 				variant++
@@ -492,6 +497,7 @@ func (h *Handler) lineupApps(r *http.Request, library []db.App, devices []db.Dev
 			venues[v.ID] = v.Name
 		}
 	}
+	autoOff, _ := h.db.VenueAppAutoInstallOff(ctx)
 	var roles []string
 	for _, c := range prod.Classes() {
 		if c != prod.ClassOther {
@@ -501,7 +507,7 @@ func (h *Handler) lineupApps(r *http.Request, library []db.App, devices []db.Dev
 	q := r.URL.Query()
 	return buildLineupApps(luAppsInputs{
 		Roles: roles, RoleApps: roleApps, Lib: lib, Target: target, Devices: devices, Installed: installed, Missing: missing,
-		Installs: installs, Venues: venues, Selected: strings.TrimSpace(q.Get("app")),
+		Installs: installs, Venues: venues, AutoOff: autoOff, Selected: strings.TrimSpace(q.Get("app")),
 		StateF: strings.TrimSpace(q.Get("state")), VenueF: strings.TrimSpace(q.Get("venue")),
 		SeenWithin: time.Duration(h.cfg.CheckinInterval()*roleAppSeenFactor) * time.Second, Now: time.Now(),
 	})

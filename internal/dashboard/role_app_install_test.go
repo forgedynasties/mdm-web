@@ -103,3 +103,24 @@ func TestRoleAppRecentIsPerAPK(t *testing.T) {
 		t.Fatalf("the same APK sent again: %+v", got)
 	}
 }
+
+// A venue with auto-install off gets nothing; a device at no venue or an "on" venue is
+// unchanged.
+func TestRoleAppInstallPickSkipsOffVenue(t *testing.T) {
+	now := time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)
+	off, on := uuid.New(), uuid.New()
+	bases := map[string]string{"t7": "aio.app.nugget"}
+	lib := newestProdBuilds([]db.App{{PackageName: "aio.app.nugget", VersionName: "17.0.0", ApkURL: "u17", CreatedAt: now}}, bases)
+	dev := func(sn string, v *uuid.UUID) db.Device {
+		return db.Device{ID: uuid.New(), SerialNumber: sn, Product: "t7", AgentKind: "firmware", LastSeenAt: now.Add(-time.Minute), RestaurantID: v}
+	}
+	devs := []db.Device{dev("OFFV", &off), dev("ONV", &on), dev("NOV", nil)}
+	missing := map[string]map[uuid.UUID]bool{"aio.app.nugget": {devs[0].ID: true, devs[1].ID: true, devs[2].ID: true}}
+	autoOff := map[uuid.UUID]bool{off: true}
+	p := roleAppPick{target: deviceTargets(devs, bases, nil), lib: lib, missing: missing,
+		install: func(d *db.Device) bool { return !venueAutoOff(d, autoOff) }}
+	got := pickRoleAppInstalls(devs, p, 3*time.Minute, now)
+	if len(got) != 2 || got[0].Device.SerialNumber != "ONV" || got[1].Device.SerialNumber != "NOV" {
+		t.Fatalf("picks = %+v", got)
+	}
+}

@@ -314,6 +314,19 @@
 </style>
 {{end}}{{end}}
 
+{{/* Apps: install the role app automatically (per venue, default yes). venue_app_auto.go */}}
+<details class="vs-row" name="vn-set" id="vn-appauto"{{if eq $.Open "appauto"}} open{{end}}>
+  <summary><span class="vs-k">Apps</span><span class="vs-v"><span>{{if $.AppAuto}}Installs the role app automatically{{else}}Off: devices keep what they run{{end}}</span>{{if not $.AppAuto}}<span class="cc-tag warn">auto-install off</span>{{end}}</span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">With this on, a device here that is missing its role's app gets the library's newest build by itself. Off, nothing is installed for the venue: devices keep what they run. Nothing is ever uninstalled.</div>
+  {{if $can}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/app-auto" method="POST">
+    <div class="vn-acts">{{if $.AppAuto}}<button type="submit" name="on" value="0" class="cc-btn sm">No, turn off</button>{{else}}<button type="submit" name="on" value="1" class="cc-btn sm primary">Yes, install automatically</button>{{end}}</div>
+  </form>
+  {{end}}
+  </div>
+</details>
+
 {{/* Device lock, where the business thinks about it: what the rule says and what the
      devices are actually doing, side by side. */}}
 {{with .Kiosk}}
