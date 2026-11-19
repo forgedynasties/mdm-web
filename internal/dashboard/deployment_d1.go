@@ -149,6 +149,7 @@ type dp1Rail struct {
 	Rate                string        // installs per 10 min over the last half hour, "" when none
 	Todo                int
 	ToGo, Avg           string // "14 min", "12 min": left to go, and per device so far
+	Estimating          bool   // devices are still to go but no install has finished, so there is nothing to base a time on
 	Venues              []dp1Venue
 	MoreVenues          int
 	Reboot, RebootSub   string
@@ -455,9 +456,17 @@ func buildDeployD1(in dp1Inputs) dp1View {
 			busiest, busiestN = vv.Name, n
 		}
 	}
+	// A time left only from what really happened: installs that finished here. With none
+	// finished there is nothing to base it on, and a made-up default read as fact (19 Nov 2026:
+	// "about 14 min" on a rollout that had finished nothing in 30 minutes).
 	toGo := ""
+	estimating := false
 	if active && totalLeft > 0 {
-		toGo = "about " + dp1Mins(eta) + " to go"
+		if durN > 0 {
+			toGo = "about " + dp1Mins(eta) + " to go"
+		} else {
+			estimating = true
+		}
 	}
 
 	// Banner.
@@ -517,7 +526,10 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	case installed == total && total > 0:
 		b.Tone, b.Headline = "calm", "On all "+strconv.Itoa(total)+" devices"
 	case active && totalLeft > 0:
-		b.Tone, b.Headline = "calm", "Rolling out · "+toGo
+		b.Tone, b.Headline = "calm", "Rolling out"
+		if toGo != "" {
+			b.Headline += " · " + toGo
+		}
 	default:
 		b.Tone, b.Headline = "calm", "Nothing more to do here"
 	}
@@ -633,6 +645,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	if toGo != "" {
 		rl.ToGo = dp1Mins(eta)
 	}
+	rl.Estimating = estimating
 	if durN > 0 {
 		rl.Avg = dp1Mins(avg)
 	}
