@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.28",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Google Geocoding bill: reverse-geocoded addresses are now kept in the database (shared by both server copies, a month), in ~110 m cells instead of ~11 m, so restarts and Wi-Fi position jitter no longer buy the same address again; at most 300 paid Geocoding requests a day (GEOCODE_DAILY_CAP, 0 = no cap), after which the address is left off until the next day. November's bill was the Geocoding API alone ($21 by the 18th).",
+		},
+	},
+	{
 		Version: "1.64.27",
 		Date:    "2026-11-19",
 		Changes: []string{

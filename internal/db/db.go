@@ -212,6 +212,9 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	if _, err := tx.Exec(ctx, crashNoiseSchema); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, geocodeCacheSchema); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, deviceMovesSchema); err != nil {
 		return err
 	}

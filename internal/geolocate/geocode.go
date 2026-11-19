@@ -26,11 +26,37 @@ type Geocoder struct {
 	apiKey string
 	client *http.Client
 
+	store  AddrStore // shared, persistent address cache and daily call counter (may be nil)
+
 	mu     sync.RWMutex
 	cache  map[string]cachedAddress
 	places map[string]cachedPlaces // forward lookups, by query
 	meter  *Meter
+
+	dailyCap int
 }
+
+// AddrStore is the persistence behind the reverse-geocode cache: it survives restarts and is
+// shared by every server copy, and it carries the day's paid-request count.
+type AddrStore interface {
+	GetAddr(ctx context.Context, cell string, maxAgeDays int) (string, bool, error)
+	PutAddr(ctx context.Context, cell, address string) error
+	// CountCall adds one paid request to today's total and returns it.
+	CountCall(ctx context.Context) (int, error)
+}
+
+// SetStore attaches the persistent cache; dailyCap bounds the paid requests per UTC day
+// (0 = no cap).
+func (g *Geocoder) SetStore(s AddrStore, dailyCap int) { g.store, g.dailyCap = s, dailyCap }
+
+// Tunables: a ~110 m cell, a month in the cache. The address of a fixed point is static, and a
+// device that really moves lands in another cell.
+const (
+	addrCacheTTL    = 30 * 24 * time.Hour
+	addrCacheDays   = 30
+	addrEmptyTTL    = time.Hour
+	addrCacheMaxMem = 5000
+)
 
 // Stats returns a snapshot of this geocoder's Google Geocoding API usage.
 func (g *Geocoder) Stats() MeterSnapshot { return g.meter.Snapshot() }
@@ -64,11 +90,11 @@ type geocodeResponse struct {
 
 const googleGeocodeURL = "https://maps.googleapis.com/maps/api/geocode/json"
 
-// addrCacheKey rounds coordinates to 4 decimal places (~11m) so tiny WiFi
-// geolocation jitter around a fixed device doesn't churn the cache or waste
-// paid lookups.
+// addrCacheKey rounds coordinates to 3 decimal places (~110 m) so Wi-Fi geolocation jitter
+// around a fixed device doesn't churn the cache or buy paid lookups (it was 4 places, ~11 m,
+// which that jitter kept missing).
 func addrCacheKey(lat, lon float64) string {
-	return fmt.Sprintf("%.4f,%.4f", math.Round(lat*1e4)/1e4, math.Round(lon*1e4)/1e4)
+	return fmt.Sprintf("%.3f,%.3f", math.Round(lat*1e3)/1e3, math.Round(lon*1e3)/1e3)
 }
 
 // Reverse resolves lat/lon to a formatted street address. Returns an empty
@@ -84,6 +110,25 @@ func (g *Geocoder) Reverse(ctx context.Context, lat, lon float64) (string, error
 		return c.Address, nil
 	}
 	g.mu.RUnlock()
+
+	// The shared store: another copy, or an earlier run, already paid for this cell.
+	if g.store != nil {
+		if addr, ok, err := g.store.GetAddr(ctx, key, addrCacheDays); err == nil && ok {
+			g.remember(key, addr, addrCacheTTL)
+			g.meter.MarkLocalHit()
+			return addr, nil
+		}
+		// Daily ceiling on paid requests across all copies: past it the address is simply
+		// left off until tomorrow, never bought.
+		if g.dailyCap > 0 {
+			if n, err := g.store.CountCall(ctx); err == nil && n > g.dailyCap {
+				if n == g.dailyCap+1 {
+					log.Printf("[geocode] daily cap of %d Google requests reached: no more addresses today", g.dailyCap)
+				}
+				return "", nil
+			}
+		}
+	}
 
 	endpoint := googleGeocodeURL +
 		"?latlng=" + url.QueryEscape(key) +
@@ -132,21 +177,15 @@ func (g *Geocoder) Reverse(ctx context.Context, lat, lon float64) (string, error
 		g.meter.MarkError(fmt.Errorf("geocode status %s: %s", gResp.Status, gResp.ErrorMessage))
 	}
 
-	ttl := 6 * time.Hour
+	ttl := addrCacheTTL
 	if addr == "" {
 		// Don't cache an empty answer for long — a transient error or an
 		// out-of-coverage point may resolve later once the device moves.
-		ttl = 5 * time.Minute
+		ttl = addrEmptyTTL
+	} else if g.store != nil {
+		_ = g.store.PutAddr(ctx, key, addr)
 	}
-	g.mu.Lock()
-	g.cache[key] = cachedAddress{Address: addr, ExpiresAt: time.Now().Add(ttl)}
-	if len(g.cache) > 2000 {
-		for k := range g.cache {
-			delete(g.cache, k)
-			break
-		}
-	}
-	g.mu.Unlock()
+	g.remember(key, addr, ttl)
 
 	return addr, nil
 }
@@ -235,4 +274,17 @@ func (g *Geocoder) Forward(ctx context.Context, query string) ([]Place, error) {
 type cachedPlaces struct {
 	places  []Place
 	expires time.Time
+}
+
+// remember keeps an address in the in-memory cache.
+func (g *Geocoder) remember(key, addr string, ttl time.Duration) {
+	g.mu.Lock()
+	g.cache[key] = cachedAddress{Address: addr, ExpiresAt: time.Now().Add(ttl)}
+	if len(g.cache) > addrCacheMaxMem {
+		for k := range g.cache {
+			delete(g.cache, k)
+			break
+		}
+	}
+	g.mu.Unlock()
 }
