@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.36",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Fleet: the browser's Back and Forward buttons now restore the whole page state (the rail highlight, the list and counts, the heading, the search box, the filter chips, sort, the product tab and the page), instead of changing only the address.",
+			"Venue setting \"Alerts\": pause a venue's alerts for 24 h, 3 days, 7 days or until resumed (like the Lost devices pause). While paused it raises no new alerts, sends nothing to the alert channels, and its open alerts are held back from the Alerts page, the bell, the Overview and the counts; they return when the pause ends or is resumed. The venue page says how many are held back.",
+		},
+	},
+	{
 		Version: "1.64.35",
 		Date:    "2026-11-19",
 		Changes: []string{

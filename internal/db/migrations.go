@@ -2108,6 +2108,13 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS host_app_channel TEXT NOT NULL 
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_paused_until TIMESTAMPTZ;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_set_by TEXT NOT NULL DEFAULT '';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS lost_set_at TIMESTAMPTZ;
+-- Alerts pause per venue (19 Nov): while it holds no alert is raised or sent for the venue's
+-- devices and its open alerts are left out of lists and counts. alerts_paused_until NULL with
+-- alerts_paused = until resumed. venue_alerts_pause.go
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS alerts_paused BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS alerts_paused_until TIMESTAMPTZ;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS alerts_set_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS alerts_set_at TIMESTAMPTZ;
 -- Per-app usage (A1, 22 Oct): what each app (and system service) cost on a device, one row
 -- per device, package and hour (kept 14 days) and per day (kept 90 days). Memory and CPU
 -- are averages of the reports in the bucket (sum / samples); the rest add up.

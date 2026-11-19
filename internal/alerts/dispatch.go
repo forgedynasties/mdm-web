@@ -44,6 +44,11 @@ func (dp *Dispatcher) Dispatch(ctx context.Context, created []db.AlertNotificati
 	if len(created) == 0 {
 		return
 	}
+	// A venue with its alerts paused is told to nobody (venue_alerts_pause.go).
+	created = dp.withoutHeld(ctx, created)
+	if len(created) == 0 {
+		return
+	}
 	channels, err := dp.db.ListAlertChannels(ctx, true)
 	if err != nil {
 		log.Printf("[alert] list channels: %v", err)
@@ -165,4 +170,27 @@ func formatWhen(at time.Time, tz string) string {
 		}
 	}
 	return at.In(loc).Format("Mon 2 Jan 3:04 PM MST")
+}
+
+// withoutHeld drops the notifications of devices at a venue whose alerts pause holds now.
+func (dp *Dispatcher) withoutHeld(ctx context.Context, created []db.AlertNotification) []db.AlertNotification {
+	devs := make([]uuid.UUID, 0, len(created))
+	for _, n := range created {
+		devs = append(devs, n.DeviceID)
+	}
+	held, err := dp.db.DevicesAlertsHeld(ctx, devs)
+	if err != nil {
+		log.Printf("[alert] held devices: %v", err)
+		return created
+	}
+	if len(held) == 0 {
+		return created
+	}
+	out := make([]db.AlertNotification, 0, len(created))
+	for _, n := range created {
+		if !held[n.DeviceID] {
+			out = append(out, n)
+		}
+	}
+	return out
 }

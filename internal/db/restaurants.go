@@ -719,7 +719,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 				COUNT(*) FILTER (WHERE a.severity <> 'critical') AS warn
 			FROM alerts a
 			JOIN devices d ON d.id = a.device_id
-			WHERE a.status <> 'resolved' AND d.restaurant_id IS NOT NULL AND NOT d.hidden
+			WHERE a.status <> 'resolved' AND d.restaurant_id IS NOT NULL AND NOT d.hidden AND NOT `+AlertHeldSQL("a")+`
 			GROUP BY d.restaurant_id
 		)
 		SELECT r.id, r.name,

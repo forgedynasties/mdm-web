@@ -57,6 +57,7 @@ type vpInputs struct {
 	ClosedToday bool
 	Updates  venueUpdatesView
 	Lost     venueLostView
+	AlertsPause venueAlertsView
 	Trend    db.ScopedTrend
 	Backend  *ovTodo // "Link to X in the AIO backend?" (L2), nil when not offered
 	Moves    *ovTodo // "N devices the AIO backend lists here are elsewhere" (M2)
@@ -320,6 +321,9 @@ func buildVpBanner(in vpInputs) vpBanner {
 		mine = append(mine, t)
 	}
 	if t, ok := venueLostPauseTodo(in.Lost); ok {
+		mine = append(mine, t)
+	}
+	if t, ok := venueAlertsPauseTodo(in.AlertsPause); ok {
 		mine = append(mine, t)
 	}
 

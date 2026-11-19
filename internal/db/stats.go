@@ -512,7 +512,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, connected []uuid.UUID) ([]Group
 			FROM alerts a
 			JOIN device_groups dg ON dg.device_id = a.device_id
 			JOIN devices d ON d.id = a.device_id AND NOT d.hidden
-			WHERE a.status <> 'resolved'
+			WHERE a.status <> 'resolved' AND NOT `+AlertHeldSQL("a")+`
 			GROUP BY dg.group_id
 		)
 		SELECT g.id, g.name,
