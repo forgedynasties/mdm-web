@@ -551,3 +551,21 @@ App side (bearer session, operator or above): `GET /api/v1/app/adb-key` →
 audit log (`fleet_adb_key.fetch`) with the user, the client IP and the `X-AIO-Device`
 header. `GET /api/v1/app/me` carries `adb_key_version` (0 when none) so the app knows
 when to re-fetch.
+
+## Moving devices to prod (admin key, mdm.dev only)
+
+Only where `deviceMoveTarget()` is set (mdm.dev, or `ALLOW_DEVICE_MOVE=1` + `MOVE_TARGET_URL`); elsewhere 404.
+
+| Method | Path | What |
+|---|---|---|
+| `GET` | `/api/v1/admin/move/devices/{serial}` | The device's bundle. |
+| `POST` | `/api/v1/admin/move/devices/{serial}[?now=1][&import_only=1]` | Import it on prod and file a pending move (`import_only`: import, no move). |
+| `POST` | `/api/v1/admin/move/venues/{id}[?only=dpc\|firmware]` | The same for every device at a venue. |
+| `POST` | `/api/v1/admin/move/devices/{serial}/cancel` | Cancel a move not under way. |
+| `GET` | `/api/v1/admin/move/status[?state=a,b][&venue=id]` | `{target, counts, attention[], moves[]}`; each move has `state`, `note` (why it waits), `client_version`, `online`, `last_seen_at`, `venue_hidden`, `device_hidden`. `attention` lists `came_back` and `failed` serials. |
+| `POST` | `/api/v1/admin/move/arm[?venues=all\|id,id][&exclude=name,name][&confirm=arm][&dry=1]` | Arm venues. **A dry run unless `confirm=arm`** (`dry=1` forces one). |
+| `POST` | `/api/v1/admin/move/unarm?venues=all\|id,id[&cancel=1]` | Show venues and their armed devices again; `cancel=1` also cancels their pending moves. |
+
+**Arm.** For every venue not named in `exclude` (default `AIO Lab`; `exclude=` alone excludes none) that has devices in view: each device with no move pending, sent or arrived gets one filed (`action` `file`, or `refile` after failed / came_back / canceled; imported on prod first), then the venue is hidden (`restaurants.hidden`: gone from every list, picker, count and search; `GET /restaurants/{id}` still opens for a super admin with a "Hidden: moving to prod" banner) and its devices are hidden (`devices.hidden` + `arm_hidden`, which a check-in does not clear). A venue where any device could not be filed is not hidden (`errors`). Repeating it files only what is missing. Answer: `{dry, target, excluded, totals{venues,devices,to_file,filed,errors,hidden_venues}, venues[{venue_id, venue, skipped, devices[{serial, agent_kind, client_version, move_state, action, error}], counts, kinds, clients, will_hide, done}]}`. Audit `device.move_arm` per venue, `device.move_unarm`.
+
+**The watcher** (job `device-moves`, each minute) sends a pending move only when the device is online (firmware at a venue: only while it is closed) and its MDM client is the build hosted for its slot. A client behind it gets one `app_update` (sender `move-update`, not more than one per 20 minutes, none while an update, OTA or app install is in flight); the move's `note` says `waiting for MDM client 0.15.1 → 0.15.2`. After 3 failed updates in a day, or with no hosted build or no self-update, it goes only if the client can move itself (firmware always; Standard from 0.13.4), else the note reads `client too old and cannot update`. A `came_back` or `failed` move is written to the audit log (`device.move_came_back`, `device.move_failed`) and listed in `attention`.

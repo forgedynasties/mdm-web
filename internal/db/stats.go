@@ -212,7 +212,7 @@ func (d *DB) GetFleetWrapped(ctx context.Context) (FleetWrapped, error) {
 	}
 
 	run(func() { _ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices WHERE NOT hidden`).Scan(&deviceCount) })
-	run(func() { _ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM restaurants`).Scan(&restaurantCount) })
+	run(func() { _ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM restaurants WHERE NOT hidden`).Scan(&restaurantCount) })
 	run(func() {
 		_ = d.pool.QueryRow(ctx, `SELECT COALESCE(SUM(discharge_total_pct),0) FROM devices WHERE NOT hidden`).Scan(&totalDischarge)
 	})

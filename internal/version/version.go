@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.37",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Moving devices to prod: venues can be hidden (a hidden venue and its devices vanish from every list on mdm.dev). `POST /api/v1/admin/move/arm` (a dry run unless confirm=arm) files the missing moves, hides the venues and devices that are waiting, and skips AIO Lab; `unarm` undoes it. The move job now makes sure a device's MDM client is up to date before it moves (one app_update, then the move), and `move/status` shows each move's note, client version, last seen and what needs attention.",
+		},
+	},
+	{
 		Version: "1.64.36",
 		Date:    "2026-11-19",
 		Changes: []string{

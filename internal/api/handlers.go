@@ -85,6 +85,9 @@ type Handler struct {
 	// apkPuller adds an APK a device uploaded to the app library (the dashboard, set in
 	// main.go): see apk_pull.go.
 	apkPuller APKPuller
+	// clientStanding says where a device's MDM client stands against the build hosted for
+	// its slot (the dashboard, set in main.go): the move watcher's gate (device_move_watch.go).
+	clientStanding func(ctx context.Context, d *db.Device) db.ClientStanding
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API

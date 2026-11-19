@@ -218,6 +218,7 @@
   </aside>
   <div class="fleet-roster" style="min-width:0">
     <section class="vn1-pane" data-vn-for="overview">
+      {{if .Restaurant.Hidden}}<div class="card vn1-card" role="status"><h2 class="vn1-h">Hidden: moving to prod<small>This venue and its devices are out of every list. Each device moves to prod when it is online and its MDM client is current.</small></h2></div>{{end}}
       {{with .P1}}{{with .Banner}}
       <div class="card vn1-card">
         <h2 class="vn1-h">{{.Headline}}<small>{{.Kicker}}</small></h2>

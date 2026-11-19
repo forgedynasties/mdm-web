@@ -350,7 +350,16 @@ func (h *Handler) MoveStatus(w http.ResponseWriter, r *http.Request) {
 	if moves == nil {
 		moves = []db.DeviceMove{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"target": deviceMoveTarget(), "counts": counts, "moves": moves})
+	// Online the way the job counts it; came_back and failed moves are what needs a person.
+	var attention []string
+	for i := range moves {
+		m := &moves[i]
+		m.Online = m.LastSeenAt != nil && time.Since(*m.LastSeenAt) <= moveOnlineWithin
+		if m.State == db.MoveCameBack || m.State == db.MoveFailed {
+			attention = append(attention, m.Serial)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"target": deviceMoveTarget(), "counts": counts, "attention": attention, "moves": moves})
 }
 
 // Move timing.
@@ -391,6 +400,7 @@ func (h *Handler) RunDeviceMoves(ctx context.Context) {
 			if m.LastSeenAt != nil && m.ArrivedAt != nil && m.LastSeenAt.After(m.ArrivedAt.Add(moveCameBackGap)) {
 				log.Printf("[move] %s checks in here again after arriving on %s", m.Serial, m.Target)
 				_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveCameBack, "checked in here again after it arrived", nil)
+				_ = h.db.InsertAudit(ctx, "device move", "device.move_came_back", m.Serial, "checked in here again after it arrived")
 			}
 		case db.MoveCameBack:
 			// Taken for back too early (or back, then gone again): once the target has heard
@@ -433,6 +443,11 @@ func (h *Handler) moveWait(ctx context.Context, m db.DeviceMove) string {
 // sendMove imports the device again and sends it the move. Reports whether it went.
 func (h *Handler) sendMove(ctx context.Context, m db.DeviceMove) bool {
 	if why := h.moveWait(ctx, m); why != "" {
+		_ = h.db.NoteDeviceMove(ctx, m.Serial, why)
+		return false
+	}
+	// Online (and the venue closed, for firmware): now the MDM client must be current.
+	if why := h.clientWait(ctx, m); why != "" {
 		_ = h.db.NoteDeviceMove(ctx, m.Serial, why)
 		return false
 	}
@@ -524,6 +539,7 @@ func (h *Handler) followMove(ctx context.Context, m db.DeviceMove) {
 		case err != nil:
 		case status == "failed":
 			_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveFailed, strings.TrimSpace("the device refused the move: "+out), nil)
+			_ = h.db.InsertAudit(ctx, "device move", "device.move_failed", m.Serial, strings.TrimSpace(out))
 			_ = h.db.ClearDeviceCustody(ctx, m.DeviceID)
 			return
 		case status == "" && time.Since(*m.SentAt) > time.Hour:
@@ -543,6 +559,7 @@ func (h *Handler) followMove(ctx context.Context, m db.DeviceMove) {
 			why += " (it went back by itself: the new server did not take it)"
 		}
 		_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveCameBack, why, nil)
+		_ = h.db.InsertAudit(ctx, "device move", "device.move_came_back", m.Serial, why)
 		log.Printf("[move] %s came back: %s", m.Serial, why)
 	}
 }

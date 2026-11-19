@@ -43,6 +43,11 @@ CREATE INDEX IF NOT EXISTS idx_device_moves_state ON device_moves(state);
 -- "Move it now" (17 Nov 2026): a firmware device at a venue goes without waiting for the
 -- venue to close (it reboots into the move).
 ALTER TABLE device_moves ADD COLUMN IF NOT EXISTS send_now BOOLEAN NOT NULL DEFAULT false;
+-- Hidden venues (19 Nov 2026): a venue whose devices are waiting to move to prod disappears
+-- from every list a person sees. arm_hidden keeps its devices hidden through check-ins
+-- (a check-in otherwise un-hides a device: hidden = arm_hidden, see checkins.go).
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS arm_hidden BOOLEAN NOT NULL DEFAULT FALSE;
 `
 
 // Move states.
@@ -213,6 +218,8 @@ func (d *DB) ImportDeviceMove(ctx context.Context, b *DeviceMoveBundle, fromName
 		dev["device_key_hash"] = nil
 	}
 	dev["enrolled_via"] = nil
+	// Hiding is this server's business (armed venues): on the target the device is plain.
+	dev["hidden"], dev["arm_hidden"] = false, false
 	seen := dev["last_seen_at"]
 	if seen == nil {
 		seen = time.Now().UTC().Format(time.RFC3339Nano)
@@ -330,7 +337,12 @@ type DeviceMove struct {
 	VenueID    *uuid.UUID `json:"venue_id,omitempty"`
 	Venue      string     `json:"venue,omitempty"`
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
-	token      string
+	// ClientVersion is the MDM client the device last reported; Online is set by the API.
+	ClientVersion string `json:"client_version"`
+	Online        bool   `json:"online"`
+	VenueHidden   bool   `json:"venue_hidden"`
+	DeviceHidden  bool   `json:"device_hidden"`
+	token         string
 }
 
 // Token is the Standard device's enrollment token on the target.
@@ -338,13 +350,15 @@ func (m DeviceMove) Token() string { return m.token }
 
 const deviceMoveCols = `m.serial_number, m.target, m.state, m.note, m.attempts, m.created_by, m.created_at,
 	m.updated_at, m.imported_at, m.sent_at, m.arrived_at, m.command_id, m.send_now, m.enroll_token,
-	dv.id, dv.agent_kind, dv.restaurant_id, COALESCE(r.name, ''), dv.last_seen_at`
+	dv.id, dv.agent_kind, dv.restaurant_id, COALESCE(r.name, ''), dv.last_seen_at,
+	COALESCE(dv.latest_extra->>'agent_version', ''), COALESCE(r.hidden, false), dv.hidden`
 
 func scanDeviceMove(row interface{ Scan(...any) error }) (DeviceMove, error) {
 	var m DeviceMove
 	err := row.Scan(&m.Serial, &m.Target, &m.State, &m.Note, &m.Attempts, &m.CreatedBy, &m.CreatedAt,
 		&m.UpdatedAt, &m.ImportedAt, &m.SentAt, &m.ArrivedAt, &m.CommandID, &m.SendNow, &m.token,
-		&m.DeviceID, &m.Kind, &m.VenueID, &m.Venue, &m.LastSeenAt)
+		&m.DeviceID, &m.Kind, &m.VenueID, &m.Venue, &m.LastSeenAt,
+		&m.ClientVersion, &m.VenueHidden, &m.DeviceHidden)
 	return m, err
 }
 

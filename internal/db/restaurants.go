@@ -68,6 +68,7 @@ func (d *DB) ListRestaurants(ctx context.Context) ([]Restaurant, error) {
 		       r.notes, r.created_at, COUNT(d.id) AS device_count, r.contact_email
 		FROM restaurants r
 		LEFT JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
+		WHERE NOT r.hidden
 		GROUP BY r.id
 		ORDER BY r.name
 	`)
@@ -91,13 +92,13 @@ func (d *DB) GetRestaurant(ctx context.Context, id uuid.UUID) (*Restaurant, erro
 	var r Restaurant
 	err := d.pool.QueryRow(ctx, `
 		SELECT r.id, r.name, r.address, r.latitude, r.longitude, r.timezone,
-		       r.notes, r.created_at, COUNT(d.id) AS device_count, r.contact_email
+		       r.notes, r.created_at, COUNT(d.id) AS device_count, r.contact_email, r.hidden
 		FROM restaurants r
 		LEFT JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
 		WHERE r.id = $1
 		GROUP BY r.id
 	`, id).Scan(&r.ID, &r.Name, &r.Address, &r.Latitude, &r.Longitude, &r.Timezone,
-		&r.Notes, &r.CreatedAt, &r.DeviceCount, &r.ContactEmail)
+		&r.Notes, &r.CreatedAt, &r.DeviceCount, &r.ContactEmail, &r.Hidden)
 	if err != nil {
 		return nil, err
 	}
@@ -734,6 +735,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, win
 		LEFT JOIN prior   ON prior.restaurant_id   = r.id
 		LEFT JOIN hottest ON hottest.restaurant_id = r.id
 		LEFT JOIN al      ON al.restaurant_id      = r.id
+		WHERE NOT r.hidden
 		ORDER BY r.name`, connected, windowDays)
 	if err != nil {
 		return nil, err
