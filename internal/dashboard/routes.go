@@ -242,6 +242,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/service-window", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantSetServiceWindow)))
 	post("POST /restaurants/{id}/updates", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantUpdatesSave)))
 	post("POST /restaurants/{id}/lost", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantLostSave)))
+	post("POST /restaurants/{id}/alerts", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantAlertsSave)))
 	post("POST /restaurants/{id}/auto-enroll", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantAutoEnrollSave)))
 	post("POST /restaurants/{id}/app-auto", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantAppAutoSave)))
 	post("POST /restaurants/{id}/host-app", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantHostAppSave)))

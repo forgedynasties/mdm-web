@@ -389,6 +389,34 @@
 </details>
 {{end}}
 
+{{/* Alerts (19 Nov 2026): pause every alert for this venue's devices for a while (the AIO Lab
+     venue's dark devices). Open ones are held back from the lists and come back when it
+     ends. venue_alerts_pause.go */}}
+{{with .AlertsPause}}
+<details class="vs-row" name="vn-set" id="vn-alerts"{{if eq $.Open "alerts"}} open{{end}}>
+  <summary><span class="vs-k">Alerts</span><span class="vs-v"><span>{{if .Paused}}<b class="vu-paused">Paused</b>{{else}}{{.Summary}}{{end}} <small>· {{if .Paused}}{{.PausedSub}}{{else}}raised and sent as usual{{end}}</small></span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
+  <div class="vs-body">
+  <div class="vs-note">Alerts for this venue's devices.{{with .By}} Set {{.}}.{{end}}</div>
+  {{if $can}}
+  {{if .Paused}}
+  <form class="vn-form" action="/restaurants/{{$r.ID}}/alerts" method="POST">
+    <p>Alerts paused {{.PausedSub}}. No alert is raised or sent for this venue's devices{{if .Held}}; {{.Held}} open alert{{if ne .Held 1}}s are{{else}} is{{end}} held back from the Alerts page and the counts{{end}}. They come back when the pause ends or is resumed.</p>
+    <div class="vn-acts"><button type="submit" name="action" value="resume" class="cc-btn sm primary">Resume</button></div>
+  </form>
+  {{end}}
+  <form class="vn-form vu-form" action="/restaurants/{{$r.ID}}/alerts" method="POST">
+    <div class="vu-ch">
+      <label><input type="radio" name="mode" value="watch"{{if not .Paused}} checked{{end}}><span><b>Watching</b><small>Alerts are raised, shown and sent as usual</small></span></label>
+      <label><input type="radio" name="mode" value="paused"{{if .Paused}} checked{{end}}><span><b>Paused</b><small>Nothing is raised or sent until it ends; open alerts are hidden meanwhile</small>
+        <span class="vu-sub vu-len">{{range $i, $o := venuePauseChoices}}<label><input type="radio" name="pause" value="{{$o.Value}}"{{if eq $i 1}} checked{{end}}><span>{{$o.Label}}</span></label>{{end}}</span></span></label>
+    </div>
+    <div class="vn-acts"><button type="submit" class="cc-btn sm primary">Save</button></div>
+  </form>
+  {{end}}
+  </div>
+</details>
+{{end}}
+
 {{/* People (U3, picked 20 Oct): the venue's owner and staff accounts. The AIO team
      invites them here; owners invite their own staff from their home page. venue_people.go */}}
 {{if canManageUsers $.Role}}

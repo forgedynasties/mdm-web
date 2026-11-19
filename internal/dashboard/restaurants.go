@@ -454,6 +454,7 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	data["HostApp"] = h.venueHostAppView(r.Context(), id, devices)
 	data["Updates"] = h.venueUpdatesView(r.Context(), id, win, rest.Timezone, time.Now())
 	data["Lost"] = h.venueLostView(r.Context(), id, rest.Timezone, time.Now())
+	data["AlertsPause"] = h.venueAlertsView(r.Context(), id, rest.Timezone, time.Now())
 	backend := h.venueBackendView(r.Context(), rest, devices)
 	data["Backend"] = backend
 	unenrolled := h.venueUnenrolledView(r.Context(), id)
@@ -473,6 +474,7 @@ func (h *Handler) venueP1(r *http.Request, rest *db.Restaurant, devices []db.Dev
 	in := vpInputs{ID: id, Name: rest.Name, Window: vpWindow(r.URL.Query().Get("window")), Now: now}
 	in.StaffPIN, _ = pin.(string)
 	in.Updates, in.Lost = upd, lost
+	in.AlertsPause = h.venueAlertsView(ctx, id, rest.Timezone, now)
 	if t, ok := venueBackendTodo(backend); ok {
 		in.Backend = &t
 	}
