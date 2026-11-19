@@ -53,6 +53,10 @@ type d1Channel struct {
 	Devices        int
 	Current        bool
 	InLibrary      bool
+	Pct            int  // devices on the library's newest build, of those reporting a version
+	HasPct         bool // false when no device reports a version
+	Tone           string
+	Ring           string // ring fill, "p 100" for stroke-dasharray
 }
 
 type d1Device struct {
@@ -172,10 +176,20 @@ func buildAppD1(in d1Inputs) appD1 {
 		for _, vr := range v.Family.Variants {
 			ch := d1Channel{Label: vr.Label, Package: vr.Package, InLibrary: true, Current: vr.Package == in.Package}
 			ch.Newest = libNewest(in.Apps, vr.Package) // coverage knows only packages on devices
-			if ch.Current {
-				ch.Devices = c.Devices
-			} else {
-				ch.Devices = in.SiblingCov[vr.Package].Devices
+			cc := c
+			if !ch.Current {
+				cc = in.SiblingCov[vr.Package]
+			}
+			ch.Devices = cc.Devices
+			if cc.Known > 0 {
+				ch.HasPct, ch.Pct = true, a1Pct(cc.OnLatest, cc.Known)
+				switch {
+				case ch.Pct < 60:
+					ch.Tone = "r"
+				case ch.Pct < 85:
+					ch.Tone = "o"
+				}
+				ch.Ring = strconv.Itoa(ch.Pct) + " 100"
 			}
 			v.Channels = append(v.Channels, ch)
 		}

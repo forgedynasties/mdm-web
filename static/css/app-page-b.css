@@ -1,0 +1,83 @@
+/* App page B, "Channel strip, version drives devices" (19 Nov 2026). Builds on the Overview
+   bento (.ovb-c, .ovb-btn, .ovb-tag, .ovb-ch; ovb-device.css, read only). Prefix ap1. */
+.ap1{padding-bottom:24px}
+.ap1 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ap1 .mono{font-family:var(--mono)}
+.ap1 .muted{color:var(--muted)}
+html.shell .ap1{height:calc(var(--shell-h,100vh) - 30px);display:flex;flex-direction:column;padding-bottom:0}
+.ap1-head{display:flex;align-items:center;gap:14px;margin:0 0 12px;flex-wrap:wrap;flex:none}
+.ap1-back{display:inline-flex;align-items:center;font-size:13px;font-weight:650;color:var(--text-2);text-decoration:none;padding:7px 13px;border-radius:99px;background:var(--surface)}
+.ap1-back:hover{color:var(--text)}
+.ap1-title{display:flex;align-items:center;gap:12px;min-width:0}
+.ap1-title h1{font-size:22px;font-weight:700;margin:0;line-height:1.15}
+.ap1-title small{display:block;font-size:12px;color:var(--muted);margin-top:2px;overflow-wrap:anywhere}
+.ap1-ic{width:42px;height:42px;border-radius:12px;flex:none;object-fit:contain;background:var(--surface)}
+.ap1-ic.ini{display:inline-grid;place-items:center;font-weight:750;font-size:17px;color:var(--text-2);text-transform:uppercase}
+.ap1-acts{margin-left:auto;display:flex;align-items:center;gap:10px}
+.ap1-link{font-size:13px;font-weight:650;color:var(--accent-text);text-decoration:none}
+.ap1-link:hover{text-decoration:underline}
+.ap1-acts .cl-more>summary{background:var(--surface);border-radius:50%}
+.ap1-acts .cl-more .cc-menu{min-width:300px;padding:12px;right:0;left:auto}
+.d1-tools{display:flex;flex-direction:column;gap:8px}
+.d1-tools form{display:flex;align-items:center;gap:6px;margin:0;flex-wrap:wrap}
+.d1-tools .form-input{font-size:12px;padding:5px 8px;flex:1;min-width:0}
+.d1-tools .note{font-size:11.5px;color:var(--muted);line-height:1.45}
+
+/* channel strip */
+.ap1-strip{display:flex;gap:10px;flex:none;margin-bottom:12px;overflow-x:auto;scrollbar-width:thin;padding:2px}
+.ap1-ch{flex:1 0 190px;max-width:320px;display:flex;flex-direction:row;align-items:center;gap:12px;padding:10px 14px;text-decoration:none;color:var(--text);box-shadow:inset 0 0 0 2px transparent}
+.ap1-ch:hover{background:var(--surface2)}
+.ap1-ch.on{box-shadow:inset 0 0 0 2px var(--accent-fill)}
+.ap1-ch .t{display:flex;flex-direction:column;min-width:0}
+.ap1-ch .t b{font-size:13px}
+.ap1-ch .v{font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ap1-ch .d{font-size:11.5px;color:var(--muted)}
+.ap1-ring{width:50px;height:50px;flex:none}
+.ap1-ring circle{fill:none;stroke-width:4}
+.ap1-ring .bg{stroke:var(--border-soft)}
+.ap1-ring .fg{stroke:var(--ovb-g);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
+.ap1-ring .fg.o{stroke:var(--ovb-o)}.ap1-ring .fg.r{stroke:var(--ovb-r)}
+.ap1-ring text{font:700 9.5px Poppins,system-ui;fill:var(--text);text-anchor:middle;dominant-baseline:central}
+
+/* panes */
+.ap1-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:12px;align-items:stretch;min-height:0;flex:1}
+.ap1-pane{padding:14px 16px;display:flex;flex-direction:column;min-height:0;min-width:0}
+.ap1-pane .ovb-ch{flex-wrap:wrap;margin-bottom:8px}
+.ap1-chip{font-size:11.5px;font-weight:600;color:var(--text-2);background:var(--ovb-page);border-radius:99px;padding:4px 10px;white-space:nowrap}
+.ap1-chip b{font-family:var(--mono);font-weight:600}
+.ap1-vf{background:var(--accent-fill);color:#fff;display:inline-flex;align-items:center;gap:6px}
+.ap1-vf[hidden]{display:none}
+.ap1-vf button{border:0;background:none;color:#fff;cursor:pointer;font-size:15px;line-height:1;padding:0}
+.ap1-hint{font-size:11.5px;color:var(--muted)}
+.ap1-q{font:inherit;font-size:12.5px;padding:6px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);width:190px;max-width:100%}
+.ap1-sc{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}
+.ap1-t{width:100%;border-collapse:collapse;font-size:13px}
+.ap1-t th{position:sticky;top:0;background:var(--surface);z-index:1;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+.ap1-t td{padding:8px 10px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+.ap1-t .num{text-align:right;font-variant-numeric:tabular-nums}
+.ap1-t tr[hidden]{display:none}
+.ap1-t tbody tr:hover td{background:var(--ovb-page)}
+.ap1-vr{cursor:pointer}
+.ap1-vr[data-empty="1"]{cursor:default}
+.ap1-vr.on td{background:var(--accent-soft,var(--ovb-page))}
+.ap1-vr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.ap1-ver{font-family:var(--mono);font-size:12px}
+.ap1-apk{font-weight:700;color:var(--accent-text);text-decoration:none}
+.ap1-sn{font-family:var(--mono);font-size:12.5px;color:var(--text);text-decoration:none;font-weight:600;white-space:nowrap}
+.ap1-sn:hover{text-decoration:underline}
+.ap1-t td.act{text-align:right;white-space:nowrap}
+.ap1-x{margin:0;display:inline}
+.ap1-x button{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:13px;cursor:pointer}
+.ap1-x button:hover{background:var(--danger);color:#fff;border-color:transparent}
+.ap1-add{font:inherit;font-size:12px;font-weight:650;padding:3px 12px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer}
+.ap1-add:hover{background:var(--accent-fill);color:#fff;border-color:transparent}
+.ap1-none{padding:16px 6px;color:var(--muted);font-size:12.5px}
+.ap1-none[hidden]{display:none}
+
+@media (max-width:1100px){html.shell .ap1{height:auto}.ap1-grid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:720px){
+  .ap1-acts{margin-left:0}
+  .ap1-sc{overflow-x:auto}
+  .ap1-t{min-width:480px}
+  .ap1-q{width:100%}
+}
