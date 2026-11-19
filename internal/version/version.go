@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.30",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Deployment page: no made-up time left. The 14-minute default was shown as fact on a rollout where nothing had finished; the time left now comes only from installs that really finished here, and reads \"estimating…\" until one has.",
+			"New venue page: the page no longer scrolls on a desktop window. The lists under the search (waiting devices, added lately), the search results and the picked place's card scroll inside their own boxes, and Add manually fits the window.",
+		},
+	},
+	{
 		Version: "1.64.29",
 		Date:    "2026-11-19",
 		Changes: []string{
