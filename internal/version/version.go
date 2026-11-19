@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.27",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Deployment page: the left column is a fixed grid of tiles that fits without scrolling (progress ring and state bar, time left, to do, installs over time, venues, how it goes out); each device row shows a progress bar with its percent, and the picked device shows a large readout with the amount transferred, speed and time left when known.",
+		},
+	},
+	{
 		Version: "1.64.26",
 		Date:    "2026-11-19",
 		Changes: []string{
