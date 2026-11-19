@@ -95,12 +95,20 @@ func TestLevelVisibility(t *testing.T) {
 	}
 }
 
-func TestFieldVisitLevel(t *testing.T) {
+// Field manages the devices they enrolled until they are placed, and nothing else; once
+// placed (at a venue, in service) a device is out of their reach (19 Nov 2026).
+func TestFieldOwnLevel(t *testing.T) {
+	v := venueV
+	mine, theirs, placed := uuid.New(), uuid.New(), uuid.New()
 	a := newAccess("field", db.AccessPolicy{})
-	a.visitVenues = map[uuid.UUID]bool{venueV: true}
-	a.visitOnce.Do(func() {})
-	if !a.canDevice("remote", d1) || a.canDevice("view", d3) {
-		t.Error("field manages the devices of their visit's venue, nothing else")
+	a.username = "kevin"
+	a.scopes = map[uuid.UUID]db.DeviceScope{
+		mine:   {EnrolledBy: "kevin", Placement: db.PlacementQueue},
+		theirs: {EnrolledBy: "someone", Placement: db.PlacementQueue},
+		placed: {EnrolledBy: "kevin", RestaurantID: &v},
+	}
+	if !a.canDevice("remote", mine) || a.canDevice("view", theirs) || a.canDevice("view", placed) {
+		t.Error("field manages only the unplaced devices they enrolled")
 	}
 }
 
@@ -167,13 +175,13 @@ func TestAccessSentence(t *testing.T) {
 func TestParseScope(t *testing.T) {
 	id := uuid.New()
 	for in, want := range map[string]string{
-		"all": "all", "state:lab": "state", "visit": "visit", "group:" + id.String(): "group", "venue:" + id.String(): "venue",
+		"all": "all", "state:lab": "state", "own": "own", "group:" + id.String(): "group", "venue:" + id.String(): "venue",
 	} {
 		if st, _, _, ok := parseScope(in); !ok || st != want {
 			t.Errorf("parseScope(%q) = %q, %v", in, st, ok)
 		}
 	}
-	for _, bad := range []string{"", "state:nope", "group:x", "all:1", "device:1"} {
+	for _, bad := range []string{"", "state:nope", "group:x", "all:1", "device:1", "visit", "state:setting_up"} {
 		if _, _, _, ok := parseScope(bad); ok {
 			t.Errorf("parseScope(%q) accepted", bad)
 		}

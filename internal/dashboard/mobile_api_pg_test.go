@@ -15,7 +15,6 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/google/uuid"
 
 	"mdm/internal/config"
 	"mdm/internal/db"
@@ -70,10 +69,7 @@ func TestMobileAPIAgainstPostgres(t *testing.T) {
 	if err := d.AssignDeviceToRestaurant(ctx, serial, &rest.ID); err != nil {
 		t.Fatal(err)
 	}
-	// In service (roles replan): placed and handed over, so Sales and Support see it.
-	if _, err := d.HandOver(ctx, []uuid.UUID{devID}, "test"); err != nil {
-		t.Fatal(err)
-	}
+	// In service: placed at a venue, so Sales and Support see it.
 	if _, err := d.CreateAlertIfAbsent(ctx, nil, "device_offline", devID, "critical", "went quiet", nil); err != nil {
 		t.Fatal(err)
 	}

@@ -277,30 +277,6 @@
   </div>
 </details>
 
-{{/* Setup (3 Nov 2026, no setup visits): the devices here in the Setting up bucket with their
-     checklist and Hand over; the Ops lead puts the venue's deployed devices back into setup.
-     venue_visits.go */}}
-{{with .Visits}}{{if or .SettingUp (and .CanManage .InService)}}
-<details class="vs-row" name="vn-set" id="vn-setup"{{if eq $.Open "setup"}} open{{end}}>
-  <summary><span class="vs-k">Setup</span><span class="vs-v"><span>{{.Summary}}</span></span><svg class="vs-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary>
-  <div class="vs-body">
-  <div class="vs-note">A device placed here is deployed at once. Put devices into setup when Field people need to work on them; they are back in service once handed over.</div>
-  {{if .SettingUp}}
-  <div class="vn-setup">
-    {{range .SettingUp}}
-    <div class="vn-su"><a href="/devices/{{.Device.SerialNumber}}" class="mono">{{.Device.SerialNumber}}</a> <span class="muted small">{{classOf .Device}}</span>
-      <span>{{range .Checks}}<span class="cc-tag {{if .OK}}ok{{end}}" style="margin-left:4px">{{if .OK}}✓{{else}}·{{end}} {{.Label}}</span>{{end}}</span></div>
-    {{end}}
-    {{if and .CanHand .Ready}}<form action="/restaurants/{{$r.ID}}/handover" method="POST" style="margin-top:8px"><button type="submit" class="cc-btn sm primary">Hand over {{.Ready}} ready device{{if ne .Ready 1}}s{{end}}</button></form>{{end}}
-  </div>
-  {{end}}
-  {{if and .CanManage .InService}}
-  <form action="/restaurants/{{$r.ID}}/setup-again" method="POST" style="margin-top:10px" onsubmit="return confirm('Put the {{.InService}} deployed device{{if ne .InService 1}}s{{end}} here into setup? Field people can work on them until they are handed over again.')"><button type="submit" class="cc-btn sm">Put {{.InService}} device{{if ne .InService 1}}s{{end}} into setup</button></form>
-  {{end}}
-  </div>
-</details>
-{{end}}{{end}}
-
 {{/* Host app (V1, 23 Oct 2026): which variant of each product's app lands here; prod
      by default. venue_host_app.go */}}
 {{with .HostApp}}{{if .Total}}
@@ -327,10 +303,6 @@
 </details>
 <style>
   .vn-form.vn-hosta { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .vn-visit { padding: 10px 14px; border-top: 1px solid var(--border-soft); }
-  .vn-setup { padding: 4px 14px 10px; }
-  .vn-su { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 4px 0; font-size: 13px; }
-  #vn-visits .vs-body > .muted { padding: 0 14px; }
   .vn-form.vn-hosta .vn-acts { grid-column: 1 / -1; margin-top: 10px; }
   .vn-hprod { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--border); }
   .vn-hprod:first-child { border-top: 0; }

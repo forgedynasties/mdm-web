@@ -473,7 +473,7 @@ html:not(.ov-nofit):has(.ovd .ovb) .ovb-radar{min-height:150px}
     </section>
 
     {{if .ToPlace}}
-    <a class="ovb-promo" href="/visits"><b>{{.ToPlace}} device{{if ne .ToPlace 1}}s are{{else}} is{{end}}<br>waiting to be placed</b><span class="ovb-btn w">Open Setup</span><span class="big" aria-hidden="true">{{.ToPlace}}</span></a>
+    <a class="ovb-promo" href="/setup"><b>{{.ToPlace}} device{{if ne .ToPlace 1}}s are{{else}} is{{end}}<br>waiting to be placed</b><span class="ovb-btn w">Open Setup</span><span class="big" aria-hidden="true">{{.ToPlace}}</span></a>
     {{else}}
     <a class="ovb-promo" href="/restaurants/new"><b>Every device<br>is placed</b><span class="ovb-btn w">Add a venue</span><span class="big" aria-hidden="true">✓</span></a>
     {{end}}

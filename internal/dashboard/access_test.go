@@ -27,8 +27,8 @@ var (
 func fixtureScopes() map[uuid.UUID]db.DeviceScope {
 	v := venueV
 	return map[uuid.UUID]db.DeviceScope{
-		d1: {RestaurantID: &v, InService: true},
-		d2: {RestaurantID: &v, Groups: []uuid.UUID{groupG}, InService: true},
+		d1: {RestaurantID: &v},
+		d2: {RestaurantID: &v, Groups: []uuid.UUID{groupG}},
 		d3: {Groups: []uuid.UUID{groupG}},
 		d4: {},
 	}
@@ -53,13 +53,13 @@ func seedLevels(role string) []db.AccessLevel {
 	case "fleet_admin":
 		return []db.AccessLevel{lv("all", "", "manage")}
 	case "fleet_manager":
-		return []db.AccessLevel{lv("state", db.StateSettingUp, "manage"), lv("state", db.StateInService, "manage")}
+		return []db.AccessLevel{lv("state", db.StateToPlace, "manage"), lv("state", db.StateInService, "manage")}
 	case "operator", "support":
 		return []db.AccessLevel{lv("state", db.StateInService, "manage")}
 	case "viewer":
 		return []db.AccessLevel{lv("state", db.StateInService, "view")}
 	case "field":
-		return []db.AccessLevel{lv("visit", "", "manage")}
+		return []db.AccessLevel{lv("own", "", "manage")}
 	case "engineer":
 		qa := lv("group", "", "operate")
 		qa.ScopeID = &g

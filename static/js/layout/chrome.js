@@ -15,6 +15,15 @@
       a.classList.toggle('active', d || g);
       if (d) direct.push(a); else if (g) grouped.push(a);
     });
+    // The longest matching address wins (Setup /setup/mine and Enroll /setup/mine/enroll).
+    if (direct.length > 1) {
+      var best = Math.max.apply(null, direct.map(function (a) { return (a.getAttribute('href') || '').split('?')[0].length; }));
+      direct = direct.filter(function (a) {
+        var keep = (a.getAttribute('href') || '').split('?')[0].length === best;
+        if (!keep) a.classList.remove('active');
+        return keep;
+      });
+    }
     if (direct.length) grouped.forEach(function (a) { a.classList.remove('active'); });
   }
   // Call with no arg so it reads the (now-current) location.pathname — not the event.

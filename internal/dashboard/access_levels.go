@@ -46,8 +46,6 @@ func scopeText(g db.AccessLevel) string {
 			return "Lab devices"
 		case db.StateToPlace:
 			return "devices to place"
-		case db.StateSettingUp:
-			return "devices being set up"
 		case db.StateInService:
 			return "devices in service"
 		}
@@ -61,10 +59,8 @@ func scopeText(g db.AccessLevel) string {
 			return g.ScopeName
 		}
 		return "a removed venue"
-	case "visit":
-		return "the venues of their setup visits"
 	case "own":
-		return "the devices they enrolled, until handed over"
+		return "the devices they enrolled, until placed"
 	}
 	return "—"
 }
@@ -267,8 +263,8 @@ func (h *Handler) whoCanOperate(ctx context.Context, dev *db.Device) []string {
 	return out
 }
 
-// levelCovers is grantCoversDevice without a request: a "visit" grant (Field) counts for
-// any placed device, since whose visit it is depends on the person.
+// levelCovers is grantCoversDevice without a request ("own" depends on the person, so it
+// is left out).
 func levelCovers(g db.AccessLevel, sc db.DeviceScope) bool {
 	switch g.ScopeType {
 	case "all":
@@ -283,8 +279,6 @@ func levelCovers(g db.AccessLevel, sc db.DeviceScope) bool {
 		}
 	case "venue":
 		return g.ScopeID != nil && sc.RestaurantID != nil && *sc.RestaurantID == *g.ScopeID
-	case "visit":
-		return sc.RestaurantID != nil
 	}
 	return false
 }
@@ -333,8 +327,8 @@ func (a *access) collectionLocks() (venues, groups map[string]bool) {
 }
 
 // restaurantsViewOnly reports whether this person only looks at restaurants: none of their
-// grants lets them operate restaurant devices as such (everywhere, a venue, devices being set
-// up or in service, their visits). Access through a group that happens to hold a restaurant
+// grants lets them operate restaurant devices as such (everywhere, a venue, devices
+// in service). Access through a group that happens to hold a restaurant
 // device doesn't count: the rail's Restaurants tab carries the lock and Groups opens first
 // (T1, picked 2 Nov 2026: "for engineer the lock icon will be on restaurant tab").
 func (a *access) restaurantsViewOnly() bool {
@@ -347,7 +341,7 @@ func (a *access) restaurantsViewOnly() bool {
 			continue
 		}
 		switch g.ScopeType {
-		case "all", "venue", "visit":
+		case "all", "venue":
 			return false
 		case "state":
 			if g.State != db.StateLab && g.State != db.StateToPlace {
@@ -452,12 +446,12 @@ func (h *Handler) AccessPage(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				hit := g.ScopeType == "all" || g.ScopeType == "state" ||
-					(g.ScopeType == kind && g.ScopeID != nil && *g.ScopeID == gid) || (kind == "venue" && g.ScopeType == "visit")
+					(g.ScopeType == kind && g.ScopeID != nil && *g.ScopeID == gid)
 				if !hit {
 					continue
 				}
 				row := whoRow{Level: levelWord(g.Rank()), Via: scopeText(g)}
-				if g.ScopeType == "state" || g.ScopeType == "visit" {
+				if g.ScopeType == "state" {
 					row.Via += " only"
 				}
 				if g.SubjectType == "role" {
@@ -518,15 +512,15 @@ func (h *Handler) AccessPage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// parseScope reads the "where" field: all, state:<state>, visit, group:<id>, venue:<id>.
+// parseScope reads the "where" field: all, state:<state>, group:<id>, venue:<id>.
 func parseScope(where string) (scopeType string, id *uuid.UUID, state string, ok bool) {
 	kind, rest, _ := strings.Cut(where, ":")
 	switch kind {
-	case "all", "visit", "own":
+	case "all", "own":
 		return kind, nil, "", rest == ""
 	case "state":
 		switch rest {
-		case db.StateLab, db.StateToPlace, db.StateSettingUp, db.StateInService:
+		case db.StateLab, db.StateToPlace, db.StateInService:
 			return "state", nil, rest, true
 		}
 	case "group", "venue":

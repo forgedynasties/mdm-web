@@ -23,7 +23,7 @@ import (
 //       firmware client enrolls itself) → Lab. Devices already waiting were sorted once by R1.
 //
 // Access: Ops lead manages To place (role grant); Field manages the devices they enrolled until
-// those are handed over (scope "own", K2), and may place those at any venue.
+// they are placed (scope "own", K2), and may place those at any venue.
 const placementSchema = `
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS placement TEXT NOT NULL DEFAULT '';
 ALTER TABLE enrollment_profiles ADD COLUMN IF NOT EXISTS placement TEXT NOT NULL DEFAULT '';
@@ -45,12 +45,19 @@ SELECT 'role', v.role, v.scope, v.state, 'manage', 'seed' FROM s CROSS JOIN (VAL
 	('field',         'own',   '')
 ) AS v(role, scope, state)
 ON CONFLICT DO NOTHING;
--- No setup visits (3 Nov 2026): Field manages every device in the Setting up bucket.
-WITH s AS (INSERT INTO access_seed (k) VALUES ('setup-bucket-v1') ON CONFLICT DO NOTHING RETURNING k),
-     del AS (DELETE FROM access_levels a USING s WHERE a.subject_type = 'role' AND a.subject = 'field' AND a.scope_type = 'visit' RETURNING a.id)
-INSERT INTO access_levels (subject_type, subject, scope_type, state, level, created_by)
-SELECT 'role', 'field', 'state', 'setting_up', 'manage', 'seed' FROM s
-ON CONFLICT DO NOTHING;
+-- No setup visits (3 Nov 2026): the visit grant of Field is dropped. (It used to be replaced by
+-- a Manage grant on the Setting up state; that state is gone, see below.)
+WITH s AS (INSERT INTO access_seed (k) VALUES ('setup-bucket-v1') ON CONFLICT DO NOTHING RETURNING k)
+DELETE FROM access_levels a USING s WHERE a.subject_type = 'role' AND a.subject = 'field' AND a.scope_type = 'visit';
+-- Setting up and Hand over are gone (19 Nov 2026, user: "we dont need this complexity"): a device
+-- at a venue is in service. Once: every grant on the Setting up state goes (Field's Manage on it
+-- and the Ops lead's, which sits beside their grant on In service; any other grant on it would
+-- have meant "devices at a venue" and must not quietly widen), and every device at a venue that
+-- was still waiting for a hand-over is stamped, so nobody is left in a half state. Columns stay.
+WITH s AS (INSERT INTO access_seed (k) VALUES ('no-setting-up-v1') ON CONFLICT DO NOTHING RETURNING k),
+     del AS (DELETE FROM access_levels a USING s WHERE a.scope_type = 'state' AND a.state = 'setting_up' RETURNING a.id)
+UPDATE devices d SET handed_over_at = now(), handed_over_by = 'migrated'
+FROM s WHERE d.restaurant_id IS NOT NULL AND d.handed_over_at IS NULL;
 `
 
 // Placement values (devices.placement, enrollment_profiles.placement).
