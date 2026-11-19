@@ -32,6 +32,16 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.35",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Add app dialog on the device page: it no longer opens blank and clipped. A page-edge rounding rule (clip-path) was cutting the dialog to the card it sat in; the dialog now opens from the page itself, and a card holding an open dialog is never clipped. Same fix for the Follow dialog, the app-info popup and the Nugget-ID list, and for the bento view's Apps sheet.",
+			"Fleet: picking a venue could show another venue's list with the rail on the new pick (a queued request was dropped when another request ran, and a late refresh could paint the old scope). List requests now have their own channel and a stale answer for another scope is dropped.",
+			"Failed installs: \"Why did it fail?\" on a failed install (command page, the device's On its way box) asks the device for its install log (one fixed read-only command, audited) and shows the reason in plain words with the log lines under Details; a result that already carries an INSTALL_FAILED code shows its plain sentence at once.",
+			"Setup (Ops lead): the rail no longer lists every venue (an All venues link instead), so it does not scroll; the queue can be grouped by who enrolled the devices or by model, with Deploy all N here for a group.",
+		},
+	},
+	{
 		Version: "1.64.34",
 		Date:    "2026-11-19",
 		Changes: []string{
