@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.33",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Fleet: picking a venue (or group) in the left rail now writes it to the address before the list is fetched, so anything that re-asks for the list while that request is in flight (a resize, the rows settling, a refresh) asks for the same scope instead of the old one.",
+		},
+	},
+	{
 		Version: "1.64.32",
 		Date:    "2026-11-19",
 		Changes: []string{
