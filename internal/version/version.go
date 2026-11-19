@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.29",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Deployment page: the How it goes out tile shows its full text (no cut-off), Change is a proper button, and the tile rows are re-balanced so nothing is clipped or scrolls at any window size from 1280x700 up.",
+		},
+	},
+	{
 		Version: "1.64.28",
 		Date:    "2026-11-19",
 		Changes: []string{
