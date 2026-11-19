@@ -51,8 +51,9 @@ function navigateDevices(overrides) {
   // Explicit innerHTML swap: a bare target string would inherit the <body>'s
   // hx-swap="outerHTML" (hx-boost), which replaces the container itself and
   // spills the fragment into the flex .dv-split as a broken horizontal row.
+  // The address first, so a re-fetch while this one is in flight asks for the same list.
+  history.pushState(null, '', url);
   htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML' }).then(function() {
-    history.pushState(null, '', url);
     syncFilterUI();
     document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
   });
@@ -114,8 +115,12 @@ function scopeRoster(anchor, u) {
   var tc = document.getElementById('device-table-container');
   if (tc) tc.innerHTML = mdmDevSkeleton();
   var url = fleetURL(getFilterVals(ov));
+  // The address first: anything that re-asks for the list while this request is in flight
+  // (fitpages.js on a resize or when the rows settle) reads its filters from the address, and
+  // would otherwise fetch the OLD scope and replace the picked venue's devices with every
+  // device (19 Nov 2026: "shows the devices, then refreshes and shows all devices").
+  history.pushState(null, '', url);
   htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML', headers: { 'X-Roster-Meta': '1' } }).then(function () {
-    history.pushState(null, '', url);
     syncFilterUI();
     document.body.dispatchEvent(new CustomEvent('fleet:scoped'));
   });
