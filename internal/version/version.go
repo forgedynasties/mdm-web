@@ -32,6 +32,15 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.32",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"No Lab state: a device is To place (waiting in the queue) or In service (at a venue). The Lab filter, chips, counts, access rules and \"Send to Lab\" are gone; lab devices on the dev server now live in an AIO Lab venue like any other venue. The per-device \"Open in lab\" session stays. On first start, devices at no venue and not queued (about 4 on prod) are retired (reversible from their page), enrolment profiles that placed into Lab now queue, and an old AIO Enroll asking for Lab is treated as the queue.",
+			"Engineer role retired: the 10 engineers become Support on first start (the role key stays valid but cannot be assigned). The QA API key now sees every device on the server it is configured on, and is not configured on prod.",
+			"The Standard client's group picker works for a device that is in the queue or has no group yet. Online/offline history: a second server copy writing the same change is no longer an error (it filled server2's log every minute).",
+		},
+	},
+	{
 		Version: "1.64.31",
 		Date:    "2026-11-19",
 		Changes: []string{
