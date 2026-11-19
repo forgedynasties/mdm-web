@@ -1,5 +1,5 @@
 {{/* Enrollment's pieces (M1, 3 Nov 2026: the Enrollment page moved into Setup; /enrollment
-     redirects to /visits?view=…). Setup (ops_home.html) renders one of these views in its pane:
+     redirects to /setup?view=…). Setup (ops_home.html) renders one of these views in its pane:
      Enrolled, Profiles, Found on Wi-Fi, From the AIO backend, How to enroll. "Needs a venue" is
      To place now. Each define takes the page data. */}}
 
@@ -349,7 +349,7 @@ adb shell am start -n {{.AgentPackage}}/.ui.MainActivity --es server_url {{.Serv
 </style>
 <dialog class="cl-dlg en-dlg2" id="en-how-dlg" aria-labelledby="en-how-dlg-h">
   <div class="dh"><h2 id="en-how-dlg-h">How to enroll</h2><button type="button" class="x" aria-label="Close" onclick="this.closest('dialog').close()">&times;</button></div>
-  <div class="db"><div id="en-how-body" hx-get="/visits?view=how" hx-select="#oh-en-body" hx-target="this" hx-swap="innerHTML" hx-push-url="false" hx-trigger="en-load once"><div class="loading">Loading…</div></div></div>
+  <div class="db"><div id="en-how-body" hx-get="/setup?view=how" hx-select="#oh-en-body" hx-target="this" hx-swap="innerHTML" hx-push-url="false" hx-trigger="en-load once"><div class="loading">Loading…</div></div></div>
 </dialog>
 {{with .EnrollAndroid}}{{if .Hosted}}
 <dialog class="cl-dlg en-dlg2 sm" id="en-app-dlg" aria-labelledby="en-app-dlg-h">

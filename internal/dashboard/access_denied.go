@@ -141,8 +141,6 @@ func (h *Handler) deviceOutsideWhy(r *http.Request, dev *db.Device) string {
 		where = "It is in the Lab (at no venue)."
 	case db.StateToPlace:
 		where = "It is waiting to be placed at a venue."
-	case db.StateSettingUp:
-		where = "It is being set up" + atVenue(dev) + "."
 	default:
 		where = "It is in service" + atVenue(dev) + "."
 	}

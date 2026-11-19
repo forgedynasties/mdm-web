@@ -72,9 +72,6 @@ func TestEngineerReadOnlyRoutes(t *testing.T) {
 	if err := d.AssignDeviceToRestaurant(ctx, venueSerial, &rest.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := d.HandOver(ctx, []uuid.UUID{venueID}, "test"); err != nil {
-		t.Fatal(err)
-	}
 	for _, id := range []uuid.UUID{labID, venueID} {
 		if _, err := d.CreateAlertIfAbsent(ctx, nil, "device_offline", id, "warning", "quiet", nil); err != nil {
 			t.Fatal(err)

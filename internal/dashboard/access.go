@@ -255,11 +255,9 @@ func (a *access) grantCoversDevice(g db.AccessLevel, sc db.DeviceScope) bool {
 		}
 	case "venue":
 		return g.ScopeID != nil && sc.RestaurantID != nil && *sc.RestaurantID == *g.ScopeID
-	case "visit":
-		return sc.RestaurantID != nil && a.onVisitAt(*sc.RestaurantID)
 	case "own":
-		// The devices this person enrolled, until handed over (Field, K2; placement.go).
-		return sc.EnrolledBy != "" && sc.EnrolledBy == a.username && !sc.InService
+		// The devices this person enrolled, until they are placed (Field, K2; placement.go).
+		return sc.EnrolledBy != "" && sc.EnrolledBy == a.username && sc.RestaurantID == nil
 	}
 	return false
 }
@@ -316,9 +314,7 @@ type access struct {
 	scopes   map[uuid.UUID]db.DeviceScope
 	scopeErr error
 	once     sync.Once
-	// Field: the venues of their open setup visits, loaded on first use.
-	visitOnce   sync.Once
-	visitVenues map[uuid.UUID]bool
+	// The venues the person may see (visibleCollections), loaded on first use.
 	visOnce     sync.Once
 	vis         []uuid.UUID
 	// Level grants (role's and own), loaded on first use.
@@ -1050,21 +1046,18 @@ func (h *Handler) visibleRestaurantList(r *http.Request, rs []db.Restaurant) []d
 	return out
 }
 
-// ── Device states (roles replan, decided 30 Oct 2026) ───────────────────────
+// ── Device states (roles replan 30 Oct 2026; simplified 19 Nov 2026) ───────
 //
 // Which devices a role sees follows the device's state (db.DeviceState): Lab (no venue),
-// Setting up (placed, not handed over), In service (handed over).
+// To place (no venue, enrolled for a restaurant), In service (at a venue: placing deploys).
 //
 //   super admin, Admin (old)   everything
 //   Engineer                   everything; acts on Lab only, elsewhere looks, takes
 //                              screenshots and collects logs
-//   Ops lead                   To place (no venue, enrolled for a restaurant), Setting up
-//                              and In service
+//   Ops lead                   To place and In service
 //   Support, Support (old), Viewer  In service
-//   Field                      every device in the Setting up bucket (the Ops lead puts them
-//                              there; placing at a venue deploys), and the devices they
-//                              enrolled until placed
-//   Owner                      their venues: In service, and Setting up read-only
+//   Field                      the devices they enrolled until placed ("own" grant)
+//   Owner                      their venues: In service
 //   Staff                      their venue: In service
 
 // stateScoped reports whether the role sees only some states (lists are filtered).
@@ -1114,31 +1107,18 @@ func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 			return no("Only devices in service")
 		}
 	case "owner":
-		if st == db.StateLab || st == db.StateToPlace || (st == db.StateSettingUp && action != "view") {
-			return no("Being set up: read-only until it is handed over")
+		if st == db.StateLab || st == db.StateToPlace {
+			return no("Not in service yet")
 		}
 	case "field":
-		if st != db.StateSettingUp {
-			return no("Only devices being set up")
+		if st == db.StateInService {
+			return no("Once placed, a device belongs to the Ops lead and Support")
 		}
 	}
 	return decision{}, true
 }
 
-// onVisitAt reports whether the user is on an open setup visit at the venue.
-func (a *access) onVisitAt(venue uuid.UUID) bool {
-	a.visitOnce.Do(func() {
-		v, err := a.h.db.VisitVenuesFor(a.ctx, a.username)
-		if err != nil {
-			v = map[uuid.UUID]bool{} // fail closed
-		}
-		a.visitVenues = v
-	})
-	return a.visitVenues[venue]
-}
-
-// atVenue reports whether the device is placed at a venue (setting up or in service),
-// i.e. not Lab. An unknown device (enrolled after the scopes were loaded) is Lab.
+// atVenue reports whether the device is placed at a venue (in service), i.e. not Lab. An unknown device (enrolled after the scopes were loaded) is Lab.
 func (a *access) atVenue(dev uuid.UUID) bool {
 	a.loadScopes()
 	return a.scopes[dev].RestaurantID != nil
@@ -1178,7 +1158,7 @@ func (h *Handler) refuseEngineerVenue(w http.ResponseWriter, r *http.Request, ac
 }
 
 // engineerNeverWrites lists the write routes an engineer is refused outright: venues
-// (settings, lock, Wi-Fi, PIN, hours, devices, visits, hand over…), lock rules, moving
+// (settings, lock, Wi-Fi, PIN, hours, devices…), lock rules, moving
 // devices into venues and clearing the jobs' needs-attention list. Their devices are at
 // venues, which are read-only for engineers; Lab devices have no venue to edit.
 func engineerNeverWrites(pattern string) bool {

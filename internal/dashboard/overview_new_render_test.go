@@ -110,7 +110,7 @@ func TestOverviewNewRenders(t *testing.T) {
 		`data-ovb-pane="venues"`, `<p class="ovb-big">Pho 88</p>`, `<small>2 of 3 online</small>`,
 		`<b>2/3</b><span>online</span>`, `<b>42</b><span>health</span>`, `>Offline here<`,
 		`Firmware v2.1.034`, `<small>1 / 2</small>`, `1 in flight`, `href="/releases/7/deployments/11"`,
-		`1 device is<br>waiting to be placed`, `href="/visits"`,
+		`1 device is<br>waiting to be placed`, `href="/setup"`,
 		`aria-label="TSAI: 2 of 2 online"`, `Offline at a venue`,
 		`id="ovd-intro"`, // the first-visit intro
 	} {

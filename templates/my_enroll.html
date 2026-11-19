@@ -1,39 +1,72 @@
 {{define "my_enroll.html"}}
 {{template "header" .}}
-{{/* Field's Enroll (30 Oct 2026): the Enrollment page is admin only, so Field gets the
-     onboarding guide and the AIO Enroll for Android download here. role_homes.go */}}
+{{/* Field's Enroll (option C "three steps, then place", picked 19 Nov 2026): the Enrollment page
+     is admin only, so Field gets the app, the three steps with the guide video in a popup, and
+     what they enrolled that still waits for a venue. role_homes.go (EnrollGuide) */}}
 <template id="page-island">
   <span class="isl-t">Enroll</span>
-  <span class="isl-s">AIO Enroll for Android{{with .EnrollAndroid}}{{if .Version}} · {{.Version}}{{end}}{{end}}</span>
+  <span class="isl-s">AIO Enroll for Android{{with .EnrollAndroid}}{{if .Version}} · <b>{{.Version}}</b>{{end}}{{end}}</span>
 </template>
-<style>
-.me-app{display:flex;gap:18px;align-items:center;padding:4px 18px 18px;flex-wrap:wrap}
-.me-app img{width:132px;height:132px;border-radius:12px;background:#fff;padding:6px;flex:none}
-.me-app-t{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 260px}
-.me-app-t b{font-size:15px}
-.me-app-t .cc-btn{align-self:flex-start}
-</style>
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/setup-field.css?v={{assetVer}}">
 
-<div class="cc-wrap">
+<div class="se-wrap ovd">
   <h1 class="cc-h1 sr-only">Enroll</h1>
-  <div class="cc-card" style="margin-bottom:16px">
-    <div class="cc-ch"><span class="ic accent"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span><h2>Get AIO Enroll</h2><span class="m">on the phone you set devices up with</span></div>
-    {{with .EnrollAndroid}}{{if .Hosted}}
-    <div class="me-app">
-      <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="132" height="132">
-      <div class="me-app-t">
-        <b>AIO Enroll for Android</b>
-        <span class="muted small">{{if .Version}}{{.Version}} · {{end}}{{.SizeMB}} · Android 11 or later</span>
-        <span class="small">Scan with the phone, or download here and copy it over. Android asks once to allow installs from your browser. Sign in with this account: devices you enrol show up on Setup until you place them.</span>
-        <a class="cc-btn sm primary" href="{{.URL}}" download><svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>Download APK</a>
+  <div class="se-grid">
+    <section class="ovb-promo se-app" aria-labelledby="se-h1">
+      <h2 id="se-h1">1 · Get the app on your phone</h2>
+      {{with .EnrollAndroid}}{{if .Hosted}}
+      <p>Scan this from the phone you set devices up with. Sign in with this account: devices you enroll show up on Setup until you place them.</p>
+      <img src="/enrollment/android-app/qr.png" alt="QR code linking to the AIO Enroll for Android download" width="196" height="196">
+      <p class="se-meta">AIO Enroll for Android{{if .Version}} {{.Version}}{{end}} · {{.SizeMB}} · Android 11 or later</p>
+      <a class="ovb-btn w" href="{{.URL}}" download>Download APK</a>
+      {{else}}
+      <p>The app isn't hosted on this server yet. Ask an Ops lead.</p>
+      {{end}}{{end}}
+    </section>
+
+    <section class="ovb-c se-steps" aria-labelledby="se-h2">
+      <div class="ovb-ch"><h2 id="se-h2">2 · Enroll the device</h2></div>
+      <ol class="se-list">
+        <li><span class="n">1</span><span><b>Reset it and join the office Wi-Fi</b><small>Skip the Google account. Same Wi-Fi as your phone.</small></span></li>
+        <li><span class="n">2</span><span><b>Turn on Wireless debugging</b><small>Settings, About: tap Build number 7 times, then Developer options.</small></span></li>
+        <li><span class="n">3</span><span><b>Open AIO Enroll, pair with the 6-digit code</b><small>It sets itself up in about a minute.</small></span></li>
+      </ol>
+      <div class="ovb-acts se-acts">
+        <button type="button" class="ovb-btn" onclick="document.getElementById('se-guide-dlg').showModal()">Watch the 1-minute guide</button>
+        <button type="button" class="ovb-btn l" onclick="document.getElementById('se-guide-dlg').showModal()">All 10 steps</button>
       </div>
-    </div>
-    {{else}}
-    <div class="me-app"><span class="muted">The app isn't hosted on this server yet. Ask an Ops lead.</span></div>
-    {{end}}{{end}}
+    </section>
+
+    <section class="ovb-c se-place" aria-labelledby="se-h3">
+      <div class="ovb-ch"><h2 id="se-h3">3 · Place what you enrolled</h2><span class="sp"></span>{{if .WaitingN}}<span class="ovb-pill o">{{.WaitingN}}</span>{{end}}</div>
+      {{if .Waiting}}
+      <ul class="se-dev">
+        {{range .Waiting}}<li><span class="ovb-dot{{if not .Online}} c{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"></span>
+          <span class="tx"><a href="/devices/{{.Device.SerialNumber}}" class="mono">{{.Device.SerialNumber}}</a><small>{{if .Model}}{{.Model}} · {{end}}{{timeSince .Device.EnrolledAt}}</small></span>
+          <span class="ovb-tag o">To place</span></li>{{end}}
+      </ul>
+      {{if gt .WaitingN 6}}<p class="muted small">and {{sub .WaitingN 6}} more</p>{{end}}
+      <div class="ovb-acts se-acts"><a class="ovb-btn" href="/setup/mine">Place {{if eq .WaitingN 1}}it{{else}}them{{end}} in Setup</a></div>
+      {{else}}
+      <p class="muted se-none">Nothing waiting. Devices you enroll with the app appear here until you place them at a venue.</p>
+      <div class="ovb-acts se-acts"><a class="ovb-btn l" href="/setup/mine">Open Setup</a></div>
+      {{end}}
+    </section>
   </div>
-  {{template "enroll-guide" .}}
 </div>
+
+<dialog class="cl-dlg se-dlg" id="se-guide-dlg" aria-labelledby="se-dlg-h">
+  <div class="dh"><h2 id="se-dlg-h">Enroll a device with your phone</h2><button type="button" class="x" aria-label="Close" onclick="this.closest('dialog').close()">&times;</button></div>
+  <div class="db">{{template "enroll-guide" .}}</div>
+</dialog>
+<script>
+(function () {
+  var d = document.getElementById('se-guide-dlg'); if (!d) return;
+  // Closing the popup stops the video.
+  d.addEventListener('close', function () { var v = document.getElementById('en-guide-v'); if (v) v.pause(); });
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}

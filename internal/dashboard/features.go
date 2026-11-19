@@ -211,7 +211,7 @@ func (h *Handler) EnrollmentPage(w http.ResponseWriter, r *http.Request) {
 	if view == "" {
 		view = "recent"
 	}
-	to := "/visits?view=" + view
+	to := "/setup?view=" + view
 	if f := r.URL.Query().Get("flash"); f != "" {
 		to += "&flash=" + url.QueryEscape(f) + "&flash_type=" + url.QueryEscape(r.URL.Query().Get("flash_type"))
 	}

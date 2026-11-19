@@ -114,6 +114,10 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		// Rollouts has its own dock entry (16 Oct); the pages it used to share tabs with
 		// light it up too.
 		data["ActivePage"] = "updates"
+	case path == "/setup/mine/enroll":
+		data["ActivePage"] = "enroll"
+	case path == "/setup/mine":
+		data["ActivePage"] = "myvisits"
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -321,10 +325,10 @@ func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 	// Each role signs in to its own home (roles replan, 30 Oct 2026).
 	switch h.role(r) {
 	case "field":
-		http.Redirect(w, r, "/my-visits", http.StatusFound)
+		http.Redirect(w, r, "/setup/mine", http.StatusFound)
 		return
 	case "fleet_manager":
-		http.Redirect(w, r, "/visits", http.StatusFound)
+		http.Redirect(w, r, "/setup", http.StatusFound)
 		return
 	case "operator", "support":
 		// Today: the problems with devices in service (the Alerts page, scoped to what

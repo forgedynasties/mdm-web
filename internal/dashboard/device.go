@@ -575,7 +575,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"DevRole": devRole, // a model with several roles: picker + Needs a look rows
 		"LookOnly":     lookOnly,
 		"Look":         look,
-		"HandOver":     h.deviceHandOverView(r, device, kioskCfg != nil && kioskCfg.KioskEnabled),
 		"Title":  device.SerialNumber,
 		"DeviceSplit": h.displayPrefs(r).DeviceSplit, // the divider, per person
 		"Needs":  deviceTodoOf(append(roleNeeds(devRole, device), deviceNeedsOf(sec, device, device.HasBattery() && deviceReportsBattery(device, chartCheckins), flapRate > 10)...), health),

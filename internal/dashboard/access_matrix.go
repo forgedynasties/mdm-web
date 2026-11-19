@@ -54,8 +54,6 @@ func axShort(g db.AccessLevel) string {
 			return "Lab"
 		case db.StateToPlace:
 			return "To place"
-		case db.StateSettingUp:
-			return "Setting up"
 		case db.StateInService:
 			return "In service"
 		}
@@ -63,8 +61,6 @@ func axShort(g db.AccessLevel) string {
 		if g.ScopeName != "" {
 			return g.ScopeName
 		}
-	case "visit":
-		return "Visit venues"
 	case "own":
 		return "Own enrolments"
 	}

@@ -1,0 +1,44 @@
+/* Setup for Field: /setup/mine (option A "simple list") and /setup/mine/enroll (option C
+   "three steps, then place"), 19 Nov 2026. Builds on the Overview bento (ovb-device.css). */
+.sf-wrap, .se-wrap { max-width: var(--page-max, 1760px); margin: 0 auto; padding: 4px 0 12px; }
+.sf-card { background: var(--surface); border-radius: 22px; padding: 18px 20px; }
+.sf-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
+.sf-head h1 { font-size: 20px; font-weight: 650; margin: 0; }
+.sf-card .cl-card { box-shadow: none; border: 0; background: transparent; padding: 0; }
+.sf-card .pl-ft thead th { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.mv-act { text-align: right; white-space: nowrap; }
+.sf-note { margin: 12px 0 0; font-size: 13px; }
+.sf-empty { background: var(--canvas, #efeff2); border-radius: 16px; padding: 34px 24px; text-align: center; color: var(--text-2); display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.sf-empty b { font-size: 16px; color: var(--text); }
+html.shell .sf-card .cl-card { max-height: calc(100vh - 290px); overflow: auto; }
+
+/* Enroll: three cards */
+.se-grid { display: grid; grid-template-columns: minmax(300px, 340px) minmax(0, 1.3fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.se-app { min-height: 0; justify-content: flex-start; gap: 12px; }
+.se-app h2 { margin: 0; font-size: 24px; line-height: 1.15; font-weight: 600; position: relative; }
+.se-app p { margin: 0; font-size: 13px; opacity: .92; position: relative; }
+.se-app img { width: 196px; height: 196px; border-radius: 12px; background: #fff; padding: 8px; position: relative; }
+.se-app .se-meta { font-size: 12px; opacity: .85; }
+.se-steps, .se-place { display: flex; flex-direction: column; }
+.se-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.se-list li { display: flex; gap: 12px; align-items: center; background: var(--canvas, #efeff2); border-radius: 14px; padding: 12px 14px; }
+.se-list .n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--text-2); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.se-list b { display: block; font-size: 14px; font-weight: 650; }
+.se-list small { display: block; font-size: 12.5px; color: var(--text-2); margin-top: 1px; }
+.se-acts { margin-top: auto; padding-top: 16px; }
+.se-dev { list-style: none; margin: 0; padding: 0; overflow: auto; min-height: 0; }
+.se-dev li { display: flex; gap: 10px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--border-soft); }
+.se-dev li:last-child { border-bottom: 0; }
+.se-dev .tx { flex: 1; min-width: 0; }
+.se-dev .tx a { font-size: 13px; color: var(--text); text-decoration: none; }
+.se-dev small { display: block; font-size: 12px; color: var(--muted); }
+.se-none { margin: 0; font-size: 13.5px; }
+.se-dlg { width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; overflow: hidden; display: none; flex-direction: column; }
+.se-dlg[open] { display: flex; }
+.se-dlg .dh { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border-soft); }
+.se-dlg .dh h2 { margin: 0; font-size: 16px; flex: 1; }
+.se-dlg .dh .x { border: 0; background: transparent; font-size: 22px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 8px; }
+.se-dlg .dh .x:hover { background: var(--hover); color: var(--text); }
+.se-dlg .db { overflow: auto; padding: 12px 18px 18px; }
+@media (max-width: 1100px) { .se-grid { grid-template-columns: 1fr; } .se-app { min-height: 0; } }
+@media (max-width: 720px) { .sf-card { padding: 14px; } .se-app img { width: 160px; height: 160px; } }

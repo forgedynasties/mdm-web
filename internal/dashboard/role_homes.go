@@ -4,108 +4,44 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"time"
 
 
 	"mdm/internal/db"
 )
 
 // Role homes (roles replan, decided 30 Oct 2026): each role signs in to a page built for
-// its job (Root redirects). Field → My visits (F2: Fleet's layout, visits in the left list,
-// one table with each device's checklist and Hand over); Ops lead → Setup at /visits (the Overview's
-// layout about setup visits). Support lands on Today (alerts), Viewers on Venues, Engineers
-// on Fleet filtered to Lab.
+// its job (Root redirects). Field → Setup at /setup/mine (the devices they enrolled, waiting
+// for a venue); Ops lead → Setup at /setup (the queue to place). Support lands on Today
+// (alerts), Viewers on Venues, Engineers on Fleet filtered to Lab.
 
-type visitDeviceRow struct {
-	Device  db.Device
-	State   string
-	Checks  []handOverCheck
-	Ready   bool
-	CanHand bool
-	Online  bool
-	Visit   string // the visit's purpose (or the venue) it is listed under
-}
-
-// MyVisits: GET /my-visits, Field's home ("Setup"; no setup visits since 3 Nov 2026). Their
-// own enrolments waiting for a venue (they place them, which deploys them), then every device
-// the Ops lead put into setup, with its checklist and Hand over. The left list is the venues
-// with devices being set up (?venue= narrows the table). The Ops lead and super admin may open
-// it too.
-func (h *Handler) MyVisits(w http.ResponseWriter, r *http.Request) {
+// MySetup: GET /setup/mine, Field's home ("Setup"). The devices they enrolled and not placed
+// yet, each with its role picker, any venue and Deploy; placing one puts it in service and it
+// leaves their list (simplified 19 Nov 2026: no Setting up, no Hand over). The Ops lead and
+// super admin may open it too (it lists their own enrolments).
+func (h *Handler) MySetup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	role := h.role(r)
 	if role != "field" && !mayManageVisits(role) {
 		http.Error(w, "This is the Field home.", http.StatusForbidden)
 		return
 	}
-	sel := r.URL.Query().Get("venue")
-	setting, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateSettingUp}, 0, 2000, "serial", "asc")
-	type venueN struct {
-		ID   string
-		Name string
-		N    int
-	}
-	byVenue := map[string]*venueN{}
-	var order []string
-	var rows []visitDeviceRow
-	ready := 0
-	for i := range setting {
-		d := &setting[i]
-		if d.Hidden || d.RestaurantID == nil {
-			continue
-		}
-		vid := d.RestaurantID.String()
-		if byVenue[vid] == nil {
-			byVenue[vid] = &venueN{ID: vid, Name: d.RestaurantName}
-			order = append(order, vid)
-		}
-		byVenue[vid].N++
-		if sel != "" && sel != vid {
-			continue
-		}
-		row := visitDeviceRow{Device: *d, Visit: d.RestaurantName, Online: h.hub.IsConnectedForDisplay(d.ID), State: db.StateSettingUp}
-		cfg, _ := h.db.GetOrCreateDeviceConfig(ctx, d.ID)
-		row.Checks, row.Ready = h.handOverChecks(ctx, d, cfg != nil && cfg.KioskEnabled)
-		row.CanHand = h.mayHandOver(r, d)
-		if row.Ready {
-			ready++
-		}
-		rows = append(rows, row)
-	}
-	// Ready ones first, then by venue and serial.
-	sort.SliceStable(rows, func(i, j int) bool {
-		if rows[i].Ready != rows[j].Ready {
-			return rows[i].Ready
-		}
-		if rows[i].Visit != rows[j].Visit {
-			return rows[i].Visit < rows[j].Visit
-		}
-		return rows[i].Device.SerialNumber < rows[j].Device.SerialNumber
-	})
-	var venues []venueN
-	for _, k := range order {
-		venues = append(venues, *byVenue[k])
-	}
-	sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
-	// Their own enrolments waiting for a venue (K2): they place them, which deploys them.
-	var place []placeRow
+	queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace, EnrolledBy: h.currentUsername(r)}, 0, 500, "serial", "asc")
+	place := h.placeRowsFor(ctx, queue)
 	var all []db.Restaurant
-	if sel == "" {
-		queue, _ := h.db.ListDevices(ctx, db.DeviceFilter{State: db.StateToPlace, EnrolledBy: h.currentUsername(r)}, 0, 500, "serial", "asc")
-		place = h.placeRowsFor(ctx, queue)
-		if len(place) > 0 {
-			all, _ = h.db.ListRestaurants(ctx)
-			sort.SliceStable(all, func(i, j int) bool { return strings.ToLower(all[i].Name) < strings.ToLower(all[j].Name) })
-		}
+	if len(place) > 0 {
+		all, _ = h.db.ListRestaurants(ctx)
+		sort.SliceStable(all, func(i, j int) bool { return strings.ToLower(all[i].Name) < strings.ToLower(all[j].Name) })
 	}
-	selName := ""
-	if v := byVenue[sel]; v != nil {
-		selName = v.Name
+	// The others in the queue enrolled by colleagues are not shown: how many, as a line.
+	others := 0
+	if len(place) > 0 || role != "field" {
+		if n, err := h.db.CountDevices(ctx, db.DeviceFilter{State: db.StateToPlace}); err == nil && n > len(place) {
+			others = n - len(place)
+		}
 	}
 	h.render(w, r, "my_visits.html", map[string]any{
 		"Title": "Setup", "ActivePage": "myvisits",
-		"VenuesN": venues, "Sel": sel, "SelName": selName, "Rows": rows, "SettingUp": len(rows), "ReadyN": ready,
-		"Place": place, "Venues": all, "Now": time.Now(),
+		"Place": place, "Venues": all, "Others": others, "EnrollAndroid": h.enrollAndroidView(r),
 	})
 }
 
@@ -144,7 +80,7 @@ var curatedPages = map[string]bool{
 	"lock": true, "adb": true, "users": true, "settings": true, "server": true, "enrollment": true,
 	"coverage": true, "groups": true, "map": true, "fleet-health": true, "battery": true,
 	"activity": true, "alert-config": true, "reports": true, "productions": true,
-	"visits": true, "my-visits": true, "pipeline": true, "boot-logo": true,
+	"setup": true, "pipeline": true, "boot-logo": true,
 	"commands": true, "kiosk": true, "manage": true, "packages": true, "schedules": true,
 }
 
@@ -152,7 +88,7 @@ var curatedPages = map[string]bool{
 // pages only: their list is My visits. Engineers open groups (access by levels, 2 Nov
 // 2026): group access is how they are given more, and the Fleet rail's Groups tab is theirs.
 var curatedAllow = map[string]map[string]bool{
-	"field":    {"my-visits": true, "devices": true, "alerts": true},
+	"field":    {"setup": true, "devices": true, "alerts": true},
 	"viewer":   {"restaurants": true},
 	"engineer": {"devices": true, "apps": true, "releases": true, "alerts": true, "groups": true},
 }
@@ -213,10 +149,29 @@ func isNavigation(r *http.Request) bool {
 	return m == "" || m == "navigate"
 }
 
-// EnrollGuide: GET /my-visits/enroll, Field's "Enroll" (the Enrollment page is admin only):
-// the onboarding video with its steps and the AIO Enroll for Android download.
+// EnrollGuide: GET /setup/mine/enroll, Field's "Enroll" (the Enrollment page is admin only):
+// get the app, enroll in three steps (the guide video in a popup), then place what they
+// enrolled (option C, picked 19 Nov 2026).
 func (h *Handler) EnrollGuide(w http.ResponseWriter, r *http.Request) {
+	queue, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{State: db.StateToPlace, EnrolledBy: h.currentUsername(r)}, 0, 500, "serial", "asc")
+	waiting := h.placeRowsFor(r.Context(), queue)
+	if len(waiting) > 6 {
+		waiting = waiting[:6]
+	}
 	h.render(w, r, "my_enroll.html", map[string]any{
 		"Title": "Enroll", "ActivePage": "enroll", "EnrollAndroid": h.enrollAndroidView(r),
+		"Waiting": waiting, "WaitingN": len(queue),
+	})
+}
+
+// oldSetupURL redirects an old Setup address (/visits, /my-visits, /my-visits/enroll) to its
+// new home, keeping the query string (19 Nov 2026).
+func oldSetupURL(to string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		dest := to
+		if q := r.URL.RawQuery; q != "" {
+			dest += "?" + q
+		}
+		http.Redirect(w, r, dest, http.StatusMovedPermanently)
 	})
 }

@@ -16,10 +16,9 @@ func TestEngineerReadOnlyAtVenues(t *testing.T) {
 	v := venueV
 	lab, setup, live := uuid.New(), uuid.New(), uuid.New()
 	a := &access{ctx: context.Background(), role: "engineer", username: "e", scopes: map[uuid.UUID]db.DeviceScope{
-		lab: {}, setup: {RestaurantID: &v}, live: {RestaurantID: &v, InService: true},
+		lab: {}, setup: {RestaurantID: &v}, live: {RestaurantID: &v},
 	}}
 	a.once.Do(func() {})
-	a.visitOnce.Do(func() { a.visitVenues = map[uuid.UUID]bool{} })
 	a.lvls = seedLevels("engineer")
 	a.lvlOnce.Do(func() {})
 	ceiling := roleCeiling("engineer")
@@ -76,7 +75,6 @@ func TestEngineerNeverWrites(t *testing.T) {
 	for p, want := range map[string]bool{
 		"POST /restaurants":                            true,
 		"POST /restaurants/{id}/staff-pin":             true,
-		"POST /restaurants/{id}/visits/{vid}":          true,
 		"POST /lock/policies":                          true,
 		"POST /kiosk/policies/{id}/delete":             true,
 		"POST /manage/policies":                        true,
