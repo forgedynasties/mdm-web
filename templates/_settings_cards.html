@@ -273,7 +273,7 @@
           {{/* A windowed rule is deployed-only by nature (it assumes a service or charge
                schedule), so it has no toggle and the handler keeps the flag set. */}}
           {{if not .Windowed}}
-          <label class="rule-f rule-scope" title="Only alert for devices assigned to a restaurant. Off = the whole fleet, bench and lab units included."><span>Scope</span>
+          <label class="rule-f rule-scope" title="Only alert for devices assigned to a restaurant. Off = the whole fleet, devices not at a venue included."><span>Scope</span>
             <span class="rule-in"><input type="checkbox" name="deployed_only"{{if .DeployedOnly}} checked{{end}} onchange="ruleDirty(this)"><i>restaurant only</i></span>
           </label>
           {{end}}
@@ -285,7 +285,7 @@
     {{end}}
     </div>
     {{end}}
-    <div class="muted small" style="margin-top:12px;">Every rule is <b>restaurant only</b> by default: a bench or lab unit is expected to be switched off, parked on a pad or filling its disk, and nobody is on call for it. Clear the box to let a rule cover the whole fleet. Operational (windowed) rules are always restaurant only. Alerts are evaluated hourly during housekeeping.</div>
+    <div class="muted small" style="margin-top:12px;">Every rule is <b>restaurant only</b> by default: a device not at a venue is expected to be switched off, parked on a pad or filling its disk, and nobody is on call for it. Clear the box to let a rule cover the whole fleet. Operational (windowed) rules are always restaurant only. Alerts are evaluated hourly during housekeeping.</div>
   </div>
 </div>
 

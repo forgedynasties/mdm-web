@@ -147,7 +147,7 @@
       '/users': ['/activity'],
     };
     function owns(href, path) {
-      href = (href || '').split('?')[0]; // Engineers' Lab is /devices?state=lab
+      href = (href || '').split('?')[0];
       if (href === '/') return path === '/';
       if (path === href || path.indexOf(href + '/') === 0) return true;
       var extra = GROUPS[href] || [];

@@ -107,3 +107,36 @@ func TestGeocodeCacheAndDailyCount(t *testing.T) {
 		t.Fatalf("count: %d %d %v", n1, n2, err)
 	}
 }
+
+// Two server copies record the same online flip at the same instant: the second is a no-op.
+func TestRecordPresenceTwiceIsNoError(t *testing.T) {
+	url := os.Getenv("MDM_TEST_DATABASE_URL")
+	if url == "" {
+		t.Skip("MDM_TEST_DATABASE_URL not set")
+	}
+	ctx := context.Background()
+	d, err := New(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	if err := d.RunMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	id, _, _, _, _, err := d.UpsertCheckin(ctx, "PR"+time.Now().Format("150405000"), "b1", nil, json.RawMessage(`{"agent_type":"dpc"}`), false, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now().Add(-time.Minute)
+	if err := d.RecordPresence(ctx, id, at, false, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.RecordPresence(ctx, id, at, false, ""); err != nil {
+		t.Fatalf("the same flip written twice must not error: %v", err)
+	}
+	var n int
+	d.pool.QueryRow(ctx, `SELECT count(*) FROM device_state_events WHERE device_id = $1 AND key = 'online'`, id).Scan(&n)
+	if n != 1 {
+		t.Fatalf("%d rows, want 1", n)
+	}
+}

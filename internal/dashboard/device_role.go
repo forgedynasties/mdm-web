@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/google/uuid"
 
 	"mdm/internal/db"
 	"mdm/internal/product"
@@ -153,12 +152,6 @@ func (h *Handler) DeviceSetRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	// An engineer only looks at a venue's devices (stateDecision); the route's own check
-	// lets a "notes" action through, so the venue is checked here.
-	if s, ok := h.currentSession(r); ok && s.Role == "engineer" && d.RestaurantID != nil {
-		h.hxDoneToast(w, r, back, "Read-only at a venue", "error")
-		return
-	}
 	if d.AgentKind != product.KindFirmware {
 		if class == "model" {
 			if err := h.db.UnpinDeviceClass(r.Context(), serial); err != nil {
@@ -235,9 +228,7 @@ func (h *Handler) AppDeviceRole(w http.ResponseWriter, r *http.Request, s *db.Se
 	}
 	d, err := h.db.GetDevice(r.Context(), body.Serial)
 	if err == nil && d != nil && d.EnrollmentStatus == db.EnrollEnrolled {
-		// An engineer only looks at a venue's devices (stateDecision), so a device already
-		// placed at a venue keeps its role.
-		if acc := h.accessFor(r.Context(), s.Role, s.Username); !acc.visible(d.ID) || acc.engineerVenueCount("notes", []uuid.UUID{d.ID}) > 0 {
+		if acc := h.accessFor(r.Context(), s.Role, s.Username); !acc.visible(d.ID) {
 			appErr(w, http.StatusForbidden, "that device is outside your access")
 			return
 		} else if d.RestaurantID != nil && !acc.canDevice("notes", d.ID) {

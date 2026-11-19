@@ -6,7 +6,7 @@
   function mdmSyncDockActive(path) {
     var p = path || location.pathname, direct = [], grouped = [];
     document.querySelectorAll('.dock .nav-link').forEach(function (a) {
-      var h = (a.getAttribute('href') || '').split('?')[0], d, g = false; // Lab is /devices?state=lab
+      var h = (a.getAttribute('href') || '').split('?')[0], d, g = false;
       if (!h) { a.classList.remove('active'); return; } // More is a button: no page of its own
       if (h === '/') d = (p === '/');
       else d = (p === h || p.indexOf(h + '/') === 0);

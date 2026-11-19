@@ -50,8 +50,6 @@ func axShort(g db.AccessLevel) string {
 		return "All devices"
 	case "state":
 		switch g.State {
-		case db.StateLab:
-			return "Lab"
 		case db.StateToPlace:
 			return "To place"
 		case db.StateInService:

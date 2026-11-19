@@ -14,7 +14,7 @@ import (
 //
 // A grant gives a level — view, operate or manage — on a scope to a role (everyone with it)
 // or to one person, optionally until a date. Scopes: every device ("all"), a device state
-// (lab, to_place, in_service), a group, a venue, or the devices the person enrolled until
+// (to_place, in_service), a group, a venue, or the devices the person enrolled until
 // they are placed ("own", Field; placement.go). A team member's level on a device is the highest any unexpired
 // grant of their role or their own gives; nothing subtracts. Owners and Staff keep their venue
 // walls (access_grants rows read by decideCustomer), and shell and firmware updates stay with
@@ -130,8 +130,7 @@ SELECT a.id, a.subject_type, a.subject, a.scope_type, a.scope_id, a.state, a.lev
          WHEN 'group' THEN (SELECT count(*) FROM device_groups dg JOIN devices d ON d.id = dg.device_id WHERE dg.group_id = a.scope_id AND NOT d.hidden)
          WHEN 'venue' THEN (SELECT count(*) FROM devices WHERE restaurant_id = a.scope_id AND NOT hidden)
          WHEN 'state' THEN (SELECT count(*) FROM devices WHERE NOT hidden AND CASE a.state
-             WHEN 'lab' THEN restaurant_id IS NULL AND placement <> 'queue'
-             WHEN 'to_place' THEN restaurant_id IS NULL AND placement = 'queue'
+             WHEN 'to_place' THEN restaurant_id IS NULL
              WHEN 'in_service' THEN restaurant_id IS NOT NULL END)
          ELSE 0 END
 FROM access_levels a

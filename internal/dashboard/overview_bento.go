@@ -18,7 +18,7 @@ import (
 // with a percent pill each; "Today" as one big card showing one thing at a time (Needs
 // you · Venues · Rollouts · Crashes, with Next); devices online and crashes as two figures
 // beside it; then the waiting-to-place card, devices by type as dials, and online /
-// offline at a venue / offline in Lab as one split bar. The banner, trend cards, venue
+// offline at a venue / offline to place as one split bar. The banner, trend cards, venue
 // strip, pill chart, rollout timeline and rail are gone (their pages keep them).
 
 type ovPart struct {
@@ -104,7 +104,7 @@ type ovBento struct {
 	Types               []ovTypeRing
 	SplitOn             int
 	SplitOffVenue       int
-	SplitOffLab         int
+	SplitOffToPlace         int
 	ToPlace             int
 }
 
@@ -164,7 +164,7 @@ func buildOvBento(in ovBentoIn) ovBento {
 		case d.Venue != nil:
 			b.SplitOffVenue++
 		default:
-			b.SplitOffLab++
+			b.SplitOffToPlace++
 		}
 		if in.Now.Sub(d.SeenAt) < 24*time.Hour {
 			today++
@@ -276,7 +276,7 @@ func buildOvBento(in ovBentoIn) ovBento {
 			if top.Count*2 > in.Crashes {
 				where := top.Restaurant
 				if where == "" {
-					where = "Lab"
+					where = "To place"
 				}
 				h.Sub = fmt.Sprintf("%d of them come from one device: %s (%s)", top.Count, top.Serial, where)
 			}
@@ -284,7 +284,7 @@ func buildOvBento(in ovBentoIn) ovBento {
 		for _, c := range in.CrashTop {
 			where := c.Restaurant
 			if where == "" {
-				where = "Lab"
+				where = "To place"
 			}
 			h.Devs = append(h.Devs, ovHeroDev{Serial: c.Serial, Type: where, Seen: agoShort(c.LatestAt), Extra: strconv.Itoa(c.Count) + " crashes", Href: "/devices/" + c.Serial})
 		}
@@ -314,7 +314,7 @@ func buildOvBento(in ovBentoIn) ovBento {
 			}
 			where := t.Where
 			if where == "" {
-				where = "Lab"
+				where = "To place"
 			}
 			h.Facts = append(h.Facts, ovFact{where, "where"})
 			for i, sn := range t.Serials {
@@ -439,7 +439,7 @@ func buildOvBento(in ovBentoIn) ovBento {
 		for _, c := range in.CrashTop {
 			where := c.Restaurant
 			if where == "" {
-				where = "Lab"
+				where = "To place"
 			}
 			ch := ovHero{Tag: "Device", Tone: "o", Title: fmt.Sprintf("%d crashes on %s", c.Count, c.Serial),
 				Sub: where + " · latest " + agoShort(c.LatestAt), Action: "Open device", Href: "/devices/" + c.Serial,

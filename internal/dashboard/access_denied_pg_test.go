@@ -66,12 +66,7 @@ func TestAccessDeniedPages(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// A device queued for a venue (to place): support sees only devices in service.
-	if sd, err := d.GetDevice(ctx, setupSerial); err != nil {
-		t.Fatal(err)
-	} else if err := d.SetDevicePlacement(ctx, sd.ID, db.PlacementQueue); err != nil {
-		t.Fatal(err)
-	}
+	// Devices at no venue are to place: support sees only devices in service.
 
 	get := func(path string, hx bool) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("GET", path, nil)
@@ -92,8 +87,8 @@ func TestAccessDeniedPages(t *testing.T) {
 		code       int
 		says       []string
 	}{
-		{"lab device", "/devices/" + labSerial, 403, []string{"have access</h1>", "in the Lab", "devices in service"}},
-		{"device to place", "/devices/" + setupSerial, 403, []string{"waiting to be placed"}},
+		{"device to place", "/devices/" + labSerial, 403, []string{"have access</h1>", "waiting to be placed", "devices in service"}},
+		{"another device to place", "/devices/" + setupSerial, 403, []string{"waiting to be placed"}},
 		{"venue with none of theirs", "/restaurants/" + rest.ID.String(), 403, []string{"Venue DN venue " + stamp, "None of its devices"}},
 		{"missing venue", "/restaurants/" + uuid.NewString(), 404, []string{"Not found", "no venue at this address"}},
 		{"super admin page", "/settings", 403, []string{"Only Super admins can open it."}},

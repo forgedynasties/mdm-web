@@ -84,23 +84,23 @@ func TestAccessPageRenders(t *testing.T) {
 	g := uuid.New()
 	until := time.Now().Add(72 * time.Hour)
 	gs := []db.AccessLevel{
-		{ID: uuid.New(), SubjectType: "role", Subject: "engineer", ScopeType: "all", Level: "view", CreatedBy: "seed"},
-		{ID: uuid.New(), SubjectType: "role", Subject: "engineer", ScopeType: "group", ScopeID: &g, ScopeName: "QA", Level: "operate", Until: &until, Devices: 31},
+		{ID: uuid.New(), SubjectType: "role", Subject: "operator", ScopeType: "all", Level: "view", CreatedBy: "seed"},
+		{ID: uuid.New(), SubjectType: "role", Subject: "operator", ScopeType: "group", ScopeID: &g, ScopeName: "QA", Level: "operate", Until: &until, Devices: 31},
 	}
-	cards := []accessRoleCard{{Role: "engineer", Label: "Engineer", Plural: "Engineers", People: 10, Grants: gs, Sentence: accessSentence("Engineers", "They", gs, time.Now())}}
+	cards := []accessRoleCard{{Role: "operator", Label: "Support", Plural: "Support agents", People: 10, Grants: gs, Sentence: accessSentence("Support agents", "They", gs, time.Now())}}
 	tmpl := peopleTmpl(t, "users_access.html", "_users_tabs.html")
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
-		"Role": "admin", "UsersTab": "access", "Tab": "grants", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
+		"Role": "admin", "UsersTab": "access", "Tab": "grants", "Cards": cards, "Sel": "operator", "Now": time.Now(),
 		"Groups": []db.Group{{ID: g, Name: "QA"}}, "Venues": []db.Restaurant{},
 	},
-		`Engineers can operate the QA group (until `, `and look at every other device.`, `value="manage"`, `starting point`,
-		`action="/users/access/levels"`, `Give engineers access`, `>Who can act on…</a>`)
-	rows, risks := buildAccessMatrix([]db.User{{Username: "hafiz", Role: "engineer"}}, gs, time.Now())
+		`Support agents can operate the QA group (until `, `and look at every other device.`, `value="manage"`, `starting point`,
+		`action="/users/access/levels"`, `Give support agents access`, `>Who can act on…</a>`)
+	rows, risks := buildAccessMatrix([]db.User{{Username: "hafiz", Role: "operator"}}, gs, time.Now())
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
-		"Role": "admin", "UsersTab": "access", "Tab": "matrix", "Cards": cards, "Sel": "engineer", "Now": time.Now(),
+		"Role": "admin", "UsersTab": "access", "Tab": "matrix", "Cards": cards, "Sel": "operator", "Now": time.Now(),
 		"AxCols": axColumns, "AxRows": rows, "AxRisks": risks, "AxRisk": "ending", "NRisks": 1,
 		"Groups": []db.Group{}, "Venues": []db.Restaurant{},
-	}, `id="ac1-mx"`, `class="ac1-cell f"`, `Grants ending within 7 days`, `>Engineer</b>`)
+	}, `id="ac1-mx"`, `class="ac1-cell f"`, `Grants ending within 7 days`, `>Support</b>`)
 	renderPeople(t, tmpl, "users_access.html", map[string]any{
 		"Role": "admin", "UsersTab": "access", "Tab": "who", "Cards": cards, "Who": "group:" + g.String(), "WhoName": "the QA group",
 		"WhoRows": []whoRow{{Who: "Super admins", Level: "Manage", Via: "everything", People: 4}}, "Now": time.Now(),
@@ -110,20 +110,20 @@ func TestAccessPageRenders(t *testing.T) {
 
 func TestPersonPageRenders(t *testing.T) {
 	email := "hafiz@aioapp.com"
-	u := &db.User{ID: uuid.New(), Username: "hafiz", FirstName: "Hafiz", Role: "engineer", Email: &email}
+	u := &db.User{ID: uuid.New(), Username: "hafiz", FirstName: "Hafiz", Role: "operator", Email: &email}
 	g := uuid.New()
 	grants := []personGrant{
-		{AccessLevel: db.AccessLevel{ID: uuid.New(), ScopeType: "state", State: db.StateLab, Level: "operate"}, From: "Engineer"},
+		{AccessLevel: db.AccessLevel{ID: uuid.New(), ScopeType: "state", State: db.StateToPlace, Level: "operate"}, From: "Support"},
 		{AccessLevel: db.AccessLevel{ID: uuid.New(), ScopeType: "group", ScopeID: &g, ScopeName: "Test Cycles", Level: "operate"}},
 	}
 	renderPeople(t, peopleTmpl(t, "person.html", "_users_tabs.html"), "person.html", map[string]any{
 		"Role": "admin", "UsersTab": "people", "User": u, "Sentence": "Hafiz can look at every device.", "Grants": grants,
 		"CanGive": true, "Groups": []db.Group{}, "Venues": []db.Restaurant{}, "Now": time.Now(), "Back": "/users/x/profile",
-		"FirstName": "Hafiz", "Assignable": []string{"engineer", "viewer"}, "CanDelete": true, "IsSuperAdmin": true,
-		"Where": whereChoiceOf(nil, nil), "RoleWhere": "Lab devices", "RoleVerb": "operate",
-		"CopyFrom": []db.User{{Username: "abdullah", FirstName: "Abdullah", Role: "engineer"}},
+		"FirstName": "Hafiz", "Assignable": []string{"operator", "viewer"}, "CanDelete": true, "IsSuperAdmin": true,
+		"Where": whereChoiceOf(nil, nil), "RoleWhere": "devices in service", "RoleVerb": "operate",
+		"CopyFrom": []db.User{{Username: "abdullah", FirstName: "Abdullah", Role: "operator"}},
 	},
-		`Hafiz can look at every device.`, `Engineer role`, `their own`, `the Test Cycles group`, `Give Hafiz access`,
+		`Hafiz can look at every device.`, `Support role`, `their own`, `the Test Cycles group`, `Give Hafiz access`,
 		`action="/users/access/levels"`, `/users/access/levels/`, `name="subject" value="hafiz"`, `Can Hafiz reach a device?`, `Remove Hafiz`,
 		`action="/users/`+u.ID.String()+`/access-where"`, `name="scope" value="" checked`, `Copy their Where`, `value="abdullah"`)
 	// With a Where: Groups picked, the QA box ticked, Elsewhere Hidden, the row marked as theirs.

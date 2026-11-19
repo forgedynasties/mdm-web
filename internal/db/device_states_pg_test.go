@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Device states (simplified 19 Nov 2026): a device is Lab, To place or In service, and placing
+// Device states (simplified 19 Nov 2026): a device is To place (no venue) or In service (at a venue), and placing
 // it at a venue puts it in service at once. The one-shot migration drops the Setting up grants
 // and stamps the devices that were still waiting for a hand-over.
 func TestDeviceStates(t *testing.T) {
@@ -45,14 +45,12 @@ func TestDeviceStates(t *testing.T) {
 		}
 		return sc[id].State()
 	}
-	if s := state(); s != StateLab {
-		t.Fatalf("new device: %s, want lab", s)
-	}
-	if err := d.SetDevicePlacement(ctx, id, PlacementQueue); err != nil {
-		t.Fatal(err)
-	}
 	if s := state(); s != StateToPlace {
-		t.Fatalf("queued: %s, want to place", s)
+		t.Fatalf("new device: %s, want to place (no Lab state)", s)
+	}
+	// An old ?state=lab link filters nothing and does not fail.
+	if _, err := d.CountDevices(ctx, DeviceFilter{State: "lab"}); err != nil {
+		t.Fatalf("lab filter: %v", err)
 	}
 	if err := d.AssignDeviceToRestaurant(ctx, serial, &venue.ID); err != nil {
 		t.Fatal(err)

@@ -5,7 +5,7 @@
 <template id="page-island">
   <span class="isl-dot {{if .Rows}}warn{{else}}ok{{end}}"></span>
   <span class="isl-t">Setup</span>
-  <span class="isl-s"><b>{{len .Rows}}</b> to place · {{.ServiceN}} in service · {{.LabN}} in Lab</span>
+  <span class="isl-s"><b>{{len .Rows}}</b> to place · {{.ServiceN}} in service</span>
   <span class="isl-acts">
     <button type="button" class="cc-btn" onclick="enDlg('en-how-dlg')">How to enroll</button>
     {{template "en-app" .}}
@@ -50,7 +50,7 @@
     {{else if eq .View "place"}}
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">To place</h1><span class="c">{{len .Rows}} enrolled, no venue yet · newest first · deploying puts a device in service at once</span></div>
     {{if .Rows}}
-    {{template "place-table" (dict "Rows" .Rows "Venues" .Venues "Back" "/setup" "NewVenue" true "Lab" true)}}
+    {{template "place-table" (dict "Rows" .Rows "Venues" .Venues "Back" "/setup" "NewVenue" true)}}
     {{else}}
     <div class="pl-empty"><b>Nothing to place</b>A device enrolled with "Not decided yet" in AIO Enroll waits here until you put it at a venue.</div>
     {{end}}
@@ -97,8 +97,8 @@
 {{define "oh-view"}}<a class="fleet-rail-item oh-v{{if eq .Cur .Key}} on{{end}}" href="/setup?view={{.Key}}" hx-get="/setup?view={{.Key}}" hx-target="#oh-pane" hx-select="#oh-pane" hx-swap="outerHTML" hx-push-url="true"><span class="dot {{.Dot}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></a>{{end}}
 
 {{/* ── The To place table, shared by the Ops lead's home and Field's My visits (K2) ──
-     dict: Rows []placeRow, Venues []db.Restaurant, Back, NewVenue (may create venues),
-     Lab (may send to the Lab). A row's Deploy sets its role (when changed), then places it
+     dict: Rows []placeRow, Venues []db.Restaurant, Back, NewVenue (may create venues).
+     A row's Deploy sets its role (when changed), then places it
      (POST /devices/{serial}/onboard); ticked rows go together from the bar. */}}
 {{define "place-table"}}
 <div class="pl-bulk" id="pl-bulk" hidden>
@@ -106,7 +106,6 @@
   <span class="muted">Deploy to</span>
   <button type="button" class="form-input pl-sel pl-vbtn" id="pl-bulk-venue" data-value="" aria-haspopup="listbox" aria-label="Venue for the ticked devices">Pick a venue…</button>
   <span class="sp"></span>
-  {{if .Lab}}<button type="button" class="cc-btn sm" onclick="placeBulk('lab')">Send to Lab</button>{{end}}
   <button type="button" class="cc-btn sm primary" onclick="placeBulk('deploy')" id="pl-bulk-go" disabled title="Pick a venue first">Deploy</button>
 </div>
 <div class="card cl-card"><div class="ft-wrap"><table class="ft pl-ft" data-back="{{.Back}}">
@@ -211,13 +210,6 @@
   window.placeBulk = function (what) {
     var rows = picked();
     if (!rows.length) return;
-    if (what === 'lab') {
-      if (!confirm('Send ' + rows.length + ' device' + (rows.length === 1 ? '' : 's') + ' to the Lab? They leave this queue and go to the engineers.')) return;
-      Promise.all(rows.map(function (tr) {
-        return post('/devices/' + enc(tr.getAttribute('data-serial')) + '/placement', { placement: 'lab', back: back() }).then(function () { tr.remove(); });
-      })).then(function () { toast('Sent to the Lab', 'success'); sync(); }, function (e) { toast(e.message, 'error'); sync(); });
-      return;
-    }
     var v = document.getElementById('pl-bulk-venue').dataset.value;
     if (v === '__new') { placeNewVenue(rows); return; }
     if (!v) { toast('Pick a venue for the ticked devices', 'error'); return; }

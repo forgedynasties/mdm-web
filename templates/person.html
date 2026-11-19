@@ -89,7 +89,7 @@
       <div class="ovb-ch"><h2>Can {{.FirstName}} reach a device?</h2></div>
       <form method="GET" action="/users/{{$u.ID}}/profile#reach" hx-boost="false" class="pe1-q"><input class="form-input" name="serial" value="{{with .Reach}}{{.Serial}}{{end}}" placeholder="Serial number" aria-label="Device serial" autocomplete="off"><button type="submit" class="cc-btn sm">Check</button></form>
       {{with .Reach}}{{if .Err}}<p class="pe1-note">{{.Err}}</p>{{else}}
-      <div class="pe1-rs"><b class="mono">{{.Serial}}</b>{{if .Venue}} <span class="muted">at {{.Venue}}</span>{{else}} <span class="muted">Lab</span>{{end}}</div>
+      <div class="pe1-rs"><b class="mono">{{.Serial}}</b>{{if .Venue}} <span class="muted">at {{.Venue}}</span>{{else}} <span class="muted">To place</span>{{end}}</div>
       <ul class="pe1-ans-l">{{range .Rows}}<li class="pe1-a"><span class="pe1-ic{{if not .Allowed}} n{{end}}" aria-hidden="true">{{if .Allowed}}&#10003;{{else}}&ndash;{{end}}</span><span class="pe1-t"><b>{{.Level}}</b> <span class="muted">{{.Does}}</span>{{if .Reason}}<br><small class="muted">{{.Reason}}</small>{{end}}</span></li>{{end}}</ul>{{end}}{{else}}
       <p class="pe1-note">Type a serial to see what {{.FirstName}} may do on that device, and why.</p>{{end}}
     </section>
@@ -122,9 +122,8 @@
   <div class="aw-row"><span class="aw-k">Where</span>
     <span class="acc-lv" role="radiogroup" aria-label="Where {{.FirstName}} can {{.RoleVerb}}">
       <label title="{{.RoleWhere}}"><input type="radio" name="scope" value=""{{if not $w.Set}} checked{{end}}>Role default</label>
-      <label><input type="radio" name="scope" value="lab"{{if eq $w.Scope "lab"}} checked{{end}}>Lab</label>
       <label><input type="radio" name="scope" value="all"{{if eq $w.Scope "all"}} checked{{end}}>All</label>
-      <label title="Devices at a venue: being set up and in service"><input type="radio" name="scope" value="deployed"{{if eq $w.Scope "deployed"}} checked{{end}}>Deployed</label>
+      <label title="Devices at a venue: in service"><input type="radio" name="scope" value="deployed"{{if eq $w.Scope "deployed"}} checked{{end}}>Deployed</label>
       <label><input type="radio" name="scope" value="groups"{{if eq $w.Scope "groups"}} checked{{end}}>Groups…</label>
     </span>
   </div>

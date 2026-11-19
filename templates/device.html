@@ -305,7 +305,7 @@
   <div class="ddc-top">
     <div class="ddc-idw">{{with modelPic .Device.Product}}<img class="ddc-pic" src="{{.Img}}" alt="" width="72" height="72" decoding="async">{{end}}
     <div class="ddc-id">
-      <div class="cc-eyebrow isl-dup">Fleet · Devices · {{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}Lab{{end}}</div>
+      <div class="cc-eyebrow isl-dup">Fleet · Devices · {{if .Device.DeployedEffective}}{{.Device.RestaurantName}}{{else}}To place{{end}}</div>
       <div class="dd-title-row">
         {{/* Title leads with what the device is (nickname, else the reported model, else
              its product), serial beside it — the same identity order as the fleet rows. */}}
@@ -411,8 +411,8 @@
   <span class="isl-dot {{if .Online}}on{{else}}off{{end}}"></span>
   {{if .Device.Class}}<svg class="isl-cls" aria-hidden="true"><use href="#dk-{{.Device.Class}}"/></svg>{{end}}
   {{if .Lab}}<span class="isl-tag">LAB</span>{{end}}
-  {{/* D3: the way up is the device's venue (or the Lab), not the Devices list. */}}
-  <nav class="isl-cr" aria-label="Breadcrumb"><a class="cr" href="/devices">Fleet</a><span class="sep" aria-hidden="true">›</span>{{if .Device.RestaurantID}}<a class="cr" href="/restaurants/{{.Device.RestaurantID}}">{{.Device.RestaurantName}}</a>{{else}}<a class="cr" href="/devices?state=lab">Lab</a>{{end}}<span class="sep" aria-hidden="true">›</span><span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}{{end}} · {{.Device.SerialNumber}}</span></nav>
+  {{/* D3: the way up is the device's venue (or To place), not the Devices list. */}}
+  <nav class="isl-cr" aria-label="Breadcrumb"><a class="cr" href="/devices">Fleet</a><span class="sep" aria-hidden="true">›</span>{{if .Device.RestaurantID}}<a class="cr" href="/restaurants/{{.Device.RestaurantID}}">{{.Device.RestaurantName}}</a>{{else}}<a class="cr" href="/devices?state=to_place">To place</a>{{end}}<span class="sep" aria-hidden="true">›</span><span class="isl-t">{{if .Nickname}}{{.Nickname}}{{else}}{{with productName .Device.Product}}{{.}}{{else}}{{.Device.ProductLabel}}{{end}}{{end}} · {{.Device.SerialNumber}}</span></nav>
   {{if .Device.Class}}<span class="isl-tagn">{{.Device.ClassLabel}}</span>{{end}}{{if .Device.BuildID}}<span class="isl-tagn isl-build mono" title="Firmware build">{{.Device.BuildID}}</span>{{end}}{{if staffMode .Device.LatestExtra}}<span class="isl-tagn" title="Staff unlocked it with the staff PIN: the app is open for staff until they tap Back to guest mode, or it is locked again here.">Staff mode</span>{{end}}{{if .Device.NeedsOnboarding}}<span class="isl-tagn warn">{{if .Device.RestaurantID}}confirm its site{{else}}needs a site{{end}}</span>{{end}}
   <span class="isl-s">{{if .Lab}}in lab until {{.Lab.Until.Local.Format "Mon 15:04"}}{{end}}</span>
   <span class="isl-acts"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
@@ -822,13 +822,13 @@
     {{end}}
   </div>
   <div class="dd-place" aria-label="Placement">
-    <div class="ddc-kv dfc-first"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">Lab</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
+    <div class="ddc-kv dfc-first"><span class="k">Restaurant</span><span class="v">{{if .Device.DeployedEffective}}<a href="/devices?view=restaurants" class="link-detail">{{.Device.RestaurantName}}</a>{{else}}<span class="muted">None (to place)</span>{{end}}{{if not (canAdmin .Role)}}<button type="button" class="kv-edit role-locked" title="Requires the admin role" data-role-need="admin"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>{{end}}{{if canAdmin .Role}}<span class="pl-pop-wrap">
       <button type="button" class="kv-edit" title="Change restaurant" onclick="plTogglePop('pl-rest-pop', this)"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
       <div class="pl-pop cc-menu" id="pl-rest-pop" hidden>
         <div class="cc-mh">Move to venue</div>
         <form action="/devices/{{.Device.SerialNumber}}/restaurant" method="POST">
           <div class="pl-pop-list">
-            <label class="pl-pop-opt cc-mi"><input type="radio" name="restaurant_id" value=""{{if not .Device.DeployedEffective}} checked{{end}}> Lab (unassigned)</label>
+            <label class="pl-pop-opt cc-mi"><input type="radio" name="restaurant_id" value=""{{if not .Device.DeployedEffective}} checked{{end}}> No venue (to place)</label>
             {{$rid := printf "%s" .Device.RestaurantID}}{{range .Restaurants}}<label class="pl-pop-opt cc-mi"><input type="radio" name="restaurant_id" value="{{.ID}}"{{if eq (printf "%s" .ID) $rid}} checked{{end}}> {{.Name}}</label>{{end}}
           </div>
           <div class="cc-mfoot"><button type="submit" class="cc-btn sm primary pl-pop-save">Move</button></div>

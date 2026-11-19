@@ -266,10 +266,10 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	return devices, rows.Err()
 }
 
-// LabGroups are the groups a Lab device may pick for itself on the device (3 Nov 2026, G3):
-// not hidden, and no member at a venue (the rule that lets an engineer edit a group).
-// DeviceCount counts members as ListGroups does.
-func (d *DB) LabGroups(ctx context.Context) ([]Group, error) {
+// PickableGroups are the groups a device may pick for itself on the device (3 Nov 2026, G3;
+// no Lab state, 19 Nov 2026): every group that is not hidden. DeviceCount counts members as
+// ListGroups does.
+func (d *DB) PickableGroups(ctx context.Context) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT g.id, g.name, g.created_at, g.hidden, COUNT(dg.device_id) FILTER (WHERE NOT COALESCE(dv.hidden, false) AND dv.enrollment_status NOT IN ('retired', 'wiped', 'unenrolled'))
 		FROM groups g
@@ -277,7 +277,6 @@ func (d *DB) LabGroups(ctx context.Context) ([]Group, error) {
 		LEFT JOIN devices dv ON dv.id = dg.device_id
 		WHERE NOT g.hidden
 		GROUP BY g.id, g.name, g.created_at, g.hidden
-		HAVING COUNT(dv.restaurant_id) = 0
 		ORDER BY g.name
 	`)
 	if err != nil {

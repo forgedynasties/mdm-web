@@ -25,7 +25,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	role := h.role(r)
 	// Role is what the page's controls are drawn for, NavRole what the chrome (dock,
-	// menus, island chrome) is: they differ only on a device an engineer may only look at.
+	// menus, island chrome) is: they differ only on a device the viewer may only look at.
 	data["NavRole"] = role
 	data["Role"] = h.pageRole(r)
 	// Device rows mark the devices this viewer may only look at (data-ro, access by
@@ -337,9 +337,6 @@ func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 		return
 	case "viewer":
 		http.Redirect(w, r, "/restaurants", http.StatusFound)
-		return
-	case "engineer":
-		http.Redirect(w, r, "/devices?state=lab", http.StatusFound)
 		return
 	}
 	h.requireAuth(h.Overview)(w, r)

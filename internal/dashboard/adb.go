@@ -125,7 +125,7 @@ func (h *Handler) adbRowFor(d *db.Device, online bool, hist *db.AdbTCPFleetRow) 
 type adbListRow struct {
 	adbRow
 	Any, Lan  string // the `adb connect` lines: through the tunnel, and on the same network
-	Venue     string // "" = Lab
+	Venue     string // "" = to place
 	Flags     string // coll_list keys: views, chips, venue, client
 	Text      string // what the search matches
 	LeftHours int    // sort key: hours until it closes (stays on = a big number)
@@ -217,7 +217,7 @@ func (h *Handler) AdbPage(w http.ResponseWriter, r *http.Request) {
 			f = append(f, "mine")
 			nMine++
 		}
-		key, name := "lab", "Lab"
+		key, name := "to_place", "To place"
 		if d.RestaurantID != nil {
 			key, name = "v-"+d.RestaurantID.String(), d.RestaurantName
 		}
@@ -254,8 +254,8 @@ func (h *Handler) AdbPage(w http.ResponseWriter, r *http.Request) {
 		where = append(where, *p)
 	}
 	sort.Slice(where, func(i, j int) bool {
-		if (where[i].Key == "lab") != (where[j].Key == "lab") {
-			return where[i].Key == "lab"
+		if (where[i].Key == "to_place") != (where[j].Key == "to_place") {
+			return where[i].Key == "to_place"
 		}
 		if where[i].N != where[j].N {
 			return where[i].N > where[j].N

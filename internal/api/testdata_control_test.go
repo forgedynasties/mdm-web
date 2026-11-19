@@ -42,13 +42,17 @@ func TestQAPackageName(t *testing.T) {
 
 func TestQAInScope(t *testing.T) {
 	venue := uuid.New()
-	if !qaInScope(&db.Device{AgentKind: product.KindFirmware}) {
-		t.Error("a Lab firmware device is in scope")
+	// No Lab state (19 Nov 2026): the key sees every device on the server it is set on.
+	for name, d := range map[string]*db.Device{
+		"a firmware device":      {AgentKind: product.KindFirmware},
+		"a device at a venue":    {AgentKind: product.KindFirmware, RestaurantID: &venue},
+		"a Standard client unit": {AgentKind: product.KindDPC},
+	} {
+		if !qaInScope(d) {
+			t.Errorf("%s is out of scope", name)
+		}
 	}
-	if qaInScope(&db.Device{AgentKind: product.KindFirmware, RestaurantID: &venue}) {
-		t.Error("a device at a venue is out of scope")
-	}
-	if qaInScope(&db.Device{AgentKind: product.KindDPC}) {
-		t.Error("a Standard client device is out of scope")
+	if qaInScope(&db.Device{Hidden: true}) || qaInScope(nil) {
+		t.Error("a hidden or missing device is in scope")
 	}
 }

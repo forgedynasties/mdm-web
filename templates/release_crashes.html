@@ -85,7 +85,7 @@
         {{range .Events}}
         <tr>
           <td><a class="mono" href="/devices/{{.Serial}}">{{.Serial}}</a></td>
-          <td>{{if .Restaurant}}{{.Restaurant}}{{else}}<span class="mut">Lab</span>{{end}}</td>
+          <td>{{if .Restaurant}}{{.Restaurant}}{{else}}<span class="mut">To place</span>{{end}}</td>
           <td title="{{formatTime .OccurredAt}}">{{timeSince .OccurredAt}}</td>
           {{if eq $role "admin"}}<td class="x"><form action="/releases/{{$rel.ID}}/crashes/{{.ID}}/delete" method="POST" hx-confirm="Remove this one crash on {{.Serial}}? It also clears the device's crash alert."><input type="hidden" name="redirect" value="{{$.CR.Detail.SelfURL}}"><button type="submit" class="cr1-x" title="Delete this event" aria-label="Delete this event on {{.Serial}}">&#215;</button></form></td>{{end}}
         </tr>

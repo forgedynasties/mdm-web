@@ -7,21 +7,21 @@ import (
 
 	"github.com/google/uuid"
 
-	"mdm/internal/db"
 	"mdm/internal/product"
 )
 
-// DeviceGroup lets a Lab device pick its own group from the Standard client's status screen
-// (G3, picked 3 Nov 2026: "in lab devices standard mdm the mdm app shows a list of groups to
-// choose and choosing there adds it to that group it also shows the current group"; the app
-// opens on the picker while a Lab device has no group).
+// DeviceGroup lets a device pick its own group from the Standard client's status screen
+// (G3, picked 3 Nov 2026: "the mdm app shows a list of groups to choose and choosing there adds
+// it to that group it also shows the current group"; the app opens on the picker while the
+// device has no group).
 //
 //	POST /api/v1/device-group {"serial"}                 → {lab, current, groups, venue?, role?}
 //	POST /api/v1/device-group {"serial", "set": "<id>"}  → moves it there ("" = no group)
 //
-// A device has one group: a pick moves it out of any other. Only Lab devices (at no venue,
-// not waiting to be placed) may pick, and only groups with no member at a venue (the rule
-// that lets an engineer edit a group). Audited as group.device_pick by the device itself.
+// A device has one group: a pick moves it out of any other. A device may pick while it is To
+// place or has no group yet (no Lab state, 19 Nov 2026), from every group that is not hidden.
+// The reply's "lab" key is the app's wire name for "this device may pick" (kept: shipped
+// clients read it). Audited as group.device_pick by the device itself.
 func (h *Handler) DeviceGroup(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Serial string  `json:"serial"`
@@ -48,16 +48,16 @@ func (h *Handler) DeviceGroup(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
 		return
 	}
-	placement, _ := h.db.DevicePlacement(ctx, device.ID)
-	lab := device.RestaurantID == nil && placement != db.PlacementQueue
-	groups, err := h.db.LabGroups(ctx)
+	mine, _ := h.db.ListDeviceGroups(ctx, device.ID)
+	mayPick := device.RestaurantID == nil || len(mine) == 0
+	groups, err := h.db.PickableGroups(ctx)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
 	if body.Set != nil {
-		if !lab {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "only a Lab device picks its own group"})
+		if !mayPick {
+			writeJSON(w, http.StatusConflict, map[string]string{"error": "this device is placed and already has a group"})
 			return
 		}
 		var to *uuid.UUID
@@ -86,7 +86,7 @@ func (h *Handler) DeviceGroup(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = h.db.InsertAudit(ctx, "device:"+serial, "group.device_pick", serial, "on the device: "+name)
 		h.hub.PublishDeviceUpdate(device.ID)
-		if groups, err = h.db.LabGroups(ctx); err != nil {
+		if groups, err = h.db.PickableGroups(ctx); err != nil {
 			groups = nil
 		}
 	}
@@ -95,7 +95,7 @@ func (h *Handler) DeviceGroup(w http.ResponseWriter, r *http.Request) {
 		Name  string `json:"name"`
 		Count int    `json:"count"`
 	}
-	out := map[string]any{"lab": lab, "current": nil, "groups": []grp{}}
+	out := map[string]any{"lab": mayPick, "current": nil, "groups": []grp{}}
 	if mine, err := h.db.ListDeviceGroups(ctx, device.ID); err == nil && len(mine) > 0 {
 		var names []string
 		for _, g := range mine {
@@ -109,7 +109,7 @@ func (h *Handler) DeviceGroup(w http.ResponseWriter, r *http.Request) {
 	if c := device.Class(); c != "" {
 		out["role"] = product.ClassLabel(c) // the app's badge (S3): "Sunmi D3 Pro · POS terminal"
 	}
-	if lab {
+	if mayPick {
 		list := []grp{}
 		for _, g := range groups {
 			list = append(list, grp{g.ID.String(), g.Name, g.DeviceCount})

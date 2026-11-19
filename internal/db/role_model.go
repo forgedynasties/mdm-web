@@ -45,6 +45,9 @@ UPDATE restaurants r
    SET host_app_channels = COALESCE((SELECT jsonb_object_agg(a.role, r.host_app_channel) FROM role_apps a WHERE a.base_package <> ''), '{}'),
        host_app_channel = ''
  WHERE r.host_app_channel <> '';
+-- Role app install per venue (no Lab state plan, Nov 2026): off = RunRoleAppInstalls leaves this
+-- venue's devices alone (they keep what they run). On by default.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS app_auto_install BOOLEAN NOT NULL DEFAULT TRUE;
 -- Auto-upgrade (27 Oct 2026): units on an older build than the library's newest are moved
 -- to it, inside the update window. On by default (user: "keep the fleet on the newest").
 ALTER TABLE role_apps ADD COLUMN IF NOT EXISTS auto_upgrade BOOLEAN NOT NULL DEFAULT true;

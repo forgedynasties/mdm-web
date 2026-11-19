@@ -12,7 +12,7 @@ import (
 )
 
 // A person's own Where (picked B, "where on person", 2 Nov 2026; db/access_where.go): on the
-// person page, Where replaces the role's default scope for that person (Lab · All · Deployed
+// person page, Where replaces the role's default scope for that person (All · Deployed
 // · Groups…), Elsewhere says what they get on the other devices (View only or Hidden), and
 // "Copy from…" takes another person's. Their role still decides what they may do.
 
@@ -48,7 +48,7 @@ func (h *Handler) groupNames(ctx context.Context) map[uuid.UUID]string {
 // whereChoice is the person page's Where form, filled from their Where.
 type whereChoice struct {
 	Set       bool
-	Scope     string // lab | all | deployed | groups
+	Scope     string // all | deployed | groups
 	Groups    map[string]bool
 	Elsewhere string // view | hidden
 	Text      string // "the QA group; elsewhere view only"
@@ -69,13 +69,11 @@ func whereChoiceOf(w *db.AccessWhere, names map[uuid.UUID]string) whereChoice {
 	return c
 }
 
-// whereText names a Where as people read it: "Lab devices", "the QA and POS groups".
+// whereText names a Where as people read it: "every device", "the QA and POS groups".
 func whereText(w *db.AccessWhere, names map[uuid.UUID]string) string {
 	switch w.Scope {
 	case "all":
 		return "every device"
-	case "lab":
-		return "Lab devices"
 	case "deployed":
 		return "deployed devices (at a venue)"
 	}
@@ -205,7 +203,7 @@ func whereSentence(first string, gs []db.AccessLevel, w *db.AccessWhere, now tim
 }
 
 // roleWhereText is the role's own Where, for "Role default (…)": the scopes of its
-// highest level, "Lab devices and the QA group" for engineers.
+// highest level, "devices in service" for Support.
 func roleWhereText(gs []db.AccessLevel, now time.Time) (where string, level int) {
 	var top []db.AccessLevel
 	for _, g := range gs {
