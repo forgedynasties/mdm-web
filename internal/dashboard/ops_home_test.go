@@ -26,14 +26,14 @@ func TestOpsHomeRenders(t *testing.T) {
 	tmpl := hubTmpl(t, "ops_home.html", "my_visits.html", "my_enroll.html", "enrollment.html", "restaurants.html", "layout.html", "_settings_cards.html")
 	for _, view := range []string{"place", "service"} {
 		data := map[string]any{"View": view, "Rows": rows, "SvcRows": svc, "ServiceN": 1,
-			"Venues": venues, "RailVenues": venues, "Enrollments": []db.Enrollment{}, "Role": "fleet_manager"}
+			"Venues": venues, "Enrollments": []db.Enrollment{}, "Role": "fleet_manager"}
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, "ops_home.html", data); err != nil {
 			t.Fatalf("ops_home.html %s: %v", view, err)
 		}
 		out := buf.String()
 		if view == "place" {
-			for _, want := range []string{`data-serial="DK19256F40259"`, `+ New venue…`, `<option value="pos" selected>`, `Pick a role…`, `href="/devices?restaurant=`} {
+			for _, want := range []string{`data-serial="DK19256F40259"`, `+ New venue…`, `<option value="pos" selected>`, `Pick a role…`, `href="/restaurants"`, `Group by`} {
 				if !strings.Contains(out, want) {
 					t.Errorf("place view lacks %q", want)
 				}

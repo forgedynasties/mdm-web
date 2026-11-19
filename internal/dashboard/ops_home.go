@@ -13,8 +13,7 @@ import (
 // complexity", picked option A "Fleet's twin with an assign bar").
 //
 // GET /setup. A device is To place or In service; placing it at a venue puts it in service
-// at once, so there is nothing between. The left list: To place, In service, the venues (each
-// a link to Fleet on it; the rail's own search finds one among hundreds), then Enrollment
+// at once, so there is nothing between. The left list: To place, In service, an All venues link, then Enrollment
 // (Enrolled; the super admin's Profiles, Found on Wi-Fi, From the AIO backend). How to enroll,
 // the Android app and New profile are in the island. To place is the queue (db/placement.go): a
 // row per device with its role, a venue picker and Deploy; tick several to deploy them together;
@@ -89,19 +88,11 @@ func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 			svc = append(svc, svcRow{Device: *d, Online: h.hub.IsConnectedForDisplay(d.ID)})
 		}
 	}
-	// The rail's venues: the ones with devices, biggest first.
-	var railVenues []db.Restaurant
-	for _, v := range venues {
-		if v.DeviceCount > 0 {
-			railVenues = append(railVenues, v)
-		}
-	}
-	sort.SliceStable(railVenues, func(i, j int) bool { return railVenues[i].DeviceCount > railVenues[j].DeviceCount })
 	sort.SliceStable(venues, func(i, j int) bool { return strings.ToLower(venues[i].Name) < strings.ToLower(venues[j].Name) })
 	data := map[string]any{
 		"Title": "Setup", "ActivePage": "setup", "View": view, "EnView": enrollmentViews[view],
 		"Rows": rows, "SvcRows": svc, "ServiceN": serviceN,
-		"Venues": venues, "RailVenues": railVenues, "Back": "/setup",
+		"Venues": venues, "Back": "/setup",
 		"Restaurants": venues,
 	}
 	// Enrollment moved in (M1, 3 Nov 2026): its views and the left list's counts.

@@ -27,10 +27,7 @@
     {{template "oh-view" (dict "Key" "found" "Name" "Found on Wi-Fi" "N" .SightingsReady "Dot" (or (and .SightingsReady "warn") "muted") "Cur" .View)}}
     {{with .Bk}}{{template "oh-view" (dict "Key" "backend" "Name" "From the AIO backend" "N" .Act "Dot" (or (and .Act "warn") "muted") "Cur" $.View)}}{{end}}
     {{end}}
-    {{if .RailVenues}}
-    <div class="fleet-rail-cap">Venues</div>
-    {{range .RailVenues}}<a class="fleet-rail-item" href="/devices?restaurant={{.ID}}" title="Open {{.Name}} in Fleet"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></a>{{end}}
-    {{end}}
+    <a class="fleet-rail-item oh-all" href="/restaurants"><span class="nm">All venues</span><span class="ct">&rarr;</span></a>
   </aside>
 
   {{/* Only this pane reloads when a view is picked in the left list (user, 3 Nov 2026). */}}
@@ -50,7 +47,7 @@
     {{else if eq .View "place"}}
     <div class="fleet-pane-head"><h1 class="t cc-h1" style="font-size:inherit;margin:0">To place</h1><span class="c">{{len .Rows}} enrolled, no venue yet · newest first · deploying puts a device in service at once</span></div>
     {{if .Rows}}
-    {{template "place-table" (dict "Rows" .Rows "Venues" .Venues "Back" "/setup" "NewVenue" true)}}
+    {{template "place-table" (dict "Rows" .Rows "Venues" .Venues "Back" "/setup" "NewVenue" true "Group" true)}}
     {{else}}
     <div class="pl-empty"><b>Nothing to place</b>A device enrolled with "Not decided yet" in AIO Enroll waits here until you put it at a venue.</div>
     {{end}}
@@ -101,6 +98,8 @@
      A row's Deploy sets its role (when changed), then places it
      (POST /devices/{serial}/onboard); ticked rows go together from the bar. */}}
 {{define "place-table"}}
+{{if .Group}}<div class="pl-gbar" role="group" aria-label="Group the queue"><span class="pl-gl">Group by</span>
+  <button type="button" class="pl-gb on" data-g="" aria-pressed="true">None</button><button type="button" class="pl-gb" data-g="by" aria-pressed="false">Enrolled by</button><button type="button" class="pl-gb" data-g="model" aria-pressed="false">Model</button></div>{{end}}
 <div class="pl-bulk" id="pl-bulk" hidden>
   <b id="pl-bulk-n">0 selected</b>
   <span class="muted">Deploy to</span>
@@ -119,7 +118,7 @@
   </tr></thead>
   <tbody>
   {{range .Rows}}
-  <tr class="ft-row pl-row" data-serial="{{.Device.SerialNumber}}">
+  <tr class="ft-row pl-row" data-serial="{{.Device.SerialNumber}}" data-by="{{if .By}}{{.By}}{{else}}Unknown{{end}}" data-model="{{if .Model}}{{.Model}}{{else if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}">
     <td class="ft-cb"><input type="checkbox" class="pl-pick" aria-label="Select {{.Device.SerialNumber}}"></td>
     <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
       <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div>
@@ -166,6 +165,20 @@
 .pl-sel.need{border-color:var(--warn-edge)}
 .pl-sub{display:block;font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pl-row.done{opacity:.45}
+.pl-gbar{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:13px}
+.pl-gl{color:var(--text-2);margin-right:4px}
+.pl-gb{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:99px;padding:5px 12px;font:inherit;font-size:12.5px;cursor:pointer}
+.pl-gb.on{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
+.pl-gh td{background:var(--bg);font-size:13px;padding:8px 10px;border-bottom:1px solid var(--border-soft)}
+.pl-gh .pl-gt{display:flex;align-items:center;gap:10px;min-width:0}
+.pl-gh .pl-gn{font-weight:650}.pl-gh .pl-gc{color:var(--text-2)}
+.pl-gh .pl-gact{margin-left:auto}
+.pl-gp td{background:var(--accent-soft);padding:8px 10px}
+.pl-gp[hidden]{display:none}
+.pl-gp .pl-gpi{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+.pl-gp .pl-sel{width:auto;min-width:220px;max-width:320px}
+.pl-gp .pl-gskip{color:var(--text-2)}
+.pl-gp .sp{flex:1}
 .pl-empty{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;text-align:center;color:var(--text-2)}
 .pl-empty b{display:block;font-size:16px;color:var(--text);margin-bottom:6px}
 </style>
@@ -269,12 +282,19 @@
   function choose(b) {
     var target = popFor; closePop();
     if (!target) return;
+    if (b.dataset.id === '__new' && target.classList.contains('pl-gvenue')) {
+      var gp = target.closest('.pl-gp'), gr = groupRows(gp.dataset.gid).filter(function (t) { return !needsRole(t); });
+      if (gr.length) placeNewVenue(gr); else toast('Nothing to deploy: no device has a role', 'error');
+      return;
+    }
     if (b.dataset.id === '__new') {
       var tr = target.closest('tr');
       placeNewVenue(tr ? [tr] : null); return;
     }
     target.dataset.value = b.dataset.id; target.textContent = b.dataset.name; target.title = b.dataset.name;
     target.classList.remove('need');
+    var gpn = target.closest('.pl-gp');
+    if (gpn) { gSummary(gpn); target.focus(); return; }
     var row = target.closest('tr'); if (row) rowReady(row); else sync();
     target.focus();
   }
@@ -315,6 +335,76 @@
   });
   addEventListener('scroll', function (e) { if (pop && !pop.contains(e.target)) closePop(); }, true);
   addEventListener('resize', closePop);
+
+  // ── Group by (Ops lead's queue): rows regroup under a header with "Deploy all N here…" ──
+  var gmode = '';
+  function allRows() { return Array.prototype.slice.call(document.querySelectorAll('.pl-row')); }
+  function groupRows(gid) { return allRows().filter(function (tr) { return tr.dataset.gid === gid && !tr.classList.contains('done'); }); }
+  function applyGroup(mode) {
+    var tb = document.querySelector('.pl-ft tbody'); if (!tb) return;
+    gmode = mode;
+    document.querySelectorAll('.pl-gb').forEach(function (b) { var on = b.dataset.g === mode; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+    tb.querySelectorAll('.pl-gh,.pl-gp').forEach(function (x) { x.remove(); });
+    var rows = allRows();
+    rows.forEach(function (tr, i) { if (tr.dataset.i == null) tr.dataset.i = i; delete tr.dataset.gid; });
+    rows.sort(function (a, b) { return a.dataset.i - b.dataset.i; });
+    if (!mode) { rows.forEach(function (tr) { tb.appendChild(tr); }); sync(); return; }
+    var groups = {}, order = [];
+    rows.forEach(function (tr) { var k = tr.dataset[mode] || 'Unknown'; if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(tr); });
+    order.sort(function (a, b) { return groups[b].length - groups[a].length || a.localeCompare(b); });
+    order.forEach(function (k, gi) {
+      var gid = 'g' + gi, list = groups[k];
+      var h = document.createElement('tr'); h.className = 'pl-gh'; h.dataset.gid = gid;
+      h.innerHTML = '<td class="ft-cb"><input type="checkbox" class="pl-gcb" aria-label="Select the group"></td><td colspan="5"><div class="pl-gt"><span class="pl-gn"></span><span class="pl-gc"></span><button type="button" class="cc-btn sm pl-gact" aria-expanded="false"></button></div></td>';
+      h.querySelector('.pl-gn').textContent = k;
+      h.querySelector('.pl-gc').textContent = list.length + ' device' + (list.length === 1 ? '' : 's');
+      h.querySelector('.pl-gact').textContent = 'Deploy all ' + list.length + ' here…';
+      h.querySelector('.pl-gcb').setAttribute('aria-label', 'Select all in ' + k);
+      var gp = document.createElement('tr'); gp.className = 'pl-gp'; gp.dataset.gid = gid; gp.hidden = true;
+      gp.innerHTML = '<td></td><td colspan="5"><div class="pl-gpi"><span>Deploy to</span><button type="button" class="form-input pl-sel pl-vbtn pl-gvenue need" data-value="" aria-haspopup="listbox">Pick a venue…</button><span class="pl-gskip"></span><span class="sp"></span><button type="button" class="cc-btn sm pl-ggo" disabled title="Pick a venue first">Deploy</button></div></td>';
+      tb.appendChild(h); tb.appendChild(gp);
+      list.forEach(function (tr) { tr.dataset.gid = gid; tb.appendChild(tr); });
+    });
+    sync();
+  }
+  function gSummary(gp) {
+    var rows = groupRows(gp.dataset.gid), skip = rows.filter(needsRole).length, ok = rows.length - skip;
+    var v = gp.querySelector('.pl-gvenue').dataset.value, go = gp.querySelector('.pl-ggo');
+    gp.querySelector('.pl-gskip').textContent = skip ? skip + ' skipped (no role yet)' : 'each keeps its own role';
+    var gh = gp.previousElementSibling, n = rows.length;
+    gh.querySelector('.pl-gc').textContent = n + ' left';
+    gh.querySelector('.pl-gact').textContent = 'Deploy all ' + n + ' here…'; gh.querySelector('.pl-gact').disabled = !n;
+    go.textContent = 'Deploy ' + ok; go.disabled = !v || !ok; go.classList.toggle('primary', !go.disabled);
+    go.title = !v ? 'Pick a venue first' : (ok ? '' : 'Nothing to deploy: no device has a role');
+  }
+  function deployGroup(gp) {
+    var all = groupRows(gp.dataset.gid), rows = all.filter(function (tr) { return !needsRole(tr); }), skip = all.length - rows.length;
+    var v = gp.querySelector('.pl-gvenue').dataset.value;
+    if (!v || !rows.length) return;
+    if (v === '__new') { placeNewVenue(rows); return; }
+    var go = gp.querySelector('.pl-ggo'); go.disabled = true;
+    rows.reduce(function (p, tr) { return p.then(function () { return deploy(tr, v); }); }, Promise.resolve())
+      .then(function () { toast(rows.length + ' deployed · in service' + (skip ? ' · ' + skip + ' skipped, no role' : ''), 'success'); gSummary(gp); sync(); },
+            function (e) { toast(e.message, 'error'); gSummary(gp); sync(); });
+  }
+  document.addEventListener('click', function (e) {
+    var gb = e.target.closest('.pl-gb'); if (gb) { applyGroup(gb.dataset.g); return; }
+    var act = e.target.closest('.pl-gact');
+    if (act) {
+      var gh = act.closest('.pl-gh'), gp = gh.nextElementSibling, open = gp.hidden;
+      gp.hidden = !open; act.setAttribute('aria-expanded', open); if (open) gSummary(gp); return;
+    }
+    var g = e.target.closest('.pl-ggo'); if (g) deployGroup(g.closest('.pl-gp'));
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.classList && t.classList.contains('pl-gcb')) {
+      groupRows(t.closest('.pl-gh').dataset.gid).forEach(function (tr) { var c = tr.querySelector('.pl-pick'); if (c && !c.disabled) c.checked = t.checked; });
+      sync();
+    } else if (t.classList && (t.classList.contains('pl-pick') || t.classList.contains('pl-role') || t.id === 'pl-all')) {
+      document.querySelectorAll('.pl-gp:not([hidden])').forEach(gSummary);
+    }
+  });
 })();
 </script>
 {{end}}
