@@ -74,16 +74,16 @@ var (
 	rolesAdmin = []string{"admin"}
 	// rolesOperator: the everyday action set, operator and up. Where it is allowed is
 	// the access policy's business, not this table's.
-	// Engineer and Field (roles replan, 30 Oct 2026) hold it too; the device's state
+	// Field (roles replan, 30 Oct 2026) holds it too; the device's state
 	// decides where (dashboard access.stateDecision).
-	rolesOperator = []string{"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field"}
+	rolesOperator = []string{"admin", "fleet_admin", "fleet_manager", "operator", "field"}
 	// rolesSupport: the safe actions Support holds, plus owners at their own venues.
-	rolesSupport = []string{"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner"}
+	rolesSupport = []string{"admin", "fleet_admin", "fleet_manager", "operator", "field", "support", "owner"}
 	// rolesFloor: what restaurant staff may also do — reboot, find a tablet.
-	rolesFloor = []string{"admin", "fleet_admin", "fleet_manager", "operator", "engineer", "field", "support", "owner", "staff"}
-	// rolesWifi: Wi-Fi changes on a device — super admin, Ops lead, Support, Field, and
-	// engineers on lab devices (roles replan: "Wi-Fi, apps, remote control").
-	rolesWifi = []string{"admin", "fleet_manager", "operator", "engineer", "field"}
+	rolesFloor = []string{"admin", "fleet_admin", "fleet_manager", "operator", "field", "support", "owner", "staff"}
+	// rolesWifi: Wi-Fi changes on a device — super admin, Ops lead, Support and Field
+	// (roles replan: "Wi-Fi, apps, remote control").
+	rolesWifi = []string{"admin", "fleet_manager", "operator", "field"}
 	// rolesAppLibrary: who manages the app library (roleCanAppLibrary), fleet manager up.
 	rolesAppLibrary = []string{"admin", "fleet_admin", "fleet_manager"}
 	// rolesOTA: firmware pushes — admin and super admin only (26 Oct 2026).

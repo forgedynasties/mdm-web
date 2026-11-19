@@ -2283,19 +2283,12 @@ func (h *Handler) ListTestDataDevices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// qaDeviceFilter is the scope every testdata list shares: firmware devices, narrowed by
+// qaDeviceFilter is the scope every testdata list shares: every device on this server (no Lab
+// state, 19 Nov 2026: the key is simply not configured where it must not be used), narrowed by
 // ?group=<name> and ?restaurant=<name> (case-insensitive). It answers the request itself
 // (404 for an unknown name) and returns false when it did.
 func (h *Handler) qaDeviceFilter(w http.ResponseWriter, r *http.Request) (db.DeviceFilter, bool) {
-	filter := db.DeviceFilter{
-		// Scoped to firmware-client devices (T7/Kiosk) only — that's what the testing
-		// team is actually running test cycles against right now. Drop this (or make
-		// it a query param) once they need DPC-agent devices too.
-		AgentKind: product.KindFirmware,
-		// Lab devices only (at no venue): the testing team never sees or drives a unit
-		// that is deployed at a restaurant (user, 30 Oct 2026).
-		State: db.StateLab,
-	}
+	filter := db.DeviceFilter{}
 
 	if name := strings.TrimSpace(r.URL.Query().Get("group")); name != "" {
 		groupList, err := h.db.ListAllGroups(r.Context())
@@ -2353,9 +2346,13 @@ func (h *Handler) ListTestDataFilters(w http.ResponseWriter, r *http.Request) {
 	for _, g := range groups {
 		groupNames = append(groupNames, g.Name)
 	}
-	// The key stays for existing callers, empty: the testdata API sees Lab devices only,
-	// and a Lab device is at no venue, so there is no restaurant to narrow by.
+	// The key sees every device (19 Nov 2026), so every venue name is a valid filter again.
 	restaurantNames := []string{}
+	if rests, err := h.db.ListRestaurants(r.Context()); err == nil {
+		for _, rest := range rests {
+			restaurantNames = append(restaurantNames, rest.Name)
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string][]string{
 		"groups":      groupNames,
 		"restaurants": restaurantNames,

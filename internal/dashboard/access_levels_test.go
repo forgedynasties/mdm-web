@@ -11,7 +11,7 @@ import (
 )
 
 // Fixture (access_test.go): venue V holds d1 and d2, both in service; group G (the QA group
-// here) holds d2 and d3; d3 and d4 are in the Lab.
+// here) holds d2 and d3; d3 and d4 are to place.
 
 func TestLevelsByRoleAndState(t *testing.T) {
 	cases := []struct {
@@ -19,17 +19,17 @@ func TestLevelsByRoleAndState(t *testing.T) {
 		dev          uuid.UUID
 		want         bool
 	}{
-		// Engineer: View everywhere, Operate on Lab and on QA (which reaches d2 at a venue).
-		{"engineer", "view", d1, true},
-		{"engineer", "screenshot", d1, true},
-		{"engineer", "query", d1, true},
-		{"engineer", "reboot", d1, false},
-		{"engineer", "reboot", d2, true},
-		{"engineer", "reboot", d3, true},
-		{"engineer", "reboot", d4, true},
-		{"engineer", "remote", d3, false}, // Manage, Lab is Operate
-		{"engineer", "wifi", d4, false},
-		{"engineer", "shell", d3, false}, // super admins only
+		// QA fixture: View everywhere, Operate on devices to place and on QA (which reaches d2 at a venue).
+		{qaFixture, "view", d1, true},
+		{qaFixture, "screenshot", d1, true},
+		{qaFixture, "query", d1, true},
+		{qaFixture, "reboot", d1, false},
+		{qaFixture, "reboot", d2, true},
+		{qaFixture, "reboot", d3, true},
+		{qaFixture, "reboot", d4, true},
+		{qaFixture, "remote", d3, false}, // Manage; to place is Operate
+		{qaFixture, "wifi", d4, false},
+		{qaFixture, "shell", d3, false}, // super admins only
 		// Support: Manage in service, nothing else.
 		{"operator", "remote", d1, true},
 		{"operator", "reboot", d2, true},
@@ -38,9 +38,9 @@ func TestLevelsByRoleAndState(t *testing.T) {
 		{"viewer", "view", d1, true},
 		{"viewer", "screenshot", d1, false},
 		{"viewer", "view", d4, false},
-		// Ops lead: setting up and in service, no Lab.
+		// Ops lead: to place and in service.
 		{"fleet_manager", "remote", d1, true},
-		{"fleet_manager", "view", d4, false},
+		{"fleet_manager", "view", d4, true},
 		// Admin (old): everything but the shell; firmware updates too.
 		{"fleet_admin", "ota", d4, true},
 		{"fleet_admin", "shell", d4, false},
@@ -59,12 +59,12 @@ func TestLevelsByRoleAndState(t *testing.T) {
 func TestPersonGrantsAddAndExpire(t *testing.T) {
 	v := venueV
 	future, past := time.Now().Add(48*time.Hour), time.Now().Add(-time.Hour)
-	a := newAccess("engineer", db.AccessPolicy{})
+	a := newAccess(qaFixture, db.AccessPolicy{})
 	a.lvls = append(a.lvls, db.AccessLevel{SubjectType: "user", Subject: "u", ScopeType: "venue", ScopeID: &v, Level: "manage", Until: &future})
 	if !a.canDevice("remote", d1) {
 		t.Error("a person's Manage on venue V should give remote control on d1")
 	}
-	b := newAccess("engineer", db.AccessPolicy{})
+	b := newAccess(qaFixture, db.AccessPolicy{})
 	b.lvls = append(b.lvls, db.AccessLevel{SubjectType: "user", Subject: "u", ScopeType: "venue", ScopeID: &v, Level: "manage", Until: &past})
 	if b.canDevice("reboot", d1) {
 		t.Error("an expired grant must not count")
@@ -75,7 +75,7 @@ func TestPersonGrantsAddAndExpire(t *testing.T) {
 }
 
 func TestLevelVisibility(t *testing.T) {
-	if newAccess("engineer", db.AccessPolicy{}).hidesDevices() {
+	if newAccess(qaFixture, db.AccessPolicy{}).hidesDevices() {
 		t.Error("engineers view everything: their lists are not filtered")
 	}
 	sup := newAccess("operator", db.AccessPolicy{})
@@ -127,7 +127,7 @@ func TestCustomersUnchanged(t *testing.T) {
 }
 
 func TestLookOnlyAndLocks(t *testing.T) {
-	a := newAccess("engineer", db.AccessPolicy{})
+	a := newAccess(qaFixture, db.AccessPolicy{})
 	if !a.lookOnly(d1) || a.lookOnly(d2) || a.lookOnly(d3) {
 		t.Error("engineer: d1 view only; d2 (QA) and d3 (Lab) operable")
 	}
@@ -161,11 +161,11 @@ func TestLookOnlyAndLocks(t *testing.T) {
 
 func TestAccessSentence(t *testing.T) {
 	g := groupG
-	gs := seedLevels("engineer")
+	gs := seedLevels(qaFixture)
 	gs[2].ScopeName = "QA"
 	_ = g
-	s := accessSentence("Engineers", "They", gs, time.Now())
-	for _, want := range []string{"Engineers can operate Lab devices and the QA group, and look at every other device."} {
+	s := accessSentence("QA testers", "They", gs, time.Now())
+	for _, want := range []string{"QA testers can operate devices to place and the QA group, and look at every other device."} {
 		if !strings.Contains(s, want) {
 			t.Errorf("sentence %q lacks %q", s, want)
 		}
@@ -175,13 +175,13 @@ func TestAccessSentence(t *testing.T) {
 func TestParseScope(t *testing.T) {
 	id := uuid.New()
 	for in, want := range map[string]string{
-		"all": "all", "state:lab": "state", "own": "own", "group:" + id.String(): "group", "venue:" + id.String(): "venue",
+		"all": "all", "state:to_place": "state", "own": "own", "group:" + id.String(): "group", "venue:" + id.String(): "venue",
 	} {
 		if st, _, _, ok := parseScope(in); !ok || st != want {
 			t.Errorf("parseScope(%q) = %q, %v", in, st, ok)
 		}
 	}
-	for _, bad := range []string{"", "state:nope", "group:x", "all:1", "device:1", "visit", "state:setting_up"} {
+	for _, bad := range []string{"", "state:nope", "group:x", "all:1", "device:1", "visit", "state:setting_up", "state:lab"} {
 		if _, _, _, ok := parseScope(bad); ok {
 			t.Errorf("parseScope(%q) accepted", bad)
 		}

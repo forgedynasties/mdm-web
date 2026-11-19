@@ -33,7 +33,7 @@ type EnrollmentProfile struct {
 	MaxEnrolls     *int       // token stops enrolling after this many devices
 	LastEnrolledAt *time.Time
 	CreatedBy      string // username of the account that minted it (enroll app); '' for dashboard/API profiles
-	Placement      string // AIO Enroll's answer for devices with no venue: queue | lab | '' (R1, placement.go)
+	Placement      string // AIO Enroll's answer for devices with no venue: queue | '' (a stored 'lab' reads as queue, placement.go)
 }
 
 func (p EnrollmentProfile) Revoked() bool { return p.RevokedAt != nil }
@@ -71,7 +71,7 @@ type EnrollmentProfileInput struct {
 	ExpiresAt    *time.Time
 	MaxEnrolls   *int
 	CreatedBy    string
-	Placement    string // queue | lab | '' (placement.go)
+	Placement    string // queue | '' (placement.go)
 }
 
 func (d *DB) CreateEnrollmentProfile(ctx context.Context, in EnrollmentProfileInput) (uuid.UUID, error) {
@@ -259,7 +259,7 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		                     agent_kind, enrollment_status, enrolled_at, device_class, restaurant_id, onboarded_at, enrolled_by, class_source, placement)
 		VALUES ($1, $2, $3, $4, 'dpc', 'enrolled', NOW(), $5, $6,
 		        CASE WHEN $6::uuid IS NOT NULL THEN NOW() ELSE NULL END, $7, $8,
-		        CASE WHEN $9 <> '' THEN $9 ELSE `+r1Placement("$7")+` END)
+		        'queue')
 		ON CONFLICT (serial_number) DO UPDATE
 		SET device_key_hash   = EXCLUDED.device_key_hash,
 		    key_rotated_at    = CASE WHEN devices.device_key_hash IS NOT NULL THEN NOW() ELSE devices.key_rotated_at END,
@@ -278,10 +278,10 @@ func (d *DB) EnrollDevice(ctx context.Context, profile *EnrollmentProfile, seria
 		    restaurant_id     = COALESCE(EXCLUDED.restaurant_id, devices.restaurant_id),
 		    onboarded_at      = COALESCE(devices.onboarded_at, EXCLUDED.onboarded_at),
 		    enrolled_by       = CASE WHEN EXCLUDED.enrolled_by <> '' THEN EXCLUDED.enrolled_by ELSE devices.enrolled_by END,
-		    -- AIO Enroll's answer wins; else a device keeps where it was (R1 for one that never had any).
-		    placement         = CASE WHEN $9 <> '' THEN $9 WHEN devices.placement <> '' THEN devices.placement ELSE EXCLUDED.placement END
+		    -- No Lab state (19 Nov 2026): a device at no venue is waiting to be placed.
+		    placement         = 'queue'
 		RETURNING id, (xmax <> 0), onboarded_at`,
-		serial, product, keyHash, profile.ID, class, profile.RestaurantID, profile.CreatedBy, source, profile.Placement).
+		serial, product, keyHash, profile.ID, class, profile.RestaurantID, profile.CreatedBy, source).
 		Scan(&res.DeviceID, &res.ReEnrolled, &onboardedAt)
 	if err != nil {
 		return res, err

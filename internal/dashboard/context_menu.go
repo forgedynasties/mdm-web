@@ -26,8 +26,7 @@ func ctxCaps(role string) string {
 		"remote":     roleCanOperate(role),
 		"lock":       roleCanSupport(role),
 		"group":      roleCanOperate(role),
-		// Engineers never move devices to a venue (engineerNeverWrites).
-		"venue": roleCanOperate(role) && role != "engineer",
+		"venue": roleCanOperate(role),
 		// Role… left the menu (17 Nov 2026): a device picks only among its model's roles,
 		// on its page; a model's roles are set on Models.
 		"role":  false,

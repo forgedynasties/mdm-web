@@ -30,7 +30,7 @@
     return order.map(function (k) {
       var s = by[k], f = s.devs[0];
       s.n = s.devs.length; s.lat /= s.n; s.lon /= s.n;
-      s.name = f.restaurant || (s.n === 1 ? f.serial : 'Lab' + (f.address ? ' · ' + f.address.split(',')[0] : '')); s.rid = f.restaurant_id || ''; s.addr = f.address || '';
+      s.name = f.restaurant || (s.n === 1 ? f.serial : 'To place' + (f.address ? ' · ' + f.address.split(',')[0] : '')); s.rid = f.restaurant_id || ''; s.addr = f.address || '';
       s.away = s.n === 1 && !!f.away;
       return s;
     });

@@ -71,11 +71,11 @@ type DeviceScope struct {
 	RestaurantID *uuid.UUID
 	Groups       []uuid.UUID
 	DPC          bool // runs the Device-Owner agent (no longer hidden from anyone)
-	Placement    string // at no venue: 'queue' = to place, else Lab (placement.go)
+	Placement    string // as enrolled ('queue' for new devices); state ignores it (placement.go)
 	EnrolledBy   string // who enrolled it through AIO Enroll ('' unknown)
 }
 
-// State is the device's state: lab, to place or in service.
+// State is the device's state: to place or in service.
 func (s DeviceScope) State() string { return DeviceState(s.RestaurantID, s.Placement) }
 
 // DeviceScopes loads every device's restaurant and group memberships (two small

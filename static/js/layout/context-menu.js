@@ -341,7 +341,7 @@
     var n = serials.length, what = n === 1 ? serials[0] : n + ' devices';
     loadTargets().then(function (t) {
       picker('Move to venue', what, t.venues.map(function (v) { return { label: v.name, id: v.id }; }), function (v) {
-        if (!window.confirm('Move ' + what + ' to ' + v.label + '? It leaves the Lab and is set up there.')) return;
+        if (!window.confirm('Move ' + what + ' to ' + v.label + '? It is set up there.')) return;
         post('/devices/bulk-restaurant', { serials: serials.join('\n'), restaurant_id: v.id }, function (res, to) {
           if (res.ok) { toast('Moved to ' + v.label); if (to) go(to); else reloadView(); }
         });

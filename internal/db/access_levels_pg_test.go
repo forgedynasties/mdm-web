@@ -31,9 +31,12 @@ func TestAccessLevelsMigration(t *testing.T) {
 		}
 		return n
 	}
-	eng := count(`SELECT count(*) FROM access_levels WHERE subject_type = 'role' AND subject = 'engineer'`)
-	if eng < 2 {
-		t.Fatalf("engineer baselines seeded: %d, want at least View everywhere and Operate on Lab", eng)
+	if n := count(`SELECT count(*) FROM access_levels WHERE subject_type = 'role' AND (subject = 'engineer' OR state = 'lab')`); n != 0 {
+		t.Fatalf("engineer / Lab grants left after no-lab-v1: %d", n)
+	}
+	sup := count(`SELECT count(*) FROM access_levels WHERE subject_type = 'role' AND subject = 'operator'`)
+	if sup < 1 {
+		t.Fatalf("Support baselines seeded: %d, want at least one", sup)
 	}
 	if n := count(`SELECT count(*) FROM access_profiles`); n != 0 {
 		t.Errorf("built-in access profiles left: %d", n)
@@ -54,7 +57,7 @@ func TestAccessLevelsMigration(t *testing.T) {
 	}
 	// A person's grant, given twice: one row, the newer level, then removed.
 	user := "lvl-" + time.Now().Format("150405.000")
-	g := AccessLevel{SubjectType: "user", Subject: user, ScopeType: "state", State: StateLab, Level: "view", CreatedBy: "test"}
+	g := AccessLevel{SubjectType: "user", Subject: user, ScopeType: "state", State: StateToPlace, Level: "view", CreatedBy: "test"}
 	if err := d.SetAccessLevel(ctx, g); err != nil {
 		t.Fatal(err)
 	}
@@ -64,11 +67,11 @@ func TestAccessLevelsMigration(t *testing.T) {
 	}
 	mine, err := d.UserAccessLevels(ctx, user)
 	if err != nil || len(mine) != 1 || mine[0].Level != "manage" || mine[0].Devices < 0 {
-		t.Fatalf("own grants = %+v (%v), want one Manage on Lab", mine, err)
+		t.Fatalf("own grants = %+v (%v), want one Manage on To place", mine, err)
 	}
-	both, _ := d.AccessLevelsFor(ctx, "engineer", user)
-	if len(both) != eng+1 {
-		t.Errorf("role + own grants = %d, want %d", len(both), eng+1)
+	both, _ := d.AccessLevelsFor(ctx, "operator", user)
+	if len(both) != sup+1 {
+		t.Errorf("role + own grants = %d, want %d", len(both), sup+1)
 	}
 	if err := d.DeleteAccessLevel(ctx, mine[0].ID); err != nil {
 		t.Fatal(err)

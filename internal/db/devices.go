@@ -840,16 +840,16 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 }
 
 // DeploymentCounts returns how many non-hidden devices are deployed (assigned to a
-// restaurant) vs. in the lab (unassigned).
-func (d *DB) DeploymentCounts(ctx context.Context) (deployed, lab int, err error) {
+// restaurant) vs. waiting to be placed (unassigned).
+func (d *DB) DeploymentCounts(ctx context.Context) (deployed, unplaced int, err error) {
 	err = d.pool.QueryRow(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE d.restaurant_id IS NOT NULL),
 			COUNT(*) FILTER (WHERE d.restaurant_id IS NULL)
 		FROM devices d
 		WHERE NOT d.hidden
-	`).Scan(&deployed, &lab)
-	return deployed, lab, err
+	`).Scan(&deployed, &unplaced)
+	return deployed, unplaced, err
 }
 
 func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalMs int) error {
@@ -1320,10 +1320,8 @@ func (d *DB) GetDeviceIDsByRestaurantIDs(ctx context.Context, restaurantIDs []uu
 // stateWhere is the SQL for a device-state filter (DeviceFilter.State), "" for none.
 func stateWhere(state string) string {
 	switch state {
-	case StateLab:
-		return "d.restaurant_id IS NULL AND d.placement <> 'queue'"
 	case StateToPlace:
-		return "d.restaurant_id IS NULL AND d.placement = 'queue'"
+		return "d.restaurant_id IS NULL"
 	case StateInService:
 		return "d.restaurant_id IS NOT NULL"
 	}

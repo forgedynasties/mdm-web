@@ -34,8 +34,17 @@ func fixtureScopes() map[uuid.UUID]db.DeviceScope {
 	}
 }
 
+// qaFixture is a test-only role for the level evaluator: View everywhere, Operate on the
+// devices to place and on the QA group (what the retired Engineer role used to hold on Lab).
+// It rides on the Admin (old) ceiling, which no device-state rule narrows.
+const qaFixture = "qa-fixture"
+
 func newAccess(role string, pol db.AccessPolicy) *access {
-	a := &access{ctx: context.Background(), role: role, username: "u", pol: pol}
+	carrier := role
+	if role == qaFixture {
+		carrier = "fleet_admin"
+	}
+	a := &access{ctx: context.Background(), role: carrier, username: "u", pol: pol}
 	a.scopes = fixtureScopes()
 	a.once.Do(func() {}) // scopes preloaded; never touch the DB
 	a.lvls = seedLevels(role)
@@ -60,10 +69,10 @@ func seedLevels(role string) []db.AccessLevel {
 		return []db.AccessLevel{lv("state", db.StateInService, "view")}
 	case "field":
 		return []db.AccessLevel{lv("own", "", "manage")}
-	case "engineer":
+	case qaFixture:
 		qa := lv("group", "", "operate")
 		qa.ScopeID = &g
-		return []db.AccessLevel{lv("all", "", "view"), lv("state", db.StateLab, "operate"), qa}
+		return []db.AccessLevel{lv("all", "", "view"), lv("state", db.StateToPlace, "operate"), qa}
 	}
 	return nil
 }
@@ -223,7 +232,7 @@ func TestRoleLadder(t *testing.T) {
 		{"fleet_admin", "fleet_manager", "", false},
 		{"operator", "viewer", "", false},
 		{"owner", "staff", "", false},
-		{"admin", "field", "engineer", true},
+		{"admin", "field", "operator", true},
 		{"admin", "admin", "admin", true},
 	}
 	for _, c := range cases {
@@ -231,7 +240,7 @@ func TestRoleLadder(t *testing.T) {
 			t.Errorf("mayManageUser(%s, %s, %q) = %v, want %v", c.actor, c.target, c.newRole, got, c.want)
 		}
 	}
-	if got := assignableRoles("admin"); strings.Join(got, ",") != "admin,fleet_manager,engineer,operator,field,viewer,owner,staff" {
+	if got := assignableRoles("admin"); strings.Join(got, ",") != "admin,fleet_manager,operator,field,viewer,owner,staff" {
 		t.Errorf("super admin assigns %v (legacy roles must not be offered)", got)
 	}
 	if assignableRoles("fleet_manager") != nil || assignableRoles("operator") != nil || assignableRoles("owner") != nil {

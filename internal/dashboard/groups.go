@@ -243,35 +243,11 @@ func cleanSerialToken(s string) string {
 	return strings.TrimRight(strings.TrimSpace(s), " \t,;:.\"'`)]}")
 }
 
-// requireGroupWrite guards a change to a group (create, rename, delete, members). Most
-// roles need the fleet "groups" action. An engineer, who holds no fleet action, may change
-// a group only when every device involved (the group's members and the serials named) is
-// Lab: devices at a venue are read-only for engineers (user, 30 Oct 2026).
-func (h *Handler) requireGroupWrite(w http.ResponseWriter, r *http.Request, group *uuid.UUID, serials []string) bool {
-	if h.role(r) != "engineer" {
-		return h.requireFleetAction(w, r, "groups")
-	}
-	ctx := r.Context()
-	var ids []uuid.UUID
-	if group != nil {
-		members, err := h.db.GetDeviceIDsByGroupIDs(ctx, []uuid.UUID{*group})
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return false
-		}
-		ids = append(ids, members...)
-	}
-	if len(serials) > 0 {
-		known, err := h.db.SerialIDs(ctx, serials)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return false
-		}
-		for _, id := range known {
-			ids = append(ids, id)
-		}
-	}
-	return !h.refuseEngineerVenue(w, r, "groups", ids)
+// requireGroupWrite guards a change to a group (create, rename, delete, members): the fleet
+// "groups" action. The group and serials a call touches are named for callers' readability;
+// they no longer narrow anything (the retired Engineer's Lab-only rule went with the Lab state).
+func (h *Handler) requireGroupWrite(w http.ResponseWriter, r *http.Request, _ *uuid.UUID, _ []string) bool {
+	return h.requireFleetAction(w, r, "groups")
 }
 
 func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {

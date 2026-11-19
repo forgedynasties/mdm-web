@@ -15,7 +15,7 @@ import (
 
 type personGrant struct {
 	db.AccessLevel
-	From  string // "Engineer" (their role) or "" (their own or their Where)
+	From  string // "Support" (their role) or "" (their own or their Where)
 	Where bool   // stands for their own Where (access_where.go)
 }
 

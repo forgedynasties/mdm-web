@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// The right-click menu offers what the role may do: an engineer never moves devices to a
-// venue and is read-only at one; a viewer acts on nothing; Role… never lists Tableside AI.
+// The right-click menu offers what the role may do: a viewer acts on nothing; Role… never lists Tableside AI.
 func TestCtxCaps(t *testing.T) {
 	read := func(role string) map[string]any {
 		var m map[string]any
@@ -15,9 +14,9 @@ func TestCtxCaps(t *testing.T) {
 		}
 		return m
 	}
-	eng := read("engineer")
-	if eng["venue"] != false || eng["group"] != true || eng["screenshot"] != true {
-		t.Errorf("engineer caps = %v", eng)
+	sup := read("operator")
+	if sup["venue"] != true || sup["group"] != true || sup["screenshot"] != true {
+		t.Errorf("support caps = %v", sup)
 	}
 	v := read("viewer")
 	for _, k := range []string{"reboot", "lock", "group", "venue", "role", "remote", "screenshot"} {

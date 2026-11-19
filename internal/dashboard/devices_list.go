@@ -539,7 +539,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	enrollers, _ := h.db.ListEnrollers(r.Context())
 	// Rail tabs (T1, picked 2 Nov 2026): Restaurants or Groups, one list at a time. The
 	// selected collection opens its tab; otherwise someone who may only look at every
-	// restaurant (an engineer) starts on Groups, everyone else on Restaurants (the page
+	// restaurant starts on Groups, everyone else on Restaurants (the page
 	// then applies the person's last tab). R1: a lock on the Restaurants tab when every
 	// restaurant is view-only, and on each group that is.
 	acc := h.access(r)

@@ -80,7 +80,7 @@
   function render(ds) {
     last = ds;
     devs.innerHTML = ds.map(function (d) {
-      return '<div class="adb-dev"><div class="hd"><span class="s">' + S.esc(d.serial) + '</span><span class="v">' + S.esc(d.venue || 'Lab') +
+      return '<div class="adb-dev"><div class="hd"><span class="s">' + S.esc(d.serial) + '</span><span class="v">' + S.esc(d.venue || 'To place') +
         (d.online ? '' : ' · offline') + '</span>' + S.tag(d) + '</div>' + (S.settled(d) ? '' : S.steps(d)) + '</div>';
     }).join('');
     var ready = ds.filter(function (d) { return d.state === 'ready'; }).length,

@@ -45,10 +45,9 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	role := h.role(r)
 	canAct := roleCanOperate(role)
 	var alerts []humanAlert
-	actable := h.actableSet(r, raw)
 	for _, a := range raw {
 		ha := humanizeAlert(a)
-		ha.CanAct = canAct && (actable == nil || actable[a.ID])
+		ha.CanAct = canAct
 		ha.Trace = trimTrace(ha.Trace)
 		alerts = append(alerts, ha)
 	}
@@ -121,10 +120,9 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	}
 	var crit, watch []humanAlert
 	hs := make([]humanAlert, len(active))
-	actable := h.actableSet(r, active)
 	for i, a := range active {
 		ha := humanizeAlert(a)
-		ha.CanAct = canAct && (actable == nil || actable[a.ID])
+		ha.CanAct = canAct
 		// Crash/ANR alerts carry the real diagnostic: attach the latest stored stack
 		// trace so it renders inline on the card (same as the release problems page),
 		// instead of linking out to the old logcat capture.
@@ -478,10 +476,6 @@ func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
 			ids = append(ids, id)
 		}
 	}
-	if h.role(r) == "engineer" && len(ids) < len(r.Form["ids"]) {
-		http.Error(w, "Engineers handle the alerts of lab devices only: devices at a venue are read-only for engineers.", http.StatusForbidden)
-		return
-	}
 	if len(ids) > 0 {
 		if _, err := h.db.BulkSetAlertStatusByIDs(r.Context(), ids, status); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -497,7 +491,7 @@ func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
 // true when nothing is hidden from them (the set is then not computed).
 func (h *Handler) visibleAlertIDs(r *http.Request) (map[uuid.UUID]bool, bool) {
 	acc := h.access(r)
-	if !acc.hidesDevices() && acc.role != "engineer" {
+	if !acc.hidesDevices() {
 		return nil, true
 	}
 	active, err := h.db.ListActiveAlerts(r.Context(), 5000)
@@ -505,8 +499,7 @@ func (h *Handler) visibleAlertIDs(r *http.Request) (map[uuid.UUID]bool, bool) {
 	if err != nil {
 		return out, false
 	}
-	// Engineers handle the alerts of Lab devices only (keepActableAlerts).
-	for _, a := range acc.keepActableAlerts(active) {
+	for _, a := range acc.keepVisibleAlerts(active) {
 		out[a.ID] = true
 	}
 	return out, false
@@ -546,22 +539,16 @@ func (h *Handler) AlertProblemAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	visible := map[uuid.UUID]bool{}
-	for _, a := range h.access(r).keepActableAlerts(active) {
+	for _, a := range h.access(r).keepVisibleAlerts(active) {
 		visible[a.ID] = true
 	}
 	var ids []uuid.UUID
-	asked := 0
 	for _, part := range strings.Split(r.FormValue("ids"), ",") {
 		if id, err := uuid.Parse(strings.TrimSpace(part)); err == nil {
-			asked++
 			if visible[id] {
 				ids = append(ids, id)
 			}
 		}
-	}
-	if h.role(r) == "engineer" && asked > 0 && len(ids) < asked {
-		http.Error(w, "Engineers handle the alerts of lab devices only: devices at a venue are read-only for engineers.", http.StatusForbidden)
-		return
 	}
 	if op == "assign" && value == "me" {
 		value = h.currentUsername(r)
@@ -583,10 +570,6 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 		return
 	}
 	if visible, all := h.visibleAlertIDs(r); !all && !visible[id] {
-		if h.role(r) == "engineer" {
-			http.Error(w, "Engineers handle the alerts of lab devices only: devices at a venue are read-only for engineers.", http.StatusForbidden)
-			return
-		}
 		http.Error(w, "Alert not found", http.StatusNotFound)
 		return
 	}
@@ -659,18 +642,4 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 	h.audit(r, "alert."+status+"_all", "", strconv.FormatInt(n, 10))
 	h.hub.PublishAlertUpdate()
 	h.hxDone(w, r, "/alerts")
-}
-
-// actableSet: for an Engineer, the alerts among these they may act on (those of Lab
-// devices, keepActableAlerts), so Acknowledge, Resolve and Snooze show only there; nil
-// for everyone else (the role alone decides).
-func (h *Handler) actableSet(r *http.Request, alerts []db.Alert) map[uuid.UUID]bool {
-	if h.role(r) != "engineer" {
-		return nil
-	}
-	out := make(map[uuid.UUID]bool, len(alerts))
-	for _, a := range h.access(r).keepActableAlerts(alerts) {
-		out[a.ID] = true
-	}
-	return out
 }

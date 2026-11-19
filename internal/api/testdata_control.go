@@ -15,7 +15,7 @@ import (
 // Device control for the testing team (QA key, 30 Oct 2026; user: "add one control, so that
 // they can trigger turning on a specific app and then they can trigger closing it and
 // turning on off screen"; "need to allow role app only for the app launching"). Each route sends one fixed shell command built here, never a
-// caller's text, to a Lab firmware device (qaFirmwareDevice), and the caller polls
+// caller's text, to a device (qaFirmwareDevice), and the caller polls
 // GET /api/v1/testdata/commands/{id} — or passes ?wait=true to get the result in the reply.
 //
 // Open and close take only the device's role app (Lineup › role › App) or one of its

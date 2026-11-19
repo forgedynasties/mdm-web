@@ -317,7 +317,7 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 // RestaurantNewDevices powers the deploy picker on the create form (no venue id yet):
-// every assignable device, lab/unassigned shown first, deployed-elsewhere flagged.
+// every assignable device, unassigned shown first, deployed-elsewhere flagged.
 func (h *Handler) RestaurantNewDevices(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	devices, err := h.db.ListAssignableDevices(r.Context(), uuid.Nil, q,
@@ -948,7 +948,7 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 	if !h.requireFleetAction(w, r, "groups") {
 		return
 	}
-	// Deleting a venue sends every device there back to the Lab: for the people who run
+	// Deleting a venue sends every device there back to To place: for the people who run
 	// venues (Ops lead and up), not Support (18 Nov 2026 audit).
 	if !mayManageVisits(h.role(r)) {
 		http.Error(w, "Deleting a venue is for an Ops lead or an admin.", http.StatusForbidden)
@@ -959,7 +959,7 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
 		return
 	}
-	// Its tablets go back to the lab, so they stop showing its name and Wi-Fi.
+	// Its tablets go back to To place, so they stop showing its name and Wi-Fi.
 	members, _ := h.db.GetDeviceIDsByRestaurantIDs(r.Context(), []uuid.UUID{id})
 	if err := h.db.DeleteRestaurant(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -1042,7 +1042,7 @@ func (h *Handler) RestaurantDevicePicker(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// RestaurantRemoveDevice unassigns a device from this restaurant (back to lab).
+// RestaurantRemoveDevice unassigns a device from this restaurant (back to To place).
 func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request) {
 	if !h.requireFleetAction(w, r, "groups") {
 		return

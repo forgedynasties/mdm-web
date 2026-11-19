@@ -383,7 +383,7 @@ func (h *Handler) renderWifiCard(w http.ResponseWriter, r *http.Request, v devic
 
 // DeviceWifiSave is POST /devices/{serial}/wifi: action = add (also Edit password) |
 // remove | connect, with ssid, security, password, hidden. Super admin, Ops lead, Support,
-// Field, and engineers on lab devices (canEditWifi; roles replan, 30 Oct 2026).
+// Field (canEditWifi; roles replan, 30 Oct 2026).
 func (h *Handler) DeviceWifiSave(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	d, err := h.db.GetDevice(ctx, r.PathValue("serial"))
@@ -480,14 +480,14 @@ func (h *Handler) venueNetworkFor(ctx context.Context, d *db.Device, id string) 
 
 // canEditWifi: may this viewer change the device's Wi-Fi? Super admin always; otherwise an
 // operator-level role whose access allows lock settings ("kiosk") on this device, which
-// the device-state rules narrow (Support: in service; Field: their visit; Engineer: lab).
+// the device-state rules narrow (Support: in service; Field: their own).
 func (h *Handler) canEditWifi(r *http.Request, d *db.Device) bool {
 	role := h.role(r)
 	if role == "admin" {
 		return true
 	}
 	switch role {
-	case "fleet_manager", "operator", "engineer", "field":
+	case "fleet_manager", "operator", "field":
 		return h.access(r).canDevice("kiosk", d.ID)
 	}
 	return false

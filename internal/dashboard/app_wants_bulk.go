@@ -202,9 +202,6 @@ func (h *Handler) AddAppTo(w http.ResponseWriter, r *http.Request) {
 	for _, d := range t.Devices {
 		ids = append(ids, d.ID)
 	}
-	if h.refuseEngineerVenue(w, r, policyActionForCommand("install_apk"), ids) {
-		return
-	}
 	have, _ := h.db.DevicePackagesOf(r.Context(), ids, []string{pkg})
 	by := h.currentUsername(r)
 	var added []uuid.UUID

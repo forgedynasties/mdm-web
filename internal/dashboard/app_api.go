@@ -240,25 +240,23 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 	var body struct {
 		DeviceClass  string `json:"device_class"`
 		RestaurantID string `json:"restaurant_id"`
-		// With no venue: "queue" (Not decided yet: Ops places it) or "lab"; omitted by older
-		// builds, which leaves it to the enroller's role (R1, db/placement.go).
+		// With no venue: "queue" (Not decided yet: Ops places it). "lab", still sent by AIO
+		// Enroll for Android 0.5.0, means the same (no Lab state, 19 Nov 2026); omitted by
+		// the desktop app: a device at no venue is to place anyway.
 		Placement string `json:"placement"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body); err != nil {
 		appErr(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	placement := strings.TrimSpace(body.Placement)
-	if placement != "" && placement != db.PlacementQueue && placement != db.PlacementLab {
-		appErr(w, http.StatusBadRequest, "placement must be queue or lab")
+	placement, okPlacement := db.NormalizePlacement(strings.TrimSpace(body.Placement))
+	if !okPlacement {
+		appErr(w, http.StatusBadRequest, "placement must be queue")
 		return
 	}
 	name := appEnrollProfilePrefix + s.Username
-	switch placement {
-	case db.PlacementQueue:
+	if placement == db.PlacementQueue {
 		name = appEnrollProfilePrefix + "to place · " + s.Username
-	case db.PlacementLab:
-		name = appEnrollProfilePrefix + "lab · " + s.Username
 	}
 	var site *db.Restaurant
 	if rid := strings.TrimSpace(body.RestaurantID); rid != "" {
@@ -274,12 +272,6 @@ func (h *Handler) AppEnrollToken(w http.ResponseWriter, r *http.Request, s *db.S
 		// Field enrolls devices of their own, which they may put at any venue (K2, 3 Nov 2026).
 		if s.Role != "field" && !h.accessFor(r.Context(), s.Role, s.Username).venueInScope(site.ID) {
 			appErr(w, http.StatusForbidden, "that venue is outside your access")
-			return
-		}
-		// Engineers enrol Lab devices: placing a device at a venue is for the people who
-		// set venues up (devices at a venue are read-only for engineers).
-		if s.Role == "engineer" {
-			appErr(w, http.StatusForbidden, "engineers enrol lab devices: leave the venue empty")
 			return
 		}
 		// Viewers enrol into the To place queue only (pre-pentest audit, 18 Nov 2026): a

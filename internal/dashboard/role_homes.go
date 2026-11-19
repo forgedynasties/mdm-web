@@ -12,7 +12,7 @@ import (
 // Role homes (roles replan, decided 30 Oct 2026): each role signs in to a page built for
 // its job (Root redirects). Field → Setup at /setup/mine (the devices they enrolled, waiting
 // for a venue); Ops lead → Setup at /setup (the queue to place). Support lands on Today
-// (alerts), Viewers on Venues, Engineers on Fleet filtered to Lab.
+// (alerts), Viewers on Venues.
 
 // MySetup: GET /setup/mine, Field's home ("Setup"). The devices they enrolled and not placed
 // yet, each with its role picker, any venue and Deploy; placing one puts it in service and it
@@ -51,7 +51,6 @@ var dockSets = map[string]map[string]bool{
 	"fleet_manager": {"setup": true, "today": true, "venues": true, "fleet": true, "more": true, "search": true},
 	"operator":      {"today": true, "venues": true, "fleet": true, "more": true, "search": true},
 	"support":       {"today": true, "venues": true, "fleet": true, "more": true, "search": true},
-	"engineer":      {"fleet": true, "apps": true, "releases": true, "search": true},
 	"field":         {"myvisits": true, "today": true, "enroll": true},
 	"viewer":        {"venues": true},
 }
@@ -85,12 +84,10 @@ var curatedPages = map[string]bool{
 }
 
 // curatedAllow is what each restricted role may open. Field's "devices" means device
-// pages only: their list is My visits. Engineers open groups (access by levels, 2 Nov
-// 2026): group access is how they are given more, and the Fleet rail's Groups tab is theirs.
+// pages only: their list is My visits. 
 var curatedAllow = map[string]map[string]bool{
 	"field":    {"setup": true, "devices": true, "alerts": true},
 	"viewer":   {"restaurants": true},
-	"engineer": {"devices": true, "apps": true, "releases": true, "alerts": true, "groups": true},
 }
 
 // canOpenPage: may this role open the top-level page seg ("restaurants", "groups"…)?
@@ -100,7 +97,7 @@ func canOpenPage(role, seg string) bool {
 	return !curated || allow[seg]
 }
 
-// CurateByRole keeps Field, Viewers and Engineers on their own pages (the server side of the
+// CurateByRole keeps Field and Viewers on their own pages (the server side of the
 // curated dock).
 func (h *Handler) CurateByRole(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

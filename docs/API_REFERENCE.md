@@ -17,7 +17,7 @@ The server exposes one `http.ServeMux` (`cmd/server/main.go`) carrying four coex
 |---|---|---|---|
 | Device API | `/api/v1/checkin`, `/commands/{id}/ack`, `/logcat`, `/ota/status`, `/ws` | `X-API-Key: <DEVICE_API_KEY>` | Used by fleet devices |
 | Admin REST API | `/api/v1/devices`, `/groups`, `/productions`, `/commands` | `X-API-Key: <ADMIN_API_KEY>` | Machine-to-machine admin |
-| Testing team API | `/api/v1/testdata/…` | `X-API-Key: <QA_API_KEY>` | Reads + Lab device controls; see §3b |
+| Testing team API | `/api/v1/testdata/…` | `X-API-Key: <QA_API_KEY>` | Reads + device controls; see §3b |
 | Remote-control WS | `/api/v1/remote/{serial}` | **Single-use token in query string** (no API key) | Screen mirror / input |
 | HTMX dashboard | `/`, `/login`, `/devices`, `/settings`, … | Cookie session + RBAC | See `AUTH_MODEL.md` |
 | Unauthenticated | `/health`, `/static/…`, `/splash-img/…` | none | See §6 |
@@ -171,11 +171,12 @@ Status: `200` · `400` · `401` · `403` · `404` no venue, or the venue has no 
 
 ### POST `/api/v1/device-group`
 
-A Lab device picks its own group (Standard client status screen). `{"serial"}` reads
-`{lab, current: {id, name} | null, venue?, role?, groups: [{id, name, count}]}`; adding `"set": "<group id>"`
-(or `""` for no group) moves the device there, out of any other group. Only a Lab device (at no
-venue, not waiting in the To place queue) may set, and only to a listed group: one that is not
-hidden and has no member at a venue. 409 otherwise. Audited as `group.device_pick`.
+A device picks its own group (Standard client status screen). `{"serial"}` reads
+`{lab, current: {id, name} | null, venue?, role?, groups: [{id, name, count}]}` (`lab` is the
+wire name for "this device may pick"); adding `"set": "<group id>"` (or `""` for no group) moves
+the device there, out of any other group. A device may pick while it is To place (at no venue) or
+has no group yet, and only to a listed group: one that is not hidden. 409 otherwise. Audited as
+`group.device_pick`.
 
 ### GET `/api/v1/ws` (WebSocket upgrade)
 Long-lived device socket for server-push delivery. `X-API-Key` header is checked **before** upgrade.
@@ -297,16 +298,15 @@ Response `201`: `{ "command": {…}, "skipped": ["serial", …] }`. If every tar
 
 A separate key for the testing team's own tools. It reaches the `/api/v1/testdata/…` routes
 and nothing else: reads, plus fixed controls (open / close the role app, screen on / off,
-wireless charging on / off) on Lab devices. It cannot reboot, wipe, unlock, install or run a shell.
-Unset `QA_API_KEY` and the routes do not exist (404). It is set on **live**
-(`https://mdm.dev.aioapp.com`), not on stage. CORS is open (`*`), so a static page can call it
+wireless charging on / off) on any device. It cannot reboot, wipe, unlock, install or run a shell.
+Unset `QA_API_KEY` and the routes do not exist (404). It is set on **dev**
+(`https://mdm.dev.aioapp.com`), not on prod. CORS is open (`*`), so a static page can call it
 from a browser.
 
-**Scope:** firmware devices (T7, Kiosk) in the **Lab** only, i.e. at no venue (since 30 Oct
-2026); a device deployed at a restaurant is never listed or controlled. A serial outside that
-scope answers 404, like an unknown one. Lists take `?group=<name>` (exact name, any case; 404
-when there is no such name). `?restaurant=` still parses but matches nothing, and `filters`
-returns `"restaurants": []`.
+**Scope:** every device on the server the key is set on (since 19 Nov 2026 there is no Lab
+state to limit it to; where the testing team must not reach devices, the key is simply not
+configured). An unknown serial answers 404. Lists take `?group=<name>` and `?restaurant=<name>`
+(exact name, any case; 404 when there is no such name); `filters` returns both name lists.
 
 | Method | Path | What |
 |---|---|---|
