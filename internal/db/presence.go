@@ -48,13 +48,17 @@ func (d *DB) PresenceRows(ctx context.Context) ([]PresenceRow, error) {
 	return out, rows.Err()
 }
 
-// RecordPresence stores an online/offline change at the given instant.
+// RecordPresence stores an online/offline change at the given instant. Both server copies
+// run the presence job and write the same flip at the same instant (the device's last contact), so a
+// second write of the same event is a no-op, not an error (19 Nov 2026: duplicate-key errors on
+// server2 every minute).
 func (d *DB) RecordPresence(ctx context.Context, deviceID uuid.UUID, at time.Time, online bool, prev string) error {
 	to := "false"
 	if online {
 		to = "true"
 	}
-	_, err := d.pool.Exec(ctx, `INSERT INTO device_state_events (device_id, at, key, from_val, to_val) VALUES ($1, $2, 'online', $3, $4)`,
+	_, err := d.pool.Exec(ctx, `INSERT INTO device_state_events (device_id, at, key, from_val, to_val) VALUES ($1, $2, 'online', $3, $4)
+		 ON CONFLICT (device_id, key, at) DO NOTHING`,
 		deviceID, at.UTC(), prev, to)
 	return err
 }
