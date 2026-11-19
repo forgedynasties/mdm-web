@@ -335,6 +335,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/apps/remove", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRemove)))
 	post("POST /devices/{serial}/apps/cancel", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppCancel)))
 	post("POST /devices/{serial}/apps/retry", h.requireAuth(h.deviceRoute("install_apk", h.DeviceAppRetry)))
+	post("POST /devices/{serial}/install-why", h.requireAuth(h.deviceRoute("install_apk", h.DeviceInstallWhy)))
 	// Setup (19 Nov 2026): the Ops lead's queue, Field's own list and Field's Enroll. The old
 	// addresses redirect, query string kept.
 	mux.HandleFunc("GET /setup", h.requireAuth(h.SetupHome))

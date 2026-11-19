@@ -542,6 +542,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 	follows := h.deviceFollowsView(r.Context(), device)
 	wants := h.deviceWantsView(r.Context(), device)
+	h.attachWantsWhy(r, device, wants)
 	// The lock rule covering this device, and whether it was overridden by hand.
 	kioskRule := h.kioskRuleFor(r.Context(), *device)
 	_, kioskOverride := h.db.KioskRuleMark(r.Context(), device.ID)

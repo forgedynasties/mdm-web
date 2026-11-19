@@ -161,6 +161,9 @@ func luDeviceState(d *db.Device, base, target string, has map[string]string, mis
 			if why == "" {
 				why = "no reason reported"
 			}
+			if r := ParseInstallFailure(ins.Output, ""); r.Plain != "" {
+				why = r.Plain
+			}
 			retry := ins.SentAt.Add(roleAppInstallRetry)
 			if transientInstall(strings.TrimSpace(ins.Output)) {
 				retry = ins.UpdatedAt.Add(roleAppInstallRetrySoon)

@@ -619,6 +619,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		"Stats":     computeDeliveryStats(deliveries),
 		"From":      from,
 		"CanResend": h.commandTypeAllowed(h.role(r), cmd.Type),
+		"Whys":      h.commandInstallWhys(r.Context(), r, cmd, deliveries),
 	})
 }
 
