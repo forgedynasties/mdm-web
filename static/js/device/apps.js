@@ -1,4 +1,12 @@
 // Loaded by templates/device.html.
+// Dialogs open from <body>, not from where the template put them (19 Nov 2026): a card or sheet
+// around them can carry a transform or clip-path, and either one cuts a position:fixed dialog
+// down to its own box. A copy left in <body> by an earlier render of the tab is dropped.
+function portalModal(m) {
+  if (!m || m.parentNode === document.body) return;
+  if (m.id) document.querySelectorAll('body > #' + m.id).forEach(function (o) { if (o !== m) o.remove(); });
+  document.body.appendChild(m);
+}
 function toggleInstallForm() {
   var f = document.getElementById('install-form');
   if (!f) return;
@@ -73,7 +81,7 @@ colorizeApps();
 // Install picker modal (app-drawer-style grid of repository apps).
 window.installModalOpen = function () {
   var m = document.getElementById('install-modal'); if (!m) return;
-  m.classList.add('modal-open');
+  portalModal(m); m.classList.add('modal-open');
   colorizeApps();
   var form = document.getElementById('install-form');
   if (form) {
@@ -97,7 +105,7 @@ window.installModalClose = function () {
   var m = document.getElementById('install-modal'); if (m) m.classList.remove('modal-open');
 };
 // Follow apps (F2, 30 Oct 2026): the role apps, a channel and Follow / Stop per row.
-window.followModalOpen = function () { var m = document.getElementById('follow-modal'); if (m) m.classList.add('modal-open'); };
+window.followModalOpen = function () { var m = document.getElementById('follow-modal'); if (m) { portalModal(m); m.classList.add('modal-open'); } };
 window.followModalClose = function () { var m = document.getElementById('follow-modal'); if (m) m.classList.remove('modal-open'); };
 window.followPick = function (sel) {
   var o = sel.options[sel.selectedIndex], td = sel.closest('tr').querySelector('.fl-new');
@@ -172,7 +180,7 @@ window.appInfoOpen = function (el) {
     btn.hidden = sys || roleApp;
     if (note) { note.hidden = !(sys || roleApp); note.textContent = roleApp ? "The role app can't be removed." : "System apps can't be uninstalled."; }
   }
-  m.classList.add('modal-open');
+  portalModal(m); m.classList.add('modal-open');
 };
 // Copy an ID and say so for a second on the control that was clicked.
 window.aidCopy = function (btn, text) {
@@ -193,7 +201,7 @@ window.aidList = function (btn) {
     c.onclick = function () { window.aidCopy(c, x.android_id); };
     v.appendChild(c); row.appendChild(k); row.appendChild(v); host.appendChild(row);
   });
-  m.classList.add('modal-open');
+  portalModal(m); m.classList.add('modal-open');
 };
 window.aidClose = function () { var m = document.getElementById('aid-modal'); if (m) m.classList.remove('modal-open'); };
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') window.aidClose(); });
