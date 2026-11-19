@@ -37,6 +37,7 @@ var Changelog = []Entry{
 		Changes: []string{
 			"Setup is simpler: no Setting up state, no Hand over, no Set up again. A device is Lab, To place or In service, and placing it at a venue puts it in service at once. The Ops lead Setup page is /setup (a queue table with an assign bar) and Field's is /setup/mine (their own devices to place) with Enroll at /setup/mine/enroll; the old /visits and /my-visits addresses redirect. Devices already at a venue are put in service on upgrade and the old Setting up grants are removed.",
 			"Apps library in the Overview's language: a rail by product, one table, and a preview pane for the picked row with its channels, versions, Add version and the family tools.",
+			"App page: a strip of channel cards with coverage rings; click a version to see only the devices running it.",
 		},
 	},
 	{
