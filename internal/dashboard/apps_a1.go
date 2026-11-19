@@ -69,6 +69,13 @@ type a1Row struct {
 	Single     string // the one package when the family has one variant (Install on… in place)
 	Look       bool   // something on this row needs a look
 	Search     string
+	// Library A (19 Nov 2026): the preview pane of the picked row.
+	Key        string // pane key, unique per row
+	FamilyID   string // the persisted family's uuid, "" if none
+	Grouped    bool   // a real family (more than one variant, or persisted)
+	CoverPct   int    // of the devices that report a version, the share on the library build
+	CoverKnown int
+	Builds     int // library builds of the prod variant
 }
 
 // a1ChanRow is one channel package of an app, listed when its product is picked.
@@ -76,6 +83,18 @@ type a1ChanRow struct {
 	Label, Package, Newest string
 	Download               string // the newest build's APK, "" if none
 	Devices                int
+	// Library A: the pane of this channel.
+	CoverPct, Known int
+	Versions        []a1Ver // library builds newest first, then builds only devices run (6 at most)
+	MoreVers        int
+}
+
+// a1Ver is one version line of a channel's pane.
+type a1Ver struct {
+	Version  string
+	Added    string // "" = not in the library
+	Devices  int
+	NoReport bool // devices that report no version
 }
 
 // a1Product is one rail entry under By product: a role app's rows.
@@ -230,6 +249,12 @@ func buildAppsA1(in a1Inputs) appsA1 {
 		if role, ok := roleOf[f.BasePackage]; ok {
 			r.Role, r.RoleLabel = role, prod.ClassLabel(role)
 		}
+		r.Key = "f" + strconv.Itoa(i)
+		r.Grouped = f.Grouped
+		if f.FamilyID != nil {
+			r.FamilyID = f.FamilyID.String()
+		}
+		r.Builds = len(f.Prod().Versions)
 		if len(f.Variants) == 1 {
 			r.Single = f.Variants[0].Package
 		}
@@ -241,6 +266,7 @@ func buildAppsA1(in a1Inputs) appsA1 {
 		}
 		for _, vr := range f.Variants {
 			cr := a1ChanRow{Label: vr.Label, Package: vr.Package, Newest: libNewest(in.Apps, vr.Package), Devices: chanDevs[vr.Label]}
+			cr.Versions, cr.MoreVers, cr.Known, cr.CoverPct = a1ChanVersions(in.Apps, cov.Of(vr.Package), vr.Package)
 			if m := libVersionsOf(in.Apps, vr.Package); len(m) > 0 && m[0].ApkURL != "" {
 				cr.Download = "/apps/" + m[0].ID.String() + "/apk"
 			}
@@ -340,7 +366,7 @@ func buildAppsA1(in a1Inputs) appsA1 {
 			ra.Missing = true
 			missing = append(missing, prod.ClassLabel(cl))
 			// A row for it: what the fleet runs, though nothing here can install it.
-			r := a1Row{Href: "/apps/" + base, Name: prod.ClassLabel(cl) + " app", Package: base, Role: cl, RoleLabel: prod.ClassLabel(cl), Look: true}
+			r := a1Row{Key: "m" + cl, Href: "/apps/" + base, Name: prod.ClassLabel(cl) + " app", Package: base, Role: cl, RoleLabel: prod.ClassLabel(cl), Look: true}
 			var variants []string
 			for pkg, c := range cov.ByPkg {
 				if pkg == base || strings.HasPrefix(pkg, base+".") {
@@ -388,6 +414,8 @@ func buildAppsA1(in a1Inputs) appsA1 {
 	for i := range v.Rows {
 		r := &v.Rows[i]
 		r.OnLibPct, r.OtherPct, r.UnknownPct = a1Pct(r.OnLib, r.Devices), a1Pct(r.Other, r.Devices), a1Pct(r.Unknown, r.Devices)
+		r.CoverKnown = r.OnLib + r.Other
+		r.CoverPct = a1Pct(r.OnLib, r.CoverKnown)
 		if r.Note == "" {
 			switch {
 			case r.Devices == 0:
@@ -588,4 +616,55 @@ func roleRowsOnly(rows []a1Row) []a1Row {
 		}
 	}
 	return out
+}
+
+// a1ChanVersions lists a channel's builds for its preview pane: the library's builds newest
+// first with what devices run, then versions only devices run ("not in the library"), then
+// devices that report none. Six lines at most; the rest is the app page.
+func a1ChanVersions(apps []db.App, c pkgCoverage, pkg string) (out []a1Ver, more, known, pct int) {
+	run := map[string]int{}
+	noVer := 0
+	for _, v := range c.Versions {
+		if v.Version == "" {
+			noVer += v.Devices
+			continue
+		}
+		run[v.Version] += v.Devices
+		known += v.Devices
+	}
+	seen := map[string]bool{}
+	for _, a := range libVersionsOf(apps, pkg) {
+		name := a.VersionName
+		if name == "" {
+			name = "unversioned"
+		}
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, a1Ver{Version: name, Added: a.CreatedAt.Format("2 Jan 2006"), Devices: run[a.VersionName]})
+		delete(run, a.VersionName)
+	}
+	if c.LibLatest != "" {
+		pct = a1Pct(c.OnLatest, known)
+	}
+	var rest []a1Ver
+	for v, n := range run {
+		rest = append(rest, a1Ver{Version: v, Devices: n})
+	}
+	sort.Slice(rest, func(i, j int) bool {
+		if rest[i].Devices != rest[j].Devices {
+			return rest[i].Devices > rest[j].Devices
+		}
+		return rest[i].Version < rest[j].Version
+	})
+	out = append(out, rest...)
+	if noVer > 0 {
+		out = append(out, a1Ver{Devices: noVer, NoReport: true})
+	}
+	if len(out) > 6 {
+		more = len(out) - 6
+		out = out[:6]
+	}
+	return
 }

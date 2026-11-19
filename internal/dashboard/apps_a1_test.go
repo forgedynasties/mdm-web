@@ -183,9 +183,10 @@ func TestAppsA1Renders(t *testing.T) {
 	out := buf.String()
 	for _, want := range []string{
 		// L1 (30 Oct 2026): Fleet's layout, one row per app, channels as plain pills.
-		`<h1 class="cc-h1">Apps</h1>`, `onclick="libAddOpen()">Add apps</button>`, `data-cl data-one="app"`,
-		`data-clf="role"`, `data-clf="other"`, `>AIO apps<span>`, `data-rail-search="off"`, `data-href="/apps/aio.app.nugget"`, `data-flags="role p-`,
-		`>stagev2</span>`, `data-view-only="pc-`, `data-clf="pc-`, ` channels</span>`, `<span class="cc-tag warn">not in library</span>`, `>Add APK</button>`,
+		`<h1 class="cc-h1 sr-only">Apps</h1>`, `onclick="libAddOpen()">Add apps</button>`, `data-cl data-one="app"`,
+		`data-clf="role"`, `data-clf="other"`, `>AIO apps <small>`, `href="/apps/aio.app.nugget"`, `data-flags="role p-`,
+		`data-view-only="pc-`, `data-clf="pc-`, ` channels</span>`, `<span class="ovb-tag o">not in library</span>`, `>Add APK</button>`,
+		`data-for="f0"`, `data-for="c:`, `>Add version</button>`, `>Open page</a>`, `Family tools`, `/static/js/al1.js`,
 		`data-cls="name"`, `id="lib-card"`, `id="lib-add-modal"`, `id="lib-apk-file"`, `/apps/families`, `/static/js/coll_list.js`,
 	} {
 		if !strings.Contains(out, want) {
