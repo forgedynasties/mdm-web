@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.59",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Alerts: the Crashes pane no longer shows (empty, with its pager) under Needs action, which squeezed the list. A hidden pane stays hidden on the desktop shell.",
+		},
+	},
+	{
 		Version: "1.64.58",
 		Date:    "2026-11-20",
 		Changes: []string{
