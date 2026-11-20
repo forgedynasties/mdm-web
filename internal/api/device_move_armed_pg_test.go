@@ -353,3 +353,15 @@ func TestVersionAtLeast(t *testing.T) {
 		}
 	}
 }
+
+func TestMoveCheckinTooBig(t *testing.T) {
+	if moveCheckinTooBig(3400, 7500) {
+		t.Fatal("a normal 3 KB report must move")
+	}
+	if !moveCheckinTooBig(53690, 7500) {
+		t.Fatal("a 53 KB report must wait")
+	}
+	if moveCheckinTooBig(53690, 0) {
+		t.Fatal("0 turns the gate off")
+	}
+}

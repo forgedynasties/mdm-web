@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.39",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Moves to prod: a device whose last check-in is over 7.5 KB now waits instead of moving (prod's load balancer firewall refuses request bodies over 8 KB, so such a device was refused on prod for ten minutes and fell back to mdm.dev; a POS with a 53 KB crash report did exactly that). The move notes say why. MOVE_MAX_CHECKIN_BYTES overrides the limit (0 turns it off once the firewall rule is raised).",
+		},
+	},
+	{
 		Version: "1.64.38",
 		Date:    "2026-11-19",
 		Changes: []string{

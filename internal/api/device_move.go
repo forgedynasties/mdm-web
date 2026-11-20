@@ -451,6 +451,10 @@ func (h *Handler) sendMove(ctx context.Context, m db.DeviceMove) bool {
 		_ = h.db.NoteDeviceMove(ctx, m.Serial, why)
 		return false
 	}
+	if why := h.sizeWait(ctx, m); why != "" {
+		_ = h.db.NoteDeviceMove(ctx, m.Serial, why)
+		return false
+	}
 	res, err := h.importOnTarget(ctx, m.Target, m.Serial)
 	if err != nil {
 		log.Printf("[move] %s: import: %v", m.Serial, err)

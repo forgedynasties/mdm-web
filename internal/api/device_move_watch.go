@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -174,4 +175,39 @@ func (h *Handler) queueClientUpdate(ctx context.Context, m db.DeviceMove, dev *d
 	h.pushCommand(ctx, cmd, "devices", ids)
 	log.Printf("[move] %s: MDM client %s → %s queued before the move", m.Serial, st.Have, st.Want)
 	return wait, true
+}
+
+// moveMaxCheckin is the largest check-in body (the device's last report, in bytes) a device may
+// have for a move to go. Prod's load balancer firewall refuses request bodies over 8 KB with a
+// 403, so a device whose check-in carries stack traces or long lists moves, is refused there for
+// ten minutes, and falls back to this server (20 Nov 2026: DP02256HJ0147, a 53 KB report, was on
+// prod for 12 minutes and came back; 19 of the other pending devices carry crash events too).
+// Normal reports are 2-4 KB. MOVE_MAX_CHECKIN_BYTES overrides it, 0 turns the gate off (set it
+// once the firewall rule is raised).
+func moveMaxCheckin() int {
+	if v := strings.TrimSpace(os.Getenv("MOVE_MAX_CHECKIN_BYTES")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return 7500
+}
+
+// moveCheckinTooBig reports whether a report of n bytes stays out of the move (max 0 = no limit).
+func moveCheckinTooBig(n, max int) bool { return max > 0 && n > max }
+
+// sizeWait says why the move can't go because the device's report is too big for prod, or "".
+func (h *Handler) sizeWait(ctx context.Context, m db.DeviceMove) string {
+	max := moveMaxCheckin()
+	if max == 0 {
+		return ""
+	}
+	dev, err := h.db.GetDevice(ctx, m.Serial)
+	if err != nil || dev == nil {
+		return ""
+	}
+	if n := len(dev.LatestExtra); moveCheckinTooBig(n, max) {
+		return fmt.Sprintf("waiting: its check-in is %d KB and prod's firewall refuses over 8 KB (a crash report or a long list in it); it moves once the report shrinks", (n+1023)/1024)
+	}
+	return ""
 }
