@@ -937,6 +937,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// for group/restaurant creation and locked mode. Used to show those controls.
 		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },
 		"canOpenPage":        canOpenPage,
+		"movesOn":            movesOn,
 		"classOf":            classOf,
 		"dockShows":          dockShows,
 		"joinStrings":        strings.Join,

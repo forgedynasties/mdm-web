@@ -1,0 +1,45 @@
+{{define "moves.html"}}
+{{template "header" .}}
+{{/* Moves (MV1 "Fleet's twin", picked 19 Nov 2026): read-only progress of the move of devices from
+     this server to prod, as a rail of states and places, a progress strip, one table and a detail
+     pane. Drawn by static/js/moves.js from the JSON below (also served at /moves/data, polled every
+     30 s). moves_page.go. */}}
+<template id="page-island">
+  <span class="isl-dot {{if .V.Counts.attention}}warn{{else}}ok{{end}}"></span>
+  <span class="isl-t">Moves</span>
+  <span class="isl-s"><b>{{.V.Arrived}}</b> of {{.V.Total}} arrived{{if .V.Counts.attention}} · <span class="w">{{.V.Counts.attention}} need attention</span>{{end}} · {{.V.OnlinePend}} pending online</span>
+</template>
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/moves.css?v={{assetVer}}">
+<div class="ovd mv" id="mv-root">
+<div class="fleet-md">
+  <aside class="fleet-rail" id="mv-rail" aria-label="Moves" data-rail-search="off"></aside>
+  <div class="fleet-roster mv-roster">
+    <div class="mv-mid">
+      <section class="ovb-c mv-strip" id="mv-strip" aria-label="Progress"></section>
+      <section class="ovb-c mv-list" aria-label="Moves">
+        <div class="mv-tools">
+          <div class="mv-seg" role="group" aria-label="Kind" id="mv-kind">
+            <button type="button" data-k="" class="on">Any kind</button><button type="button" data-k="std">Standard</button><button type="button" data-k="fw">Firmware</button>
+          </div>
+          <button type="button" class="mv-chip" id="mv-online" aria-pressed="false">Online now</button>
+          <input type="search" id="mv-q" class="mv-q" placeholder="Search serial or venue" aria-label="Search serial or venue" autocomplete="off">
+          <label class="mv-sort">Sort <select id="mv-sort" aria-label="Sort"><option value="state">State</option><option value="seen">Last seen</option><option value="venue">Venue</option></select></label>
+        </div>
+        <div class="mv-tw" id="mv-tw">
+          <table class="mv-t">
+            <thead><tr><th>Serial</th><th>Venue</th><th>Client vs hosted</th><th>Last seen</th><th>State</th><th>Note · next step</th></tr></thead>
+            <tbody id="mv-body"></tbody>
+          </table>
+          <div class="mv-none" id="mv-none" hidden>No moves match.</div>
+        </div>
+      </section>
+    </div>
+    <aside class="ovb-c mv-detail" id="mv-detail" aria-label="Move detail" aria-live="polite"></aside>
+  </div>
+</div>
+</div>
+<script type="application/json" id="mv-data">{{.JSON}}</script>
+<script src="/static/js/moves.js?v={{assetVer}}"></script>
+{{template "footer" .}}
+{{end}}

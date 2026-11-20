@@ -92,7 +92,7 @@ func newestBuilds(apps []db.App, pkgs map[string]bool) map[string]*db.App {
 		if !pkgs[a.PackageName] || a.ApkURL == "" {
 			continue
 		}
-		if cur := out[a.PackageName]; cur == nil || a.CreatedAt.After(cur.CreatedAt) {
+		if cur := out[a.PackageName]; cur == nil || buildNewer(a, cur) {
 			out[a.PackageName] = a
 		}
 	}
@@ -309,4 +309,18 @@ func (h *Handler) RunRoleAppInstalls(ctx context.Context) {
 		}
 		log.Printf("[role-app-install] %s %s → %s (%s)", j.App.PackageName, j.App.VersionName, j.Device.SerialNumber, why)
 	}
+}
+
+// buildNewer: a higher version wins; the same (or an unreadable) version goes by upload time.
+// Going by upload time alone made re-uploading an old build the "newest" one (20 Nov 2026).
+func buildNewer(a, b *db.App) bool {
+	if a.VersionName != "" && b.VersionName != "" && a.VersionName != b.VersionName {
+		if versionNewer(a.VersionName, b.VersionName) {
+			return true
+		}
+		if versionNewer(b.VersionName, a.VersionName) {
+			return false
+		}
+	}
+	return a.CreatedAt.After(b.CreatedAt)
 }

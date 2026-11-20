@@ -707,7 +707,7 @@ function bulkRun(type, fields, confirmMsg) {
   f.submit();
 }
 
-// Add app on the selection (D1, 17 Nov 2026): the shared dialog (add-app.js).
+// Install app on the selection (D1, 17 Nov 2026): the shared dialog (add-app.js).
 function bulkAddApp() {
   var serials = getSelectedSerials();
   if (serials.length && window.mdmAddApp) window.mdmAddApp({ serials: serials });

@@ -8256,10 +8256,10 @@ main.nav-still, main.nav-still * { animation: none !important; }
 main.nav-still.htmx-added { opacity: 1 !important; }
 
 
-/* Fleet table: no scrolling, pages only (user, 18 Nov 2026). The page holds exactly the rows that fit
+/* Fleet table: no scrolling, pages only (user, 18 Nov 2026), and ONLY the Fleet device list: Venues, Groups and the other list pages have no pager, so they scroll in their pane (20 Nov 2026). The page holds exactly the rows that fit
    (fitpages.js); a table too wide for the window may still pan sideways. The scroll cue and the fades
    that hinted at more rows are gone with it. */
-html.shell .fleet-roster .card > .ft-wrap { overflow-y: hidden; overflow-x: auto; }
+html.shell #device-table-container .ft-wrap, html.shell .fleet-roster .card > .ft-wrap:is(#device-table-container *) { overflow-y: hidden; overflow-x: auto; }
 .fl-cue, .fl-fade { display: none !important; }
 
 /* A card that holds an open dialog is never clipped to the page edge: clip-path also clips its

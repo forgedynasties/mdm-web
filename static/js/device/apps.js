@@ -81,8 +81,11 @@ colorizeApps();
 // Install picker modal (app-drawer-style grid of repository apps).
 window.installModalOpen = function () {
   var m = document.getElementById('install-modal'); if (!m) return;
+  var anchor = document.activeElement && document.activeElement.closest && document.activeElement.closest('button, a');
+  if (!anchor || anchor.closest('#install-modal')) anchor = document.querySelector('#dd-panel-apps .cta-g.plus, #dd-panel-apps .cc-btn.primary, [onclick*="installModalOpen"]');
   portalModal(m); m.classList.add('modal-open');
   colorizeApps();
+  installPlace(m, anchor);
   var form = document.getElementById('install-form');
   if (form) {
     form.querySelectorAll('.install-tile.on').forEach(function (t) { t.classList.remove('on'); });
@@ -101,6 +104,16 @@ window.installModalOpen = function () {
   var f = document.getElementById('install-filter');
   if (f) { f.value = ''; filterInstallApps(''); setTimeout(function () { f.focus(); }, 30); }
 };
+// Anchor the picker under the button that opened it (right edges aligned, kept inside the window).
+window.installPlace = function (m, anchor) {
+  var box = m.querySelector('.modal-box'); if (!box) return;
+  var vw = window.innerWidth, vh = window.innerHeight, w = Math.min(380, vw - 24);
+  var r = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { left: vw / 2 - w / 2, right: vw / 2 + w / 2, top: 120, bottom: 120 };
+  var left = Math.max(12, Math.min(r.right - w, vw - w - 12)), top = r.bottom + 8;
+  box.style.left = left + 'px'; box.style.top = top + 'px'; box.style.maxHeight = Math.max(260, vh - top - 16) + 'px';
+};
+window.addEventListener('resize', function () { var m = document.getElementById('install-modal'); if (m && m.classList.contains('modal-open')) installModalClose(); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var m = document.getElementById('install-modal'); if (m && m.classList.contains('modal-open')) { e.preventDefault(); e.stopPropagation(); installModalClose(); } } }, true);
 window.installModalClose = function () {
   var m = document.getElementById('install-modal'); if (m) m.classList.remove('modal-open');
 };
@@ -346,7 +359,7 @@ window.installToggle = function (btn) {
   var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
   if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Pick one or more apps';
   var add = form.hasAttribute('data-add');
-  if (s) { s.disabled = n === 0; s.textContent = add ? (n > 1 ? 'Add ' + n + ' apps' : 'Add app') : (n ? ('Install (' + n + ')') : 'Install'); }
+  if (s) { s.disabled = n === 0; s.textContent = add ? (n > 1 ? 'Install ' + n + ' apps' : 'Install app') : (n ? ('Install (' + n + ')') : 'Install'); }
   if (pane) {
     if (on) installPane(btn);
     else if (pane.dataset.tile === btn.getAttribute('data-family')) {
@@ -403,10 +416,19 @@ window.markUninstalling = function (tile) {
 // every telemetry frame while the device works, which flickered and wiped the spinner.
 window.doUninstall = function (tile) {
   if (!tile) return;
+  var pkg0 = tile.getAttribute('data-pkg'); if (!pkg0) return;
+  var nm = tile.getAttribute('data-name') || pkg0;
+  if (tile.getAttribute('data-roleapp') === '1') { if (window.showToast) showToast("The role app can't be removed", 'error'); return; }
+  // The app's own confirm dialog, not the browser's (20 Nov 2026: the native box was out of place).
+  if (!window.mdmConfirm) { if (confirm('Remove ' + nm + ' from this device? The MDM keeps it off.')) doUninstallNow(tile); return; }
+  window.mdmConfirm({ title: 'Remove ' + nm, body: 'Remove ' + nm + ' from this device?', scope: 'The MDM keeps it off. An offline device removes it when it is back.', tier: 'danger', confirmLabel: 'Remove' })
+    .then(function (ok) { if (ok) doUninstallNow(tile); });
+};
+window.doUninstallNow = function (tile) {
+  if (!tile) return;
   var pkg = tile.getAttribute('data-pkg'); if (!pkg) return;
   var name = tile.getAttribute('data-name') || pkg;
   if (tile.getAttribute('data-roleapp') === '1') { if (window.showToast) showToast("The role app can't be removed", 'error'); return; }
-  if (!confirm('Remove ' + name + ' from this device? The MDM keeps it off.')) return;
   markUninstalling(tile);
   window.__uninstallPending = (window.__uninstallPending || 0) + 1;
   var serial = window.DEVICE_SERIAL;
@@ -517,6 +539,7 @@ window.installPane = function (btn) {
   }
   var pkg = btn.getAttribute('data-pkg'), ch = chs.filter(function (c) { return c.pkg === pkg; })[0] || chs[0];
   var url = btn.getAttribute('data-url'), vi = Math.max(0, ch.urls.indexOf(url));
+  btn.setAttribute('data-have', inst[ch.pkg] ? '1' : '');
   // Channels and following are for AIO's own apps (user, 4 Nov 2026: "channel tracking prod
   // stage etc is only for aio apps"); any other app picks a build and installs it.
   // D1 (17 Nov 2026): no build menu; the library's newest build is what goes, and the MDM
@@ -547,6 +570,7 @@ window.installPane = function (btn) {
     var c = chs[i]; if (!c) return;
     var changed = c !== ch;
     instSet(btn, c.urls[0], c.pkg);
+    btn.setAttribute('data-have', inst[c.pkg] ? '1' : '');
     btn.setAttribute('data-ch', instChName(c.label)); btn.setAttribute('data-ver', c.vers[0] || '');
     var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = instChName(c.label) + ' ' + (c.vers[0] || '');
     if (changed) installPane(btn);
@@ -564,15 +588,23 @@ window.installLabel = function () {
   var form = document.getElementById('install-form'), s = document.getElementById('install-submit'), c = document.getElementById('install-count'); if (!form || !s) return;
   var on = form.querySelectorAll('.install-tile.on'), add = form.hasAttribute('data-add');
   if (!on.length) { if (c) c.textContent = 'Pick one or more apps'; return; }
-  s.textContent = add ? (on.length > 1 ? 'Add ' + on.length + ' apps' : 'Add app') : ('Install' + (on.length > 1 ? ' (' + on.length + ')' : ''));
+  // Add app only installs what the device lacks (an app already on it updates itself), so a
+  // pick that is on the device must not promise an install (20 Nov 2026).
+  if (add) {
+    var lacking = [].filter.call(on, function (t) { return t.getAttribute('data-have') !== '1'; });
+    s.disabled = !lacking.length;
+    if (!lacking.length) { s.textContent = 'Install app'; if (c) c.textContent = on.length > 1 ? 'These are already on this device.' : (on[0].getAttribute('data-app') || 'This app') + ' is already on this device; it updates itself.'; return; }
+    if (lacking.length < on.length) on = lacking;
+  }
+  s.textContent = add ? (on.length > 1 ? 'Install ' + on.length + ' apps' : 'Install app') : ('Install' + (on.length > 1 ? ' (' + on.length + ')' : ''));
   if (!c) return;
   var when = form.getAttribute('data-online') === '1' ? 'now' : 'when the device is back online';
   if (on.length === 1) {
     var t = on[0], ch = t.getAttribute('data-ch'), v = t.getAttribute('data-ver');
-    c.innerHTML = (add ? 'Adds ' : 'Install ') + '<b>' + instEsc(t.getAttribute('data-app') || '') + (ch ? ' · ' + instEsc(ch) : '') + '</b>' +
-      (add ? '. It installs the newest build' + (v ? ' (' + instEsc(v) + ')' : '') + ' ' + when + '.' : (v ? ' ' + instEsc(v) : ''));
+    c.innerHTML = (add ? 'Installs ' : 'Install ') + '<b>' + instEsc(t.getAttribute('data-app') || '') + (ch ? ' · ' + instEsc(ch) : '') + '</b>' +
+      (add ? (v ? ' ' + instEsc(v) : '') + ', the newest build, ' + when + '.' : (v ? ' ' + instEsc(v) : ''));
   } else {
-    c.textContent = add ? 'Adds ' + on.length + ' apps. Each installs its newest build ' + when + '.' : on.length + ' apps';
+    c.textContent = add ? 'Installs ' + on.length + ' apps, each its newest build ' + when + '.' : on.length + ' apps';
   }
 };
 // Follow what was ticked, before the install goes out (the follow job then sees the

@@ -227,7 +227,7 @@
 {{/* Notes, in the menu kit (device-menus-demos.html, M1). Returned whole by POST
      /devices/{serial}/notes, which swaps it back in with "Saved". In the Bento view (NO3, picked
      18 Nov 2026) it is a log: a composer, filters, and the entries newest first with what the MDM
-     did to the device mixed in (grey, "Show automatic" hides them). */}}
+     did to the device mixed in (grey; "Show automatic" is off until switched on). */}}
 <div id="device-notes-card"{{if .Bento}} class="bt-nl"{{end}}>
   {{if .Bento}}
   {{if canOperate .Role}}
@@ -241,10 +241,10 @@
   </form>
   {{end}}
   <div class="bt-nl-f" role="group" aria-label="Filter the log">
-    <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" class="on" data-nlf="auto">Show automatic</button>
+    <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" data-nlf="auto">Show automatic</button>
   </div>
   <ul class="bt-nl-list">
-    {{range .NoteLog}}<li data-kind="{{.Kind}}"><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
+    {{range .NoteLog}}<li data-kind="{{.Kind}}"{{if eq .Kind "auto"}} style="display:none"{{end}}><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
       <div><div class="bt-nl-h"><span class="bt-nl-k {{.Kind}}">{{.Kind}}</span><b>{{.Who}}</b><time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}">{{.At.Format "2 Jan, 15:04"}} UTC</time></div>
       <div class="bt-nl-t{{if .Auto}} auto{{end}}">{{.Text}}</div></div></li>
     {{else}}<li class="bt-nl-empty">Nothing logged yet. Notes you add, and what is done to this device, appear here with their time.</li>{{end}}
@@ -995,6 +995,8 @@
   function openPanel(k){if(window.setDeviceTab)setDeviceTab(k,document.getElementById('dd-tab-'+k))}
   function closePanel(){if(window.setDeviceTab)setDeviceTab('summary',document.getElementById('dd-tab-summary'))}
   function sync(){var o=null;KEYS.forEach(function(k){var p=document.getElementById('dd-panel-'+k);if(p&&!p.hidden)o=k});
+    /* switching sheet to sheet: the panel slides in, so the title strip must too (it used to stay put and look detached) */
+    var hd=document.getElementById('bt-sheet-h');if(hd&&open&&o&&open!==o){hd.style.animation='none';void hd.offsetWidth;hd.style.animation=''}
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
     if(o==='location'){setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}
     /* the graph card lives in the Today pane, and in the Graphs sheet while that is open */
@@ -1730,18 +1732,19 @@ window.DEVICE_VITALS = {
       <h2>{{if $hostCard}}Other apps{{else}}Apps{{end}}</h2>
       <div class="right" style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count"><span id="apps-count-n">{{len .InstalledPackages}} app{{if ne (len .InstalledPackages) 1}}s{{end}}</span> · <a class="link-detail" href="/devices/{{.Device.SerialNumber}}/packages?all=1">all packages</a></span>
-{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/lineup/apps?app={{.Device.Class}}">its product's app</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="cta-g plus btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="{{if $.LookOnly}}{{$.Look.Lock}}{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}><span class="cta-t">Add app</span></button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
+{{if .Restricted}}<span class="muted small" title="At a venue, this device runs its product's app, set on Host apps">Installs come from <a href="/lineup/apps?app={{.Device.Class}}">its product's app</a>{{if .CanLab}} · <a href="#" onclick="labDlgOpen();return false">open lab</a> to install by hand{{end}}</span>{{else if supports .Device "install_apk"}}        <button type="button" class="cta-g plus btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()"{{if not (canOperate .Role)}} title="{{if $.LookOnly}}{{$.Look.Lock}}{{else}}Requires the operator role{{end}}" data-role-need="operator"{{end}}><span class="cta-t">Install app</span></button>{{else if supports .Device "app_update"}}<button type="button" class="btn-primary btn-sm{{if not (canOperate .Role)}} role-locked{{end}}" onclick="installModalOpen()" title="Install a newer version of this app ({{if extraBool .Device.LatestExtra "self_update_silent"}}silently{{else}}the device will show Android's update prompt{{end}})">Update app</button>{{else}}<span class="muted small" title="This device's agent can't install apps">Install not available ({{.Device.KindLabel}})</span>{{end}}
       </div>
     </div>
     {{if canOperate .Role}}
     {{/* Install picker — an app-drawer-style popup: pick a repository app from the grid
          (monogram tiles for now) and it queues an install. */}}
     <div class="modal-backdrop" id="install-modal" onclick="installModalBackdrop(event)">
-      <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Add app">
+      <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Install app">
         <div class="install-modal-head">
-          <span class="modal-title">Add app</span>
+          <span class="modal-title">Install app</span>
           <span class="install-head-actions">
-            {{if canAppLibrary .Role}}<a href="/apps" class="btn-outline btn-sm" title="Upload an APK to the app library, then install it from here"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add app</a>{{end}}
+            <span class="bt-esc inst-esc" aria-hidden="true">Esc</span>
+            {{if canAppLibrary .Role}}<a href="/apps" class="btn-outline btn-sm" title="Upload an APK to the app library, then install it from here"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Upload APK</a>{{end}}
             <button type="button" class="modal-close" onclick="installModalClose()" aria-label="Close">&times;</button>
           </span>
         </div>
@@ -1752,7 +1755,7 @@ window.DEVICE_VITALS = {
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
         {{/* D1 (17 Nov 2026): Add app records the app on the device (app_wants_view.go); the newest build installs now, or when an offline device is back. A client that can only update itself keeps today's app_update command. */}}
-        <form id="install-form"{{if supports $.Device "install_apk"}} hx-post="/devices/{{$.Device.SerialNumber}}/apps/add" action="/devices/{{$.Device.SerialNumber}}/apps/add" data-add="1" data-online="{{if .Online}}1{{else}}0{{end}}"{{else}} hx-post="/commands" action="/commands"{{end}} hx-swap="none" method="POST" onsubmit="installModalClose(); if(!this.dataset.add){installOptimistic();}" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
+        <form id="install-form"{{if supports $.Device "install_apk"}} hx-post="/devices/{{$.Device.SerialNumber}}/apps/add" action="/devices/{{$.Device.SerialNumber}}/apps/add" data-add="1" data-online="{{if .Online}}1{{else}}0{{end}}"{{else}} hx-post="/commands" action="/commands"{{end}} hx-swap="none" method="POST" onsubmit="installModalClose(); if(!this.dataset.add){installOptimistic();}">
           {{/* A client that can't install other apps can still update itself (app_update). */}}
           <input type="hidden" name="type" value="{{if and (not (supports $.Device "install_apk")) (supports $.Device "app_update")}}app_update{{else}}install_apk{{end}}">
           <input type="hidden" name="target_type" value="devices">
@@ -1787,7 +1790,7 @@ window.DEVICE_VITALS = {
           <div class="install-modal-foot">
             
             <span class="small inst-say" id="install-count">Pick one or more apps</span>
-            <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>{{if supports $.Device "install_apk"}}Add app{{else}}Install{{end}}</button>
+            <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>{{if supports $.Device "install_apk"}}Install app{{else}}Install{{end}}</button>
           </div>
         </form>
         {{else}}
@@ -2332,7 +2335,7 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
     {{if canOperate $.Role}}<span class="dd-way-a">
       {{if .Why.CanAsk}}<button type="button" class="cc-btn xs" title="Reads the device's install log (read-only)" hx-post="/devices/{{$.Device.SerialNumber}}/install-why" hx-vals='{"package":"{{.Package}}"}' hx-swap="none">Why did it fail?</button>{{end}}
       {{if .CanRetry}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/retry" hx-vals='{"package":"{{.Package}}"}' hx-swap="none">Try again</button>{{end}}
-      {{if ne .State "installing"}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/cancel" hx-vals='{"package":"{{.Package}}"}' hx-swap="none" hx-confirm="{{if .Remove}}Keep {{.Name}} on this device?{{else}}Stop adding {{.Name}} to this device?{{end}}">Cancel</button>{{end}}
+      {{if ne .State "installing"}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/cancel" hx-vals='{"package":"{{.Package}}","name":"{{.Name}}"}' hx-swap="none" hx-confirm="{{if .Remove}}Keep {{.Name}} on this device?{{else}}Stop installing {{.Name}} on this device?{{end}}">Cancel</button>{{end}}
     </span>{{end}}
   </div>{{end}}
 </div>{{end}}

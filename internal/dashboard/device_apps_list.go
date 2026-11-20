@@ -54,7 +54,19 @@ func (h *Handler) deviceAppsOf(ctx context.Context, d *db.Device, pkgs []db.Devi
 			use[r.Package] = r
 		}
 	}
+	// An app in our library is one we install, so it is never listed as a system app, even where
+	// the vendor name rule (the key-attestation tool, test apps) calls it one (20 Nov 2026:
+	// the only app on a lab tablet showed as "System apps 1" under "Other apps · 1 app").
+	inLib := map[string]bool{}
+	if apps, err := h.db.ListApps(ctx); err == nil {
+		for _, a := range apps {
+			inLib[a.PackageName] = true
+		}
+	}
 	for _, p := range launchableOnly(pkgs) {
+		if inLib[p.PackageName] {
+			p.EffectiveSystem = false
+		}
 		if skip[p.PackageName] {
 			v.Hidden++
 			continue

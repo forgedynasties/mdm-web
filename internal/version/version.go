@@ -32,6 +32,99 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.49",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Venues and Alerts lists scroll again: the \"Fleet shows pages, not scrolling\" rule was catching every list on the desktop shell, so rows below the fold could not be reached. It now applies to the Fleet device list only.",
+		},
+	},
+	{
+		Version: "1.64.48",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Installs: an app that installed fine and was later wiped (an OTA reflash took it off a device) is sent again within a minute, instead of the \"Installs within a minute\" box waiting six hours on the old install.",
+		},
+	},
+	{
+		Version: "1.64.47",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Install app on a device is a dropdown under its button, not a dialog: search, the apps, the picked app's channels and one Install button, closed by Esc or a click away.",
+			"Add network is a menu under its button: the venue's saved networks are one click to save on the device, and Another network… opens the typed form in the same menu.",
+			"Graphs sheet: the legend's Pad and Tablet labels are no longer cut off by the sheet's rounded corner.",
+		},
+	},
+	{
+		Version: "1.64.46",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page: an app the library knows (for example the Key Attestation tool we install) is no longer listed as a system app, so a device whose only app is one of ours doesn't read \"System apps 1\".",
+			"Install and remove now see a device as online when it has a live socket, like the page's own Online badge, so an online device no longer says \"Waiting for the device · offline 4 min\" and its installs go out.",
+			"Device notes: \"Show automatic\" is off until you switch it on.",
+			"Device page: the Graphs sheet (the graph's larger view) is wider, clear of the right dock.",
+		},
+	},
+	{
+		Version: "1.64.45",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page (new view): switching from one sheet to another in the right dock slides the title strip in with the sheet, instead of leaving it standing apart from the card.",
+			"Apps: Remove asks with the app's own confirm dialog (not the browser's), cancelling a pending install says \"Stop installing\" and names the app, and the \"Canceled\" toast shows the app's name, not its package.",
+		},
+	},
+	{
+		Version: "1.64.44",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page (new view): the Install app picker now looks like the sheets it opens over: same width and rounded card, 16 px title, Esc chip and round close button, and \"Upload APK\" as a quiet link instead of a second button.",
+		},
+	},
+	{
+		Version: "1.64.43",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Installing an app on a device is called Install app everywhere (button, dialog, menus, group and venue menus), not Add app; the library's Add apps stays.",
+			"The newest build now means the highest version, not the latest upload, so re-uploading an old build no longer becomes the one that installs.",
+			"Device page Apps: the 24h/7d/30d pills are no longer cut off at the edge of the narrow left column.",
+		},
+	},
+	{
+		Version: "1.64.42",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Install app on a device: picking an app that is already on the device no longer promises an install that never happens; the button is off and the footer says it updates itself, and a mixed pick counts only what is missing.",
+			"The install form's clean-up after a failed request and the Lineup rename's reload ran through htmx's hx-on, which our Content-Security-Policy blocks (an EvalError on every Add app); they are plain listeners now.",
+		},
+	},
+	{
+		Version: "1.64.41",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Menus and popups that ran past the bottom of the window can be reached again: the device page's Move to venue / Add to group popovers open upward when there is more room above and scroll inside when the list is long, and the Fleet map's device popup is panned fully into the map with its height capped, so Open device and Close are never cut off.",
+		},
+	},
+	{
+		Version: "1.64.40",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page, Apps: the yellow \"On its way\" state pill (for example \"Waiting for the device · offline 2 d\") no longer squeezes the app's name to nothing and overlaps it in a narrow sheet; it sits under the name, the actions stay on the name's row.",
+		},
+	},
+	{
+		Version: "1.64.39",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Moves to prod: a device whose last check-in is over 7.5 KB now waits instead of moving (prod's load balancer firewall refuses request bodies over 8 KB, so such a device was refused on prod for ten minutes and fell back to mdm.dev; a POS with a 53 KB crash report did exactly that). The move notes say why. MOVE_MAX_CHECKIN_BYTES overrides the limit (0 turns it off once the firewall rule is raised).",
+		},
+	},
+	{
+		Version: "1.64.38",
+		Date:    "2026-11-19",
+		Changes: []string{
+			"Moves page (mdm.dev, super admin): /moves shows the progress of moving devices to prod, with a rail of move states and where each device is (To place or a venue, hidden venues included), a progress ring, what needs attention, a table with the client version against the hosted build, last seen and the watcher's note, and a timeline for the picked device. Read-only; refreshes every 30 seconds.",
+		},
+	},
+	{
 		Version: "1.64.37",
 		Date:    "2026-11-19",
 		Changes: []string{

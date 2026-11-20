@@ -111,6 +111,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/commands", h.requireAuth(h.deviceRoute("view", h.DeviceCommandCreate)))
 	// Wireless adb page: batch on/off and tunnels (admin only, like adb_tcp itself).
 	mux.HandleFunc("GET /adb", h.requireAdmin(h.AdbPage))
+	// Moves to prod (19 Nov 2026): read-only progress; 404 where this server moves no devices.
+	mux.HandleFunc("GET /moves", h.requireAdmin(h.MovesPage))
+	mux.HandleFunc("GET /moves/data", h.requireAdmin(h.MovesData))
 	post("POST /adb/commands", h.requireAdmin(h.AdbBatch))
 	// One connect flow for the page and the device pill (adb_flow.go): on + tunnel, then progress.
 	post("POST /adb/connect", h.requireAdmin(h.AdbConnect))
