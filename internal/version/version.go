@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.55",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Releases: choosing a release swaps only the preview pane. The page no longer reloads, the list keeps its scroll, filters and sort, and Back and Forward move between the releases you opened.",
+			"Device page, Health sheet: less repetition. The to-do rows already name each failing check, so the compliance block keeps its verdict and the passing checks instead of listing the failures again, and the card no longer repeats the sheet's \"Health\" title.",
+		},
+	},
+	{
 		Version: "1.64.54",
 		Date:    "2026-11-20",
 		Changes: []string{

@@ -354,3 +354,10 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 body:has(#dd-panel-graphs:not([hidden])) .dd-bento .bt-sheet-h,
 html body .dd-bento .dd-panel#dd-panel-graphs:not([hidden]):not(#nx){width:min(calc(100vw - 260px),1560px)}
 }
+
+/* Health sheet, less repetition (20 Nov 2026: "feels redundant"): the to-do rows already name every
+   failing check, so the compliance block under them does not spell the failures out again (the
+   sentence's list, and the failing rows); it keeps the verdict and the passing checks. The status
+   line on the left says the counts, so the card's own "Health" title (the sheet's title) goes. */
+.dd-bento #dd-panel-health .dco-lines,.dd-bento #dd-panel-health .dco-it.fail,.dd-bento #dd-panel-health .dco-it.warn{display:none}
+.dd-bento #dd-panel-health .dh-card .cc-ch h2{display:none}
