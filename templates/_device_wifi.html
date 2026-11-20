@@ -32,11 +32,19 @@
 .wf-panel form,.wf-add form{display:grid;gap:8px;padding:8px 10px 10px;font-size:12px;color:var(--text-2);line-height:1.5}
 .wf-panel form p,.wf-add form p{margin:0}
 .wf-acts{display:flex;gap:8px;justify-content:flex-end}
-.wf-add{border-top:1px solid var(--border-soft)}
-.wf-add>summary{display:none}
-.wf-add form{grid-template-columns:1fr 1fr;padding:12px 16px}
-.wf-add form .full{grid-column:1/-1}
+.wf-add{position:relative}
+.wf-add>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.wf-add>summary::-webkit-details-marker{display:none}
+.wf-addpop{position:absolute;right:0;top:calc(100% + 8px);z-index:30;width:320px;max-width:calc(100vw - 32px);padding:6px 0}
+.wf-add form{display:block;padding:0}
+.wf-add #wf-manual{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px}
+.wf-add #wf-manual[hidden]{display:none}
+.wf-add #wf-manual .full{grid-column:1/-1}
 .wf-add .form-input{width:100%}
+.wf-add .wf-opt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;font:inherit;padding:9px 14px;font-size:13px;cursor:pointer;border-radius:0;clear:none}
+.wf-add .wf-opt:hover{background:var(--hover)}
+.wf-add .wf-opt.other{border-top:1px solid var(--border-soft);color:var(--accent-text);font-weight:600}
+.wf-add .wf-note{padding:6px 14px 4px}
 .wf-st{display:flex;gap:10px;align-items:flex-start;padding:11px 16px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--text-2);line-height:1.5}
 .wf-st b{color:var(--text)}.wf-st.ok b{color:var(--ok)}.wf-st.bad b{color:var(--danger)}
 .wf-sp{width:12px;height:12px;margin-top:3px;flex:none;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:wf-spin .8s linear infinite}
@@ -66,23 +74,19 @@
   <div class="card-header cc-ch">
     <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5a15 15 0 0 1 20 0M5.5 12a10 10 0 0 1 13 0M9 15.5a5 5 0 0 1 6 0"/><circle cx="12" cy="19" r="1"/></svg></span>
     <h2>Network</h2>
-    {{if and .CanManage .Supported}}<div class="right" style="margin-left:auto"><button type="button" class="cc-btn sm" onclick="var d=document.getElementById('wf-add');d.open=!d.open;if(d.open)d.querySelector('input').focus()">Add network</button></div>{{end}}
-  </div>
-  {{if .Error}}<div class="wf-err" role="alert">{{.Error}}</div>{{end}}
-  {{if and .CanManage .Supported}}
-  <details class="wf-add" id="wf-add"><summary>Add network</summary>
+    {{if and .CanManage .Supported}}<div class="right" style="margin-left:auto">
+  <details class="wf-add" id="wf-add"><summary class="cc-btn sm">Add network <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
+  <div class="wf-addpop cc-menu">
     {{if .VenueNets}}
     <form id="wf-venue" hx-post="/devices/{{.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML">
       <input type="hidden" name="action" value="venue_add">
-      <fieldset class="wf-pick"><legend>Saved for {{.VenueName}}</legend>
-        {{range $i, $n := .VenueNets}}
-        <label class="wf-opt"><input type="radio" name="network" value="{{.ID}}"{{if eq $i 0}} checked{{end}} onchange="wfPick(false)"><b>{{.SSID}}</b>
-          <small class="{{if .Weak}}warn{{end}}">{{if .Weak}}weak · {{.Signal}} dBm{{else if .InRange}}in range · {{.Signal}} dBm{{else if $.ScanKnown}}not seen nearby{{else}}{{if eq .Security "OPEN"}}Open{{else}}{{.Security}}{{end}}{{end}}</small></label>
-        {{end}}
-        <label class="wf-opt other"><input type="radio" name="network" value="" onchange="wfPick(true)">Another network…<small>type its name</small></label>
-      </fieldset>
-      <p class="wf-note">The password comes from the MDM. The device saves the network and keeps its current one; once it has it, you can switch.</p>
-      <div class="wf-acts full"><button type="submit" class="cc-btn sm primary">Save on the device</button></div>
+      <div class="cc-mh">Saved for {{.VenueName}}</div>
+      {{range $i, $n := .VenueNets}}
+      <button type="submit" name="network" value="{{.ID}}" class="wf-opt cc-mi"><b>{{.SSID}}</b>
+        <small class="{{if .Weak}}warn{{end}}">{{if .Weak}}weak · {{.Signal}} dBm{{else if .InRange}}in range · {{.Signal}} dBm{{else if $.ScanKnown}}not seen nearby{{else}}{{if eq .Security "OPEN"}}Open{{else}}{{.Security}}{{end}}{{end}}</small></button>
+      {{end}}
+      <button type="button" data-keep-menu class="wf-opt cc-mi other" onclick="wfPick(true)"><b>Another network…</b><small>type its name</small></button>
+      <p class="wf-note">One click saves it on the device (the password comes from the MDM). The device keeps its current network; switch once it has it.</p>
     </form>
     {{end}}
     <form id="wf-manual" hx-post="/devices/{{.Serial}}/wifi" hx-target="#dd-wifi" hx-swap="outerHTML"{{if .VenueNets}} hidden{{end}}>
@@ -93,10 +97,12 @@
       <label class="form-row full"><span class="form-label">Password</span><input class="form-input" name="password" type="password" minlength="8" maxlength="63" autocomplete="new-password"></label>
       <label class="checkbox-label full" style="font-size:12.5px"><input type="checkbox" name="hidden"> Hidden network</label>
       <p class="full">The device saves it and keeps its current network; use Switch to move it.</p>
-      <div class="wf-acts full">{{if .VenueNets}}<button type="button" class="cc-btn sm" onclick="wfPick(false,true)">Back to the list</button>{{end}}<button type="submit" class="cc-btn sm primary">Save on the device</button></div>
+      <div class="wf-acts full">{{if .VenueNets}}<button type="button" data-keep-menu class="cc-btn sm" onclick="wfPick(false,true)">Back to the list</button>{{end}}<button type="submit" class="cc-btn sm primary">Save on the device</button></div>
     </form>
-  </details>
-  {{end}}
+  </div>
+  </details></div>{{end}}
+  </div>
+  {{if .Error}}<div class="wf-err" role="alert">{{.Error}}</div>{{end}}
   {{/* The connection first (device tabs plan, 27 Oct 2026), then the saved networks. */}}
   <div class="wf-body"><div class="wf-left">
   {{with .Conn}}<div class="wf-conn">
@@ -165,10 +171,9 @@
   window.wfPick = function (other, back) {
     var v = document.getElementById('wf-venue'), m = document.getElementById('wf-manual');
     if (!v || !m) return;
-    var sub = v.querySelector('.wf-acts'), note = v.querySelector('.wf-note');
-    if (back) { var r = v.querySelector('input[name=network]'); if (r) { r.checked = true; r.focus(); } other = false; }
-    m.hidden = !other; sub.hidden = other; note.hidden = other;
-    if (other) { var i = m.querySelector('input[name=ssid]'); if (i) i.focus(); }
+    if (back) other = false;
+    v.hidden = other; m.hidden = !other;
+    var f = other ? m.querySelector('input[name=ssid]') : v.querySelector('button'); if (f) f.focus();
   };
   window.wfPanel = function (btn) {
     var pop = btn.closest('.wf-pop'), panel = btn.nextElementSibling, open = panel.hidden;

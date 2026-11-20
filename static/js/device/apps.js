@@ -81,8 +81,11 @@ colorizeApps();
 // Install picker modal (app-drawer-style grid of repository apps).
 window.installModalOpen = function () {
   var m = document.getElementById('install-modal'); if (!m) return;
+  var anchor = document.activeElement && document.activeElement.closest && document.activeElement.closest('button, a');
+  if (!anchor || anchor.closest('#install-modal')) anchor = document.querySelector('#dd-panel-apps .cta-g.plus, #dd-panel-apps .cc-btn.primary, [onclick*="installModalOpen"]');
   portalModal(m); m.classList.add('modal-open');
   colorizeApps();
+  installPlace(m, anchor);
   var form = document.getElementById('install-form');
   if (form) {
     form.querySelectorAll('.install-tile.on').forEach(function (t) { t.classList.remove('on'); });
@@ -101,6 +104,16 @@ window.installModalOpen = function () {
   var f = document.getElementById('install-filter');
   if (f) { f.value = ''; filterInstallApps(''); setTimeout(function () { f.focus(); }, 30); }
 };
+// Anchor the picker under the button that opened it (right edges aligned, kept inside the window).
+window.installPlace = function (m, anchor) {
+  var box = m.querySelector('.modal-box'); if (!box) return;
+  var vw = window.innerWidth, vh = window.innerHeight, w = Math.min(380, vw - 24);
+  var r = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { left: vw / 2 - w / 2, right: vw / 2 + w / 2, top: 120, bottom: 120 };
+  var left = Math.max(12, Math.min(r.right - w, vw - w - 12)), top = r.bottom + 8;
+  box.style.left = left + 'px'; box.style.top = top + 'px'; box.style.maxHeight = Math.max(260, vh - top - 16) + 'px';
+};
+window.addEventListener('resize', function () { var m = document.getElementById('install-modal'); if (m && m.classList.contains('modal-open')) installModalClose(); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var m = document.getElementById('install-modal'); if (m && m.classList.contains('modal-open')) { e.preventDefault(); e.stopPropagation(); installModalClose(); } } }, true);
 window.installModalClose = function () {
   var m = document.getElementById('install-modal'); if (m) m.classList.remove('modal-open');
 };

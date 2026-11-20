@@ -218,7 +218,7 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 /* the Graphs sheet (the graph card's enlarge button): the same card, in a sheet */
 .dd-bento #dd-panel-graphs:not([hidden]){display:flex;flex-direction:column}
 .dd-bento #dd-panel-graphs .bt-slot{flex:1;min-height:0}
-.dd-bento #dd-panel-graphs .bt-slot .vt-legend{display:flex;flex:none;height:auto;margin:8px 0 0;background:none;border:0;padding:0 6px}
+.dd-bento #dd-panel-graphs .bt-slot .vt-legend{display:flex;flex:none;height:auto;margin:8px 0 0;background:none;border:0;padding:0 16px 10px}
 
 /* Sheets that must not scroll (user, 18 Nov 2026). Location: the map takes the sheet; the address
    and Directions are its foot. About: the device card and Enrollment side by side; the vitals and
@@ -348,19 +348,25 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 .dd-bento #dd-wifi .wf-right .wf-sec{border-top:0;padding-top:12px}
 @media (max-width:1100px),(max-height:639px){.dd-bento #dd-wifi .wf-body{display:block}.dd-bento #dd-wifi .wf-right{margin-top:12px}}
 
-/* Install app in the bento view (20 Nov 2026: "another incoherent popup"): the picker looks
-   like the sheets it opens over (Apps, Network…): the same width, 22 px card, 16/600 title, Esc chip
-   and round close button, and the library link is a quiet text link, not a second button. */
-.inst-esc{display:none}
-html:has(.dd-bento) #install-modal .modal-box{width:min(70vw,960px);max-width:none;border-radius:22px;border:0;box-shadow:0 30px 80px -20px rgba(0,0,0,.35)}
-html:has(.dd-bento) #install-modal .install-modal-head{padding:14px 18px 8px}
-html:has(.dd-bento) #install-modal .modal-title{font-size:16px;font-weight:600}
-html:has(.dd-bento) #install-modal .inst-esc{display:inline-block;margin-left:0}
-html:has(.dd-bento) #install-modal .install-head-actions{gap:12px}
-html:has(.dd-bento) #install-modal .install-head-actions .btn-outline{border:0;background:transparent;padding:0;height:auto;font-size:12.5px;font-weight:500;color:var(--muted);text-decoration:underline;text-underline-offset:3px;box-shadow:none}
-html:has(.dd-bento) #install-modal .install-head-actions .btn-outline .ui-icon{display:none}
-html:has(.dd-bento) #install-modal .modal-close{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:15px;line-height:1}
-@media (max-width:720px){html:has(.dd-bento) #install-modal .modal-box{width:calc(100vw - 24px)}.inst-esc{display:none!important}}
+/* Install app is a dropdown under its button, not a dialog (20 Nov 2026, user pick A of the
+   install-app demos): a transparent catcher over the page (a click away closes it), the picker
+   as a card anchored to the button by apps.js (installModalOpen), one column: search, the apps,
+   the picked app's channels, and the footer with Install. */
+#install-modal.modal-backdrop{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;align-items:flex-start;justify-content:flex-start;padding:0}
+#install-modal .modal-box{position:fixed;width:380px;max-width:calc(100vw - 24px);border-radius:16px;border:1px solid var(--border);box-shadow:0 24px 60px -16px rgba(0,0,0,.4);overflow:hidden;display:flex;flex-direction:column;animation:none}
+#install-modal .install-modal-head{padding:8px 14px 0;justify-content:flex-end;order:3;border-top:1px solid var(--border-soft)}
+#install-modal .install-modal-head .modal-title,#install-modal .install-modal-head .modal-close,#install-modal .inst-esc{display:none}
+#install-modal .install-head-actions .btn-outline{border:0;background:transparent;padding:0 0 8px;height:auto;font-size:12px;font-weight:500;color:var(--muted);text-decoration:underline;text-underline-offset:3px;box-shadow:none}
+#install-modal .install-head-actions .btn-outline .ui-icon{display:none}
+#install-modal #install-form{display:flex;flex-direction:column;order:1;min-height:0;grid-template-columns:none}
+#install-modal #install-form>.inst-left{border-right:0}
+#install-modal .install-drawer.inst-list{max-height:min(210px,28vh)}
+#install-modal .inst-pane .inst-ph{display:none}
+#install-modal #install-form>.inst-pane{border-top:1px solid var(--border-soft);padding:8px 14px;max-height:min(150px,22vh)}
+#install-modal #install-form>.inst-pane:has(.inst-empty){display:none}
+#install-modal #install-form>.install-modal-foot{padding:10px 14px;margin-top:0}
+#install-modal .inst-pane .inst-drop{display:none}
+@media (max-width:720px){#install-modal .modal-box{left:12px!important;right:12px;width:auto}}
 
 /* The Graphs sheet (the graph's larger view) is wider than the other sheets: a chart needs the
    room (20 Nov 2026). Its title strip follows. */

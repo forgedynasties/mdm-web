@@ -32,6 +32,15 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.47",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Install app on a device is a dropdown under its button, not a dialog: search, the apps, the picked app's channels and one Install button, closed by Esc or a click away.",
+			"Add network is a menu under its button: the venue's saved networks are one click to save on the device, and Another network… opens the typed form in the same menu.",
+			"Graphs sheet: the legend's Pad and Tablet labels are no longer cut off by the sheet's rounded corner.",
+		},
+	},
+	{
 		Version: "1.64.46",
 		Date:    "2026-11-20",
 		Changes: []string{
