@@ -74,7 +74,7 @@
         </form>
       {{else}}
         <div class="md-line"><b{{if not $m.Roles}} class="md-warn"{{end}}>{{$m.RoleText}}</b>{{if gt (len $m.Roles) 1}}<span class="muted">· picked when each one is enrolled</span>{{end}}</div>
-        <p class="md-note">A super admin or an Ops lead sets a model's roles.</p>
+        <p class="md-note">A super admin or Ops sets a model's roles.</p>
       {{end}}
       </div>
 

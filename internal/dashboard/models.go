@@ -280,7 +280,7 @@ func (h *Handler) modelPaneOf(r *http.Request, m modelRow, devices []db.Device) 
 func (h *Handler) ModelSetRoles(w http.ResponseWriter, r *http.Request) {
 	role := h.role(r)
 	if role != "admin" && role != "fleet_manager" {
-		http.Error(w, "Only a super admin or an Ops lead changes a model's roles.", http.StatusForbidden)
+		http.Error(w, "Only a super admin or Ops changes a model's roles.", http.StatusForbidden)
 		return
 	}
 	key := product.Normalize(r.PathValue("key"))

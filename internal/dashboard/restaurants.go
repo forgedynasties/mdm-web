@@ -958,7 +958,7 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 	// Deleting a venue sends every device there back to To place: for the people who run
 	// venues (Ops lead and up), not Support (18 Nov 2026 audit).
 	if !mayManageVisits(h.role(r)) {
-		http.Error(w, "Deleting a venue is for an Ops lead or an admin.", http.StatusForbidden)
+		http.Error(w, "Deleting a venue is for Ops or an admin.", http.StatusForbidden)
 		return
 	}
 	id, err := uuid.Parse(r.PathValue("id"))

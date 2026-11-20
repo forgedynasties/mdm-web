@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.58",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"The Ops lead role is now called Ops everywhere people see it (the role picker, the Access page, sign-in messages). Only the name changed: the same people keep the same access.",
+		},
+	},
+	{
 		Version: "1.64.57",
 		Date:    "2026-11-20",
 		Changes: []string{
