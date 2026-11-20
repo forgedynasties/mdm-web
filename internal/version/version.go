@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.54",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Install app in the standard device view: the picker is the same dropdown under its button as in the bento view. It was still the old fixed dialog there, and on a short window its Install button fell below the window so the app could not be installed.",
+		},
+	},
+	{
 		Version: "1.64.53",
 		Date:    "2026-11-20",
 		Changes: []string{
