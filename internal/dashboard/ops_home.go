@@ -61,7 +61,7 @@ type svcRow struct {
 // Enrollment views.
 func (h *Handler) SetupHome(w http.ResponseWriter, r *http.Request) {
 	if !mayManageVisits(h.role(r)) {
-		http.Error(w, "Setup is the Ops lead's home.", http.StatusForbidden)
+		http.Error(w, "Setup is for Ops.", http.StatusForbidden)
 		return
 	}
 	ctx := r.Context()

@@ -105,7 +105,7 @@ func TestMayUploadPackage(t *testing.T) {
 		!mayUploadPackage("admin", "aio.app.kiosk", prod) {
 		t.Error("channel builds for Engineers, everything for Ops lead and super admin")
 	}
-	if !strings.Contains(prodUploadRefusal("aio.app.kiosk"), "Ops lead") {
+	if !strings.Contains(prodUploadRefusal("aio.app.kiosk"), "Ops") {
 		t.Error("refusal names who may")
 	}
 }

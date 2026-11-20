@@ -537,17 +537,13 @@ func (d *DB) DropUnpartitioned(ctx context.Context, keep time.Duration) error {
 }
 
 // PruneBatteryPartitioned is PruneBatteryData for a partitioned battery_samples: the
-// whole months already went (DropMonthsBefore); this trims the month the cut falls in and
-// the charge climbs, with plain range deletes.
+// whole months already went (DropMonthsBefore); this trims the month the cut falls in with a
+// plain range delete.
 func (d *DB) PruneBatteryPartitioned(ctx context.Context, keep time.Duration) (int64, error) {
 	cut := time.Now().Add(-keep)
 	a, err := d.pool.Exec(ctx, `DELETE FROM battery_samples WHERE t < $1`, cut)
 	if err != nil {
 		return 0, err
 	}
-	b, err := d.pool.Exec(ctx, `DELETE FROM battery_climbs WHERE at < $1`, cut)
-	if err != nil {
-		return a.RowsAffected(), err
-	}
-	return a.RowsAffected() + b.RowsAffected(), nil
+	return a.RowsAffected(), nil
 }

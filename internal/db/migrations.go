@@ -1706,7 +1706,7 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS enrolled_via_serial TEXT NOT NULL D
 -- device costs nothing at all.
 -- Battery data from the firmware client (1.10.1+, T7): every battery broadcast and screen
 -- edge the device logged, sent in batches to /api/v1/battery-log, and the client's own
--- summary of each constant-current charge climb (extra.battery_cc). Raw material for a
+-- (the charge-climb summaries it also carried were dropped on 20 Nov 2026). Raw material for a
 -- battery health model; nothing reads them for alerts yet. t is the device's own clock
 -- (part of the key, so a resent batch dedupes exactly); t_fix_ms is how far that clock
 -- was from the server's when the batch arrived.
@@ -1730,13 +1730,9 @@ CREATE TABLE IF NOT EXISTS battery_samples (
     PRIMARY KEY (device_id, t, up_s, ev)
 );
 CREATE INDEX IF NOT EXISTS idx_battery_samples_t ON battery_samples(t);
-CREATE TABLE IF NOT EXISTS battery_climbs (
-    device_id   UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-    at          TIMESTAMPTZ NOT NULL,        -- battery_cc.at, the device's clock
-    payload     JSONB NOT NULL,
-    received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (device_id, at)
-);
+-- The T7 charge-climb wear feature was removed on 20 Nov 2026 (user: remove it, data too). A dev backup of
+-- the table is on the dev box: /home/ubuntu/backups/dev-battery_climbs-20261120T120259Z.sql
+DROP TABLE IF EXISTS battery_climbs;
 
 CREATE TABLE IF NOT EXISTS device_state_events (
     device_id UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,

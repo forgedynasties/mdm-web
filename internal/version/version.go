@@ -32,6 +32,27 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.59",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Alerts: the Crashes pane no longer shows (empty, with its pager) under Needs action, which squeezed the list. A hidden pane stays hidden on the desktop shell.",
+		},
+	},
+	{
+		Version: "1.64.58",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"The Ops lead role is now called Ops everywhere people see it (the role picker, the Access page, sign-in messages). Only the name changed: the same people keep the same access.",
+		},
+	},
+	{
+		Version: "1.64.57",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Removed the T7 battery wear feature (charge-climb wear): the /battery Wear view and Charge climbs table, the device page's Battery wear card, the climb ingestion, the QA API's /battery/climbs route, and the stored climb data (the battery_climbs table is dropped; a dev backup is kept). The battery log, charts and the discharge cycles readout are unchanged.",
+		},
+	},
+	{
 		Version: "1.64.56",
 		Date:    "2026-11-20",
 		Changes: []string{

@@ -47,12 +47,9 @@ details.bt-climb pre{font-size:11px;white-space:pre-wrap;word-break:break-all;co
     <div>
       <div class="cc-eyebrow">Fleet</div>
       <h1 class="cc-h1">Battery data</h1>
-    {{/* Wear (B1, 17 Oct): every T7's charge-climb time against the fleet, next to the per-device data. */}}
     </div>
-    <div class="cc-actions"><span class="bt-seg"><a href="/battery"{{if ne .Tab "wear"}} class="on"{{end}}>Devices</a><a href="/battery?tab=wear"{{if eq .Tab "wear"}} class="on"{{end}}>Wear</a></span></div>
   </div>
 
-  {{if eq .Tab "wear"}}{{template "battery-wear" .}}{{else}}
   <div class="bt-split">
     <aside class="cc-card bt-card bt-list">
       <div class="bt-ch"><h2>Devices sending</h2><span class="r"><a class="cc-btn sm" href="/battery/export.csv?range={{.Range}}" hx-boost="false" title="Every device's rows over the range">CSV, all</a></span></div>
@@ -107,21 +104,11 @@ details.bt-climb pre{font-size:11px;white-space:pre-wrap;word-break:break-all;co
         {{else}}<div class="bt-empty">No rows in this range.</div>{{end}}
       </section>
 
-      <section class="cc-card bt-card">
-        <div class="bt-ch"><h2>Charge climbs</h2><span class="bt-mu" style="font-size:12px">the client's summary of each constant-current climb</span></div>
-        {{if .Climbs}}
-        <table class="bt-t">
-          <tr><th>at</th><th>end</th><th>from</th><th>rungs</th><th>charge current</th><th>plug</th><th>temp</th><th>samples</th><th>widest gap</th></tr>
-          {{range .Climbs}}<tr><td class="m"><details class="bt-climb"><summary>{{.At.Format "02 Jan 15:04"}}</summary><pre>{{.Raw}}</pre></details></td><td>{{.End}}</td><td>{{.MV0}} mV, {{.Step}} mV steps</td><td>{{.Rungs}}</td><td>{{.IChg}}</td><td>{{.Plug}}</td><td>{{.Temp}}</td><td>{{.N}}</td><td>{{.Gap}} s</td></tr>{{end}}
-        </table>
-        {{else}}<div class="bt-empty" style="padding:14px 8px">None yet. A climb arrives after a charge from low enough to climb the rungs.</div>{{end}}
-      </section>
     {{else}}
       <section class="cc-card bt-card"><div class="bt-empty">{{if .Devices}}Pick a device on the left.{{else}}Nothing to show yet. Devices appear on the left once they send battery data.{{end}}</div></section>
     {{end}}
     </div>
   </div>
-  {{end}}
 </div>
 <script src="/static/js/battery.js?v={{asset "/static/js/battery.js"}}"></script>
 {{template "footer" .}}

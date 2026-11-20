@@ -18,7 +18,7 @@ import (
 //
 // What firmware client 1.10.1 collects for the battery health model, readable before the
 // model exists: the devices that are sending, one device's curve (cell mV and % against
-// charging, plug, screen and temperature), its raw rows, its charge climbs, and a CSV of
+// charging, plug, screen and temperature), its raw rows, and a CSV of
 // any of it. Times are the device's own clock, as stored.
 
 const (
@@ -42,16 +42,6 @@ func batteryRange(r *http.Request) (string, time.Time, time.Time) {
 	return key, now.Add(-d), now.Add(time.Hour)
 }
 
-type batteryClimbView struct {
-	At                time.Time
-	End, Plug         string
-	MV0, Step, N, Gap int
-	Rungs             int
-	IChg              string
-	Temp              string
-	Raw               string
-}
-
 func (h *Handler) BatteryPage(w http.ResponseWriter, r *http.Request) {
 	if !batteryRoleOK(h.role(r)) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
@@ -71,11 +61,7 @@ func (h *Handler) BatteryPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	rangeKey, from, to := batteryRange(r)
-	data := map[string]any{"Title": "Battery data", "Devices": devices, "Range": rangeKey, "Ev": r.URL.Query().Get("ev"), "Tab": ""}
-	if r.URL.Query().Get("tab") == "wear" {
-		data["Tab"] = "wear"
-		data["Wear"] = visibleWear(h.fleetWearNow(ctx), acc.visible)
-	}
+	data := map[string]any{"Title": "Battery data", "Devices": devices, "Range": rangeKey, "Ev": r.URL.Query().Get("ev")}
 
 	serial := r.URL.Query().Get("serial")
 	var sel *db.BatteryDeviceSummary
@@ -130,8 +116,6 @@ func (h *Handler) BatteryPage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		data["Raw"] = raw
-		climbs, _ := h.db.BatteryClimbsFor(ctx, sel.DeviceID, 50)
-		data["Climbs"] = batteryClimbViews(climbs)
 	}
 	h.render(w, r, "battery.html", data)
 }
@@ -180,33 +164,6 @@ func batteryChartPoints(rows []db.BatterySample) [][]any {
 			}
 		}
 		out = append(out, []any{s.T.UnixMilli(), s.Ev, mv, val(s.Pct), val(s.Status), val(s.Plug), temp, screen})
-	}
-	return out
-}
-
-func batteryClimbViews(cs []db.BatteryClimb) []batteryClimbView {
-	var out []batteryClimbView
-	for _, c := range cs {
-		var p struct {
-			MV0  int       `json:"mv0"`
-			Step int       `json:"step"`
-			S    []int     `json:"s"`
-			End  string    `json:"end"`
-			IChg []int     `json:"ichg_ma"`
-			Plug string    `json:"plug"`
-			Temp []float64 `json:"temp_c"`
-			Gap  int       `json:"gap_s"`
-			N    int       `json:"n"`
-		}
-		_ = json.Unmarshal(c.Payload, &p)
-		v := batteryClimbView{At: c.At, End: p.End, Plug: p.Plug, MV0: p.MV0, Step: p.Step, N: p.N, Gap: p.Gap, Rungs: len(p.S), Raw: string(c.Payload)}
-		if len(p.IChg) == 2 {
-			v.IChg = fmt.Sprintf("%d–%d mA", p.IChg[0], p.IChg[1])
-		}
-		if len(p.Temp) == 2 {
-			v.Temp = fmt.Sprintf("%.1f–%.1f °C", p.Temp[0], p.Temp[1])
-		}
-		out = append(out, v)
 	}
 	return out
 }

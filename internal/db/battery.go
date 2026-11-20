@@ -2,11 +2,9 @@ package db
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 // BatterySample is one row of a device's battery log (client 1.10.1, POST
@@ -68,30 +66,7 @@ func (d *DB) InsertBatterySamples(ctx context.Context, deviceID uuid.UUID, fixMs
 	return int(tag.RowsAffected()), nil
 }
 
-// insertBatteryClimb keeps extra.battery_cc as a row of battery_climbs when the report
-// carries one. A report without it, or with one that can't be read, is left alone.
-func insertBatteryClimb(ctx context.Context, tx pgx.Tx, deviceID uuid.UUID, extra json.RawMessage) error {
-	if len(extra) == 0 {
-		return nil
-	}
-	var probe struct {
-		CC json.RawMessage `json:"battery_cc"`
-	}
-	if json.Unmarshal(extra, &probe) != nil || len(probe.CC) == 0 || string(probe.CC) == "null" {
-		return nil
-	}
-	var cc struct {
-		At int64 `json:"at"`
-	}
-	if json.Unmarshal(probe.CC, &cc) != nil || cc.At <= 0 {
-		return nil
-	}
-	_, err := tx.Exec(ctx, `INSERT INTO battery_climbs (device_id, at, payload) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-		deviceID, time.UnixMilli(cc.At).UTC(), probe.CC)
-	return err
-}
-
-// PruneBatteryData drops battery samples and climbs older than keep, in slices so a large
+// PruneBatteryData drops battery samples older than keep, in slices so a large
 // backlog never holds a long lock.
 func (d *DB) PruneBatteryData(ctx context.Context, keep time.Duration) (int64, error) {
 	cut := time.Now().Add(-keep)
@@ -107,11 +82,7 @@ func (d *DB) PruneBatteryData(ctx context.Context, keep time.Duration) (int64, e
 			break
 		}
 	}
-	tag, err := d.pool.Exec(ctx, `DELETE FROM battery_climbs WHERE at < $1`, cut)
-	if err == nil {
-		total += tag.RowsAffected()
-	}
-	return total, err
+	return total, nil
 }
 
 // ── Reading it back (/battery) ────────────────────────────────────────────────
@@ -125,7 +96,6 @@ type BatteryDeviceSummary struct {
 	First, Last time.Time
 	LastMV      *int32
 	LastPct     *int16
-	Climbs      int
 }
 
 // BatteryDevices lists the devices with battery rows since `since`, most rows first. The
@@ -137,8 +107,7 @@ func (d *DB) BatteryDevices(ctx context.Context, since time.Time) ([]BatteryDevi
 			FROM battery_samples WHERE t >= $1 GROUP BY device_id
 		)
 		SELECT s.device_id, d.serial_number, COALESCE(r.name, ''), s.n, s.first_t, s.last_t,
-		       l.mv, l.pct,
-		       (SELECT COUNT(*) FROM battery_climbs c WHERE c.device_id = s.device_id)
+		       l.mv, l.pct
 		FROM s
 		JOIN devices d ON d.id = s.device_id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
@@ -152,7 +121,7 @@ func (d *DB) BatteryDevices(ctx context.Context, since time.Time) ([]BatteryDevi
 	var out []BatteryDeviceSummary
 	for rows.Next() {
 		var s BatteryDeviceSummary
-		if err := rows.Scan(&s.DeviceID, &s.Serial, &s.Venue, &s.Rows, &s.First, &s.Last, &s.LastMV, &s.LastPct, &s.Climbs); err != nil {
+		if err := rows.Scan(&s.DeviceID, &s.Serial, &s.Venue, &s.Rows, &s.First, &s.Last, &s.LastMV, &s.LastPct); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -212,29 +181,4 @@ func (d *DB) EachBatterySample(ctx context.Context, deviceID *uuid.UUID, from, t
 		}
 	}
 	return rows.Err()
-}
-
-// BatteryClimb is one stored charge-climb summary.
-type BatteryClimb struct {
-	At       time.Time
-	Payload  json.RawMessage
-	Received time.Time
-}
-
-// BatteryClimbsFor returns a device's climbs, newest first.
-func (d *DB) BatteryClimbsFor(ctx context.Context, deviceID uuid.UUID, limit int) ([]BatteryClimb, error) {
-	rows, err := d.pool.Query(ctx, `SELECT at, payload, received_at FROM battery_climbs WHERE device_id = $1 ORDER BY at DESC LIMIT $2`, deviceID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []BatteryClimb
-	for rows.Next() {
-		var c BatteryClimb
-		if err := rows.Scan(&c.At, &c.Payload, &c.Received); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
 }

@@ -431,7 +431,7 @@ func buildOvStats(tr db.ScopedTrend, devs []ovDev, sc ovScope, now time.Time) []
 
 	// Battery.
 	bat := ovStat{Title: "Battery", Href: fleet("battery", "low"),
-		Links: []ovOpt{{Label: "Low battery", Href: fleet("battery", "low")}, {Label: "Battery wear", Href: "/battery"}}}
+		Links: []ovOpt{{Label: "Low battery", Href: fleet("battery", "low")}}}
 	if battN == 0 && battAny > 0 {
 		// Battery devices, but none has reported for a day: "mains power" would be wrong
 		// (the venue page, 21 Oct: two dead tablets read as mains-powered).

@@ -302,7 +302,7 @@ func mayUploadPackage(role, pkg string, prod map[string]bool) bool {
 
 // prodUploadRefusal is the message an Engineer sees for a prod package.
 func prodUploadRefusal(pkg string) string {
-	return fmt.Sprintf("%s is a prod build: it goes to restaurants by itself, so an Ops lead or super admin adds it. Channel builds (.qa, .uatv2, .stagev2…) are fine.", pkg)
+	return fmt.Sprintf("%s is a prod build: it goes to restaurants by itself, so Ops or a super admin adds it. Channel builds (.qa, .uatv2, .stagev2…) are fine.", pkg)
 }
 
 // ── The device page: follows strip, chips, follow / stop ─────────────────────

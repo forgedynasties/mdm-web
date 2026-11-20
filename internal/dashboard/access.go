@@ -1086,7 +1086,7 @@ func (a *access) stateDecision(action string, dev *uuid.UUID) (decision, bool) {
 		}
 	case "field":
 		if st == db.StateInService {
-			return no("Once placed, a device belongs to the Ops lead and Support")
+			return no("Once placed, a device belongs to Ops and Support")
 		}
 	}
 	return decision{}, true
