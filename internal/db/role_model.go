@@ -789,6 +789,11 @@ func (d *DB) RecentInstallsOf(ctx context.Context, ids []uuid.UUID, urls []strin
 		  AND c.created_at > now() - make_interval(secs => $3)
 		  AND NOT (cs.status = 'failed' AND `+TransientInstallSQL+`
 		           AND cs.updated_at <= now() - make_interval(secs => $4))
+		  -- An install that went through more than 15 minutes ago is not a reason to hold the APK
+		  -- back: callers only ask when the app is not on the device, so it was wiped or removed
+		  -- since (an OTA took Key Attestation off AT070AABU00089 and the box said "installs
+		  -- within a minute" for six hours, 20 Nov 2026).
+		  AND NOT (cs.status IN ('installed', 'completed') AND cs.updated_at <= now() - interval '15 minutes')
 		UNION
 		-- Back-off (5 Nov 2026): an APK that failed three times on a device in a day is not
 		-- sent there again until the day has passed, transient or not. A device whose

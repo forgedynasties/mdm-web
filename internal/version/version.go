@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.48",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Installs: an app that installed fine and was later wiped (an OTA reflash took it off a device) is sent again within a minute, instead of the \"Installs within a minute\" box waiting six hours on the old install.",
+		},
+	},
+	{
 		Version: "1.64.47",
 		Date:    "2026-11-20",
 		Changes: []string{
