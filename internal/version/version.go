@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.49",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Venues and Alerts lists scroll again: the \"Fleet shows pages, not scrolling\" rule was catching every list on the desktop shell, so rows below the fold could not be reached. It now applies to the Fleet device list only.",
+		},
+	},
+	{
 		Version: "1.64.48",
 		Date:    "2026-11-20",
 		Changes: []string{
