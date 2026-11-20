@@ -32,6 +32,16 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.46",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page: an app the library knows (for example the Key Attestation tool we install) is no longer listed as a system app, so a device whose only app is one of ours doesn't read \"System apps 1\".",
+			"Install and remove now see a device as online when it has a live socket, like the page's own Online badge, so an online device no longer says \"Waiting for the device · offline 4 min\" and its installs go out.",
+			"Device notes: \"Show automatic\" is off until you switch it on.",
+			"Device page: the Graphs sheet (the graph's larger view) is wider, clear of the right dock.",
+		},
+	},
+	{
 		Version: "1.64.45",
 		Date:    "2026-11-20",
 		Changes: []string{

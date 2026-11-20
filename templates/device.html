@@ -227,7 +227,7 @@
 {{/* Notes, in the menu kit (device-menus-demos.html, M1). Returned whole by POST
      /devices/{serial}/notes, which swaps it back in with "Saved". In the Bento view (NO3, picked
      18 Nov 2026) it is a log: a composer, filters, and the entries newest first with what the MDM
-     did to the device mixed in (grey, "Show automatic" hides them). */}}
+     did to the device mixed in (grey; "Show automatic" is off until switched on). */}}
 <div id="device-notes-card"{{if .Bento}} class="bt-nl"{{end}}>
   {{if .Bento}}
   {{if canOperate .Role}}
@@ -241,10 +241,10 @@
   </form>
   {{end}}
   <div class="bt-nl-f" role="group" aria-label="Filter the log">
-    <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" class="on" data-nlf="auto">Show automatic</button>
+    <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" data-nlf="auto">Show automatic</button>
   </div>
   <ul class="bt-nl-list">
-    {{range .NoteLog}}<li data-kind="{{.Kind}}"><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
+    {{range .NoteLog}}<li data-kind="{{.Kind}}"{{if eq .Kind "auto"}} style="display:none"{{end}}><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
       <div><div class="bt-nl-h"><span class="bt-nl-k {{.Kind}}">{{.Kind}}</span><b>{{.Who}}</b><time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}">{{.At.Format "2 Jan, 15:04"}} UTC</time></div>
       <div class="bt-nl-t{{if .Auto}} auto{{end}}">{{.Text}}</div></div></li>
     {{else}}<li class="bt-nl-empty">Nothing logged yet. Notes you add, and what is done to this device, appear here with their time.</li>{{end}}

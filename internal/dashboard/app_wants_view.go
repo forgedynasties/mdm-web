@@ -44,8 +44,7 @@ func (h *Handler) deviceWantsView(ctx context.Context, d *db.Device) []wantRow {
 	fams, _, _ := h.libraryData(ctx)
 	pending, _ := h.db.PendingInstalls(ctx, d.ID)
 	fails, _ := h.db.WantFailures(ctx, d.ID)
-	seenWithin := time.Duration(h.cfg.CheckinInterval()*roleAppSeenFactor) * time.Second
-	online := time.Since(d.LastSeenAt) <= seenWithin
+	online := h.deviceOnline(d)
 	var out []wantRow
 	for _, w := range ws {
 		r := wantRow{Package: w.Package, Name: w.Package, Remove: w.Want == db.WantAbsent, Pct: -1}
@@ -216,6 +215,12 @@ func (h *Handler) wantDevice(w http.ResponseWriter, r *http.Request, cmdType str
 }
 
 func (h *Handler) deviceOnline(d *db.Device) bool {
+	// A connected socket is online whatever last_seen says: a device on a WebSocket checks in
+	// rarely, and the page's own Online badge goes by the socket (20 Nov 2026: "Waiting for the
+	// device · offline 4 min" on a device the header called Online).
+	if h.hub != nil && h.hub.IsConnected(d.ID) {
+		return true
+	}
 	return time.Since(d.LastSeenAt) <= time.Duration(h.cfg.CheckinInterval()*roleAppSeenFactor)*time.Second
 }
 

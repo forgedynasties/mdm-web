@@ -37,6 +37,7 @@ type wantPick struct {
 	recentUn map[uuid.UUID]map[string]bool // packages asked to uninstall lately
 	batch    int
 	force    bool // a person just asked: skip the back-off
+	connected map[uuid.UUID]bool // devices with a live socket: online whatever last_seen says
 }
 
 // pickWants returns at most one job per device (its oldest unmet want), online devices only.
@@ -47,7 +48,7 @@ func pickWants(devices []db.Device, p wantPick, seenWithin time.Duration, now ti
 			break
 		}
 		d := &devices[i]
-		if d.Retired() || now.Sub(d.LastSeenAt) > seenWithin || !p.reported[d.ID] || p.busy[d.ID] {
+		if d.Retired() || (now.Sub(d.LastSeenAt) > seenWithin && !p.connected[d.ID]) || !p.reported[d.ID] || p.busy[d.ID] {
 			continue
 		}
 		for _, w := range p.wants[d.ID] {
@@ -154,6 +155,12 @@ func (h *Handler) applyWants(ctx context.Context, only []uuid.UUID, force bool) 
 	seenWithin := time.Duration(h.cfg.CheckinInterval()*roleAppSeenFactor) * time.Second
 	p := wantPick{wants: wants, lib: lib, have: have, reported: reported, busy: busy, recent: recent, recentUn: recentUn,
 		batch: h.appRolloutBatch(), force: force}
+	if h.hub != nil {
+		p.connected = map[uuid.UUID]bool{}
+		for id := range h.hub.ConnectedIDs() {
+			p.connected[id] = true
+		}
+	}
 	for _, j := range pickWants(devices, p, seenWithin, time.Now()) {
 		if j.App == nil {
 			if err := h.queueUninstall(ctx, j.Device, j.Pkg, "app-wants"); err != nil {

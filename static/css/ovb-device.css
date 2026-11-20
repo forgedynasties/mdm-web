@@ -361,3 +361,10 @@ html:has(.dd-bento) #install-modal .install-head-actions .btn-outline{border:0;b
 html:has(.dd-bento) #install-modal .install-head-actions .btn-outline .ui-icon{display:none}
 html:has(.dd-bento) #install-modal .modal-close{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:15px;line-height:1}
 @media (max-width:720px){html:has(.dd-bento) #install-modal .modal-box{width:calc(100vw - 24px)}.inst-esc{display:none!important}}
+
+/* The Graphs sheet (the graph's larger view) is wider than the other sheets: a chart needs the
+   room (20 Nov 2026). Its title strip follows. */
+@media (min-width:1101px) and (min-height:640px){
+body:has(#dd-panel-graphs:not([hidden])) .dd-bento .bt-sheet-h,
+html body .dd-bento .dd-panel#dd-panel-graphs:not([hidden]):not(#nx){width:min(calc(100vw - 260px),1560px)}
+}
