@@ -1105,6 +1105,9 @@
 /* The chart card clips its plot; an open menu may hang below it. */
 .chart-card:has(.vt-menu:not([hidden]), .cr-pop:not([hidden])){overflow:visible}
 .vt-menu .vt-tz{display:grid;gap:0;background:none;border:0;padding:0;box-shadow:none;border-radius:0}
+.vt-menu .gc-tzb{display:flex;flex-wrap:wrap;align-items:center;height:auto;padding:7px 10px;text-align:left;line-height:1.3}
+.vt-menu .gc-tzb::after{margin-left:auto}
+.vt-menu .gc-tzb small{flex:0 0 100%;order:3;white-space:normal;color:var(--muted);font-size:11.5px;font-weight:400;margin:1px 0 0}
 /* .dur-btn / .gc-tzb carry their old segmented-control look; inside the menu the kit wins. */
 .vt-menu .cc-mi{background:none;box-shadow:none;border:0;border-radius:8px;padding:0 10px;font-size:13px;font-weight:500;line-height:normal;color:var(--text)}
 .vt-menu .cc-mi:hover{background:var(--hover);color:var(--text)}

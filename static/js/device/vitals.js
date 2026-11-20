@@ -7,8 +7,24 @@ window.vtMenu = function (e, id) {
   var open = m.hasAttribute('hidden');
   document.querySelectorAll('.vt-menu').forEach(function (x) { x.setAttribute('hidden', ''); });
   document.querySelectorAll('[data-vt-trig]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
-  if (open) { m.removeAttribute('hidden'); e.currentTarget.setAttribute('aria-expanded', 'true'); }
+  if (open) { m.removeAttribute('hidden'); e.currentTarget.setAttribute('aria-expanded', 'true'); vtFit(m, e.currentTarget); }
 };
+// An opened menu is fixed under its button, inside the window (20 Nov 2026: the range menu was cut
+// off by the card it sits in, and its last rows ran past the bottom): a fixed menu is not clipped
+// by the card's overflow; it opens upward when there is more room above, and scrolls when neither fits.
+function vtFit(m, trig) {
+  var t = trig.getBoundingClientRect(), vw = window.innerWidth, vh = window.innerHeight, pad = 12;
+  m.style.position = 'fixed'; m.style.right = 'auto'; m.style.bottom = 'auto'; m.style.maxHeight = ''; m.style.overflowY = '';
+  var w = m.offsetWidth, h = m.offsetHeight;
+  var right = m.classList.contains('vt-menu-r');
+  m.style.left = Math.max(pad, Math.min(right ? t.right - w : t.left, vw - w - pad)) + 'px';
+  var below = vh - t.bottom - 6 - pad, above = t.top - 6 - pad, top;
+  if (h <= below) top = t.bottom + 6;
+  else if (h <= above) top = t.top - 6 - h;
+  else { var room = Math.max(160, Math.max(below, above)); m.style.maxHeight = room + 'px'; m.style.overflowY = 'auto'; top = below >= above ? t.bottom + 6 : t.top - 6 - room; }
+  m.style.top = Math.max(pad, top) + 'px';
+}
+window.addEventListener('resize', function () { document.querySelectorAll('.vt-menu').forEach(function (x) { x.setAttribute('hidden', ''); }); });
 if (!window.__vtMenuHook) {
   window.__vtMenuHook = true;
   var vtCloseAll = function () {

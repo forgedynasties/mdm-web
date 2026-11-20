@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.50",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page graph: the range menu (and the ⋯ menu) is no longer cut off by the card it sits in or by the bottom of the window; it opens under its button, flips upward or scrolls when short of room, and the time-zone rows show their notes on their own line.",
+		},
+	},
+	{
 		Version: "1.64.49",
 		Date:    "2026-11-20",
 		Changes: []string{
