@@ -32,7 +32,7 @@ var fleetTruncate = []string{
 	// device history
 	"device_samples", "battery_samples", "app_usage", "device_state_events", "device_events",
 	"device_packages", "device_daily_stats", "compliance_events", "compliance_results",
-	"device_trail", "device_build_history", "battery_climbs", "device_temp_fast",
+	"device_trail", "device_build_history", "device_temp_fast",
 	"temp_fast_devices", "logcat_requests", "logcat_results", "lost_sessions", "ble_sightings",
 	"device_samples_unpart", "battery_samples_unpart", "app_usage_unpart", // pre-partition copies, if still there
 	"device_ai_analyses", "ws_sessions", "remote_tokens", "device_owners",

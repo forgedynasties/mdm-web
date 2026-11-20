@@ -582,13 +582,11 @@ func main() {
 		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/history", qaCORS(http.NotFoundHandler()))
 		mux.Handle("GET /api/v1/testdata/filters", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataFilters))))
 		mux.Handle("OPTIONS /api/v1/testdata/filters", qaCORS(http.NotFoundHandler()))
-		// Battery data (the /battery page's): who is sending, a device's rows, its climbs.
+		// Battery data (the /battery page's): who is sending, a device's rows.
 		mux.Handle("GET /api/v1/testdata/battery", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataBattery))))
 		mux.Handle("OPTIONS /api/v1/testdata/battery", qaCORS(http.NotFoundHandler()))
 		mux.Handle("GET /api/v1/testdata/devices/{serial}/battery", qaCORS(qaAuth(http.HandlerFunc(apiHandler.GetTestDataDeviceBattery))))
 		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/battery", qaCORS(http.NotFoundHandler()))
-		mux.Handle("GET /api/v1/testdata/devices/{serial}/battery/climbs", qaCORS(qaAuth(http.HandlerFunc(apiHandler.GetTestDataDeviceBatteryClimbs))))
-		mux.Handle("OPTIONS /api/v1/testdata/devices/{serial}/battery/climbs", qaCORS(http.NotFoundHandler()))
 		// Host app on screen (21 Oct 2026): every device's state now, and one device's spans.
 		mux.Handle("GET /api/v1/testdata/host-app", qaCORS(qaAuth(http.HandlerFunc(apiHandler.ListTestDataHostApp))))
 		mux.Handle("OPTIONS /api/v1/testdata/host-app", qaCORS(http.NotFoundHandler()))

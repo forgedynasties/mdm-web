@@ -187,7 +187,7 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 	} else if n > 0 {
 		log.Printf("[retention] pruned %d fast temperature row(s) older than %dh", n, db.TempFastKeepHours)
 	}
-	// The battery log and charge climbs (client 1.10.1) keep 180 days: enough for a
+	// The battery log (client 1.10.1) keeps 180 days: enough for a
 	// health trend over seasons, without the table growing for ever.
 	// Partitioned, months go whole and PruneBatteryData (which deletes by ctid, not
 	// unique across partitions) must not run: PruneBatteryPartitioned trims the rest.

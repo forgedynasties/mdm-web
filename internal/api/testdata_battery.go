@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -14,8 +13,7 @@ import (
 )
 
 // Battery data for the testing team (QA key): what the dashboard's /battery page shows —
-// the devices sending firmware client 1.10.1's battery log, each one's raw rows, and its
-// charge climbs — as JSON (or CSV) for their own tools. Same scope as the other testdata
+// the devices sending firmware client 1.10.1's battery log and each one's raw rows — as JSON (or CSV) for their own tools. Same scope as the other testdata
 // routes: firmware devices only, narrowed by ?group= / ?restaurant=.
 //
 // Times in the rows are the DEVICE's clock, as stored; t_fix_ms is how far the server's
@@ -24,7 +22,6 @@ import (
 const (
 	qaBatteryListWindow = 7 * 24 * time.Hour
 	qaBatteryMaxSpan    = 31 * 24 * time.Hour
-	qaBatteryClimbsMax  = 500
 )
 
 var qaBatteryRanges = map[string]time.Duration{"6h": 6 * time.Hour, "24h": 24 * time.Hour, "7d": 7 * 24 * time.Hour, "30d": 30 * 24 * time.Hour}
@@ -37,7 +34,6 @@ type qaBatteryDevice struct {
 	LastAt         time.Time `json:"last_at"`
 	LastMV         *int32    `json:"last_mv"`
 	LastPct        *int16    `json:"last_pct"`
-	Climbs         int       `json:"climbs"`
 }
 
 type qaBatteryRow struct {
@@ -87,7 +83,7 @@ func (h *Handler) ListTestDataBattery(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, qaBatteryDevice{
 			SerialNumber: b.Serial, RestaurantName: b.Venue, Rows: b.Rows,
-			FirstAt: b.First.UTC(), LastAt: b.Last.UTC(), LastMV: b.LastMV, LastPct: b.LastPct, Climbs: b.Climbs,
+			FirstAt: b.First.UTC(), LastAt: b.Last.UTC(), LastMV: b.LastMV, LastPct: b.LastPct,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -139,35 +135,6 @@ func (h *Handler) GetTestDataDeviceBattery(w http.ResponseWriter, r *http.Reques
 		"count":         len(rows),
 		"rows":          rows,
 	})
-}
-
-// GetTestDataDeviceBatteryClimbs is GET /api/v1/testdata/devices/{serial}/battery/climbs:
-// the device's charge climbs (client 1.10.1's battery_cc), newest first. ?limit= (default
-// 50, at most 500). Each payload is the client's own object, passed through as-is.
-func (h *Handler) GetTestDataDeviceBatteryClimbs(w http.ResponseWriter, r *http.Request) {
-	dev, ok := h.qaFirmwareDevice(w, r)
-	if !ok {
-		return
-	}
-	limit := 50
-	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
-		limit = min(n, qaBatteryClimbsMax)
-	}
-	climbs, err := h.db.BatteryClimbsFor(r.Context(), dev.ID, limit)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
-	}
-	type climb struct {
-		At         time.Time       `json:"at"`
-		ReceivedAt time.Time       `json:"received_at"`
-		Payload    json.RawMessage `json:"payload"`
-	}
-	out := make([]climb, 0, len(climbs))
-	for _, c := range climbs {
-		out = append(out, climb{At: c.At.UTC(), ReceivedAt: c.Received.UTC(), Payload: c.Payload})
-	}
-	writeJSON(w, http.StatusOK, out)
 }
 
 // qaFirmwareDevice resolves {serial} for a testdata route: any device on this server; an

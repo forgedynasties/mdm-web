@@ -317,7 +317,6 @@ configured). An unknown serial answers 404. Lists take `?group=<name>` and `?res
 | GET | `/api/v1/testdata/devices/{serial}/history` | Check-in history: `start`, `end` (RFC 3339, default the last 7 days), `interval_sec` (default 300), `cycles=true` |
 | GET | `/api/v1/testdata/battery` | Devices that sent battery rows in the last 7 days, most rows first |
 | GET | `/api/v1/testdata/devices/{serial}/battery` | That device's battery rows, oldest first. `?format=csv` for CSV |
-| GET | `/api/v1/testdata/devices/{serial}/battery/climbs` | Its charge climbs, newest first. `?limit=` (default 50, max 500) |
 | GET | `/api/v1/testdata/host-app` | Devices that report a host app: state now and on-screen share over the window (default 24 h, at most 7 days) |
 | GET | `/api/v1/testdata/devices/{serial}/host-app` | When that device's host app was on screen and when not: spans, totals and the raw transitions |
 | POST | `/api/v1/testdata/devices/{serial}/app/open` | `{"package":"aio.app.nugget"}`: open the app (its launcher activity) |
@@ -351,7 +350,7 @@ full cycles. New fields the client starts sending show up under `extra` without 
 every battery broadcast and screen edge, at most one row per 30 s while nothing changes, and
 uploads them in batches. Battery rows can therefore arrive minutes to hours after they were taken.
 
-`/battery` row: `serial_number, restaurant_name, rows, first_at, last_at, last_mv, last_pct, climbs`.
+`/battery` row: `serial_number, restaurant_name, rows, first_at, last_at, last_mv, last_pct`.
 
 `/devices/{serial}/battery`: choose the window with `?range=6h|24h|7d|30d` (default 24h) or
 `?start=&end=` (RFC 3339, at most 31 days; 400 otherwise). The answer is
@@ -376,14 +375,6 @@ device did not read that value:
 `?format=csv` returns the same columns as the page's Download CSV (`serial, t_ms, up_s, ev, mv,
 pct, status, plug, temp_c, screen, ichg_ma, iin_ma, flap, wlc, wlc_on, t_fix_ms`). Unknown values
 are empty cells.
-
-`/climbs` item: `{at, received_at, payload}`. `payload` is the client's `battery_cc` object as
-sent. One climb is one charge, read as a ladder of voltage rungs: `mv0` is the first rung (mV),
-`step` the mV between rungs, and `s[i]` the seconds from the start until the cell reached
-`mv0 + i·step`, so a slower climb shows as larger gaps. `scr[i]` is whether the screen was on
-at that rung. `end` is how the climb ended (`top` = reached full), `plug` the charger, `ichg_ma` and
-`temp_c` the [min, max] over the climb, `iin_ma` the input current (-1 = not read), `gap_s` the
-longest gap between samples, `n` the samples behind it, and `at` the time (device ms).
 
 **Host app on screen** (21 Oct 2026; firmware client 1.11.0+, kept since 17 Oct 2026). Both
 routes take the window as `?range=6h|24h|7d|30d` (default 24h) or `?start=&end=` (RFC 3339; at

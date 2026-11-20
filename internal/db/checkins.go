@@ -276,11 +276,6 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// this transaction's NOW(), so a queued write lands at the instant it described, the
 	// same instant hist_at records, however long it waited.
 	shaped = ShapedTelemetry{DeviceID: deviceID, At: at, Prev: histPrev, Cur: histCur, Battery: battery, Stored: stored}
-	// A charge-climb summary (client 1.10.1) is kept as history in battery_climbs; the key
-	// itself is stripped from check-in rows. Keyframes repeat it, which the key dedupes.
-	if err := insertBatteryClimb(ctx, tx, deviceID, extra); err != nil {
-		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, 0, false, false, ShapedTelemetry{}, err
 	}

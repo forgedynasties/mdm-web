@@ -1739,10 +1739,6 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
-		// Battery wear (battery_wear.go): a climb's seconds as "5 h 32 m", the "faster than
-		// fleet" line as a percent, and who may open /battery.
-		"fmtClimb":      fmtClimb,
-		"wearFastPct":   func() int { return wearFastPct },
 		"canSeeBattery": batteryRoleOK,
 		// Lost mode as the device reports it (lost_mode.go): the fleet's red "Lost" tag.
 		"deviceLost": deviceLost,

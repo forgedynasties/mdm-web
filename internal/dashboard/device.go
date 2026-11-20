@@ -599,9 +599,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"AppUsage": h.appUsageView(r.Context(), device, "24h", "", false),
 		// Wi-Fi card (W1) on the Overview.
 		"Wifi": h.deviceWifiView(r.Context(), device, h.canEditWifi(r, device)),
-		// Charge-climb wear against the fleet and its own first weeks (battery_wear.go);
-		// nil where there is nothing to read it from (no battery, the Standard client).
-		"BatteryWear": h.batteryWearFor(r.Context(), device),
 		// The networks the device says it has saved (client 1.12.0 / 0.3.0), names only.
 		"SavedNetworks": savedNetworksView(device.LatestExtra),
 		// Lost mode: the band at the top of the page and the dialog's defaults (lost_mode.go).
