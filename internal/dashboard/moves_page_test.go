@@ -120,7 +120,7 @@ func TestMovesPageAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmpl := template.Must(template.New("").Funcs(template.FuncMap{"assetVer": func() string { return "t" }}).
+	tmpl := template.Must(template.New("").Funcs(template.FuncMap{"assetVer": func() string { return "t" }, "asset": func(p string) string { return "t" }}).
 		Parse(`{{define "header"}}<main>{{end}}{{define "footer"}}</main>{{end}}`))
 	tmpl = template.Must(tmpl.ParseFiles("../../templates/moves.html", "../../templates/denied.html"))
 	h := &Handler{db: d, cfg: cfg, hub: ws.NewHub(), loginFails: ratelimit.New(15 * time.Minute), tmpl: tmpl, otaGate: otagate.New(d, cfg),

@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.56",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Page tabs share one look everywhere: the white pill with the open tab in coral that the Access page had. People · Access · Activity are one shared strip (Activity no longer switches to a different design), and Jobs, Alerts and the Apps hub use the same pill. On Apps the Library · Resource use tabs now sit in the same place on both pages, so moving between them no longer feels like a different page.",
+		},
+	},
+	{
 		Version: "1.64.55",
 		Date:    "2026-11-20",
 		Changes: []string{

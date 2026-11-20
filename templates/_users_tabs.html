@@ -1,10 +1,10 @@
 {{/* People tabs: one strip for the People section (access by levels, 2 Nov 2026: People ·
      Access · Activity; the second strip and the profiles tab are gone). */}}
 {{define "users-tabs"}}
-<nav class="cc-tabs" data-pill-nav aria-label="People" style="display:flex;gap:4px;margin:-6px 0 16px;padding:3px;background:var(--surface-3);border:1px solid var(--border);border-radius:11px;width:max-content;max-width:100%;overflow-x:auto;">
-  <a href="/users" class="cc-btn sm js-dest{{if eq .UsersTab "people"}} primary{{end}}"{{if eq .UsersTab "people"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "people"}}background:transparent;box-shadow:none;{{end}}">People</a>
-  <a href="/users/access" class="cc-btn sm js-dest{{if eq .UsersTab "access"}} primary{{end}}"{{if eq .UsersTab "access"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "access"}}background:transparent;box-shadow:none;{{end}}">Access</a>
-  {{if eq .Role "admin"}}<a href="/activity" class="cc-btn sm js-dest{{if eq .UsersTab "activity"}} primary{{end}}"{{if eq .UsersTab "activity"}} aria-current="page"{{end}} style="border-color:transparent;{{if ne .UsersTab "activity"}}background:transparent;box-shadow:none;{{end}}">Activity</a>{{end}}
+<nav class="pg-tabs" data-pill-nav aria-label="People">
+  <a href="/users" class="js-dest{{if eq .UsersTab "people"}} on{{end}}"{{if eq .UsersTab "people"}} aria-current="page"{{end}}>People</a>
+  <a href="/users/access" class="js-dest{{if eq .UsersTab "access"}} on{{end}}"{{if eq .UsersTab "access"}} aria-current="page"{{end}}>Access</a>
+  {{if eq .Role "admin"}}<a href="/activity" class="js-dest{{if eq .UsersTab "activity"}} on{{end}}"{{if eq .UsersTab "activity"}} aria-current="page"{{end}}>Activity</a>{{end}}
 </nav>
 {{end}}
 

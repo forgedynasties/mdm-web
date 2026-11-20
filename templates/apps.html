@@ -28,6 +28,8 @@
     {{end}}
   </div>
   {{end}}
+  {{/* The hub tabs sit at the top of the page, where Resource use has them (20 Nov 2026: moving between the two tabs used to jump the strip from a card to the page corner, so it felt like another page). */}}
+  {{template "apps-hub-tabs" .}}
   <div class="al1-root" data-cl data-one="app" data-many="apps" data-start="role">
   <div class="al1-grid dv-rise-1">
     <aside class="ovb-c al1-rail" aria-label="Products">
@@ -39,7 +41,6 @@
     </aside>
     <section class="ovb-c al1-main lib-card" id="lib-card">
       <div class="al1-top">
-        {{template "apps-hub-tabs" .}}
         <div class="ovb-seg" role="group" aria-label="Apps">
           <button type="button" class="on" data-clf="role" data-grp="role" data-title="AIO apps" aria-pressed="true">AIO apps <small>{{$a.RoleN}}</small></button>
           {{if .CanShowAll}}<button type="button" data-clf="other" data-grp="other" data-title="Other apps" aria-pressed="false">Other apps <small>{{$a.OtherN}}</small></button>{{end}}

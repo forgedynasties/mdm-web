@@ -17,7 +17,7 @@
 <div class="cc-top"><div><h1 class="cc-h1">Access</h1></div></div>
 <div class="ovd ac1" id="ac1">
   <div class="ac1-l">
-    <nav class="ac1-nav" aria-label="People"><a href="/users">People</a><a href="/users/access" aria-current="page" class="on">Access</a>{{if eq .Role "admin"}}<a href="/activity">Activity</a>{{end}}</nav>
+    {{template "users-tabs" .}}
     <section class="ovb-c ac1-risks" aria-labelledby="ac1-rh">
       <div class="ovb-ch"><h2 id="ac1-rh">Risks</h2><span class="sp"></span><span class="ovb-pill {{if .NRisks}}o{{else}}g{{end}}">{{.NRisks}}</span></div>
       <div class="ac1-rl">

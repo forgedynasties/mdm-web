@@ -8265,3 +8265,24 @@ html.shell #device-table-container .ft-wrap, html.shell .fleet-roster .card > .f
 /* A card that holds an open dialog is never clipped to the page edge: clip-path also clips its
    position:fixed descendants, which cut the Add app dialog down to the card's box (19 Nov 2026). */
 :is(.card, .cc-card, .ddc-card, .fleet-rail, .ovb-c, .ro-list):has(.modal-backdrop.modal-open) { clip-path: none !important; }
+
+/* Top-level page tabs, one look everywhere (20 Nov 2026, user: "I like this pill design for top-level
+   pills, implement it everywhere, the one on the Access page"): a white pill holding the tabs, the open
+   one a coral pill. People · Access · Activity, Jobs, Alerts, Apps and the other page-level strips all
+   take it: .pg-tabs is the class to use; the older strip classes are aliased here so no page keeps its own. */
+html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs, nav.cc-tabs[data-pill-nav]) {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; align-self: flex-start;
+  width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none;
+  margin: 2px 0 16px; padding: 3px; background: var(--surface); border: 0; border-radius: 99px; box-shadow: none;
+}
+html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs, nav.cc-tabs[data-pill-nav]) > :is(a, button) {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font: inherit; font-size: 12px; font-weight: 600;
+  padding: 6px 13px; border: 0; border-radius: 99px; background: none; box-shadow: none; color: var(--text-2); text-decoration: none; cursor: pointer;
+}
+html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs, nav.cc-tabs[data-pill-nav]) > :is(a, button):hover { background: var(--surface2); color: var(--text); }
+html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs, nav.cc-tabs[data-pill-nav]) > :is(a, button):is(.on, .active, [aria-current="page"], [aria-selected="true"]) {
+  background: var(--accent-fill); color: #fff;
+}
+html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs) > :is(a, button) .n { font-size: 10.5px; font-weight: 700; opacity: .75; font-variant-numeric: tabular-nums; }
+html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs) > .cap { display: none; }
+@media (max-width: 720px) { html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs) { margin-bottom: 12px; } }
