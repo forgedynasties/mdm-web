@@ -660,8 +660,8 @@ html[data-theme="dark"] .en-grp{background:rgba(255,255,255,.03);}
 .apl-host[open] .apl-more::after{content:" ▴"}.apl-host:not([open]) .apl-more::after{content:" ▾"}
 .apl-host>.ha-card{margin:0 12px 12px;box-shadow:none}
 .apl-bar{display:flex;align-items:center;gap:10px;padding:10px 16px 6px;border-top:1px solid var(--border-soft)}
-.apl-bar .app-search{flex:1;padding:0!important;margin:0}
-.apl-win{display:inline-flex;gap:4px;margin-left:auto}
+.apl-bar .app-search{flex:1 1 0;min-width:0;padding:0!important;margin:0}
+.apl-win{display:inline-flex;gap:4px;margin-left:auto;flex:none}
 .apl-pill{font:inherit;font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer}
 .apl-pill.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft)}
 .app-list{display:block;padding:0 0 8px}

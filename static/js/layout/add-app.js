@@ -10,7 +10,7 @@
     if (t.group) q.append('group', t.group);
     if (t.venue) q.append('venue', t.venue);
     fetch('/apps/add-to?' + q.toString(), { credentials: 'same-origin' }).then(function (r) {
-      if (!r.ok) return r.text().then(function (x) { throw new Error((x || 'Could not open Add app').trim()); });
+      if (!r.ok) return r.text().then(function (x) { throw new Error((x || 'Could not open Install app').trim()); });
       return r.text();
     }).then(function (html) {
       var old = document.getElementById('add-app-dlg'); if (old) old.remove();
@@ -32,14 +32,14 @@
       if (!pick) { say.textContent = 'Pick an app'; add.disabled = true; return; }
       var lack = n - pick.ch.have;
       add.disabled = lack <= 0;
-      if (lack <= 0) { say.innerHTML = 'All ' + n + ' already have <b>' + esc(pick.name) + '</b>.'; add.textContent = 'Add app'; return; }
+      if (lack <= 0) { say.innerHTML = 'All ' + n + ' already have <b>' + esc(pick.name) + '</b>.'; add.textContent = 'Install app'; return; }
       var label = esc(pick.name) + (pick.ch.label ? ' · ' + esc(pick.ch.label) : '');
       if (n === 1) {
-        say.innerHTML = 'Adds <b>' + label + '</b>. It installs the newest build' + (pick.ch.newest ? ' (' + esc(pick.ch.newest) + ')' : '') + (online ? ' now.' : ' when the device is back online.');
-        add.textContent = 'Add app';
+        say.innerHTML = 'Installs <b>' + label + '</b>, the newest build' + (pick.ch.newest ? ' (' + esc(pick.ch.newest) + ')' : '') + (online ? ' now.' : ' when the device is back online.');
+        add.textContent = 'Install app';
       } else {
-        say.innerHTML = 'Adds <b>' + label + '</b> to the ' + lack + ' that don\'t have it' + (offline ? '. Online ones install now, ' + offline + ' offline when they\'re back.' : ': they install now.');
-        add.textContent = 'Add to ' + lack;
+        say.innerHTML = 'Installs <b>' + label + '</b> on the ' + lack + ' that don\'t have it' + (offline ? '. Online ones install now, ' + offline + ' offline when they\'re back.' : ': they install now.');
+        add.textContent = 'Install on ' + lack;
       }
     }
     m.querySelectorAll('.aa-app').forEach(function (b) {

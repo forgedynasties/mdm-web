@@ -23,7 +23,7 @@
   @media (max-width:720px){.aa-b{grid-template-columns:1fr;max-height:none}.aa-l{border-right:0;max-height:34vh}}
 </style>
 <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="aa-title">
-  <div class="aa-h"><b id="aa-title">Add app to {{.Target.Label}}</b><small>{{.N}} device{{if ne .N 1}}s{{end}}{{if .N}} · {{.Online}} online, {{.Offline}} offline{{end}}</small></div>
+  <div class="aa-h"><b id="aa-title">Install app on {{.Target.Label}}</b><small>{{.N}} device{{if ne .N 1}}s{{end}}{{if .N}} · {{.Online}} online, {{.Offline}} offline{{end}}</small></div>
   {{if and .N .Apps}}
   <div class="aa-b">
     <div class="aa-l">
@@ -39,7 +39,7 @@
   </div>
   {{else if not .N}}<div class="aa-h"><p>None of these devices can take an app from you.</p></div>
   {{else}}<div class="aa-h"><p>No apps in the library yet.</p></div>{{end}}
-  <div class="aa-f"><span class="aa-say" aria-live="polite">Pick an app</span><button type="button" class="cc-btn" data-aa-close>Cancel</button><button type="button" class="btn-primary btn-sm" data-aa-add disabled>Add app</button></div>
+  <div class="aa-f"><span class="aa-say" aria-live="polite">Pick an app</span><button type="button" class="cc-btn" data-aa-close>Cancel</button><button type="button" class="btn-primary btn-sm" data-aa-add disabled>Install app</button></div>
 </div>
 </div>
 {{end}}

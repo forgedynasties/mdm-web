@@ -201,7 +201,7 @@
     if (caps.reboot) it.push({ label: one ? 'Reboot…' : 'Reboot ' + n + '…', icon: 'reboot', ro: ro, run: function () {
       runCommand('reboot', serials, 'Reboot ' + (one ? t.serial : n + ' devices') + '? Whatever is on screen restarts.');
     } });
-    if (caps.apps && window.mdmAddApp) it.push({ label: one ? 'Add app…' : 'Add app to ' + n + '…', icon: 'app', ro: ro, run: function () { window.mdmAddApp({ serials: serials }); } });
+    if (caps.apps && window.mdmAddApp) it.push({ label: one ? 'Install app…' : 'Install app on ' + n + '…', icon: 'app', ro: ro, run: function () { window.mdmAddApp({ serials: serials }); } });
     if (caps.lock && one) {
       var locked = d.locked === '1';
       it.push({ label: locked ? 'Unlock' : 'Lock', icon: locked ? 'unlock' : 'lock', ro: ro, run: function () {

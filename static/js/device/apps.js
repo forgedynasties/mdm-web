@@ -346,7 +346,7 @@ window.installToggle = function (btn) {
   var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
   if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Pick one or more apps';
   var add = form.hasAttribute('data-add');
-  if (s) { s.disabled = n === 0; s.textContent = add ? (n > 1 ? 'Add ' + n + ' apps' : 'Add app') : (n ? ('Install (' + n + ')') : 'Install'); }
+  if (s) { s.disabled = n === 0; s.textContent = add ? (n > 1 ? 'Install ' + n + ' apps' : 'Install app') : (n ? ('Install (' + n + ')') : 'Install'); }
   if (pane) {
     if (on) installPane(btn);
     else if (pane.dataset.tile === btn.getAttribute('data-family')) {
@@ -571,18 +571,18 @@ window.installLabel = function () {
   if (add) {
     var lacking = [].filter.call(on, function (t) { return t.getAttribute('data-have') !== '1'; });
     s.disabled = !lacking.length;
-    if (!lacking.length) { s.textContent = 'Add app'; if (c) c.textContent = on.length > 1 ? 'These are already on this device.' : (on[0].getAttribute('data-app') || 'This app') + ' is already on this device; it updates itself.'; return; }
+    if (!lacking.length) { s.textContent = 'Install app'; if (c) c.textContent = on.length > 1 ? 'These are already on this device.' : (on[0].getAttribute('data-app') || 'This app') + ' is already on this device; it updates itself.'; return; }
     if (lacking.length < on.length) on = lacking;
   }
-  s.textContent = add ? (on.length > 1 ? 'Add ' + on.length + ' apps' : 'Add app') : ('Install' + (on.length > 1 ? ' (' + on.length + ')' : ''));
+  s.textContent = add ? (on.length > 1 ? 'Install ' + on.length + ' apps' : 'Install app') : ('Install' + (on.length > 1 ? ' (' + on.length + ')' : ''));
   if (!c) return;
   var when = form.getAttribute('data-online') === '1' ? 'now' : 'when the device is back online';
   if (on.length === 1) {
     var t = on[0], ch = t.getAttribute('data-ch'), v = t.getAttribute('data-ver');
-    c.innerHTML = (add ? 'Adds ' : 'Install ') + '<b>' + instEsc(t.getAttribute('data-app') || '') + (ch ? ' · ' + instEsc(ch) : '') + '</b>' +
-      (add ? '. It installs the newest build' + (v ? ' (' + instEsc(v) + ')' : '') + ' ' + when + '.' : (v ? ' ' + instEsc(v) : ''));
+    c.innerHTML = (add ? 'Installs ' : 'Install ') + '<b>' + instEsc(t.getAttribute('data-app') || '') + (ch ? ' · ' + instEsc(ch) : '') + '</b>' +
+      (add ? (v ? ' ' + instEsc(v) : '') + ', the newest build, ' + when + '.' : (v ? ' ' + instEsc(v) : ''));
   } else {
-    c.textContent = add ? 'Adds ' + on.length + ' apps. Each installs its newest build ' + when + '.' : on.length + ' apps';
+    c.textContent = add ? 'Installs ' + on.length + ' apps, each its newest build ' + when + '.' : on.length + ' apps';
   }
 };
 // Follow what was ticked, before the install goes out (the follow job then sees the
