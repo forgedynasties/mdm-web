@@ -205,7 +205,7 @@
 .kd-app[hidden]{display:none!important}
 .kd-none{grid-column:1/-1;padding:18px;text-align:center;color:var(--muted);font-size:12.5px}
 </style>
-<script src="/static/js/settings/lock-allowlist.js?v={{assetVer}}"></script>
+<script src="/static/js/settings/lock-allowlist.js?v={{asset "/static/js/settings/lock-allowlist.js"}}"></script>
 {{end}}
 
 {{define "st-governance"}}
@@ -328,7 +328,7 @@
     </form>
   </div>
 </div>
-<script src="/static/js/settings/alert-channels.js?v={{assetVer}}"></script>
+<script src="/static/js/settings/alert-channels.js?v={{asset "/static/js/settings/alert-channels.js"}}"></script>
 
 <div class="cc-card" style="margin-bottom:16px;">
   <div class="cc-ch collapsible-header" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
@@ -453,7 +453,7 @@
   </div>
 </div>
 <script>window.SETTINGS_GOOGLE_USAGE = {{.GoogleUsageJSON}};</script>
-<script src="/static/js/settings/google-usage.js?v={{assetVer}}"></script>
+<script src="/static/js/settings/google-usage.js?v={{asset "/static/js/settings/google-usage.js"}}"></script>
 {{end}}
 
 {{define "st-reports"}}

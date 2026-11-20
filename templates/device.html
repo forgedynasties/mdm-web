@@ -275,7 +275,7 @@
      Everything else on the page is server-rendered, so only the chart looked broken.
      mdmChartReady makes the dependency explicit; the bootstrap awaits it. */}}
 <script>window.DEVICE_PAGE = {serial: {{.Device.SerialNumber}}, showBattery: {{if .ShowBattery}}true{{else}}false{{end}}, hasCharging: {{if and .ShowBattery .Device.HasCharging}}true{{else}}false{{end}}};</script>
-<script src="/static/js/device/chart-ready.js?v={{assetVer}}"></script>
+<script src="/static/js/device/chart-ready.js?v={{asset "/static/js/device/chart-ready.js"}}"></script>
 
 {{/* The split is assembled by the script at the end of this page; until then the page
      would paint in the stacked layout for a moment. Keep it hidden on wide screens until
@@ -298,7 +298,7 @@
 <style>@media (min-width:1100px){.device-detail:not(.dd-ready){visibility:hidden}}</style>
 <div class="device-detail cc-wrap dd-cc{{if .Bento}} dd-bento dd-ready{{end}}"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
 <script>(function(){var d=document.currentScript.parentElement;setTimeout(function(){if(d)d.classList.add('dd-ready');},4000);})();</script>
-<link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
+<link rel="stylesheet" href="/static/css/device.css?v={{asset "/static/css/device.css"}}">
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero ddc-hero--ribbon">
   <div class="ddc-ribbon">
@@ -387,8 +387,8 @@
   {{/* Lost mode (L1, 17 Oct): first thing on the page while the device is lost. */}}
   {{template "lost-band" .}}
   {{template "lost-dialogs" .}}
-  <script src="/static/js/device/lost-trail.js?v={{assetVer}}"></script>
-  {{if .LockApp}}<script src="/static/js/device/lock-host.js?v={{assetVer}}"></script>{{end}}
+  <script src="/static/js/device/lost-trail.js?v={{asset "/static/js/device/lost-trail.js"}}"></script>
+  {{if .LockApp}}<script src="/static/js/device/lock-host.js?v={{asset "/static/js/device/lock-host.js"}}"></script>{{end}}
   {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}
   <div id="adbp-pop" class="cc-menu adbp-pop" role="dialog" aria-label="Wireless adb" hidden
        data-serial="{{.Device.SerialNumber}}" data-adb-on="{{if .Security.AdbOn}}1{{end}}"></div>
@@ -405,7 +405,7 @@
   </style>
 
 </div>
-<script src="/static/js/device/actions-menu.js?v={{assetVer}}"></script>
+<script src="/static/js/device/actions-menu.js?v={{asset "/static/js/device/actions-menu.js"}}"></script>
 
 <template id="page-island"{{if .Lab}} data-live{{end}}>
   <span class="isl-dot {{if .Online}}on{{else}}off{{end}}"></span>
@@ -457,7 +457,7 @@
     </details>
   </span>
 </template>
-<script src="/static/js/device/online-badge.js?v={{assetVer}}"></script>
+<script src="/static/js/device/online-badge.js?v={{asset "/static/js/device/online-badge.js"}}"></script>
 {{with .Lab}}
 <div class="cmdch-ban" id="lab-notice" role="status" style="flex-wrap:wrap;margin-bottom:14px">
   <span class="i"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
@@ -602,7 +602,7 @@
   body.has-island .ddc-ribbon{display:none}
 }
 </style>
-<script src="/static/js/device/facts-popovers.js?v={{assetVer}}"></script>
+<script src="/static/js/device/facts-popovers.js?v={{asset "/static/js/device/facts-popovers.js"}}"></script>
 
 <div class="ddc-main">
 <div class="dd-tabrow">
@@ -815,7 +815,7 @@
          that report a pad, matching the ribbon switch's own guard. */}}
     {{$wlc := extraField .Device.LatestExtra "wlc_status"}}
     {{if and .WlcApplicable $wlc (ne $wlc "—")}}
-    <script src="/static/js/device/wlc-toggle.js?v={{assetVer}}"></script>
+    <script src="/static/js/device/wlc-toggle.js?v={{asset "/static/js/device/wlc-toggle.js"}}"></script>
     {{end}}
     {{else}}
     <span class="dfc"><span class="dfk">Lock</span><span class="dfv ddc-kstate">{{if or .KioskExit (and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended"))}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
@@ -858,7 +858,7 @@
      the Graph pane by the script after the legend (Chart.js keeps its elements). The CSS is the
      Overview's own (static/css/ovb-device.css); on a desktop window it fits with no scrolling.
      The other tabs are unchanged. */}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
 {{$bv := .BentoV}}
 {{/* A1 · edge dock with labels (user, 18 Nov 2026): the tab row is gone in Bento. The panels the tabs
      held (Apps, Activity, Health, Network, Location, About) are the same sections; the dock
@@ -1441,7 +1441,7 @@ window.DEVICE_VITALS = {
   online: {{if .Online}}true{{else}}false{{end}}
 };
 </script>
-<script src="/static/js/device/vitals.js?v={{assetVer}}"></script>
+<script src="/static/js/device/vitals.js?v={{asset "/static/js/device/vitals.js"}}"></script>
 
 </section><!-- /summary -->
 {{if .Bento}}<section class="dd-panel" data-dd-panel="graphs" id="dd-panel-graphs" hidden aria-label="Graphs"><div class="bt-slot" id="bt-graphs-slot"></div></section>
@@ -1636,8 +1636,8 @@ window.DEVICE_VITALS = {
   </div>
 </div>
 <script>window.DEVICE_MAP = {lat: {{$mlat}}, lng: {{$mlon}}, serial: {{.Device.SerialNumber}}, venue: {{.Device.RestaurantName}}, online: {{.Online}}};</script>
-<script src="/static/js/map-canvas.js?v={{assetVer}}"></script>
-<script src="/static/js/device/map.js?v={{assetVer}}"></script>
+<script src="/static/js/map-canvas.js?v={{asset "/static/js/map-canvas.js"}}"></script>
+<script src="/static/js/device/map.js?v={{asset "/static/js/device/map.js"}}"></script>
 {{end}}
 {{if not $hasMap}}<div class="ddc-card" style="margin-top:12px">
   <div class="ddc-card-t cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><h2>Location</h2></div>
@@ -1849,7 +1849,7 @@ window.DEVICE_VITALS = {
   </div>
 </div>
 
-<script src="/static/js/device/apps.js?v={{assetVer}}"></script>
+<script src="/static/js/device/apps.js?v={{asset "/static/js/device/apps.js"}}"></script>
 
 {{if not .IsOwner}}
 <section class="dd-panel dd-activity" data-dd-panel="activity" id="dd-panel-activity" role="tabpanel" aria-labelledby="dd-tab-activity" tabindex="0" hidden>
@@ -1873,8 +1873,8 @@ window.DEVICE_VITALS = {
 .ddc-tl .dot.chg{background:var(--accent)}
 #device-timeline .app-more{margin:4px 14px 12px;width:calc(100% - 28px)}</style>
 {{end}}
-<script src="/static/js/device/queue-badge.js?v={{assetVer}}"></script>
-<script src="/static/js/device/net-n1.js?v={{assetVer}}"></script>
+<script src="/static/js/device/queue-badge.js?v={{asset "/static/js/device/queue-badge.js"}}"></script>
+<script src="/static/js/device/net-n1.js?v={{asset "/static/js/device/net-n1.js"}}"></script>
 
 {{if not .IsOwner}}
 {{/* Health (T1, picked 19 Oct 2026): what needs attention — open alerts and failing
@@ -2184,12 +2184,12 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
 </style>
 {{/* The divider's position for this person (null = the default). split.js */}}
 <script>window.DD_SPLIT = {{if .DeviceSplit}}{{.DeviceSplit}}{{else}}null{{end}};</script>
-{{if not .Bento}}<script src="/static/js/device/split.js?v={{assetVer}}"></script>{{end}}
+{{if not .Bento}}<script src="/static/js/device/split.js?v={{asset "/static/js/device/split.js"}}"></script>{{end}}
 </div><!-- /ddc-body -->
 </div><!-- /device-detail -->
 
 <script>window.__kioskSuspended = {{if and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}true{{else}}false{{end}};</script>
-<script src="/static/js/device/tabs-live.js?v={{assetVer}}"></script>
+<script src="/static/js/device/tabs-live.js?v={{asset "/static/js/device/tabs-live.js"}}"></script>
 
 <!-- Add new app modal -->
 {{if canAdmin .Role}}
@@ -2215,9 +2215,9 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
 </div>
 {{end}}
 
-<script src="/static/js/device/locked-app.js?v={{assetVer}}"></script>
-{{if canAdmin .Role}}<script src="/static/js/adb-steps.js?v={{assetVer}}"></script>
-<script src="/static/js/device/adb-pill.js?v={{assetVer}}"></script>{{end}}
+<script src="/static/js/device/locked-app.js?v={{asset "/static/js/device/locked-app.js"}}"></script>
+{{if canAdmin .Role}}<script src="/static/js/adb-steps.js?v={{asset "/static/js/adb-steps.js"}}"></script>
+<script src="/static/js/device/adb-pill.js?v={{asset "/static/js/device/adb-pill.js"}}"></script>{{end}}
 
 
 {{template "footer" .}}
@@ -2438,7 +2438,7 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
   </div>
 </div>
 
-<script src="/static/js/device_history.js?v={{assetVer}}"></script>
+<script src="/static/js/device_history.js?v={{asset "/static/js/device_history.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}

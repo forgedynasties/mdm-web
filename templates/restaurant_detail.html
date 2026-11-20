@@ -170,7 +170,7 @@
         </form>
       </div>
     </details>
-    <script src="/static/picker.js?v={{.AssetVer}}"></script>
+    <script src="/static/picker.js?v={{asset "/static/picker.js"}}"></script>
     {{end}}
     <a href="/restaurants/{{.Restaurant.ID}}/report" class="cc-btn isl-dup"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Weekly report</a>
     {{if canAdminOrOperator .Role}}
@@ -257,8 +257,8 @@
 </div>
 </div>
 
-<script src="/static/js/restaurant_detail.js?v={{assetVer}}"></script>
-<script src="/static/js/vn1.js?v={{assetVer}}"></script>
+<script src="/static/js/restaurant_detail.js?v={{asset "/static/js/restaurant_detail.js"}}"></script>
+<script src="/static/js/vn1.js?v={{asset "/static/js/vn1.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}
@@ -325,7 +325,7 @@
     </div>
   </form>
 </div>
-<script src="/static/picker.js?v={{.AssetVer}}"></script>
+<script src="/static/picker.js?v={{asset "/static/picker.js"}}"></script>
 {{end}}
 
 <!-- Members — refreshes in place on device add/remove via a "restaurant-updated" event -->

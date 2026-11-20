@@ -5,8 +5,8 @@
      Give access editor in place); right, the account facts, "Can they reach a device?" and
      Remove. Access by levels (U1, 2 Nov): person.go, person_pe1.go, access_where.go. */}}
 {{$u := .User}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/person-pe1.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/person-pe1.css?v={{asset "/static/css/person-pe1.css"}}">
 <template id="page-island">
   <span class="isl-dot on"></span>
   <span class="isl-t">{{$u.DisplayName}}</span>

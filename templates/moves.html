@@ -9,8 +9,8 @@
   <span class="isl-t">Moves</span>
   <span class="isl-s"><b>{{.V.Arrived}}</b> of {{.V.Total}} arrived{{if .V.Counts.attention}} · <span class="w">{{.V.Counts.attention}} need attention</span>{{end}} · {{.V.OnlinePend}} pending online</span>
 </template>
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/moves.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/moves.css?v={{asset "/static/css/moves.css"}}">
 <div class="ovd mv" id="mv-root">
 <div class="fleet-md">
   <aside class="fleet-rail" id="mv-rail" aria-label="Moves" data-rail-search="off"></aside>
@@ -40,6 +40,6 @@
 </div>
 </div>
 <script type="application/json" id="mv-data">{{.JSON}}</script>
-<script src="/static/js/moves.js?v={{assetVer}}"></script>
+<script src="/static/js/moves.js?v={{asset "/static/js/moves.js"}}"></script>
 {{template "footer" .}}
 {{end}}

@@ -52,8 +52,8 @@
 .pp-op{color:var(--text-2)}
 .pp-ven{display:inline-flex;align-items:center;gap:6px;margin-right:10px;color:var(--text-2)}
 </style>
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/users-ul1.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/users-ul1.css?v={{asset "/static/css/users-ul1.css"}}">
 <div class="ovd ul1p" id="ul1">
 <div class="cc-top"><div><h1 class="cc-h1">People</h1></div>
   {{if .Assignable}}<div class="cc-actions isl-dup"><button type="button" class="cc-btn primary" onclick="upInviteOpen()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Invite</button></div>{{end}}
@@ -185,8 +185,8 @@
 </div>
 {{end}}
 
-<script src="/static/js/users/ul1.js?v={{assetVer}}"></script>
-<script src="/static/js/users/list.js?v={{assetVer}}"></script>
+<script src="/static/js/users/ul1.js?v={{asset "/static/js/users/ul1.js"}}"></script>
+<script src="/static/js/users/list.js?v={{asset "/static/js/users/list.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}

@@ -9,8 +9,8 @@
   <span class="isl-s">{{if .Place}}<b>{{len .Place}}</b> to place{{else}}nothing to place{{end}}</span>
   <span class="isl-acts"><a class="cc-btn" href="/setup/mine/enroll">Enroll a device</a></span>
 </template>
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/setup-field.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/setup-field.css?v={{asset "/static/css/setup-field.css"}}">
 {{template "place-style"}}
 
 <div class="sf-wrap ovd">

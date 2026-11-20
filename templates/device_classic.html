@@ -196,7 +196,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 </script>
 
 <div class="device-detail cc-wrap dd-cc">
-<link rel="stylesheet" href="/static/css/device.css?v={{.AssetVer}}">
+<link rel="stylesheet" href="/static/css/device.css?v={{asset "/static/css/device.css"}}">
 <a href="/devices" class="back-link">← Fleet</a>
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero ddc-hero--ribbon">

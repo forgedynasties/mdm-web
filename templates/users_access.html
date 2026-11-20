@@ -6,8 +6,8 @@
      Grants (each role's levels, the give form, grants held by people) and Who can act on a
      group or venue. Same routes as before: POST /users/access/levels and .../{id}/delete.
      Builders: access_levels.go (AccessPage), access_matrix.go. */}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/users-access-ac1.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/users-access-ac1.css?v={{asset "/static/css/users-access-ac1.css"}}">
 <template id="page-island">
   <span class="isl-dot {{if .NRisks}}warn{{else}}on{{end}}"></span>
   <span class="isl-t">People · Access</span>
@@ -116,6 +116,6 @@
     </div>
   </section>
 </div>
-<script src="/static/js/users/access_ac1.js?v={{assetVer}}" defer></script>
+<script src="/static/js/users/access_ac1.js?v={{asset "/static/js/users/access_ac1.js"}}" defer></script>
 {{template "footer" .}}
 {{end}}

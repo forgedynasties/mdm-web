@@ -38,7 +38,7 @@
   </div>
 </div>
 <script>window.EXPORT_PAGE = {serials: {{len .Serials}}};</script>
-<script src="/static/js/export/picker.js?v={{assetVer}}"></script>
+<script src="/static/js/export/picker.js?v={{asset "/static/js/export/picker.js"}}"></script>
 
 <input type="hidden" name="tz_offset" id="export-tz-offset" value="">
   <script>document.getElementById('export-tz-offset').value = -new Date().getTimezoneOffset();</script>
@@ -124,10 +124,10 @@
 
 </div><!-- /cc-wrap -->
 
-<script src="/static/js/export/range.js?v={{assetVer}}"></script>
+<script src="/static/js/export/range.js?v={{asset "/static/js/export/range.js"}}"></script>
 
-<script src="/static/picker.js?v={{.AssetVer}}"></script>
-<script src="/static/js/export/basket.js?v={{assetVer}}"></script>
+<script src="/static/picker.js?v={{asset "/static/picker.js"}}"></script>
+<script src="/static/js/export/basket.js?v={{asset "/static/js/export/basket.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}

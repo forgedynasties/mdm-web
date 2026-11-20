@@ -238,7 +238,7 @@
 
 
 <script src="/static/vendor/chart.umd.min.js"></script>
-<script src="/static/js/settings/panels.js?v={{assetVer}}"></script>
+<script src="/static/js/settings/panels.js?v={{asset "/static/js/settings/panels.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}
@@ -474,7 +474,7 @@
     </div>
   </div>
 </div>
-<script src="/static/js/settings/app-library.js?v={{assetVer}}"></script>
+<script src="/static/js/settings/app-library.js?v={{asset "/static/js/settings/app-library.js"}}"></script>
 {{end}}
 
 {{/* "Install on…" — the scopes that can be resolved from fleet inventory, with the real

@@ -1,7 +1,7 @@
 {{define "releases.html"}}
 {{template "header" .}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/releases-rl4.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/releases-rl4.css?v={{asset "/static/css/releases-rl4.css"}}">
 {{/* RL4 (picked Nov 2026, "a table with a preview, Fleet's twin"): Fleet's layout. Rail =
      products, views (releases, dev only, not added, hidden) and the updates running now; one
      table of releases (search, sort, in the page: coll_list.js); the picked release is
@@ -333,8 +333,8 @@
   </div>
 </div>
 {{end}}
-<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
-<script src="/static/js/releases.js?v={{assetVer}}"></script>
-<script src="/static/js/releases-rl4.js?v={{assetVer}}"></script>
+<script src="/static/js/coll_list.js?v={{asset "/static/js/coll_list.js"}}"></script>
+<script src="/static/js/releases.js?v={{asset "/static/js/releases.js"}}"></script>
+<script src="/static/js/releases-rl4.js?v={{asset "/static/js/releases-rl4.js"}}"></script>
 {{template "footer" .}}
 {{end}}

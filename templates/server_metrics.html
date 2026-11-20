@@ -195,7 +195,7 @@ table.sv-tbl td .q{color:var(--text-faint);font-size:11px;margin-left:3px}
 </div>
 
 <script type="application/json" id="sv-initial">{{.Initial}}</script>
-<script src="/static/js/server_metrics.js?v={{assetVer}}"></script>
+<script src="/static/js/server_metrics.js?v={{asset "/static/js/server_metrics.js"}}"></script>
 {{/* Integrations (S1, 24 Oct 2026): Google API usage and the learned Wi-Fi index, from
      Settings › Integrations. */}}
 {{if .St}}<section class="cc-wrap" id="integrations" style="margin-top:22px">

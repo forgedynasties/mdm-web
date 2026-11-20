@@ -11,8 +11,8 @@
      now, how many are offline and wait) and carries Send. All three panes are always in the form,
      so every field posts whichever step is showing. On a desktop window it fits with no page
      scrolling: a long list scrolls inside its own pane. */}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/updates-new.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/updates-new.css?v={{asset "/static/css/updates-new.css"}}">
 
 <div class="cc-wrap">
 
@@ -87,7 +87,7 @@
           <div class="muted small">No publishable releases. <a href="/releases">Publish a release and add an update package first →</a></div>
           {{end}}
         </div>
-        <script src="/static/js/updates_new/release-picker.js?v={{assetVer}}"></script>
+        <script src="/static/js/updates_new/release-picker.js?v={{asset "/static/js/updates_new/release-picker.js"}}"></script>
       </div>
 
       {{/* Step 2 · devices. Fills once a release (or at least a product) is chosen. */}}
@@ -161,8 +161,8 @@
 
 </div>
 
-<script src="/static/js/updates_new/devices.js?v={{assetVer}}"></script>
+<script src="/static/js/updates_new/devices.js?v={{asset "/static/js/updates_new/devices.js"}}"></script>
 
-<script src="/static/picker.js?v={{.AssetVer}}"></script>
+<script src="/static/picker.js?v={{asset "/static/picker.js"}}"></script>
 {{template "footer" .}}
 {{end}}

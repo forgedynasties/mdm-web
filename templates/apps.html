@@ -1,8 +1,8 @@
 {{define "apps.html"}}
 {{template "header" .}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/apps-lib-a.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{asset "/static/css/coll-list.css"}}">
+<link rel="stylesheet" href="/static/css/apps-lib-a.css?v={{asset "/static/css/apps-lib-a.css"}}">
 <template id="page-island">
   <span class="isl-t">Apps</span>
   <span class="isl-s"><b>{{len .A1.Rows}}</b> app{{if ne (len .A1.Rows) 1}}s{{end}}{{if .A1.RoleN}} · {{.A1.RoleN}} role app{{if ne .A1.RoleN 1}}s{{end}}{{end}}</span>
@@ -169,7 +169,7 @@
   </div>
 </div>
 {{template "app-library-add" .}}
-<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
-<script src="/static/js/al1.js?v={{assetVer}}"></script>
+<script src="/static/js/coll_list.js?v={{asset "/static/js/coll_list.js"}}"></script>
+<script src="/static/js/al1.js?v={{asset "/static/js/al1.js"}}"></script>
 {{template "footer" .}}
 {{end}}

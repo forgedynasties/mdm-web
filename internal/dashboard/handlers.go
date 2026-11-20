@@ -3,6 +3,8 @@ package dashboard
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -808,6 +810,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	envLabel := envLabelFor(os.Getenv("PUBLIC_ORIGIN"))
 	funcMap := template.FuncMap{
 		"assetVer": func() string { return assetVer },
+		// asset is the ?v= stamp for a /static/ URL, a hash of that file's CONTENT, so a deploy that does not
+		// change a file leaves it in every browser's cache. The old whole-tree stamp (assetVer) changed
+		// with every build, which sent every visitor back for ~600 KB and 90 requests after each of the
+		// day's deploys: 7 s on a 350 ms link (20 Nov 2026, Pakistan to us-west-2).
+		"asset": func(p string) string { return staticAssetStamp(p, assetVer) },
 		// envLabel marks a server that is not prod in the header and the tab title (E1).
 		"envLabel": func() string { return envLabel },
 		// inSet: k is in a map[string]bool, which may be missing (nil) from the data.
@@ -1406,7 +1413,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"batteryTemp": batteryTempStr,
 		"vitalCols":   vitalColumns, // the device pane's vitals as columns
 		"needOne":     needOne,      // one to-do as a list (bento detail pane)
-		"noteKinds":    func() []string { return db.NoteKinds },
+		"noteKinds":   func() []string { return db.NoteKinds },
 		"initials": func(n string) string {
 			r := []rune(strings.TrimSpace(n))
 			if len(r) == 0 {
@@ -2026,4 +2033,23 @@ func (h *Handler) atOwner(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
+}
+
+var staticHashes sync.Map // path -> stamp
+
+// staticAssetStamp is a hash of the content of the /static/ file p, for its ?v= stamp; a file that
+// cannot be read falls back to the whole-tree stamp.
+func staticAssetStamp(p, fallback string) string {
+	if v, ok := staticHashes.Load(p); ok {
+		return v.(string)
+	}
+	stamp := fallback
+	if rel := strings.TrimPrefix(p, "/static/"); rel != p && !strings.Contains(rel, "..") {
+		if b, err := os.ReadFile(filepath.Join("static", rel)); err == nil {
+			sum := sha256.Sum256(b)
+			stamp = hex.EncodeToString(sum[:6])
+		}
+	}
+	staticHashes.Store(p, stamp)
+	return stamp
 }

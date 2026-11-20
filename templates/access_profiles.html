@@ -68,6 +68,6 @@
   </div>
   {{if not .CanEdit}}<p class="muted small" style="margin-top:10px">Changing a profile changes everyone on it, so it takes unlimited access of your own.</p>{{end}}
 </div>
-<script src="/static/js/access_profiles.js?v={{assetVer}}"></script>
+<script src="/static/js/access_profiles.js?v={{asset "/static/js/access_profiles.js"}}"></script>
 {{template "footer" .}}
 {{end}}

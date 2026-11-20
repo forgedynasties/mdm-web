@@ -543,6 +543,6 @@
 </div>
 
 <script>window.USER_ACCESS_PAGE = {id: {{.User.ID | printf "%s"}}, name: {{.User.DisplayName}}, places: {{.Simple.Places}}};</script>
-<script src="/static/js/user_access.js?v={{assetVer}}"></script>
+<script src="/static/js/user_access.js?v={{asset "/static/js/user_access.js"}}"></script>
 {{template "footer" .}}
 {{end}}

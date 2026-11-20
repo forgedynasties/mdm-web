@@ -218,8 +218,8 @@
   {{if .IsOwnerRole}}
   {{/* TM1 · Team card with invite dialog (18 Nov 2026). Same routes as before:
        POST /team/invite, /team/{id}/invite, /team/{id}/remove. */}}
-  <link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-  <link rel="stylesheet" href="/static/css/team-tm1.css?v={{assetVer}}">
+  <link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+  <link rel="stylesheet" href="/static/css/team-tm1.css?v={{asset "/static/css/team-tm1.css"}}">
   <div class="ovd tm1" id="team">
     <div class="tm1-g">
       <div class="ovb-c">
@@ -276,7 +276,7 @@
         <div class="tm1-btns"><button type="button" class="ovb-btn l" data-close>Cancel</button><button type="submit" class="ovb-btn">Remove</button></div>
       </form>
     </dialog>
-    <script src="/static/js/team-tm1.js?v={{assetVer}}"></script>
+    <script src="/static/js/team-tm1.js?v={{asset "/static/js/team-tm1.js"}}"></script>
   </div>
   {{end}}
 
@@ -308,6 +308,6 @@
     </div>
   </div>
 </div>
-<script src="/static/js/owner_home.js?v={{assetVer}}"></script>
+<script src="/static/js/owner_home.js?v={{asset "/static/js/owner_home.js"}}"></script>
 {{template "footer" .}}
 {{end}}

@@ -348,7 +348,7 @@
 <script type="application/json" id="ov3-layout">{{.LayoutJSON}}</script>
 <script type="application/json" id="ov3-widgets">{{.WidgetsJSON}}</script>
 
-<script src="/static/js/overview/widgets.js?v={{assetVer}}"></script>
+<script src="/static/js/overview/widgets.js?v={{asset "/static/js/overview/widgets.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}
@@ -545,7 +545,7 @@
         <div id="ov-map" style="height:340px"></div>
       </div>
       <script type="application/json" id="ov-map-data">{{.DeviceLocations}}</script>
-      <script src="/static/js/overview/map.js?v={{assetVer}}"></script>
+      <script src="/static/js/overview/map.js?v={{asset "/static/js/overview/map.js"}}"></script>
       {{/* Vendored locally (not CDN'd) — the app's CSP script-src only allows self,
            maps.googleapis.com and maps.gstatic.com. */}}
       <script src="/static/vendor/markerclusterer.min.js"></script>
@@ -571,7 +571,7 @@
       </div>
       {{if .ActivityBars}}
       <script>window.OV_ACTIVITY_ROWS = {{.ActivityJSON}};</script>
-<script src="/static/js/overview/activity.js?v={{assetVer}}"></script>
+<script src="/static/js/overview/activity.js?v={{asset "/static/js/overview/activity.js"}}"></script>
       {{end}}
 
     {{end}}

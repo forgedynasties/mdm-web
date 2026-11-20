@@ -4,7 +4,7 @@
   <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}} — Fleet management for restaurant devices</title>
   <meta name="description" content="AIO MDM: health, remote control and updates for the tablets, kiosks, kitchen screens and registers that run restaurants.">
   {{template "au-head" .}}
-  <link rel="stylesheet" href="/static/css/landing-door.css?v={{assetVer}}">
+  <link rel="stylesheet" href="/static/css/landing-door.css?v={{asset "/static/css/landing-door.css"}}">
 </head>
 <body class="au1 ld">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -20,7 +20,7 @@
   <svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
 </button>
 <main class="ld-door">
-  <img class="ld-shield" src="/static/favicon.svg?v={{assetVer}}" alt="">
+  <img class="ld-shield" src="/static/favicon.svg?v={{asset "/static/favicon.svg"}}" alt="">
   <h1>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</h1>
   <p class="ld-promise">Health, remote control and updates for the tablets, kiosks, kitchen screens and registers that run your restaurants.</p>
   <div class="ld-acts">

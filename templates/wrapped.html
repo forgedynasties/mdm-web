@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fleet Wrapped — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
-<link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
+<link rel="icon" href="/static/favicon.svg?v={{asset "/static/favicon.svg"}}" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css?v={{asset "/static/fonts/fonts.css"}}">
 <style>
 /* ── Fleet Wrapped: a standalone, publicly shareable, full-screen scroll deck.
    Self-contained (no app shell). Brand: coral #F9674E + periwinkle #7A80F6 on ink. */
@@ -222,7 +222,7 @@ html,body{margin:0;padding:0;background:#0E0F1C;overflow:hidden;}
   {{end}}
 </div>
 
-<script src="/static/js/wrapped.js?v={{assetVer}}"></script>
+<script src="/static/js/wrapped.js?v={{asset "/static/js/wrapped.js"}}"></script>
 </body>
 </html>
 {{end}}

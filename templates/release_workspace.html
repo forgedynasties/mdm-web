@@ -245,7 +245,7 @@
 
 {{if canRelease $role}}
 <script>window.RELEASE_PAGE = {release: {{$rel.ID}}};</script>
-<script src="/static/js/release_workspace.js?v={{assetVer}}"></script>
+<script src="/static/js/release_workspace.js?v={{asset "/static/js/release_workspace.js"}}"></script>
 {{end}}
 
 {{template "footer" .}}

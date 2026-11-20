@@ -143,7 +143,7 @@
 {{end}}
 
 {{define "clients-script"}}
-<script src="/static/js/clients.js?v={{assetVer}}"></script>
+<script src="/static/js/clients.js?v={{asset "/static/js/clients.js"}}"></script>
 {{end}}
 
 {{/* The auto-update controls (keep devices on hosted, pause, window): in the bento's
@@ -490,5 +490,5 @@
   </div>
 </div>
 </div>
-<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
+<script src="/static/js/coll_list.js?v={{asset "/static/js/coll_list.js"}}"></script>
 {{end}}{{end}}
