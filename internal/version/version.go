@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.45",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page (new view): switching from one sheet to another in the right dock slides the title strip in with the sheet, instead of leaving it standing apart from the card.",
+			"Apps: Remove asks with the app's own confirm dialog (not the browser's), cancelling a pending install says \"Stop installing\" and names the app, and the \"Canceled\" toast shows the app's name, not its package.",
+		},
+	},
+	{
 		Version: "1.64.44",
 		Date:    "2026-11-20",
 		Changes: []string{

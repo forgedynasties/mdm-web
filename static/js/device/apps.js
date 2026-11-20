@@ -403,10 +403,19 @@ window.markUninstalling = function (tile) {
 // every telemetry frame while the device works, which flickered and wiped the spinner.
 window.doUninstall = function (tile) {
   if (!tile) return;
+  var pkg0 = tile.getAttribute('data-pkg'); if (!pkg0) return;
+  var nm = tile.getAttribute('data-name') || pkg0;
+  if (tile.getAttribute('data-roleapp') === '1') { if (window.showToast) showToast("The role app can't be removed", 'error'); return; }
+  // The app's own confirm dialog, not the browser's (20 Nov 2026: the native box was out of place).
+  if (!window.mdmConfirm) { if (confirm('Remove ' + nm + ' from this device? The MDM keeps it off.')) doUninstallNow(tile); return; }
+  window.mdmConfirm({ title: 'Remove ' + nm, body: 'Remove ' + nm + ' from this device?', scope: 'The MDM keeps it off. An offline device removes it when it is back.', tier: 'danger', confirmLabel: 'Remove' })
+    .then(function (ok) { if (ok) doUninstallNow(tile); });
+};
+window.doUninstallNow = function (tile) {
+  if (!tile) return;
   var pkg = tile.getAttribute('data-pkg'); if (!pkg) return;
   var name = tile.getAttribute('data-name') || pkg;
   if (tile.getAttribute('data-roleapp') === '1') { if (window.showToast) showToast("The role app can't be removed", 'error'); return; }
-  if (!confirm('Remove ' + name + ' from this device? The MDM keeps it off.')) return;
   markUninstalling(tile);
   window.__uninstallPending = (window.__uninstallPending || 0) + 1;
   var serial = window.DEVICE_SERIAL;

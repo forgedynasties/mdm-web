@@ -995,6 +995,8 @@
   function openPanel(k){if(window.setDeviceTab)setDeviceTab(k,document.getElementById('dd-tab-'+k))}
   function closePanel(){if(window.setDeviceTab)setDeviceTab('summary',document.getElementById('dd-tab-summary'))}
   function sync(){var o=null;KEYS.forEach(function(k){var p=document.getElementById('dd-panel-'+k);if(p&&!p.hidden)o=k});
+    /* switching sheet to sheet: the panel slides in, so the title strip must too (it used to stay put and look detached) */
+    var hd=document.getElementById('bt-sheet-h');if(hd&&open&&o&&open!==o){hd.style.animation='none';void hd.offsetWidth;hd.style.animation=''}
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
     if(o==='location'){setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}
     /* the graph card lives in the Today pane, and in the Graphs sheet while that is open */
@@ -2333,7 +2335,7 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
     {{if canOperate $.Role}}<span class="dd-way-a">
       {{if .Why.CanAsk}}<button type="button" class="cc-btn xs" title="Reads the device's install log (read-only)" hx-post="/devices/{{$.Device.SerialNumber}}/install-why" hx-vals='{"package":"{{.Package}}"}' hx-swap="none">Why did it fail?</button>{{end}}
       {{if .CanRetry}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/retry" hx-vals='{"package":"{{.Package}}"}' hx-swap="none">Try again</button>{{end}}
-      {{if ne .State "installing"}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/cancel" hx-vals='{"package":"{{.Package}}"}' hx-swap="none" hx-confirm="{{if .Remove}}Keep {{.Name}} on this device?{{else}}Stop adding {{.Name}} to this device?{{end}}">Cancel</button>{{end}}
+      {{if ne .State "installing"}}<button type="button" class="cc-btn xs" hx-post="/devices/{{$.Device.SerialNumber}}/apps/cancel" hx-vals='{"package":"{{.Package}}","name":"{{.Name}}"}' hx-swap="none" hx-confirm="{{if .Remove}}Keep {{.Name}} on this device?{{else}}Stop installing {{.Name}} on this device?{{end}}">Cancel</button>{{end}}
     </span>{{end}}
   </div>{{end}}
 </div>{{end}}

@@ -338,7 +338,11 @@ func (h *Handler) DeviceAppCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "app.cancel", d.SerialNumber, pkg)
-	h.hxDoneToastEvents(w, r, back, "Canceled "+pkg, "success", "device-updated")
+	label := strings.TrimSpace(r.FormValue("name"))
+	if label == "" || len(label) > 80 {
+		label = pkg
+	}
+	h.hxDoneToastEvents(w, r, back, "Canceled "+label, "success", "device-updated")
 }
 
 // DeviceAppRetry is POST /devices/{serial}/apps/retry {package}: Try again, now, past the
