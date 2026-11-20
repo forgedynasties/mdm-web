@@ -107,7 +107,7 @@ func TestWifiCardVenueList(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := b.String()
-	for _, w := range []string{`value="venue_add"`, `Saved for AIO Test Bistro`, `value="n1" checked`, `in range · -48 dBm`, `not seen nearby`,
+	for _, w := range []string{`value="venue_add"`, `Saved for AIO Test Bistro`, `name="network" value="n1"`, `in range · -48 dBm`, `not seen nearby`,
 		`Another network…`, `id="wf-manual"`, `Switch to Bistro-Kitchen now`} {
 		if !strings.Contains(out, w) {
 			t.Errorf("card missing %q", w)
