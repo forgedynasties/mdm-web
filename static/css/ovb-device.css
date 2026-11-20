@@ -347,3 +347,17 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 .dd-bento #dd-wifi .wf-right{min-width:0;background:var(--ovb-page,var(--bg));border-radius:16px;overflow:hidden}
 .dd-bento #dd-wifi .wf-right .wf-sec{border-top:0;padding-top:12px}
 @media (max-width:1100px),(max-height:639px){.dd-bento #dd-wifi .wf-body{display:block}.dd-bento #dd-wifi .wf-right{margin-top:12px}}
+
+/* Install app in the bento view (20 Nov 2026: "another incoherent popup"): the picker looks
+   like the sheets it opens over (Apps, Network…): the same width, 22 px card, 16/600 title, Esc chip
+   and round close button, and the library link is a quiet text link, not a second button. */
+.inst-esc{display:none}
+html:has(.dd-bento) #install-modal .modal-box{width:min(70vw,960px);max-width:none;border-radius:22px;border:0;box-shadow:0 30px 80px -20px rgba(0,0,0,.35)}
+html:has(.dd-bento) #install-modal .install-modal-head{padding:14px 18px 8px}
+html:has(.dd-bento) #install-modal .modal-title{font-size:16px;font-weight:600}
+html:has(.dd-bento) #install-modal .inst-esc{display:inline-block;margin-left:0}
+html:has(.dd-bento) #install-modal .install-head-actions{gap:12px}
+html:has(.dd-bento) #install-modal .install-head-actions .btn-outline{border:0;background:transparent;padding:0;height:auto;font-size:12.5px;font-weight:500;color:var(--muted);text-decoration:underline;text-underline-offset:3px;box-shadow:none}
+html:has(.dd-bento) #install-modal .install-head-actions .btn-outline .ui-icon{display:none}
+html:has(.dd-bento) #install-modal .modal-close{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:15px;line-height:1}
+@media (max-width:720px){html:has(.dd-bento) #install-modal .modal-box{width:calc(100vw - 24px)}.inst-esc{display:none!important}}

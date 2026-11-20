@@ -1741,6 +1741,7 @@ window.DEVICE_VITALS = {
         <div class="install-modal-head">
           <span class="modal-title">Install app</span>
           <span class="install-head-actions">
+            <span class="bt-esc inst-esc" aria-hidden="true">Esc</span>
             {{if canAppLibrary .Role}}<a href="/apps" class="btn-outline btn-sm" title="Upload an APK to the app library, then install it from here"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Upload APK</a>{{end}}
             <button type="button" class="modal-close" onclick="installModalClose()" aria-label="Close">&times;</button>
           </span>

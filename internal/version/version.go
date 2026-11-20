@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.44",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page (new view): the Install app picker now looks like the sheets it opens over: same width and rounded card, 16 px title, Esc chip and round close button, and \"Upload APK\" as a quiet link instead of a second button.",
+		},
+	},
+	{
 		Version: "1.64.43",
 		Date:    "2026-11-20",
 		Changes: []string{
