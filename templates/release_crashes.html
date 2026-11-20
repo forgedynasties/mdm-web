@@ -1,8 +1,8 @@
 {{define "release_crashes.html"}}
 {{template "header" .}}
 {{$rel := .Release}}{{$role := .Role}}{{$cr := .CR}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/release-crashes-cr1.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/release-crashes-cr1.css?v={{asset "/static/css/release-crashes-cr1.css"}}">
 
 <template id="page-island">
   <span class="isl-dot {{if $cr.AllCount}}danger{{else}}on{{end}}"></span>
@@ -103,7 +103,7 @@
 </div>
 
 <script>window.RELEASE_CRASHES_PAGE = {release: {{$rel.ID}}};</script>
-<script src="/static/js/release_crashes.js?v={{assetVer}}"></script>
+<script src="/static/js/release_crashes.js?v={{asset "/static/js/release_crashes.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}

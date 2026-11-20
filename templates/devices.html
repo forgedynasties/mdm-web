@@ -12,7 +12,7 @@
      device lists are drawn (Fleet's Table/Cards switch, users.fleet_view): the table
      (R1, 20 Oct) or the two-line cards from before it. */}}
 {{if .Cards}}{{template "device-cards-classic" .}}{{else}}{{template "device-table-rows" .}}{{end}}
-<script src="/static/js/devices/cards.js?v={{assetVer}}"></script>
+<script src="/static/js/devices/cards.js?v={{asset "/static/js/devices/cards.js"}}"></script>
 {{end}}
 
 {{/* A sortable header cell: the button sorts the roster by its key (sortBy in
@@ -548,7 +548,7 @@ html.fl-tl #device-table-container .fl-foot label{display:none!important}
 </style>
 
 {{/* ── Fleet header: verdict headline + KPI strip ── */}}
-<script src="/static/js/devices/map-button.js?v={{assetVer}}"></script>
+<script src="/static/js/devices/map-button.js?v={{asset "/static/js/devices/map-button.js"}}"></script>
 <div class="fl-wrap">
   <div class="fl-top cc-top isl-dup-sr">
     <div>
@@ -605,7 +605,7 @@ html.fl-tl #device-table-container .fl-foot label{display:none!important}
 
     {{/* No Releases section (16 Oct): releases live on /releases; filter by one with + Filter → Release. */}}
   </aside>
-  <script src="/static/js/devices/rail.js?v={{assetVer}}"></script>
+  <script src="/static/js/devices/rail.js?v={{asset "/static/js/devices/rail.js"}}"></script>
 
   {{/* ── Right pane: roster (default) · collections grid · collection detail ── */}}
   <div class="fleet-roster" id="fleet-pane">
@@ -946,7 +946,7 @@ function ffRender() {
 // A boosted navigation runs this script again without a DOMContentLoaded, so draw now too.
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncFilterUI); else syncFilterUI();
 </script>
-<script src="/static/js/devices/roster.js?v={{assetVer}}"></script>
+<script src="/static/js/devices/roster.js?v={{asset "/static/js/devices/roster.js"}}"></script>
 
 {{/* ── Map view (MP1 "Canvas", picked 5 Nov 2026): our own MapLibre map of the roster's
      scope + filters (static/js/devices/map.js). The roster stays in the DOM, hidden, so the
@@ -1047,9 +1047,9 @@ html[data-theme="dark"] .maplibregl-ctrl-attrib-button{filter:invert(1)}
 .fl-lm button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .fl-lm button.on{background:var(--accent-fill);color:#fff}
 </style>
-<script src="/static/js/devices/fitpages.js?v={{assetVer}}"></script>
-<script src="/static/js/map-canvas.js?v={{assetVer}}"></script>
-<script src="/static/js/devices/map.js?v={{assetVer}}"></script>
+<script src="/static/js/devices/fitpages.js?v={{asset "/static/js/devices/fitpages.js"}}"></script>
+<script src="/static/js/map-canvas.js?v={{asset "/static/js/map-canvas.js"}}"></script>
+<script src="/static/js/devices/map.js?v={{asset "/static/js/devices/map.js"}}"></script>
 
 <div class="dv-split" id="dv-split">
   <div class="card dv-rise-2"
@@ -1071,7 +1071,7 @@ html[data-theme="dark"] .maplibregl-ctrl-attrib-button{filter:invert(1)}
   </div>{{/* .fleet-roster */}}
 </div>{{/* .fleet-md */}}
 
-<script src="/static/js/devices/inspector.js?v={{assetVer}}"></script>
+<script src="/static/js/devices/inspector.js?v={{asset "/static/js/devices/inspector.js"}}"></script>
 
 <div id="confirm-modal" class="modal-backdrop" onclick="closeConfirmModal(event)">
   <div class="modal-box">
@@ -1219,7 +1219,7 @@ html[data-theme="dark"] .maplibregl-ctrl-attrib-button{filter:invert(1)}
   </div>
 </div>
 
-<script src="/static/js/devices/toolbar.js?v={{assetVer}}"></script>
+<script src="/static/js/devices/toolbar.js?v={{asset "/static/js/devices/toolbar.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}

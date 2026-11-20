@@ -68,7 +68,7 @@
         </form>
       </div>
     </details>
-    <script src="/static/picker.js?v={{.AssetVer}}"></script>
+    <script src="/static/picker.js?v={{asset "/static/picker.js"}}"></script>
     {{end}}
     <a class="cc-btn isl-dup" href="/devices?group={{.Group.ID}}"><svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Open in Fleet</a>
     {{if canAdminOrOperator .Role}}
@@ -112,7 +112,7 @@
     </div>
   </form>
 </div>
-<script src="/static/picker.js?v={{.AssetVer}}"></script>
+<script src="/static/picker.js?v={{asset "/static/picker.js"}}"></script>
 {{end}}
 
 {{template "group-members-card" .}}
@@ -127,7 +127,7 @@
      hx-target="this" hx-swap="innerHTML" hx-select="unset">
   {{template "group-members" .}}
 </div>
-<script src="/static/js/group_detail.js?v={{assetVer}}"></script>
+<script src="/static/js/group_detail.js?v={{asset "/static/js/group_detail.js"}}"></script>
 {{end}}
 
 {{/* Members list — refreshed in place (see #group-members) after add/remove. */}}

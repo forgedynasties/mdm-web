@@ -149,3 +149,44 @@ function rl4NewClose() {
   document.addEventListener('htmx:afterSettle', function () { setTimeout(boot, 0); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape') rl4NewClose(); });
 })();
+
+
+// Choosing a release swaps only the preview pane (20 Nov 2026: "the whole page reloads"): the list
+// keeps its scroll, filters and sort, and the URL follows so Back and Forward work. A click on a row,
+// or on the version link inside it, takes this path; anything else (new tab, modifier keys) is left alone.
+(function () {
+  var pv = function () { return document.getElementById('rl4-pv'); };
+  function mark(url) {
+    var rows = document.querySelectorAll('tr.ft-row[data-href]');
+    rows.forEach(function (r) { r.classList.toggle('sel', r.dataset.href === url || r.dataset.page === url); });
+  }
+  function open(url, push) {
+    var cur = pv(); if (!cur || !window.fetch) return false;
+    cur.style.opacity = '.55';
+    fetch(url, { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var next = doc.getElementById('rl4-pv'), now = pv();
+        if (!next || !now) { location.href = url; return; }
+        now.replaceWith(next);
+        if (window.htmx) htmx.process(next);
+        mark(url);
+        if (push) { try { history.pushState({ rl4: 1 }, '', url); } catch (e) {} }
+        var t = doc.querySelector('title'); if (t) document.title = t.textContent;
+      })
+      .catch(function () { location.href = url; });
+    return true;
+  }
+  window.clRowOpen = function (tr) {
+    if (!pv() || !tr.closest('.fleet-md')) return false;
+    return open(tr.dataset.href, true);
+  };
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('tr.ft-row[data-href] a.cl-nm');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || !pv()) return;
+    e.preventDefault(); e.stopPropagation();
+    open(a.getAttribute('href'), true);
+  }, true);
+  window.addEventListener('popstate', function (e) { if (pv() && (!e.state || e.state.rl4)) open(location.pathname + location.search, false); });
+})();

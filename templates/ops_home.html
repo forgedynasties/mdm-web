@@ -12,7 +12,7 @@
     {{if eq .Role "admin"}}<button type="button" class="cc-btn primary" onclick="enOpenModal()">New profile</button>{{end}}
   </span>
 </template>
-<link rel="stylesheet" href="/static/css/setup-ops.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/setup-ops.css?v={{asset "/static/css/setup-ops.css"}}">
 {{template "place-style"}}
 
 <div class="fleet-md">
@@ -75,8 +75,8 @@
 {{template "place-script"}}
 {{if eq .Role "admin"}}{{template "en-modal" .}}{{end}}
 {{template "en-dialogs" .}}
-<script src="/static/js/enrollment.js?v={{assetVer}}"></script>
-<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
+<script src="/static/js/enrollment.js?v={{asset "/static/js/enrollment.js"}}"></script>
+<script src="/static/js/coll_list.js?v={{asset "/static/js/coll_list.js"}}"></script>
 <script>
 (function () {
   if (window.__ohRail) return; window.__ohRail = true;

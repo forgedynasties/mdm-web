@@ -836,3 +836,24 @@ html[data-theme="dark"] .dd-way-st.waiting,html[data-theme="dark"] .dd-way-st.re
 .mm-pin.off i{background:#9a9aa5;box-shadow:0 0 0 6px rgba(154,154,165,.18)}
 .dev-map-card .maplibregl-ctrl-attrib.maplibregl-compact{background:color-mix(in srgb,var(--surface) 80%,transparent)}
 html[data-theme="dark"] .dev-map-card .maplibregl-ctrl-attrib-button{filter:invert(1)}
+
+/* Install app is a dropdown under its button, not a dialog (both views: it lives in device.css, so the standard view is no longer left with the old fixed dialog whose Install button fell below the window) (20 Nov 2026, user pick A of the
+   install-app demos): a transparent catcher over the page (a click away closes it), the picker
+   as a card anchored to the button by apps.js (installModalOpen), one column: search, the apps,
+   the picked app's channels, and the footer with Install. */
+#install-modal.modal-backdrop{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;align-items:flex-start;justify-content:flex-start;padding:0}
+#install-modal .modal-box{position:fixed;width:380px;max-width:calc(100vw - 24px);border-radius:16px;border:1px solid var(--border);box-shadow:0 24px 60px -16px rgba(0,0,0,.4);overflow:hidden;display:flex;flex-direction:column;animation:none}
+#install-modal .install-modal-head{padding:8px 14px 0;justify-content:flex-end;order:3;border-top:1px solid var(--border-soft)}
+#install-modal .install-modal-head .modal-title,#install-modal .install-modal-head .modal-close,#install-modal .inst-esc{display:none}
+#install-modal .install-head-actions .btn-outline{border:0;background:transparent;padding:0 0 8px;height:auto;font-size:12px;font-weight:500;color:var(--muted);text-decoration:underline;text-underline-offset:3px;box-shadow:none}
+#install-modal .install-head-actions .btn-outline .ui-icon{display:none}
+#install-modal #install-form{display:flex;flex-direction:column;order:1;min-height:0;grid-template-columns:none}
+#install-modal #install-form>.inst-left{border-right:0}
+#install-modal .install-drawer.inst-list{max-height:min(210px,28vh)}
+#install-modal .inst-pane .inst-ph{display:none}
+#install-modal #install-form>.inst-pane{border-top:1px solid var(--border-soft);padding:8px 14px;max-height:min(150px,22vh)}
+#install-modal #install-form>.inst-pane:has(.inst-empty){display:none}
+#install-modal #install-form>.install-modal-foot{padding:10px 14px;margin-top:0}
+#install-modal .inst-pane .inst-drop{display:none}
+@media (max-width:720px){#install-modal .modal-box{left:12px!important;right:12px;width:auto}}
+

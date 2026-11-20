@@ -67,23 +67,23 @@
     })();
   </script>
   <title>{{with envLabel}}{{.}} · {{end}}{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
-  <link rel="icon" href="/static/favicon.svg?v={{assetVer}}" type="image/svg+xml">
+  <link rel="icon" href="/static/favicon.svg?v={{asset "/static/favicon.svg"}}" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
-  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
-  <link rel="stylesheet" href="/static/css/phone.css?v={{.AssetVer}}" media="(max-width: 720px)">
-  <link rel="stylesheet" href="/static/motion.css?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{asset "/static/fonts/fonts.css"}}">
+  <link rel="stylesheet" href="/static/style.css?v={{asset "/static/style.css"}}">
+  <link rel="stylesheet" href="/static/css/phone.css?v={{asset "/static/css/phone.css"}}" media="(max-width: 720px)">
+  <link rel="stylesheet" href="/static/motion.css?v={{asset "/static/motion.css"}}">
   {{/* The Fleet-twin lists (Venues, Groups, Apps, People, Activity): loaded here, not in each
        page's <main>, so a slow first fetch after a deploy never shows them unstyled. Every rule
        is scoped to its own .cl-* classes. */}}
-  <link rel="stylesheet" href="/static/css/coll-list.css?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/css/coll-list.css?v={{asset "/static/css/coll-list.css"}}">
   {{/* The device picker's styles (co-* only), loaded here rather than by the pages
        that use it: a stylesheet inside <main> arrives after a boosted swap has
        already painted the page, which showed it unstyled for a moment. */}}
-  <link rel="stylesheet" href="/static/css/picker.css?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/css/picker.css?v={{asset "/static/css/picker.css"}}">
   {{/* The device page's own stylesheet is too broad to apply everywhere, so it is only
        fetched early: in cache, the swap guard below holds the page for a moment at most. */}}
-  <link rel="preload" href="/static/css/device.css?v={{.AssetVer}}" as="style">
+  <link rel="preload" href="/static/css/device.css?v={{asset "/static/css/device.css"}}" as="style">
   <script src="/static/vendor/htmx.min.js"></script>
   <script>
     // Turn off htmx's localStorage history-snapshot cache and drop any existing
@@ -104,15 +104,15 @@
     }
     try { localStorage.removeItem('htmx-history-cache'); } catch (e) {}
   </script>
-  <script src="/static/js/layout/navigation.js?v={{assetVer}}"></script>
-  <script src="/static/js/layout/menu-dismiss.js?v={{assetVer}}"></script>
-  <script src="/static/js/layout/phone-tables.js?v={{assetVer}}" defer></script>
-  <script src="/static/js/layout/phone-rails.js?v={{assetVer}}" defer></script>
-  <script src="/static/js/layout/rail-search.js?v={{assetVer}}" defer></script>
-  <script src="/static/js/layout/offline-prompt.js?v={{assetVer}}" defer></script>
-  <script src="/static/js/layout/add-app.js?v={{assetVer}}" defer></script>
-  <script src="/static/js/layout/pane-loading.js?v={{assetVer}}" defer></script>
-  <script src="/static/js/layout/prefetch.js?v={{assetVer}}" defer></script>
+  <script src="/static/js/layout/navigation.js?v={{asset "/static/js/layout/navigation.js"}}"></script>
+  <script src="/static/js/layout/menu-dismiss.js?v={{asset "/static/js/layout/menu-dismiss.js"}}"></script>
+  <script src="/static/js/layout/phone-tables.js?v={{asset "/static/js/layout/phone-tables.js"}}" defer></script>
+  <script src="/static/js/layout/phone-rails.js?v={{asset "/static/js/layout/phone-rails.js"}}" defer></script>
+  <script src="/static/js/layout/rail-search.js?v={{asset "/static/js/layout/rail-search.js"}}" defer></script>
+  <script src="/static/js/layout/offline-prompt.js?v={{asset "/static/js/layout/offline-prompt.js"}}" defer></script>
+  <script src="/static/js/layout/add-app.js?v={{asset "/static/js/layout/add-app.js"}}" defer></script>
+  <script src="/static/js/layout/pane-loading.js?v={{asset "/static/js/layout/pane-loading.js"}}" defer></script>
+  <script src="/static/js/layout/prefetch.js?v={{asset "/static/js/layout/prefetch.js"}}" defer></script>
 </head>
 {{/* hx-boost: AJAX-navigate the whole app with no full-page reload. Only <main>
      is swapped (hx-select/target/swap), preserving the dock and footer scripts.
@@ -361,7 +361,7 @@
   {{end}}
   {{end}}
 
-  <script src="/static/js/layout/topbar.js?v={{assetVer}}"></script>
+  <script src="/static/js/layout/topbar.js?v={{asset "/static/js/layout/topbar.js"}}"></script>
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
   {{/* Route announcer: a boosted navigation swaps <main> without a page load, so
        nothing tells a screen reader the page changed. The focus handler below
@@ -403,7 +403,7 @@
   </div>
   <main id="main" class="container" tabindex="-1">
 {{end}}{{/* end boosted/non-boosted chrome; <main> is now open in both paths */}}
-    <script src="/static/js/layout/back-links.js?v={{assetVer}}"></script>
+    <script src="/static/js/layout/back-links.js?v={{asset "/static/js/layout/back-links.js"}}"></script>
 {{end}}
 
 {{define "footer"}}
@@ -522,12 +522,12 @@
     window.mdmIslandRefresh = fill;
   })();
   </script>
-  <script src="/static/js/layout/chrome.js?v={{assetVer}}"></script>
-  <script src="/static/js/layout/island.js?v={{assetVer}}"></script>
+  <script src="/static/js/layout/chrome.js?v={{asset "/static/js/layout/chrome.js"}}"></script>
+  <script src="/static/js/layout/island.js?v={{asset "/static/js/layout/island.js"}}"></script>
   {{/* Right-click menus (R1, 30 Oct 2026): one panel for every page, outside <main> so a
        boosted swap keeps it; data-ctx-caps is what this viewer may do from it. */}}
   <div id="ctx-menu" class="cc-menu ctx-menu" role="menu" aria-label="Actions" hidden data-ctx-caps="{{ctxCaps .NavRole}}"></div>
-  <script src="/static/js/layout/context-menu.js?v={{assetVer}}" defer></script>
+  <script src="/static/js/layout/context-menu.js?v={{asset "/static/js/layout/context-menu.js"}}" defer></script>
 
   {{/* Per-page navigation skeletons. Inert <template>s (rendered once, live
        outside <main> so they survive boosted swaps); the beforeRequest handler
@@ -625,7 +625,7 @@
 
   {{/* ── PWA: service worker + install nudge ── */}}
   <script>window.MDM_SHOW_TOUR = {{if .ShowTour}}true{{else}}false{{end}};</script>
-<script src="/static/js/layout/tour.js?v={{assetVer}}"></script>
+<script src="/static/js/layout/tour.js?v={{asset "/static/js/layout/tour.js"}}"></script>
 
   {{/* ── Guided walkthrough: first run for every user (skippable), replay from the account menu ── */}}
   

@@ -52,7 +52,7 @@
        service hours, editable, from Settings; the read-only list stays for anyone else. */}}
   {{if .St}}
   <div class="settings-panels st-moved">{{template "settings-style"}}{{template "st-alerts" .St}}</div>
-  <script src="/static/js/settings/panels.js?v={{assetVer}}"></script>
+  <script src="/static/js/settings/panels.js?v={{asset "/static/js/settings/panels.js"}}"></script>
   {{else}}
   {{range .AlertRules}}
   <div class="cc-card">

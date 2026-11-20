@@ -118,7 +118,7 @@
 {{if .St}}<section class="cc-wrap st-moved-wrap" id="lock-settings" style="margin-top:22px">
   <h2 style="font-size:16px;margin:0 0 10px">Settings</h2>
   <div class="settings-panels st-moved">{{template "settings-style"}}{{template "st-allowlist" .St}}</div>
-  <script src="/static/js/settings/panels.js?v={{assetVer}}"></script>
+  <script src="/static/js/settings/panels.js?v={{asset "/static/js/settings/panels.js"}}"></script>
 </section>{{end}}
 {{template "footer" .}}
 {{end}}

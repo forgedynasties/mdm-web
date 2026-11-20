@@ -83,7 +83,7 @@
       if (b) { sortBy(b.dataset.cls, b.dataset.dir || 'asc', b.textContent.trim()); return; }
       // A click anywhere else on a row opens it, like Fleet's rows.
       var tr = e.target.closest('tr.ft-row[data-href]');
-      if (tr && !e.target.closest('a,button,summary,details,input,form')) location.href = tr.dataset.href;
+      if (tr && !e.target.closest('a,button,summary,details,input,form')) { if (window.clRowOpen && window.clRowOpen(tr)) return; location.href = tr.dataset.href; }
     });
     function sortBy(key, dir, label) {
       st.sort = { key: key, dir: dir, label: label };

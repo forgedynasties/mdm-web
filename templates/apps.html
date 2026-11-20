@@ -1,8 +1,8 @@
 {{define "apps.html"}}
 {{template "header" .}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/apps-lib-a.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{asset "/static/css/coll-list.css"}}">
+<link rel="stylesheet" href="/static/css/apps-lib-a.css?v={{asset "/static/css/apps-lib-a.css"}}">
 <template id="page-island">
   <span class="isl-t">Apps</span>
   <span class="isl-s"><b>{{len .A1.Rows}}</b> app{{if ne (len .A1.Rows) 1}}s{{end}}{{if .A1.RoleN}} · {{.A1.RoleN}} role app{{if ne .A1.RoleN 1}}s{{end}}{{end}}</span>
@@ -28,6 +28,8 @@
     {{end}}
   </div>
   {{end}}
+  {{/* The hub tabs sit at the top of the page, where Resource use has them (20 Nov 2026: moving between the two tabs used to jump the strip from a card to the page corner, so it felt like another page). */}}
+  {{template "apps-hub-tabs" .}}
   <div class="al1-root" data-cl data-one="app" data-many="apps" data-start="role">
   <div class="al1-grid dv-rise-1">
     <aside class="ovb-c al1-rail" aria-label="Products">
@@ -39,7 +41,6 @@
     </aside>
     <section class="ovb-c al1-main lib-card" id="lib-card">
       <div class="al1-top">
-        {{template "apps-hub-tabs" .}}
         <div class="ovb-seg" role="group" aria-label="Apps">
           <button type="button" class="on" data-clf="role" data-grp="role" data-title="AIO apps" aria-pressed="true">AIO apps <small>{{$a.RoleN}}</small></button>
           {{if .CanShowAll}}<button type="button" data-clf="other" data-grp="other" data-title="Other apps" aria-pressed="false">Other apps <small>{{$a.OtherN}}</small></button>{{end}}
@@ -169,7 +170,7 @@
   </div>
 </div>
 {{template "app-library-add" .}}
-<script src="/static/js/coll_list.js?v={{assetVer}}"></script>
-<script src="/static/js/al1.js?v={{assetVer}}"></script>
+<script src="/static/js/coll_list.js?v={{asset "/static/js/coll_list.js"}}"></script>
+<script src="/static/js/al1.js?v={{asset "/static/js/al1.js"}}"></script>
 {{template "footer" .}}
 {{end}}

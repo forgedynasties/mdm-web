@@ -127,7 +127,7 @@
 </div>
 
 <script type="application/json" id="fm-data">{{.DeviceLocations}}</script>
-<script src="/static/js/map.js?v={{assetVer}}"></script>
+<script src="/static/js/map.js?v={{asset "/static/js/map.js"}}"></script>
 {{if and .DeviceMapCount .MapsEmbedKey}}
 <script src="/static/vendor/markerclusterer.min.js"></script>
 <script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=fmInitMap"></script>

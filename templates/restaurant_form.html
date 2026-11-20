@@ -243,8 +243,8 @@ html.shell #rf-manual:not([hidden]){max-height:calc(100vh - 275px);overflow:auto
 
 </form>
 
-<script src="/static/js/restaurant_form.js?v={{assetVer}}"></script>
-{{if not .Restaurant}}<script src="/static/js/venue_new.js?v={{assetVer}}"></script>{{end}}
+<script src="/static/js/restaurant_form.js?v={{asset "/static/js/restaurant_form.js"}}"></script>
+{{if not .Restaurant}}<script src="/static/js/venue_new.js?v={{asset "/static/js/venue_new.js"}}"></script>{{end}}
 
 {{if not .Embed}}</div>{{template "footer" .}}{{end}}
 {{end}}

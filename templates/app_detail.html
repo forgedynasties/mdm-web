@@ -1,8 +1,8 @@
 {{define "app_detail.html"}}
 {{template "header" .}}
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/coll-list.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/app-page-b.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{asset "/static/css/coll-list.css"}}">
+<link rel="stylesheet" href="/static/css/app-page-b.css?v={{asset "/static/css/app-page-b.css"}}">
 {{$a := .App}}{{$next := printf "/apps/%s" $a.Package}}
 {{/* App page B (picked 19 Nov 2026, "Channel strip, version drives devices"): the family's
      channels as cards across the top (a package in no family has none), Versions beside
@@ -111,7 +111,7 @@
   </div>
 </div>
 {{template "app-library-add" .}}
-<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
-<script src="/static/js/app_detail.js?v={{assetVer}}"></script>
+<script src="/static/js/oc-menus.js?v={{asset "/static/js/oc-menus.js"}}"></script>
+<script src="/static/js/app_detail.js?v={{asset "/static/js/app_detail.js"}}"></script>
 {{template "footer" .}}
 {{end}}

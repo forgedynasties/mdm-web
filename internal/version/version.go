@@ -32,6 +32,56 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.56",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Page tabs share one look everywhere: the white pill with the open tab in coral that the Access page had. People · Access · Activity are one shared strip (Activity no longer switches to a different design), and Jobs, Alerts and the Apps hub use the same pill. On Apps the Library · Resource use tabs now sit in the same place on both pages, so moving between them no longer feels like a different page.",
+		},
+	},
+	{
+		Version: "1.64.55",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Releases: choosing a release swaps only the preview pane. The page no longer reloads, the list keeps its scroll, filters and sort, and Back and Forward move between the releases you opened.",
+			"Device page, Health sheet: less repetition. The to-do rows already name each failing check, so the compliance block keeps its verdict and the passing checks instead of listing the failures again, and the card no longer repeats the sheet's \"Health\" title.",
+		},
+	},
+	{
+		Version: "1.64.54",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Install app in the standard device view: the picker is the same dropdown under its button as in the bento view. It was still the old fixed dialog there, and on a short window its Install button fell below the window so the app could not be installed.",
+		},
+	},
+	{
+		Version: "1.64.53",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"New update: devices that would be factory-reset by the release's full image say \"wipes the device\" in the list, the step subtitles wrap instead of being cut off, and the scope list shows whole rows.",
+		},
+	},
+	{
+		Version: "1.64.52",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"New update: the Push button waits when every chosen device only fits a wiping full image and the factory reset is not allowed, and says why, instead of sending and answering \"No eligible devices\".",
+		},
+	},
+	{
+		Version: "1.64.51",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Pages load much faster after a deploy: every CSS and script file now carries a stamp of its own content, so a deploy that does not change a file leaves it in the browser's cache. Before, one stamp covered the whole tree and changed with every build, so each deploy sent everyone back for ~600 KB and ~90 requests (7 s on a 350 ms link).",
+		},
+	},
+	{
+		Version: "1.64.50",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page graph: the range menu (and the ⋯ menu) is no longer cut off by the card it sits in or by the bottom of the window; it opens under its button, flips upward or scrolls when short of room, and the time-zone rows show their notes on their own line.",
+		},
+	},
+	{
 		Version: "1.64.49",
 		Date:    "2026-11-20",
 		Changes: []string{

@@ -38,7 +38,7 @@ html.shell .al1-scroll{flex:1;min-height:0;overflow:auto;scrollbar-width:thin}
 .al1-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .al1-top .sp{flex:1}
 .al1-top .ovb-seg button small{opacity:.7;font-size:11px;margin-left:3px}
-.al1 .ah-tabs{margin:0;background:var(--ovb-page,var(--surface2))}
+
 .al1-title{font-size:15px;font-weight:650;margin-left:6px}
 .al1-count{font-size:12px;color:var(--muted)}
 .al1-bar{margin-bottom:8px}

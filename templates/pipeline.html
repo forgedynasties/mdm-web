@@ -42,7 +42,7 @@
     <div class="pl-main">
     {{if eq .View "apps"}}
       {{template "lu-apps" .}}
-      <script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
+      <script src="/static/js/oc-menus.js?v={{asset "/static/js/oc-menus.js"}}"></script>
     {{else if .Client}}
       {{template "cl-c2" .}}
     {{end}}
@@ -53,7 +53,7 @@
 
 {{template "clients-style" .}}
 {{template "clients-script" .}}
-<script src="/static/js/pipeline.js?v={{assetVer}}"></script>
+<script src="/static/js/pipeline.js?v={{asset "/static/js/pipeline.js"}}"></script>
 
 <style>
   .pl-wrap { max-width: 1280px; }

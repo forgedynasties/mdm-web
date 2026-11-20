@@ -183,8 +183,8 @@
 {{define "deployment_detail.html"}}
 {{template "header" .}}
 
-<link rel="stylesheet" href="/static/css/ovb-device.css?v={{assetVer}}">
-<link rel="stylesheet" href="/static/css/deployment-dp1.css?v={{assetVer}}">
+<link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
+<link rel="stylesheet" href="/static/css/deployment-dp1.css?v={{asset "/static/css/deployment-dp1.css"}}">
 
 {{$dep := .Deployment}}
 {{$rel := .Release}}
@@ -343,8 +343,8 @@
 </div>
 
 <script>window.DEPLOYMENT_PAGE = {active: {{if eq $dep.Status "active"}}true{{else}}false{{end}}, release: {{$rel.ID}}, deployment: {{$dep.ID}}};</script>
-<script src="/static/js/oc-menus.js?v={{assetVer}}"></script>
-<script src="/static/js/deployment_detail.js?v={{assetVer}}"></script>
+<script src="/static/js/oc-menus.js?v={{asset "/static/js/oc-menus.js"}}"></script>
+<script src="/static/js/deployment_detail.js?v={{asset "/static/js/deployment_detail.js"}}"></script>
 
 {{template "footer" .}}
 {{end}}
