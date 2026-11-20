@@ -77,6 +77,23 @@
     if (popup) popup.remove();
     popup = new maplibregl.Popup({ closeButton: false, maxWidth: '300px', offset: 16, className: 'fm-pop' })
       .setLngLat([s.lon, s.lat]).setHTML(popupHtml(s)).addTo(map);
+    keepPopupInView();
+  }
+  // A popup opened near the pane's edge used to run past it, so its actions (Open device,
+  // Close) could not be reached (20 Nov 2026). Cap its height to the pane and pan the map just
+  // enough that the whole card is inside.
+  function keepPopupInView() {
+    requestAnimationFrame(function () {
+      if (!popup) return;
+      var el = popup.getElement(); if (!el) return;
+      var mr = map.getContainer().getBoundingClientRect();
+      var c = el.querySelector('.maplibregl-popup-content');
+      if (c) { c.style.maxHeight = Math.max(160, mr.height - 32) + 'px'; c.style.overflowY = 'auto'; }
+      var pr = el.getBoundingClientRect(), dx = 0, dy = 0, pad = 12;
+      if (pr.bottom > mr.bottom - pad) dy = pr.bottom - mr.bottom + pad; else if (pr.top < mr.top + pad) dy = pr.top - mr.top - pad;
+      if (pr.right > mr.right - pad) dx = pr.right - mr.right + pad; else if (pr.left < mr.left + pad) dx = pr.left - mr.left - pad;
+      if (dx || dy) map.panBy([dx, dy], { duration: 250 });
+    });
   }
   pane.addEventListener('click', function (e) {
     var t = e.target.closest && e.target.closest('[data-fm]'); if (!t) return;

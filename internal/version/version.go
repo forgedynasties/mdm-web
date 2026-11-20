@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.41",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Menus and popups that ran past the bottom of the window can be reached again: the device page's Move to venue / Add to group popovers open upward when there is more room above and scroll inside when the list is long, and the Fleet map's device popup is panned fully into the map with its height capped, so Open device and Close are never cut off.",
+		},
+	},
+	{
 		Version: "1.64.40",
 		Date:    "2026-11-20",
 		Changes: []string{

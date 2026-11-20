@@ -6,8 +6,18 @@ window.ddFactsPop = function (pop, anchor) {
   // Fixed under its anchor wherever it sits, so a card's overflow cannot clip it.
   pop.style.position = 'fixed'; pop.style.right = 'auto';
   var cell = (pop.closest('.dd-facts') && anchor.closest('.dfc, .ddc-kv')) || anchor, r = cell.getBoundingClientRect();
-  pop.style.top = (r.bottom + 6) + 'px';
+  pop.style.maxHeight = ''; pop.style.overflowY = '';
+  var top = r.bottom + 6;
+  pop.style.top = top + 'px';
   pop.style.left = Math.max(12, Math.min(r.left, window.innerWidth - pop.offsetWidth - 12)) + 'px';
+  // Near the bottom of the window the list used to run past it and its last options (and the
+  // Move button) could not be reached (20 Nov 2026): open upward when there is more room above,
+  // and cap the height to the room so a long list scrolls inside the menu.
+  var h = pop.offsetHeight, pad = 12, below = window.innerHeight - top - pad, above = r.top - 6 - pad;
+  if (h > below) {
+    if (above > below) { var mh = Math.min(h, above); pop.style.maxHeight = mh + 'px'; pop.style.overflowY = 'auto'; pop.style.top = Math.max(pad, r.top - 6 - mh) + 'px'; }
+    else { pop.style.maxHeight = Math.max(120, below) + 'px'; pop.style.overflowY = 'auto'; }
+  }
 };
 if (!window.__ddFactsScroll) {
   window.__ddFactsScroll = true;
