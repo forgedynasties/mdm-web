@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.40",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Device page, Apps: the yellow \"On its way\" state pill (for example \"Waiting for the device · offline 2 d\") no longer squeezes the app's name to nothing and overlaps it in a narrow sheet; it sits under the name, the actions stay on the name's row.",
+		},
+	},
+	{
 		Version: "1.64.39",
 		Date:    "2026-11-20",
 		Changes: []string{
