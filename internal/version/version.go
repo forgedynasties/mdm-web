@@ -32,11 +32,18 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.52",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"New update: the Push button waits when every chosen device only fits a wiping full image and the factory reset is not allowed, and says why, instead of sending and answering \"No eligible devices\".",
+		},
+	},
+	{
 		Version: "1.64.51",
 		Date:    "2026-11-20",
 		Changes: []string{
 			"Pages load much faster after a deploy: every CSS and script file now carries a stamp of its own content, so a deploy that does not change a file leaves it in the browser's cache. Before, one stamp covered the whole tree and changed with every build, so each deploy sent everyone back for ~600 KB and ~90 requests (7 s on a 350 ms link).",
-		],
+		},
 	},
 	{
 		Version: "1.64.50",

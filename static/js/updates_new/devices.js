@@ -24,6 +24,14 @@
     var w = $('push-allow-wipe');
     return val('push-delivery', 'smart') === 'full' && !(w && w.checked);
   }
+  // Smart delivery, a wiping release, no consent, and EVERY chosen device only fits the wiping full
+  // image: the server would leave them all out ("No eligible devices"), so Send waits too.
+  function allLeftOut() {
+    var f = form(), n = serialCount();
+    if (!f || !f.getAttribute('data-wipes') || n === 0) return false;
+    var w = $('push-allow-wipe');
+    return val('push-delivery', 'smart') !== 'full' && !(w && w.checked) && detail.full >= n;
+  }
 
   function setList(items) {
     var ul = $('nu-sum-l'); if (!ul) return;
@@ -38,14 +46,14 @@
     var unknown = Math.max(0, n - on - off);
     var wipes = !!f.getAttribute('data-wipes');
     var allowed = !!($('push-allow-wipe') && $('push-allow-wipe').checked);
-    var blocked = wipeBlocked();
+    var blocked = wipeBlocked(), noneFit = allLeftOut();
     var delivery = val('push-delivery', 'smart');
     var manual = val('push-reboot', 'immediate') === 'manual';
 
     var lbl = $('push-lbl');
     if (lbl) lbl.textContent = 'Push to ' + plural(n, 'device');
     var btn = $('push-btn');
-    if (btn) btn.disabled = !rel || n === 0 || blocked;
+    if (btn) btn.disabled = !rel || n === 0 || blocked || noneFit;
 
     var big = $('nu-sum-big');
     if (big) big.textContent = !rel ? 'Choose a release' : n === 0 ? 'Choose the devices' : 'Will update ' + plural(n, 'device');
@@ -67,12 +75,13 @@
     if (w) {
       var msg = '';
       if (blocked) msg = 'The full image of this release wipes the device. Allow the factory reset in Options to send it.';
+      else if (noneFit) msg = 'None of the chosen devices has an incremental for its build, and the full image wipes the device. Allow the factory reset in Options (and pick Full image) to send it.';
       else if (wipes && allowed && rel && n > 0) msg = 'Factory reset allowed: devices that get the full image are wiped.';
       w.textContent = msg; w.hidden = !msg;
-      w.classList.toggle('stop', blocked);
+      w.classList.toggle('stop', blocked || noneFit);
     }
     var sum = $('nu-sum');
-    if (sum) sum.classList.toggle('is-blocked', blocked);
+    if (sum) sum.classList.toggle('is-blocked', blocked || noneFit);
 
     var s2 = $('nu-s2');
     if (s2 && rel) s2.textContent = n === 0 ? 'None chosen yet' : plural(n, 'device') + ' chosen' + (off ? ' · ' + off + ' offline' : '');
