@@ -15,7 +15,7 @@ html.shell .nu-grid{height:100%;grid-template-rows:minmax(0,1fr)}
 .nu-step:disabled{opacity:.5;cursor:default}
 .nu-step .tx{flex:1;min-width:0}
 .nu-step b{display:block;font-size:14px;font-weight:600}
-.nu-step small{display:block;font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nu-step small{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .nu-n{flex:none;width:28px;height:28px;border-radius:50%;border:1.5px solid var(--border);display:grid;place-items:center;font-style:normal;font-size:12.5px;font-weight:700;color:var(--text-2)}
 .nu-step.on{background:var(--ovb-page)}
 .nu-step.on .nu-n{background:var(--accent-fill);border-color:var(--accent-fill);color:#fff}
@@ -60,12 +60,13 @@ html.shell .nu-grid{height:100%;grid-template-rows:minmax(0,1fr)}
 .nu .pk-rail .co-r-b{padding:0;flex:1;min-height:0;display:flex;flex-direction:column}
 .nu .pk-rail .co-hint{display:none}
 .nu .pk-rail .co-quick{margin-bottom:8px}
-.nu .pk-rail .co-scopelist{max-height:72px;flex:none;margin-bottom:4px}
+.nu .pk-rail .co-scopelist{max-height:100px;flex:none;margin-bottom:4px;scroll-snap-type:y mandatory}
+.nu .pk-rail .co-scopelist>*{scroll-snap-align:start}
 .nu .pk-rail .co-devlist{flex:1;min-height:120px;max-height:none}
 .nu .pk-rail .co-basket{border-radius:16px;border-top:0;margin-top:10px;padding:10px 14px;flex:none}
 .nu .pk-rail .co-bk-pills{max-height:46px;overflow:auto}
 
-@media (max-height:780px){.nu .pk-rail .co-scopelist{max-height:46px}.nu .pk-rail .co-bk-pills{display:none}.nu .pk-rail .co-quick{display:none}}
+@media (max-height:780px){.nu .pk-rail .co-scopelist{max-height:50px}.nu .pk-rail .co-bk-pills{display:none}.nu .pk-rail .co-quick{display:none}}
 
 /* the coral summary */
 .nu-sum{min-height:0;overflow:auto;justify-content:space-between;gap:14px}

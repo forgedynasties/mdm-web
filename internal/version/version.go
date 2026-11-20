@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.53",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"New update: devices that would be factory-reset by the release's full image say \"wipes the device\" in the list, the step subtitles wrap instead of being cut off, and the scope list shows whole rows.",
+		},
+	},
+	{
 		Version: "1.64.52",
 		Date:    "2026-11-20",
 		Changes: []string{

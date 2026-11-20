@@ -163,7 +163,9 @@
       var on = !!picked[d.serial];
       // A blocked row stays visible and says why — "why can't I pick this device"
       // is the first question on a release push.
-      var meta = d.blocked ? d.blocked : (d.artifact ? d.sub + ' · ' + d.artifact + ' OTA' : d.sub);
+      var pf = document.getElementById('push-form');
+      var wipes = d.artifact === 'full' && pf && pf.getAttribute('data-wipes');
+      var meta = d.blocked ? d.blocked : (d.artifact ? d.sub + ' · ' + d.artifact + ' OTA' + (wipes ? ' · wipes the device' : '') : d.sub);
       // A device the push will reach over the legacy path is a different kind of
       // target — offered on its next poll, full image only — so it reads differently
       // in the list rather than being discovered at the confirmation step.
