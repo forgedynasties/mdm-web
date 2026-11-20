@@ -517,6 +517,7 @@ window.installPane = function (btn) {
   }
   var pkg = btn.getAttribute('data-pkg'), ch = chs.filter(function (c) { return c.pkg === pkg; })[0] || chs[0];
   var url = btn.getAttribute('data-url'), vi = Math.max(0, ch.urls.indexOf(url));
+  btn.setAttribute('data-have', inst[ch.pkg] ? '1' : '');
   // Channels and following are for AIO's own apps (user, 4 Nov 2026: "channel tracking prod
   // stage etc is only for aio apps"); any other app picks a build and installs it.
   // D1 (17 Nov 2026): no build menu; the library's newest build is what goes, and the MDM
@@ -547,6 +548,7 @@ window.installPane = function (btn) {
     var c = chs[i]; if (!c) return;
     var changed = c !== ch;
     instSet(btn, c.urls[0], c.pkg);
+    btn.setAttribute('data-have', inst[c.pkg] ? '1' : '');
     btn.setAttribute('data-ch', instChName(c.label)); btn.setAttribute('data-ver', c.vers[0] || '');
     var tv = btn.querySelector('.app-tver'); if (tv) tv.textContent = instChName(c.label) + ' ' + (c.vers[0] || '');
     if (changed) installPane(btn);
@@ -564,6 +566,14 @@ window.installLabel = function () {
   var form = document.getElementById('install-form'), s = document.getElementById('install-submit'), c = document.getElementById('install-count'); if (!form || !s) return;
   var on = form.querySelectorAll('.install-tile.on'), add = form.hasAttribute('data-add');
   if (!on.length) { if (c) c.textContent = 'Pick one or more apps'; return; }
+  // Add app only installs what the device lacks (an app already on it updates itself), so a
+  // pick that is on the device must not promise an install (20 Nov 2026).
+  if (add) {
+    var lacking = [].filter.call(on, function (t) { return t.getAttribute('data-have') !== '1'; });
+    s.disabled = !lacking.length;
+    if (!lacking.length) { s.textContent = 'Add app'; if (c) c.textContent = on.length > 1 ? 'These are already on this device.' : (on[0].getAttribute('data-app') || 'This app') + ' is already on this device; it updates itself.'; return; }
+    if (lacking.length < on.length) on = lacking;
+  }
   s.textContent = add ? (on.length > 1 ? 'Add ' + on.length + ' apps' : 'Add app') : ('Install' + (on.length > 1 ? ' (' + on.length + ')' : ''));
   if (!c) return;
   var when = form.getAttribute('data-online') === '1' ? 'now' : 'when the device is back online';

@@ -1940,3 +1940,13 @@
   }
   later();
 })();
+
+// hx-on:: attributes are evaluated by htmx with new Function(), which our CSP (no
+// 'unsafe-eval') refuses, so they never ran (20 Nov 2026: the install form's clean-up and the
+// Lineup rename's reload). These two small hooks replace them.
+document.addEventListener('htmx:afterRequest', function (e) {
+  var el = e.target; if (!el || !el.closest) return;
+  var ok = e.detail && e.detail.successful;
+  if (el.matches && el.matches('form[data-reload-ok]') && ok) location.reload();
+  if (el.id === 'install-form' && !ok) document.querySelectorAll('#apps-table [data-optimistic]').forEach(function (n) { n.remove(); });
+});

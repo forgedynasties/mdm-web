@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.42",
+		Date:    "2026-11-20",
+		Changes: []string{
+			"Add app on a device: picking an app that is already on the device no longer promises an install that never happens; the button is off and the footer says it updates itself, and a mixed pick counts only what is missing.",
+			"The install form's clean-up after a failed request and the Lineup rename's reload ran through htmx's hx-on, which our Content-Security-Policy blocks (an EvalError on every Add app); they are plain listeners now.",
+		},
+	},
+	{
 		Version: "1.64.41",
 		Date:    "2026-11-20",
 		Changes: []string{

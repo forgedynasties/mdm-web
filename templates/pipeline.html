@@ -326,7 +326,7 @@
             {{if and (not .Known) (canAdmin $.Role)}}
             <div class="lu-acts">
               <details class="lu-ren"><summary>Rename</summary>
-                <form class="lu-form" method="POST" action="/products/{{.Key}}/name" hx-post="/products/{{.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
+                <form class="lu-form" method="POST" action="/products/{{.Key}}/name" hx-post="/products/{{.Key}}/name" hx-swap="none" data-reload-ok>
                   <input type="text" name="name" value="{{.Name}}" maxlength="60" placeholder="Display name" aria-label="Display name for {{.Key}}">
                   <button type="submit" class="cc-btn xs primary">Save</button>{{if .Name}}<button type="submit" name="reset" value="1" class="cc-btn xs">Reset</button>{{end}}
                 </form>
@@ -355,7 +355,7 @@
     {{if and (not $m.Known) (canAdmin .Root.Role)}}
     <div class="lu-acts">
       <details class="lu-ren"><summary>Rename</summary>
-        <form class="lu-form" method="POST" action="/products/{{$m.Key}}/name" hx-post="/products/{{$m.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
+        <form class="lu-form" method="POST" action="/products/{{$m.Key}}/name" hx-post="/products/{{$m.Key}}/name" hx-swap="none" data-reload-ok>
           <input type="text" name="name" value="{{$m.Name}}" maxlength="60" placeholder="Display name" aria-label="Display name for {{$m.Key}}">
           <button type="submit" class="cc-btn xs primary">Save</button>{{if $m.Name}}<button type="submit" name="reset" value="1" class="cc-btn xs">Reset</button>{{end}}
         </form>
@@ -724,7 +724,7 @@
                 <a class="cc-mi" role="menuitem" href="/devices?product={{.Key}}">Its devices</a>
                 {{if and (not .Known) (canAdmin $.Role)}}
                 <div class="cc-msep"></div>
-                <form class="lu1-ren" method="POST" action="/products/{{.Key}}/name" hx-post="/products/{{.Key}}/name" hx-swap="none" hx-on::after-request="if(event.detail.successful)location.reload()">
+                <form class="lu1-ren" method="POST" action="/products/{{.Key}}/name" hx-post="/products/{{.Key}}/name" hx-swap="none" data-reload-ok>
                   <input type="text" name="name" value="{{.Name}}" maxlength="60" placeholder="Display name" aria-label="Display name for {{.Key}}">
                   <button type="submit" class="cc-btn xs primary">Rename</button>{{if .Name}}<button type="submit" name="reset" value="1" class="cc-btn xs">Reset</button>{{end}}
                 </form>

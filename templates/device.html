@@ -1752,7 +1752,7 @@ window.DEVICE_VITALS = {
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
         {{/* D1 (17 Nov 2026): Add app records the app on the device (app_wants_view.go); the newest build installs now, or when an offline device is back. A client that can only update itself keeps today's app_update command. */}}
-        <form id="install-form"{{if supports $.Device "install_apk"}} hx-post="/devices/{{$.Device.SerialNumber}}/apps/add" action="/devices/{{$.Device.SerialNumber}}/apps/add" data-add="1" data-online="{{if .Online}}1{{else}}0{{end}}"{{else}} hx-post="/commands" action="/commands"{{end}} hx-swap="none" method="POST" onsubmit="installModalClose(); if(!this.dataset.add){installOptimistic();}" hx-on::after-request="if(!event.detail.successful){document.querySelectorAll('#apps-table [data-optimistic]').forEach(function(n){n.remove();});}">
+        <form id="install-form"{{if supports $.Device "install_apk"}} hx-post="/devices/{{$.Device.SerialNumber}}/apps/add" action="/devices/{{$.Device.SerialNumber}}/apps/add" data-add="1" data-online="{{if .Online}}1{{else}}0{{end}}"{{else}} hx-post="/commands" action="/commands"{{end}} hx-swap="none" method="POST" onsubmit="installModalClose(); if(!this.dataset.add){installOptimistic();}">
           {{/* A client that can't install other apps can still update itself (app_update). */}}
           <input type="hidden" name="type" value="{{if and (not (supports $.Device "install_apk")) (supports $.Device "app_update")}}app_update{{else}}install_apk{{end}}">
           <input type="hidden" name="target_type" value="devices">
