@@ -44,7 +44,7 @@
 
 {{/* Same Jobs switch and top bar as In flight (15 Oct): History is the other half of
      Jobs, not a page of its own. */}}
-<nav class="nav-pills" aria-label="Jobs">
+<nav class="nav-pills" data-pill-nav aria-label="Jobs">
   <span class="cap">Jobs</span>
   <a href="/jobs">In flight{{if gt .ProgCount 0}}<span class="n">{{.ProgCount}}</span>{{end}}</a>
   <a href="/jobs/history" class="on">History</a>

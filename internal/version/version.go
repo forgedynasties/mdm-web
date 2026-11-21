@@ -32,6 +32,20 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.61",
+		Date:    "2026-11-21",
+		Changes: []string{
+			"Page tabs feel like one page: People · Access · Activity, Jobs, the Apps hub and Alerts all open in place (the picked tab is marked at once and only what is under the tabs dims and swaps), the tabs sit at the same spot on every page of a section (People was 4 px lower), and Resource use no longer takes 1-2 s each time (the built page is kept 45 s per view).",
+		},
+	},
+	{
+		Version: "1.64.60",
+		Date:    "2026-11-21",
+		Changes: []string{
+			"Setup, To place: a device the AIO backend lists at a restaurant now comes with that venue already chosen. If the MDM has a venue linked to the restaurant it is picked; if not, the restaurant's name is shown with a \"new\" tag and the venue is created (linked, filled from the backend, icon set) when you deploy, once for all of that restaurant's devices. With nothing ticked picked for the whole selection, Deploy sends each ticked device to its own row's venue.",
+		},
+	},
+	{
 		Version: "1.64.59",
 		Date:    "2026-11-20",
 		Changes: []string{

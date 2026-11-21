@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -489,4 +490,47 @@ func (p placementRow) Serials() string {
 		s = append(s, d.Serial)
 	}
 	return strings.Join(s, ", ")
+}
+
+var backendVenueMu sync.Mutex
+
+// BackendVenueEnsure is POST /restaurants/from-backend {env, rid}: the venue for a restaurant in the
+// AIO backend, made on the spot when there is none (linked to it, filled from it, its icon set), and
+// answered as {id, name, created}. The Setup queue calls it when a device is deployed to the venue it
+// suggested, so venues no longer have to be created by hand first. Safe to call twice for one
+// restaurant (several devices of one restaurant deploy together): the second call finds the first's venue.
+func (h *Handler) BackendVenueEnsure(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
+	ctx := r.Context()
+	env := r.FormValue("env")
+	rid, _ := strconv.ParseInt(r.FormValue("rid"), 10, 64)
+	br, ok, err := h.db.BackendRestaurantOf(ctx, env, rid)
+	if err != nil || !ok {
+		http.Error(w, "That restaurant isn't in the AIO backend copy", http.StatusBadRequest)
+		return
+	}
+	backendVenueMu.Lock()
+	defer backendVenueMu.Unlock()
+	links, err := h.db.VenueBackendLinks(ctx)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	for v, l := range links {
+		if l.Env == env && l.RestaurantID == rid {
+			writeJSONResp(w, map[string]any{"id": v.String(), "name": br.Name, "created": false})
+			return
+		}
+	}
+	v, err := h.db.CreateRestaurant(ctx, db.Restaurant{Name: br.Name})
+	if err != nil {
+		http.Error(w, "Could not create the venue: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.audit(r, "restaurant.create", v.ID.String(), br.Name+" (from AIO backend, at deploy)")
+	h.linkAndFill(r, v.ID, env, rid, nil)
+	h.audit(r, "restaurant.backend_link", v.ID.String(), fmt.Sprintf("%s · %s #%d", br.Name, aiobackend.Env(env).Label(), rid))
+	writeJSONResp(w, map[string]any{"id": v.ID.String(), "name": br.Name, "created": true})
 }

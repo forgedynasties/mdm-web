@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,9 +43,32 @@ type muVenue struct {
 
 const muRowsShown = 30
 
+// The page's numbers take 1-2 s to build (every device, then their usage over the window and the one
+// before), and the same view is asked for again by every tab switch and prefetch, so the built page is
+// kept for muCacheTTL per query (20 Nov 2026: "Resource use loads"). Nothing in it is per person.
+const muCacheTTL = 45 * time.Second
+
+type muCached struct {
+	p  any
+	at time.Time
+}
+
+var (
+	muCacheMu sync.Mutex
+	muCache   = map[string]muCached{}
+)
+
 func (h *Handler) ModelUsagePage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	q := r.URL.Query()
+	muKey := q.Encode()
+	muCacheMu.Lock()
+	hit, ok := muCache[muKey]
+	muCacheMu.Unlock()
+	if ok && time.Since(hit.at) < muCacheTTL {
+		h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "AppsTab": "usage", "P": hit.p})
+		return
+	}
 	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 20000, "", "")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -115,6 +139,12 @@ func (h *Handler) ModelUsagePage(w http.ResponseWriter, r *http.Request) {
 	}
 	in.RoleBase = h.roleAppBase(ctx, in.Model)
 	p := buildModelUsageP1(in)
+	muCacheMu.Lock()
+	if len(muCache) > 200 {
+		muCache = map[string]muCached{}
+	}
+	muCache[muKey] = muCached{p: p, at: time.Now()}
+	muCacheMu.Unlock()
 	h.render(w, r, "apps_usage.html", map[string]any{"Title": "Resource use", "ActivePath": "/apps/usage", "AppsTab": "usage", "P": p})
 }
 

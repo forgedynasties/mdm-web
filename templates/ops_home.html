@@ -125,7 +125,7 @@
       <small class="muted pl-sub" title="{{if .Model}}{{.Model}} · {{end}}{{if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}">{{if .Model}}{{.Model}}{{else if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}{{if not .Online}} · seen {{timeSince .Device.LastSeenAt}}{{end}}</small></td>
     <td>{{if .Choices}}<select class="form-input pl-sel pl-role{{if not .Device.DeviceClass}} need{{end}}" data-cur="{{.Device.DeviceClass}}" aria-label="Role of {{.Device.SerialNumber}}">{{if not .Device.DeviceClass}}<option value="">Pick a role…</option>{{end}}{{$cur := .Device.DeviceClass}}{{range .Choices}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{classLabel .}}</option>{{end}}</select>{{else if .Device.DeviceClass}}{{classLabel .Device.DeviceClass}}{{else}}<span class="muted">from its model</span>{{end}}</td>
     <td>{{if .By}}{{.By}}{{else}}<span class="muted">—</span>{{end}}<small class="muted pl-sub">{{timeSince .Device.EnrolledAt}}</small></td>
-    <td><button type="button" class="form-input pl-sel pl-vbtn pl-venue need" data-value="" aria-haspopup="listbox" aria-label="Venue for {{.Device.SerialNumber}}">Pick a venue…</button></td>
+    <td>{{$sn := .Device.SerialNumber}}{{with .Suggest}}<button type="button" class="form-input pl-sel pl-vbtn pl-venue" data-value="{{.Value}}" data-suggest="1" aria-haspopup="listbox" aria-label="Venue for {{$sn}}" title="{{if .New}}From the AIO backend: the venue is created when you deploy{{else}}From the AIO backend{{end}}">{{.Name}}{{if .New}} <small class="pl-new">new</small>{{end}}</button>{{else}}<button type="button" class="form-input pl-sel pl-vbtn pl-venue need" data-value="" aria-haspopup="listbox" aria-label="Venue for {{.Device.SerialNumber}}">Pick a venue…</button>{{end}}</td>
     <td class="mv-act"><button type="button" class="cc-btn sm pl-go" onclick="placeRow(this)" disabled title="Pick a venue first">Deploy</button></td>
   </tr>
   {{end}}
@@ -138,6 +138,7 @@
 
 {{define "place-style"}}
 <style>
+.pl-new{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text)}
 .pl-head-acts{margin-left:auto;display:flex;gap:8px}
 .pl-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:10px;margin-bottom:10px;font-size:13.5px}
 .pl-bulk .sp{flex:1}
@@ -202,12 +203,26 @@
   function enc(s) { return encodeURIComponent(s); }
   function back() { var t = document.querySelector('.pl-ft'); return (t && t.getAttribute('data-back')) || location.pathname; }
   // Sets the row's role when it was changed, then places it at the venue.
-  function deploy(tr, venue) {
-    var serial = tr.getAttribute('data-serial'), role = tr.querySelector('.pl-role'), p = Promise.resolve();
-    if (role && role.value && role.value !== role.getAttribute('data-cur')) {
-      p = post('/devices/' + enc(serial) + '/role', { 'class': role.value }).then(function () { role.setAttribute('data-cur', role.value); });
+  // A venue the AIO backend suggested but the MDM does not have yet ("bk:env/id") is made when the
+  // first of its devices is deployed; the rest of that restaurant's devices find it.
+  var bkVenues = {};
+  function ensureVenue(v) {
+    if (v.indexOf('bk:') !== 0) return Promise.resolve(v);
+    if (!bkVenues[v]) {
+      var m = v.slice(3).split('/');
+      bkVenues[v] = fetch('/restaurants/from-backend', { method: 'POST', body: new URLSearchParams({ env: m[0], rid: m[1] }), headers: { 'HX-Request': 'true' }, credentials: 'same-origin' })
+        .then(function (r) { if (!r.ok) return r.text().then(function (x) { throw new Error((x || 'Could not create the venue').trim().slice(0, 160)); }); return r.json(); })
+        .then(function (j) { return j.id; });
+      bkVenues[v].catch(function () { delete bkVenues[v]; });
     }
-    return p.then(function () { return post('/devices/' + enc(serial) + '/onboard', { restaurant_id: venue, from: back() }); })
+    return bkVenues[v];
+  }
+  function deploy(tr, venueRaw) {
+    var serial = tr.getAttribute('data-serial'), role = tr.querySelector('.pl-role'), p = ensureVenue(venueRaw).then(function (id) { tr._venueId = id; });
+    if (role && role.value && role.value !== role.getAttribute('data-cur')) {
+      p = p.then(function () { return post('/devices/' + enc(serial) + '/role', { 'class': role.value }); }).then(function () { role.setAttribute('data-cur', role.value); });
+    }
+    return p.then(function () { return post('/devices/' + enc(serial) + '/onboard', { restaurant_id: tr._venueId, from: back() }); })
       .then(function () { tr.classList.add('done'); tr.querySelectorAll('select,button,input').forEach(function (x) { x.disabled = true; }); });
   }
   function needsRole(tr) { var r = tr.querySelector('.pl-role'); return r && !r.value; }
@@ -225,11 +240,14 @@
     if (!rows.length) return;
     var v = document.getElementById('pl-bulk-venue').dataset.value;
     if (v === '__new') { placeNewVenue(rows); return; }
-    if (!v) { toast('Pick a venue for the ticked devices', 'error'); return; }
+    // No venue picked for the whole selection: each device goes to its own row's venue (the one the AIO
+    // backend suggested, or the one picked on the row) when every ticked row has one.
+    var own = !v && rows.every(function (tr) { return tr.querySelector('.pl-venue').dataset.value; });
+    if (!v && !own) { toast('Pick a venue for the ticked devices (or on each row)', 'error'); return; }
     var bad = rows.filter(needsRole);
     if (bad.length) { toast(bad.length + ' ticked device' + (bad.length === 1 ? ' needs' : 's need') + ' a role first', 'error'); return; }
     var go = document.getElementById('pl-bulk-go'); go.disabled = true;
-    rows.reduce(function (p, tr) { return p.then(function () { return deploy(tr, v); }); }, Promise.resolve())
+    rows.reduce(function (p, tr) { return p.then(function () { return deploy(tr, own ? tr.querySelector('.pl-venue').dataset.value : v); }); }, Promise.resolve())
       .then(function () { go.disabled = false; toast(rows.length + ' deployed · in service', 'success'); sync(); }, function (e) { go.disabled = false; toast(e.message, 'error'); sync(); });
   };
   // New venue: the Venues page's form, for the ticked rows (or the one row); it deploys them
@@ -264,9 +282,11 @@
     document.getElementById('pl-bulk-n').textContent = rows.length + ' selected';
     var go = document.getElementById('pl-bulk-go'), v = document.getElementById('pl-bulk-venue').dataset.value;
     go.textContent = 'Deploy ' + rows.length;
-    go.disabled = !v || !rows.length;
-    go.title = v ? '' : 'Pick a venue first';
+    var own = !v && rows.length && rows.every(function (tr) { var b = tr.querySelector('.pl-venue'); return b && b.dataset.value; });
+    go.disabled = (!v && !own) || !rows.length;
+    go.title = v || own ? '' : 'Pick a venue first';
   }
+  document.querySelectorAll('.pl-row').forEach(rowReady);
   document.addEventListener('change', function (e) {
     var t = e.target;
     if (t.id === 'pl-all') { document.querySelectorAll('.pl-pick:not(:disabled)').forEach(function (c) { c.checked = t.checked; }); sync(); }
