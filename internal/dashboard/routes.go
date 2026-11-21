@@ -252,6 +252,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/backend", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantBackendSave)))
 	post("POST /restaurants/{id}/backend-move", h.collectionRoute("restaurant", h.requireAdminOrOperator(h.RestaurantBackendMove)))
 	post("POST /restaurants/backend-place", h.requireStrictAdmin(h.BackendPlaceSave))
+	post("POST /restaurants/from-backend", h.requireAdminOrOperator(h.BackendVenueEnsure))
 	// The same over the admin key (admin_backend.go, 17 Nov 2026).
 	mux.HandleFunc("GET /api/v1/admin/backend/placements", h.asAdminAPI(h.AdminBackendPlacements))
 	mux.HandleFunc("POST /api/v1/admin/backend/place", h.asAdminAPI(h.BackendPlaceSave))

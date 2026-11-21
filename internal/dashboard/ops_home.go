@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"mdm/internal/db"
 )
 
@@ -29,6 +31,72 @@ type placeRow struct {
 	By      string // who enrolled it, the name part of the address
 	Role    deviceRole
 	Choices []string // the role picker's classes (none: the role comes from the model)
+	// Suggest is the venue the AIO backend places this device at (20 Nov 2026: "pick a venue should by
+	// default show the restaurant from the AIO backend"): a venue already linked to that restaurant, or
+	// the restaurant itself, whose venue is made when the device is deployed. Nil when it lists none.
+	Suggest *placeSuggest
+}
+
+// placeSuggest is the backend's answer for one device.
+type placeSuggest struct {
+	VenueID string // a linked venue here ("" = none yet)
+	Name    string
+	Env     string
+	RID     int64
+}
+
+// Value is what the venue button holds: the venue id, or "bk:env/id" for a venue still to be made.
+func (p placeSuggest) Value() string {
+	if p.VenueID != "" {
+		return p.VenueID
+	}
+	return "bk:" + bkKey(p.Env, p.RID)
+}
+
+func (p placeSuggest) New() bool { return p.VenueID == "" }
+
+// suggestVenues matches the queue's devices to the AIO backend's restaurants (serial, or Nugget
+// Android ID), the way the device page and the Venues page do (buildPlacements).
+func (h *Handler) suggestVenues(ctx context.Context, rows []placeRow) {
+	if len(rows) == 0 {
+		return
+	}
+	devs := make([]db.Device, len(rows))
+	for i := range rows {
+		devs[i] = rows[i].Device
+	}
+	venues, err := h.db.ListRestaurants(ctx)
+	if err != nil {
+		return
+	}
+	names := map[uuid.UUID]string{}
+	for _, v := range venues {
+		names[v.ID] = v.Name
+	}
+	links, err := h.db.VenueBackendLinks(ctx)
+	if err != nil {
+		return
+	}
+	rs, err := h.db.ListBackendRestaurants(ctx)
+	if err != nil {
+		return
+	}
+	bds, err := h.db.ListBackendDevices(ctx)
+	if err != nil {
+		return
+	}
+	ign, _ := h.db.BackendIgnores(ctx)
+	p := buildPlacements(devs, names, links, rs, bds, ign)
+	for i := range rows {
+		sn := rows[i].Device.SerialNumber
+		if v, ok := p.DeviceVenue[sn]; ok {
+			rows[i].Suggest = &placeSuggest{VenueID: v.String(), Name: names[v]}
+			continue
+		}
+		if rr := p.DeviceRest[sn]; len(rr) > 0 {
+			rows[i].Suggest = &placeSuggest{Name: rr[0].Name, Env: rr[0].Env, RID: rr[0].ID}
+		}
+	}
 }
 
 // placeRowsFor builds the queue's rows, newest enrolment first.
@@ -48,6 +116,7 @@ func (h *Handler) placeRowsFor(ctx context.Context, devs []db.Device) []placeRow
 		out = append(out, row)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Device.EnrolledAt.After(out[j].Device.EnrolledAt) })
+	h.suggestVenues(ctx, out)
 	return out
 }
 
