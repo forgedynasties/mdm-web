@@ -388,7 +388,7 @@
           ev.detail.serverResponse = (ev.detail.serverResponse || '').replace(/<main([^>]*?)class="/, '<main$1class="nav-still ');
         };
         document.addEventListener('htmx:beforeSwap', still);
-        var pane = main.querySelector('.fleet-md > .fleet-roster, .ro-md > .ro-det') || main.querySelector('.fleet-md, .ro-md');
+        var pane = main.querySelector('.fleet-md > .fleet-roster, .ro-md > .ro-det') || main.querySelector('.fleet-md, .ro-md') || main; // a page with no list pane (Resource use): everything under the pills dims
         // The bar only once it is clearly not instant (a prefetched view swaps in at once).
         if (pane) setTimeout(function () { if (pane.isConnected) { pane.classList.add('pane-loading'); pane.setAttribute('aria-busy', 'true'); } }, 120);
         _navActive = true; _navDest = path;

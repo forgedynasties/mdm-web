@@ -2,7 +2,7 @@
      (/apps) and Resource use (/apps/usage). By product went on 30 Oct 2026: the list's rail
      has it, and Host apps is under Lineup (/lineup/apps). Context: the page's data, with .AppsTab naming the open tab. */}}
 {{define "apps-hub-tabs"}}
-<nav class="ah-tabs" aria-label="Apps">
+<nav class="ah-tabs" data-pill-nav aria-label="Apps">
   <a href="/apps"{{if eq .AppsTab "library"}} class="on" aria-current="page"{{end}}>Library</a>
   <a href="/apps/usage"{{if eq .AppsTab "usage"}} class="on" aria-current="page"{{end}}>Resource use</a>
 </nav>

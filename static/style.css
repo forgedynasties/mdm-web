@@ -8218,6 +8218,7 @@ html body :is(.card, .cc-card, .ddc-card, .fleet-rail, .cl-card, .dd-needs) { bo
 /* A pane being swapped by its rail (pane-loading.js): dimmed, with a moving bar on top. */
 .pane-loading { position: relative; }
 .pane-loading > * { opacity: .45; transition: opacity .12s; pointer-events: none; }
+main.pane-loading > [data-pill-nav] { opacity: 1; pointer-events: auto; }
 .pane-loading::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 5; border-radius: 3px;
   background: linear-gradient(90deg, transparent, var(--accent-fill), transparent); background-size: 40% 100%; background-repeat: no-repeat;
   animation: pane-load 1s linear infinite; }

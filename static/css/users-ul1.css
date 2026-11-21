@@ -98,3 +98,8 @@ html.shell main#main:has(.ul1p.fit){overflow:hidden}
   .ul1-q{width:100%;flex:1 1 100%}
   .ul1-sp{display:none}
 }
+
+/* The People page's own header block is hidden (the island names the page); it must not push the tab
+   strip down either: People · Access · Activity sit at the same spot on all three pages (20 Nov 2026). */
+.ovd.ul1p > .cc-top{margin:0;padding:0;min-height:0}
+.ovd.ul1p{margin-top:0}
