@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.64.62",
+		Date:    "2026-11-22",
+		Changes: []string{
+			"Sign-in: when the dashboard cannot reach its database, it now says so (and answers 503) instead of \"Invalid credentials\", and the attempt no longer counts toward a lockout.",
+		},
+	},
+	{
 		Version: "1.64.61",
 		Date:    "2026-11-21",
 		Changes: []string{

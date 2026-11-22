@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -16,6 +17,7 @@ import (
 	"mdm/internal/mailer"
 	"mdm/internal/ratelimit"
 
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -86,6 +88,15 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		// The account lookup itself failed (the database is down or refusing us): that says nothing about
+		// the password, so it is not "Invalid credentials" and does not count against the person or their
+		// address (22 Nov 2026: during a database outage every correct sign-in read "Invalid credentials").
+		log.Printf("[login] account lookup failed: %v", err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "The dashboard can't reach its database right now, so it can't check your password. Nothing is wrong with your sign-in; try again in a few minutes.", "Brand": h.cfg.CustomBrand()})
+		return
+	}
 	if err != nil {
 		// No such account: spend the same time a wrong password does, so the answer's
 		// timing doesn't say which usernames exist (18 Nov 2026 audit).
