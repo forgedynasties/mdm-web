@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.65.3",
+		Date:    "2026-11-23",
+		Changes: []string{
+			"Releases: the \"Show\" group in the side rail only appears when there are reported builds or hidden releases to switch to.",
+		},
+	},
+	{
 		Version: "1.65.2",
 		Date:    "2026-11-23",
 		Changes: []string{
