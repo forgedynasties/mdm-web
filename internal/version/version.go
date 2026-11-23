@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.65.2",
+		Date:    "2026-11-23",
+		Changes: []string{
+			"Clicking rows, cards and tabs no longer highlights text by accident; text in inputs and serials can still be selected.",
+			"Device page: the Health panel and its entry in the right dock are gone.",
+		},
+	},
+	{
 		Version: "1.65.1",
 		Date:    "2026-11-23",
 		Changes: []string{

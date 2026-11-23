@@ -8292,3 +8292,12 @@ html body :is(.pg-tabs, .ac1-nav, .nav-pills, .ah-tabs) > .cap { display: none; 
    beat the hidden attribute, so Alerts' Crashes pane showed (empty, with its pager) under Needs action
    and squeezed the page (20 Nov 2026). */
 html.shell .fleet-roster > [hidden] { display: none !important; }
+
+/* Clickable rows and cards never start a text selection (23 Nov 2026: a fast click, a double-click
+   or a shift-click on the device sheets' lists highlighted whole blocks of text). Detail text,
+   inputs and code stay selectable. */
+.app-row, .app-tile, .ddc-tl, .ft-row, tr[data-href], [role="button"], [role="option"], [role="tab"],
+.fleet-rail-item, .ovb-li, .cc-mi, .pl-vi, .bt-sheet-h, .dd-tab, .ptab, .fq, .cc-btn, button, summary {
+  -webkit-user-select: none; user-select: none;
+}
+input, textarea, select, [contenteditable], .mono, pre, code, .sel-ok { -webkit-user-select: text; user-select: text; }

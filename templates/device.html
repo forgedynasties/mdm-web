@@ -99,7 +99,7 @@
       <div class="dd-nr"><span class="dd-nd {{.Tone}}" aria-hidden="true"></span><span class="dd-nt">{{.Title}}<small>{{.Why}}</small></span>
         {{if eq .Action "role"}}{{if $roleOK}}<span class="dd-nbtns">{{range .Choices}}<form method="POST" action="/devices/{{$serial}}/role" hx-boost="false"><input type="hidden" name="class" value="{{.Key}}"><button type="submit" class="cc-btn sm{{if .Primary}} primary{{end}}">{{.Label}}</button></form>{{end}}</span>{{end}}
         {{else if and (eq .Action "adb") $adbOK}}<button type="button" class="cc-btn sm primary" onclick="window.adbPillOpen && adbPillOpen()">{{.Label}}</button>
-        {{else if and (eq .Action "health") (not $onHealth)}}<a class="cc-btn sm" href="?tab=health" onclick="var t=document.getElementById('dd-tab-health');if(t&&window.setDeviceTab){window.setDeviceTab('health',t);return false}">{{.Label}}</a>{{end}}
+        {{end}}
       </div>
 {{end}}{{end}}
 
@@ -868,7 +868,7 @@
 <nav class="bt-dock" id="bt-dock" aria-label="Device panels">
   {{if not .IsOwner}}<button type="button" data-bt-open="apps">{{template "bt-ic" "apps"}}<span>Apps</span>{{with .HostApp}}{{if .Count}}<i class="n">{{.Count}}</i>{{end}}{{end}}</button>
   <button type="button" data-bt-open="activity">{{template "bt-ic" "activity"}}<span>Activity</span></button>
-  <button type="button" data-bt-open="health">{{template "bt-ic" "health"}}<span>Health</span>{{if .Health.Count}}<i class="n w">{{.Health.Count}}</i>{{end}}</button>{{end}}
+  {{end}}
   <button type="button" data-bt-open="network">{{template "bt-ic" "network"}}<span>Network</span></button>
   <button type="button" data-bt-open="location">{{template "bt-ic" "location"}}<span>Location</span></button>
   <button type="button" data-bt-open="about">{{template "bt-ic" "about"}}<span>About</span></button>
@@ -878,7 +878,7 @@
 <div class="bt-sheet-h" id="bt-sheet-h"><h2 class="bt-ttl" id="bt-ttl"></h2><span class="bt-esc">Esc</span><button type="button" class="bt-x" id="bt-x" aria-label="Close panel">✕</button></div>
 <div class="ovd bt-wrap"><div class="ovb" id="bt">
   <section class="ovb-c ovb-health" aria-labelledby="bt-h">
-    <div class="ovb-ch"><h2 id="bt-h">Device health</h2><span class="sp"></span><button type="button" class="ovb-pill {{$bv.Tone}}" style="border:0;cursor:pointer" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))" title="Open Health">{{$bv.Score}}</button></div>
+    <div class="ovb-ch"><h2 id="bt-h">Device health</h2><span class="sp"></span><span class="ovb-pill {{$bv.Tone}}">{{$bv.Score}}</span></div>
     {{if $bv.HasRing}}<svg class="ovb-radar" viewBox="-125 -112 250 230" role="img" aria-label="Device health by part">
       {{range $bv.Radar.Rings}}<polygon class="g" points="{{.}}"/>{{end}}
       {{range $bv.Radar.Axes}}<line class="g" x1="0" y1="0" x2="{{index . 0}}" y2="{{index . 1}}"/>{{end}}
@@ -936,7 +936,7 @@
   </section>
 
   {{if .Needs}}<a class="ovb-promo" role="button" tabindex="0" onclick="btTab('needs')"><b>{{len .Needs}} thing{{if ne (len .Needs) 1}}s{{end}}<br>need{{if eq (len .Needs) 1}}s{{end}} a look</b><span class="ovb-btn w">Open</span><span class="big" aria-hidden="true">{{len .Needs}}</span></a>
-  {{else}}<a class="ovb-promo" role="button" tabindex="0" onclick="setDeviceTab('health', document.getElementById('dd-tab-health'))"><b>Everything<br>is running</b><span class="ovb-btn w">Open Health</span><span class="big" aria-hidden="true">✓</span></a>{{end}}
+  {{else}}<div class="ovb-promo"><b>Everything<br>is running</b><span class="big" aria-hidden="true">✓</span></div>{{end}}
 
   {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}{{$hasPad := and .WlcApplicable $wlcS (ne $wlcS "—")}}
   {{if not $hasPad}}<section class="ovb-c" aria-labelledby="bt-v">
