@@ -52,6 +52,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 		http.Redirect(w, r, "/onboarding-demo/try", http.StatusMovedPermanently)
 	})
 
+	// Public page about the product for viewers (no sign-in), 23 Nov 2026.
+	mux.HandleFunc("GET /about", h.About)
+	mux.HandleFunc("GET /about/{$}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/about", http.StatusMovedPermanently)
+	})
+
 	mux.HandleFunc("GET /{$}", h.Root)
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/select-serials", h.requireAuth(h.DeviceSelectAllSerials))

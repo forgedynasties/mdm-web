@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.67.0",
+		Date:    "2026-11-23",
+		Changes: []string{
+			"New public About page at /about for people who want to know what AIO MDM is: what it does, how devices connect, the two clients and the device lineup, with a preview of the Overview (sample data). No sign-in needed; it is the page we link to now that the sneak peek is retired.",
+		},
+	},
+	{
 		Version: "1.66.1",
 		Date:    "2026-11-23",
 		Changes: []string{
