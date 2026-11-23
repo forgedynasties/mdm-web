@@ -60,7 +60,7 @@
       <tbody>
       {{range .SvcRows}}
       <tr class="ft-row" data-href="/devices/{{.Device.SerialNumber}}">
-        <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
+        <td class="ft-dev"><div class="pl-dv"><span class="pl-mi" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#dk-{{if .Device.DeviceClass}}{{.Device.DeviceClass}}{{else}}other{{end}}"/></svg></span><div class="pl-dt"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
           <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div></td>
         <td class="ft-type"><span class="ft-ell">{{classOf .Device}}</span></td>
         <td class="ft-venue"><a class="ft-ell" href="/devices?restaurant={{.Device.RestaurantID}}">{{.Device.RestaurantName}}</a></td>
@@ -120,13 +120,13 @@
   {{range .Rows}}
   <tr class="ft-row pl-row" data-serial="{{.Device.SerialNumber}}" data-by="{{if .By}}{{.By}}{{else}}Unknown{{end}}" data-model="{{if .Model}}{{.Model}}{{else if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}">
     <td class="ft-cb"><input type="checkbox" class="pl-pick" aria-label="Select {{.Device.SerialNumber}}"></td>
-    <td class="ft-dev"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
+    <td class="ft-dev"><div class="pl-dv"><span class="pl-mi" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#dk-{{if .Device.DeviceClass}}{{.Device.DeviceClass}}{{else}}other{{end}}"/></svg></span><div class="pl-dt"><div class="ft-l1"><span class="dl-status{{if .Online}} on{{end}}" role="img" aria-label="{{if .Online}}Online{{else}}Offline{{end}}"><i></i></span>
       <a href="/devices/{{.Device.SerialNumber}}" class="ft-sn link-detail" data-full="1" hx-boost="false"><span class="pre">{{serialHead .Device.SerialNumber}}</span><span class="tail">{{serialTail .Device.SerialNumber}}</span></a></div>
-      <small class="muted pl-sub" title="{{if .Model}}{{.Model}} · {{end}}{{if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}">{{if .Model}}{{.Model}}{{else if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}{{if not .Online}} · seen {{timeSince .Device.LastSeenAt}}{{end}}</small></td>
+      <small class="muted pl-sub" title="{{if .Model}}{{.Model}} · {{end}}{{if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}">{{if .Model}}{{.Model}}{{else if eq .Device.AgentKind "firmware"}}Firmware client{{else}}Standard client{{end}}{{if not .Online}} · seen {{timeSince .Device.LastSeenAt}}{{end}}</small></div></div></td>
     <td>{{if .Choices}}<select class="form-input pl-sel pl-role{{if not .Device.DeviceClass}} need{{end}}" data-cur="{{.Device.DeviceClass}}" aria-label="Role of {{.Device.SerialNumber}}">{{if not .Device.DeviceClass}}<option value="">Pick a role…</option>{{end}}{{$cur := .Device.DeviceClass}}{{range .Choices}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{classLabel .}}</option>{{end}}</select>{{else if .Device.DeviceClass}}{{classLabel .Device.DeviceClass}}{{else}}<span class="muted">from its model</span>{{end}}</td>
     <td>{{if .By}}{{.By}}{{else}}<span class="muted">—</span>{{end}}<small class="muted pl-sub">{{timeSince .Device.EnrolledAt}}</small></td>
     <td>{{$sn := .Device.SerialNumber}}{{with .Suggest}}<button type="button" class="form-input pl-sel pl-vbtn pl-venue" data-value="{{.Value}}" data-suggest="1" aria-haspopup="listbox" aria-label="Venue for {{$sn}}" title="{{if .New}}From the AIO backend: the venue is created when you deploy{{else}}From the AIO backend{{end}}">{{.Name}}{{if .New}} <small class="pl-new">new</small>{{end}}</button>{{else}}<button type="button" class="form-input pl-sel pl-vbtn pl-venue need" data-value="" aria-haspopup="listbox" aria-label="Venue for {{.Device.SerialNumber}}">Pick a venue…</button>{{end}}</td>
-    <td class="mv-act"><button type="button" class="cc-btn sm pl-go" onclick="placeRow(this)" disabled title="Pick a venue first">Deploy</button></td>
+    <td class="mv-act"><span class="pl-st"></span><button type="button" class="cc-btn sm pl-go" onclick="placeRow(this)" disabled title="Pick a venue first">Deploy</button></td>
   </tr>
   {{end}}
   </tbody>
@@ -138,6 +138,26 @@
 
 {{define "place-style"}}
 <style>
+
+/* T1 calm rows + the venue dialog (picked 23 Nov 2026) */
+.pl-dv{display:flex;gap:10px;align-items:center;min-width:0}.pl-dt{min-width:0}
+.pl-mi{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text);display:grid;place-items:center;flex:none}
+.pl-mi svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.pl-ft .pl-sel{border-radius:99px;padding-left:12px}
+.pl-ft .pl-venue.need{border-style:dashed;background-color:transparent;color:var(--muted)}
+.pl-ft .pl-role.need{border-color:var(--accent-edge);color:var(--accent-text);background-color:var(--accent-soft)}
+.pl-st{font-size:12px;color:var(--muted)}.pl-st.w{color:var(--warn)}.pl-st:empty{display:none}
+.pl-go:disabled{display:none}
+.pl-modal{position:fixed;inset:0;z-index:300;background:rgba(15,15,20,.45);display:grid;place-items:center;padding:16px}
+.pl-dlg{background:var(--surface);border-radius:22px;padding:20px;width:min(580px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.pl-dlg h3{margin:0 0 2px;font-size:17px;font-weight:650}.pl-dlg p{margin:0 0 12px;font-size:13px;color:var(--muted)}
+.pl-dlg .pl-vq{padding:0 0 12px}.pl-dlg .pl-vq input{border-radius:12px;padding:10px 12px}
+.pl-dlg .pl-vl{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:auto;min-height:0;align-content:start}
+.pl-dlg .pl-vi{border:1px solid var(--border-soft);border-radius:12px;padding:9px 11px;background:var(--surface)}
+.pl-dlg .pl-vi.hi,.pl-dlg .pl-vi:hover{border-color:var(--accent-edge);background:var(--accent-soft)}
+.pl-dlg .pl-vnew{border-top:1px solid var(--border-soft);margin-top:0;color:var(--accent-text)}
+.pl-dfoot{display:flex;justify-content:flex-end;padding-top:14px}
+@media(max-width:720px){.pl-dlg .pl-vl{grid-template-columns:1fr}}
 .pl-new{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text)}
 .pl-head-acts{margin-left:auto;display:flex;gap:8px}
 .pl-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:10px;margin-bottom:10px;font-size:13.5px}
@@ -151,7 +171,7 @@
 .pl-bulk .pl-sel{width:auto;min-width:220px;max-width:320px}
 .pl-vbtn{text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:26px!important;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 13px) 50%,calc(100% - 9px) 50%;background-size:4px 4px;background-repeat:no-repeat}
 .pl-vbtn.need{color:var(--text-2)}
-.pl-vpop{position:fixed;z-index:200;padding:6px;display:flex;flex-direction:column;max-height:340px}
+
 .pl-vq{padding:2px 2px 6px}.pl-vq input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:7px 10px;background:var(--bg);color:var(--text)}
 .pl-vl{overflow:auto;min-height:0}
 .pl-vi{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;font:inherit;cursor:pointer}
@@ -274,6 +294,7 @@
     b.disabled = !ok;
     b.classList.toggle('primary', !!ok);
     b.title = !v || !v.dataset.value ? 'Pick a venue first' : (needsRole(tr) ? 'Pick its role first' : '');
+    var st = tr.querySelector('.pl-st'); if (st) { st.textContent = ok ? '' : (needsRole(tr) ? 'Needs a role' : 'Needs a venue'); st.classList.toggle('w', !!needsRole(tr)); }
   }
   function sync() {
     var rows = picked(), bar = document.getElementById('pl-bulk');
@@ -322,15 +343,11 @@
     closePop();
     var src = document.getElementById('pl-venue-list'); if (!src) return;
     pop = document.createElement('div');
-    pop.className = 'cc-menu pl-vpop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Pick a venue');
-    pop.innerHTML = '<div class="pl-vq"><input type="search" placeholder="Search venues" aria-label="Search venues" autocomplete="off"></div><div class="pl-vl" role="listbox"></div><div class="pl-vnone" hidden>No venue matches.</div>';
+    pop.className = 'pl-modal'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-modal', 'true'); pop.setAttribute('aria-label', 'Pick a venue');
+    var tr0 = btn.closest('tr'), what = btn.id === 'pl-bulk-venue' ? 'the ticked devices' : (tr0 && tr0.dataset.serial ? tr0.dataset.serial : 'this group');
+    pop.innerHTML = '<div class="pl-dlg"><h3>Where is ' + what.replace(/[<>&]/g, '') + ' going?</h3><p>Pick a venue or make a new one.</p><div class="pl-vq"><input type="search" placeholder="Search venues" aria-label="Search venues" autocomplete="off"></div><div class="pl-vl" role="listbox"></div><div class="pl-vnone" hidden>No venue matches.</div><div class="pl-dfoot"><button type="button" class="cc-btn" data-pl-cancel>Cancel</button></div></div>';
     pop.querySelector('.pl-vl').appendChild(src.content.cloneNode(true));
     document.body.appendChild(pop);
-    var r = btn.getBoundingClientRect(), w = Math.max(r.width, 280);
-    pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
-    pop.style.width = w + 'px';
-    var below = innerHeight - r.bottom;
-    if (below < 300 && r.top > below) pop.style.bottom = (innerHeight - r.top + 4) + 'px'; else pop.style.top = (r.bottom + 4) + 'px';
     popFor = btn; btn.setAttribute('aria-expanded', 'true');
     var q = pop.querySelector('input');
     q.addEventListener('input', function () {
@@ -345,7 +362,7 @@
       else if (e.key === 'Enter') { e.preventDefault(); var l = items(); if (l[hi]) choose(l[hi]); }
       else if (e.key === 'Escape') { e.preventDefault(); var b = popFor; closePop(); if (b) b.focus(); }
     });
-    pop.addEventListener('click', function (e) { var b = e.target.closest('.pl-vi'); if (b) choose(b); });
+    pop.addEventListener('click', function (e) { var b = e.target.closest('.pl-vi'); if (b) choose(b); else if (e.target === pop || e.target.closest('[data-pl-cancel]')) { var f = popFor; closePop(); if (f) f.focus(); } });
     q.focus();
   }
   document.addEventListener('click', function (e) {
@@ -353,8 +370,6 @@
     if (b) { if (popFor === b) closePop(); else openPop(b); return; }
     if (pop && !pop.contains(e.target)) closePop();
   });
-  addEventListener('scroll', function (e) { if (pop && !pop.contains(e.target)) closePop(); }, true);
-  addEventListener('resize', closePop);
 
   // ── Group by (Ops lead's queue): rows regroup under a header with "Deploy all N here…" ──
   var gmode = '';
