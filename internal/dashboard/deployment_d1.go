@@ -43,6 +43,7 @@ type dp1Row struct {
 	Retry, RetryFull, Reboot, Remove, Cancel, RetryStalled, Open bool
 	Steps                                                        []dp1Step // the device's path, for the detail pane (none for failed / canceled)
 	order                                                        int
+	remain                                                       time.Duration // time left worked out from the percent done and how long it has been going
 }
 
 // dp1Step is one stop on a device's way through the update. Class: d done, c under way,
@@ -149,6 +150,7 @@ type dp1Rail struct {
 	Rate                string        // installs per 10 min over the last half hour, "" when none
 	Todo                int
 	ToGo, Avg           string // "14 min", "12 min": left to go, and per device so far
+	Live                bool   // the time left is worked out from the downloads under way (nothing has finished yet)
 	Estimating          bool   // devices are still to go but no install has finished, so there is nothing to base a time on
 	Venues              []dp1Venue
 	MoreVenues          int
@@ -349,6 +351,16 @@ func buildDeployD1(in dp1Inputs) dp1View {
 						}
 					}
 				}
+				// The device's own estimate is often "estimating…" for the whole download; work
+				// one out from how far it got and how long it has been at it (needs 5 % and 30 s).
+				if t.StartedAt != nil && p.Percent >= 5 && p.Percent < 100 {
+					if el := now.Sub(*t.StartedAt); el >= 30*time.Second {
+						r.remain = time.Duration(float64(el) * float64(100-p.Percent) / float64(p.Percent))
+						if r.Left == "" || r.Left == "about estimating…" || r.Left == "estimating…" {
+							r.Left = "about " + dp1Mins(r.remain)
+						}
+					}
+				}
 				if p.ETA != "" {
 					bits = append(bits, p.ETA)
 				} else if t.StartedAt != nil {
@@ -460,10 +472,15 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	// finished there is nothing to base it on, and a made-up default read as fact (19 Nov 2026:
 	// "about 14 min" on a rollout that had finished nothing in 30 minutes).
 	toGo := ""
-	estimating := false
+	estimating, fromLive := false, false
 	if active && totalLeft > 0 {
 		if durN > 0 {
 			toGo = "about " + dp1Mins(eta) + " to go"
+		} else if live := dp1LiveRemain(v.Rows); live > 0 {
+			eta, fromLive = live, true
+			// Nothing has finished, so work it out from the downloads under way: the slowest
+			// device sets it, and it moves as they do.
+			toGo = "about " + dp1Mins(live) + " to go"
 		} else {
 			estimating = true
 		}
@@ -645,7 +662,7 @@ func buildDeployD1(in dp1Inputs) dp1View {
 	if toGo != "" {
 		rl.ToGo = dp1Mins(eta)
 	}
-	rl.Estimating = estimating
+	rl.Estimating, rl.Live = estimating, fromLive
 	if durN > 0 {
 		rl.Avg = dp1Mins(avg)
 	}
@@ -914,4 +931,16 @@ func dp1S(n int) string {
 		return "s"
 	}
 	return ""
+}
+
+// dp1LiveRemain is the longest time left among devices whose time left could be worked out from
+// their own progress (0 when none could).
+func dp1LiveRemain(rows []dp1Row) time.Duration {
+	var m time.Duration
+	for _, r := range rows {
+		if r.remain > m {
+			m = r.remain
+		}
+	}
+	return m
 }
