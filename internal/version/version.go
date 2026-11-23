@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.0",
+		Date:    "2026-11-23",
+		Changes: []string{
+			"Scrollable panes now show that they scroll: a soft fade where there is more, a thin visible scrollbar on desktop, and a \"\u2193 N more\" button on long lists and tables. Short panes show nothing.",
+		},
+	},
+	{
 		Version: "1.65.3",
 		Date:    "2026-11-23",
 		Changes: []string{
