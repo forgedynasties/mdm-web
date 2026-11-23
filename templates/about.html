@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About AIO MDM: device management built for restaurants</title>
+  <meta name="description" content="AIO MDM: device management built for restaurants. Health, remote control and updates for tablets, kiosks, kitchen screens and registers.">
+  <link rel="canonical" href="https://mdm.aioapp.com/about">
+  <script>
+    // Same theme bootstrap as the sign-in pages (au-head): saved choice, else light.
+    (function () {
+      try {
+        var t = localStorage.getItem('mdm-theme');
+        if (t !== 'light' && t !== 'dark') t = 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+  <link rel="icon" href="/static/favicon.svg?v={{asset "/static/favicon.svg"}}" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{asset "/static/fonts/fonts.css"}}">
+  <link rel="stylesheet" href="/static/css/about.css?v={{asset "/static/css/about.css"}}">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="d-t7" viewBox="0 0 48 48"><rect x="5" y="9" width="38" height="27" rx="4"/><path d="M19 42h10M24 36v6"/><circle cx="24" cy="31" r=".8" fill="currentColor"/><path d="M12 17h14M12 22h9"/></symbol>
+  <symbol id="d-kiosk" viewBox="0 0 48 48"><rect x="12" y="4" width="24" height="33" rx="3"/><path d="M12 31h24M18 37v6h12v-6M20 9h8M18 17h12M18 22h7"/></symbol>
+  <symbol id="d-kds" viewBox="0 0 48 48"><rect x="4" y="8" width="40" height="27" rx="3"/><path d="M17 41h14M24 35v6M10 14h8v8h-8zM21 14h8v13h-8zM32 14h6v9h-6z"/></symbol>
+  <symbol id="d-pos" viewBox="0 0 48 48"><rect x="8" y="5" width="32" height="22" rx="3"/><path d="M14 27l-4 12h28l-4-12M16 12h16M16 18h9M20 33h8"/></symbol>
+  <symbol id="d-mpos" viewBox="0 0 48 48"><rect x="14" y="4" width="20" height="40" rx="4"/><path d="M21 8h6M18 15h12v8H18zM18 29h4M26 29h4M18 35h4M26 35h4"/></symbol>
+  <symbol id="d-menu" viewBox="0 0 48 48"><rect x="3" y="8" width="42" height="26" rx="2"/><path d="M16 41h16M24 34v7M8 14h9v6H8zM19 14h9v6h-9zM30 14h10M30 19h7M8 24h32M8 28h14"/></symbol>
+  <symbol id="shield" viewBox="0 0 32 32"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f9674e"/><stop offset="1" stop-color="#7a80f6"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#sg)"/><path d="M16 7l7 3v5.5c0 4.6-3 8.2-7 9.5-4-1.3-7-4.9-7-9.5V10z" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M12.5 16l2.5 2.5 4.5-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="chk" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+</svg>
+
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#top"><svg><use href="#shield"/></svg>AIO MDM</a>
+    <div class="chips" aria-hidden="true">
+      <span class="chip"><span class="dot"></span>Built for restaurants</span>
+      <span class="chip"><span class="dot" style="background:var(--accent-2)"></span>Android fleets</span>
+    </div>
+    <span class="sp"></span>
+    <button class="icon-btn" id="theme" type="button" aria-label="Switch theme">
+      <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <a class="btn btn-g btn-sm" href="/signup">Create account</a>
+    <a class="btn btn-p btn-sm" href="/login">Sign in</a>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+  <!-- HERO -->
+  <section class="hero" id="overview">
+    <div class="card hero-l">
+      <div>
+        <div class="eyebrow">About AIO MDM</div>
+        <h1>Every screen in the restaurant, <span class="g">in one calm view.</span></h1>
+        <p class="lede">AIO MDM is device management built for restaurants. Health, remote control and updates for the tablets, kiosks, kitchen screens and registers that keep service moving.</p>
+        <div class="acts">
+          <a class="btn btn-p" href="/login">Sign in <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a class="btn btn-g" href="/signup">Create account</a>
+          <a class="btn btn-g" href="https://aioapp.com">Visit aioapp.com</a>
+        </div>
+      </div>
+      <div class="hero-stat">
+        <div><div class="big">2,500+</div><div class="big-cap">devices managed across restaurants</div></div>
+        <div class="fam-mini" aria-hidden="true">
+          <svg><use href="#d-t7"/></svg><svg><use href="#d-kiosk"/></svg><svg><use href="#d-kds"/></svg><svg><use href="#d-pos"/></svg><svg><use href="#d-mpos"/></svg><svg><use href="#d-menu"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mock" aria-label="Interactive preview of the Overview page, with sample data">
+      <div class="m-card m-health">
+        <div class="m-h">Fleet health <span class="score" id="score">86</span></div>
+        <svg class="radar" id="radar" viewBox="0 0 200 190" role="img" aria-label="Fleet health radar"></svg>
+        <ul class="mlist" id="hlist"></ul>
+      </div>
+      <div class="m-card m-today">
+        <div style="min-width:0">
+          <div class="m-h" style="margin-bottom:6px">Today</div>
+          <div class="tabs" role="tablist">
+            <button class="tab on" data-f="all">Needs you</button>
+            <button class="tab" data-f="roll">Rollouts</button>
+          </div>
+          <ul class="feed" id="feed"></ul>
+        </div>
+        <div class="detail" id="detail" aria-live="polite"></div>
+      </div>
+      <div class="m-card">
+        <div class="m-h">By type</div>
+        <div class="m-type" id="rings"></div>
+      </div>
+      <div class="m-card m-now" style="grid-column:2">
+        <div><div class="lab">Online</div><div class="v" id="n-on">1,184</div></div>
+        <div><div class="lab">Offline at a venue</div><div class="v r" id="n-off">37</div></div>
+        <div style="text-align:right"><div class="lab">Waiting to place</div><div class="v" id="n-wait">22</div></div>
+        <div class="now-bar"><i class="a" id="bar-a" style="flex-grow:1184"></i><i class="nb" id="bar-b" style="flex-grow:180"></i><i class="c" id="bar-c" style="flex-grow:140"></i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CAPABILITIES -->
+  <section class="sec" id="features">
+    <div class="sec-h">
+      <div>
+        <div class="eyebrow">What it does</div>
+        <h2>Know first. Fix from anywhere.</h2>
+        <p>Everything a restaurant tech team needs to keep devices healthy, without driving to the venue.</p>
+      </div>
+    </div>
+    <div class="bento">
+      <article class="card b b-4 b-health">
+        <h3>Fleet health and alerts</h3>
+        <p>One score for the whole fleet, built from what matters on the floor: online, battery, alerts, compliance and device lock. Problems surface before a manager calls.</p>
+        <div class="viz">
+          <svg class="radar" id="radar2" viewBox="0 0 200 190" aria-hidden="true"></svg>
+          <div class="alerts">
+            <div class="alert"><span class="dot bad"></span>Kiosk offline at Harbour Noodle Bar<small>4 min</small></div>
+            <div class="alert"><span class="dot warn"></span>Battery under 15% on 3 TSAI tablets<small>12 min</small></div>
+            <div class="alert"><span class="dot warn"></span>KDS running hot at Oak &amp; Ember<small>20 min</small></div>
+            <div class="alert"><span class="dot"></span>Crash rate back to normal<small>1 h</small></div>
+          </div>
+        </div>
+      </article>
+      <article class="card b b-2">
+        <h3>Remote screen and shell</h3>
+        <p>See what staff see, tap through it, or open a shell. Long presses and the remote D-pad work too.</p>
+        <div class="viz term" aria-hidden="true">
+          <div><span class="p">kds-7c21 $</span> dumpsys battery | grep level</div>
+          <div class="o">level: 100</div>
+          <div><span class="p">kds-7c21 $</span> <span id="typed"></span><span class="cursor"></span></div>
+        </div>
+      </article>
+      <article class="card b b-3">
+        <h3>OTA and app releases</h3>
+        <p>Roll an app or firmware out in stages, watch it land, and pause if something looks off. Installs are silent, no taps on the device.</p>
+        <div class="viz roll" aria-hidden="true">
+          <div class="roll-row">Pilot venues<div class="bar"><i style="width:100%"></i></div><b>100%</b></div>
+          <div class="roll-row">Wave 2<div class="bar"><i id="w2" style="width:64%"></i></div><b id="w2n">64%</b></div>
+          <div class="roll-row">Everyone<div class="bar"><i style="width:8%"></i></div><b>8%</b></div>
+        </div>
+      </article>
+      <article class="card b b-3">
+        <h3>Device lock</h3>
+        <p>Pin a device to the one app it should run. Staff can't wander into settings; you can unlock from the dashboard when you need to.</p>
+        <div class="viz lockviz">
+          <div class="lockbox"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/><circle cx="12" cy="16" r="1.2"/></svg></div>
+          <div style="font-size:13px;color:var(--text-2)"><b style="color:var(--text)">Locked to Ordering</b><br>Kiosk 22 · Seaside Taqueria</div>
+        </div>
+      </article>
+      <article class="card b b-3">
+        <h3>Venues, groups and schedules</h3>
+        <p>Organise devices the way the business runs. Push changes to one venue, a region, or a brand, on a schedule that avoids service.</p>
+        <div class="viz">
+          <div class="venues">
+            <span class="vchip"><span class="dot"></span>Harbour Noodle Bar</span>
+            <span class="vchip"><span class="dot"></span>Oak &amp; Ember</span>
+            <span class="vchip"><span class="dot warn"></span>Seaside Taqueria</span>
+            <span class="vchip"><span class="dot"></span>Little Saffron</span>
+          </div>
+          <div class="sched" aria-hidden="true"><i></i><i class="on"></i><i></i><i class="on"></i><i></i><i class="on2"></i><i class="on2"></i></div>
+        </div>
+      </article>
+      <article class="card b b-3">
+        <h3>Crashes and telemetry</h3>
+        <p>Battery, temperature, Wi-Fi and crashes from every device, kept over time so patterns are easy to spot.</p>
+        <div class="viz tele" aria-hidden="true">
+          <div class="tm"><div class="lab">Battery</div><div class="v" id="t-bat">82%</div><svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0 8 L15 10 L30 9 L45 14 L60 13 L75 18 L90 16 L100 20"/></svg></div>
+          <div class="tm"><div class="lab">CPU temp</div><div class="v" id="t-tmp">41°</div><svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0 18 L15 16 L30 19 L45 12 L60 14 L75 10 L90 13 L100 12"/></svg></div>
+          <div class="tm"><div class="lab">Wi-Fi</div><div class="v" id="t-wifi">-58</div><svg class="spark" viewBox="0 0 100 28" preserveAspectRatio="none"><path d="M0 12 L15 11 L30 14 L45 12 L60 16 L75 13 L90 12 L100 11"/></svg></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section class="sec" id="how">
+    <div class="sec-h">
+      <div>
+        <div class="eyebrow">How it works</div>
+        <h2>A live line to every device.</h2>
+        <p>Each device keeps an open connection to the server, so commands land in seconds. If the network drops it, check-ins carry on over HTTP.</p>
+      </div>
+    </div>
+    <div class="card how">
+      <div class="node"><span class="k">On the device</span><b>MDM client</b><p>Reports health and runs commands.</p><span class="pulse"></span></div>
+      <div class="node"><span class="k">Connection</span><b>WebSocket</b><p>Always on, with HTTP check-ins as a fallback.</p><span class="pulse" style="animation-delay:.6s"></span></div>
+      <div class="node"><span class="k">In the cloud</span><b>MDM server</b><p>Stores telemetry, queues commands and updates.</p><span class="pulse" style="animation-delay:1.2s"></span></div>
+      <div class="node"><span class="k">For your team</span><b>Dashboard</b><p>Overview, alerts, venues and releases in a browser.</p></div>
+    </div>
+  </section>
+
+  <!-- LINEUP -->
+  <section class="sec" id="devices">
+    <div class="sec-h">
+      <div>
+        <div class="eyebrow">Devices</div>
+        <h2>The whole in-store stack.</h2>
+        <p>From the table to the kitchen, every Android device AIO ships or supports.</p>
+      </div>
+    </div>
+    <div class="lineup">
+      <div class="card dev"><svg><use href="#d-t7"/></svg><b>TSAI</b><span>Tableside AI tablet</span></div>
+      <div class="card dev"><svg><use href="#d-kiosk"/></svg><b>Kiosk</b><span>Self-order wall panel</span></div>
+      <div class="card dev"><svg><use href="#d-kds"/></svg><b>KDS</b><span>Kitchen display</span></div>
+      <div class="card dev"><svg><use href="#d-pos"/></svg><b>POS</b><span>Point of sale</span></div>
+      <div class="card dev"><svg><use href="#d-mpos"/></svg><b>MPOS</b><span>Handheld ordering</span></div>
+      <div class="card dev"><svg><use href="#d-menu"/></svg><b>Menu board</b><span>TV box on a screen</span></div>
+    </div>
+  </section>
+
+  <!-- CLIENTS -->
+  <section class="sec" id="clients">
+    <div class="sec-h">
+      <div>
+        <div class="eyebrow">Two clients</div>
+        <h2>Deep control on our hardware. Solid control on everything else.</h2>
+      </div>
+    </div>
+    <div class="clients">
+      <article class="card cl fw">
+        <span class="tag">AIO hardware</span>
+        <h3>Firmware client</h3>
+        <p>Built into the Android image on AIO's own tablets and kiosks, so it can do what an ordinary app can't.</p>
+        <ul>
+          <li><svg><use href="#chk"/></svg>Firmware updates over the air</li>
+          <li><svg><use href="#chk"/></svg>Lock to one app and reboot at system level</li>
+          <li><svg><use href="#chk"/></svg>Updates itself as an app between firmware releases</li>
+        </ul>
+      </article>
+      <article class="card cl std">
+        <span class="tag">Off-the-shelf Android</span>
+        <h3>Standard client</h3>
+        <p>An app that becomes the device owner on POS terminals, kitchen screens and TV boxes from other makers.</p>
+        <ul>
+          <li><svg><use href="#chk"/></svg>Silent app installs and self-updates</li>
+          <li><svg><use href="#chk"/></svg>Lock, reboot, wipe and config push</li>
+          <li><svg><use href="#chk"/></svg>Remote screen, shell and full telemetry</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="cta" id="start">
+    <div>
+      <h2>Already running AIO devices? Your fleet is waiting.</h2>
+      <p>Sign in to see it, or create an account to get started.</p>
+    </div>
+    <div class="acts">
+      <a class="btn btn-w" href="/login">Sign in</a>
+      <a class="btn btn-o" href="/signup">Create account</a>
+      <a class="btn btn-o" href="https://aioapp.com">aioapp.com</a>
+    </div>
+    <div class="ghost-n" aria-hidden="true">2,500+</div>
+  </section>
+
+  <footer>
+    <span>AIO MDM · device management by <a href="https://aioapp.com">AIO</a></span>
+    <span>Preview data on this page is illustrative.</span>
+  </footer>
+</main>
+
+<nav class="dock" aria-label="Sections">
+  <a href="#overview" class="on"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="9" rx="2"/><rect x="13" y="4" width="7" height="5" rx="2"/><rect x="13" y="11" width="7" height="9" rx="2"/><rect x="4" y="15" width="7" height="5" rx="2"/></svg>Overview</a>
+  <a href="#features"><svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>Features</a>
+  <a href="#how"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="M7.3 11l9.4-4M7.3 13l9.4 4"/></svg>How</a>
+  <a href="#devices"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="10" rx="2"/><rect x="16" y="9" width="5" height="10" rx="1.5"/><path d="M7 19h6"/></svg>Devices</a>
+  <a href="#clients"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.6-3 8.2-7 9.5-4-1.3-7-4.9-7-9.5V6z"/></svg>Clients</a>
+  <a href="#start"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Sign in</a>
+</nav>
+
+<script src="/static/js/about.js?v={{asset "/static/js/about.js"}}"></script>
+</body>
+</html>

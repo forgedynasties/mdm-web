@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -88,5 +89,33 @@ func TestOnboardingDemoIsPublic(t *testing.T) {
 		if rec.Code != want {
 			t.Errorf("%s: %d, want %d", path, rec.Code, want)
 		}
+	}
+}
+
+// /about is public: it renders for a visitor with no session (no redirect to /login), and a
+// trailing slash lands on it.
+func TestAboutIsPublic(t *testing.T) {
+	tmpl := template.Must(template.New("").Funcs(template.FuncMap{
+		"asset": func(string) string { return "test" },
+	}).ParseFiles("../../templates/about.html"))
+	mux := http.NewServeMux()
+	(&Handler{tmpl: tmpl}).RegisterRoutes(mux)
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/about", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/about: %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`href="/login"`, `href="/signup"`, "/static/css/about.css", "/static/js/about.js"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("/about is missing %q", want)
+		}
+	}
+
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/about/", nil))
+	if rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != "/about" {
+		t.Errorf("/about/: %d to %q, want 301 to /about", rec.Code, rec.Header().Get("Location"))
 	}
 }

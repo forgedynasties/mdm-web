@@ -13,3 +13,14 @@ func (h *Handler) Landing(w http.ResponseWriter, r *http.Request) {
 		"SignupEnabled": true,
 	})
 }
+
+// About renders the public /about page for viewers (picked 23 Nov 2026, "Overview bento"):
+// what AIO MDM is, a mock of the Overview with fictional data, the capabilities, how
+// devices connect, the two clients and the device lineup. Open to everyone, signed in or
+// not; it replaces the retired sneak peek as the page we link people to.
+func (h *Handler) About(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
+	h.tmpl.ExecuteTemplate(w, "about.html", map[string]any{
+		"AssetVer": h.assetVer,
+	})
+}
