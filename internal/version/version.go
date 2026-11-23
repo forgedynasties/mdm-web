@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.65.1",
+		Date:    "2026-11-23",
+		Changes: []string{
+			"Setup: the venue dialog no longer cuts off its right column or hides the Cancel button.",
+		},
+	},
+	{
 		Version: "1.65.0",
 		Date:    "2026-11-23",
 		Changes: []string{
