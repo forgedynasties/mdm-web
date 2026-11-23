@@ -24,19 +24,10 @@
       <span class="mono">{{$rel.Version}}</span>
       <span class="cc-tag" title="Target product — only {{productLabel $rel.Product}} devices are offered this release">{{productLabel $rel.Product}}</span>
       {{range .ProdFor}}<a class="cc-tag ok" href="{{.Href}}" title="Lineup's prod firmware for {{.Model}}: devices at venues move to it by themselves">Prod for {{.Label}}</a>{{end}}
-      {{if $rel.IsDev}}<span class="cc-tag warn" title="Work-in-progress release — only super admins see it, but anyone with OTA rights can push it">dev</span>{{end}}
     </h1>
     {{if $rel.Name}}<div class="cc-sub">{{$rel.Name}}</div>{{end}}
   </div>
   <div class="cc-actions">
-    {{/* Dev flag: a new release starts dev and is invisible to every other role until
-         someone here turns it off. Only canRelease can move it either way. */}}
-    {{if canRelease $role}}
-    <form action="/releases/{{$rel.ID}}/dev" method="POST" style="display:inline;"{{if $rel.IsDev}} hx-confirm="Release {{$rel.Version}} to everyone? It stops being folded away behind the dev toggle."{{end}}>
-      <input type="hidden" name="dev" value="{{if $rel.IsDev}}0{{else}}1{{end}}">
-      <button type="submit" class="cc-btn" title="{{if $rel.IsDev}}Only super admins can see this release{{else}}Everyone can see this release{{end}}">{{if $rel.IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
-    </form>
-    {{end}}
     {{/* Straight to the fleet, scoped to this build: "which devices are on it" is the
          question a release page raises and could not answer. */}}
     <a href="/devices?build={{urlquery $rel.Version}}" class="cc-btn" title="Open the fleet filtered to devices running {{$rel.Version}}">

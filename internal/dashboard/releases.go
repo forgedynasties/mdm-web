@@ -63,7 +63,6 @@ type versionRow struct {
 	DeployCount       int
 	Problems          db.ProblemSummary // open/blocker problem counts for the tracked release
 	IsBranch          bool             // off-mainline branch build (shown nested under its parent in the list)
-	IsDev             bool             // dev-only release — listed for devs/admins, invisible to everyone else
 	ParentID          *int             // for a branch/derivative, the release id it forks from / matches
 	ParentVersion     string           // for a branch, the release it forked from; for a derivative, the release it matches
 	AdoptableParentID *int             // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
@@ -130,26 +129,6 @@ func (h *Handler) latestQfilURL(r *http.Request, releaseID int) string {
 	return ""
 }
 
-// ReleaseSetDev turns a release's dev flag on or off. Off publishes it to every
-// role; on takes it back out of sight for anyone but devs and admins.
-func (h *Handler) ReleaseSetDev(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	dev := r.FormValue("dev") == "1"
-	if err := h.db.SetReleaseDev(r.Context(), id, dev); err != nil {
-		h.hxDoneToast(w, r, fmt.Sprintf("/releases/%d", id), "Could not change the release visibility", "error")
-		return
-	}
-	h.audit(r, "release.set_dev", strconv.Itoa(id), map[bool]string{true: "dev", false: "everyone"}[dev])
-	msg := "Released to everyone · it now shows on the Updates page for every role"
-	if dev {
-		msg = "Marked dev · only devs and admins can see it"
-	}
-	h.hxDoneToast(w, r, releaseBack(r, id), msg, "success")
-}
 
 // productLabels holds the model names learned from what devices report, keyed by
 // product. Package-level because the template func map is built before any Handler
@@ -247,55 +226,6 @@ func modelLabel(manufacturer, model string) string {
 	return man + " " + mod
 }
 
-// roleSeesDev reports whether a role may see releases still marked dev. Everyone
-// who works the fleet can: the flag keeps work in progress out of the DEFAULT view
-// (the list folds dev releases away behind a toggle), not out of reach — so anyone
-// with OTA rights can push one when that is what the job needs. Operator and up;
-// viewers and support, who don't touch releases, and customers do not.
-func roleSeesDev(role string) bool { return roleCanOperate(role) }
-
-// visibleReleases drops dev-only releases for roles that may not see them.
-func visibleReleases(role string, in []db.Release) []db.Release {
-	if roleSeesDev(role) {
-		return in
-	}
-	out := in[:0]
-	for _, rel := range in {
-		if !rel.IsDev {
-			out = append(out, rel)
-		}
-	}
-	return out
-}
-
-// visibleRail is visibleReleases for the compact release rail.
-func visibleRail(role string, in []db.ReleaseRailItem) []db.ReleaseRailItem {
-	if roleSeesDev(role) {
-		return in
-	}
-	out := in[:0]
-	for _, rel := range in {
-		if !rel.IsDev {
-			out = append(out, rel)
-		}
-	}
-	return out
-}
-
-// visibleDeployments drops rollouts of dev-only releases for the same roles.
-func visibleDeployments(role string, in []db.Update) []db.Update {
-	if roleSeesDev(role) {
-		return in
-	}
-	out := in[:0]
-	for _, u := range in {
-		if !u.ReleaseIsDev {
-			out = append(out, u)
-		}
-	}
-	return out
-}
-
 // releaseVersions is the release catalogue as /rollouts lists it: every tracked release
 // and every version devices report without one (newest release first), the hidden ones
 // apart, and how many devices the fleet has.
@@ -311,18 +241,6 @@ func (h *Handler) releaseVersionRows(r *http.Request) (releaseVersions, error) {
 	releases, err := h.db.ListReleases(r.Context())
 	if err != nil {
 		return releaseVersions{}, err
-	}
-	// Dev releases are invisible outside dev/admin: a build a device happens to
-	// report still shows as an untracked version, which is honest — the fleet is
-	// running it — but it carries none of the release's detail.
-	if !roleSeesDev(h.role(r)) {
-		kept := releases[:0]
-		for _, rel := range releases {
-			if !rel.IsDev {
-				kept = append(kept, rel)
-			}
-		}
-		releases = kept
 	}
 	// Merge tracked releases with the versions devices actually report, into one
 	// version-centric table (fleet versions come pre-sorted by adoption desc).
@@ -440,7 +358,7 @@ func (h *Handler) releaseVersionRows(r *http.Request) (releaseVersions, error) {
 			row.Tracked, row.ReleaseID, row.Name = true, &id, rel.Name
 			row.Product = rel.Product
 			row.Changelog = rel.Changelog
-			row.Status, row.Hidden, row.IsDev = rel.Status, rel.Hidden, rel.IsDev
+			row.Status, row.Hidden = rel.Status, rel.Hidden
 			ca := rel.CreatedAt
 			row.ReleasedAt = &ca
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
@@ -473,7 +391,7 @@ func (h *Handler) releaseVersionRows(r *http.Request) (releaseVersions, error) {
 			Product:    rel.Product,
 			Changelog:  rel.Changelog,
 			ReleasedAt: &ca,
-			Status:     rel.Status, Hidden: rel.Hidden, IsDev: rel.IsDev,
+			Status:     rel.Status, Hidden: rel.Hidden,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount,
 			Problems: badgeFor(rel.ID),
 			QfilURL:  h.latestQfilURL(r, rel.ID),
@@ -854,9 +772,6 @@ func (h *Handler) ReleaseCreate(w http.ResponseWriter, r *http.Request) {
 	if name != "" || changelog != "" {
 		_ = h.db.SetReleaseMeta(r.Context(), rel.ID, name, changelog)
 	}
-	// New releases start dev (the form's checkbox is checked by default), so work in
-	// progress is invisible to everyone but devs and admins until it is turned off.
-	_ = h.db.SetReleaseDev(r.Context(), rel.ID, r.FormValue("is_dev") == "1")
 	h.audit(r, "release.create", version, "")
 	// AP1 (picked Nov 2026): the New release dialog can bring the first package and a QFIL
 	// link with it, so a release is made in one save. Without them this is the old call.
@@ -1169,10 +1084,6 @@ func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request,
 	}
 	rel, err := h.db.GetRelease(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Release not found", http.StatusNotFound)
-		return
-	}
-	if rel.IsDev && !roleSeesDev(h.role(r)) {
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}

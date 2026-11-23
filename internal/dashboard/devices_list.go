@@ -295,7 +295,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	run(func() error {
 		var err error
 		railRels, err = h.db.ListPublishedReleasesForRail(r.Context())
-		railRels = visibleRail(h.role(r), railRels)
 		return err
 	})
 	run(func() error {

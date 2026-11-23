@@ -177,7 +177,7 @@ window.appInfoOpen = function (el) {
   byId('ai-pkg2').textContent = pkg;
   byId('ai-ver').textContent = ver ? ('v' + ver) : '—';
   var use = el.getAttribute('data-use') || '', ur = byId('ai-use-row');
-  if (ur) { ur.hidden = !use; byId('ai-use').textContent = use; }
+  if (ur) { ur.hidden = true; }
   var aid = el.getAttribute('data-aid') || '';
   byId('ai-aid').textContent = aid; byId('ai-aid-row').hidden = !aid;
   byId('ai-type').innerHTML = sys ? '<span class="ai-badge ai-sys">System app</span>' : '<span class="ai-badge ai-user">User app</span>';

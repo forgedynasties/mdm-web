@@ -721,7 +721,8 @@ document.addEventListener('click', function (e) {
       <td>{{if .VenueID}}<a href="/restaurants/{{.VenueID}}">{{.VName}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
       <td class="ft-act">
         {{if .VenueID}}<a class="cc-btn sm" href="/restaurants/{{.VenueID}}">Open</a>
-        {{else if and (not .Ignored) (canAdminOrOperator $role)}}<form method="POST" action="/restaurants/backend-place" hx-boost="false"><input type="hidden" name="action" value="create"><input type="hidden" name="env" value="{{.Env}}"><input type="hidden" name="rid" value="{{.ID}}"><button type="submit" class="cc-btn sm{{if and .Here (not .Test)}} primary{{end}}">Create venue</button></form>{{end}}
+        {{else if and (not .Ignored) (canAdminOrOperator $role)}}{{/* Honest label (23 Nov 2026): with devices of ours that the backend lists here, the button
+     moves them (making the venue first); with none it only creates the venue. */}}<form method="POST" action="/restaurants/backend-place" hx-boost="false"{{if .Here}} onsubmit="return confirm(this.dataset.q)" data-q="Create the venue {{.Name}}{{if .City}} ({{.City}}){{end}}, link it to {{.EnvLabel}} #{{.ID}} and move {{.HereText}} to it?"{{end}}><input type="hidden" name="action" value="create"><input type="hidden" name="env" value="{{.Env}}"><input type="hidden" name="rid" value="{{.ID}}"><button type="submit" class="cc-btn sm{{if and .Here (not .Test)}} primary{{end}}" title="{{if .Here}}Creates the venue and moves {{.HereText}} to it{{else}}Creates an empty venue linked to this restaurant{{end}}">{{if .Here}}Move here{{else}}Create venue{{end}}</button></form>{{end}}
         {{if and (not .VenueID) (canAdminOrOperator $role)}}
         <details class="en-kebab">
           <summary aria-label="More for {{.Name}}" title="More">⋯</summary>

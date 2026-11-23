@@ -847,3 +847,6 @@ html[data-theme="dark"] .dev-map-card .maplibregl-ctrl-attrib-button{filter:inve
 #install-modal .inst-pane .inst-drop{display:none}
 @media (max-width:720px){#install-modal .modal-box{left:12px!important;right:12px;width:auto}}
 
+
+/* The Apps list shows no usage (23 Nov 2026, user): icon, name and the remove control only. */
+.app-list .apl-head,.app-list .app-tile{grid-template-columns:26px minmax(0,1fr) 30px}

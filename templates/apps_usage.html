@@ -2,6 +2,7 @@
 {{/* Resource use per model, P1 (picked 23 Oct 2026): the Overview's layout about apps.
      Pills scope the page, the banner is a to-do, three cards against the window before,
      top apps beside every model, the full table, and a rail. model_usage_p1.go */}}
+<link rel="stylesheet" href="/static/css/coll-list.css?v={{asset "/static/css/coll-list.css"}}">
 <style>
   .p1-wrap{padding-bottom:96px}
   .p1-ban .oc-todo{max-width:none}
@@ -57,112 +58,49 @@
   </div>
   {{template "apps-hub-tabs" $}}
 
-  <div class="ov2">
-  <div class="ov2-main">
-    <div class="oc-bar" role="group" aria-label="Filter resource use">
-      {{with .Lbl}}<span class="lbl">{{.}}</span>{{end}}
-      <div class="oc-f"><button class="oc-fb set" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Model: <b>{{.ModelLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-        <div class="cc-menu oc-scroll" hidden>{{range .Models}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-      <div class="oc-f"><button class="oc-fb{{if .VenueName}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-        <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Window: <b>{{.WindowLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-        <div class="cc-menu" hidden>{{range .Windows}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-      <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Measure: <b>{{.MeasureLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
-        <div class="cc-menu" hidden>{{range .Measures}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
-    </div>
-
-    {{if not .Empty}}
-    <div class="oc-stats">
-      {{range .Cards}}
-      <div class="oc-st">
-        <div class="oc-sth"><a href="{{.Href}}">{{.Title}}</a></div>
-        {{if .Empty}}<p class="oc-empty">{{.Empty}}</p>{{else}}
-        <a class="oc-stm" href="{{.Href}}">
-          {{with .A}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}
-          {{with .B}}{{if .Value}}<span><span class="oc-tri {{.Tone}}">{{if .Delta}}{{.Delta}}{{else}}&nbsp;{{end}}</span><b>{{.Value}}</b><small title="{{.Label}}">{{.Label}}</small></span>{{end}}{{end}}
-        </a>
-        {{if .LineA}}<svg class="oc-sp" viewBox="0 0 300 58" preserveAspectRatio="none" aria-hidden="true"><path class="fa" d="{{.Fill}}"/><path class="a" d="{{.LineA}}"/>{{with .LineB}}<path class="b" d="{{.}}"/>{{end}}</svg>{{else}}<div style="height:16px"></div>{{end}}
-        {{end}}
+  {{/* Fleet's twin (picked 23 Nov 2026): rail of models, the filters as menus, one table of
+       apps. The builder (model_usage_p1.go) is unchanged. */}}
+  <div class="fleet-md cl-page">
+    <aside class="fleet-rail" aria-label="Models">
+      <div class="fleet-rail-cap"><span>Models</span></div>
+      {{range .ModelRows}}<a class="fleet-rail-item{{if .On}} on{{end}}" href="{{.Href}}"{{if .On}} aria-current="page"{{end}}><span class="dot {{if .Reporting}}ok{{else}}muted{{end}}"></span><span class="nm">{{.Label}}</span><span class="ct">{{.Reporting}}<span class="mut"> / {{.Devices}}</span></span></a>{{end}}
+    </aside>
+    <div class="fleet-roster">
+      <div class="fleet-pane-head"><span class="t">{{.ModelLabel}}</span><span class="c">{{.Reporting}} of {{.Devices}} reporting · last {{.WindowLabel}}</span></div>
+      <div class="oc-bar" role="group" aria-label="Filter resource use">
+        <div class="oc-f"><button class="oc-fb{{if .VenueName}} set{{end}}" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Venue: <b>{{if .VenueName}}{{.VenueName}}{{else}}All{{end}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu oc-scroll" hidden>{{range .Venues}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Window: <b>{{.WindowLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden>{{range .Windows}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
+        <div class="oc-f"><button class="oc-fb" type="button" data-oc-menu aria-haspopup="true" aria-expanded="false">Sort by: <b>{{.MeasureLabel}}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg></button>
+          <div class="cc-menu" hidden>{{range .Measures}}<a class="cc-mi{{if .Active}} active{{end}}" href="{{.Href}}">{{.Label}}</a>{{end}}</div></div>
       </div>
-      {{end}}
-    </div>
-    {{end}}
-
-    <div class="oc-two{{if not .Top}} solo{{end}}{{if .Empty}} p1-gap{{end}}">
-      {{if .Top}}
-      <div class="oc-card">
-        <div class="oc-ch"><h2>Top apps <span>share of {{.TopTitle}}</span></h2></div>
-        <ul class="p1-top">
-          {{range .Top}}<li><a href="{{.Href}}" title="{{.Name}}">{{.Name}}</a><span class="p1-trk"><i class="{{.Tone}}" style="width:{{.Pct}}%"></i></span><span class="v"><b>{{.Share}} %</b>{{.Value}}</span></li>{{end}}
-        </ul>
-        <div class="oc-foot"><span><i style="background:var(--accent)"></i>Role app</span><span><i style="background:var(--danger)"></i>Over the limit</span><span><i style="background:var(--text-faint)"></i>Other</span><span class="tot">per device that runs it</span></div>
-      </div>
-      {{end}}
-      <div class="oc-card">
-        <div class="oc-ch"><h2>Models <span>{{.MeasureLabel}} per device</span></h2></div>
-        <table class="ov2-t p1-mt">
-          <thead><tr><th>Model</th><th class="num">Reporting</th><th class="num">{{.MeasureLabel}}</th><th>Biggest cost</th></tr></thead>
-          <tbody>
-          {{range .ModelRows}}
-          <tr{{if .On}} class="on"{{end}}><td><a href="{{.Href}}">{{.Label}}</a></td><td class="num">{{.Reporting}} <span class="mut">of {{.Devices}}</span></td><td class="num">{{.Value}}</td><td class="mut">{{if .Biggest}}{{.Biggest}}{{else}}—{{end}}</td></tr>
-          {{end}}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-  </div>
-
-  <aside class="ov2-rail" aria-label="{{.ModelLabel}} resource use">
-    <div class="ov2-hi"><b>{{.HiTitle}}</b><small>{{.HiSub}}</small>{{with .HiDelta}}<small class="{{$.P.HiTone}}">{{.}}</small>{{end}}</div>
-    {{if .Bars}}
-    <div class="ov2-bars" role="img" aria-label="{{.BarsCap}}, last 7 days">
-      {{range .Bars}}<div title="{{.Title}}"><i class="{{if .Cur}}on{{end}}" style="height:{{.Pct}}%"></i><span>{{.Label}}</span></div>{{end}}
-    </div>
-    <div class="ov2-hi p1-cap"><small>{{.BarsCap}}</small></div>
-    {{end}}
-    <div class="ov2-rh"><h2>Heaviest devices</h2><a href="/devices?product={{.Model}}">Fleet</a></div>
-    {{if .Heavy}}
-    <ul class="ov2-att p1-heavy">
-      {{range .Heavy}}
-      <li>
-        <span class="ovd-dot {{.Tone}}"></span>
-        <span class="t"><a href="{{.Href}}"><span class="ser">{{.Serial}}</span></a><small>{{.Value}}{{with .Note}} · <span class="note">{{.}}</span>{{end}}{{with .Venue}} · {{.}}{{end}}</small></span>
-        <a class="cc-btn sm" href="{{.Href}}">Open</a>
-      </li>
-      {{end}}
-    </ul>
-    {{else}}
-    <div class="ovd-empty"><b>No devices reporting.</b></div>
-    {{end}}
-  </aside>
-  </div>
-
-  {{/* Full width under the grid (user, 26 Oct 2026): the table needs the room the
-       rail took. */}}
-  <div class="p1-all">
-    {{if .Rows}}
-    <div class="ov2-sec" id="p1-apps"><h2>All apps <span>{{len .Rows}}{{if .More}} of {{add (len .Rows) .More}}{{end}} · by {{.MeasureLabel}}</span></h2></div>
-    <div class="cc-card p1-at">
-      <table class="ov2-t">
-        <thead><tr><th>App</th><th class="num">Devices</th><th class="num">Screen</th>{{if .Full}}<th class="num">Memory</th><th class="num">CPU</th>{{end}}<th class="num">Network</th>{{if .Battery}}<th class="num">Battery</th>{{end}}<th class="num">Share</th><th></th></tr></thead>
+      {{if .Rows}}
+      <div class="card cl-card p1-at"><div class="ft-wrap"><table class="ft cl-ft">
+        <thead><tr><th>App</th><th class="ft-num">Devices</th><th class="ft-num">Screen</th>{{if .Full}}<th class="ft-num">Memory</th><th class="ft-num">CPU</th>{{end}}<th class="ft-num">Network</th>{{if .Battery}}<th class="ft-num">Battery</th>{{end}}<th style="width:150px">Share of {{.MeasureLabel}}</th><th><span class="sr-only">Open</span></th></tr></thead>
         <tbody>
         {{range .Rows}}
-        <tr>
+        <tr class="ft-row" data-href="/apps/{{.Package}}">
           <td><div class="p1-app"><b title="{{.Name}}">{{.Name}}{{if .Role}}<span class="p1-chip role">role app</span>{{else if .System}}<span class="p1-chip">system</span>{{end}}</b><small title="{{.Package}}">{{.Package}}</small></div></td>
-          <td class="num">{{.On}}</td>
-          <td class="num">{{.Screen}}</td>
-          {{if $.P.Full}}<td class="num" title="{{.Worst}}">{{.Mem}}</td><td class="num">{{.CPU}}</td>{{end}}
-          <td class="num">{{.Net}}</td>
-          {{if $.P.Battery}}<td class="num">{{.Battery}}</td>{{end}}
+          <td class="ft-num">{{.On}}</td><td class="ft-num">{{.Screen}}</td>
+          {{if $.P.Full}}<td class="ft-num" title="{{.Worst}}">{{.Mem}}</td><td class="ft-num">{{.CPU}}</td>{{end}}
+          <td class="ft-num">{{.Net}}</td>
+          {{if $.P.Battery}}<td class="ft-num">{{.Battery}}</td>{{end}}
           <td><div class="p1-share"><span class="p1-trk"><i class="{{if .Role}}role{{end}}" style="width:{{.BarPct}}%"></i></span><span class="num">{{.Share}} %</span></div></td>
-          <td class="act"><a class="cc-btn sm" href="/apps/{{.Package}}">App</a></td>
+          <td class="ft-act"><a class="cc-btn sm" href="/apps/{{.Package}}">App</a></td>
         </tr>
         {{end}}
         </tbody>
-      </table>
+      </table></div></div>
+      {{if .More}}<p class="mut" style="font-size:12px;margin:8px 4px">Showing {{len .Rows}} of {{add (len .Rows) .More}} apps.</p>{{end}}
+      {{else}}<div class="cl-none"><b>No usage reported</b> for {{.ModelLabel}} in this window.</div>{{end}}
+      {{if .Heavy}}
+      <div class="ov2-sec p1-gap"><h2>Heaviest devices <span>by {{.MeasureLabel}}</span></h2></div>
+      <div class="card cl-card"><ul class="ov2-att p1-heavy">
+        {{range .Heavy}}<li><span class="ovd-dot {{.Tone}}"></span><span class="t"><a href="{{.Href}}"><span class="ser">{{.Serial}}</span></a><small>{{.Value}}{{with .Note}} · <span class="note">{{.}}</span>{{end}}{{with .Venue}} · {{.}}{{end}}</small></span><a class="cc-btn sm" href="{{.Href}}">Open</a></li>{{end}}
+      </ul></div>
+      {{end}}
     </div>
-    {{end}}
   </div>
 </div>
 {{end}}

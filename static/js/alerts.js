@@ -56,3 +56,23 @@ document.addEventListener('click',function(e){
   }
   history.replaceState(history.state,'',u.pathname+u.search);
 });
+
+/* A row's ⋯ menu on the last rows of a list that scrolls inside its card was cut off by the
+   card (23 Nov 2026). Opened, the popover is placed against the window instead: under the
+   button, or above it when there is no room below. */
+(function(){
+  function place(d){
+    var pop=d.querySelector('.alx-pop'), sum=d.querySelector('summary'); if(!pop||!sum) return;
+    if(window.innerWidth<=640){ pop.style.cssText=''; return; }
+    pop.style.position='fixed'; pop.style.left='auto'; pop.style.top='0'; pop.style.bottom='auto';
+    var r=sum.getBoundingClientRect(), h=pop.offsetHeight, w=pop.offsetWidth;
+    var below=window.innerHeight-r.bottom-8, top=below>=h||r.top<h?r.bottom+6:r.top-h-6;
+    pop.style.top=Math.max(8,Math.min(top,window.innerHeight-h-8))+'px';
+    pop.style.right=Math.max(8,window.innerWidth-r.right)+'px';
+    if(r.right-w<8) {pop.style.right='auto';pop.style.left='8px';}
+  }
+  document.addEventListener('toggle',function(e){
+    var d=e.target; if(d&&d.open&&d.classList&&d.classList.contains('alx-menu')) place(d);
+  },true);
+  window.addEventListener('scroll',function(){ document.querySelectorAll('details.alx-menu[open]').forEach(function(d){ d.open=false; }); },true);
+})();

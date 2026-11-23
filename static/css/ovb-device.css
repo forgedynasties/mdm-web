@@ -295,11 +295,11 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 /* Health sheet (H1): the status and the alert history on the left, what needs a look and the
    compliance checks on the right (failing rows first, passing ones as quiet chips) */
 .dd-bento #dd-panel-health:not([hidden]){display:block;overflow:auto}
-.dd-bento .dh-card{display:grid;grid-template-columns:290px minmax(0,1fr);gap:16px;background:none;box-shadow:none;border:0;padding:0;margin:0;align-items:start}
+.dd-bento .dh-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;background:none;box-shadow:none;border:0;padding:0;margin:0;align-items:start}
 .dd-bento .dh-card>.bt-hl,.dd-bento .dh-card>.bt-hr{display:flex;flex-direction:column;gap:12px;min-width:0}
 .dd-bento .dh-card .card-header{background:var(--ovb-page,var(--bg));border-radius:16px;padding:12px 14px;flex-wrap:wrap}
 .dd-bento .dh-card details.dh-fold{border:0}
-.dd-bento .dh-card .bt-hl details.dh-fold{background:var(--ovb-page,var(--bg));border-radius:16px}
+.dd-bento .dh-card .bt-hr details.dh-fold{background:var(--ovb-page,var(--bg));border-radius:16px}
 .dd-bento .dh-card .dh-fold>div{padding:0 10px 10px}
 .dd-bento .dco-say{border-radius:14px;margin-bottom:10px}
 .dd-bento .dco-list{column-count:1;display:flex;flex-wrap:wrap;gap:6px;border:0;background:none;padding:0}
@@ -361,3 +361,11 @@ html body .dd-bento .dd-panel#dd-panel-graphs:not([hidden]):not(#nx){width:min(c
    line on the left says the counts, so the card's own "Health" title (the sheet's title) goes. */
 .dd-bento #dd-panel-health .dco-lines,.dd-bento #dd-panel-health .dco-it.fail,.dd-bento #dd-panel-health .dco-it.warn{display:none}
 .dd-bento #dd-panel-health .dh-card .cc-ch h2{display:none}
+
+/* Activity sheet (23 Nov 2026, A · one list): no right pane. The list takes the full width and
+   a picked event opens in place under its row. */
+.dd-bento #dd-panel-activity:not([hidden]){display:block;overflow:auto}
+.dd-bento #dd-panel-activity #device-timeline{overflow:visible}
+.dd-bento #dd-panel-activity .bt-actd{display:none}
+.dd-bento #dd-panel-activity .bt-inl{margin:4px 0 8px 22px;padding:14px 16px;border-radius:14px;background:var(--ovb-page,var(--bg));display:flex;flex-direction:column;gap:8px}
+.dd-bento #dd-panel-activity .bt-inl .bt-ad-acts{margin-top:4px;padding-top:0}

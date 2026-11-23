@@ -1043,13 +1043,16 @@
       var dot=row.querySelector('.dot'),cls=dot?(dot.classList.contains('ok')?'g':dot.classList.contains('err')?'r':dot.classList.contains('warn')?'y':'n'):'n',tag=cls==='g'?'Done':cls==='r'?'Failed':cls==='y'?'In progress':'Change';
       var main=row.querySelector('.ddc-tl-main'),when=row.querySelector('.when'),id=row.getAttribute('data-cmd-id'),href=row.getAttribute('href'),title=(row.querySelector('.ddc-tl-main b')||main||{}).textContent||'',ser='{{.Device.SerialNumber}}';
       var shot=/screenshot/i.test(title)&&id?'<img alt="Screenshot" style="max-width:100%;max-height:230px;border-radius:12px;align-self:flex-start" src="/commands/'+esc(id)+'/screenshot/'+encodeURIComponent(ser)+'" onerror="this.remove()">':'';
-      box.innerHTML='<div><span class="ovb-tag '+(cls==='r'?'r':cls==='y'?'y':'')+'">'+tag+'</span></div><div class="ovb-big" style="font-size:20px;margin:0">'+esc(title)+'</div><div class="bt-ad-meta">'+(main?main.innerHTML:'')+'</div><div class="bt-ad-meta">'+(when?esc(when.getAttribute('title')||when.textContent):'')+'</div>'+shot+(href?'<div class="bt-ad-acts"><a class="ovb-btn cta-g" href="'+esc(href)+'"><span class="cta-t">Open command</span></a></div>':'')}
+      var html='<div><span class="ovb-tag '+(cls==='r'?'r':cls==='y'?'y':'')+'">'+tag+'</span></div><div class="ovb-big" style="font-size:20px;margin:0">'+esc(title)+'</div><div class="bt-ad-meta">'+(main?main.innerHTML:'')+'</div><div class="bt-ad-meta">'+(when?esc(when.getAttribute('title')||when.textContent):'')+'</div>'+shot+(href?'<div class="bt-ad-acts"><a class="ovb-btn cta-g" href="'+esc(href)+'"><span class="cta-t">Open command</span></a></div>':'');
+      var nx=row.nextElementSibling,had=nx&&nx.classList.contains('bt-inl');act.querySelectorAll('.bt-inl').forEach(function(x){x.remove()});if(had){row.classList.remove('bt-on');return}
+      var d=document.createElement('div');d.className='bt-inl';d.innerHTML=html;row.after(d)}
     act.addEventListener('click',function(e){var row=e.target.closest('.ddc-tl');if(!row||!act.contains(row)||e.target.closest('#bt-act-detail'))return;if(e.target.closest('a.link-detail'))return;e.preventDefault();e.stopPropagation();show(row)},true)})();
-  /* Health sheet, H1: two columns. The card's children are siblings, so they are gathered into a left
-     column (status, alert history) and a right one (what needs a look, compliance) */
+  /* Health sheet (23 Nov 2026, B · two balanced columns): the card's children are siblings, so they are
+     gathered into a left column (status, what needs a look, compliance) and a right one (alert history
+     with the crashes) */
   (function(){var c=document.querySelector('#dd-panel-health .dh-card');if(!c||c.querySelector(':scope > .bt-hl'))return;var l=document.createElement('div'),r=document.createElement('div');l.className='bt-hl';r.className='bt-hr';
     var kids=[].slice.call(c.children),det=kids.filter(function(k){return k.tagName==='DETAILS'});
-    kids.forEach(function(k){if(k.classList.contains('card-header')||k===det[1])l.appendChild(k);else r.appendChild(k)});c.appendChild(l);c.appendChild(r)})();
+    kids.forEach(function(k){if(k===det[1])r.appendChild(k);else l.appendChild(k)});c.appendChild(l);c.appendChild(r)})();
   /* About sheet, AB2: the admin actions sit with the device they act on (the same dialogs as the page menu) */
   (function(){var ag=document.querySelector('#dd-panel-about .about-grid'),mv=document.getElementById('move-server-dlg'),kr=document.getElementById('key-reset-dlg');if(!ag||!(mv||kr))return;
     var d=document.createElement('div');d.className='ddc-card bt-aboutacts';d.innerHTML='<div class="bt-aa-h">Actions</div><div class="bt-aa-b">'+(mv?'<button type="button" class="chip" data-aa="mv">Move to another server…</button>':'')+(kr?'<button type="button" class="chip" data-aa="kr">Reset device key…</button>':'')+'</div>';ag.appendChild(d);
@@ -2296,7 +2299,6 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}{{if $r.FollowSet}}{{with index $r.FollowSet $p.PackageName}}{{if .Package}} <span class="dd-fchip {{.State}}" title="{{.Title}}">follows {{.Channel}}</span>{{end}}{{end}}{{end}}<small class="apl-pkg">{{if $p.VersionName}}{{$p.VersionName}} · {{end}}{{$p.PackageName}}</small>{{with index $r.NuggetIDByPackage $p.PackageName}}<small class="app-tsub aid" title="Android ID {{.}}: what this app uses to identify the tablet">ID {{.}}</small>{{end}}</div>
-    <span class="apl-c apl-fig">{{$p.Fig}}</span><span class="apl-bar2" aria-hidden="true"><i style="width:{{$p.Pct}}%"></i></span>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
     {{if and (not .Sys) (canOperate $r.Role) (not $isUn) (supports $r.Device "uninstall") (not $r.Restricted) (inSet $r.RoleAppSet $p.PackageName)}}
     <div class="app-x-form" onclick="event.stopPropagation()"><span class="app-x app-x-lock" title="The role app can't be removed" aria-label="The role app can't be removed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span></div>
@@ -2357,7 +2359,6 @@ html.dd-fit .dd-split-r{padding:0 0 22px;margin:0;border-radius:0 0 24px 24px}
      search, the app-info popup and the optimistic install/uninstall JS work unchanged. */}}
 <div class="apl-bar">
   <div class="app-search" id="apps-search-wrap"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
-  <span class="apl-win">{{range $L.Windows}}<button type="button" class="apl-pill{{if eq . $L.Window}} on{{end}}" hx-get="/devices/{{$.Device.SerialNumber}}/apps-list?window={{.}}" hx-target="#apps-live" hx-swap="innerHTML">{{.}}</button>{{end}}</span>
 </div>
 <div class="app-list{{if $L.Limited}} apl-lim{{end}}" id="apps-table">
   {{range .PendingInstalls}}

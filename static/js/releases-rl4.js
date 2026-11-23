@@ -86,13 +86,13 @@ function rl4NewClose() {
     var form = document.getElementById('rl4-new'); if (!form || form.dataset.rl4Dlg) return;
     form.dataset.rl4Dlg = '1';
     var prod = form.querySelector('[data-rl4-prod]'), ver = form.querySelector('[data-rl4-ver]');
-    var dev = form.querySelector('[data-rl4-dev]'), url = form.querySelector('[data-rl4-url]');
+    var url = form.querySelector('[data-rl4-url]');
     var q = form.querySelector('[data-rl4-qfil]');
     var st = form.querySelector('[data-rl4-sumt]'), ss = form.querySelector('[data-rl4-sums]');
     var srcSel = form.querySelector('[data-rl4-srcsel]');
     function sum() {
       var v = (ver.value || '').trim();
-      st.textContent = 'Create ' + (v || 'a release') + ' as a ' + (dev.checked ? 'dev build' : 'release');
+      st.textContent = 'Create ' + (v || 'a release') + ' as a release';
       var parts = [];
       if (url.value) {
         var s = form._rl4 || {};

@@ -118,9 +118,6 @@ func buildR2Banner(in r2Inputs) r2Banner {
 	if status != "" {
 		kick = append(kick, status)
 	}
-	if row.IsDev {
-		kick = append(kick, "dev")
-	}
 	b.Kicker = strings.Join(kick, " · ")
 
 	var todos []r2Todo
@@ -164,15 +161,6 @@ func buildR2Banner(in r2Inputs) r2Banner {
 				Sub: "devices can only be sent it once a full package is attached", Action: "Add package",
 				Href: fmt.Sprintf("/releases/%d#packages", id)})
 		}
-	}
-	if in.CanRelease && row.IsDev && row.Status == "published" {
-		sub := "only super admins see it in push pickers"
-		if row.DeviceCount > 0 {
-			sub += fmt.Sprintf(" · %d device%s have it", row.DeviceCount, sIfN(row.DeviceCount))
-		}
-		todos = append(todos, r2Todo{Title: "Still a dev release", Sub: sub, Action: "Release to everyone",
-			Post: fmt.Sprintf("/releases/%d/dev", id), Field: "dev", Value: "0",
-			Confirm: fmt.Sprintf("Release %s to everyone? It stops being folded away behind the dev toggle.", row.Version)})
 	}
 	if len(todos) == 0 {
 		b.Headline = "Nothing waiting on this release"

@@ -429,7 +429,6 @@ type Release struct {
 	PublishedAt     *time.Time `json:"published_at"`
 	ParentReleaseID *int       `json:"parent_release_id"` // set for branch builds — the release this forked from
 	IsBranch        bool       `json:"is_branch"`         // off-mainline temporary test build
-	IsDev           bool       `json:"is_dev"`            // work in progress: only devs/admins see it
 	// Which artifacts a release can actually deliver, populated by ListDeployableReleases.
 	// A full image reaches any device (and is the only thing the legacy path can use);
 	// an incremental only reaches devices on its exact source build.
@@ -475,7 +474,6 @@ type Update struct {
 	DeviceFailed       int            `json:"device_failed,omitempty"`      // populated by ListDeployments
 	DeviceNotBack      int            `json:"device_not_back,omitempty"`    // of DeviceAwaiting: rebooted 15+ min ago, not back (ListDeployments)
 	Product            string         `json:"product,omitempty"`            // release product (populated by ListDeployments)
-	ReleaseIsDev       bool           `json:"release_is_dev,omitempty"`     // release is dev-only (populated by ListDeployments)
 	DeviceStatus       string         `json:"device_status,omitempty"`      // populated by ResolveUpdateForDevice
 	DeviceRebootSentAt *time.Time     `json:"-"`                            // populated by ResolveUpdateForDevice
 }

@@ -22,18 +22,15 @@ import (
 // the API is another door onto the same room, never a second set of rules.
 
 // releaseBody is the create-a-release payload. Version is the build id; product
-// resolves through the catalog (empty means t7), and a release starts as a dev
-// build only when the caller says so.
+// resolves through the catalog (empty means t7).
 type releaseBody struct {
 	Version   string `json:"version"`
 	Product   string `json:"product"`
 	Name      string `json:"name"`
 	Changelog string `json:"changelog"`
-	IsDev     *bool  `json:"is_dev"`
 	// UpdateMeta lets a caller deliberately rewrite an EXISTING release's name,
-	// changelog and dev flag. Off by default: a publisher that sends is_dev=true
-	// on every run would otherwise pull a release someone already published back
-	// into dev — invisible to operators — just by adding a second package to it.
+	// changelog. Off by default, so a publisher that runs again does not overwrite
+	// text someone edited by hand.
 	UpdateMeta bool `json:"update_meta"`
 }
 
@@ -62,9 +59,6 @@ func (h *Handler) CreateRelease(w http.ResponseWriter, r *http.Request) {
 	if created || body.UpdateMeta {
 		if name, cl := strings.TrimSpace(body.Name), strings.TrimSpace(body.Changelog); name != "" || cl != "" {
 			_ = h.db.SetReleaseMeta(r.Context(), rel.ID, name, cl)
-		}
-		if body.IsDev != nil {
-			_ = h.db.SetReleaseDev(r.Context(), rel.ID, *body.IsDev)
 		}
 	}
 	if created {

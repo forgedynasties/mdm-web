@@ -32,6 +32,26 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.65.0",
+		Date:    "2026-11-23",
+		Changes: []string{
+			"Resource use now looks like Fleet: models in a rail, the apps in one table, Venue / Window / Sort menus above it.",
+			"Setup: the To place table is calmer (model icon, plain role, one venue pill, a status instead of a greyed Deploy) and the venue picker is a dialog with a card for each venue.",
+			"AIO backend: a restaurant whose devices sit at another venue says \"Move here\" and asks you to confirm what will happen; \"Create venue\" is only for restaurants with none of our devices.",
+			"People: the Activity pills and the Access tabs switch in place instead of reloading the page.",
+			"Releases: no more dev releases (\"Mark dev\", the Dev only view and the dev flag in the API are gone; every release is visible); the selected release uses the same highlight as the rest of the dashboard.",
+			"Device page: Activity opens each event in place in one wide list, Health uses two balanced columns, and the Apps list no longer shows usage (24h / 7d / 30d).",
+			"Alerts: the row menu on the last rows is no longer cut off.",
+		},
+	},
+	{
+		Version: "1.64.62",
+		Date:    "2026-11-22",
+		Changes: []string{
+			"Sign-in: when the dashboard cannot reach its database, it now says so (and answers 503) instead of \"Invalid credentials\", and the attempt no longer counts toward a lockout.",
+		},
+	},
+	{
 		Version: "1.64.61",
 		Date:    "2026-11-21",
 		Changes: []string{

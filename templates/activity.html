@@ -5,17 +5,17 @@
 {{/* Activity PA2 (18 Nov 2026), Actor first: the left list is the actors of the track (a person,
      a job, a key), the right side is the picked one: facts, 7-day bar, its actions. Super admins
      only. activity.go, activity_pa2.go */}}
-<template id="page-island">
+<h1 class="cc-h1 sr-only">Activity</h1>
+{{$v := .PA2}}
+<div class="ovd pa2">
+{{template "users-tabs" .}}
+<section class="ovb-c pa2-card" id="pa2-card" hx-target="#pa2-card" hx-select="#pa2-card" hx-swap="outerHTML">
+  <template id="page-island">
   <span class="isl-dot on"></span>
   <span class="isl-t">Activity</span>
   <span class="isl-s"><b>{{.Total}}</b> action{{if ne .Total 1}}s{{end}}{{if .ActorName}} by {{.ActorName}}{{end}} · {{if eq .Days "all"}}all time{{else if eq .Days "1"}}today{{else}}last {{.Days}} days{{end}}</span>
   <span class="isl-acts"><a class="cc-btn" href="/export/report/activity.csv" hx-boost="false">Export</a></span>
 </template>
-<h1 class="cc-h1 sr-only">Activity</h1>
-{{$v := .PA2}}
-<div class="ovd pa2">
-{{template "users-tabs" .}}
-<section class="ovb-c pa2-card">
   <div class="pa2-top">
     <div class="ovb-seg pa2-seg" role="group" aria-label="Who">
       <a href="{{index $v.TrkURLs "people"}}" class="{{if eq .Track "people"}}on{{end}}">People <i>{{index .TrackCount "people"}}</i></a>
