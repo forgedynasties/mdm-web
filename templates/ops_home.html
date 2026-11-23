@@ -149,15 +149,16 @@
 .pl-st{font-size:12px;color:var(--muted)}.pl-st.w{color:var(--warn)}.pl-st:empty{display:none}
 .pl-go:disabled{display:none}
 .pl-modal{position:fixed;inset:0;z-index:300;background:rgba(15,15,20,.45);display:grid;place-items:center;padding:16px}
-.pl-dlg{background:var(--surface);border-radius:22px;padding:20px;width:min(580px,100%);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.pl-dlg{background:var(--surface);border-radius:22px;padding:20px;width:min(640px,100%);max-height:calc(100vh - 32px);box-sizing:border-box;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25)}
 .pl-dlg h3{margin:0 0 2px;font-size:17px;font-weight:650}.pl-dlg p{margin:0 0 12px;font-size:13px;color:var(--muted)}
 .pl-dlg .pl-vq{padding:0 0 12px}.pl-dlg .pl-vq input{border-radius:12px;padding:10px 12px}
-.pl-dlg .pl-vl{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow:auto;min-height:0;align-content:start}
+.pl-dlg .pl-vl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;overflow-x:hidden;overflow-y:auto;min-height:0;align-content:start;flex:1}
+.pl-dlg .pl-vi{min-width:0;box-sizing:border-box}.pl-dlg .pl-vi .pl-vn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pl-dfoot{flex:none}
 .pl-dlg .pl-vi{border:1px solid var(--border-soft);border-radius:12px;padding:9px 11px;background:var(--surface)}
 .pl-dlg .pl-vi.hi,.pl-dlg .pl-vi:hover{border-color:var(--accent-edge);background:var(--accent-soft)}
 .pl-dlg .pl-vnew{border-top:1px solid var(--border-soft);margin-top:0;color:var(--accent-text)}
 .pl-dfoot{display:flex;justify-content:flex-end;padding-top:14px}
-@media(max-width:720px){.pl-dlg .pl-vl{grid-template-columns:1fr}}
+@media(max-width:720px){.pl-dlg .pl-vl{grid-template-columns:minmax(0,1fr)}}
 .pl-new{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent-text)}
 .pl-head-acts{margin-left:auto;display:flex;gap:8px}
 .pl-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 12px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:10px;margin-bottom:10px;font-size:13.5px}
