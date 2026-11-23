@@ -35,8 +35,9 @@
       <div class="fleet-rail-cap"><span>Products</span></div>
       <button type="button" class="fleet-rail-item on" data-clp="" aria-selected="true"><span class="dot ok"></span><span class="nm">All products</span></button>
       {{range .Products}}<button type="button" class="fleet-rail-item" data-clp="{{.Key}}" aria-selected="false"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $ctr.ByProduct .Key}}</span></button>{{end}}
-      <div class="fleet-rail-cap sp"><span>Show</span></div>
-      <button type="button" class="fleet-rail-item on" data-clf="rel" data-title="Releases" aria-pressed="true"><span class="dot ok"></span><span class="nm">Releases</span><span class="ct">{{$ctr.Rel}}</span></button>
+      {{/* The Show group appears only when there is something else to show (reported builds, hidden releases). */}}
+      {{if or $ctr.Rep $ctr.Hid}}<div class="fleet-rail-cap sp"><span>Show</span></div>{{end}}
+      <button type="button" class="fleet-rail-item on" data-clf="rel"{{if not (or $ctr.Rep $ctr.Hid)}} hidden{{end}} data-title="Releases" aria-pressed="true"><span class="dot ok"></span><span class="nm">Releases</span><span class="ct">{{$ctr.Rel}}</span></button>
       {{if $ctr.Rep}}<button type="button" class="fleet-rail-item" data-clf="rep" data-title="Not added" aria-pressed="false"><span class="dot muted"></span><span class="nm">Not added</span><span class="ct">{{$ctr.Rep}}</span></button>{{end}}
       {{if $ctr.Hid}}<button type="button" class="fleet-rail-item" data-clf="hid" data-title="Hidden" aria-pressed="false"><span class="dot muted"></span><span class="nm">Hidden</span><span class="ct">{{$ctr.Hid}}</span></button>{{end}}
       {{with .Strip}}{{if .Rows}}
