@@ -23,8 +23,13 @@
   // Fail open: only cancel on a real, non-empty response that matches the last one,
   // so a missing/empty body can never suppress swaps and hide the table/progress bar.
   var lastHtml = null;
+  // A refresh never lands while the list is being scrolled (it used to
+  // re-order and reset the list under the hand: "endless scroll"); it waits for the next update.
+  var lastScroll = 0;
+  document.addEventListener('scroll', function (e) { if (e.target && e.target.classList && (e.target.classList.contains('dp1-list') || e.target.classList.contains('dp1-l'))) lastScroll = Date.now(); }, true);
   document.body.addEventListener('htmx:beforeSwap', function (e) {
     if (!e.target || e.target.id !== 'deployment-targets') return;
+    if (Date.now() - lastScroll < 2500) { e.detail.shouldSwap = false; return; }
     var html = e.detail && e.detail.serverResponse;
     if (typeof html !== 'string' || html === '') return; // let htmx swap as usual
     if (html === lastHtml) { e.detail.shouldSwap = false; }

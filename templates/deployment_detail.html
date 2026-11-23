@@ -33,7 +33,7 @@
   <section class="ovb-c dp2-t dp2-eta{{if not $d.Banner.Todos}} wide{{end}}" aria-label="Time left">
     <div class="ovb-ch"><h2>Time left</h2></div>
     {{if .ToGo}}<div class="dp2-big">about {{.ToGo}}</div>{{else if .Estimating}}<div class="dp2-big">estimating…</div>{{else if eq $dep.Status "active"}}<div class="dp2-big">{{if eq .Done .Total}}Done{{else}}Nothing running{{end}}</div>{{else}}<div class="dp2-big">{{if eq .Done .Total}}Done{{else}}Stopped{{end}}</div>{{end}}
-    <div class="dp2-sm">{{if .Estimating}}no install has finished yet{{else if .Rate}}{{.Rate}} install{{if ne .Rate "1"}}s{{end}} per 10 min{{else}}no installs in the last 30 min{{end}}</div>
+    <div class="dp2-sm">{{if .Estimating}}no install has finished yet{{else if .Live}}worked out from the downloads under way{{else if .Rate}}{{.Rate}} install{{if ne .Rate "1"}}s{{end}} per 10 min{{else}}no installs in the last 30 min{{end}}</div>
     {{if .Avg}}<div class="dp2-sm dp2-opt">{{.Avg}} per device so far</div>{{end}}
     {{if not $d.Banner.Todos}}<h2 class="dp1-hd dp2-opt">{{$d.Banner.Headline}}</h2>{{end}}
     {{if and (not $d.Banner.Todos) $d.Banner.Line}}<div class="dp2-sm dp2-opt dp2-cl">{{$d.Banner.Line}}</div>{{end}}
@@ -334,7 +334,7 @@
 <div id="deployment-targets" data-morph
      {{if eq $dep.Status "active"}}
      hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets" hx-select="unset" hx-target="this"
-     hx-trigger="deployment-updated from:body, every 30s"
+     hx-trigger="deployment-updated from:body throttle:6s, every 30s"
      hx-swap="innerHTML"
      {{end}}>
   {{template "deployment-targets" .}}

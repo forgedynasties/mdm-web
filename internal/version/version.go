@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.1",
+		Date:    "2026-11-23",
+		Changes: []string{
+			"Update page: the device list no longer re-renders on every progress report (at most once every 6 seconds, and never while you scroll it), so rows stop jumping.",
+			"Update page: the time left is worked out from the downloads under way when no install has finished yet, instead of staying at \"estimating\u2026\".",
+		},
+	},
+	{
 		Version: "1.66.0",
 		Date:    "2026-11-23",
 		Changes: []string{
