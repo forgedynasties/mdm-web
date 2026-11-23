@@ -16,9 +16,9 @@ import (
 // failed device, a full package and an incremental, crashing more than the day before.
 func r2Sample() r2Inputs {
 	id := 35
-	rel := &db.Release{ID: id, Version: "v2.1.035", Product: "t7", Status: "published", IsDev: true}
+	rel := &db.Release{ID: id, Version: "v2.1.035", Product: "t7", Status: "published"}
 	at := time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
-	row := versionRow{Version: "v2.1.035", ReleaseID: &id, Product: "t7", Status: "published", Tracked: true, IsDev: true,
+	row := versionRow{Version: "v2.1.035", ReleaseID: &id, Product: "t7", Status: "published", Tracked: true,
 		ReleasedAt: &at, DeviceCount: 3, Changelog: "Staff mode pill on the guest screen."}
 	return r2Inputs{
 		Row: row, Rel: rel, ProductLabel: "AIO T7", FleetTotal: 188, InstallsWeek: 3, ShowCrashes: true, CanRelease: true, CanOTA: true,
@@ -33,20 +33,17 @@ func r2Sample() r2Inputs {
 func TestReleaseR2Builders(t *testing.T) {
 	p := buildReleaseR2(r2Sample())
 	b := p.Banner
-	if b.Tone != "bad" || b.Headline != "3 things for this release" || len(b.Todos) != 3 {
+	if b.Tone != "bad" || b.Headline != "2 things for this release" || len(b.Todos) != 2 {
 		t.Fatalf("banner = %+v", b)
 	}
-	if b.Kicker != "v2.1.035 · AIO T7 · published 20 Oct · dev" {
+	if b.Kicker != "v2.1.035 · AIO T7 · published 20 Oct" {
 		t.Errorf("kicker = %q", b.Kicker)
 	}
-	want := []string{"1 device failed in update #401", "9 crashes on this build in 24 h", "Still a dev release"}
+	want := []string{"1 device failed in update #401", "9 crashes on this build in 24 h"}
 	for i, w := range want {
 		if b.Todos[i].Title != w {
 			t.Errorf("row %d = %q, want %q", i, b.Todos[i].Title, w)
 		}
-	}
-	if d := b.Todos[2]; d.Post != "/releases/35/dev" || d.Field != "dev" || d.Value != "0" || d.Confirm == "" {
-		t.Errorf("release to everyone posts dev=0 with a confirm: %+v", d)
 	}
 	if on := p.Cards[0]; on.A.Value != "3" || on.A.Delta != "▲ 3 this week" || on.B.Value != "8" {
 		t.Errorf("on devices = %+v", on)
@@ -63,7 +60,7 @@ func TestReleaseR2Builders(t *testing.T) {
 
 	// A draft with its full package in offers Publish; a viewer who can't release doesn't get it.
 	in := r2Sample()
-	in.Row.Status, in.Rel.Status, in.Row.IsDev, in.Rollouts, in.Crashes = "draft", "draft", false, nil, db.BuildCrashCounts{}
+	in.Row.Status, in.Rel.Status, in.Rollouts, in.Crashes = "draft", "draft", nil, db.BuildCrashCounts{}
 	d := buildR2Banner(in)
 	if len(d.Todos) != 1 || d.Todos[0].Action != "Publish" || d.Todos[0].Post != "/releases/35/publish" {
 		t.Errorf("draft banner = %+v", d)
@@ -125,16 +122,15 @@ func TestReleasesR2Renders(t *testing.T) {
 	}
 	out := buf.String()
 	for _, want := range []string{
-		`class="rl4-todo bad"`, `3 things for this release`, `v2.1.035 · AIO T7 · published 20 Oct · dev`,
+		`class="rl4-todo bad"`, `2 things for this release`, `v2.1.035 · AIO T7 · published 20 Oct`,
 		`href="/releases/35/deployments/401">Open update</a>`, `href="/releases/35/crashes">See crashes</a>`,
-		`action="/releases/35/dev"`, `name="dev" value="0"`, `name="redirect" value="/releases?release=35"`, `>Release to everyone</button>`,
 		`>On devices</a>`, `▲ 3 this week`, `>Update #401</a>`, `3/12</b><small>installed</small>`, `>Crashes</a>`, `▲ 7`,
 		`Packages <span>2</span>`, `2.0 GB`, `from <span class="mono">v2.1.034</span>`, `Staff mode pill on the guest screen.`,
 		`Updates <span>1</span>`, `href="/releases/35/deployments/401">#401</a>`,
 		// Lineup's prod firmware, named and linked back (audit, 24 Oct 2026).
 		`href="/lineup?role=t7#model-t7"`, `>Prod for Tableside AI</a>`, `prod firmware for T7">prod</span>`,
 		// The header's own actions stay.
-		`title="Only super admins can see this release now"`, `Show devices`, `href="/updates/new?release=35"`, `title="Open the release page"`,
+		`Show devices`, `href="/updates/new?release=35"`, `title="Open the release page"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("releases page is missing %q", want)

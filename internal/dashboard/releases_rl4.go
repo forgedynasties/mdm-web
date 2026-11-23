@@ -64,9 +64,6 @@ func buildRL4(rows, hidden []versionRow, byRelease map[int][]rolloutView, filter
 		case !v.Tracked:
 			r.Flags = "rep"
 			c.Rep++
-		case v.IsDev:
-			r.Flags = "dev"
-			c.Dev++
 		default:
 			r.Flags = "rel"
 			c.Rel++

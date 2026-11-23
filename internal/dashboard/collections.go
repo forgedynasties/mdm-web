@@ -95,7 +95,6 @@ func (h *Handler) collRowsDevs(r *http.Request, kind string) ([]venueRow, venueS
 		}
 	case "releases":
 		rels, _ := h.db.ListPublishedReleasesForRail(ctx)
-		rels = visibleRail(h.role(r), rels)
 		by := map[string][]db.Device{}
 		for _, d := range devices {
 			by[d.BuildID] = append(by[d.BuildID], d)
@@ -105,9 +104,6 @@ func (h *Handler) collRowsDevs(r *http.Request, kind string) ([]venueRow, venueS
 			sub := "release"
 			if rel.Name != "" && rel.Name != rel.Version {
 				name, sub = rel.Name, rel.Version
-			}
-			if rel.IsDev {
-				sub += " · dev"
 			}
 			items = append(items, collMember{ID: strconv.Itoa(rel.ID), Name: name, Sub: sub, Href: "/releases/" + strconv.Itoa(rel.ID),
 				Text: rel.Name + " " + rel.Version, Devices: by[rel.Version]})

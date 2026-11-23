@@ -29,7 +29,6 @@ import (
 // to /updates (DeployCreate). Device selection is scoped to the release's product.
 func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 	deployable, _ := h.db.ListDeployableReleases(r.Context())
-	deployable = visibleReleases(h.role(r), deployable)
 	// The product is chosen first: a release only ever targets one product, and the
 	// device list is scoped to it, so picking the hardware narrows both lists before
 	// a version is even named. ?product= carries the choice; a chosen release always
@@ -279,11 +278,6 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
-	// A dev release cannot be pushed by someone who cannot even see it.
-	if rel.IsDev && !roleSeesDev(h.role(r)) {
-		http.Error(w, "Release not found", http.StatusNotFound)
-		return
-	}
 	if rel.Status != "published" {
 		http.Error(w, "Release must be published before it can be deployed.", http.StatusBadRequest)
 		return
@@ -488,10 +482,6 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	upd, err := h.db.GetUpdate(r.Context(), did)
 	if err != nil || upd.ReleaseID != relID {
-		http.Error(w, "Deployment not found", http.StatusNotFound)
-		return
-	}
-	if rel, err := h.db.GetRelease(r.Context(), relID); err == nil && rel.IsDev && !roleSeesDev(h.role(r)) {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}

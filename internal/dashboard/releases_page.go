@@ -184,12 +184,11 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 	// Every rollout, once: the pinned strip takes the active ones, the selected release
 	// its own.
 	deployments, _ := h.db.ListDeployments(ctx)
-	deployments = visibleDeployments(h.role(r), deployments)
 	byRelease, active := mergeRollouts(deployments, productMatches)
 	h.markStuck(ctx, active)
 
 	// The selection: ?release=<id>, or ?build=<version> for a reported build, else the
-	// newest release that is not a dev build.
+	// newest release.
 	var sel *versionRow
 	if id, err := strconv.Atoi(r.URL.Query().Get("release")); err == nil {
 		for _, list := range [][]versionRow{rv.Active, rv.Hidden} {
@@ -208,26 +207,19 @@ func (h *Handler) ReleasesPage(w http.ResponseWriter, r *http.Request) {
 	}
 	if sel == nil {
 		for i := range rv.Active {
-			if rv.Active[i].Tracked && !rv.Active[i].IsDev {
+			if rv.Active[i].Tracked {
 				sel = &rv.Active[i]
 				break
 			}
 		}
 	}
 
-	devCount := 0
-	for _, v := range rv.Active {
-		if v.Tracked && v.IsDev {
-			devCount++
-		}
-	}
 	data := map[string]any{
 		"Title":          "Releases",
 		"Versions":       rv.Active,
 		"HiddenReleases": rv.Hidden,
 		"FleetTotal":     rv.FleetTotal,
 		"NotTracked":     rv.NotTracked,
-		"DevCount":       devCount,
 		"Active":         active,
 		"Strip":          buildRoStrip(active),
 		"RolloutCounts":  rolloutCounts(byRelease),

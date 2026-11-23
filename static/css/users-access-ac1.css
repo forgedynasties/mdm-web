@@ -80,3 +80,8 @@
 .ac1-main .acc-who-f{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px 16px}
 .ac1-main .acc-who-f select{min-width:260px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:13px}
 .ac1-main .acc-give select,.ac1-main .acc-give input[type=date]{border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text)}
+/* Switching Who can do what / Grants / Who can act on… swaps only this card, so its toolbar
+   keeps one height and the content one starting line on every tab. */
+.ac1-tl{min-height:34px}
+.ac1-main .ac1-sc>.fleet-pane-head:first-child,.ac1-main .ac1-gr>.fleet-pane-head:first-child{margin-top:0}
+.ac1-main .ac1-roles{margin-top:0}

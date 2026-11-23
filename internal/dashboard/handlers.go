@@ -912,7 +912,6 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// canRelease: release / OTA / deployment controls — admin or dev.
 		"canRelease": func(role string) bool { return role == "admin" },
 		// canSeeDev: who sees releases still marked dev — everyone but viewers/owners.
-		"canSeeDev": roleSeesDev,
 		"canOTA":    roleCanOTA,
 		// canAppLibrary: who may open /apps and upload to the library (admin, dev, super op).
 		"canAppLibrary": roleCanAppLibrary,

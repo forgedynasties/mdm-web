@@ -8,11 +8,6 @@
      Builders: access_levels.go (AccessPage), access_matrix.go. */}}
 <link rel="stylesheet" href="/static/css/ovb-device.css?v={{asset "/static/css/ovb-device.css"}}">
 <link rel="stylesheet" href="/static/css/users-access-ac1.css?v={{asset "/static/css/users-access-ac1.css"}}">
-<template id="page-island">
-  <span class="isl-dot {{if .NRisks}}warn{{else}}on{{end}}"></span>
-  <span class="isl-t">People · Access</span>
-  <span class="isl-s"><b>{{.NPeople}}</b> people · <b>{{.NGrants}}</b> grants{{if .NRisks}} · <span class="w">{{.NRisks}} to look at</span>{{end}}</span>
-</template>
 {{template "acc-css" .}}
 <div class="cc-top"><div><h1 class="cc-h1">Access</h1></div></div>
 <div class="ovd ac1" id="ac1">
@@ -33,7 +28,12 @@
       </div>
     </section>
   </div>
-  <section class="ovb-c ac1-main">
+  <section class="ovb-c ac1-main" id="ac1-main" hx-target="#ac1-main" hx-select="#ac1-main" hx-swap="outerHTML">
+  <template id="page-island">
+  <span class="isl-dot {{if .NRisks}}warn{{else}}on{{end}}"></span>
+  <span class="isl-t">People · Access</span>
+  <span class="isl-s"><b>{{.NPeople}}</b> people · <b>{{.NGrants}}</b> grants{{if .NRisks}} · <span class="w">{{.NRisks}} to look at</span>{{end}}</span>
+</template>
     <div class="ac1-tl">
       <span class="ovb-seg" role="tablist">
         <a href="/users/access" class="{{if eq .Tab "matrix"}}on{{end}}">Who can do what</a>
@@ -41,7 +41,7 @@
         <a href="/users/access?who=pick" class="{{if eq .Tab "who"}}on{{end}}">Who can act on…</a>
       </span>
       <span class="sp"></span>
-      {{if eq .Tab "matrix"}}<span class="ac1-key"><i class="ovb-dot"></i>everything <i class="ovb-dot y"></i>part of the fleet <i class="ovb-dot o"></i>extra grant</span>{{end}}
+      <span class="ac1-key">{{if eq .Tab "matrix"}}<i class="ovb-dot"></i>everything <i class="ovb-dot y"></i>part of the fleet <i class="ovb-dot o"></i>extra grant{{end}}</span>
     </div>
     <div class="ac1-sc">
     {{if eq .Tab "matrix"}}

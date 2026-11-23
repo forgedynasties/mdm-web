@@ -37,7 +37,6 @@
       {{range .Products}}<button type="button" class="fleet-rail-item" data-clp="{{.Key}}" aria-selected="false"><span class="dot muted"></span><span class="nm">{{.Label}}</span><span class="ct">{{index $ctr.ByProduct .Key}}</span></button>{{end}}
       <div class="fleet-rail-cap sp"><span>Show</span></div>
       <button type="button" class="fleet-rail-item on" data-clf="rel" data-title="Releases" aria-pressed="true"><span class="dot ok"></span><span class="nm">Releases</span><span class="ct">{{$ctr.Rel}}</span></button>
-      {{if and (canSeeDev .Role) $ctr.Dev}}<button type="button" class="fleet-rail-item" data-clf="dev" data-title="Dev only" aria-pressed="false"><span class="dot warn"></span><span class="nm">Dev only</span><span class="ct">{{$ctr.Dev}}</span></button>{{end}}
       {{if $ctr.Rep}}<button type="button" class="fleet-rail-item" data-clf="rep" data-title="Not added" aria-pressed="false"><span class="dot muted"></span><span class="nm">Not added</span><span class="ct">{{$ctr.Rep}}</span></button>{{end}}
       {{if $ctr.Hid}}<button type="button" class="fleet-rail-item" data-clf="hid" data-title="Hidden" aria-pressed="false"><span class="dot muted"></span><span class="nm">Hidden</span><span class="ct">{{$ctr.Hid}}</span></button>{{end}}
       {{with .Strip}}{{if .Rows}}
@@ -81,7 +80,7 @@
           {{range .RL4}}{{$isSel := and $.Sel (eq $.Sel.Version .Version) (eq $.Sel.Tracked .Tracked)}}
           <tr class="ft-row{{if $isSel}} sel{{end}}" data-href="{{.Href}}" data-ctx="link" data-name="{{.Version}}" data-page="{{if .Tracked}}/releases/{{derefInt .ReleaseID}}{{else}}/releases?build={{urlquery .Version}}{{end}}" data-flags="{{.Flags}}" data-classes="{{.ProdKey}}" data-text="{{.Search}}" data-s-name="{{.Version}}" data-s-date="{{.DateUnix}}" data-s-devices="{{.DeviceCount}}" data-s-crashes="{{.CrashN}}">
             <td><a class="cl-nm" href="{{.Href}}"><span class="cl-t"><b class="rl4-v" title="{{.Version}}">{{.Version}}</b><small>{{if .Name}}{{.Name}} · {{end}}{{if .Product}}{{productLabel .Product}}{{else}}reported by devices{{end}}</small></span></a></td>
-            <td><span class="rl4-tags">{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{else}}<span class="cc-tag">reported</span>{{end}}{{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}{{if .Tracked}}{{if $.ProdFor}}{{range index $.ProdFor (derefInt .ReleaseID)}}<span class="cc-tag ok" title="Lineup's prod firmware for {{.Model}}">prod</span>{{end}}{{end}}{{end}}</span></td>
+            <td><span class="rl4-tags">{{if .Tracked}}<span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>{{else}}<span class="cc-tag">reported</span>{{end}}{{if .Tracked}}{{if $.ProdFor}}{{range index $.ProdFor (derefInt .ReleaseID)}}<span class="cc-tag ok" title="Lineup's prod firmware for {{.Model}}">prod</span>{{end}}{{end}}{{end}}</span></td>
             <td><span class="rl4-roll"><span class="rl4-bar"><i class="p" style="flex:{{.Installed}}"></i><i class="f" style="flex:{{.Failed}}"></i><i class="m" style="flex:{{.Moving}}"></i><i{{if not .Roll}} class="h"{{end}} style="flex:{{.Rest}}"></i></span><small>{{.Label}}{{if .Updating}} · <span class="live">updating</span>{{end}}</small></span></td>
             <td>{{if .Crash}}<a class="rl-crash{{if .Crash.Warn}} warn{{end}}" href="/releases/{{derefInt .ReleaseID}}/crashes" title="Crashing on this build in the last 14 days: {{.Crash.Apps}}" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{.Crash.Issues}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
             <td class="ft-date">{{if .ReleasedAt}}<span title="{{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{else}}—{{end}}</td>
@@ -102,12 +101,11 @@
         <span class="cc-tag {{releaseStatusClass .Status}}">{{.Status}}</span>
         {{if .Product}}<span class="cc-tag">{{productLabel .Product}}</span>{{end}}
         {{if $.ProdFor}}{{range index $.ProdFor (derefInt .ReleaseID)}}<a class="cc-tag ok" href="{{.Href}}" title="Lineup's prod firmware for {{.Model}}: devices at venues move to it by themselves">Prod for {{.Label}}</a>{{end}}{{end}}
-        {{if .IsDev}}<span class="cc-tag warn">dev</span>{{end}}
         {{if .ReleasedAt}}<span class="cc-tag" title="{{localTime (deref .ReleasedAt)}}">{{shortDate (deref .ReleasedAt)}}</span>{{end}}
       </div>
       {{if .Name}}<p class="rl4-nm">{{.Name}}</p>{{end}}
-      {{/* The release page's own actions, compact: Update devices, dev / everyone and publish
-           as buttons, the rarer ones in ⋯, the full page behind the arrow. Each form comes
+      {{/* The release page's own actions, compact: Update devices, publish
+           as a button, the rarer ones in ⋯, the full page behind the arrow. Each form comes
            back here (redirect), not to the release page. */}}
       <div class="rl4-acts">
         {{if and (canOTA $.Role) $.CanPush}}<a class="ovb-btn" href="/updates/new?release={{.ReleaseID}}">Update devices</a>{{end}}
@@ -116,10 +114,6 @@
           <input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
           <button type="submit" class="ovb-btn">Publish</button>
         </form>{{end}}
-        <form action="/releases/{{.ReleaseID}}/dev" method="POST"{{if .IsDev}} hx-confirm="Release {{.Version}} to everyone? It stops being folded away behind the dev view."{{end}}>
-          <input type="hidden" name="dev" value="{{if .IsDev}}0{{else}}1{{end}}"><input type="hidden" name="redirect" value="/releases?release={{.ReleaseID}}">
-          <button type="submit" class="ovb-btn l" title="{{if .IsDev}}Only super admins can see this release now{{else}}Everyone can see this release now{{end}}">{{if .IsDev}}Release to everyone{{else}}Mark dev{{end}}</button>
-        </form>
         {{end}}
         <details class="rl4-more">
           <summary class="rl4-ib" title="More" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></summary>
@@ -288,7 +282,6 @@
               <input type="text" name="version" class="mono" placeholder="e.g. v2.1.026" required autofocus data-rl4-ver>
               <small>The version devices report after this release, its unique id (per product).</small>
             </label>
-            <label class="rl4-cb"><input type="checkbox" name="is_dev" value="1" checked data-rl4-dev><span>Dev release<small>Only super admins see it, and it stays out of everyone else's Updates page and push pickers. Release it to everyone from the release itself.</small></span></label>
             <label class="rl4-f">Changes <span class="rl4-sub">(optional)</span>
               <textarea name="changelog" rows="5" placeholder="What changed in this release…"></textarea>
             </label>

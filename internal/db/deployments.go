@@ -102,7 +102,6 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT u.id, COALESCE(u.ota_package_id, 0), COALESCE(u.release_id, 0), u.reboot_behavior,
 		       u.scheduled_time, u.status, u.created_at, u.created_by, COALESCE(rel.version, ''), COALESCE(rel.product, 't7'),
-		       COALESCE(rel.is_dev, false),
 		       COUNT(ud.device_id) AS device_total,
 		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed,
 		       COUNT(CASE WHEN ud.status = 'downloading' THEN 1 END) AS device_downloading,
@@ -114,7 +113,7 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		FROM updates u
 		LEFT JOIN releases rel ON rel.id = u.release_id
 		LEFT JOIN update_devices ud ON ud.update_id = u.id
-		GROUP BY u.id, rel.version, rel.product, rel.is_dev
+		GROUP BY u.id, rel.version, rel.product
 		ORDER BY u.created_at DESC
 		LIMIT 200
 	`)
@@ -127,12 +126,12 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 		var u Update
 		var version, product string
 		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime,
-			&u.Status, &u.CreatedAt, &u.CreatedBy, &version, &product, &u.ReleaseIsDev, &u.DeviceTotal, &u.DeviceInstalled,
+			&u.Status, &u.CreatedAt, &u.CreatedBy, &version, &product, &u.DeviceTotal, &u.DeviceInstalled,
 			&u.DeviceDownloading, &u.DeviceInstalling, &u.DeviceAwaiting, &u.DeviceFailed, &u.DeviceNotBack); err != nil {
 			return nil, err
 		}
 		u.Product = product
-		u.Release = &Release{ID: u.ReleaseID, Version: version, Product: product, IsDev: u.ReleaseIsDev}
+		u.Release = &Release{ID: u.ReleaseID, Version: version, Product: product}
 		out = append(out, u)
 	}
 	return out, rows.Err()
@@ -142,13 +141,13 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 // package — the choices offered in the Updates-hub deploy composer.
 func (d *DB) ListDeployableReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT r.id, r.version, r.name, r.is_dev, r.created_at,
+		SELECT r.id, r.version, r.name, r.created_at,
 		       bool_or(p.type = 'full') AS has_full,
 		       COUNT(*) FILTER (WHERE p.type = 'incremental')::int AS incrementals
 		FROM releases r
 		JOIN ota_packages p ON p.release_id = r.id AND p.status = 'active'
 		WHERE r.status = 'published' AND NOT r.hidden
-		GROUP BY r.id, r.version, r.name, r.is_dev, r.created_at
+		GROUP BY r.id, r.version, r.name, r.created_at
 		ORDER BY r.created_at DESC`)
 	if err != nil {
 		return nil, err
@@ -157,7 +156,7 @@ func (d *DB) ListDeployableReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var rel Release
-		if err := rows.Scan(&rel.ID, &rel.Version, &rel.Name, &rel.IsDev, &rel.CreatedAt, &rel.HasFull, &rel.Incrementals); err != nil {
+		if err := rows.Scan(&rel.ID, &rel.Version, &rel.Name, &rel.CreatedAt, &rel.HasFull, &rel.Incrementals); err != nil {
 			return nil, err
 		}
 		out = append(out, rel)

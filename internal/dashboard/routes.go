@@ -535,7 +535,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/crashes/{eid}/delete", h.requireReleaseAdmin(h.ReleaseCrashDelete))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireReleaseAdmin(h.PackageDelete))
 	post("POST /releases/{id}/qfil", h.requireReleaseAdmin(h.ReleaseAddQFIL))
-	post("POST /releases/{id}/dev", h.requireReleaseAdmin(h.ReleaseSetDev))
 	post("POST /releases/{id}/qfil/{qid}/delete", h.requireReleaseAdmin(h.ReleaseDeleteQFIL))
 	post("POST /releases/track", h.requireReleaseAdmin(h.ReleaseTrack))
 	post("POST /releases/order", h.requireReleaseAdmin(h.ReorderVersions))
