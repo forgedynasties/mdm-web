@@ -73,12 +73,12 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	case "needs":
 		show, view = "needs", ""
 	case "watching":
-		show, view = "open", ""
+		show, view = "needs", ""
 	case "crashes":
 	default:
 		view = ""
 	}
-	if !alShowRE.MatchString(show) {
+	if !alShowRE.MatchString(show) || show == "open" { // no "Everything open" view any more
 		show = "needs"
 	}
 	summary, err := h.db.AlertSummaryCounts(r.Context(), h.access(r).hidesIdentityAlerts())

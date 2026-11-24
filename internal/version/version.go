@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.5",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Alerts: the selection bar is laid out in one row, and the \"Everything open\" view is gone (Needs action and Acknowledged remain).",
+		},
+	},
+	{
 		Version: "1.66.4",
 		Date:    "2026-11-24",
 		Changes: []string{

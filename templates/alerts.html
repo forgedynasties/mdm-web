@@ -2,6 +2,10 @@
 {{template "header" .}}
 
 <style>
+.al-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 14px;border:1px solid var(--accent-edge);background:var(--accent-soft);border-radius:14px;margin:0 0 10px;font-size:13.5px}
+.al-bulk b{font-weight:650}.al-bulk .sp{flex:1}.al-bulk form{margin:0;display:inline-flex}
+.al-bulk[hidden]{display:none}
+.ft-cb{text-align:center}
 /* ── Alerts · command center ────────────────────────────── */
 .al-wrap{max-width:1280px;margin:0 auto}
 
@@ -122,7 +126,7 @@
 <template id="page-island">
   <span class="isl-dot {{if gt .AlL1.Crit 0}}danger{{else if gt .ActiveCount 0}}warn{{else}}on{{end}}"></span>
   <span class="isl-t">Alerts</span>
-  <span class="isl-s"><a href="/alerts?show=open"><b>{{.ActiveCount}}</b> problem{{if ne .ActiveCount 1}}s{{end}}</a>{{if .AlL1.Needs}} · <a class="{{if .AlL1.Crit}}d{{else}}w{{end}}" href="/alerts?show=needs">{{.AlL1.Needs}} need{{if eq .AlL1.Needs 1}}s{{end}} action</a>{{end}}{{if .AlL1.Crit}} · <span class="d">{{.AlL1.Crit}} critical</span>{{end}}</span>
+  <span class="isl-s"><a href="/alerts"><b>{{.ActiveCount}}</b> problem{{if ne .ActiveCount 1}}s{{end}}</a>{{if .AlL1.Needs}} · <a class="{{if .AlL1.Crit}}d{{else}}w{{end}}" href="/alerts?show=needs">{{.AlL1.Needs}} need{{if eq .AlL1.Needs 1}}s{{end}} action</a>{{end}}{{if .AlL1.Crit}} · <span class="d">{{.AlL1.Crit}} critical</span>{{end}}</span>
   <span class="isl-acts">
     {{if and .ActiveCount (canAdmin .Role)}}<form action="/alerts/ack-all" method="POST" onsubmit="return confirm('Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.')"><button type="submit" class="cc-btn">Acknowledge all</button></form>{{end}}
     {{if or (and .ActiveCount (canOperate .Role)) (canAdmin .Role)}}
@@ -145,7 +149,6 @@
   <aside class="fleet-rail" aria-label="Alert views">
     <div class="fleet-rail-cap">Alerts</div>
     {{template "al-view" (dict "Crashes" $crashes "Key" "needs" "Name" "Needs action" "N" $a.Needs "Dot" (or (and $a.Crit "bad") (and $a.Needs "warn") "ok") "Title" "Needs action" "Dev" $root.DeviceFilter)}}
-    {{template "al-view" (dict "Crashes" $crashes "Key" "open" "Name" "Everything open" "N" $a.Open "Dot" "info" "Title" "Everything open" "Dev" $root.DeviceFilter)}}
     {{template "al-view" (dict "Crashes" $crashes "Key" "acked" "Name" "Acknowledged" "N" $a.Acked "Dot" "muted" "Title" "Acknowledged" "Dev" $root.DeviceFilter)}}
     <button type="button" class="fleet-rail-item{{if $crashes}} on{{end}}" data-al-crashes aria-pressed="{{if $crashes}}true{{else}}false{{end}}"><span class="dot {{if .CrashCount}}bad{{else}}muted{{end}}"></span><span class="nm">Crashes · 7 days</span><span class="ct">{{.CrashCount}}</span></button>
     {{if $a.Kinds}}<div class="fleet-rail-cap">By problem</div>
@@ -206,7 +209,7 @@
     </div>
 
     <div id="al-list"{{if $crashes}} hidden{{end}}>
-    <div class="fleet-pane-head"><span class="t" data-cl-title>{{if eq .Show "needs"}}Needs action{{else}}Everything open{{end}}</span><span class="c" data-cl-count>{{len $a.Rows}} problems</span></div>
+    <div class="fleet-pane-head"><span class="t" data-cl-title>{{if eq .Show "acked"}}Acknowledged{{else}}Needs action{{end}}</span><span class="c" data-cl-count>{{len $a.Rows}} problems</span></div>
     <div class="fleet-bar">
       <div class="fleet-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="search" data-clq placeholder="Search problem, serial, venue…" aria-label="Search alerts" autocomplete="off"></div>
       {{template "cl-sort" "Newest ↓"}}
