@@ -521,13 +521,23 @@ func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) {
 // acknowledged (with an optional note) or resolved with a reason at once.
 // The ids come from the page; only alerts this user can see are touched.
 func (h *Handler) AlertProblemAction(w http.ResponseWriter, r *http.Request) {
+	h.alertProblemAction(w, r, false)
+}
+
+// mobileProblemAction is the same for the phone app (AIO MDM for Android), which still snoozes:
+// the web page dropped assign and snooze on 24 Nov 2026, the app's API contract did not.
+func (h *Handler) mobileProblemAction(w http.ResponseWriter, r *http.Request) {
+	h.alertProblemAction(w, r, true)
+}
+
+func (h *Handler) alertProblemAction(w http.ResponseWriter, r *http.Request, mobile bool) {
 	if !h.requireFleetAction(w, r, "alerts") {
 		return
 	}
 	op, value := r.FormValue("op"), strings.TrimSpace(r.FormValue("value"))
 	// Assigning and snoozing problems were taken out (24 Nov 2026: "keep it simple"): a problem is
 	// acknowledged or resolved.
-	if op != "ack" && op != "resolve" {
+	if op != "ack" && op != "resolve" && !(mobile && (op == "snooze" || op == "assign")) {
 		http.Error(w, "Invalid action", http.StatusBadRequest)
 		return
 	}

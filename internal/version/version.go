@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.7",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"The phone app can still snooze and assign alerts, which the web page no longer offers.",
+		},
+	},
+	{
 		Version: "1.66.6",
 		Date:    "2026-11-24",
 		Changes: []string{

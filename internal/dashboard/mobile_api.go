@@ -975,7 +975,7 @@ func (h *Handler) mobileAlertOp(w http.ResponseWriter, r *http.Request, op, valu
 		return
 	}
 	form := url.Values{"op": {op}, "ids": {r.PathValue("id")}, "value": {value}}
-	rec := mobileCall(r, "POST", "/alerts/problem", form, nil, h.AlertProblemAction)
+	rec := mobileCall(r, "POST", "/alerts/problem", form, nil, h.mobileProblemAction)
 	if rec.Code >= 400 {
 		appErr(w, rec.Code, mobileCallErr(rec))
 		return
