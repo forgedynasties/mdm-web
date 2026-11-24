@@ -32,6 +32,27 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.68.1",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Releases: fixed the release panel, whose style clashed with the section headings of the release pane and pushed a blank panel off the right edge.",
+		},
+	},
+	{
+		Version: "1.68.0",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Every venue now locks its devices to their role's app by default: venues that had no lock rule got one, and a new venue gets one when it is created. Switch a venue's lock off on the Lock page to change it. The AIO Lab venue is left unlocked.",
+		},
+	},
+	{
+		Version: "1.67.1",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Releases: the arrow now opens the same release pane, bigger, as a panel over the list (it no longer loads the whole release page into it); it closes with the close button, Esc or a click outside.",
+		},
+	},
+	{
 		Version: "1.67.0",
 		Date:    "2026-11-24",
 		Changes: []string{
