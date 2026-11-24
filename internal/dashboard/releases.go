@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"net/url"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -1073,6 +1074,18 @@ func (h *Handler) ReleaseDeleteQFIL(w http.ResponseWriter, r *http.Request) {
 // ReleaseDetail serves /releases/{id}, the release's own page (release_workspace.html):
 // version, product, changelog and packages (tab from ?tab=, default overview).
 func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
+	// The release page is gone (24 Nov 2026): the release opens as a window on Releases. The window
+	// itself fetches this address for its tabs (marked with a header), and ?partial= is the live refresh;
+	// anything else is sent to Releases with that release's window open (the browser keeps #packages).
+	if r.URL.Query().Get("partial") == "" && r.Header.Get("X-Requested-With") != "rl4-sheet" {
+		id := r.PathValue("id")
+		win := map[string]string{"packages": "packages", "problems": "problems", "changelog": "changes", "details": "changes"}[r.URL.Query().Get("tab")]
+		if win == "" {
+			win = "1"
+		}
+		http.Redirect(w, r, "/releases?release="+url.QueryEscape(id)+"&win="+win, http.StatusSeeOther)
+		return
+	}
 	h.renderReleaseWorkspace(w, r, r.URL.Query().Get("tab"))
 }
 

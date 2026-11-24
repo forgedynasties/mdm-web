@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.69.0",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Releases: the release page is gone. A release opens as a window over the list, with Overview, Packages, Changes and Problems tabs and its actions (Show devices, Update devices, Publish, flashing bundle, Delete) at the top. The old release address still works: it opens Releases with that release's window open, on the right tab.",
+		},
+	},
+	{
 		Version: "1.68.5",
 		Date:    "2026-11-24",
 		Changes: []string{
