@@ -85,6 +85,27 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 	}
 }
 
+// requireOps guards what the Ops role and above may do beyond Operator, such as changing the
+// venue a device is at (mayManageVisits: Ops, Admin, Super admin).
+func (h *Handler) requireOps(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			redirectLogin(w, r)
+			return
+		}
+		if !mayManageVisits(s.Role) {
+			h.guardRefuse(w, r, mayManageVisits)
+			return
+		}
+		if h.maintenanceGate(w, r) {
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
+}
+
 // requireSupport guards the safe device actions Support holds — lock / unlock,
 // notes, alerts — on top of the per-device access check in deviceRoute.
 func (h *Handler) requireSupport(next http.HandlerFunc) http.HandlerFunc {

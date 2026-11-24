@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.2",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Ops can change the venue a device is at from the device page (it was Super admin only).",
+			"The old \"Fleet manager\" name is gone from messages and help text; that role is Ops.",
+		},
+	},
+	{
 		Version: "1.67.0",
 		Date:    "2026-11-23",
 		Changes: []string{

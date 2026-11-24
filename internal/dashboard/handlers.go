@@ -907,6 +907,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// the super admin only (the dev role was retired 2026-10-07). Used to gate
 		// operational buttons/links.
 		"canAdmin": func(role string) bool { return role == "admin" },
+		"canOps":   mayManageVisits,
 		// whyScore: the penalties behind a venue/group score, for the "?" popover.
 		"whyScore": whyScore,
 		// canRelease: release / OTA / deployment controls — admin or dev.

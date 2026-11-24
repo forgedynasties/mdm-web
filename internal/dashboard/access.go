@@ -40,7 +40,7 @@ var accessActions = []accessAction{
 	{Key: "wifi", Label: "Wi-Fi networks", Group: "Device", Help: "Add, switch to, change or forget the device's saved Wi-Fi networks."},
 	{Key: "notes", Label: "Device notes", Group: "Device"},
 	{Key: "queue", Label: "Cancel / clear queue", Group: "Device"},
-	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Fleet managers and admins have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
+	{Key: "remote", Label: "Remote control", Group: "Sessions", Sensitive: true, Help: "Live screen and touch. Ops and admins have it by default; an operator needs a rule that names it (\"any action\" never includes it)."},
 	{Key: "shell", Label: "Shell", Group: "Sessions", Sensitive: true, DevOnly: true, Help: "Raw shell on the device. Super admins only."},
 	{Key: "ota", Label: "OTA updates", Group: "Updates", Sensitive: true, DevOnly: true, Help: "May target these devices in a firmware deployment. Admins and super admins only; a rule can narrow it for an admin but never give it to anyone else."},
 	{Key: "alerts", Label: "Acknowledge / resolve alerts", Group: "Fleet", Fleet: true},
