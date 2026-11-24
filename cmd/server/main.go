@@ -721,6 +721,7 @@ func main() {
 	apiHandler.SetClientStanding(dash.ClientStandingFor)
 	// Test-bench routes (admin key): lock/unlock one device, take one off a venue.
 	mux.Handle("POST /api/v1/devices/{serial}/kiosk", adminAuth(http.HandlerFunc(dash.APISetDeviceKiosk)))
+	mux.Handle("POST /api/v1/lock/off-all", adminAuth(http.HandlerFunc(dash.APILockOffAll)))
 	mux.Handle("POST /api/v1/devices/{serial}/brightness", adminAuth(http.HandlerFunc(dash.APISetDeviceBrightness)))
 	mux.Handle("POST /api/v1/devices/{serial}/wlc", adminAuth(http.HandlerFunc(dash.APISetDeviceWlc)))
 	if qaAPIKey != "" {

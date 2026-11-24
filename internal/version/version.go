@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.69.2",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Admin API: POST /api/v1/lock/off-all switches Lock off for every venue (deletes the lock rules that reach venue devices and releases the devices they locked; ?dry=1 only lists them).",
+		},
+	},
+	{
 		Version: "1.69.1",
 		Date:    "2026-11-24",
 		Changes: []string{
