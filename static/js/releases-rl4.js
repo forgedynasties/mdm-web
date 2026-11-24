@@ -208,9 +208,10 @@ function rl4NewClose() {
   }, true);
 })();
 
-/* The ↗ in the release preview opens the release page as a slide-over sheet over the list, so
-   the list is never left (24 Nov 2026, demo A picked). ✕, Esc or a click outside closes it; the
-   ⤢ in its header opens the same release as a full page. */
+/* The ↗ in the release preview opens that same pane bigger, as a slide-over sheet over the list, so the
+   list is never left (24 Nov 2026, demo A; first built by loading the whole release page, which broke
+   its layout, so it now enlarges the pane that is already on the page). ✕, Esc or a click outside closes
+   it; the ⤢ in its header opens the full release page. */
 (function () {
   var sheet = null;
   function close() {
@@ -221,39 +222,33 @@ function rl4NewClose() {
     document.removeEventListener('keydown', onKey, true);
   }
   function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }
-  function runScripts(root) {
-    root.querySelectorAll('script').forEach(function (o) {
-      var n = document.createElement('script');
-      Array.prototype.forEach.call(o.attributes, function (a) { n.setAttribute(a.name, a.value); });
-      n.text = o.text; o.replaceWith(n);
-    });
-  }
-  function open(href, label) {
+  function open(pv, href, label) {
     close();
+    var root = document.querySelector('.rl4') || document.body;
     var s = document.createElement('div');
-    s.className = 'rl4-sheet'; s.setAttribute('hx-boost', 'false');
+    s.className = 'rl4-sheet';
     s.innerHTML = '<div class="rl4-sh-scrim"></div><section class="rl4-sh" role="dialog" aria-modal="true" aria-label="Release ' + label + '">' +
-      '<header class="rl4-sh-h"><b>' + label + '</b><span class="sp"></span><a class="rl4-ib" href="' + href + '" title="Open as a page" aria-label="Open as a page"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></a><span class="rl4-sh-k">Esc</span><button type="button" class="rl4-ib" data-rl4-close aria-label="Close">✕</button></header>' +
-      '<div class="rl4-sh-b"><p class="muted" style="padding:20px">Loading…</p></div></section>';
-    document.body.appendChild(s); sheet = s;
-    requestAnimationFrame(function () { s.classList.add('on'); });
+      '<header class="rl4-sh-h"><b>' + label + '</b><span class="sp"></span><a class="rl4-ib" href="' + href + '" title="Open as a page" aria-label="Open as a page"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></a><span class="rl4-sh-k">Esc</span><button type="button" class="rl4-ib" data-rl4-close aria-label="Close">\u2715</button></header>' +
+      '<div class="rl4-sh-b"><div class="rl4-pv rl4-pv-big"></div></div></section>';
+    var host = s.querySelector('.rl4-pv-big');
+    Array.prototype.forEach.call(pv.children, function (c) {
+      var n = c.cloneNode(true);
+      n.querySelectorAll('[id]').forEach(function (x) { x.removeAttribute('id'); });
+      host.appendChild(n);
+    });
+    // the open-as-page link is the sheet's own header now
+    host.querySelectorAll('a.rl4-ib[href^="/releases/"]').forEach(function (a) { a.remove(); });
+    root.appendChild(s); sheet = s;
+    requestAnimationFrame(function () { requestAnimationFrame(function () { s.classList.add('on'); }); });
     s.addEventListener('click', function (e) { if (e.target.closest('[data-rl4-close]') || e.target.classList.contains('rl4-sh-scrim')) close(); });
     document.addEventListener('keydown', onKey, true);
-    fetch(href, { credentials: 'same-origin', headers: { 'X-Requested-With': 'rl4-sheet' } }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); }).then(function (t) {
-      if (sheet !== s) return;
-      var doc = new DOMParser().parseFromString(t, 'text/html'), main = doc.querySelector('main');
-      if (!main) throw new Error('no page');
-      main.querySelectorAll('template#page-island, .cc-top, .sr-only').forEach(function (x) { if (x.tagName === 'TEMPLATE' || x.classList.contains('cc-top')) x.remove(); });
-      var body = s.querySelector('.rl4-sh-b'); body.innerHTML = main.innerHTML; runScripts(body);
-      if (window.htmx) window.htmx.process(body);
-    }).catch(function () {
-      var body = s && s.querySelector('.rl4-sh-b'); if (body) body.innerHTML = '<p style="padding:20px">Could not load the release. <a href="' + href + '">Open it as a page</a></p>';
-    });
   }
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a.rl4-ib[href^="/releases/"]');
     if (!a || a.closest('.rl4-sheet') || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    var pv = document.getElementById('rl4-pv'); if (!pv) return;
     e.preventDefault(); e.stopPropagation();
-    var row = document.querySelector('#rl4-pv h2'); open(a.getAttribute('href'), row ? row.textContent.trim() : 'Release');
+    var h = pv.querySelector('h2');
+    open(pv, a.getAttribute('href'), h ? h.textContent.trim() : 'Release');
   }, true);
 })();

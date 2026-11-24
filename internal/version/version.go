@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.67.1",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Releases: the arrow now opens the same release pane, bigger, as a panel over the list (it no longer loads the whole release page into it); it closes with the close button, Esc or a click outside.",
+		},
+	},
+	{
 		Version: "1.67.0",
 		Date:    "2026-11-24",
 		Changes: []string{
