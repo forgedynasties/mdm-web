@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.8",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Scroll fades keep the rounded corners of the pane or card they sit on, so panes no longer look square at the edge.",
+		},
+	},
+	{
 		Version: "1.66.7",
 		Date:    "2026-11-24",
 		Changes: []string{
