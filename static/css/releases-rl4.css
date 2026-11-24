@@ -182,24 +182,24 @@ html.shell .cl-page.rl4{padding-bottom:0}
 @media(min-width:1101px) and (max-width:1299px){.rl4 .cl-ft th:nth-child(5),.rl4 .cl-ft td:nth-child(5){display:none}}
 .rl4-fact:last-child:nth-child(odd){grid-column:1/-1}
 
-/* The release as a slide-over sheet (releases-rl4.js) */
-.rl4-sheet{position:fixed;inset:0;z-index:400;overflow:hidden}
-.rl4-sh-scrim{position:absolute;inset:0;background:rgba(15,15,20,.38);opacity:0;transition:opacity .25s}
-.rl4-sheet.on .rl4-sh-scrim{opacity:1}
-.rl4-sh{position:absolute;top:12px;right:12px;bottom:12px;width:min(64vw,900px);min-width:min(560px,calc(100vw - 24px));background:var(--surface);border-radius:24px;box-shadow:0 18px 50px rgba(0,0,0,.28);transform:translateX(calc(100% + 24px));transition:transform .3s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;overflow:hidden}
-.rl4-sheet.on .rl4-sh{transform:none}
-.rl4-sh-h{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border-soft);flex:none}
-.rl4-sh-h b{font-family:var(--mono);font-size:17px;font-weight:650}
-.rl4-sh-h .sp{flex:1}
-.rl4-sh-k{border:1px solid var(--border);border-radius:8px;padding:2px 7px;font-size:11px;color:var(--muted)}
-.rl4-sh-h .rl4-ib{display:inline-grid;place-items:center;width:34px;height:34px;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;font:inherit;font-size:14px}
-.rl4-sh-h .rl4-ib svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.rl4-sh-h .rl4-ib:hover{background:var(--hover)}
-.rl4-sh-b{flex:1;min-height:0;overflow:auto;padding:16px 20px 24px}
-@media(max-width:720px){.rl4-sh{inset:0;width:auto;min-width:0;border-radius:0}}
+/* The release as a slide-over sheet (releases-rl4.js). Its classes are rl4-ps*: rl4-sh is the pane's section head. */
+.rl4-slide{position:fixed;inset:0;z-index:400;overflow:hidden}
+.rl4-ps-scrim{position:absolute;inset:0;background:rgba(15,15,20,.38);opacity:0;transition:opacity .25s}
+.rl4-slide.on .rl4-ps-scrim{opacity:1}
+.rl4-ps{position:absolute;top:12px;right:12px;bottom:12px;width:min(64vw,900px);min-width:min(560px,calc(100vw - 24px));background:var(--surface);border-radius:24px;box-shadow:0 18px 50px rgba(0,0,0,.28);transform:translateX(calc(100% + 24px));transition:transform .3s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.rl4-slide.on .rl4-ps{transform:none}
+.rl4-ps-h{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border-soft);flex:none}
+.rl4-ps-h b{font-family:var(--mono);font-size:17px;font-weight:650}
+.rl4-ps-h .sp{flex:1}
+.rl4-ps-k{border:1px solid var(--border);border-radius:8px;padding:2px 7px;font-size:11px;color:var(--muted)}
+.rl4-ps-h .rl4-ib{display:inline-grid;place-items:center;width:34px;height:34px;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;font:inherit;font-size:14px}
+.rl4-ps-h .rl4-ib svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rl4-ps-h .rl4-ib:hover{background:var(--hover)}
+.rl4-ps-b{flex:1;min-height:0;overflow:auto;padding:16px 20px 24px}
+@media(max-width:720px){.rl4-ps{inset:0;width:auto;min-width:0;border-radius:0}}
 
 /* the enlarged pane: the same cards, in two columns */
-.rl4-sh-b .rl4-pv-big{padding:0;border-radius:0;background:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-content:start}
-.rl4-sh-b .rl4-pv-big>*{min-width:0}
-.rl4-sh-b .rl4-pv-big>.rl4-ph,.rl4-sh-b .rl4-pv-big>.rl4-acts,.rl4-sh-b .rl4-pv-big>.rl4-todo,.rl4-sh-b .rl4-pv-big>.rl4-chg-card{grid-column:1/-1}
-@media(max-width:900px){.rl4-sh-b .rl4-pv-big{grid-template-columns:minmax(0,1fr)}}
+.rl4-ps-b .rl4-pv-big{padding:0;border-radius:0;background:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-content:start}
+.rl4-ps-b .rl4-pv-big>*{min-width:0}
+.rl4-ps-b .rl4-pv-big>.rl4-ph,.rl4-ps-b .rl4-pv-big>.rl4-acts,.rl4-ps-b .rl4-pv-big>.rl4-todo,.rl4-ps-b .rl4-pv-big>.rl4-chg-card{grid-column:1/-1}
+@media(max-width:900px){.rl4-ps-b .rl4-pv-big{grid-template-columns:minmax(0,1fr)}}

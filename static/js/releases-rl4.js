@@ -226,10 +226,10 @@ function rl4NewClose() {
     close();
     var root = document.querySelector('.rl4') || document.body;
     var s = document.createElement('div');
-    s.className = 'rl4-sheet';
-    s.innerHTML = '<div class="rl4-sh-scrim"></div><section class="rl4-sh" role="dialog" aria-modal="true" aria-label="Release ' + label + '">' +
-      '<header class="rl4-sh-h"><b>' + label + '</b><span class="sp"></span><a class="rl4-ib" href="' + href + '" title="Open as a page" aria-label="Open as a page"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></a><span class="rl4-sh-k">Esc</span><button type="button" class="rl4-ib" data-rl4-close aria-label="Close">\u2715</button></header>' +
-      '<div class="rl4-sh-b"><div class="rl4-pv rl4-pv-big"></div></div></section>';
+    s.className = 'rl4-slide';
+    s.innerHTML = '<div class="rl4-ps-scrim"></div><section class="rl4-ps" role="dialog" aria-modal="true" aria-label="Release ' + label + '">' +
+      '<header class="rl4-ps-h"><b>' + label + '</b><span class="sp"></span><a class="rl4-ib" href="' + href + '" title="Open as a page" aria-label="Open as a page"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></a><span class="rl4-ps-k">Esc</span><button type="button" class="rl4-ib" data-rl4-close aria-label="Close">\u2715</button></header>' +
+      '<div class="rl4-ps-b"><div class="rl4-pv rl4-pv-big"></div></div></section>';
     var host = s.querySelector('.rl4-pv-big');
     Array.prototype.forEach.call(pv.children, function (c) {
       var n = c.cloneNode(true);
@@ -240,12 +240,12 @@ function rl4NewClose() {
     host.querySelectorAll('a.rl4-ib[href^="/releases/"]').forEach(function (a) { a.remove(); });
     root.appendChild(s); sheet = s;
     requestAnimationFrame(function () { requestAnimationFrame(function () { s.classList.add('on'); }); });
-    s.addEventListener('click', function (e) { if (e.target.closest('[data-rl4-close]') || e.target.classList.contains('rl4-sh-scrim')) close(); });
+    s.addEventListener('click', function (e) { if (e.target.closest('[data-rl4-close]') || e.target.classList.contains('rl4-ps-scrim')) close(); });
     document.addEventListener('keydown', onKey, true);
   }
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a.rl4-ib[href^="/releases/"]');
-    if (!a || a.closest('.rl4-sheet') || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
+    if (!a || a.closest('.rl4-slide') || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
     var pv = document.getElementById('rl4-pv'); if (!pv) return;
     e.preventDefault(); e.stopPropagation();
     var h = pv.querySelector('h2');
