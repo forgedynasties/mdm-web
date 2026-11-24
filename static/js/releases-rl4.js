@@ -209,15 +209,16 @@ function rl4NewClose() {
   }, true);
 })();
 
-/* The ↗ in the release preview opens that same pane bigger, as a slide-over sheet over the list, so the
-   list is never left (24 Nov 2026, demo A; first built by loading the whole release page, which broke
-   its layout, so it now enlarges the pane that is already on the page). ✕, Esc or a click outside closes
-   it; the ⤢ in its header opens the full release page. */
+/* The release window (24 Nov 2026, demo A picked): the ↗ in the release preview opens the release as a
+   slide-over window over the list, with Overview · Packages · Changes · Problems tabs and the release's
+   actions in its header, so the separate release page is not needed (it redirects here). The Overview is
+   the pane already on the page, enlarged; the other tabs are the release page's own cards, fetched from
+   /releases/{id} and moved in. ✕, Esc or a click on the dimmed side closes it. */
 (function () {
   // Run once per window: this script is executed again every time Releases is opened in place, and
-  // each copy would open its own panel (two panels = two clicks to close).
+  // each copy would open its own window.
   if (window.__rl4Sheet) return; window.__rl4Sheet = true;
-  var sheet = null;
+  var sheet = null, TABS = [['ov', 'Overview'], ['pk', 'Packages'], ['ch', 'Changes'], ['pr', 'Problems']];
   function close() {
     if (!sheet) return;
     var s = sheet; sheet = null;
@@ -226,33 +227,102 @@ function rl4NewClose() {
     document.removeEventListener('keydown', onKey, true);
   }
   function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }
-  function open(pv, href, label) {
+  function tabFromHash(h) {
+    h = (h || '').replace('#', '').toLowerCase();
+    return { packages: 'pk', problems: 'pr', changelog: 'ch', details: 'ch', changes: 'ch', overview: 'ov' }[h] || '';
+  }
+  function runScripts(root) {
+    root.querySelectorAll('script').forEach(function (o) {
+      if (o.src) { o.remove(); return; }
+      var n = document.createElement('script'); n.text = o.text; o.replaceWith(n);
+    });
+  }
+  function select(s, t) {
+    s.querySelectorAll('.rl4-ps-tabs [data-t]').forEach(function (b) { b.classList.toggle('on', b.dataset.t === t); b.setAttribute('aria-selected', b.dataset.t === t); });
+    s.querySelectorAll('.rl4-ps-pane').forEach(function (p) { p.hidden = p.dataset.p !== t; });
+    try { sessionStorage.setItem('rl4tab', t); } catch (e) {}
+  }
+  function cardOf(main, test) {
+    var cards = main.querySelectorAll('.cc-wrap > .cc-card');
+    for (var i = 0; i < cards.length; i++) if (test(cards[i])) return cards[i];
+    return null;
+  }
+  function fill(s, id, text) {
+    var doc = new DOMParser().parseFromString(text, 'text/html'), main = doc.querySelector('main');
+    if (!main) throw new Error('no page');
+    var wrap = main.querySelector('.cc-wrap') || main;
+    // header actions (Show devices, Update devices, Publish, flashing bundle, Delete)
+    var acts = wrap.querySelector('.cc-top .cc-actions'), host = s.querySelector('.rl4-ps-acts');
+    if (acts && host) { host.innerHTML = acts.innerHTML; }
+    var draft = cardOf(wrap, function (c) { return /draft/i.test(c.textContent) && !c.querySelector('h2') && !c.id; });
+    var pk = wrap.querySelector('#packages'), pr = wrap.querySelector('#problems');
+    var ch = cardOf(wrap, function (c) { var h = c.querySelector('h2'); return h && /Release details|Changelog/.test(h.textContent); });
+    function put(t, nodes) {
+      var pane = s.querySelector('.rl4-ps-pane[data-p="' + t + '"]'); pane.innerHTML = '';
+      nodes.forEach(function (n) { if (n) pane.appendChild(n); });
+      if (!pane.children.length) pane.innerHTML = '<p class="muted" style="padding:12px">Nothing here for your role.</p>';
+    }
+    put('pk', [draft, pk]); put('ch', [ch]); put('pr', [pr]);
+    window.RELEASE_PAGE = { release: id };
+    if (typeof window.pkgVerify === 'undefined') {
+      var sc = document.createElement('script'); sc.src = '/static/js/release_workspace.js'; document.head.appendChild(sc);
+    }
+    runScripts(s);
+    if (window.htmx) window.htmx.process(s);
+  }
+  function open(pv, href, label, tab) {
     close();
+    var id = parseInt((href.match(/\/releases\/(\d+)/) || [])[1], 10);
     var root = document.querySelector('.rl4') || document.body;
     var s = document.createElement('div');
     s.className = 'rl4-slide';
     s.innerHTML = '<div class="rl4-ps-scrim"></div><section class="rl4-ps" role="dialog" aria-modal="true" aria-label="Release ' + label + '">' +
-      '<header class="rl4-ps-h"><b>' + label + '</b><span class="sp"></span><a class="rl4-ib" href="' + href + '" title="Open as a page" aria-label="Open as a page"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></a><span class="rl4-ps-k">Esc</span><button type="button" class="rl4-ib" data-rl4-close aria-label="Close">\u2715</button></header>' +
-      '<div class="rl4-ps-b"><div class="rl4-pv rl4-pv-big"></div></div></section>';
-    var host = s.querySelector('.rl4-pv-big');
+      '<header class="rl4-ps-h"><div class="rl4-ps-r"><b>' + label + '</b><span class="rl4-ps-tg"></span><span class="sp"></span><div class="rl4-ps-acts"></div><span class="rl4-ps-k">Esc</span><button type="button" class="rl4-ib" data-rl4-close aria-label="Close">\u2715</button></div>' +
+      '<nav class="rl4-ps-tabs" role="tablist">' + TABS.map(function (t) { return '<button type="button" role="tab" data-t="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</nav></header>' +
+      '<div class="rl4-ps-b">' + TABS.map(function (t) { return '<div class="rl4-ps-pane" data-p="' + t[0] + '" hidden></div>'; }).join('') + '</div></section>';
+    // Overview: the pane that is already on the page, enlarged
+    var ov = s.querySelector('.rl4-ps-pane[data-p="ov"]'), big = document.createElement('div'); big.className = 'rl4-pv rl4-pv-big';
     Array.prototype.forEach.call(pv.children, function (c) {
-      var n = c.cloneNode(true);
-      n.querySelectorAll('[id]').forEach(function (x) { x.removeAttribute('id'); });
-      host.appendChild(n);
+      var n = c.cloneNode(true); n.querySelectorAll('[id]').forEach(function (x) { x.removeAttribute('id'); }); big.appendChild(n);
     });
-    // the open-as-page link is the sheet's own header now
-    host.querySelectorAll('a.rl4-ib[href^="/releases/"]').forEach(function (a) { a.remove(); });
+    big.querySelectorAll('a.rl4-ib[href^="/releases/"], .rl4-acts').forEach(function (a) { a.remove(); });
+    var tags = big.querySelector('.rl4-ph'); if (tags) { s.querySelector('.rl4-ps-tg').innerHTML = Array.prototype.map.call(tags.querySelectorAll('.cc-tag'), function (t) { return t.outerHTML; }).join(' '); var h2 = tags.querySelector('h2'); if (h2) h2.remove(); tags.remove(); }
+    ov.appendChild(big);
+    ['pk', 'ch', 'pr'].forEach(function (t) { s.querySelector('.rl4-ps-pane[data-p="' + t + '"]').innerHTML = '<p class="muted" style="padding:16px">Loading…</p>'; });
     root.appendChild(s); sheet = s;
+    var saved = ''; try { saved = sessionStorage.getItem('rl4tab') || ''; } catch (e) {}
+    select(s, tab || tabFromHash(location.hash) || saved || 'ov');
     void s.offsetWidth; setTimeout(function () { s.classList.add('on'); }, 20);
-    s.addEventListener('click', function (e) { if (e.target.closest('[data-rl4-close]') || e.target.classList.contains('rl4-ps-scrim')) close(); });
+    s.addEventListener('click', function (e) {
+      if (e.target.closest('[data-rl4-close]') || e.target.classList.contains('rl4-ps-scrim')) close();
+      var t = e.target.closest('.rl4-ps-tabs [data-t]'); if (t) select(s, t.dataset.t);
+    });
     document.addEventListener('keydown', onKey, true);
+    fetch('/releases/' + id, { credentials: 'same-origin', headers: { 'X-Requested-With': 'rl4-sheet' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (t) { if (sheet === s) fill(s, id, t); })
+      .catch(function () { if (sheet === s) ['pk', 'ch', 'pr'].forEach(function (k) { s.querySelector('.rl4-ps-pane[data-p="' + k + '"]').innerHTML = '<p style="padding:16px">Could not load this tab. Reload the page and try again.</p>'; }); });
+  }
+  function openFromPane(tab) {
+    var pv = document.getElementById('rl4-pv'); if (!pv) return false;
+    var a = pv.querySelector('a.rl4-ib[href^="/releases/"]'); if (!a) return false;
+    var h = pv.querySelector('h2');
+    open(pv, a.getAttribute('href'), h ? h.textContent.trim() : 'Release', tab);
+    return true;
   }
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a.rl4-ib[href^="/releases/"]');
     if (!a || a.closest('.rl4-slide') || e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;
-    var pv = document.getElementById('rl4-pv'); if (!pv) return;
-    e.preventDefault(); e.stopPropagation();
-    var h = pv.querySelector('h2');
-    open(pv, a.getAttribute('href'), h ? h.textContent.trim() : 'Release');
+    if (!document.getElementById('rl4-pv')) return;
+    e.preventDefault(); e.stopPropagation(); openFromPane('');
   }, true);
+  // ?win= : the old release page address (and a saved form coming back to it) lands here with the window open
+  function auto() {
+    var q = new URLSearchParams(location.search); if (!q.has('win') || !document.getElementById('rl4-pv')) return;
+    var w = q.get('win'); q.delete('win');
+    history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
+    openFromPane({ packages: 'pk', problems: 'pr', changes: 'ch', overview: 'ov' }[w] || '');
+  }
+  auto();
+  document.addEventListener('htmx:afterSettle', function () { setTimeout(auto, 0); });
 })();

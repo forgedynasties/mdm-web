@@ -188,7 +188,7 @@ html.shell .cl-page.rl4{padding-bottom:0}
 .rl4-slide.on .rl4-ps-scrim{opacity:1}
 .rl4-ps{position:absolute;top:12px;right:12px;bottom:12px;width:min(64vw,900px);min-width:min(560px,calc(100vw - 24px));background:var(--surface);border-radius:24px;box-shadow:0 18px 50px rgba(0,0,0,.28);transform:translateX(calc(100% + 24px));transition:transform .3s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;overflow:hidden}
 .rl4-slide.on .rl4-ps{transform:none}
-.rl4-ps-h{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--border-soft);flex:none}
+.rl4-ps-h{flex:none}
 .rl4-ps-h b{font-family:var(--mono);font-size:17px;font-weight:650}
 .rl4-ps-h .sp{flex:1}
 .rl4-ps-k{border:1px solid var(--border);border-radius:8px;padding:2px 7px;font-size:11px;color:var(--muted)}
@@ -203,3 +203,17 @@ html.shell .cl-page.rl4{padding-bottom:0}
 .rl4-ps-b .rl4-pv-big>*{min-width:0}
 .rl4-ps-b .rl4-pv-big>.rl4-ph,.rl4-ps-b .rl4-pv-big>.rl4-acts,.rl4-ps-b .rl4-pv-big>.rl4-todo,.rl4-ps-b .rl4-pv-big>.rl4-chg-card{grid-column:1/-1}
 @media(max-width:900px){.rl4-ps-b .rl4-pv-big{grid-template-columns:minmax(0,1fr)}}
+
+/* the release window: tabs and the header's actions */
+.rl4-ps-h{display:block;padding:12px 20px 0}
+.rl4-ps-r{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.rl4-ps-tg{display:inline-flex;gap:6px;flex-wrap:wrap}
+.rl4-ps-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rl4-ps-acts .cc-btn{height:34px;box-sizing:border-box}
+.rl4-ps-acts form{margin:0;display:inline-flex}
+.rl4-ps-tabs{display:flex;gap:2px;margin-top:10px}
+.rl4-ps-tabs button{font:inherit;font-size:13px;background:none;border:0;border-bottom:2px solid transparent;padding:9px 14px;color:var(--text-2);cursor:pointer}
+.rl4-ps-tabs button.on{color:var(--accent-text);border-bottom-color:var(--accent-fill);font-weight:650}
+.rl4-ps-h{border-bottom:1px solid var(--border-soft)}
+.rl4-ps-pane[hidden]{display:none}
+.rl4-ps-pane .cc-card{box-shadow:none;border:1px solid var(--border-soft);border-radius:16px;margin-bottom:14px}
