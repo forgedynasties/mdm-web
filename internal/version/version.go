@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.68.4",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"API: bulk release delete can include releases that devices still run (include_running); the build then shows as untracked.",
+		},
+	},
+	{
 		Version: "1.68.3",
 		Date:    "2026-11-24",
 		Changes: []string{
