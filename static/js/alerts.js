@@ -76,3 +76,28 @@ document.addEventListener('click',function(e){
   },true);
   window.addEventListener('scroll',function(){ document.querySelectorAll('details.alx-menu[open]').forEach(function(d){ d.open=false; }); },true);
 })();
+
+/* Select problems with the checkboxes and acknowledge them together (24 Nov 2026). Rows a filter has
+   hidden are never picked by "select all". */
+(function () {
+  function picks() { return Array.prototype.filter.call(document.querySelectorAll('.al-pick'), function (c) { var r = c.closest('tr'); return c.checked && r && !r.hidden; }); }
+  function sync() {
+    var bar = document.getElementById('al-bulk'); if (!bar) return;
+    var p = picks();
+    bar.hidden = !p.length;
+    document.getElementById('al-bulk-n').textContent = p.length + ' selected';
+    document.getElementById('al-bulk-ids').value = p.map(function (c) { return c.getAttribute('data-ids'); }).join(',');
+    var all = document.getElementById('al-all');
+    if (all) { var vis = Array.prototype.filter.call(document.querySelectorAll('.al-pick'), function (c) { var r = c.closest('tr'); return r && !r.hidden; }); all.checked = vis.length > 0 && p.length === vis.length; all.indeterminate = p.length > 0 && p.length < vis.length; }
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.id === 'al-all') { document.querySelectorAll('.al-pick').forEach(function (c) { var r = c.closest('tr'); c.checked = t.checked && r && !r.hidden; }); sync(); }
+    else if (t.classList && t.classList.contains('al-pick')) sync();
+  });
+  document.addEventListener('click', function (e) {
+    if (e.target.id === 'al-bulk-clear') { document.querySelectorAll('.al-pick,#al-all').forEach(function (c) { c.checked = false; }); sync(); }
+  });
+  document.addEventListener('click', function (e) { if (e.target.closest('.al-pick,#al-all')) e.stopPropagation(); }, true);
+  document.addEventListener('htmx:afterSettle', sync);
+})();

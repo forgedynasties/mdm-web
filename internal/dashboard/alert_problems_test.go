@@ -151,13 +151,19 @@ func TestAlertsProblemsRender(t *testing.T) {
 	if dump := os.Getenv("ALERTS_DUMP"); dump != "" {
 		_ = os.WriteFile(dump, buf.Bytes(), 0o644)
 	}
+	// Assigning and snoozing are gone from the page (24 Nov 2026).
+	for _, gone := range []string{`name="op" value="assign"`, `name="op" value="snooze"`, `data-clf="snoozed"`, `data-clc="mine"`, `data-clc="unassigned"`} {
+		if strings.Contains(out, gone) {
+			t.Errorf("rendered page still has %q", gone)
+		}
+	}
 	for _, want := range []string{
 		"T7-P: Charging hardware", "Flights Vegas: 2 devices offline",
-		`value="false_alarm"`, "after hours", "new since acknowledged", "Snoozed", "Sam Lee",
+		`value="false_alarm"`, "after hours", "new since acknowledged",
 		// L1 (3 Nov): Fleet's twin, rail views, chips, one table.
-		`data-cl data-one="problem"`, `data-start="needs"`, `data-clf="needs"`, `data-clf="snoozed"`, `data-al-crashes`, `id="al-crash" hidden`, `id="al-list"`,
+		`data-cl data-one="problem"`, `data-start="needs"`, `data-clf="needs"`, `data-al-crashes`, `id="al-crash" hidden`, `id="al-list"`,
 		`>By problem<`, `>By venue<`, `data-clc="warn"`, `data-cls="since" data-dir="desc"`, `class="ft cl-ft al-ft"`,
-		`data-flags="`, `name="op" value="ack"`, `name="op" value="assign"`, `name="op" value="snooze"`, `name="op" value="resolve"`,
+		`data-flags="`, `name="op" value="ack"`, `class="al-pick"`, `id="al-bulk"`, `name="op" value="resolve"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("rendered page is missing %q", want)

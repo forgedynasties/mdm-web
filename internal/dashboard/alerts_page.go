@@ -73,12 +73,12 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	case "needs":
 		show, view = "needs", ""
 	case "watching":
-		show, view = "open", ""
+		show, view = "needs", ""
 	case "crashes":
 	default:
 		view = ""
 	}
-	if !alShowRE.MatchString(show) {
+	if !alShowRE.MatchString(show) || show == "open" { // no "Everything open" view any more
 		show = "needs"
 	}
 	summary, err := h.db.AlertSummaryCounts(r.Context(), h.access(r).hidesIdentityAlerts())
@@ -171,9 +171,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	for _, p := range buildProblems(active, hs, names) {
 		p.KeyReset = p.KeyReset && isAdmin // resetting a key is admin-only
 		switch {
-		case p.Snoozed:
-			snoozed = append(snoozed, p)
-		case p.Severity == "critical":
+		case p.Severity == "critical": // a muted ("snoozed") problem is listed like any other
 			needs = append(needs, p)
 		default:
 			watching = append(watching, p)
@@ -519,14 +517,30 @@ func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) {
 	h.setAlertStatus(w, r, "resolved")
 }
 
-// AlertProblemAction works one problem: every open alert in it is assigned,
-// acknowledged (with an optional note), snoozed or resolved with a reason at once.
+// AlertProblemAction works one problem: every open alert in it is
+// acknowledged (with an optional note) or resolved with a reason at once.
 // The ids come from the page; only alerts this user can see are touched.
 func (h *Handler) AlertProblemAction(w http.ResponseWriter, r *http.Request) {
+	h.alertProblemAction(w, r, false)
+}
+
+// mobileProblemAction is the same for the phone app (AIO MDM for Android), which still snoozes:
+// the web page dropped assign and snooze on 24 Nov 2026, the app's API contract did not.
+func (h *Handler) mobileProblemAction(w http.ResponseWriter, r *http.Request) {
+	h.alertProblemAction(w, r, true)
+}
+
+func (h *Handler) alertProblemAction(w http.ResponseWriter, r *http.Request, mobile bool) {
 	if !h.requireFleetAction(w, r, "alerts") {
 		return
 	}
 	op, value := r.FormValue("op"), strings.TrimSpace(r.FormValue("value"))
+	// Assigning and snoozing problems were taken out (24 Nov 2026: "keep it simple"): a problem is
+	// acknowledged or resolved.
+	if op != "ack" && op != "resolve" && !(mobile && (op == "snooze" || op == "assign")) {
+		http.Error(w, "Invalid action", http.StatusBadRequest)
+		return
+	}
 	if op == "ack" {
 		value = strings.TrimSpace(r.FormValue("note"))
 		if len(value) > 500 {
@@ -549,9 +563,6 @@ func (h *Handler) AlertProblemAction(w http.ResponseWriter, r *http.Request) {
 				ids = append(ids, id)
 			}
 		}
-	}
-	if op == "assign" && value == "me" {
-		value = h.currentUsername(r)
 	}
 	n, err := h.db.ProblemAction(r.Context(), ids, op, value)
 	if err != nil {
