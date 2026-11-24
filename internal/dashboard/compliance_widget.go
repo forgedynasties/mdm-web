@@ -80,7 +80,7 @@ func (h *Handler) overviewCompliance(r *http.Request) *compWidget {
 func buildCompWidget(devices []compDeviceView, checkViews map[string]*compCheckView, rules compRules) compWidget {
 	var w compWidget
 	for _, v := range devices {
-		if !v.Required {
+		if !v.Required || v.NotReporting {
 			continue
 		}
 		w.InScope++

@@ -345,6 +345,30 @@ func (d *DB) SeedComplianceDefaults(ctx context.Context) error {
 			return err
 		}
 	}
+	// Lenient compliance (24 Nov 2026: "its 8%, lets make it lenient"): once, the checks that are about
+	// how a venue's device is set up and left open stay required; integrity checks on hardware we do
+	// not make become advisory; "checked in" widens to 72 hours.
+	tag, err = tx.Exec(ctx, `INSERT INTO app_flags (flag) VALUES ('compliance_lenient_v1') ON CONFLICT DO NOTHING`)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 1 {
+		for id, s := range map[string]ComplianceSetting{
+			"firmware_approved": {Level: ComplianceRequired}, "adb_off": {Level: ComplianceRequired},
+			"wireless_adb_off": {Level: ComplianceRequired}, "release_build": {Level: ComplianceRequired},
+			"device_owner": {Level: ComplianceRequired}, "checked_in": {Level: ComplianceRequired, Param: 72},
+			"locked": {Level: ComplianceRecommended}, "unknown_sources_off": {Level: ComplianceRecommended},
+			"not_rooted": {Level: ComplianceRecommended}, "encrypted": {Level: ComplianceRecommended},
+			"selinux_enforcing": {Level: ComplianceRecommended},
+		} {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO compliance_baseline (check_id, level, param, updated_by, updated_at) VALUES ($1, $2, $3, 'system', now())
+				ON CONFLICT (check_id) DO UPDATE SET level = EXCLUDED.level, param = EXCLUDED.param, updated_by = 'system', updated_at = now()`,
+				id, s.Level, s.Param); err != nil {
+				return err
+			}
+		}
+	}
 	return tx.Commit(ctx)
 }
 

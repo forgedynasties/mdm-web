@@ -13,6 +13,7 @@ import (
 
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/product"
 )
 
 // ── Compliance engine ─────────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ type compSnapshot struct {
 	scopes  map[uuid.UUID]db.DeviceScope
 	lock    map[uuid.UUID]string // lock-rule status (kioskDevice.Status)
 	labs    map[uuid.UUID]db.LabSession
-	prodFW  map[string]string                 // model → prod firmware version, for models in prod mode
+	prodFW  map[string]string               // model → prod firmware version, for models in prod mode
 	hosted  map[string]config.AgentAPKBuild // client slot → hosted build
 	ownKey  map[uuid.UUID]bool
 }
@@ -45,15 +46,15 @@ type compCheck struct {
 	// Problem is how a failing device reads (26 Oct 2026, user: "it should just say
 	// installs from unknown sources allowed, developer options on"): the name states the
 	// rule, the problem what is wrong.
-	Problem string
-	Device                bool   // answered by what the device reports (else by the server)
-	Level                 string // default level
-	Param                 int    // default threshold, 0 when the check has none
-	Unit                  string // the threshold's unit ("hours", "days")
-	FixedBy               string // what already acts on a failure, for the editor
-	Fix                   string // what auto-fix does, "" when the check has none
-	AutoFixDefault        bool   // auto-fix on before anyone sets it (decision of 15 Oct)
-	eval                  func(s *compSnapshot, d *db.Device, param int) (state, detail string)
+	Problem        string
+	Device         bool   // answered by what the device reports (else by the server)
+	Level          string // default level
+	Param          int    // default threshold, 0 when the check has none
+	Unit           string // the threshold's unit ("hours", "days")
+	FixedBy        string // what already acts on a failure, for the editor
+	Fix            string // what auto-fix does, "" when the check has none
+	AutoFixDefault bool   // auto-fix on before anyone sets it (decision of 15 Oct)
+	eval           func(s *compSnapshot, d *db.Device, param int) (state, detail string)
 }
 
 const (
@@ -93,9 +94,9 @@ var complianceChecks = []compCheck{
 		Help: "No app is allowed to install other apps outside the MDM.",
 		eval: evalUnknownSources},
 	{ID: "not_rooted", Group: compGroupIntact, Name: "Not rooted", Problem: "Rooted", Device: true, Level: db.ComplianceRequired,
-		eval: evalExtraFalse("su_present", "An su binary is present")},
+		eval: ownFirmwareOnly(evalExtraFalse("su_present", "An su binary is present"))},
 	{ID: "encrypted", Group: compGroupIntact, Name: "Storage encrypted", Problem: "Storage not encrypted", Device: true, Level: db.ComplianceRequired,
-		eval: evalExtraTrue("storage_encrypted", "Storage is not encrypted")},
+		eval: ownFirmwareOnly(evalExtraTrue("storage_encrypted", "Storage is not encrypted"))},
 	{ID: "play_protect", Group: compGroupIntact, Name: "Play Protect on", Problem: "Play Protect off", Device: true, Level: db.ComplianceRecommended,
 		Help: "Only where the image has Google Play.",
 		eval: evalExtraTrue("play_protect", "Play Protect is off")},
@@ -106,10 +107,22 @@ var complianceChecks = []compCheck{
 		Help: "The bootloader verified the image it started (green). Yellow, orange or red means a self-signed, unlocked or failed boot.",
 		eval: evalVerifiedBoot},
 	{ID: "selinux_enforcing", Group: compGroupIntact, Name: "SELinux enforcing", Problem: "SELinux not enforcing", Device: true, Level: db.ComplianceRequired,
-		eval: evalSELinux},
+		eval: ownFirmwareOnly(evalSELinux)},
 	{ID: "device_owner", Group: compGroupSetup, Name: "Standard client is Device Owner", Problem: "Standard client not Device Owner", Device: true, Level: db.ComplianceRequired,
 		Help: "Without Device Owner the standard client cannot lock, install or reset. Firmware clients are system apps and are not measured.",
 		eval: evalDeviceOwner},
+}
+
+// ownFirmwareOnly measures a check only on our own firmware. A stock Standard-client device is
+// somebody else's hardware: root, encryption and SELinux there are the vendor's to guarantee, so the
+// check is "not applicable" and neither passes nor fails it (24 Nov 2026, lenient compliance).
+func ownFirmwareOnly(eval func(s *compSnapshot, d *db.Device, param int) (string, string)) func(s *compSnapshot, d *db.Device, param int) (string, string) {
+	return func(s *compSnapshot, d *db.Device, param int) (string, string) {
+		if d.AgentKind == product.KindDPC {
+			return db.ComplianceNA, "Stock hardware: not measured"
+		}
+		return eval(s, d, param)
+	}
 }
 
 func complianceCheck(id string) (compCheck, bool) {
