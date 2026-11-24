@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.3",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Releases: the \u22ef menu on a release is no longer cut off by the pane it sits in.",
+			"API: POST /api/v1/releases/delete deletes releases in bulk by pattern, version or id. It does a dry run unless told otherwise, and skips published releases, releases devices still run and releases an update was made from.",
+		},
+	},
+	{
 		Version: "1.66.2",
 		Date:    "2026-11-24",
 		Changes: []string{

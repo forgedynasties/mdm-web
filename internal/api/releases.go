@@ -245,3 +245,112 @@ func (h *Handler) CancelDeployment(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"deployment": id, "status": "canceled"})
 }
 
+
+// deleteReleasesBody is the bulk-delete payload. Pattern is a glob ("*" matches anything, e.g.
+// "v2.2.001-aio-home-*"); Versions and IDs name releases outright. dry_run defaults to TRUE: nothing
+// is deleted until the caller sends "dry_run": false.
+type deleteReleasesBody struct {
+	Pattern          string   `json:"pattern"`
+	Versions         []string `json:"versions"`
+	IDs              []int    `json:"ids"`
+	Product          string   `json:"product"` // limit to one product (empty: every product)
+	DryRun           *bool    `json:"dry_run"`
+	IncludePublished bool     `json:"include_published"`
+}
+
+type deleteReleaseRow struct {
+	ID      int    `json:"id"`
+	Version string `json:"version"`
+	Product string `json:"product"`
+	Status  string `json:"status"`
+	Result  string `json:"result"` // would_delete | deleted | skipped
+	Reason  string `json:"reason,omitempty"`
+}
+
+// globMatch: a pattern where "*" matches any run of characters; everything else is literal.
+func globMatch(pattern, s string) bool {
+	parts := strings.Split(pattern, "*")
+	if len(parts) == 1 {
+		return pattern == s
+	}
+	if !strings.HasPrefix(s, parts[0]) {
+		return false
+	}
+	s = s[len(parts[0]):]
+	for _, p := range parts[1 : len(parts)-1] {
+		i := strings.Index(s, p)
+		if i < 0 {
+			return false
+		}
+		s = s[i+len(p):]
+	}
+	return strings.HasSuffix(s, parts[len(parts)-1])
+}
+
+// DeleteReleases (admin key): POST /api/v1/releases/delete. Deletes the releases a pattern, version list
+// or id list names, with the dashboard's own rules and two more: a release a device still runs, or one
+// an update was made from, is skipped; a published release is skipped unless include_published is true.
+// Dry run unless "dry_run": false. The packages' files in S3 are not touched. Each delete is audited.
+func (h *Handler) DeleteReleases(w http.ResponseWriter, r *http.Request) {
+	var body deleteReleasesBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid JSON body"})
+		return
+	}
+	pat := strings.TrimSpace(body.Pattern)
+	if pat == "" && len(body.Versions) == 0 && len(body.IDs) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name releases with pattern, versions or ids"})
+		return
+	}
+	if pat == "*" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "a pattern of just * would match every release"})
+		return
+	}
+	dry := body.DryRun == nil || *body.DryRun
+	rels, err := h.db.ListReleases(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	wantV, wantID := map[string]bool{}, map[int]bool{}
+	for _, v := range body.Versions {
+		wantV[strings.TrimSpace(v)] = true
+	}
+	for _, id := range body.IDs {
+		wantID[id] = true
+	}
+	out := []deleteReleaseRow{}
+	for _, rel := range rels {
+		if body.Product != "" && rel.Product != body.Product {
+			continue
+		}
+		if !(wantID[rel.ID] || wantV[rel.Version] || (pat != "" && globMatch(pat, rel.Version))) {
+			continue
+		}
+		row := deleteReleaseRow{ID: rel.ID, Version: rel.Version, Product: rel.Product, Status: rel.Status, Result: "would_delete"}
+		switch {
+		case rel.Status == "published" && !body.IncludePublished:
+			row.Result, row.Reason = "skipped", "published (send include_published to delete it)"
+		default:
+			if n, err := h.db.CountDevicesByVersion(r.Context(), rel.Version, rel.Product); err != nil {
+				row.Result, row.Reason = "skipped", "could not count the devices on it"
+			} else if n > 0 {
+				row.Result, row.Reason = "skipped", strconv.Itoa(n)+" device(s) still run it"
+			} else if n, err := h.db.CountUpdatesByRelease(r.Context(), rel.ID); err != nil {
+				row.Result, row.Reason = "skipped", "could not check its updates"
+			} else if n > 0 {
+				row.Result, row.Reason = "skipped", strconv.Itoa(n)+" update(s) were made from it"
+			}
+		}
+		if row.Result == "would_delete" && !dry {
+			if err := h.db.DeleteRelease(r.Context(), rel.ID); err != nil {
+				row.Result, row.Reason = "skipped", "the database refused it"
+			} else {
+				row.Result = "deleted"
+				_ = h.db.InsertAudit(r.Context(), "api", "release.delete", strconv.Itoa(rel.ID), rel.Version)
+			}
+		}
+		out = append(out, row)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"dry_run": dry, "releases": out})
+}

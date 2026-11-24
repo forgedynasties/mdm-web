@@ -668,6 +668,7 @@ func main() {
 	mux.Handle("POST /api/v1/releases", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.CreateRelease))))
 	mux.Handle("GET /api/v1/releases/{id}", adminAuth(http.HandlerFunc(apiHandler.GetRelease)))
 	mux.Handle("POST /api/v1/releases/{id}/packages", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.AddReleasePackage))))
+	mux.Handle("POST /api/v1/releases/delete", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.DeleteReleases))))
 	mux.Handle("POST /api/v1/releases/{id}/publish", adminAuth(http.HandlerFunc(apiHandler.PublishRelease)))
 
 	// Enrollment profiles over the admin API (see internal/api/enrollment_profiles.go).
