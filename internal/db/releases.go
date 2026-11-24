@@ -715,6 +715,13 @@ func (d *DB) CountDevicesByVersion(ctx context.Context, version, product string)
 	return n, err
 }
 
+// CountUpdatesByRelease is how many updates (deployments) were made from a release.
+func (d *DB) CountUpdatesByRelease(ctx context.Context, id int) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM updates WHERE release_id = $1`, id).Scan(&n)
+	return n, err
+}
+
 // ListDevicesByVersion returns the non-hidden devices currently reporting a build version,
 // for the release-adoption panel.
 func (d *DB) ListDevicesByVersion(ctx context.Context, version string) ([]Device, error) {

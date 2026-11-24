@@ -190,3 +190,20 @@ function rl4NewClose() {
   }, true);
   window.addEventListener('popstate', function (e) { if (pv() && (!e.state || e.state.rl4)) open(location.pathname + location.search, false); });
 })();
+
+/* The ⋯ menu in the release pane was cut off by the pane's own scrolling edge (24 Nov 2026).
+   Opened, it is placed against the window instead, under the button and right-aligned to it. */
+(function () {
+  document.addEventListener('toggle', function (e) {
+    var d = e.target; if (!d || !d.open || !d.classList || !d.classList.contains('rl4-more')) return;
+    var m = d.querySelector('.cc-menu'), s = d.querySelector('summary'); if (!m || !s) return;
+    m.style.position = 'fixed'; m.style.top = '0'; m.style.right = 'auto'; m.style.left = '0';
+    var r = s.getBoundingClientRect(), w = m.offsetWidth, h = m.offsetHeight;
+    var top = innerHeight - r.bottom - 8 >= h || r.top < h ? r.bottom + 6 : r.top - h - 6;
+    m.style.top = Math.max(8, Math.min(top, innerHeight - h - 8)) + 'px';
+    m.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + 'px';
+  }, true);
+  addEventListener('scroll', function (e) {
+    document.querySelectorAll('details.rl4-more[open]').forEach(function (d) { if (!d.contains(e.target)) d.open = false; });
+  }, true);
+})();
