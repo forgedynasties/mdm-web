@@ -1879,6 +1879,36 @@ ALTER TABLE alerts ADD COLUMN IF NOT EXISTS resolve_notified BOOLEAN NOT NULL DE
 -- continuously. device_config.kiosk_rule records which rule set a device's kiosk, and
 -- kiosk_override marks a device someone changed by hand while a rule covers it.
 ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS priority     INT     NOT NULL DEFAULT 0;
+
+-- Every venue locks by default (24 Nov 2026: "set all venues to lock and when a new venue is added it
+-- is locked by default"). A venue's lock is a restaurant-scoped rule with no package (each device
+-- locks to its role's app). Once: every existing venue without one gets it, the AIO Lab venue aside
+-- (lab devices are worked on, not locked). Then a trigger gives each new venue the same rule.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app_flags WHERE flag = 'lock_all_venues_v1') THEN
+        INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial, priority)
+        SELECT r.name || ' · locked', '', 'restaurant', r.id, '',
+               COALESCE((SELECT MIN(priority) FROM kiosk_policies), 1) - 1
+          FROM restaurants r
+         WHERE r.name <> 'AIO Lab'
+           AND NOT EXISTS (SELECT 1 FROM kiosk_policies k WHERE k.target_type = 'restaurant' AND k.target_id = r.id);
+        INSERT INTO app_flags (flag) VALUES ('lock_all_venues_v1');
+    END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION venue_locked_by_default() RETURNS trigger AS $$
+BEGIN
+    IF NEW.name <> 'AIO Lab' AND NOT EXISTS (SELECT 1 FROM kiosk_policies WHERE target_type = 'restaurant' AND target_id = NEW.id) THEN
+        INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial, priority)
+        VALUES (NEW.name || ' · locked', '', 'restaurant', NEW.id, '',
+                COALESCE((SELECT MIN(priority) FROM kiosk_policies), 1) - 1);
+    END IF;
+    RETURN NEW;
+END $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS restaurants_locked_by_default ON restaurants;
+CREATE TRIGGER restaurants_locked_by_default AFTER INSERT ON restaurants
+    FOR EACH ROW EXECUTE FUNCTION venue_locked_by_default();
 ALTER TABLE kiosk_policies ADD COLUMN IF NOT EXISTS offline_exit BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_rule     UUID;
 ALTER TABLE device_config  ADD COLUMN IF NOT EXISTS kiosk_override BOOLEAN NOT NULL DEFAULT false;

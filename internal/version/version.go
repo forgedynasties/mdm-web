@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.68.0",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Every venue now locks its devices to their role's app by default: venues that had no lock rule got one, and a new venue gets one when it is created. Switch a venue's lock off on the Lock page to change it. The AIO Lab venue is left unlocked.",
+		},
+	},
+	{
 		Version: "1.67.1",
 		Date:    "2026-11-24",
 		Changes: []string{
