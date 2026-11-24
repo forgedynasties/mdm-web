@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.69.1",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Moves to prod: a device's report no longer counts crash reports or long lists (Wi-Fi scans, saved networks, app lists) when deciding if it is small enough to move. Tablets in busy venues were held for a 10 KB report that prod accepts.",
+		},
+	},
+	{
 		Version: "1.69.0",
 		Date:    "2026-11-24",
 		Changes: []string{
