@@ -365,3 +365,21 @@ func TestMoveCheckinTooBig(t *testing.T) {
 		t.Fatal("0 turns the gate off")
 	}
 }
+
+func TestMoveReportSizeSkipsCrashesAndLists(t *testing.T) {
+	scan := strings.Repeat(`{"rssi":-50,"ssid":"x","bssid":"aa:bb:cc:dd:ee:ff"},`, 120)
+	raw := []byte(`{"battery":88,"wifi":"Net","wifi_scan":[` + scan + `{}],"crash_events":{"stack":"` + strings.Repeat("x", 20000) + `"}}`)
+	if len(raw) < 7500 {
+		t.Fatal("test report should be big")
+	}
+	if n := moveReportSize(raw); moveCheckinTooBig(n, 7500) {
+		t.Fatalf("a Wi-Fi scan and a crash report must not hold a move, counted %d", n)
+	}
+	big := []byte(`{"blob":"` + strings.Repeat("y", 9000) + `"}`)
+	if !moveCheckinTooBig(moveReportSize(big), 7500) {
+		t.Fatal("a big scalar still waits")
+	}
+	if moveReportSize([]byte(`not json`)) != 8 {
+		t.Fatal("not an object is counted whole")
+	}
+}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -193,6 +194,27 @@ func moveMaxCheckin() int {
 	return 7500
 }
 
+// moveReportSize is the size of a device's last report as the move gate counts it: crash
+// reports and long lists (any key holding an array: Wi-Fi scans, saved networks, app lists)
+// are left out (user, 24 Nov 2026: "you can skip the crash reports", "and long lists").
+// Flights Vegas T7s already on prod check in fine with a 9 KB report that is 6 KB of Wi-Fi
+// scan, while the gate held 8 of them for 10-11 KB. Anything that is not a JSON object is
+// counted whole.
+func moveReportSize(raw []byte) int {
+	var extra map[string]json.RawMessage
+	if json.Unmarshal(raw, &extra) != nil || extra == nil {
+		return len(raw)
+	}
+	n := 2
+	for k, v := range extra {
+		if k == "crash_events" || (len(v) > 0 && v[0] == '[') {
+			continue
+		}
+		n += len(k) + len(v) + 4
+	}
+	return n
+}
+
 // moveCheckinTooBig reports whether a report of n bytes stays out of the move (max 0 = no limit).
 func moveCheckinTooBig(n, max int) bool { return max > 0 && n > max }
 
@@ -206,7 +228,7 @@ func (h *Handler) sizeWait(ctx context.Context, m db.DeviceMove) string {
 	if err != nil || dev == nil {
 		return ""
 	}
-	if n := len(dev.LatestExtra); moveCheckinTooBig(n, max) {
+	if n := moveReportSize(dev.LatestExtra); moveCheckinTooBig(n, max) {
 		return fmt.Sprintf("waiting: its check-in is %d KB and prod's firewall refuses over 8 KB (a crash report or a long list in it); it moves once the report shrinks", (n+1023)/1024)
 	}
 	return ""
