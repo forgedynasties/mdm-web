@@ -193,6 +193,8 @@ function rl4NewClose() {
 /* The ⋯ menu in the release pane was cut off by the pane's own scrolling edge (24 Nov 2026).
    Opened, it is placed against the window instead, under the button and right-aligned to it. */
 (function () {
+  // The page's script is run again each time the page is opened in place; a second copy would double every handler.
+  if (window.__rl4MenuFix) return; window.__rl4MenuFix = true;
   document.addEventListener('toggle', function (e) {
     var d = e.target; if (!d || !d.open || !d.classList || !d.classList.contains('rl4-more')) return;
     var m = d.querySelector('.cc-menu'), s = d.querySelector('summary'); if (!m || !s) return;
@@ -212,6 +214,9 @@ function rl4NewClose() {
    its layout, so it now enlarges the pane that is already on the page). ✕, Esc or a click outside closes
    it; the ⤢ in its header opens the full release page. */
 (function () {
+  // Run once per window: this script is executed again every time Releases is opened in place, and
+  // each copy would open its own panel (two panels = two clicks to close).
+  if (window.__rl4Sheet) return; window.__rl4Sheet = true;
   var sheet = null;
   function close() {
     if (!sheet) return;

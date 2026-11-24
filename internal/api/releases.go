@@ -256,6 +256,7 @@ type deleteReleasesBody struct {
 	Product          string   `json:"product"` // limit to one product (empty: every product)
 	DryRun           *bool    `json:"dry_run"`
 	IncludePublished bool     `json:"include_published"`
+	IncludeRunning   bool     `json:"include_running"` // also delete a release some device still reports (it then shows as an untracked build)
 }
 
 type deleteReleaseRow struct {
@@ -334,8 +335,8 @@ func (h *Handler) DeleteReleases(w http.ResponseWriter, r *http.Request) {
 		default:
 			if n, err := h.db.CountDevicesByVersion(r.Context(), rel.Version, rel.Product); err != nil {
 				row.Result, row.Reason = "skipped", "could not count the devices on it"
-			} else if n > 0 {
-				row.Result, row.Reason = "skipped", strconv.Itoa(n)+" device(s) still run it"
+			} else if n > 0 && !body.IncludeRunning {
+				row.Result, row.Reason = "skipped", strconv.Itoa(n)+" device(s) still run it (send include_running to delete it anyway)"
 			} else if n, err := h.db.CountUpdatesByRelease(r.Context(), rel.ID); err != nil {
 				row.Result, row.Reason = "skipped", "could not check its updates"
 			} else if n > 0 {
