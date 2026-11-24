@@ -27,16 +27,17 @@ type compFailView struct {
 }
 
 type compDeviceView struct {
-	ID        uuid.UUID
-	Serial    string
-	Venue     string
-	Required  bool // held to at least one required check
-	Compliant bool
-	Partly    bool // every device-reported check is unknown
-	Fails     []compFailView
-	Warns     []compFailView // recommended checks failing
-	Since     time.Time      // oldest failing required check
-	Unknown   int
+	ID           uuid.UUID
+	Serial       string
+	Venue        string
+	Required     bool // held to at least one required check
+	Compliant    bool
+	Partly       bool // every device-reported check is unknown
+	NotReporting bool // has not checked in within the "checked in" window: out of the score, shown apart
+	Fails        []compFailView
+	Warns        []compFailView // recommended checks failing
+	Since        time.Time      // oldest failing required check
+	Unknown      int
 }
 
 type compCheckView struct {
@@ -127,8 +128,12 @@ func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
 	devices, checkViews, checkByID := compDeviceViews(rules, results, devs, acc.visible)
 
 	// Headline numbers, over devices held to at least one required check.
-	var inScope, compliant, partly, recOnly int
+	var inScope, compliant, partly, recOnly, notReporting int
 	for _, v := range devices {
+		if v.NotReporting {
+			notReporting++
+			continue
+		}
 		if !v.Required {
 			recOnly++
 			continue
@@ -302,29 +307,30 @@ func (h *Handler) ComplianceIndex(w http.ResponseWriter, r *http.Request) {
 	failingN := inScope - compliant
 
 	h.render(w, r, "compliance.html", map[string]any{
-		"Scope":     sc,
-		"K1Banner":  buildK1Banner(checks, rules, fixesWeek, sc, pct, failingN, inScope, partly),
-		"K1Cards":   buildK1Cards(trend, fixesDaily, autoFixOn, pct, failingN, inScope, partly, sc),
-		"K1Groups":  buildK1Groups(checks, rules, fixesWeek, sc),
-		"K1Flat":    k1Flat(buildK1Groups(checks, rules, fixesWeek, sc)),
-		"K1Radar":   k1Radar(checks),
-		"K1Rail":    buildK1Rail(pct, compliant, inScope, partly, trend, venues, h.cfg.ComplianceReportsCustomers(), now),
-		"Title":     "Compliance",
-		"Tab":       tab,
-		"Pct":       pct,
-		"InScope":   inScope,
-		"Compliant": compliant,
-		"Failing":   inScope - compliant,
-		"Partly":    partly,
-		"RecOnly":   recOnly,
-		"Checks":    checks,
-		"Venues":    venues,
-		"List":      list,
-		"Show":      filter,
-		"CheckF":    checkF,
-		"CheckName": checkName,
-		"Counts":    counts,
-		"Scored":    len(devices),
+		"Scope":        sc,
+		"K1Banner":     buildK1Banner(checks, rules, fixesWeek, sc, pct, failingN, inScope, partly),
+		"K1Cards":      buildK1Cards(trend, fixesDaily, autoFixOn, pct, failingN, inScope, partly, sc),
+		"K1Groups":     buildK1Groups(checks, rules, fixesWeek, sc),
+		"K1Flat":       k1Flat(buildK1Groups(checks, rules, fixesWeek, sc)),
+		"K1Radar":      k1Radar(checks),
+		"K1Rail":       buildK1Rail(pct, compliant, inScope, partly, trend, venues, h.cfg.ComplianceReportsCustomers(), now),
+		"Title":        "Compliance",
+		"Tab":          tab,
+		"Pct":          pct,
+		"InScope":      inScope,
+		"Compliant":    compliant,
+		"Failing":      inScope - compliant,
+		"Partly":       partly,
+		"NotReporting": notReporting,
+		"RecOnly":      recOnly,
+		"Checks":       checks,
+		"Venues":       venues,
+		"List":         list,
+		"Show":         filter,
+		"CheckF":       checkF,
+		"CheckName":    checkName,
+		"Counts":       counts,
+		"Scored":       len(devices),
 	})
 }
 
@@ -357,6 +363,9 @@ func compDeviceViews(rules compRules, results map[db.ComplianceResultKey]db.Comp
 		v := compDeviceView{ID: d.ID, Serial: d.SerialNumber, Venue: d.RestaurantName, Compliant: true}
 		deviceChecks, deviceUnknown := 0, 0
 		for _, res := range rs {
+			if res.CheckID == "checked_in" && res.State == db.ComplianceFail {
+				v.NotReporting = true // silent devices are not scored: that is availability, not compliance
+			}
 			c, ok := checkByID[res.CheckID]
 			if !ok {
 				continue

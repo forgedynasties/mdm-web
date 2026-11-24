@@ -35,6 +35,23 @@
     }
     return 20;
   }
+  // The fades are rectangles painted over the pane's own edge, so they must carry the pane's rounded
+  // corners (or those of the card the pane fills), or they square the corners off (24 Nov 2026:
+  // "some panes have no border radius").
+  function radiiOf(p) {
+    var r = p.getBoundingClientRect(), out = { tl: 0, tr: 0, bl: 0, br: 0 };
+    for (var n = p, i = 0; n && n.nodeType === 1 && i < 5; n = n.parentElement, i++) {
+      var cs = getComputedStyle(n), b = n.getBoundingClientRect();
+      var tl = parseFloat(cs.borderTopLeftRadius) || 0, tr = parseFloat(cs.borderTopRightRadius) || 0, bl = parseFloat(cs.borderBottomLeftRadius) || 0, br = parseFloat(cs.borderBottomRightRadius) || 0;
+      if (!(tl || tr || bl || br)) continue;
+      var L = Math.abs(b.left - r.left) <= 2, R = Math.abs(b.right - r.right) <= 2, T = Math.abs(b.top - r.top) <= 2, B = Math.abs(b.bottom - r.bottom) <= 2;
+      if (T && L) out.tl = Math.max(out.tl, tl);
+      if (T && R) out.tr = Math.max(out.tr, tr);
+      if (B && L) out.bl = Math.max(out.bl, bl);
+      if (B && R) out.br = Math.max(out.br, br);
+    }
+    return out;
+  }
   function mk(cls) { var d = document.createElement('div'); d.className = cls; d.setAttribute('aria-hidden', 'true'); document.body.appendChild(d); return d; }
 
   function track(p) {
@@ -59,10 +76,10 @@
   }
   function place(p, t) {
     var r = p.getBoundingClientRect(), more = p.scrollHeight - p.clientHeight - p.scrollTop > 6, back = p.scrollTop > 6;
-    var z = zOf(p), bg = bgOf(p), w = p.clientWidth;
-    [[t.top, back, r.top, 'to bottom'], [t.bot, more, r.bottom - 36, 'to top']].forEach(function (a) {
+    var z = zOf(p), bg = bgOf(p), w = p.clientWidth, rd = radiiOf(p);
+    [[t.top, back, r.top, 'to bottom', rd.tl + 'px ' + rd.tr + 'px 0 0'], [t.bot, more, r.bottom - 36, 'to top', '0 0 ' + rd.br + 'px ' + rd.bl + 'px']].forEach(function (a) {
       var el = a[0], on = a[1] && r.width > 0 && r.bottom > 0 && r.top < innerHeight;
-      el.style.cssText = 'left:' + r.left + 'px;width:' + w + 'px;top:' + a[2] + 'px;z-index:' + z + ';background:linear-gradient(' + a[3] + ',' + bg + ',transparent);opacity:' + (on ? 1 : 0);
+      el.style.cssText = 'left:' + r.left + 'px;width:' + w + 'px;top:' + a[2] + 'px;z-index:' + z + ';border-radius:' + a[4] + ';background:linear-gradient(' + a[3] + ',' + bg + ',transparent);opacity:' + (on ? 1 : 0);
     });
     if (t.chip) {
       var n = remaining(p), on = more && n > 0;

@@ -32,6 +32,21 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.67.0",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Compliance is more lenient: devices that have not checked in for 72 hours are left out of the score (shown apart, not failed); the required checks are USB debugging off, wireless adb off, release build, Device Owner, firmware on the approved build and checked in; root, encryption and SELinux are measured on our own firmware only; the other integrity checks (unknown sources, locked) are advice.",
+			"Releases: the arrow on a release opens the release page as a panel that slides over the list, and closes with the close button, Esc or a click outside.",
+		},
+	},
+	{
+		Version: "1.66.8",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Scroll fades keep the rounded corners of the pane or card they sit on, so panes no longer look square at the edge.",
+		},
+	},
+	{
 		Version: "1.66.7",
 		Date:    "2026-11-24",
 		Changes: []string{
