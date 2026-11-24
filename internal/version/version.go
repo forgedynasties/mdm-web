@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.6",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"API: DELETE /api/v1/releases/{id}/packages/{pid} removes a package from a release (the file in S3 stays).",
+		},
+	},
+	{
 		Version: "1.66.5",
 		Date:    "2026-11-24",
 		Changes: []string{

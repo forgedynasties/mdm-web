@@ -668,6 +668,7 @@ func main() {
 	mux.Handle("POST /api/v1/releases", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.CreateRelease))))
 	mux.Handle("GET /api/v1/releases/{id}", adminAuth(http.HandlerFunc(apiHandler.GetRelease)))
 	mux.Handle("POST /api/v1/releases/{id}/packages", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.AddReleasePackage))))
+	mux.Handle("DELETE /api/v1/releases/{id}/packages/{pid}", adminAuth(http.HandlerFunc(apiHandler.DeleteReleasePackage)))
 	mux.Handle("POST /api/v1/releases/delete", adminAuth(middleware.MaxBytes(64<<10, http.HandlerFunc(apiHandler.DeleteReleases))))
 	mux.Handle("POST /api/v1/releases/{id}/publish", adminAuth(http.HandlerFunc(apiHandler.PublishRelease)))
 

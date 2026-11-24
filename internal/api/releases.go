@@ -354,3 +354,37 @@ func (h *Handler) DeleteReleases(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"dry_run": dry, "releases": out})
 }
+
+// DeleteReleasePackage (admin key): DELETE /api/v1/releases/{id}/packages/{pid} removes one OTA package
+// record from a release, as the dashboard's package delete does. The package's file in S3 is left alone,
+// so the same URL can be added again. A package an update was made from can't be removed (409).
+func (h *Handler) DeleteReleasePackage(w http.ResponseWriter, r *http.Request) {
+	rel, ok := h.releaseFromPath(w, r)
+	if !ok {
+		return
+	}
+	pid, err := strconv.Atoi(r.PathValue("pid"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid package id"})
+		return
+	}
+	pkgs, err := h.db.ListPackagesByRelease(r.Context(), rel.ID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	found := false
+	for _, p := range pkgs {
+		found = found || p.ID == pid
+	}
+	if !found {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "no such package on this release"})
+		return
+	}
+	if err := h.db.DeleteOTAPackage(r.Context(), pid); err != nil {
+		writeJSON(w, http.StatusConflict, map[string]string{"error": "the package could not be deleted (an update may have been made from it)"})
+		return
+	}
+	_ = h.db.InsertAudit(r.Context(), "api", "release.package_delete", strconv.Itoa(rel.ID), rel.Version+" package "+strconv.Itoa(pid))
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": pid, "release": rel.Version})
+}
