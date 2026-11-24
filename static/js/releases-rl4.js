@@ -112,9 +112,8 @@ function rl4NewClose() {
       });
       if (!keep) srcSel.value = '';
     }
-    [prod, ver, dev, url, q].forEach(function (e) { if (e) e.addEventListener('input', function () { opts(); sum(); }); });
+    [prod, ver, url, q].forEach(function (e) { if (e) e.addEventListener('input', function () { opts(); sum(); }); });
     prod.addEventListener('change', function () { opts(); sum(); });
-    dev.addEventListener('change', sum);
     form.addEventListener('rl4:change', sum);
     opts(); sum();
   }
