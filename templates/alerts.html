@@ -54,7 +54,7 @@
 .alx-pager .pg-info{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 /* Problems: one card per device (or per restaurant outage), symptoms as chips and
-   the workflow — assign, acknowledge, snooze, resolve with a reason — in small menus. */
+   the workflow — acknowledge, resolve with a reason — in small menus. */
 .alx-syms{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
 .alx-sym{font-size:11.5px;font-weight:600;color:var(--muted);background:var(--surface-2,var(--bg));border:1px solid var(--border);border-radius:99px;padding:2px 9px}
 .alx-sym.critical{color:var(--danger);border-color:var(--danger-bg);background:var(--danger-bg)}
@@ -124,6 +124,7 @@
   <span class="isl-t">Alerts</span>
   <span class="isl-s"><a href="/alerts?show=open"><b>{{.ActiveCount}}</b> problem{{if ne .ActiveCount 1}}s{{end}}</a>{{if .AlL1.Needs}} · <a class="{{if .AlL1.Crit}}d{{else}}w{{end}}" href="/alerts?show=needs">{{.AlL1.Needs}} need{{if eq .AlL1.Needs 1}}s{{end}} action</a>{{end}}{{if .AlL1.Crit}} · <span class="d">{{.AlL1.Crit}} critical</span>{{end}}</span>
   <span class="isl-acts">
+    {{if and .ActiveCount (canAdmin .Role)}}<form action="/alerts/ack-all" method="POST" onsubmit="return confirm('Acknowledge every open alert? They stay on the list, marked as seen, and stop counting as needing action.')"><button type="submit" class="cc-btn">Acknowledge all</button></form>{{end}}
     {{if or (and .ActiveCount (canOperate .Role)) (canAdmin .Role)}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
@@ -146,7 +147,6 @@
     {{template "al-view" (dict "Crashes" $crashes "Key" "needs" "Name" "Needs action" "N" $a.Needs "Dot" (or (and $a.Crit "bad") (and $a.Needs "warn") "ok") "Title" "Needs action" "Dev" $root.DeviceFilter)}}
     {{template "al-view" (dict "Crashes" $crashes "Key" "open" "Name" "Everything open" "N" $a.Open "Dot" "info" "Title" "Everything open" "Dev" $root.DeviceFilter)}}
     {{template "al-view" (dict "Crashes" $crashes "Key" "acked" "Name" "Acknowledged" "N" $a.Acked "Dot" "muted" "Title" "Acknowledged" "Dev" $root.DeviceFilter)}}
-    {{template "al-view" (dict "Crashes" $crashes "Key" "snoozed" "Name" "Snoozed" "N" $a.Snoozed "Dot" "muted" "Title" "Snoozed" "Dev" $root.DeviceFilter)}}
     <button type="button" class="fleet-rail-item{{if $crashes}} on{{end}}" data-al-crashes aria-pressed="{{if $crashes}}true{{else}}false{{end}}"><span class="dot {{if .CrashCount}}bad{{else}}muted{{end}}"></span><span class="nm">Crashes · 7 days</span><span class="ct">{{.CrashCount}}</span></button>
     {{if $a.Kinds}}<div class="fleet-rail-cap">By problem</div>
     {{range $a.Kinds}}{{template "al-view" (dict "Crashes" $crashes "Key" .Key "Name" .Label "N" .N "Dot" "warn" "Title" .Label "Dev" $root.DeviceFilter)}}{{end}}{{end}}
@@ -223,18 +223,21 @@
       <button type="button" class="fq" data-clc="atvenue" aria-pressed="false">At a venue <span class="n">{{$a.AtVenue}}</span></button>
       {{if $a.Closed}}<button type="button" class="fq" data-clc="closed" aria-pressed="false">After hours <span class="n">{{$a.Closed}}</span></button>{{end}}
       {{if $a.NewSince}}<button type="button" class="fq" data-clc="newsince" aria-pressed="false">New since acknowledged <span class="n">{{$a.NewSince}}</span></button>{{end}}
-      <button type="button" class="fq" data-clc="mine" aria-pressed="false">Mine <span class="n">{{$a.Mine}}</span></button>
-      <button type="button" class="fq" data-clc="unassigned" aria-pressed="false">Nobody's <span class="n">{{$a.Unassigned}}</span></button>
       <button type="button" class="fq-clear" data-cl-clear hidden>Clear</button>
     </div>
     {{if $a.Rows}}
+    <div class="pl-bulk al-bulk" id="al-bulk" hidden>
+      <b id="al-bulk-n">0 selected</b><span class="sp"></span>
+      <form action="/alerts/problem" method="POST" id="al-bulk-f"><input type="hidden" name="ids" id="al-bulk-ids"><input type="hidden" name="op" value="ack"><button type="submit" class="cc-btn sm primary">Acknowledge selected</button></form>
+      <button type="button" class="cc-btn sm" id="al-bulk-clear">Clear</button>
+    </div>
     <div class="card cl-card"><div class="ft-wrap"><table class="ft cl-ft al-ft">
       <thead><tr>
+        <th scope="col" class="ft-cb" style="width:40px"><input type="checkbox" id="al-all" aria-label="Select all"></th>
         <th scope="col">Problem</th>
         <th scope="col" style="width:150px">Device</th>
         <th scope="col" style="width:160px">Venue</th>
         <th scope="col" class="ft-num" style="width:72px">Since</th>
-        <th scope="col" style="width:100px">Owner</th>
         <th scope="col" style="width:120px">State</th>
         <th scope="col" class="ft-act" style="width:150px"><span class="sr-only">Actions</span></th>
       </tr></thead>
@@ -287,7 +290,7 @@
         <div class="alx-gm-h">
           <a href="/devices/{{.Serial}}" onclick="event.stopPropagation()">{{.Serial}}</a>
           {{if gt .Occurrences 1}}<span class="alx-occ">×{{.Occurrences}}</span>{{end}}
-          {{if .Muted}}<span class="cc-tag">snoozed</span>{{end}}
+          
           <span class="alx-when">{{timeSince .FiredAt}}</span>
         </div>
         <div class="alx-s">{{.Sentence}}</div>
@@ -320,8 +323,6 @@
       <span class="alx-t">{{$p.Title}}</span>
       {{if $p.AfterHours}}<span class="cc-tag" title="Raised while the restaurant was closed, so it did not page anyone. It goes in the morning digest, and becomes critical if it is still happening when the restaurant opens.">after hours</span>{{end}}
       {{if $p.NewSymptom}}<span class="cc-tag warn" title="Acknowledged, but a new alert has opened on it since">new since acknowledged</span>{{else if $p.Acked}}<span class="cc-tag">acknowledged</span>{{end}}
-      {{if $p.Snoozed}}<span class="cc-tag" title="{{$p.SnoozedTil.Format "Mon 2 Jan 15:04"}}">snoozed · {{timeUntil $p.SnoozedTil}}</span>{{end}}
-      {{if $p.Assignee}}<span class="cc-tag" title="Owner">{{if eq $p.Assignee "restaurant"}}Restaurant{{else}}{{$p.Assignee}}{{end}}</span>{{end}}
       <span class="alx-when">{{timeSince $p.Since}}</span>
     </div>
     {{if $p.Why}}<div class="alx-s">{{$p.Why}}</div>{{end}}
@@ -347,16 +348,6 @@
       {{if $p.KioskExit}}{{if $p.CanAct}}<form method="POST" action="/devices/{{$p.Serial}}/kiosk/relock" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Lock again</button></form><form method="POST" action="/devices/{{$p.Serial}}/kiosk/leave-out" hx-boost="false" style="margin:0"><input type="hidden" name="back" value="/alerts"><button type="submit" class="cc-btn sm">Leave it out</button></form>{{end}}{{end}}
       {{if $p.KeyReset}}<a class="cc-btn sm danger" href="/devices/{{$p.Serial}}#reset-key" title="If the device was just factory reset, this is it asking to come back">Reset its key…</a>{{end}}
       {{if $p.CanAct}}
-      <details class="alx-menu">
-        <summary class="cc-btn sm">Assign</summary>
-        <div class="alx-pop"><form action="/alerts/problem" method="POST">
-          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="assign">
-          <button class="alx-opt" name="value" value="me">Me</button>
-          <button class="alx-opt" name="value" value="restaurant">The restaurant<small>they need to act: power, Wi-Fi, a charger</small></button>
-          {{if $root.Assignees}}<div class="alx-pop-h">People</div>{{range $root.Assignees}}{{if ne .Username $root.Me}}<button class="alx-opt" name="value" value="{{.Username}}">{{.Name}}</button>{{end}}{{end}}{{end}}
-          {{if $p.Assignee}}<button class="alx-opt" name="value" value="">Unassign</button>{{end}}
-        </form></div>
-      </details>
       {{if not $p.Acked}}
       <details class="alx-menu">
         <summary class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Acknowledge</summary>
@@ -367,17 +358,6 @@
         </form></div>
       </details>
       {{end}}
-      <details class="alx-menu">
-        <summary class="cc-btn sm">Snooze</summary>
-        <div class="alx-pop"><form action="/alerts/problem" method="POST">
-          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="snooze">
-          <button class="alx-opt" name="value" value="1">1 hour</button>
-          <button class="alx-opt" name="value" value="4">4 hours</button>
-          <button class="alx-opt" name="value" value="24">1 day</button>
-          <button class="alx-opt" name="value" value="168">1 week</button>
-          {{if $p.Snoozed}}<button class="alx-opt" name="value" value="0">Wake it now</button>{{end}}
-        </form></div>
-      </details>
       <details class="alx-menu">
         <summary class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{if $p.LeftVenue}}It's fine{{else}}Resolve{{end}}</summary>
         <div class="alx-pop"><form action="/alerts/problem" method="POST">
@@ -398,11 +378,12 @@
 {{define "al-view"}}<button type="button" class="fleet-rail-item" data-clf="{{.Key}}" data-title="{{.Title}}" aria-pressed="false"><span class="dot {{.Dot}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.N}}</span></button>{{end}}
 
 {{/* L1: one problem as a table row (dict "R" alL1Row "Root" page data). The workflow
-     stays: Acknowledge with a note, and Assign / Snooze / Resolve with a reason (and the
+     stays: Acknowledge with a note, and Resolve with a reason (and the
      device actions) under ···. */}}
 {{define "alr-row"}}
 {{$p := .R.P}}{{$root := .Root}}
 <tr class="ft-row" id="{{$p.Anchor}}" data-flags="{{.R.Flags}}" data-text="{{.R.Text}}" data-s-since="{{.R.Since}}" data-s-sev="{{.R.Sev}}" data-s-name="{{$p.Title}}"{{if $p.Serial}} data-serial="{{$p.Serial}}" data-ctx="device"{{end}}>
+  <td class="ft-cb">{{if $p.CanAct}}<input type="checkbox" class="al-pick" data-ids="{{$p.IDs}}" aria-label="Select {{$p.Title}}">{{end}}</td>
   <td class="al-what"><b title="{{$p.Title}}"><span class="al-sev {{$p.Severity}}" title="{{if eq $p.Severity "critical"}}Critical{{else if eq $p.Severity "warning"}}Warning{{else}}Info{{end}}"><span class="sr-only">{{$p.Severity}}: </span></span>{{$p.Title}}</b>
     <small{{if $p.Why}} title="{{$p.Why}}"{{end}}>{{if $p.Note}}“{{$p.Note}}” · {{end}}{{$p.Why}}</small>
     <details class="alx-fold-g al-more">
@@ -425,11 +406,9 @@
   <td>{{if $p.Serial}}<a class="al-sn" href="/devices/{{$p.Serial}}">{{$p.Serial}}</a>{{else if gt $p.Devices 1}}{{$p.Devices}} devices{{else}}<span class="muted">—</span>{{end}}</td>
   <td>{{if $p.Restaurant}}{{if $p.RestID}}<a class="al-vn" href="/restaurants/{{$p.RestID}}">{{$p.Restaurant}}</a>{{else}}{{$p.Restaurant}}{{end}}{{else}}<span class="muted">—</span>{{end}}</td>
   <td class="ft-num"><span class="dl-synced">{{timeSince $p.Since}}</span></td>
-  <td>{{if not $p.Assignee}}<span class="muted">Nobody</span>{{else if eq $p.Assignee "restaurant"}}Restaurant{{else}}{{$p.Assignee}}{{end}}</td>
   <td>
     {{if $p.NewSymptom}}<span class="alr-chip hot" title="Acknowledged, but a new alert has opened on it since">new since acknowledged</span>{{else if $p.Acked}}<span class="alr-chip ok">Acknowledged</span>{{else}}<span class="alr-chip">Open</span>{{end}}
     {{if $p.AfterHours}}<span class="alr-chip" title="Raised while the restaurant was closed, so it did not page anyone. It goes in the morning digest, and becomes critical if it is still happening when the restaurant opens.">after hours</span>{{end}}
-    {{if $p.Snoozed}}<span class="alr-chip" title="{{$p.SnoozedTil.Format "Mon 2 Jan 15:04"}}">snoozed · {{timeUntil $p.SnoozedTil}}</span>{{end}}
   </td>
   <td class="alr-act"><div class="alr-act-in">
     {{if $p.Href}}<a class="cc-btn sm" href="{{$p.Href}}">{{$p.HrefLabel}}</a>{{end}}
@@ -447,23 +426,6 @@
     <details class="alx-menu alr-more">
       <summary class="cc-btn sm" aria-label="More for {{$p.Title}}">···</summary>
       <div class="alx-pop">
-        <div class="alx-pop-h">Assign</div>
-        <form action="/alerts/problem" method="POST">
-          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="assign">
-          <button class="alx-opt" name="value" value="me">Me</button>
-          <button class="alx-opt" name="value" value="restaurant">The restaurant<small>they need to act: power, Wi-Fi, a charger</small></button>
-          {{range $root.Assignees}}{{if ne .Username $root.Me}}<button class="alx-opt" name="value" value="{{.Username}}">{{.Name}}</button>{{end}}{{end}}
-          {{if $p.Assignee}}<button class="alx-opt" name="value" value="">Unassign</button>{{end}}
-        </form>
-        <div class="alx-pop-h">Snooze</div>
-        <form action="/alerts/problem" method="POST">
-          <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="snooze">
-          <button class="alx-opt" name="value" value="1">1 hour</button>
-          <button class="alx-opt" name="value" value="4">4 hours</button>
-          <button class="alx-opt" name="value" value="24">1 day</button>
-          <button class="alx-opt" name="value" value="168">1 week</button>
-          {{if $p.Snoozed}}<button class="alx-opt" name="value" value="0">Wake it now</button>{{end}}
-        </form>
         <div class="alx-pop-h">{{if $p.LeftVenue}}It's fine{{else}}Resolve{{end}}: why</div>
         <form action="/alerts/problem" method="POST">
           <input type="hidden" name="ids" value="{{$p.IDs}}"><input type="hidden" name="op" value="resolve">
@@ -516,7 +478,6 @@
       {{/* Episodes are folded into one row now, so say how many times rather than
            repeating the row — and say when a flapper has been snoozed. */}}
       {{if gt .Occurrences 1}}<span class="alx-occ" title="Times this condition has come back">×{{.Occurrences}}</span>{{end}}
-      {{if .Muted}}<span class="cc-tag" title="Snoozed: it keeps coming back, or the list was cleared. It stays quiet until someone resolves it.">snoozed</span>{{end}}
       <span class="alx-when">{{timeSince .FiredAt}}</span>
     </div>
     <div class="alx-s">{{.Sentence}}</div>

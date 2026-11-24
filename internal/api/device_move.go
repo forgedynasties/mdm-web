@@ -367,6 +367,14 @@ const (
 	moveOnlineWithin = 10 * time.Minute // heard from this recently = online, the move can go
 	moveCameBackGap  = 5 * time.Minute  // heard here this long after the move = it came back
 	moveSendsPerTick = 10
+	// A move whose command still says "running" this long after the device said it was enrolling on
+	// the target, while the device keeps checking in here, did not happen: the device never finished
+	// enrolling (23 Nov 2026: ADRB0AAMY00029 was called "came back" with its command still running).
+	moveStallAfter = 10 * time.Minute
+	// A failed or came-back move is tried again by itself, this many times in all, waiting
+	// attempts x moveRetryEvery between tries. After that it stays for a person, with the reason.
+	moveMaxAttempts = 3
+	moveRetryEvery  = 30 * time.Minute
 )
 
 // RunDeviceMoves is the minute job on the server devices leave: it sends pending moves to
@@ -376,7 +384,7 @@ func (h *Handler) RunDeviceMoves(ctx context.Context) {
 	if target == "" {
 		return
 	}
-	moves, err := h.db.ListDeviceMoves(ctx, []string{db.MovePending, db.MoveSent, db.MoveArrived, db.MoveCameBack}, nil)
+	moves, err := h.db.ListDeviceMoves(ctx, []string{db.MovePending, db.MoveSent, db.MoveArrived, db.MoveCameBack, db.MoveFailed}, nil)
 	if err != nil {
 		log.Printf("[move] list: %v", err)
 		return
@@ -402,7 +410,13 @@ func (h *Handler) RunDeviceMoves(ctx context.Context) {
 				_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveCameBack, "checked in here again after it arrived", nil)
 				_ = h.db.InsertAudit(ctx, "device move", "device.move_came_back", m.Serial, "checked in here again after it arrived")
 			}
+		case db.MoveFailed:
+			h.retryMove(ctx, m)
 		case db.MoveCameBack:
+			// Try again by itself when a few tries are left.
+			if h.retryMove(ctx, m) {
+				continue
+			}
 			// Taken for back too early (or back, then gone again): once the target has heard
 			// from it more recently than this server has, it is there.
 			if m.SentAt != nil && m.LastSeenAt != nil {
@@ -551,6 +565,16 @@ func (h *Handler) followMove(ctx context.Context, m db.DeviceMove) {
 			_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MovePending, "the move was never delivered, trying again", nil)
 			_ = h.db.ClearDeviceCustody(ctx, m.DeviceID)
 			return
+		case status == "running" && time.Since(at) > moveStallAfter && m.LastSeenAt != nil && m.LastSeenAt.After(at.Add(2*time.Minute)):
+			// The device said it was enrolling on the target and never finished, and it is still here.
+			why := "the device began enrolling on the new server and never finished"
+			if o := strings.TrimSpace(out); o != "" {
+				why += " (its last word: " + o + ")"
+			}
+			_ = h.db.SetDeviceMoveState(ctx, m.Serial, db.MoveFailed, why, nil)
+			_ = h.db.InsertAudit(ctx, "device move", "device.move_failed", m.Serial, why)
+			_ = h.db.ClearDeviceCustody(ctx, m.DeviceID)
+			return
 		case status != "" && at.After(left):
 			left = at
 		}
@@ -566,4 +590,21 @@ func (h *Handler) followMove(ctx context.Context, m db.DeviceMove) {
 		_ = h.db.InsertAudit(ctx, "device move", "device.move_came_back", m.Serial, why)
 		log.Printf("[move] %s came back: %s", m.Serial, why)
 	}
+}
+
+// retryMove puts a failed or came-back move back to pending after a wait that grows with each
+// try, up to moveMaxAttempts. It reports whether it did. The next send imports the device again and
+// makes a fresh token, so a stale one is no reason to give up.
+func (h *Handler) retryMove(ctx context.Context, m db.DeviceMove) bool {
+	if m.Attempts >= moveMaxAttempts || time.Since(m.UpdatedAt) < time.Duration(m.Attempts)*moveRetryEvery {
+		return false
+	}
+	note := fmt.Sprintf("trying again (try %d of %d); last time: %s", m.Attempts+1, moveMaxAttempts, strings.TrimSpace(m.Note))
+	if err := h.db.SetDeviceMoveState(ctx, m.Serial, db.MovePending, note, nil); err != nil {
+		return false
+	}
+	_ = h.db.InsertAudit(ctx, "device move", "device.move_retry", m.Serial, note)
+	_ = h.db.ClearDeviceCustody(ctx, m.DeviceID)
+	log.Printf("[move] %s: %s", m.Serial, note)
+	return true
 }

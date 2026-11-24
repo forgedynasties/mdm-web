@@ -32,6 +32,15 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.66.4",
+		Date:    "2026-11-24",
+		Changes: []string{
+			"Alerts: tick problems and acknowledge them together; super admins get an Acknowledge all button in the header.",
+			"Alerts: assigning and snoozing problems are gone to keep it simple. A problem is acknowledged or resolved.",
+			"Moving devices to another server: a move that the device started and never finished is now reported as failed with its last words, instead of \"came back\", and failed or came-back moves are tried again by themselves (3 tries, 30 and 60 minutes apart).",
+		},
+	},
+	{
 		Version: "1.66.3",
 		Date:    "2026-11-24",
 		Changes: []string{
