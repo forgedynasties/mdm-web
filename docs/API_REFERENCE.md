@@ -253,6 +253,7 @@ Required: `name, product_code, model_code, batch_month (1–12), batch_year (0�
 | POST | `/api/v1/enrollment-profiles` | Create one and mint its token |
 | GET | `/api/v1/commands` | List commands |
 | POST | `/api/v1/commands` | Create + fan out to targets |
+| POST | `/api/v1/lock/off-all` | Lock off for every venue: deletes the lock rules that reach venue devices (not a rule on one serial) and releases the devices they locked; devices locked by hand stay. `?dry=1` lists the rules only; otherwise body `{"confirm":"all venues"}`. Audited as `lock.off_all` |
 | GET | `/api/v1/commands/{id}` | Command + per-device delivery status |
 | POST | `/api/v1/commands/{id}/cancel` | Cancel for `{"serials":[…]}` (or every device it still runs on): marked cancelled, `cancel_command` pushed so a download aborts; an install past downloading may finish |
 
