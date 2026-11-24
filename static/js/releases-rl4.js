@@ -112,9 +112,8 @@ function rl4NewClose() {
       });
       if (!keep) srcSel.value = '';
     }
-    [prod, ver, dev, url, q].forEach(function (e) { if (e) e.addEventListener('input', function () { opts(); sum(); }); });
+    [prod, ver, url, q].forEach(function (e) { if (e) e.addEventListener('input', function () { opts(); sum(); }); });
     prod.addEventListener('change', function () { opts(); sum(); });
-    dev.addEventListener('change', sum);
     form.addEventListener('rl4:change', sum);
     opts(); sum();
   }
@@ -239,7 +238,7 @@ function rl4NewClose() {
     // the open-as-page link is the sheet's own header now
     host.querySelectorAll('a.rl4-ib[href^="/releases/"]').forEach(function (a) { a.remove(); });
     root.appendChild(s); sheet = s;
-    requestAnimationFrame(function () { requestAnimationFrame(function () { s.classList.add('on'); }); });
+    void s.offsetWidth; setTimeout(function () { s.classList.add('on'); }, 20);
     s.addEventListener('click', function (e) { if (e.target.closest('[data-rl4-close]') || e.target.classList.contains('rl4-ps-scrim')) close(); });
     document.addEventListener('keydown', onKey, true);
   }
