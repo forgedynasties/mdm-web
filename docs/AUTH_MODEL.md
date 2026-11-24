@@ -66,18 +66,18 @@ to their venues.
 | Role key (label) | Ceiling | Managed by |
 |---|---|---|
 | `admin` (Super admin) | everything, everywhere; rules never apply | admin |
-| `fleet_admin` (Admin) | fleet manager + `ota` by default; no `shell`, no Releases / Lineup / Settings | admin |
-| `fleet_manager` (Fleet manager) | operator + `remote` by default, app library, client updates, Users pages; never `ota` (firmware is Admin and Super admin only, 26 Oct 2026) | admin, Admin |
-| `operator` (Operator) | device actions, lock, notes, queue, logcat, venues / groups / lock rules; `remote` only by rule | Fleet manager up |
-| `support` (Support) | `view`, `screenshot`, `reboot`, `kiosk`, `lost_mode`, `notes`, `alerts` | Fleet manager up |
-| `viewer` (Viewer) | `view` (no screenshot) | Fleet manager up |
-| `owner` (Owner) | on their venues only: `view`, `screenshot`, `reboot`, `kiosk`, `lost_mode`, `alerts`; owner home; invites / removes their own staff (`/team/*`) | Fleet manager up |
-| `staff` (Staff) | on their venue only: `view`, `reboot`, `lost_mode`, `alerts`; owner home | Fleet manager up, their owner |
+| `fleet_admin` (Admin) | Ops + `ota` by default; no `shell`, no Releases / Lineup / Settings | admin |
+| `fleet_manager` (Ops) | operator + `remote` by default, app library, client updates, Users pages; never `ota` (firmware is Admin and Super admin only, 26 Oct 2026) | admin, Admin |
+| `operator` (Operator) | device actions, lock, notes, queue, logcat, venues / groups / lock rules; `remote` only by rule | Ops up |
+| `support` (Support) | `view`, `screenshot`, `reboot`, `kiosk`, `lost_mode`, `notes`, `alerts` | Ops up |
+| `viewer` (Viewer) | `view` (no screenshot) | Ops up |
+| `owner` (Owner) | on their venues only: `view`, `screenshot`, `reboot`, `kiosk`, `lost_mode`, `alerts`; owner home; invites / removes their own staff (`/team/*`) | Ops up |
+| `staff` (Staff) | on their venue only: `view`, `reboot`, `lost_mode`, `alerts`; owner home | Ops up, their owner |
 
 `super_op` and `user_manager` were folded into `fleet_manager` by migration. A customer's
 venues are its `allow view` rules on restaurants (`decideCustomer`); no other rule widens it.
 
-Route wrappers still gate by role first (`requireAuth`, `requireSupport` = support up, `requireOperatorOrAdmin` / `requireAdminOrOperator` = operator up, `requireOTA` = fleet manager up, `requireUserManager` / `requireAccountAdmin` = fleet manager up, `requireReleaseAdmin` / `requireStrictAdmin` = admin). Rules only ever narrow what a role permits.
+Route wrappers still gate by role first (`requireAuth`, `requireSupport` = support up, `requireOperatorOrAdmin` / `requireAdminOrOperator` = operator up, `requireOTA` = Ops up, `requireUserManager` / `requireAccountAdmin` = Ops up, `requireReleaseAdmin` / `requireStrictAdmin` = admin). Rules only ever narrow what a role permits.
 
 ### 4.2 Access rules (`access_grants`)
 

@@ -263,7 +263,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/backend/placements", h.asAdminAPI(h.AdminBackendPlacements))
 	mux.HandleFunc("POST /api/v1/admin/backend/place", h.asAdminAPI(h.BackendPlaceSave))
 	mux.HandleFunc("POST /api/v1/admin/backend/move/{id}", h.asAdminAPI(h.AdminBackendMove))
-	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.deviceRoute("view", h.DeviceSetRestaurant)))
+	post("POST /devices/{serial}/restaurant", h.requireOps(h.deviceRoute("view", h.DeviceSetRestaurant)))
 	post("POST /groups/{id}/devices/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupBulkRemoveDevice)))
 	post("POST /groups/{id}/devices/{serial}/remove", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupRemoveDevice)))
 	post("POST /groups/{id}/commands", h.collectionRoute("group", h.requireAdminOrOperator(h.GroupCommandCreate)))
