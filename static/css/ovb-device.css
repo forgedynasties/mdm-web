@@ -410,6 +410,18 @@ html.shell .dd-bento.bt-stack .ovb{flex:none!important}
 .dd-bento #dd-wifi .wf-right{min-width:0;background:var(--ovb-page,var(--bg));border-radius:16px;overflow:hidden}
 .dd-bento #dd-wifi .wf-right .wf-sec{border-top:0;padding-top:12px}
 @media (max-width:1100px),(max-height:639px){.dd-bento #dd-wifi .wf-body{display:block}.dd-bento #dd-wifi .wf-right{margin-top:12px}}
+/* In the drawer (25 Nov 2026: the two columns squeezed Saved networks to ~250 px: names broke
+   over two lines, the signal ran under ⋯, and the ⋯ menu was cut off by the card): one column,
+   the connection and its signal first, then the saved networks at full width; a name stays on
+   one line with its state under it; the card lets the menu out. */
+.dd-bento #dd-panel-network #dd-wifi .wf-body{grid-template-columns:minmax(0,1fr)}
+.dd-bento #dd-panel-network #dd-wifi .wf-right{overflow:visible}
+.dd-bento #dd-panel-network #dd-wifi .wf-net{align-items:center}
+.dd-bento #dd-panel-network #dd-wifi .wf-n{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;row-gap:2px}
+.dd-bento #dd-panel-network #dd-wifi .wf-n>b{flex:0 1 auto;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-bento #dd-panel-network #dd-wifi .wf-n>small{flex-basis:100%}
+.dd-bento #dd-panel-network #dd-wifi .wf-n .wf-tag{white-space:nowrap}
+.dd-bento #dd-panel-network #dd-wifi .wf-more{flex:none}
 
 /* The Graphs sheet (the graph's larger view) is wider than the other sheets: a chart needs the
    room (20 Nov 2026). Its title strip follows. */
