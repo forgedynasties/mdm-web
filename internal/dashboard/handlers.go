@@ -943,6 +943,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"batteryData": showBatteryData, // Battery data page links on/off (hidden_features.go)
 		"venueReport": showVenueReport, // venue Weekly report links on/off (hidden_features.go)
 		"labButtons":  showLabButtons,  // device page Open in lab / Lab view on/off (hidden_features.go)
+		"adbButton":   showAdbButton,   // device page island adb button on/off (hidden_features.go)
 		"ctxCaps":     ctxCaps,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.

@@ -184,13 +184,28 @@ html.shell .dd-bento .ovb{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) a
 .dd-bento .bt-dock{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:35}
 .dd-bento .bt-wrap{padding-right:90px}
 body.bt-sheet-open .dd-bento .bt-dock{z-index:36}
-.dd-bento .bt-scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:opacity .2s;z-index:31}
-body.bt-sheet-open .dd-bento .bt-scrim{opacity:1;pointer-events:auto}
-.dd-bento .bt-sheet-h{position:fixed;top:78px;left:50%;transform:translateX(-50%);width:min(70vw,960px);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33;animation:btslide .3s cubic-bezier(.2,.8,.2,1)}
+/* R1 · the sheet pushes (user, 25 Nov 2026: "R1 is fine", "have the d1 behaviour for all those entries"):
+   it docks between the page and the dock, the bento makes room, nothing is dimmed. --bt-w is its width
+   (dragged with .bt-grip, kept per browser). Was: a centred overlay over a scrim. */
+.dd-bento{--bt-w:var(--bt-wu,clamp(380px,42vw,880px));--bt-r:104px}
+.dd-bento.bt-dragging .bt-wrap{transition:none}
+.dd-bento .bt-scrim{display:none!important}
+.dd-bento .bt-sheet-h{position:fixed;top:78px;right:var(--bt-r);width:var(--bt-w);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33;animation:btslide .26s cubic-bezier(.2,.8,.2,1)}
 body.bt-sheet-open .dd-bento .bt-sheet-h{display:flex}
-.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;left:50%;transform:translateX(-50%);width:min(70vw,960px);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-12px 8px 40px rgba(0,0,0,.18);animation:btslide .3s cubic-bezier(.2,.8,.2,1)}
-.dd-bento .bt-sheet-h{box-shadow:-12px -4px 40px rgba(0,0,0,.10)}
-@keyframes btslide{from{transform:translate(-50%,28px) scale(.98);opacity:0}to{transform:translate(-50%,0) scale(1);opacity:1}}
+.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;right:var(--bt-r);width:var(--bt-w);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-10px 10px 34px rgba(0,0,0,.10);animation:btslide .26s cubic-bezier(.2,.8,.2,1)}
+.dd-bento .bt-sheet-h{box-shadow:-10px -4px 34px rgba(0,0,0,.08)}
+body.bt-sheet-open .dd-bento .bt-wrap{padding-right:calc(var(--bt-w) + var(--bt-r) + 4px)}
+.dd-bento .bt-grip{display:none}
+body.bt-sheet-open .dd-bento .bt-grip{display:block;position:fixed;top:78px;bottom:104px;right:calc(var(--bt-r) + var(--bt-w) - 5px);width:10px;cursor:ew-resize;z-index:34}
+.dd-bento .bt-grip::after{content:"";position:absolute;left:4px;top:50%;width:3px;height:44px;margin-top:-22px;border-radius:3px;background:var(--border)}
+.dd-bento .bt-grip:hover::after,.dd-bento .bt-grip.drag::after{background:var(--accent)}
+/* Shell: the console fills the sheet, the terminal takes what is left */
+.dd-bento #dd-panel-shell:not([hidden]){padding:0;display:flex;flex-direction:column;overflow:hidden}
+.dd-bento #bt-shell-slot{flex:1;min-height:0;display:flex;flex-direction:column}
+.dd-bento #bt-shell-slot .sh-card{flex:1;min-height:0;margin:0;border:0;box-shadow:none;border-radius:0 0 22px 22px;display:flex;flex-direction:column}
+.dd-bento #bt-shell-slot .sh-pane:not([hidden]){flex:1;min-height:0;display:flex;flex-direction:column}
+.dd-bento #bt-shell-slot .sh-xterm{flex:1;min-height:0}
+@keyframes btslide{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
 }
 @media (max-width:1100px),(max-height:639px){
 .dd-bento .bt-dock{flex-direction:row;flex-wrap:wrap;margin:0 0 10px;padding:6px}
@@ -199,8 +214,7 @@ body.bt-sheet-open .dd-bento .bt-sheet-h{display:flex}
 
 /* N4 · the bento recedes (user, 18 Nov 2026): the page steps back and softens while the sheet
    comes forward. Entry only: the panels are shown and hidden by setDeviceTab, which has no exit. */
-.dd-bento .bt-wrap{transition:transform .3s cubic-bezier(.2,.8,.2,1),filter .3s ease,opacity .3s ease}
-body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);opacity:.85}
+.dd-bento .bt-wrap{transition:padding-right .26s cubic-bezier(.2,.8,.2,1)}
 .dd-bento .bt-scrim{background:rgba(0,0,0,.12);backdrop-filter:blur(2px);transition:opacity .3s ease}
 @media (prefers-reduced-motion:reduce){.dd-bento .bt-wrap,.dd-bento .bt-scrim{transition:none}.dd-bento .dd-panel,.dd-bento .bt-sheet-h{animation:none!important}}
 /* P1 · what the strip carried now lives in Details; the pad has its own tile (pad devices only) */
@@ -351,8 +365,7 @@ body.bt-sheet-open .dd-bento .bt-wrap{transform:scale(.965);filter:blur(1.5px);o
 /* The Graphs sheet (the graph's larger view) is wider than the other sheets: a chart needs the
    room (20 Nov 2026). Its title strip follows. */
 @media (min-width:1101px) and (min-height:640px){
-body:has(#dd-panel-graphs:not([hidden])) .dd-bento .bt-sheet-h,
-html body .dd-bento .dd-panel#dd-panel-graphs:not([hidden]):not(#nx){width:min(calc(100vw - 260px),1560px)}
+body:has(#dd-panel-graphs:not([hidden])) .dd-bento{--bt-w:min(calc(100vw - 360px),1460px)}
 }
 
 /* Health sheet, less repetition (20 Nov 2026: "feels redundant"): the to-do rows already name every

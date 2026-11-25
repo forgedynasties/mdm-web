@@ -38,7 +38,10 @@ var Changelog = []Entry{
 			"Device page: one view, Bento. The Standard and Classic views and the Device page view setting on your profile are gone.",
 			"Device page: the Lock buttons are hidden for everyone, so no one can lock a device from it (Lock, the ⋯ menu's Lock item and Lock again). The rest of Lock is unchanged.",
 			"Battery data and a venue's Weekly report are no longer linked from the dashboard.",
-			"Device page: Open in lab is gone; super admins get Shell in the ⋯ menu instead, which opens the device's shell.",
+			"Device page: Open in lab is gone. Super admins get Shell in the dock on the right; it opens beside the page like the other entries, and the session ends when the sheet closes.",
+			"Device page: the dock's entries (Apps, Activity, Network, Location, About, Notes, Shell) open as a sheet beside the page instead of over it, so the tiles stay in view. Drag the sheet's edge to resize it.",
+			"Device page: the adb button is hidden; Wireless adb… in the ⋯ menu still opens it.",
+			"Venue page: the rail is Overview and Settings; Settings shows every setting as a card with its value, grouped, and a card opens that setting.",
 		},
 	},
 	{

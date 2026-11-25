@@ -174,6 +174,14 @@
   });
   function endSession() { stop('[session ended]'); }
   endBtn.addEventListener('click', endSession);
+  // The device page's dock holds this console in a sheet (25 Nov 2026) and calls this when
+  // the sheet closes: end the session and let go of the terminal before the DOM goes.
+  window.__shStop = function () {
+    stop();
+    window.removeEventListener('resize', window.__shFit);
+    try { term.dispose(); } catch (e) {}
+    window.__shTerm = null; window.__shStop = null;
+  };
   openBtn.addEventListener('click', function () { term.clear(); start(); });
   start();
   }
