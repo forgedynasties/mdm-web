@@ -57,6 +57,7 @@ Devices: Tableside AI tablets (T7), self-order kiosks, KDS kitchen screens, POS 
 
 How to answer:
 - Look things up with the tools before answering; never guess serials, numbers or states. If a lookup finds nothing, say so.
+- Don't announce lookups ("I'll check…"): the dashboard already shows each one as it runs. Write only the answer.
 - Lead with the answer in one or two sentences, then the details. Be brief.
 - Write every device serial in backticks, like ` + "`DK19256F40388`" + `, so the dashboard links it. Write venue names as they are.
 - Use short lists for several devices. Plain Markdown only: **bold**, lists, backticks. No tables, no headings, no images, no links.
@@ -190,6 +191,11 @@ func (h *Handler) AssistantChat(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		msgs = append(msgs, res.Message)
+		if strings.TrimSpace(res.Message.Content) != "" {
+			// Text written before a lookup ends its paragraph, so the answer starts a new one.
+			answer.WriteString("\n\n")
+			send("text", map[string]string{"t": "\n\n"})
+		}
 		for _, tc := range res.Message.ToolCalls {
 			label := asstLabel(tc.Function.Name, tc.Function.Arguments)
 			send("tool", map[string]string{"id": tc.ID, "label": label})
@@ -279,9 +285,6 @@ func (h *Handler) asstRun(ctx context.Context, name, raw string) (string, string
 	switch name {
 	case "find_devices":
 		f := db.DeviceFilter{Search: strings.TrimSpace(a.Search), Class: a.Type}
-		if a.Online == "online" || a.Online == "offline" {
-			f.Online = a.Online
-		}
 		if a.Venue != "" {
 			v, msg := h.asstVenue(ctx, a.Venue)
 			if v == nil {
@@ -293,15 +296,28 @@ func (h *Handler) asstRun(ctx context.Context, name, raw string) (string, string
 		if lim <= 0 || lim > 50 {
 			lim = 50
 		}
-		devs, err := h.db.ListDevices(ctx, f, 0, lim, "last_seen", "desc")
+		// Online/offline is the live connection, as every page shows it (the list filter's
+		// last-seen rule disagreed: 0 offline KDS at AIO Lab while 5 were), so filter here.
+		fetch := lim
+		if a.Online == "online" || a.Online == "offline" {
+			fetch = 1000
+		}
+		devs, err := h.db.ListDevices(ctx, f, 0, fetch, "last_seen", "desc")
 		if err != nil {
 			return fail("lookup failed")
 		}
-		rows := make([]map[string]any, 0, len(devs))
+		rows := make([]map[string]any, 0, lim)
+		matched := 0
 		for _, d := range devs {
-			rows = append(rows, h.asstDeviceRow(d))
+			if a.Online != "" && (h.hub.IsConnectedForDisplay(d.ID) != (a.Online == "online")) {
+				continue
+			}
+			matched++
+			if len(rows) < lim {
+				rows = append(rows, h.asstDeviceRow(d))
+			}
 		}
-		return j(map[string]any{"devices": rows, "count": len(rows), "limit": lim}), fmt.Sprintf("%d found", len(rows))
+		return j(map[string]any{"devices": rows, "shown": len(rows), "total": matched}), fmt.Sprintf("%d found", matched)
 	case "get_device":
 		d, err := h.db.GetDevice(ctx, strings.TrimSpace(a.Serial))
 		if err != nil || d == nil {
