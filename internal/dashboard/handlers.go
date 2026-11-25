@@ -940,6 +940,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// alerts, notes. Support and up; mirrors requireSupport.
 		"canSupport": roleCanSupport,
 		"lockButtons": lockButtons, // device page Lock controls on/off (lock_buttons.go)
+		"batteryData": showBatteryData, // Battery data page links on/off (hidden_features.go)
+		"venueReport": showVenueReport, // venue Weekly report links on/off (hidden_features.go)
 		"ctxCaps":    ctxCaps,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.
