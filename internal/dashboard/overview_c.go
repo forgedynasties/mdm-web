@@ -883,7 +883,7 @@ func buildOvBanner(att []attentionRow, attTotal int, groups []db.GroupHealth, cr
 	var spike []ovTodo
 	if tr.Crashes24h >= 5 && tr.Crashes24h > tr.CrashesPrev {
 		spike = append(spike, ovTodo{Kind: "spike", Tone: "o", Title: fmt.Sprintf("%d crashes in the last 24 h", tr.Crashes24h),
-			Sub: fmt.Sprintf("up from %d the day before", tr.CrashesPrev), Action: "See crashes", Href: "/fleet-health"})
+			Sub: fmt.Sprintf("up from %d the day before", tr.CrashesPrev), Action: "See crashes", Href: "/alerts?view=crashes"})
 	}
 
 	all := append(append(append(append(crit, venue...), spike...), warn...), info...)
