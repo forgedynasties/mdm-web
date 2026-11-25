@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.70.1",
+		Date:    "2026-11-25",
+		Changes: []string{
+			"Device page: one view, Bento. The Standard and Classic views and the Device page view setting on your profile are gone.",
+			"Device page: the Lock buttons are hidden for everyone, so no one can lock a device from it (Lock, the ⋯ menu's Lock item and Lock again). The rest of Lock is unchanged.",
+		},
+	},
+	{
 		Version: "1.70.0",
 		Date:    "2026-11-25",
 		Changes: []string{

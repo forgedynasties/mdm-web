@@ -939,6 +939,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// canSupport: the safe device actions — screenshot, reboot, lock, lost mode,
 		// alerts, notes. Support and up; mirrors requireSupport.
 		"canSupport": roleCanSupport,
+		"lockButtons": lockButtons, // device page Lock controls on/off (lock_buttons.go)
 		"ctxCaps":    ctxCaps,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.

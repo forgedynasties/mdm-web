@@ -365,7 +365,9 @@
       {{$ksusp := and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}
       {{/* Unlocked on the device: reported (ksusp) or recorded and not yet answered. */}}
       {{$kout := or $ksusp .KioskExit}}
-      {{/* Lock button removed 25 Nov 2026 (user: "remove the lock mode button for all users on device page"). */}}
+      {{if and lockButtons (supports .Device "kiosk_set")}}{{if not .LockApp}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if $kout}} warn{{end}}{{if not (canSupport .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $kout}}Unlocked on the device with the exit PIN or code. It stays unlocked until someone locks it again{{else if canSupport .Role}}Configure locked mode{{else}}Requires the Support role{{end}}" data-role-need="support">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Lock<span class="ddc-kstate">{{if $kout}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+      </button>{{end}}{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
       {{if .CanLab}}{{if .Lab}}<a href="/devices/{{.Device.SerialNumber}}/lab" class="isl-dup ddc-btn cc-btn warn" title="In lab until {{.Lab.Until.Local.Format "Mon 15:04"}}">Lab view ↗</a>{{else}}<button type="button" class="isl-dup ddc-btn cc-btn" onclick="labDlgOpen()" aria-haspopup="dialog" title="Take this device out of its restaurant behaviour for a set time">Open in lab</button>{{end}}{{end}}
@@ -386,6 +388,7 @@
   {{template "lost-band" .}}
   {{template "lost-dialogs" .}}
   <script src="/static/js/device/lost-trail.js?v={{asset "/static/js/device/lost-trail.js"}}"></script>
+  {{if and lockButtons .LockApp}}<script src="/static/js/device/lock-host.js?v={{asset "/static/js/device/lock-host.js"}}"></script>{{end}}
   {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}
   <div id="adbp-pop" class="cc-menu adbp-pop" role="dialog" aria-label="Wireless adb" hidden
        data-serial="{{.Device.SerialNumber}}" data-adb-on="{{if .Security.AdbOn}}1{{end}}"></div>
@@ -417,11 +420,13 @@
          opens #adbp-pop with the steps and the adb connect lines (static/js/device/adb-pill.js). */}}
     {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}<button type="button" class="adbp{{if .Security.AdbOn}} on{{end}}" aria-haspopup="dialog" aria-expanded="false" onclick="window.adbPillOpen && adbPillOpen(this)" title="Wireless adb"><span class="adbp-i"></span><span class="adbp-t">adb: {{if .Security.AdbOn}}on{{else}}off{{end}}</span></button>{{end}}{{end}}
     {{if and .RemoteEnabled .CanRemote (supports .Device "remote")}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</a>{{end}}
+    {{if and lockButtons .LockApp (supports .Device "kiosk_set")}}{{template "lock-host" .}}{{end}}
     {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
         {{if canOperate .Role}}<button type="button" class="cc-mi" aria-expanded="false" onclick="var f=this.nextElementSibling; f.hidden=!f.hidden; this.setAttribute('aria-expanded', !f.hidden); if (!f.hidden) f.querySelector('input').focus()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Rename…{{if .Nickname}}<span class="rt">{{.Nickname}}</span>{{end}}</button>
         <form class="cc-mfield" method="POST" action="/devices/{{.Device.SerialNumber}}/nickname" hidden><input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Host stand" aria-label="Name"><button type="submit">Save</button></form>{{end}}
+        {{if and lockButtons (supports .Device "kiosk_set") (canSupport .Role)}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; {{if .LockApp}}lockHostClick(document.getElementById('lk-btn')){{else}}kioskModalOpen(){{end}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Lock<span class="rt">{{if .KioskConfig.KioskEnabled}}Locked{{else}}Unlocked{{end}}</span></button>{{end}}
         {{template "lost-menu-item" .}}
         {{/* Reboot lives here, not in the island's buttons (19 Oct). */}}
         {{if and (supports .Device "reboot") (canSupport .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-mi" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
@@ -528,6 +533,7 @@
   <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
   <div class="t"><b>Unlocked on the device</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
   {{if canAdminOrOperator $.Role}}<div class="a">
+    {{if lockButtons}}<form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>{{end}}
     <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
   </div>{{end}}
 </div>
