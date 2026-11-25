@@ -1,5 +1,5 @@
 // Package scout drives "a T7 enrols the other devices in its restaurant": a firmware
-// device sweeps its venue's Wi-Fi on :5555 with the fleet adb key (net_scan), reports
+// device (or, since 25 Nov 2026, a Standard client listing net_scout) sweeps its venue's Wi-Fi on :5555 with the fleet adb key (net_scan), reports
 // each device that answers (net_sighting), and on an operator's approval installs the
 // standard client on one and makes it Device Owner (net_enroll). The firmware-client half
 // is NetScout.java / AdbClient.java; the sightings table and schema are in internal/db.
@@ -25,6 +25,10 @@ import (
 	prod "mdm/internal/product"
 	"mdm/internal/ws"
 )
+
+// errNoScout: no device at the venue that can sweep (a firmware client, or a Standard
+// client with net_scout) is online. Normal, and quiet in the scheduler.
+var errNoScout = errors.New("no device that can scan is online at this venue")
 
 // scanInterval is how often an open venue is swept; the scheduler runs this often and
 // each run scans every eligible venue once. "Scan now" from the dashboard is immediate.
@@ -183,7 +187,7 @@ func (s *Service) pickScout(ctx context.Context, restaurantID uuid.UUID) (db.Sco
 			return c, nil
 		}
 	}
-	return db.ScoutCandidate{}, errors.New("no Tableside AI online at this venue")
+	return db.ScoutCandidate{}, errNoScout
 }
 
 // pickScoutFor is pickScout for one sighting: when no tablet at the venue is online, the
@@ -198,7 +202,7 @@ func (s *Service) pickScoutFor(ctx context.Context, sg db.Sighting) (db.ScoutCan
 	if d, derr := s.db.GetDevice(ctx, sg.ScoutSerial); derr == nil && d != nil && s.hub.IsConnected(d.ID) {
 		return db.ScoutCandidate{ID: d.ID, Serial: d.SerialNumber}, nil
 	}
-	return db.ScoutCandidate{}, fmt.Errorf("no Tableside AI is online at this venue, and %s, which found the device, is offline", sg.ScoutSerial)
+	return db.ScoutCandidate{}, fmt.Errorf("no device that can scan is online at this venue, and %s, which found the device, is offline", sg.ScoutSerial)
 }
 
 // StartScan sends a scout a net_scan for its whole venue, or (host set) a re-probe of one
@@ -521,7 +525,7 @@ func (s *Service) sweepAll(ctx context.Context) {
 	for _, id := range ids {
 		if err := s.StartScan(ctx, id, ""); err != nil {
 			// "no scout online" is normal and quiet; anything else is worth a line.
-			if err.Error() != "no Tableside AI online at this venue" {
+			if !errors.Is(err, errNoScout) {
 				log.Printf("[scout] scan venue %s: %v", id, err)
 			}
 		}

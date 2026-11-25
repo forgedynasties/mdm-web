@@ -429,7 +429,7 @@ document.addEventListener('click', function (e) {
       <a class="cc-btn sm" href="#fleet-adb-key" style="margin-top:8px">Fleet adb key ↓</a>
     </div>
     {{else if not .Sightings}}
-    <div class="en-quiet">Nothing new on any venue's Wi-Fi. A device that trusts the AIO adb key shows up here within 15 minutes — each venue's Tableside AI does the looking.</div>
+    <div class="en-quiet">Nothing new on any venue's Wi-Fi. A device that trusts the AIO adb key shows up here within 15 minutes — each venue's Tableside AI, or a Standard client 0.17 or later, does the looking.</div>
     {{else}}
     {{range .Sightings}}
     {{$solo := eq (len .Items) 1}}

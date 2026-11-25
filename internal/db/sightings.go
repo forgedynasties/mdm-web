@@ -227,18 +227,23 @@ type ScoutCandidate struct {
 	Serial string
 }
 
-// ScoutCandidates lists the firmware devices in a restaurant, newest client first, then
+// scoutSQL is the device condition (alias d) for "can sweep a venue's Wi-Fi": a firmware
+// client, or a Standard client that lists net_scout (0.17.0, 25 Nov 2026).
+const scoutSQL = `(d.agent_kind = 'firmware' OR (d.agent_kind = 'dpc' AND d.capabilities ? 'net_scout'))
+		  AND d.enrollment_status NOT IN ('retired','wiped','unenrolled')`
+
+// ScoutCandidates lists the scout devices in a restaurant (firmware before Standard), newest client first, then
 // most recently seen. The scout service picks the first one the hub reports connected, so
 // a venue sweeps with its newest scout: an old client may not scan at all (22 Oct: AIO
 // Lab's sweep went to a v2.0 T7 with no scout and never came back), and each release has
 // made the sweep find more. No reported version sorts last.
 func (d *DB) ScoutCandidates(ctx context.Context, restaurantID uuid.UUID) ([]ScoutCandidate, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, serial_number FROM devices
-		WHERE restaurant_id = $1 AND agent_kind = 'firmware'
-		  AND enrollment_status NOT IN ('retired','wiped','unenrolled')
-		ORDER BY string_to_array(substring(latest_extra->>'agent_version' from '^[0-9]+(?:\.[0-9]+)*'), '.')::int[] DESC NULLS LAST,
-		         last_seen_at DESC`, restaurantID)
+		SELECT d.id, d.serial_number FROM devices d
+		WHERE d.restaurant_id = $1 AND `+scoutSQL+`
+		ORDER BY d.agent_kind = 'firmware' DESC,
+		         string_to_array(substring(d.latest_extra->>'agent_version' from '^[0-9]+(?:\.[0-9]+)*'), '.')::int[] DESC NULLS LAST,
+		         d.last_seen_at DESC`, restaurantID)
 	if err != nil {
 		return nil, err
 	}
@@ -254,13 +259,12 @@ func (d *DB) ScoutCandidates(ctx context.Context, restaurantID uuid.UUID) ([]Sco
 	return out, rows.Err()
 }
 
-// RestaurantsToScan lists restaurants with scanning on that have at least one firmware
+// RestaurantsToScan lists restaurants with scanning on that have at least one scout
 // device — the scheduler's work list.
 func (d *DB) RestaurantsToScan(ctx context.Context) ([]uuid.UUID, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT DISTINCT r.id FROM restaurants r
-		JOIN devices d ON d.restaurant_id = r.id AND d.agent_kind = 'firmware'
-		  AND d.enrollment_status NOT IN ('retired','wiped','unenrolled')
+		JOIN devices d ON d.restaurant_id = r.id AND `+scoutSQL+`
 		WHERE r.scan_enabled AND NOT r.hidden`)
 	if err != nil {
 		return nil, err

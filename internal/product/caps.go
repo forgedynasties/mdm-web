@@ -167,6 +167,9 @@ const (
 	// CapMoveServer: the DPC agent moves itself to another MDM (move_server; 0.13.4,
 	// 29 Oct 2026). The firmware client moves by setprop + reboot instead.
 	CapMoveServer = "move_server"
+	// CapNetScout: the Standard client sweeps its venue's Wi-Fi and enrols what it finds
+	// (net_scan / net_enroll, the firmware client's NetScout; DPC 0.17.0, 25 Nov 2026).
+	CapNetScout = "net_scout"
 	// CapApkBundle: installs a split APK bundle (.xapk: base + splits in one session;
 	// Standard client 0.15.0 lists it, firmware client 1.22.4 sends apk_bundle_cmd; 4 Nov 2026).
 	CapApkBundle = "apk_bundle"
