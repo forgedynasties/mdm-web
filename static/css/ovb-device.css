@@ -208,7 +208,10 @@ body.bt-sheet-open .dd-bento #dd-panel-summary{overflow-y:auto}
 @container btw (max-width:1180px){
 .dd-bento .ovb{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:none!important}
 .dd-bento .ovb-hero{grid-column:auto}.dd-bento .ovb-pane{grid-template-columns:1fr}
-.dd-bento .ovb-health{min-height:auto}.dd-bento .ovb-parts{overflow:visible}
+html.shell .dd-bento .ovb{flex:none!important}
+.dd-bento .ovb-health{min-height:380px}.dd-bento .ovb-parts{overflow:visible}
+.dd-bento .ovb-hero{min-height:470px}
+.dd-bento .bt-slot .chart-card .cc-ch.vt-head{flex-wrap:wrap;row-gap:6px}
 .dd-bento .bt-slot .vt-panel .chart-wrap--tall{height:240px!important}.dd-bento .bt-slot .chart-split{min-height:290px}.dd-bento .ovb-radar{height:190px}
 }
 /* A narrow sheet (dragged in, or a small window) stacks the two-column sheets. bt-narrow is set by
