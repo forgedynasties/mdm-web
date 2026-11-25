@@ -321,7 +321,7 @@
               <span class="lu1-pt{{if not .Devices}} zero{{end}}">{{.Devices}} device{{if ne .Devices 1}}s{{end}}{{if .Also}} here{{end}}</span>
               {{range .Also}}<a class="lu1-pt info" href="/lineup?role={{.Role}}#model-{{$m.Key}}">Also {{classLabel .Role}} · {{.N}}</a>{{end}}
               {{if .NoRole}}<a class="lu1-pt warn" href="/devices?product={{$m.Key}}" title="Devices of this model nobody has picked a role for yet: their app and lock wait">{{.NoRole}} need{{if eq .NoRole 1}}s{{end}} a role</a>{{end}}
-              {{if .Devices}}<a class="lu1-pt" href="/apps/usage?model={{.Key}}" title="What each app costs on {{.Display}}">Resource use →</a>{{end}}
+              {{if and resourceUse .Devices}}<a class="lu1-pt" href="/apps/usage?model={{.Key}}" title="What each app costs on {{.Display}}">Resource use →</a>{{end}}
             </span>
             {{if and (not .Known) (canAdmin $.Role)}}
             <div class="lu-acts">
@@ -720,7 +720,7 @@
           <td class="ft-act">
             <details class="lu1-more"><summary aria-label="More for {{.Display}}" title="More"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary>
               <div class="cc-menu" role="menu">
-                {{if .Devices}}<a class="cc-mi" role="menuitem" href="/apps/usage?model={{.Key}}">Resource use</a>{{end}}
+                {{if and resourceUse .Devices}}<a class="cc-mi" role="menuitem" href="/apps/usage?model={{.Key}}">Resource use</a>{{end}}
                 <a class="cc-mi" role="menuitem" href="/devices?product={{.Key}}">Its devices</a>
                 {{if and (not .Known) (canAdmin $.Role)}}
                 <div class="cc-msep"></div>

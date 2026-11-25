@@ -30,6 +30,10 @@ const (
 	// allPackagesShown: "all packages" beside the app count in the device page's Apps (user: "remove the
 	// all packages button from apps drawer"). The page it opened stays.
 	allPackagesShown = false
+	// resourceUseShown: Resource use (/apps/usage): the Apps tab (the tab strip goes with it, Library being
+	// the only tab left), the More directory, the app page and Lineup (user: "do the same hiding thing for
+	// resource use tab on apps page"). The page stays.
+	resourceUseShown = false
 )
 
 func showBatteryData() bool  { return batteryDataShown }
@@ -40,3 +44,4 @@ func showAdbMenu() bool      { return adbMenuShown }
 func showMarkLost() bool     { return markLostShown }
 func showTodayAppsTab() bool { return todayAppsTabShown }
 func showAllPackages() bool  { return allPackagesShown }
+func showResourceUse() bool  { return resourceUseShown }

@@ -1,11 +1,11 @@
 {{/* The Apps hub (P1, picked 23 Oct 2026): one name, three tabs, each its own URL. Library
      (/apps) and Resource use (/apps/usage). By product went on 30 Oct 2026: the list's rail
      has it, and Host apps is under Lineup (/lineup/apps). Context: the page's data, with .AppsTab naming the open tab. */}}
-{{define "apps-hub-tabs"}}
+{{define "apps-hub-tabs"}}{{if resourceUse}}
 <nav class="ah-tabs" data-pill-nav aria-label="Apps">
   <a href="/apps"{{if eq .AppsTab "library"}} class="on" aria-current="page"{{end}}>Library</a>
   <a href="/apps/usage"{{if eq .AppsTab "usage"}} class="on" aria-current="page"{{end}}>Resource use</a>
-</nav>
+</nav>{{end}}
 <style>
 .ah-tabs{display:flex;gap:2px;padding:4px;border-radius:12px;background:var(--surface2);width:max-content;margin:-4px 0 18px}
 .ah-tabs a{font-size:13px;font-weight:600;padding:6px 14px;border-radius:9px;color:var(--text-2);text-decoration:none;white-space:nowrap}

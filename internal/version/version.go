@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.71.2",
+		Date:    "2026-11-25",
+		Changes: []string{
+			"Device page: the Apps drawer shows the apps as an icon grid, the host app on top; tap an app for its detail, and All apps to go back. The all packages link is gone.",
+			"Resource use is no longer linked from Apps, the More directory, an app's page or Lineup.",
+		},
+	},
+	{
 		Version: "1.71.1",
 		Date:    "2026-11-25",
 		Changes: []string{

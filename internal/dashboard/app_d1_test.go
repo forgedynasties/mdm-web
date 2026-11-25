@@ -109,6 +109,7 @@ func TestAppD1Renders(t *testing.T) {
 		funcs[k] = func(string) bool { return true }
 	}
 	funcs["iconSrc"] = func(s string) string { return s }
+	funcs["resourceUse"] = showResourceUse
 	tmpl := template.Must(template.New("").Funcs(funcs).Parse(`{{define "header"}}{{end}}{{define "footer"}}{{end}}`))
 	tmpl = template.Must(tmpl.ParseFiles("../../templates/app_detail.html", "../../templates/settings.html"))
 
@@ -126,12 +127,16 @@ func TestAppD1Renders(t *testing.T) {
 		`href="/apps/aio.app.nugget.stagev2"`, `class="ovb-c ap1-ch on" href="/apps/aio.app.nugget" aria-current="page"`, `<span class="v mono">17.0.0</span>`,
 		`<h2>Versions</h2>`, `<h2>Devices</h2><span class="ap1-chip" id="ap1-count">14</span>`, `<span class="ovb-tag">newest</span>`, `<span class="ovb-tag o">not in library</span>`,
 		`action="/setup/apps/`, `>APK</a>`, `data-d1-set="ver" data-val="16.9.0"`, `data-d1-set="venue" data-val="Huanchaco Peruvian"`,
-		`class="ap1-add"`, `href="/apps/usage"`,
+		`class="ap1-add"`,
 		`class="d1-r" data-ver="17.0.0"`, `id="lib-add-modal"`, `id="lib-card"`, `name="next" value="/apps/aio.app.nugget"`, `aria-label="Family tools"`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("app page is missing %q", want)
 		}
+	}
+	// The Resource use link follows its switch (hidden_features.go).
+	if got := strings.Contains(out, `href="/apps/usage"`); got != resourceUseShown {
+		t.Errorf("Resource use link shown = %v, want %v", got, resourceUseShown)
 	}
 	// No fleet-wide "Install on N devices" or channel-overlap warning on app pages (user,
 	// 30 Oct 2026: "remove this from everywhere on apps").

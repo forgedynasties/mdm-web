@@ -20,7 +20,7 @@
       <div><h1 class="cc-h1">{{if $a.FamilyName}}{{$a.FamilyName}}{{else}}{{$a.Name}}{{end}}</h1><small><span class="mono">{{$a.Package}}</span>{{range .ProductOf}} &middot; the {{.Label}} app{{end}}</small></div>
     </div>
     <div class="ap1-acts">
-      <a class="ap1-link" href="/apps/usage">Resource use</a>
+      {{if resourceUse}}<a class="ap1-link" href="/apps/usage">Resource use</a>{{end}}
       {{if $lib}}<button type="button" class="ovb-btn" onclick="libAddOpen()">Add a version</button>{{end}}
       {{if and $lib $a.InLibrary $a.Family}}{{$fam := $a.Family}}
       <details class="cl-more"><summary title="Family tools" aria-label="Family tools"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></summary>
