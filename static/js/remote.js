@@ -491,5 +491,24 @@
     window.location.href = '/devices/' + encodeURIComponent(serial);
   };
 
-  if (online) connect();
+  // Ask the browser before the first connect whether it can decode H.264 at all (25 Nov 2026:
+  // Zen and Edge on Linux have WebCodecs but often no H.264 decoder, since they decode through
+  // system codecs). If it can't, start on still frames straight away, without the H.264 try,
+  // the error and "Switching to compatible video".
+  function start() { if (online) connect(); }
+  if (codec === 'h264' && qp.get('codec') !== 'h264' && typeof VideoDecoder.isConfigSupported === 'function') {
+    var probe = function (c) {
+      return VideoDecoder.isConfigSupported({ codec: c }).then(function (r) { return !!(r && r.supported); }, function () { return false; });
+    };
+    Promise.all([probe('avc1.42801F'), probe('avc1.42E01E')]).then(function (ok) {
+      if (ok[0] || ok[1]) return;
+      codec = 'jpeg';
+      var el = document.getElementById('rc-codec');
+      el.textContent = 'JPEG';
+      el.title = 'This browser has no H.264 decoder, so the screen comes as still frames. Google Chrome shows smooth video.';
+      console.warn('[remote] this browser has no H.264 decoder (isConfigSupported); using JPEG stills');
+    }).then(start, start);
+  } else {
+    start();
+  }
 })();
