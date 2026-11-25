@@ -244,7 +244,7 @@
     <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" data-nlf="auto">Show automatic</button>
   </div>
   <ul class="bt-nl-list">
-    {{range .NoteLog}}<li data-kind="{{.Kind}}"{{if eq .Kind "auto"}} style="display:none"{{end}}><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
+    {{range .NoteLog}}<li data-kind="{{.Kind}}"{{if eq .Kind "auto"}} style="display:none"{{end}}><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{personInitials .Who}}{{end}}</span>
       <div><div class="bt-nl-h"><span class="bt-nl-k {{.Kind}}">{{.Kind}}</span><b>{{.Who}}</b><time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}">{{.At.Format "2 Jan, 15:04"}} UTC</time></div>
       <div class="bt-nl-t{{if .Auto}} auto{{end}}">{{.Text}}</div></div></li>
     {{else}}<li class="bt-nl-empty">Nothing logged yet. Notes you add, and what is done to this device, appear here with their time.</li>{{end}}
@@ -441,7 +441,7 @@
         {{if canAdmin .Role}}{{$sm := .Security}}
         {{/* What the Settings tab held (E3, picked 16 Oct): each opens a dialog or confirms. */}}
         <div class="cc-msep"></div>
-        {{if or $sm.CanAdbTCP .IsDPC}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.adbPillOpen && adbPillOpen()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.05a6 6 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Wireless adb…<span class="rt">{{if $sm.AdbOn}}On{{else if $sm.AdbKnown}}Off{{end}}</span></button>{{end}}
+        {{if and adbMenu (or $sm.CanAdbTCP .IsDPC)}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.adbPillOpen && adbPillOpen()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.05a6 6 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Wireless adb…<span class="rt">{{if $sm.AdbOn}}On{{else if $sm.AdbKnown}}Off{{end}}</span></button>{{end}}
         {{if not .IsDPC}}<div class="cc-msec">Enrollment</div>
         {{if .KeyCred}}{{if .KeyCred.Own}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('key-reset-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></svg>Reset device key…</button>{{end}}{{end}}
         {{end}}{{if or (not .IsDPC) (supports .Device "move_server")}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('move-server-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Move to another server…</button>{{end}}
@@ -1004,6 +1004,7 @@
     if(ss&&sb){if(o==='shell'&&!ss.firstChild&&window.htmx)window.htmx.ajax('GET',sb.dataset.shellUrl,{target:ss,swap:'innerHTML'});
       else if(!o&&ss.firstChild){if(window.__shStop)window.__shStop();ss.innerHTML=''}}
     if(o==='shell'&&window.__shFit)setTimeout(window.__shFit,260);
+    setTimeout(btNarrow,0);
     if(o==='location'){setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}
     /* the graph card lives in the Today pane, and in the Graphs sheet while that is open */
     var home=document.getElementById('bt-graph-slot'),big=document.getElementById('bt-graphs-slot'),card=document.querySelector('.chart-card'),leg=document.getElementById('vt-legend');
@@ -1067,11 +1068,14 @@
   setTimeout(function(){if(!window.htmx)return;var c=document.querySelector('#dd-panel-health [hx-trigger^="intersect"]'),a=document.querySelector('#dd-panel-health details.dh-fold:nth-of-type(2)');
     if(c){window.htmx.process(c);window.htmx.trigger(c,'intersect')}
     if(a){a.open=true;var l=a.querySelector('[hx-trigger^="toggle"]');if(l){window.htmx.process(l);a.dispatchEvent(new Event('toggle'))}}},1500);
+  function btNarrow(){var bn=document.querySelector('.dd-bento');if(!bn)return;var pn=open&&document.getElementById('dd-panel-'+open);
+    bn.classList.toggle('bt-narrow',!!pn&&pn.getBoundingClientRect().width<760)}
+  window.addEventListener('resize',btNarrow);
   /* R1: drag the sheet's left edge to resize it; the width is kept in this browser (--bt-wu) */
   (function(){var bn=document.querySelector('.dd-bento'),g=document.getElementById('bt-grip');if(!bn||!g)return;
     try{var sw=parseInt(localStorage.getItem('bt-sheet-w'),10);if(sw>=360)bn.style.setProperty('--bt-wu',sw+'px')}catch(e){}
     g.addEventListener('pointerdown',function(e){e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add('drag');bn.classList.add('bt-dragging');
-      function mv(ev){var w=Math.round(Math.min(Math.max(window.innerWidth-104-ev.clientX,360),window.innerWidth-560));bn.style.setProperty('--bt-wu',w+'px')}
+      function mv(ev){var w=Math.round(Math.min(Math.max(window.innerWidth-104-ev.clientX,360),window.innerWidth-560));bn.style.setProperty('--bt-wu',w+'px');btNarrow()}
       function up(){g.classList.remove('drag');bn.classList.remove('bt-dragging');g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);
         var v=parseInt(bn.style.getPropertyValue('--bt-wu'),10);try{if(v)localStorage.setItem('bt-sheet-w',v)}catch(e){}
         if(window.__shFit)window.__shFit();window.dispatchEvent(new Event('resize'))}

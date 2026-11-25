@@ -18,9 +18,17 @@ const (
 	// same with the adb button on device page what you did with the lock button", "keep the
 	// wireless adb page tho": the ⋯ menu's Wireless adb… stays and opens the same popover).
 	adbButtonShown = false
+	// adbMenuShown: "Wireless adb…" in the device page's ⋯ menu (user: "remove wirless adb from
+	// hamburger menu"). With the island button also hidden, nothing on the page opens the popover.
+	adbMenuShown = false
+	// markLostShown: "Mark as lost…" in the device page's ⋯ menu and on left-the-venue alerts
+	// (user: "do the same with mark as lost"). Mark as found, for a device already lost, stays.
+	markLostShown = false
 )
 
 func showBatteryData() bool { return batteryDataShown }
 func showVenueReport() bool { return venueReportShown }
 func showLabButtons() bool  { return labButtonsShown }
 func showAdbButton() bool   { return adbButtonShown }
+func showAdbMenu() bool     { return adbMenuShown }
+func showMarkLost() bool    { return markLostShown }

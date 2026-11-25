@@ -187,7 +187,9 @@ body.bt-sheet-open .dd-bento .bt-dock{z-index:36}
 /* R1 · the sheet pushes (user, 25 Nov 2026: "R1 is fine", "have the d1 behaviour for all those entries"):
    it docks between the page and the dock, the bento makes room, nothing is dimmed. --bt-w is its width
    (dragged with .bt-grip, kept per browser). Was: a centred overlay over a scrim. */
-.dd-bento{--bt-w:var(--bt-wu,clamp(380px,42vw,880px));--bt-r:104px}
+.dd-bento{--bt-w:var(--bt-wu,var(--bt-wd,clamp(400px,38vw,720px)));--bt-r:104px}
+/* the list + detail sheets need the room by default */
+body:has(#dd-panel-apps:not([hidden])) .dd-bento,body:has(#dd-panel-activity:not([hidden])) .dd-bento,body:has(#dd-panel-shell:not([hidden])) .dd-bento{--bt-wd:clamp(560px,52vw,1000px)}
 .dd-bento.bt-dragging .bt-wrap{transition:none}
 .dd-bento .bt-scrim{display:none!important}
 .dd-bento .bt-sheet-h{position:fixed;top:78px;right:var(--bt-r);width:var(--bt-w);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33;animation:btslide .26s cubic-bezier(.2,.8,.2,1)}
@@ -199,6 +201,20 @@ body.bt-sheet-open .dd-bento .bt-wrap{padding-right:calc(var(--bt-w) + var(--bt-
 body.bt-sheet-open .dd-bento .bt-grip{display:block;position:fixed;top:78px;bottom:104px;right:calc(var(--bt-r) + var(--bt-w) - 5px);width:10px;cursor:ew-resize;z-index:34}
 .dd-bento .bt-grip::after{content:"";position:absolute;left:4px;top:50%;width:3px;height:44px;margin-top:-22px;border-radius:3px;background:var(--border)}
 .dd-bento .bt-grip:hover::after,.dd-bento .bt-grip.drag::after{background:var(--accent)}
+/* Bento by the width it has (25 Nov 2026: pushed by a sheet the three columns were crushed, "worse
+   when zoomed in"): under 1180px of room it stacks, as on a small window, and the page scrolls. */
+html.shell .dd-bento .bt-wrap{container:btw / inline-size}
+body.bt-sheet-open .dd-bento #dd-panel-summary{overflow-y:auto}
+@container btw (max-width:1180px){
+.dd-bento .ovb{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:none!important}
+.dd-bento .ovb-hero{grid-column:auto}.dd-bento .ovb-pane{grid-template-columns:1fr}
+.dd-bento .ovb-health{min-height:auto}.dd-bento .ovb-parts{overflow:visible}
+.dd-bento .bt-slot .vt-panel .chart-wrap--tall{height:240px!important}.dd-bento .bt-slot .chart-split{min-height:290px}.dd-bento .ovb-radar{height:190px}
+}
+/* A narrow sheet (dragged in, or a small window) stacks the two-column sheets. bt-narrow is set by
+   the dock script from the sheet's width. */
+.dd-bento.bt-narrow #dd-panel-apps:not([hidden]),.dd-bento.bt-narrow #dd-panel-activity:not([hidden]),.dd-bento.bt-narrow #dd-panel-about:not([hidden]){grid-template-columns:minmax(0,1fr);grid-template-rows:none;overflow:auto}
+.dd-bento.bt-narrow #dd-panel-apps .apl-card,.dd-bento.bt-narrow #dd-panel-apps .apl2-host,.dd-bento.bt-narrow #dd-panel-apps .bt-appd,.dd-bento.bt-narrow #dd-panel-activity #device-timeline,.dd-bento.bt-narrow #dd-panel-activity .bt-actd{grid-column:1;grid-row:auto;overflow:visible}
 /* Shell: the console fills the sheet, the terminal takes what is left */
 .dd-bento #dd-panel-shell:not([hidden]){padding:0;display:flex;flex-direction:column;overflow:hidden}
 .dd-bento #bt-shell-slot{flex:1;min-height:0;display:flex;flex-direction:column}

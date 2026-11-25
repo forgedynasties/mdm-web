@@ -944,6 +944,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"venueReport": showVenueReport, // venue Weekly report links on/off (hidden_features.go)
 		"labButtons":  showLabButtons,  // device page Open in lab / Lab view on/off (hidden_features.go)
 		"adbButton":   showAdbButton,   // device page island adb button on/off (hidden_features.go)
+		"adbMenu":     showAdbMenu,     // device page ⋯ Wireless adb… on/off (hidden_features.go)
+		"markLost":    showMarkLost,    // Mark as lost… on/off (hidden_features.go)
 		"ctxCaps":     ctxCaps,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.
@@ -1419,6 +1421,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"vitalCols":   vitalColumns, // the device pane's vitals as columns
 		"needOne":     needOne,      // one to-do as a list (bento detail pane)
 		"noteKinds":   func() []string { return db.NoteKinds },
+		// personInitials: a person's badge, "Ali Hassan" → "AH" (device_note_log.go). Not
+		// "initials", which is replaced below by the serial tile.
+		"personInitials": personInitials,
 		"initials": func(n string) string {
 			r := []rune(strings.TrimSpace(n))
 			if len(r) == 0 {

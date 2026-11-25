@@ -3,7 +3,7 @@
 
 {{define "lost-menu-item"}}{{if supports .Device "lost_mode"}}{{if .Lost.On}}
 <button type="button" class="cc-mi danger{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} data-role-need="support"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-lift-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Lift lost mode…<span class="rt">Lost</span></button>
-{{else}}
+{{else if markLost}}
 <button type="button" class="cc-mi danger{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} data-role-need="support"{{end}} onclick="this.closest('details').open=false; document.getElementById('lost-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>Mark as lost…{{if .Lost.Waiting}}<span class="rt">sending</span>{{end}}</button>
 {{end}}{{end}}{{end}}
 
