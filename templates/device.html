@@ -1036,14 +1036,16 @@
       var name=r.getAttribute('data-name'),pkg=r.getAttribute('data-pkg'),ver=r.getAttribute('data-ver'),sys=r.getAttribute('data-sys')==='1',role=r.getAttribute('data-roleapp')==='1';
       var ic=r.querySelector('.app-icon,.app-mono'),icon=ic?ic.outerHTML:'',fig=(r.querySelector('.apl-fig')||{}).textContent||'—',pct=(r.querySelector('.apl-bar2 i')||{style:{width:'0'}}).style.width,fol=r.querySelector('.dd-fchip'),use=r.getAttribute('data-use')||'';
       var rm=r.querySelector('button.app-x:not(.app-x-lock)');
-      box.innerHTML='<div class="bt-ad-h"><span class="bt-ad-ic">'+icon+'</span><div><div class="bt-ad-n">'+esc(name)+'</div><div class="bt-ad-p">'+esc(pkg)+(ver?' · '+esc(ver):'')+'</div></div><span class="ovb-tag'+(role?'':' n')+'">'+(role?'Role app':sys?'System':'User app')+'</span></div>'+
+      box.innerHTML='<button type="button" class="ovb-btn l bt-ad-back" data-bt-back>← All apps</button><div class="bt-ad-h"><span class="bt-ad-ic">'+icon+'</span><div><div class="bt-ad-n">'+esc(name)+'</div><div class="bt-ad-p">'+esc(pkg)+(ver?' · '+esc(ver):'')+'</div></div><span class="ovb-tag'+(role?'':' n')+'">'+(role?'Role app':sys?'System':'User app')+'</span></div>'+
         '<div class="ovb-facts"><div class="ovb-fact"><b>'+esc(fig)+'</b><span>in this window</span></div>'+(use?'<div class="ovb-fact"><b>'+esc(use)+'</b><span>use</span></div>':'')+'<div class="ovb-fact"><b>'+(sys?'System':'User')+'</b><span>type</span></div></div>'+
         '<div class="bt-ad-bar"><i style="width:'+esc(pct)+'"></i></div>'+(fol?'<p class="ovb-sub">'+esc(fol.textContent)+'</p>':'')+
         '<div class="bt-ad-acts"><button type="button" class="ovb-btn cta-g" data-bt-info><span class="cta-t">Details…</span></button>'+(rm?'<button type="button" class="ovb-btn l" data-bt-rm>Remove</button>':'')+'</div>'}
     function reselect(){var r=rows();var m=r.filter(function(x){return x.getAttribute('data-pkg')===cur})[0]||r[0];render(m)}
-    apps.addEventListener('click',function(e){var row=e.target.closest('.app-row.app-tile');if(row&&!e.target.closest('.app-x-form')&&apps.contains(row)&&!row.classList.contains('app-installing')){e.stopPropagation();e.preventDefault();render(row);return}
+    apps.addEventListener('click',function(e){var row=e.target.closest('.app-row.app-tile');if(row&&!e.target.closest('.app-x-form')&&apps.contains(row)&&!row.classList.contains('app-installing')){e.stopPropagation();e.preventDefault();render(row);apps.classList.add('bt-det');apps.scrollTop=0;return}
+      if(e.target.closest('[data-bt-back]')){e.stopPropagation();apps.classList.remove('bt-det');return}
       var b=e.target.closest('[data-bt-info],[data-bt-rm]');if(b){var r=rows().filter(function(x){return x.getAttribute('data-pkg')===cur})[0];if(!r)return;if(b.hasAttribute('data-bt-info')&&window.appInfoOpen)appInfoOpen(r);else{var x=r.querySelector('button.app-x:not(.app-x-lock)');if(x)x.click()}}},true);
     document.body.addEventListener('htmx:afterSettle',function(e){if(apps.contains(e.target)||e.target.id==='apps-live')reselect()});
+    new MutationObserver(function(){if(apps.hidden)apps.classList.remove('bt-det')}).observe(apps,{attributes:true,attributeFilter:['hidden']});
     setTimeout(reselect,1500);reselect()})();
   /* Activity sheet, AC2: pick an event on the left, see it explained on the right (rows are re-rendered by htmx) */
   (function(){var act=document.getElementById('dd-panel-activity'),box=document.getElementById('bt-act-detail');if(!act||!box)return;
@@ -1729,7 +1731,7 @@ window.DEVICE_VITALS = {
 {{end}}
 
 {{if not .IsOwner}}
-<section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
+<section class="dd-panel bt-grid" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
   {{/* A2 (picked 5 Nov 2026): the host app first, as its own card with its figures (the
        Overview's hero), its full detail folded under it; then every other app as a lean
        ranked row with one figure and a bar (device-apps-list). */}}
