@@ -27,16 +27,14 @@ type VenueAutoEnrollRow struct {
 	ID         uuid.UUID `json:"id"`
 	Name       string    `json:"name"`
 	AutoEnroll bool      `json:"auto_enroll"`
-	Scouts     int       `json:"scouts"` // firmware devices that can sweep its Wi-Fi
+	Scouts     int       `json:"scouts"` // devices that can sweep its Wi-Fi (scoutSQL)
 }
 
 // ListVenueAutoEnroll lists every venue with its auto-enrol setting and scout count.
 func (d *DB) ListVenueAutoEnroll(ctx context.Context) ([]VenueAutoEnrollRow, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.id, r.name, r.auto_enroll,
-		       (SELECT count(*) FROM devices dv
-		         WHERE dv.restaurant_id = r.id AND dv.agent_kind = 'firmware'
-		           AND dv.enrollment_status NOT IN ('retired','wiped','unenrolled'))::int
+		       (SELECT count(*) FROM devices d WHERE d.restaurant_id = r.id AND `+scoutSQL+`)::int
 		  FROM restaurants r ORDER BY r.name`)
 	if err != nil {
 		return nil, err

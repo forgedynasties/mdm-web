@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.70.0",
+		Date:    "2026-11-25",
+		Changes: []string{
+			"A Standard client (0.17.0 or later) can now look for devices on its venue's Wi-Fi and enrol them, like a Tableside AI does. Venues without a Tableside AI can scan and auto-enrol too; a Tableside AI is still picked first when one is online.",
+		},
+	},
+	{
 		Version: "1.69.3",
 		Date:    "2026-11-25",
 		Changes: []string{
