@@ -12,6 +12,15 @@
   var panes = Array.prototype.slice.call(root.querySelectorAll('[data-vn-for]'));
   var cards = Array.prototype.slice.call(root.querySelectorAll('.vn1-sc[data-vn-row]'));
   var grid = document.getElementById('vn1-sgrid'), one = document.getElementById('vn1-sone');
+  // GRID: Settings opens on the card grid (B). Off since 25 Nov 2026 (user: "i dont want" the grid, "i just
+  // want" the Venue settings list): Settings shows the list straight away and the cards only feed the
+  // rail's count. true brings the grid and its "All settings" back.
+  var GRID = false;
+  if (!GRID) {
+    if (grid) grid.hidden = true;
+    if (one) one.hidden = false;
+    var bk = document.getElementById('vn1-back'); if (bk) bk.hidden = true;
+  }
   function rowOf(k) { return document.getElementById(k === 'wifi' ? 'wifi' : 'vn-' + k); }
   function keyOf(d) { return d.id === 'wifi' ? 'wifi' : d.id.replace(/^vn-/, ''); }
   function mark(pane) {
@@ -25,8 +34,10 @@
     panes.forEach(function (p) { p.hidden = p.dataset.vnFor !== pane; });
     if (pane === 'settings') {
       var d = row ? rowOf(row) : null;
-      if (grid) grid.hidden = !!d;
-      if (one) one.hidden = !d;
+      if (GRID) {
+        if (grid) grid.hidden = !!d;
+        if (one) one.hidden = !d;
+      }
       if (d) {
         d.open = true;
         if (scroll !== false) d.scrollIntoView({ block: 'start', behavior: 'smooth' });
