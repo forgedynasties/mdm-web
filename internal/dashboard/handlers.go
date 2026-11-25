@@ -947,6 +947,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"adbMenu":      showAdbMenu,      // device page ⋯ Wireless adb… on/off (hidden_features.go)
 		"markLost":     showMarkLost,     // Mark as lost… on/off (hidden_features.go)
 		"todayAppsTab": showTodayAppsTab, // the Today card's Apps tab on/off (hidden_features.go)
+		"allPackages":  showAllPackages,  // the Apps "all packages" link on/off (hidden_features.go)
 		"ctxCaps":      ctxCaps,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.

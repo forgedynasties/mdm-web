@@ -27,6 +27,9 @@ const (
 	// todayAppsTabShown: the Apps tab in the device page's Today card (user: "remove the apps tab"; the
 	// dock's Apps entry has the same and more).
 	todayAppsTabShown = false
+	// allPackagesShown: "all packages" beside the app count in the device page's Apps (user: "remove the
+	// all packages button from apps drawer"). The page it opened stays.
+	allPackagesShown = false
 )
 
 func showBatteryData() bool  { return batteryDataShown }
@@ -36,3 +39,4 @@ func showAdbButton() bool    { return adbButtonShown }
 func showAdbMenu() bool      { return adbMenuShown }
 func showMarkLost() bool     { return markLostShown }
 func showTodayAppsTab() bool { return todayAppsTabShown }
+func showAllPackages() bool  { return allPackagesShown }
