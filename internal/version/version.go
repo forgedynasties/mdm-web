@@ -32,6 +32,14 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.71.1",
+		Date:    "2026-11-25",
+		Changes: []string{
+			"Venue page: Settings opens the venue settings list straight away, without the cards.",
+			"Opening a page from your account menu or the alerts menu closes the menu, and any drawer that was open on the device page.",
+		},
+	},
+	{
 		Version: "1.71.0",
 		Date:    "2026-11-25",
 		Changes: []string{
