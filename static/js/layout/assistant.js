@@ -18,7 +18,7 @@
     '<button type="button" class="as-bub" id="as-bub" aria-label="Ask the assistant" aria-expanded="false" title="Ask the assistant (Ctrl+J)">' +
     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 15l.8 1.9 1.9.8-1.9.8L19 20.5l-.8-1.9-1.9-.8 1.9-.8z"/></svg></button>' +
     '<section class="as-pan" id="as-pan" role="dialog" aria-label="Assistant" hidden>' +
-    '<header class="as-hd"><span class="as-av" aria-hidden="true">✦</span><div class="as-ht"><b>Assistant</b><small>Reads the fleet for you · can\'t change anything</small></div>' +
+    '<header class="as-hd"><span class="as-av" aria-hidden="true">✦</span><div class="as-ht"><b>Assistant</b><small>Read-only · looks things up as you</small></div>' +
     '<button type="button" class="as-ib" id="as-new" title="New conversation" aria-label="New conversation"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>' +
     '<button type="button" class="as-ib" id="as-x" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button></header>' +
     '<div class="as-body" id="as-body" aria-live="polite"></div>' +
