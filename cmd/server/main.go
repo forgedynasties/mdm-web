@@ -985,6 +985,12 @@ func main() {
 	// Telemetry tables by month (W3, PARTITION_TELEMETRY=1): convert, keep months ahead,
 	// drop the old copies. A conversion copies history, so its timeout is long.
 	jobs.Default.Every(bgCtx, "partitions", time.Hour, 2*time.Hour, dash.RunPartitions)
+	// The assistant's records are kept 90 days.
+	jobs.Default.Every(bgCtx, "assistant-prune", 24*time.Hour, 5*time.Minute, func(ctx context.Context) {
+		if n, err := database.PruneAssistant(ctx, time.Now().Add(-90*24*time.Hour)); err == nil && n > 0 {
+			log.Printf("[assistant] pruned %d old message(s)", n)
+		}
+	})
 
 	server := &http.Server{
 		Addr:    ":" + port,

@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.72.0",
+		Date:    "2026-11-25",
+		Changes: []string{
+			"Assistant (preview, super admins): a chat bubble in the bottom-right corner answers questions about devices, venues and alerts by looking them up as you. It can only read, never change anything. Ctrl+J opens it.",
+		},
+	},
+	{
 		Version: "1.71.2",
 		Date:    "2026-11-25",
 		Changes: []string{

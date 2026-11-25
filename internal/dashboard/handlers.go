@@ -1427,6 +1427,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// personInitials: a person's badge, "Ali Hassan" → "AH" (device_note_log.go). Not
 		// "initials", which is replaced below by the serial tile.
 		"personInitials": personInitials,
+		"assistantOn":    assistantOn, // the assistant bubble for this role (assistant.go)
 		"initials": func(n string) string {
 			r := []rune(strings.TrimSpace(n))
 			if len(r) == 0 {

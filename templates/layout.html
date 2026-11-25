@@ -627,6 +627,9 @@
   {{/* ── PWA: service worker + install nudge ── */}}
   <script>window.MDM_SHOW_TOUR = {{if .ShowTour}}true{{else}}false{{end}};</script>
 <script src="/static/js/layout/tour.js?v={{asset "/static/js/layout/tour.js"}}"></script>
+  {{/* The assistant bubble (assistant.go): super admins, while the assistant is configured. */}}
+  {{if assistantOn .NavRole}}<link rel="stylesheet" href="/static/css/assistant.css?v={{asset "/static/css/assistant.css"}}">
+  <script src="/static/js/layout/assistant.js?v={{asset "/static/js/layout/assistant.js"}}" defer></script>{{end}}
 
   {{/* ── Guided walkthrough: first run for every user (skippable), replay from the account menu ── */}}
   

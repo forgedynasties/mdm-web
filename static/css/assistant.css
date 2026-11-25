@@ -1,0 +1,55 @@
+/* The assistant bubble and its panel (C3, 25 Nov 2026; static/js/layout/assistant.js). */
+#as-root{position:fixed;right:24px;bottom:24px;z-index:60;font-family:inherit}
+.as-bub{width:54px;height:54px;border-radius:50%;border:0;cursor:pointer;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(135deg,var(--accent-fill,#cf4529),#ef7d31);box-shadow:0 10px 26px rgba(207,69,41,.35);transition:transform .15s}
+.as-bub:hover{transform:scale(1.05)}
+.as-bub:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.as-bub svg{width:24px;height:24px;fill:currentColor}
+.as-bub.on{transform:rotate(45deg) scale(.92)}
+.as-pan{position:fixed;right:24px;bottom:90px;width:400px;height:min(620px,calc(100vh - 130px));display:grid;grid-template-rows:auto 1fr auto;
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.22);overflow:hidden;animation:as-in .18s ease}
+.as-pan[hidden]{display:none}
+@keyframes as-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.as-hd{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.as-av{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px;background:linear-gradient(135deg,var(--accent-fill,#cf4529),#ef7d31)}
+.as-ht{flex:1;min-width:0;line-height:1.25}.as-ht b{font-size:14.5px}.as-ht small{display:block;font-size:11.5px;color:var(--muted)}
+.as-ib{width:30px;height:30px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.as-ib:hover{color:var(--text)}
+.as-ib svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.as-body{overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px;font-size:13.5px;line-height:1.55;min-height:0}
+.as-empty p{margin:0 0 12px;color:var(--muted);font-size:13px}
+.as-sugg{display:flex;flex-wrap:wrap;gap:6px}
+.as-sugg button{font:inherit;font-size:12.5px;border:1px solid var(--border);border-radius:99px;padding:6px 12px;background:var(--surface);color:var(--text);cursor:pointer;text-align:left}
+.as-sugg button:hover{border-color:var(--accent-edge);color:var(--accent-text);background:var(--accent-soft)}
+.as-u{align-self:flex-end;max-width:85%;background:var(--accent-fill,#cf4529);color:#fff;border-radius:16px 16px 4px 16px;padding:8px 12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.as-a{align-self:stretch;min-width:0}
+.as-tools{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.as-tool{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:3px 10px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as-tool i{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
+.as-tool.run i{background:var(--warn);animation:as-pul 1s infinite}
+@keyframes as-pul{50%{opacity:.3}}
+.as-txt p{margin:0 0 6px}.as-txt p:last-child{margin-bottom:0}
+.as-txt ul,.as-txt ol{margin:4px 0 8px;padding-left:20px}.as-txt li{margin:2px 0}
+.as-txt code{font-family:var(--mono,ui-monospace,monospace);font-size:12px;background:var(--surface-3);border-radius:5px;padding:1px 5px}
+.as-txt .as-ser{font-family:var(--mono,ui-monospace,monospace);font-size:12.5px;font-weight:700;color:var(--accent-text);text-decoration:none}
+.as-txt .as-ser:hover{text-decoration:underline}
+.as-txt.live>*:last-child::after{content:"▍";color:var(--accent);animation:as-pul .8s infinite;margin-left:1px}
+.as-dots{display:inline-flex;gap:4px}.as-dots i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:as-pul 1s infinite}
+.as-dots i:nth-child(2){animation-delay:.2s}.as-dots i:nth-child(3){animation-delay:.4s}
+.as-txt.live .as-dots::after{content:none}
+.as-errt{margin:4px 0 0;color:var(--danger,#b42318);font-size:12.5px}
+.as-foot{border-top:1px solid var(--border);padding:10px 12px 12px;display:grid;gap:6px}
+.as-ctx{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.as-ctx b{color:var(--text);font-weight:600}
+.as-ctx[hidden]{display:none}
+.as-inp{display:flex;align-items:flex-end;gap:8px;border:1px solid var(--border);border-radius:14px;padding:6px 6px 6px 12px;background:var(--surface)}
+.as-inp:focus-within{border-color:var(--accent-edge)}
+.as-inp textarea{flex:1;border:0;outline:0;resize:none;background:none;font:inherit;font-size:13.5px;color:var(--text);line-height:1.45;padding:5px 0;max-height:140px}
+.as-go{width:32px;height:32px;border-radius:10px;border:0;flex:none;cursor:pointer;display:grid;place-items:center;color:#fff;background:var(--accent-fill,#cf4529)}
+.as-go svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.as-go.stop svg{fill:currentColor;stroke:none}
+@media (max-width:720px){
+  #as-root{right:16px;bottom:88px}
+  .as-pan{inset:0;width:auto;height:auto;border-radius:0;border:0}
+}
+@media (prefers-reduced-motion:reduce){.as-pan,.as-bub{animation:none;transition:none}}
