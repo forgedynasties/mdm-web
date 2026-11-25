@@ -301,8 +301,9 @@ html.shell .dd-bento.bt-stack .ovb{flex:none!important}
 .dd-bento #dd-panel-apps.bt-grid .apl2-host,.dd-bento #dd-panel-apps.bt-grid .apl-card{flex:none;margin:0;overflow:visible;grid-column:auto;grid-row:auto}
 .dd-bento #dd-panel-apps.bt-grid #apps-live{overflow:visible}
 .dd-bento #dd-panel-apps.bt-grid .app-list{overflow:visible;display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:4px;padding:4px 8px 12px;align-items:start}
-.dd-bento #dd-panel-apps.bt-grid .apl-sys{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:4px;margin-top:6px}
-.dd-bento #dd-panel-apps.bt-grid .apl-sys>summary{grid-column:1/-1;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 6px 4px;list-style:none;cursor:default}
+.dd-bento #dd-panel-apps.bt-grid .apl-sys{grid-column:1/-1;display:block;margin-top:6px}
+.dd-bento #dd-panel-apps.bt-grid .apl-sysg{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:4px}
+.dd-bento #dd-panel-apps.bt-grid .apl-sys>summary{display:block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:8px 6px 4px;list-style:none;cursor:default}
 .dd-bento #dd-panel-apps.bt-grid .apl-sys>summary::-webkit-details-marker{display:none}
 .dd-bento #dd-panel-apps.bt-grid .app-row.app-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px 10px;border-radius:14px;text-align:center;min-width:0;border:0;background:none;grid-template-columns:none;height:auto}
 .dd-bento #dd-panel-apps.bt-grid .app-tile .app-icon,.dd-bento #dd-panel-apps.bt-grid .app-tile .app-mono{width:52px;height:52px;border-radius:14px;font-size:20px;flex:none;margin:0}
