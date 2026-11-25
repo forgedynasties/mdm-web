@@ -184,9 +184,10 @@ html.shell .dd-bento .ovb{flex:1;min-height:0;grid-template-rows:minmax(0,1fr) a
 .dd-bento .bt-dock{position:fixed;right:14px;top:50%;transform:translateY(-50%);z-index:35}
 .dd-bento .bt-wrap{padding-right:90px}
 body.bt-sheet-open .dd-bento .bt-dock{z-index:36}
-/* R1 · the sheet pushes (user, 25 Nov 2026: "R1 is fine", "have the d1 behaviour for all those entries"):
-   it docks between the page and the dock, the bento makes room, nothing is dimmed. --bt-w is its width
-   (dragged with .bt-grip, kept per browser). Was: a centred overlay over a scrim. */
+/* The drawer (25 Nov 2026; user: "lets just add the drawer as overlay on top of the existing page"): it
+   docks on the right beside the dock, over the page, which keeps its own layout underneath (pushing it
+   aside crushed the tiles). Nothing is dimmed. --bt-w is its width (dragged with .bt-grip, kept per
+   browser). Was: a centred overlay over a scrim. */
 .dd-bento{--bt-w:var(--bt-wu,var(--bt-wd,clamp(400px,38vw,720px)));--bt-r:104px}
 /* the list + detail sheets need the room by default */
 body:has(#dd-panel-apps:not([hidden])) .dd-bento,body:has(#dd-panel-activity:not([hidden])) .dd-bento,body:has(#dd-panel-shell:not([hidden])) .dd-bento{--bt-wd:clamp(560px,52vw,1000px)}
@@ -194,17 +195,16 @@ body:has(#dd-panel-apps:not([hidden])) .dd-bento,body:has(#dd-panel-activity:not
 .dd-bento .bt-scrim{display:none!important}
 .dd-bento .bt-sheet-h{position:fixed;top:78px;right:var(--bt-r);width:var(--bt-w);height:54px;box-sizing:border-box;padding:12px 18px 6px;display:none;align-items:center;gap:10px;background:var(--surface);border-radius:22px 22px 0 0;z-index:33;animation:btslide .26s cubic-bezier(.2,.8,.2,1)}
 body.bt-sheet-open .dd-bento .bt-sheet-h{display:flex}
-.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;right:var(--bt-r);width:var(--bt-w);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-10px 10px 34px rgba(0,0,0,.10);animation:btslide .26s cubic-bezier(.2,.8,.2,1)}
-.dd-bento .bt-sheet-h{box-shadow:-10px -4px 34px rgba(0,0,0,.08)}
-body.bt-sheet-open .dd-bento .bt-wrap{padding-right:calc(var(--bt-w) + var(--bt-r) + 4px)}
+.dd-bento .dd-panel:not(#dd-panel-summary):not([hidden]){position:fixed;top:132px;bottom:104px;right:var(--bt-r);width:var(--bt-w);box-sizing:border-box;overflow:auto;background:var(--surface);border-radius:0 0 22px 22px;padding:6px 18px 16px;z-index:32;box-shadow:-18px 14px 44px rgba(0,0,0,.18);animation:btslide .26s cubic-bezier(.2,.8,.2,1)}
+.dd-bento .bt-sheet-h{box-shadow:-18px -4px 44px rgba(0,0,0,.14)}
 .dd-bento .bt-grip{display:none}
 body.bt-sheet-open .dd-bento .bt-grip{display:block;position:fixed;top:78px;bottom:104px;right:calc(var(--bt-r) + var(--bt-w) - 5px);width:10px;cursor:ew-resize;z-index:34}
 .dd-bento .bt-grip::after{content:"";position:absolute;left:4px;top:50%;width:3px;height:44px;margin-top:-22px;border-radius:3px;background:var(--border)}
 .dd-bento .bt-grip:hover::after,.dd-bento .bt-grip.drag::after{background:var(--accent)}
-/* Bento by the width it has (25 Nov 2026: pushed by a sheet the three columns were crushed, "worse
-   when zoomed in"): under 1180px of room it stacks, as on a small window, and the page scrolls. */
+/* Bento by the width it has (25 Nov 2026: "worse when zoomed in"): under 1180px of room it stacks, as on
+   a small window, and the page scrolls. */
 html.shell .dd-bento .bt-wrap{container:btw / inline-size}
-body.bt-sheet-open .dd-bento #dd-panel-summary{overflow-y:auto}
+html.shell .dd-bento #dd-panel-summary:has(.bt-wrap){overflow-y:auto}
 @container btw (max-width:1180px){
 .dd-bento .ovb{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:none!important}
 .dd-bento .ovb-hero{grid-column:auto}.dd-bento .ovb-pane{grid-template-columns:1fr}
