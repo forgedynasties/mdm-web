@@ -307,7 +307,7 @@ html.shell .dd-bento.bt-stack .ovb{flex:none!important}
 .dd-bento #dd-panel-apps.bt-grid .apl-sys>summary::-webkit-details-marker{display:none}
 .dd-bento #dd-panel-apps.bt-grid .app-row.app-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px 10px;border-radius:14px;text-align:center;min-width:0;border:0;background:none;grid-template-columns:none;height:auto}
 .dd-bento #dd-panel-apps.bt-grid .app-tile .app-icon,.dd-bento #dd-panel-apps.bt-grid .app-tile .app-mono{width:52px;height:52px;border-radius:14px;font-size:20px;flex:none;margin:0}
-.dd-bento #dd-panel-apps.bt-grid .app-tile .app-tname{font-size:12.5px;font-weight:600;line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+.dd-bento #dd-panel-apps.bt-grid .app-tile .app-tname{white-space:normal;font-size:12.5px;font-weight:600;line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
 .dd-bento #dd-panel-apps.bt-grid .app-tile .app-tname .apl-pkg,.dd-bento #dd-panel-apps.bt-grid .app-tile .app-tname .dd-fchip,.dd-bento #dd-panel-apps.bt-grid .app-tile .app-tsub:not(.un),.dd-bento #dd-panel-apps.bt-grid .app-tile .apl-v{display:none}
 .dd-bento #dd-panel-apps.bt-grid .app-tile:not(.app-installing)::after{content:attr(data-ver);font-family:var(--mono);font-size:10.5px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dd-bento #dd-panel-apps.bt-grid .app-tile:hover,.dd-bento #dd-panel-apps.bt-grid .app-tile.bt-on{background:var(--ovb-page,var(--bg))}
