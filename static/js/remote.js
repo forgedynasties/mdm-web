@@ -169,6 +169,12 @@
     if (ctx) { resizeTo(frame.displayWidth, frame.displayHeight); ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight); paintedCount++; everPainted = true; }
     frame.close();
   }
+  // The device's stream is Annex-B with SPS/PPS before each key frame. It is decoded as the
+  // WebCodecs "avc" format (mdmH264, h264.js): the codec string and an avcC description from the
+  // stream's own SPS/PPS, frames as length-prefixed NAL units. That is what Firefox, Zen and some
+  // Edge builds need; the old fixed "avc1.42E01E" + raw Annex-B only worked in Chrome (25 Nov 2026).
+  // The decoder is configured at the first key frame and again whenever the SPS changes (rotation).
+  var curSps = null;
   function initDecoder() {
     vdec = new VideoDecoder({
       output: function (frame) {
@@ -182,18 +188,34 @@
       },
       error: function (err) { h264Failed(err, 0); }
     });
-    try { vdec.configure({ codec: 'avc1.42E01E', optimizeForLatency: true }); vdecReady = true; } catch (err) { h264Failed(err, 0); }
   }
   function paintH264(data) {
-    if (!vdec) initDecoder();
-    if (!vdecReady) return;
     var bytes = new Uint8Array(data);
     if (bytes.length < 2) return;
-    var isKey = bytes[0] === 1;
+    var isKey = bytes[0] === 1, payload = bytes.subarray(1);
+    var H = window.mdmH264, units = H ? H.nals(payload) : [];
+    if (!vdec) initDecoder();
+    if (units.length) {
+      if (isKey) {
+        var sps = H.find(units, 7), pps = H.find(units, 8);
+        if (sps && pps && (!vdecReady || !H.same(sps, curSps))) {
+          var c = H.config(sps, pps);
+          try {
+            vdec.configure({ codec: c.codec, description: c.description, optimizeForLatency: true });
+            vdecReady = true; curSps = sps.slice(); sawKey = false;
+          } catch (err) { h264Failed(err, bytes.length); return; }
+        }
+      }
+      if (!vdecReady) return; // nothing to decode against until the first key frame
+      payload = H.toAvc(units);
+    } else if (!vdecReady) {
+      // Not Annex-B: the old loose config (Chrome reads the bitstream for itself).
+      try { vdec.configure({ codec: 'avc1.42E01E', optimizeForLatency: true }); vdecReady = true; } catch (err) { h264Failed(err, 0); return; }
+    }
     if (!sawKey) { if (!isKey) return; sawKey = true; }
     if (!isKey && vdec.decodeQueueSize > 4) { sawKey = false; return; } // resync at next key frame
     try {
-      vdec.decode(new EncodedVideoChunk({ type: isKey ? 'key' : 'delta', timestamp: (vts += Math.round(1e6 / 15)), data: bytes.subarray(1) }));
+      vdec.decode(new EncodedVideoChunk({ type: isKey ? 'key' : 'delta', timestamp: (vts += Math.round(1e6 / 15)), data: payload }));
     } catch (err) { h264Failed(err, bytes.length); sawKey = false; }
   }
 
@@ -236,7 +258,7 @@
       ws.onclose = function () {
         enableControls(false); rcSetCapture(false);
         if (view) { view = null; ctx = null; }
-        if (vdec) { try { vdec.close(); } catch (e2) {} vdec = null; vdecReady = false; sawKey = false; }
+        if (vdec) { try { vdec.close(); } catch (e2) {} vdec = null; vdecReady = false; sawKey = false; curSps = null; }
         if (pendingFrame) { try { pendingFrame.close(); } catch (e3) {} pendingFrame = null; }
         if (ended) { showEnded('Session ended', 'You closed the remote session.'); return; }
         if (switchingCodec) {
