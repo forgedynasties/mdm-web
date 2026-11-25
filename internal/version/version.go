@@ -36,6 +36,7 @@ var Changelog = []Entry{
 		Date:    "2026-11-25",
 		Changes: []string{
 			"A Standard client (0.17.0 or later) can now look for devices on its venue's Wi-Fi and enrol them, like a Tableside AI does. Venues without a Tableside AI can scan and auto-enrol too; a Tableside AI is still picked first when one is online.",
+			"MDM clients: the version table orders builds by version, not by build number, so Standard 0.15.3 no longer shows above 0.16.1; a device whose build number is too high to take the hosted build says so.",
 		},
 	},
 	{

@@ -121,11 +121,14 @@ func clientVersionRows(sel *ClientSlotView, hosted string) []ClientVersionRow {
 	for _, row := range byVer {
 		out = append(out, *row)
 	}
+	// Newest version name first, code only to break a tie. A branch build can carry a
+	// higher code than a later release (25 Nov 2026: Standard 0.15.3 is code 59, 0.16.1 is
+	// code 58; user: "0.15.3 is the newer than 0.16.1 fix this bug").
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Code != out[j].Code {
-			return out[i].Code > out[j].Code
+		if c := compareVersionNames(out[i].Version, out[j].Version); c != 0 {
+			return c > 0
 		}
-		return compareVersionNames(out[i].Version, out[j].Version) > 0
+		return out[i].Code > out[j].Code
 	})
 	shown := 0
 	for i := range out {
@@ -143,7 +146,7 @@ func clientVersionRows(sel *ClientSlotView, hosted string) []ClientVersionRow {
 		switch {
 		case row.Release != nil && row.Release.Hosted:
 			row.Kind = "hosted"
-		case sel.Hosted && row.Code > sel.Build.VersionCode && len(row.Devices) > 0:
+		case sel.Hosted && compareVersionNames(row.Version, sel.Build.Version) > 0 && len(row.Devices) > 0:
 			row.Kind = "newer"
 		case len(row.Devices) > 0 && sel.Hosted:
 			row.Kind = "behind"
@@ -169,6 +172,12 @@ func clientVersionRows(sel *ClientSlotView, hosted string) []ClientVersionRow {
 		case "behind":
 			if row.NSend > 0 {
 				bits = append(bits, "behind "+hosted)
+			} else if row.Code > sel.Build.VersionCode {
+				// Older by name, higher by code: Android will not install the hosted
+				// build over it (a downgrade). Publishing a build with a higher code fixes it.
+				bits = append(bits, "older than "+hosted+" but version code "+
+					strconv.FormatInt(row.Code, 10)+" is above its "+
+					strconv.FormatInt(sel.Build.VersionCode, 10)+", so it can't update to it")
 			}
 		case "newer":
 			bits = append(bits, "newer than the hosted build")
