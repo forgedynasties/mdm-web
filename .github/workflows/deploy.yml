@@ -268,11 +268,19 @@ jobs:
           INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
           APP_DIR: ${{ needs.resolve.outputs.app_dir }}
           REGISTRY: ${{ vars.ECR_REGISTRY }}
+          # The assistant's DeepSeek key (25 Nov 2026). A secret of the dev environment only,
+          # so a prod deploy has none and leaves the box's .env alone (no assistant on prod).
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           set -euo pipefail
 
           # Ship the compose file with the deploy, base64'd so no quoting can mangle it.
           COMPOSE_B64=$(base64 -w0 docker-compose.yml)
+          # The assistant key, as a ready .env line, the same way (empty: nothing to write).
+          DS_LINE_B64=""
+          if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
+            DS_LINE_B64=$(printf 'DEEPSEEK_API_KEY=%s\n' "$DEEPSEEK_API_KEY" | base64 -w0)
+          fi
 
           REMOTE=$(cat <<EOF
           set -eu
@@ -295,6 +303,12 @@ jobs:
             sed -i "s|^MDM_IMAGE=.*|MDM_IMAGE=$IMAGE|" .env
           else
             echo "MDM_IMAGE=$IMAGE" >> .env
+          fi
+
+          # The assistant key (dev environment only): replace the line, never append twice.
+          if [ -n "$DS_LINE_B64" ]; then
+            sed -i '/^DEEPSEEK_API_KEY=/d' .env
+            echo "$DS_LINE_B64" | base64 -d >> .env
           fi
 
           # --force-recreate matters with a floating tag like :main. compose decides
