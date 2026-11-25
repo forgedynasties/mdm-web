@@ -263,7 +263,7 @@ func deviceProblem(key string, as []db.Alert, hs []humanAlert, users map[string]
 			// opens with the mark-as-lost dialog up.
 			if a.Type == "left_venue" && a.Status != "resolved" {
 				p.LeftVenue = true
-				p.Href, p.HrefLabel = "/devices/"+p.Serial+"?view=new&lost=1", "Mark as lost…"
+				p.Href, p.HrefLabel = "/devices/"+p.Serial+"?lost=1", "Mark as lost…"
 			}
 		}
 	}

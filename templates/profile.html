@@ -69,12 +69,6 @@
                 <label><input type="radio" name="time_format" value="12"{{if eq .Time "12"}} checked{{end}}><span>12-hour</span></label>
                 <label><input type="radio" name="time_format" value="24"{{if eq .Time "24"}} checked{{end}}><span>24-hour</span></label>
               </div></div>
-            <div class="pr1-f"><label>Device page view</label>
-              <div class="pr1-seg" role="radiogroup">
-                <label><input type="radio" name="device_view" value="new"{{if eq .DeviceView "new"}} checked{{end}}><span>New</span></label>
-                <label><input type="radio" name="device_view" value="classic"{{if eq .DeviceView "classic"}} checked{{end}}><span>Classic</span></label>
-                {{if eq .DeviceView "bento"}}<label><input type="radio" name="device_view" value="bento" checked><span>Bento</span></label>{{end}}
-              </div></div>
             <div class="pr1-sv"><button type="submit" class="ovb-btn">Save</button><button type="button" class="pr1-lnk" id="pr1-reset">Use fleet defaults</button></div>
           </form>
           <div class="pr1-prevbox">

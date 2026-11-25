@@ -77,7 +77,7 @@ func (h *Handler) profileDisplay(r *http.Request, viewingOther bool) map[string]
 		"FleetPageSize": h.cfg.PageSize(), "FleetSort": sortLabels[h.cfg.DefaultSort()],
 		"FleetDensity": map[string]string{"compact": "Compact"}[h.cfg.Density()], "FleetTime": map[bool]string{true: "24-hour", false: "12-hour"}[h.cfg.Use24Hour()],
 		"Sorts": sortOrder, "SortLabels": sortLabels,
-		"DeviceView": h.deviceViewName(r), "DeviceSplit": "",
+		"DeviceSplit": "",
 	}
 	if p.DeviceSplit != nil {
 		m["DeviceSplit"] = strconv.FormatFloat(*p.DeviceSplit, 'f', -1, 64)
@@ -140,10 +140,6 @@ func (h *Handler) ProfileDisplaySave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	displayPrefsCache.Delete(user)
-	// The device page's view rides on the same form (PR1); a post without it leaves it be.
-	if v := r.FormValue("device_view"); v == "new" || v == "classic" || v == "bento" {
-		_ = h.db.SetDeviceView(r.Context(), user, v)
-	}
 	http.Redirect(w, r, flashURL("/profile#display", "Display preferences saved", "success"), http.StatusSeeOther)
 }
 

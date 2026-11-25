@@ -125,11 +125,6 @@ func (h *Handler) DeviceOtaProgress(w http.ResponseWriter, r *http.Request) {
 		data["OtaLine"] = &ol
 	}
 	data["Role"] = h.role(r)
-	// Classic (frozen) keeps its own card: its poller hits this same endpoint.
-	if h.deviceViewTemplate(r) == "device_classic.html" {
-		h.tmpl.ExecuteTemplate(w, "classic-device-ota-progress", data)
-		return
-	}
 	h.tmpl.ExecuteTemplate(w, "device-ota-progress", data)
 }
 
