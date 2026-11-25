@@ -19,8 +19,8 @@
   var qp = new URLSearchParams(location.search);
   var hasWebCodecs = (typeof VideoDecoder !== 'undefined');
   var codec = qp.get('codec');
-  if (codec !== 'jpeg' && codec !== 'h264') codec = hasWebCodecs ? 'h264' : 'jpeg';
-  if (codec === 'h264' && !hasWebCodecs) codec = 'jpeg';
+  if (codec !== 'jpeg' && codec !== 'h264' && codec !== 'vp8') codec = hasWebCodecs ? 'h264' : 'jpeg';
+  if ((codec === 'h264' || codec === 'vp8') && !hasWebCodecs) codec = 'jpeg';
   function passNum(name) {
     var v = qp.get(name);
     return (v && /^[0-9]+(\.[0-9]+)?$/.test(v)) ? ('&' + name + '=' + encodeURIComponent(v)) : '';
@@ -42,7 +42,7 @@
       .then(function (j) { cb(j && j.token || ''); })
       .catch(function () { cb(''); });
   }
-  document.getElementById('rc-codec').textContent = codec === 'h264' ? 'H.264' : 'JPEG';
+  document.getElementById('rc-codec').textContent = codec === 'h264' ? 'H.264' : codec === 'vp8' ? 'VP8' : 'JPEG';
 
   var ws = null, view = null, ctx = null, vdec = null, vdecReady = false;
   var captureKbd = false, decodeErrors = 0, frameCount = 0, paintedCount = 0;
@@ -219,6 +219,23 @@
     } catch (err) { h264Failed(err, bytes.length); sawKey = false; }
   }
 
+  // VP8 (prototype, ?codec=vp8): the device sends [1 key | 0 delta][VP8 frame]; every browser
+  // with WebCodecs has a VP8 decoder built in, so this is the path for ones without H.264.
+  function paintVP8(data) {
+    var bytes = new Uint8Array(data);
+    if (bytes.length < 2) return;
+    var isKey = bytes[0] === 1;
+    if (!vdec) initDecoder();
+    if (!vdecReady) {
+      try { vdec.configure({ codec: 'vp8', optimizeForLatency: true }); vdecReady = true; } catch (err) { frameDecodeFailed(err, bytes.length); return; }
+    }
+    if (!sawKey) { if (!isKey) return; sawKey = true; }
+    if (!isKey && vdec.decodeQueueSize > 4) { sawKey = false; return; }
+    try {
+      vdec.decode(new EncodedVideoChunk({ type: isKey ? 'key' : 'delta', timestamp: (vts += Math.round(1e6 / 15)), data: bytes.subarray(1) }));
+    } catch (err) { frameDecodeFailed(err, bytes.length); sawKey = false; }
+  }
+
   function noteFrameStats(bytes) {
     frameCount++; totalFrames++; bwBytes += bytes; totalBytes += bytes;
     var now = performance.now();
@@ -252,7 +269,7 @@
         ensureCanvas(); if (!ctx) return;
         if (e.data.byteLength < 1) return;
         var b0 = new Uint8Array(e.data, 0, 1)[0];
-        if (b0 <= 1) paintH264(e.data); else paintStill(e.data);
+        if (b0 <= 1) { if (codec === 'vp8') paintVP8(e.data); else paintH264(e.data); } else paintStill(e.data);
         noteFrameStats(e.data.byteLength);
       };
       ws.onclose = function () {

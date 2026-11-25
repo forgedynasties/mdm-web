@@ -472,7 +472,12 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	// encoder can't do it, and the browser auto-detects the codec per frame. Only
 	// an explicit ?codec=jpeg forces the still path.
 	codec := q.Get("codec")
-	if codec != "jpeg" {
+	switch codec {
+	case "jpeg":
+	case "vp8":
+		// VP8 (prototype, 25 Nov 2026): only on an explicit ?codec=vp8, for browsers with
+		// no H.264 decoder (Zen, Edge on Linux). A client that doesn't know it sends H.264.
+	default:
 		codec = "h264"
 	}
 	quality := clampInt(atoiOr(q.Get("quality"), 60), 1, 100)
