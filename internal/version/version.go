@@ -32,6 +32,13 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.69.3",
+		Date:    "2026-11-25",
+		Changes: []string{
+			"Admin API: POST /api/v1/venues/auto-enroll-all turns venue auto-enrol on or off for every venue (?dry=1 lists venues and their Tableside AI scouts only).",
+		},
+	},
+	{
 		Version: "1.69.2",
 		Date:    "2026-11-24",
 		Changes: []string{
