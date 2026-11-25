@@ -102,6 +102,25 @@
         pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
       }
     });
+    // Going to another page from either menu (or any in-app navigation) closes them, and the device
+    // page's drawer with them: the chrome is not swapped, so whatever was open stayed open on the new
+    // page (25 Nov 2026; user: "when i open a page, on the new page opened this drawer should be closed").
+    function closeForNav() {
+      pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
+      document.body.classList.remove('bt-sheet-open');
+    }
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('#acct-pop a[href], #alerts-pop a[href]');
+      if (a) closeForNav();
+    }, true);
+    document.addEventListener('htmx:beforeRequest', function (e) {
+      // Only a page navigation: htmx also flags a pane's own polling as "boosted" (navigation.js), and
+      // closing on every poll would shut a menu or drawer someone is using.
+      var d = e.detail || {}, rc = d.requestConfig || {}, te = rc.triggeringEvent;
+      if (!d.boosted || (rc.verb && rc.verb !== 'get')) return;
+      var a = te && te.target && te.target.closest ? te.target.closest('a[href]') : null;
+      if (a) closeForNav();
+    });
   })();
 
   // ── Recently visited pages ───────────────────────────────────────────────────
