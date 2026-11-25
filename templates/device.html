@@ -998,6 +998,8 @@
     /* switching sheet to sheet: the panel slides in, so the title strip must too (it used to stay put and look detached) */
     var hd=document.getElementById('bt-sheet-h');if(hd&&open&&o&&open!==o){hd.style.animation='none';void hd.offsetWidth;hd.style.animation=''}
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
+    /* the cards moved: the rounded cuts (chrome.js) measure again, now and once the drawer has settled */
+    if(window.mdmRecut){window.mdmRecut();setTimeout(window.mdmRecut,320)}
     /* Shell (25 Nov 2026): the console is fetched when the entry is first opened and kept while the drawer is
        closed or shows another entry, so reopening it lands in the same session (user: "shell close open always
        opens a new session"). End session ends it; leaving the page closes its stream. */
@@ -1072,8 +1074,8 @@
     bn.classList.toggle('bt-narrow',!!pn&&pn.getBoundingClientRect().width<760)}
   window.addEventListener('resize',btNarrow);
   (function(){var bn=document.querySelector('.dd-bento'),w=document.querySelector('.dd-bento .bt-wrap');if(!bn||!w||!window.ResizeObserver)return;
-    function fit(){var cs=getComputedStyle(w),cw=w.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight);bn.classList.toggle('bt-stack',cw>0&&cw<1180)}
-    new ResizeObserver(fit).observe(w);w.addEventListener('transitionend',fit);fit()})();
+    function fit(){var cs=getComputedStyle(w),cw=w.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),was=bn.classList.contains('bt-stack');bn.classList.toggle('bt-stack',cw>0&&cw<1180);if(window.mdmRecut&&was!==bn.classList.contains('bt-stack'))window.mdmRecut()}
+    new ResizeObserver(fit).observe(w);w.addEventListener('transitionend',function(){fit();if(window.mdmRecut)window.mdmRecut()});fit()})();
   /* R1: drag the sheet's left edge to resize it; the width is kept in this browser (--bt-wu) */
   (function(){var bn=document.querySelector('.dd-bento'),g=document.getElementById('bt-grip');if(!bn||!g)return;
     try{var sw=parseInt(localStorage.getItem('bt-sheet-w'),10);if(sw>=360)bn.style.setProperty('--bt-wu',sw+'px')}catch(e){}

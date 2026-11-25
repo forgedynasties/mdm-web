@@ -212,7 +212,7 @@ body.bt-sheet-open .dd-bento .bt-grip{display:block;position:fixed;top:78px;bott
    drawer closed, and the page stayed stacked until the window was zoomed (25 Nov 2026). */
 html.shell .dd-bento #dd-panel-summary:has(.bt-wrap){overflow-y:auto}
 .dd-bento.bt-stack .ovb{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:none!important}
-.dd-bento.bt-stack .ovb-hero{grid-column:auto}.dd-bento.bt-stack .ovb-pane{grid-template-columns:1fr}
+.dd-bento.bt-stack .ovb-hero{grid-column:auto}.dd-bento.bt-stack .ovb-pane:not(.bt-pane-g){grid-template-columns:1fr}
 html.shell .dd-bento.bt-stack .ovb{flex:none!important}
 .dd-bento.bt-stack .ovb-health{min-height:380px}.dd-bento.bt-stack .ovb-parts{overflow:visible}
 .dd-bento.bt-stack .ovb-hero{min-height:470px}
