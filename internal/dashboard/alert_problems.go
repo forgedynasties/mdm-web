@@ -261,9 +261,9 @@ func deviceProblem(key string, as []db.Alert, hs []humanAlert, users map[string]
 			}
 			// E1 (18 Oct): from "it left the venue" to lost mode in two taps — the device page
 			// opens with the mark-as-lost dialog up.
-			if a.Type == "left_venue" && a.Status != "resolved" {
+			if a.Type == "left_venue" && a.Status != "resolved" && markLostShown {
 				p.LeftVenue = true
-				p.Href, p.HrefLabel = "/devices/"+p.Serial+"?view=new&lost=1", "Mark as lost…"
+				p.Href, p.HrefLabel = "/devices/"+p.Serial+"?lost=1", "Mark as lost…"
 			}
 		}
 	}

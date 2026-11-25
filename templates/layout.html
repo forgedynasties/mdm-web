@@ -322,7 +322,7 @@
         {{if canOpenPage .NavRole "groups"}}<a class="js-dest{{if eq .ActivePath "/groups"}} on{{end}}" href="/groups" data-ic="layers" data-cmdk-sec="Fleet" data-cmdk-label="Groups">Groups</a>{{end}}
         {{if canOpenPage .NavRole "map"}}{{if not .FleetScoped}}<a class="js-dest{{if eq .ActivePath "/map"}} on{{end}}" href="/map" data-ic="pin" data-cmdk-sec="Fleet" data-cmdk-label="Fleet map">Fleet map</a>{{end}}{{end}}
         {{if eq .NavRole "admin"}}{{if movesOn}}<a class="js-dest{{if eq .ActivePath "/moves"}} on{{end}}" href="/moves" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Moves">Moves</a>{{end}}{{end}}
-        {{if canOpenPage .NavRole "battery"}}{{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/battery"}} on{{end}}" href="/battery" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Battery data">Battery data</a>{{end}}{{end}}
+        {{if and batteryData (canOpenPage .NavRole "battery")}}{{if canAppLibrary .NavRole}}<a class="js-dest{{if eq .ActivePath "/battery"}} on{{end}}" href="/battery" data-ic="pulse" data-cmdk-sec="Fleet" data-cmdk-label="Battery data">Battery data</a>{{end}}{{end}}
       </div>
 
       <div class="nav-dir-sec">

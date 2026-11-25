@@ -81,6 +81,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.deviceRoute("view", h.DeviceBatteryCSV)))
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.deviceRoute("view", h.DeviceDailyStatsJSON)))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireReleaseAdmin(h.deviceRoute("shell", h.DeviceShellPage)))
+	mux.HandleFunc("GET /devices/{serial}/shell/panel", h.requireReleaseAdmin(h.deviceRoute("shell", h.DeviceShellPanel)))
 	// Interactive shell sessions (shell_session.go).
 	mux.HandleFunc("GET /devices/{serial}/shell/session", h.requireReleaseAdmin(drainable(h.deviceRoute("shell", h.atOwner(h.ShellSessionStream)))))
 	post("POST /devices/{serial}/shell/session/{sid}/input", h.requireReleaseAdmin(h.deviceRoute("shell", h.atOwner(h.ShellSessionInput))))

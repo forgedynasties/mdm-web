@@ -1,4 +1,4 @@
-{{define "bt-ic"}}{{if eq . "apps"}}<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg>{{else if eq . "activity"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>{{else if eq . "health"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>{{else if eq . "network"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0"/><circle cx="12" cy="19.2" r="1"/></svg>{{else if eq . "location"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>{{else if eq . "notes"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>{{else}}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>{{end}}{{end}}
+{{define "bt-ic"}}{{if eq . "apps"}}<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg>{{else if eq . "activity"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>{{else if eq . "health"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>{{else if eq . "network"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0"/><circle cx="12" cy="19.2" r="1"/></svg>{{else if eq . "location"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>{{else if eq . "notes"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>{{else if eq . "shell"}}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17 6-6-6-6M12 19h8"/></svg>{{else}}<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>{{end}}{{end}}
 {{define "device-stats"}}
 <div class="dd-details"
   id="device-stats" data-diff-guard data-morph
@@ -244,7 +244,7 @@
     <button type="button" class="on" data-nlf="all">All</button><button type="button" data-nlf="note">Notes</button><button type="button" data-nlf="issue">Issues</button><button type="button" data-nlf="fix">Fixes</button><button type="button" data-nlf="hardware">Hardware</button><button type="button" data-nlf="auto">Show automatic</button>
   </div>
   <ul class="bt-nl-list">
-    {{range .NoteLog}}<li data-kind="{{.Kind}}"{{if eq .Kind "auto"}} style="display:none"{{end}}><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{initials .Who}}{{end}}</span>
+    {{range .NoteLog}}<li data-kind="{{.Kind}}"{{if eq .Kind "auto"}} style="display:none"{{end}}><span class="bt-nl-who">{{if .Auto}}⚙{{else}}{{personInitials .Who}}{{end}}</span>
       <div><div class="bt-nl-h"><span class="bt-nl-k {{.Kind}}">{{.Kind}}</span><b>{{.Who}}</b><time datetime="{{.At.Format "2006-01-02T15:04:05Z07:00"}}">{{.At.Format "2 Jan, 15:04"}} UTC</time></div>
       <div class="bt-nl-t{{if .Auto}} auto{{end}}">{{.Text}}</div></div></li>
     {{else}}<li class="bt-nl-empty">Nothing logged yet. Notes you add, and what is done to this device, appear here with their time.</li>{{end}}
@@ -365,12 +365,12 @@
       {{$ksusp := and .KioskConfig.KioskEnabled (extraBool .Device.LatestExtra "kiosk_suspended")}}
       {{/* Unlocked on the device: reported (ksusp) or recorded and not yet answered. */}}
       {{$kout := or $ksusp .KioskExit}}
-      {{if supports .Device "kiosk_set"}}{{if not .LockApp}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if $kout}} warn{{end}}{{if not (canSupport .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $kout}}Unlocked on the device with the exit PIN or code. It stays unlocked until someone locks it again{{else if canSupport .Role}}Configure locked mode{{else}}Requires the Support role{{end}}" data-role-need="support">
+      {{if and lockButtons (supports .Device "kiosk_set")}}{{if not .LockApp}}<button type="button" class="ddc-ctl cc-btn{{if and .KioskConfig.KioskEnabled (not $ksusp)}} on{{end}}{{if $kout}} warn{{end}}{{if not (canSupport .Role)}} role-locked{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="{{if $kout}}Unlocked on the device with the exit PIN or code. It stays unlocked until someone locks it again{{else if canSupport .Role}}Configure locked mode{{else}}Requires the Support role{{end}}" data-role-need="support">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Lock<span class="ddc-kstate">{{if $kout}}taken out{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
       </button>{{end}}{{end}}
       {{/* The wireless-charging enable/disable control lives in the "Charging pad"
            sidebar card now, next to its live status. */}}
-      {{if .CanLab}}{{if .Lab}}<a href="/devices/{{.Device.SerialNumber}}/lab" class="isl-dup ddc-btn cc-btn warn" title="In lab until {{.Lab.Until.Local.Format "Mon 15:04"}}">Lab view ↗</a>{{else}}<button type="button" class="isl-dup ddc-btn cc-btn" onclick="labDlgOpen()" aria-haspopup="dialog" title="Take this device out of its restaurant behaviour for a set time">Open in lab</button>{{end}}{{end}}
+      {{if and labButtons .CanLab}}{{if .Lab}}<a href="/devices/{{.Device.SerialNumber}}/lab" class="isl-dup ddc-btn cc-btn warn" title="In lab until {{.Lab.Until.Local.Format "Mon 15:04"}}">Lab view ↗</a>{{else}}<button type="button" class="isl-dup ddc-btn cc-btn" onclick="labDlgOpen()" aria-haspopup="dialog" title="Take this device out of its restaurant behaviour for a set time">Open in lab</button>{{end}}{{end}}
       {{/* Diagnostics, shell, screenshots and log collection live in the lab view now
            (static/device-lab-view-demos.html); a device page keeps the two everyday acts. */}}
       {{if supports .Device "reboot"}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" hx-confirm="Reboot {{.Device.SerialNumber}}?"><input type="hidden" name="type" value="reboot"><button type="submit" class="isl-dup ddc-btn cc-btn{{if not (canSupport .Role)}} role-locked{{end}}"{{if not (canSupport .Role)}} title="Requires the Support role" data-role-need="support"{{end}}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
@@ -388,7 +388,7 @@
   {{template "lost-band" .}}
   {{template "lost-dialogs" .}}
   <script src="/static/js/device/lost-trail.js?v={{asset "/static/js/device/lost-trail.js"}}"></script>
-  {{if .LockApp}}<script src="/static/js/device/lock-host.js?v={{asset "/static/js/device/lock-host.js"}}"></script>{{end}}
+  {{if and lockButtons .LockApp}}<script src="/static/js/device/lock-host.js?v={{asset "/static/js/device/lock-host.js"}}"></script>{{end}}
   {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}
   <div id="adbp-pop" class="cc-menu adbp-pop" role="dialog" aria-label="Wireless adb" hidden
        data-serial="{{.Device.SerialNumber}}" data-adb-on="{{if .Security.AdbOn}}1{{end}}"></div>
@@ -418,15 +418,15 @@
   <span class="isl-acts"{{if .LookOnly}} data-lock-msg="{{.Look.Lock}}"{{end}}>
     {{/* Wireless adb (D2, picked 17 Oct): a live pill — off / the step it is on / ready — that
          opens #adbp-pop with the steps and the adb connect lines (static/js/device/adb-pill.js). */}}
-    {{if canAdmin .Role}}{{if or .Security.CanAdbTCP .IsDPC}}<button type="button" class="adbp{{if .Security.AdbOn}} on{{end}}" aria-haspopup="dialog" aria-expanded="false" onclick="window.adbPillOpen && adbPillOpen(this)" title="Wireless adb"><span class="adbp-i"></span><span class="adbp-t">adb: {{if .Security.AdbOn}}on{{else}}off{{end}}</span></button>{{end}}{{end}}
+    {{if and adbButton (canAdmin .Role)}}{{if or .Security.CanAdbTCP .IsDPC}}<button type="button" class="adbp{{if .Security.AdbOn}} on{{end}}" aria-haspopup="dialog" aria-expanded="false" onclick="window.adbPillOpen && adbPillOpen(this)" title="Wireless adb"><span class="adbp-i"></span><span class="adbp-t">adb: {{if .Security.AdbOn}}on{{else}}off{{end}}</span></button>{{end}}{{end}}
     {{if and .RemoteEnabled .CanRemote (supports .Device "remote")}}<a class="cc-btn" href="/devices/{{.Device.SerialNumber}}/remote"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</a>{{end}}
-    {{if and .LockApp (supports .Device "kiosk_set")}}{{template "lock-host" .}}{{end}}
-    {{if .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
+    {{if and lockButtons .LockApp (supports .Device "kiosk_set")}}{{template "lock-host" .}}{{end}}
+    {{if and labButtons .CanLab}}{{if .Lab}}<a class="cc-btn primary" href="/devices/{{.Device.SerialNumber}}/lab">Lab view</a>{{else}}<button type="button" class="cc-btn primary" onclick="labDlgOpen()">Open in lab</button>{{end}}{{end}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
         {{if canOperate .Role}}<button type="button" class="cc-mi" aria-expanded="false" onclick="var f=this.nextElementSibling; f.hidden=!f.hidden; this.setAttribute('aria-expanded', !f.hidden); if (!f.hidden) f.querySelector('input').focus()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Rename…{{if .Nickname}}<span class="rt">{{.Nickname}}</span>{{end}}</button>
         <form class="cc-mfield" method="POST" action="/devices/{{.Device.SerialNumber}}/nickname" hidden><input type="text" name="nickname" value="{{.Nickname}}" maxlength="40" placeholder="e.g. Host stand" aria-label="Name"><button type="submit">Save</button></form>{{end}}
-        {{if and (supports .Device "kiosk_set") (canSupport .Role)}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; {{if .LockApp}}lockHostClick(document.getElementById('lk-btn')){{else}}kioskModalOpen(){{end}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Lock<span class="rt">{{if .KioskConfig.KioskEnabled}}Locked{{else}}Unlocked{{end}}</span></button>{{end}}
+        {{if and lockButtons (supports .Device "kiosk_set") (canSupport .Role)}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; {{if .LockApp}}lockHostClick(document.getElementById('lk-btn')){{else}}kioskModalOpen(){{end}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Lock<span class="rt">{{if .KioskConfig.KioskEnabled}}Locked{{else}}Unlocked{{end}}</span></button>{{end}}
         {{template "lost-menu-item" .}}
         {{/* Reboot lives here, not in the island's buttons (19 Oct). */}}
         {{if and (supports .Device "reboot") (canSupport .Role)}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="cc-mi" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
@@ -436,14 +436,12 @@
         {{else}}<span class="cc-mi is-off"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Update client<span class="rt">up to date{{if .AgentUpdate.Current}} · {{.AgentUpdate.Current}}{{end}}</span></span>{{end}}
         {{end}}{{end}}{{end}}
         <div class="cc-msep"></div>
-        {{if and .Device.HasBattery (not .IsDPC) (canAppLibrary .Role)}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
+        {{if and batteryData .Device.HasBattery (not .IsDPC) (canAppLibrary .Role)}}<a class="cc-mi" href="/battery?serial={{.Device.SerialNumber}}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 10v4M9.5 10v4"/></svg>Battery data</a>{{end}}
         <a class="cc-mi" href="/export?serials={{.Device.SerialNumber}}&from={{urlquery (print "/devices/" .Device.SerialNumber)}}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export data…</a>
-        {{if .Bento}}<a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=new" hx-boost="false" title="The standard device page, with the graph and tabs. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Standard view</a>{{else}}<a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=bento" hx-boost="false" title="The Overview as tiles, like the fleet Overview. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="10" rx="2"/><rect x="13" y="3" width="8" height="6" rx="2"/><rect x="13" y="11" width="8" height="10" rx="2"/><rect x="3" y="15" width="8" height="6" rx="2"/></svg>Bento view</a>{{end}}
-        <a class="cc-mi" href="/devices/{{.Device.SerialNumber}}?view=classic" hx-boost="false" title="Back to the device page as it was before the redesign. It stays your choice until you switch."><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></svg>Classic view</a>
         {{if canAdmin .Role}}{{$sm := .Security}}
         {{/* What the Settings tab held (E3, picked 16 Oct): each opens a dialog or confirms. */}}
         <div class="cc-msep"></div>
-        {{if or $sm.CanAdbTCP .IsDPC}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.adbPillOpen && adbPillOpen()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.05a6 6 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Wireless adb…<span class="rt">{{if $sm.AdbOn}}On{{else if $sm.AdbKnown}}Off{{end}}</span></button>{{end}}
+        {{if and adbMenu (or $sm.CanAdbTCP .IsDPC)}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.adbPillOpen && adbPillOpen()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.05a6 6 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Wireless adb…<span class="rt">{{if $sm.AdbOn}}On{{else if $sm.AdbKnown}}Off{{end}}</span></button>{{end}}
         {{if not .IsDPC}}<div class="cc-msec">Enrollment</div>
         {{if .KeyCred}}{{if .KeyCred.Own}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('key-reset-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m10.8 12.2 9.2-9.2M17 6l3 3M14 9l2 2"/></svg>Reset device key…</button>{{end}}{{end}}
         {{end}}{{if or (not .IsDPC) (supports .Device "move_server")}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; document.getElementById('move-server-dlg').showModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Move to another server…</button>{{end}}
@@ -535,7 +533,7 @@
   <span class="i"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg></span>
   <div class="t"><b>Unlocked on the device</b>, <span data-rel="{{timeISO .At}}">{{timeSince .At}}</span>. Someone used the exit PIN or code on the device. It was locked to {{.AppName}}{{if .RuleName}} by the rule <a href="/kiosk" class="link-detail">{{.RuleName}}</a>{{else}} by hand{{end}}, and stays unlocked until someone locks it again.</div>
   {{if canAdminOrOperator $.Role}}<div class="a">
-    <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>
+    {{if lockButtons}}<form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/relock" hx-boost="false"><button type="submit" class="cc-btn sm primary">Lock again</button></form>{{end}}
     <form method="POST" action="/devices/{{$.Device.SerialNumber}}/kiosk/leave-out" hx-boost="false"><button type="submit" class="cc-btn sm">Leave it out</button></form>
   </div>{{end}}
 </div>
@@ -873,9 +871,11 @@
   <button type="button" data-bt-open="location">{{template "bt-ic" "location"}}<span>Location</span></button>
   <button type="button" data-bt-open="about">{{template "bt-ic" "about"}}<span>About</span></button>
   {{if not .IsOwner}}<hr><button type="button" data-bt-open="notes">{{template "bt-ic" "notes"}}<span>Notes</span>{{if .Notes}}<i class="n d" aria-label="has a note"></i>{{end}}</button>{{end}}
+  {{if and (canRelease .Role) .ShellEnabled (supports .Device "shell")}}<button type="button" data-bt-open="shell" data-shell-url="/devices/{{.Device.SerialNumber}}/shell/panel">{{template "bt-ic" "shell"}}<span>Shell</span></button>{{end}}
 </nav>
 <div class="bt-scrim" id="bt-scrim"></div>
 <div class="bt-sheet-h" id="bt-sheet-h"><h2 class="bt-ttl" id="bt-ttl"></h2><span class="bt-esc">Esc</span><button type="button" class="bt-x" id="bt-x" aria-label="Close panel">✕</button></div>
+<div class="bt-grip" id="bt-grip" title="Drag to resize" aria-hidden="true"></div>
 <div class="ovd bt-wrap"><div class="ovb" id="bt">
   <section class="ovb-c ovb-health" aria-labelledby="bt-h">
     <div class="ovb-ch"><h2 id="bt-h">Device health</h2><span class="sp"></span><span class="ovb-pill {{$bv.Tone}}">{{$bv.Score}}</span></div>
@@ -897,7 +897,7 @@
         <button type="button" role="tab" class="on" data-bt-tab="graph">Graph</button>
         <button type="button" role="tab" data-bt-tab="needs">Needs{{if .Needs}} · {{len .Needs}}{{end}}</button>
         {{if not .IsOwner}}<button type="button" role="tab" data-bt-tab="activity">Activity</button>
-        <button type="button" role="tab" data-bt-tab="apps">Apps{{with .HostApp}}{{if .Count}} · {{.Count}}{{end}}{{end}}</button>{{end}}
+        {{if todayAppsTab}}<button type="button" role="tab" data-bt-tab="apps">Apps{{with .HostApp}}{{if .Count}} · {{.Count}}{{end}}{{end}}</button>{{end}}{{end}}
       </span><span class="sp"></span></div>
     <div class="ovb-t2">
       <div class="ovb-pane bt-pane-g" data-bt-pane="graph">
@@ -988,7 +988,7 @@
   var slot=document.getElementById('bt-place'),cp=document.querySelector('.dd-facts .cpill-wrap'),pl=document.querySelector('.dd-facts .dd-place');
   if(slot){if(cp)slot.appendChild(cp);if(pl)slot.appendChild(pl)}
   var pc=document.getElementById('charging-pad-card'),ps=document.getElementById('bt-pad-slot');if(pc&&ps)ps.appendChild(pc);
-  var KEYS=['apps','activity','health','network','location','about','notes','graphs'],NAMES={apps:'Apps',activity:'Activity',health:'Health',network:'Network',location:'Location',about:'About',notes:'Notes',graphs:'Graphs'};
+  var KEYS=['apps','activity','health','network','location','about','notes','graphs','shell'],NAMES={apps:'Apps',activity:'Activity',health:'Health',network:'Network',location:'Location',about:'About',notes:'Notes',graphs:'Graphs',shell:'Shell'};
   function init(){
   var dock=document.getElementById('bt-dock'),ttl=document.getElementById('bt-ttl'),open=null;
   var avail=KEYS.filter(function(k){return document.getElementById('dd-panel-'+k)&&dock.querySelector('[data-bt-open="'+k+'"]')});
@@ -998,6 +998,15 @@
     /* switching sheet to sheet: the panel slides in, so the title strip must too (it used to stay put and look detached) */
     var hd=document.getElementById('bt-sheet-h');if(hd&&open&&o&&open!==o){hd.style.animation='none';void hd.offsetWidth;hd.style.animation=''}
     open=o;document.body.classList.toggle('bt-sheet-open',!!o);
+    /* the cards moved: the rounded cuts (chrome.js) measure again, now and once the drawer has settled */
+    if(window.mdmRecut){window.mdmRecut();setTimeout(window.mdmRecut,320)}
+    /* Shell (25 Nov 2026): the console is fetched when the entry is first opened and kept while the drawer is
+       closed or shows another entry, so reopening it lands in the same session (user: "shell close open always
+       opens a new session"). End session ends it; leaving the page closes its stream. */
+    var ss=document.getElementById('bt-shell-slot'),sb=dock.querySelector('[data-bt-open="shell"]');
+    if(ss&&sb&&o==='shell'&&!ss.firstChild&&window.htmx)window.htmx.ajax('GET',sb.dataset.shellUrl,{target:ss,swap:'innerHTML'});
+    if(o==='shell'&&window.__shFit)setTimeout(window.__shFit,260);
+    setTimeout(btNarrow,0);
     if(o==='location'){setTimeout(function(){window.dispatchEvent(new Event('resize'))},60);setTimeout(function(){window.dispatchEvent(new Event('resize'))},340)}
     /* the graph card lives in the Today pane, and in the Graphs sheet while that is open */
     var home=document.getElementById('bt-graph-slot'),big=document.getElementById('bt-graphs-slot'),card=document.querySelector('.chart-card'),leg=document.getElementById('vt-legend');
@@ -1006,7 +1015,7 @@
     ttl.textContent=o?NAMES[o]:''}
   document.addEventListener('click',function(e){var b=e.target.closest('[data-bt-open]');if(b&&dock.contains(b)){if(b.dataset.btOpen===open)closePanel();else openPanel(b.dataset.btOpen);return}
     if(e.target.id==='bt-scrim'||e.target.closest('#bt-x'))closePanel()});
-  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open&&!e.defaultPrevented)closePanel()});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&open&&!e.defaultPrevented&&!(e.target.closest&&e.target.closest('#dd-panel-shell')))closePanel()});
   /* the graph card's "full screen" button opens the Graphs sheet instead of the browser's full screen (capture: ahead of vitals.js) */
   var fs=document.getElementById('chart-fs-btn');if(fs){fs.title='Open the graphs in a larger view';fs.setAttribute('aria-label','Open the graphs in a larger view');
     document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('#chart-fs-btn')){e.stopPropagation();e.preventDefault();if(open==='graphs')closePanel();else openPanel('graphs')}},true)}
@@ -1061,6 +1070,21 @@
   setTimeout(function(){if(!window.htmx)return;var c=document.querySelector('#dd-panel-health [hx-trigger^="intersect"]'),a=document.querySelector('#dd-panel-health details.dh-fold:nth-of-type(2)');
     if(c){window.htmx.process(c);window.htmx.trigger(c,'intersect')}
     if(a){a.open=true;var l=a.querySelector('[hx-trigger^="toggle"]');if(l){window.htmx.process(l);a.dispatchEvent(new Event('toggle'))}}},1500);
+  function btNarrow(){var bn=document.querySelector('.dd-bento');if(!bn)return;var pn=open&&document.getElementById('dd-panel-'+open);
+    bn.classList.toggle('bt-narrow',!!pn&&pn.getBoundingClientRect().width<760)}
+  window.addEventListener('resize',btNarrow);
+  (function(){var bn=document.querySelector('.dd-bento'),w=document.querySelector('.dd-bento .bt-wrap');if(!bn||!w||!window.ResizeObserver)return;
+    function fit(){var cs=getComputedStyle(w),cw=w.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),was=bn.classList.contains('bt-stack');bn.classList.toggle('bt-stack',cw>0&&cw<1180);if(window.mdmRecut&&was!==bn.classList.contains('bt-stack'))window.mdmRecut()}
+    new ResizeObserver(fit).observe(w);w.addEventListener('transitionend',function(){fit();if(window.mdmRecut)window.mdmRecut()});fit()})();
+  /* R1: drag the sheet's left edge to resize it; the width is kept in this browser (--bt-wu) */
+  (function(){var bn=document.querySelector('.dd-bento'),g=document.getElementById('bt-grip');if(!bn||!g)return;
+    try{var sw=parseInt(localStorage.getItem('bt-sheet-w'),10);if(sw>=360)bn.style.setProperty('--bt-wu',sw+'px')}catch(e){}
+    g.addEventListener('pointerdown',function(e){e.preventDefault();g.setPointerCapture(e.pointerId);g.classList.add('drag');bn.classList.add('bt-dragging');
+      function mv(ev){var w=Math.round(Math.min(Math.max(window.innerWidth-104-ev.clientX,360),window.innerWidth-560));bn.style.setProperty('--bt-wu',w+'px');btNarrow()}
+      function up(){g.classList.remove('drag');bn.classList.remove('bt-dragging');g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);
+        var v=parseInt(bn.style.getPropertyValue('--bt-wu'),10);try{if(v)localStorage.setItem('bt-sheet-w',v)}catch(e){}
+        if(window.__shFit)window.__shFit();window.dispatchEvent(new Event('resize'))}
+      g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up)})})();
   var mo=new MutationObserver(sync);document.querySelectorAll('.dd-panel').forEach(function(p){mo.observe(p,{attributes:true,attributeFilter:['hidden']})});
   sync();
   }
@@ -1448,7 +1472,8 @@ window.DEVICE_VITALS = {
 
 </section><!-- /summary -->
 {{if .Bento}}<section class="dd-panel" data-dd-panel="graphs" id="dd-panel-graphs" hidden aria-label="Graphs"><div class="bt-slot" id="bt-graphs-slot"></div></section>
-<section class="dd-panel" data-dd-panel="notes" id="dd-panel-notes" hidden aria-label="Notes">{{template "device-notes" .}}</section>{{end}}
+<section class="dd-panel" data-dd-panel="notes" id="dd-panel-notes" hidden aria-label="Notes">{{template "device-notes" .}}</section>
+<section class="dd-panel bt-shell" data-dd-panel="shell" id="dd-panel-shell" hidden aria-label="Shell"><div id="bt-shell-slot"></div></section>{{end}}
 
 <section class="dd-panel" data-dd-panel="about" id="dd-panel-about" role="tabpanel" aria-labelledby="dd-tab-about" tabindex="0" hidden>
   <div class="about-grid">

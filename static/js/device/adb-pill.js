@@ -67,7 +67,8 @@
   }
 
   function place() {
-    var p = pill();
+    // The pill can be hidden (adbButtonShown, 25 Nov 2026): the ⋯ menu that opened it anchors it then.
+    var p = pill() || document.querySelector('#appbar-island .isl-more > summary') || document.querySelector('.isl-more > summary');
     if (!p) return;
     var r = p.getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';

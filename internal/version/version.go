@@ -32,6 +32,20 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.71.0",
+		Date:    "2026-11-25",
+		Changes: []string{
+			"Device page: one view, Bento. The Standard and Classic views and the Device page view setting on your profile are gone.",
+			"Device page: the dock on the right (Apps, Activity, Network, Location, About, Notes) opens each one as a drawer beside the page. While it is open the page shows Today, Details and the rest without Device health and the things to look at; they come back when it closes. Drag the drawer's edge to resize it.",
+			"Device page: Shell is in the dock for super admins, in place of Open in lab. Closing the drawer keeps the session; End session or leaving the device ends it.",
+			"Device page: Lock, Mark as lost, the adb button and Wireless adb… are hidden for everyone, and so is the Today card's Apps tab. A device that is already lost can still be marked found.",
+			"Battery data and a venue's Weekly report are no longer linked from the dashboard.",
+			"Venue page: the rail is Overview and Settings; Settings shows every setting as a card with its value, grouped, and a card opens that setting.",
+			"Device notes show who wrote each entry by name.",
+			"Device page: the graph legend's row labels (Pad, Tablet) are no longer cut off, and cards are no longer cut short after the drawer closes.",
+		},
+	},
+	{
 		Version: "1.70.0",
 		Date:    "2026-11-25",
 		Changes: []string{

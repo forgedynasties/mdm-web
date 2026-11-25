@@ -8,6 +8,20 @@
 /* V1 (4 Nov 2026): Fleet's rail and one pane. */
 .vn1 .fleet-rail-item .nm small{display:block;font-size:11px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
 .vn1 .fleet-rail-item .nm{min-width:0}
+/* Settings grid (B, 25 Nov 2026). */
+.vn1-sgrp+.vn1-sgrp{margin-top:16px}
+.vn1-sgh{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.vn1-sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.vn1-sc{display:grid;gap:3px;text-align:left;font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer;min-width:0}
+.vn1-sc:hover{border-color:var(--accent-edge);background:var(--accent-soft)}
+.vn1-sc:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vn1-sc .k{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
+.vn1-sc .k .dot{width:7px;height:7px;border-radius:50%;flex:none;background:transparent}
+.vn1-sc.warn{border-color:var(--warn-edge,var(--warn))}
+.vn1-sc.warn .k .dot{background:var(--warn)}
+.vn1-sc .v{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vn1-back{margin:0 0 12px;display:inline-flex;align-items:center;gap:4px}
+.vn1-back svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
 .vn1-card{padding:14px 16px;margin-bottom:14px}
 .vn1-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:15px;font-weight:650;margin:0 0 6px}
 .vn1-h small{font-size:12px;font-weight:500;color:var(--muted)}
@@ -139,7 +153,7 @@
     {{if canAdminOrOperator .Role}}<button type="button" class="cc-btn primary" onclick="event.stopPropagation(); var d = document.getElementById('vn-add'); if (d) d.open = !d.open">+ Add devices</button>{{end}}
     <details class="isl-more"><summary class="cc-btn" aria-label="More">⋯</summary>
       <div class="isl-menu cc-menu" role="menu">
-        <a class="cc-mi" href="/restaurants/{{.Restaurant.ID}}/report">Weekly report</a>
+        {{if venueReport}}<a class="cc-mi" href="/restaurants/{{.Restaurant.ID}}/report">Weekly report</a>{{end}}
         {{if canOperate .Role}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.mdmAddApp && mdmAddApp({venue: '{{.Restaurant.ID}}'})">Install app on its devices…</button>{{end}}
         {{if canAdminOrOperator .Role}}<button type="button" class="cc-mi" onclick="this.closest('details').open=false; window.vnOpenCard && vnOpenCard('vn-profile')">Edit venue</button>
         <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST" onsubmit="return confirm('Delete {{.Restaurant.Name}}? Its devices stop being at a venue.')"><button type="submit" class="cc-mi is-danger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>Delete venue</button></form>{{end}}
@@ -172,7 +186,7 @@
     </details>
     <script src="/static/picker.js?v={{asset "/static/picker.js"}}"></script>
     {{end}}
-    <a href="/restaurants/{{.Restaurant.ID}}/report" class="cc-btn isl-dup"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Weekly report</a>
+    {{if venueReport}}<a href="/restaurants/{{.Restaurant.ID}}/report" class="cc-btn isl-dup"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Weekly report</a>{{end}}
     {{if canAdminOrOperator .Role}}
     <a href="#vn-profile" onclick="if (window.vnOpenCard) { vnOpenCard('vn-profile'); return false }" class="cc-btn isl-dup"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit</a>
     <details class="vn-more-m isl-dup">
@@ -201,20 +215,7 @@
     <div class="fleet-rail-cap"><span>{{.Restaurant.Name}}</span></div>
     {{$todo := 0}}{{with .P1}}{{with .Banner}}{{$todo = len .Todos}}{{if .More}}{{$todo = add $todo 1}}{{end}}{{end}}{{end}}
     <button type="button" class="fleet-rail-item on" data-vn-pane="overview" aria-pressed="true"><span class="dot {{if $todo}}warn{{else}}ok{{end}}"></span><span class="nm">Overview</span><span class="ct">{{if $todo}}{{$todo}} to do{{end}}</span></button>
-    <div class="fleet-rail-cap"><span>Settings</span></div>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="profile" aria-pressed="false"><span class="dot ok"></span><span class="nm">Profile<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="location" aria-pressed="false"><span class="dot ok"></span><span class="nm">Location<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="backend" aria-pressed="false"><span class="dot ok"></span><span class="nm">AIO backend<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="hours" aria-pressed="false"><span class="dot ok"></span><span class="nm">Service hours<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="updates" aria-pressed="false"><span class="dot ok"></span><span class="nm">Updates<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="lock" aria-pressed="false"><span class="dot ok"></span><span class="nm">Device lock<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="lost" aria-pressed="false"><span class="dot ok"></span><span class="nm">Lost devices<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="alerts" aria-pressed="false"><span class="dot ok"></span><span class="nm">Alerts<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="hostapp" aria-pressed="false"><span class="dot ok"></span><span class="nm">Host app<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="appauto" aria-pressed="false"><span class="dot ok"></span><span class="nm">Apps<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="wifi" aria-pressed="false"><span class="dot ok"></span><span class="nm">Device Wi-Fi<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="enrol" aria-pressed="false"><span class="dot ok"></span><span class="nm">Auto-enrol<small class="vn1-hint"></small></span></button>
-    <button type="button" class="fleet-rail-item" data-vn-pane="settings" data-vn-row="people" aria-pressed="false"><span class="dot ok"></span><span class="nm">People<small class="vn1-hint"></small></span></button>
+    <button type="button" class="fleet-rail-item" data-vn-pane="settings" aria-pressed="false" id="vn1-set-item"><span class="dot ok"></span><span class="nm">Settings</span><span class="ct" id="vn1-set-ct"></span></button>
   </aside>
   <div class="fleet-roster" style="min-width:0">
     <section class="vn1-pane" data-vn-for="overview">
@@ -250,7 +251,35 @@
       </div>
     </section>
     <section class="vn1-pane" data-vn-for="settings" hidden>
-      {{template "venue-settings" .}}
+      {{/* Settings as a grid (B, picked 25 Nov 2026; user: "the left rail is so crowded"):
+           one card per setting, grouped, its value and a dot filled from the row it opens
+           (vn1.js). A card shows the Venue settings card below with that row open. */}}
+      <div class="card vn1-card" id="vn1-sgrid">
+        <h2 class="vn1-h">Settings</h2>
+        <div class="vn1-sgrp"><h3 class="vn1-sgh">Venue</h3><div class="vn1-sg">
+          <button type="button" class="vn1-sc" data-vn-row="profile"><span class="k"><span class="dot ok"></span>Profile</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="location"><span class="k"><span class="dot ok"></span>Location</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="backend"><span class="k"><span class="dot ok"></span>AIO backend</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="hours"><span class="k"><span class="dot ok"></span>Service hours</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="people"><span class="k"><span class="dot ok"></span>People</span><span class="v"></span></button>
+        </div></div>
+        <div class="vn1-sgrp"><h3 class="vn1-sgh">Devices</h3><div class="vn1-sg">
+          <button type="button" class="vn1-sc" data-vn-row="hostapp"><span class="k"><span class="dot ok"></span>Host app</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="appauto"><span class="k"><span class="dot ok"></span>Apps</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="updates"><span class="k"><span class="dot ok"></span>Updates</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="wifi"><span class="k"><span class="dot ok"></span>Device Wi-Fi</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="enrol"><span class="k"><span class="dot ok"></span>Auto-enrol</span><span class="v"></span></button>
+        </div></div>
+        <div class="vn1-sgrp"><h3 class="vn1-sgh">Safety</h3><div class="vn1-sg">
+          <button type="button" class="vn1-sc" data-vn-row="lock"><span class="k"><span class="dot ok"></span>Device lock</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="lost"><span class="k"><span class="dot ok"></span>Lost devices</span><span class="v"></span></button>
+          <button type="button" class="vn1-sc" data-vn-row="alerts"><span class="k"><span class="dot ok"></span>Alerts</span><span class="v"></span></button>
+        </div></div>
+      </div>
+      <div id="vn1-sone" hidden>
+        <button type="button" class="cc-btn sm vn1-back" id="vn1-back"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>All settings</button>
+        {{template "venue-settings" .}}
+      </div>
     </section>
   </div>
 </div>

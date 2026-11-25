@@ -125,11 +125,6 @@ func (h *Handler) DeviceOtaProgress(w http.ResponseWriter, r *http.Request) {
 		data["OtaLine"] = &ol
 	}
 	data["Role"] = h.role(r)
-	// Classic (frozen) keeps its own card: its poller hits this same endpoint.
-	if h.deviceViewTemplate(r) == "device_classic.html" {
-		h.tmpl.ExecuteTemplate(w, "classic-device-ota-progress", data)
-		return
-	}
 	h.tmpl.ExecuteTemplate(w, "device-ota-progress", data)
 }
 
@@ -795,6 +790,31 @@ func (h *Handler) DeviceShellPage(w http.ResponseWriter, r *http.Request) {
 		"ShellSession": supportsShellSession(device),
 		"ShellQueue":   h.shellQueue(r, device.ID),
 	})
+}
+
+// DeviceShellPanel is GET /devices/{serial}/shell/panel: the same console as the shell
+// page, as a fragment for the device page's dock (Shell entry, 25 Nov 2026; user: "add
+// shell to the same dock and have the d1 behaviour"). Fetched when the entry is first
+// opened, so a session starts only then; the dock ends it when the sheet closes.
+func (h *Handler) DeviceShellPanel(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.ShellEnabled() {
+		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.tmpl.ExecuteTemplate(w, "shell_console", map[string]any{
+		"Device":       device,
+		"ShellSession": supportsShellSession(device),
+		"ShellQueue":   h.shellQueue(r, device.ID),
+	}); err != nil {
+		log.Printf("[shell] panel %s: %v", device.SerialNumber, err)
+	}
 }
 
 func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {

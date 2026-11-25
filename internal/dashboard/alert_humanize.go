@@ -288,8 +288,8 @@ func humanizeAlert(a db.Alert) humanAlert {
 		h.Primary = &alertAction{Label: "Open device", Href: "/devices/" + a.Serial, Icon: "arrow"}
 		// Left the venue (E1, 17 Oct): two taps from the alert to lost mode — the device page
 		// opens with the mark-as-lost dialog up (?lost=1 on the New view).
-		if a.Type == "left_venue" {
-			h.Primary = &alertAction{Label: "Mark as lost…", Href: "/devices/" + a.Serial + "?view=new&lost=1", Icon: "lost"}
+		if a.Type == "left_venue" && markLostShown {
+			h.Primary = &alertAction{Label: "Mark as lost…", Href: "/devices/" + a.Serial + "?lost=1", Icon: "lost"}
 		}
 	}
 	return h

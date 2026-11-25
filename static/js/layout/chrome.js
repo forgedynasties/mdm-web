@@ -1928,6 +1928,9 @@
     });
   }
   function later() { if (!raf) raf = requestAnimationFrame(run); }
+  // A page that rearranges its cards without resizing <main> (the device page's drawer opening and
+  // closing) calls this, or the clips from the old layout stay and cut cards short (25 Nov 2026).
+  window.mdmRecut = later;
   document.addEventListener('scroll', later, true);
   window.addEventListener('resize', later);
   document.addEventListener('htmx:afterSettle', later);
