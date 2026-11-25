@@ -43,6 +43,7 @@ var Changelog = []Entry{
 			"Device page: the adb button and Wireless adb… are hidden, and so is Mark as lost (here and on left-the-venue alerts); a device that is already lost can still be marked found.",
 			"Device page: with a sheet open the tiles stack and scroll instead of squeezing, and Apps and Activity open wider.",
 			"Device notes show who wrote each entry by name.",
+			"Device page: the Today card's Apps tab is hidden (the dock's Apps has it), and the graph legend's row labels (Pad, Tablet) are no longer cut off.",
 			"Venue page: the rail is Overview and Settings; Settings shows every setting as a card with its value, grouped, and a card opens that setting.",
 		},
 	},

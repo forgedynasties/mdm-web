@@ -938,15 +938,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"isCustomer": roleIsCustomer,
 		// canSupport: the safe device actions — screenshot, reboot, lock, lost mode,
 		// alerts, notes. Support and up; mirrors requireSupport.
-		"canSupport":  roleCanSupport,
-		"lockButtons": lockButtons,     // device page Lock controls on/off (lock_buttons.go)
-		"batteryData": showBatteryData, // Battery data page links on/off (hidden_features.go)
-		"venueReport": showVenueReport, // venue Weekly report links on/off (hidden_features.go)
-		"labButtons":  showLabButtons,  // device page Open in lab / Lab view on/off (hidden_features.go)
-		"adbButton":   showAdbButton,   // device page island adb button on/off (hidden_features.go)
-		"adbMenu":     showAdbMenu,     // device page ⋯ Wireless adb… on/off (hidden_features.go)
-		"markLost":    showMarkLost,    // Mark as lost… on/off (hidden_features.go)
-		"ctxCaps":     ctxCaps,
+		"canSupport":   roleCanSupport,
+		"lockButtons":  lockButtons,      // device page Lock controls on/off (lock_buttons.go)
+		"batteryData":  showBatteryData,  // Battery data page links on/off (hidden_features.go)
+		"venueReport":  showVenueReport,  // venue Weekly report links on/off (hidden_features.go)
+		"labButtons":   showLabButtons,   // device page Open in lab / Lab view on/off (hidden_features.go)
+		"adbButton":    showAdbButton,    // device page island adb button on/off (hidden_features.go)
+		"adbMenu":      showAdbMenu,      // device page ⋯ Wireless adb… on/off (hidden_features.go)
+		"markLost":     showMarkLost,     // Mark as lost… on/off (hidden_features.go)
+		"todayAppsTab": showTodayAppsTab, // the Today card's Apps tab on/off (hidden_features.go)
+		"ctxCaps":      ctxCaps,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and locked mode. Used to show those controls.
 		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },

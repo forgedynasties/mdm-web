@@ -897,7 +897,7 @@
         <button type="button" role="tab" class="on" data-bt-tab="graph">Graph</button>
         <button type="button" role="tab" data-bt-tab="needs">Needs{{if .Needs}} · {{len .Needs}}{{end}}</button>
         {{if not .IsOwner}}<button type="button" role="tab" data-bt-tab="activity">Activity</button>
-        <button type="button" role="tab" data-bt-tab="apps">Apps{{with .HostApp}}{{if .Count}} · {{.Count}}{{end}}{{end}}</button>{{end}}
+        {{if todayAppsTab}}<button type="button" role="tab" data-bt-tab="apps">Apps{{with .HostApp}}{{if .Count}} · {{.Count}}{{end}}{{end}}</button>{{end}}{{end}}
       </span><span class="sp"></span></div>
     <div class="ovb-t2">
       <div class="ovb-pane bt-pane-g" data-bt-pane="graph">

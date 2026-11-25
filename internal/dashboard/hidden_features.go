@@ -24,11 +24,15 @@ const (
 	// markLostShown: "Mark as lost…" in the device page's ⋯ menu and on left-the-venue alerts
 	// (user: "do the same with mark as lost"). Mark as found, for a device already lost, stays.
 	markLostShown = false
+	// todayAppsTabShown: the Apps tab in the device page's Today card (user: "remove the apps tab"; the
+	// dock's Apps entry has the same and more).
+	todayAppsTabShown = false
 )
 
-func showBatteryData() bool { return batteryDataShown }
-func showVenueReport() bool { return venueReportShown }
-func showLabButtons() bool  { return labButtonsShown }
-func showAdbButton() bool   { return adbButtonShown }
-func showAdbMenu() bool     { return adbMenuShown }
-func showMarkLost() bool    { return markLostShown }
+func showBatteryData() bool  { return batteryDataShown }
+func showVenueReport() bool  { return venueReportShown }
+func showLabButtons() bool   { return labButtonsShown }
+func showAdbButton() bool    { return adbButtonShown }
+func showAdbMenu() bool      { return adbMenuShown }
+func showMarkLost() bool     { return markLostShown }
+func showTodayAppsTab() bool { return todayAppsTabShown }

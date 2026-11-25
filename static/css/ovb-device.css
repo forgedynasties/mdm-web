@@ -147,6 +147,9 @@ html[data-theme="dark"] .ovd .ovb-promo .ovb-btn.w{background:color-mix(in srgb,
 .dd-bento .bt-slot .vt-days,.dd-bento .bt-slot .vt-navfoot{display:none}
 .dd-bento .bt-slot .vt-legend{display:none}
 @media (min-height:900px){.dd-bento .bt-slot .vt-legend{display:flex;flex:none;height:40px;margin:6px 0 0;background:none;border:0;padding:0}}
+/* The legend is a .card: with no padding and overflow:hidden its rounded corners cut the first letter of
+   each row label ("PAD", "TABLET"; 25 Nov 2026). It has no background here, so no corners either. */
+.dd-bento .bt-slot .vt-legend{border-radius:0}
 .dd-bento .bt-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:12px}
 .dd-bento .bt-recent{overflow:auto;min-height:0;flex:1}
 .dd-bento .bt-recent>*{border:0!important;box-shadow:none!important;background:none!important;padding:0!important;margin:0!important}
