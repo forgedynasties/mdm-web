@@ -38,6 +38,7 @@ var Changelog = []Entry{
 			"Device page: one view, Bento. The Standard and Classic views and the Device page view setting on your profile are gone.",
 			"Device page: the Lock buttons are hidden for everyone, so no one can lock a device from it (Lock, the ⋯ menu's Lock item and Lock again). The rest of Lock is unchanged.",
 			"Battery data and a venue's Weekly report are no longer linked from the dashboard.",
+			"Device page: Open in lab is gone; super admins get Shell in the ⋯ menu instead, which opens the device's shell.",
 		},
 	},
 	{
